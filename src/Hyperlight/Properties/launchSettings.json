@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "Hyperlight": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    },
+    "WSL": {
+      "commandName": "Executable"
+    }
+  }
+}

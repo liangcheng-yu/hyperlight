@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Hyperlight.Tests": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

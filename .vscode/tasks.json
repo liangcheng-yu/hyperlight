@@ -1,0 +1,292 @@
+{
+  "version": "2.0.0",
+  "options": {
+    "env": {
+    }
+  },
+  "windows": {
+    "options": {
+      "shell": {
+        "executable": "cmd.exe",
+        "args": ["/d", "/c", "\"\"%VCINSTALLDIR%\\Auxiliary\\Build\\vcvarsall.bat\"\"", "x64", "&"]
+      }
+    }
+  },
+  "tasks": [
+    {
+      "label": "Create Dirs",
+      "command": "cmd",
+      "type": "process",
+      "args": [
+        "/C if not exist ${workspaceFolder}\\src\\tests\\Guests\\simpleguest\\x64\\Debug md ${workspaceFolder}\\src\\tests\\Guests\\simpleguest\\x64\\Debug & if not exist ${workspaceFolder}\\src\\tests\\Guests\\callbackguest\\x64\\Debug md ${workspaceFolder}\\src\\tests\\Guests\\callbackguest\\x64\\Debug"
+      ]
+    },
+    {
+      "label": "MASM Simpleguest",
+      "command": "ml64.exe",
+      "type": "shell",
+      "args": [
+        "/nologo", "/Zi", "/W3", "/c", "${workspaceFolder}\\src\\tests\\Guests\\simpleguest\\asm\\regaccess.asm"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}\\src\\tests\\Guests\\simpleguest\\x64\\Debug\\"
+      },
+      "problemMatcher": ["$msCompile"]
+    },
+    {
+      "type": "shell",
+      "label": "CL Simpleguest",
+      "command": "cl.exe",
+      "args": [
+        "/c",
+        "/Zi",
+        "/Fo${workspaceFolder}\\src\\tests\\Guests\\simpleguest\\x64\\Debug\\",
+        "/EHsc",
+        "/GS-",
+        "/W3",
+        "/MT",
+        "/Od",
+        "/Ob0",
+        "${workspaceFolder}\\src\\tests\\Guests\\simpleguest\\*.c"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}\\src\\tests\\Guests\\simpleguest\\x64\\Debug"
+      },
+      "problemMatcher": ["$msCompile"]
+    },
+    {
+      "type": "shell",
+      "label": "LINK Simpleguest",
+      "command": "link.exe",
+      "args": [
+        "/OUT:${workspaceFolder}\\src\\tests\\Guests\\simpleguest\\x64\\Debug\\simpleguest.exe",
+        "/DYNAMICBASE:NO",
+        "/BASE:0x230000",
+        "/MACHINE:X64",
+        "/SAFESEH:NO",
+        "/ENTRY:entryPoint",
+        "/NXCOMPAT",
+        "/DEBUG",
+        "/ALIGN:512",
+        "${workspaceFolder}\\src\\tests\\Guests\\simpleguest\\x64\\Debug\\*.obj"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}\\src\\tests\\Guests\\simpleguest\\x64\\Debug"
+      },
+      "problemMatcher": ["$msCompile"]
+    },
+    {
+      "label": "Build Simpleguest",
+      "dependsOn": [
+        "Create Dirs",
+        "MASM Simpleguest",
+        "CL Simpleguest",
+        "LINK Simpleguest"
+      ],
+      "dependsOrder": "sequence",
+      "group": "build"
+    },
+    {
+      "label": "MASM Callbackguest",
+      "command": "ml64.exe",
+      "type": "shell",
+      "args": [
+        "/nologo", 
+        "/Zi", 
+        "/W3", 
+        "/c", 
+        "${workspaceFolder}\\src\\tests\\Guests\\callbackguest\\asm\\regaccess.asm"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}\\src\\tests\\Guests\\callbackguest\\x64\\Debug\\"
+      },
+      "problemMatcher": ["$msCompile"]
+    },
+    {
+      "type": "shell",
+      "label": "CL Callbackguest",
+      "command": "cl.exe",
+      "args": [
+        "/c",
+        "/Zi",
+        "/Fo${workspaceFolder}\\src\\tests\\Guests\\callbackguest\\x64\\Debug\\",
+        "/EHsc",
+        "/GS-",
+        "/W3",
+        "/MT",
+        "/Od",
+        "/Ob0",
+        "${workspaceFolder}\\src\\tests\\Guests\\callbackguest\\*.c"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}\\src\\tests\\Guests\\callbackguest\\x64\\Debug"
+      },
+      "problemMatcher": ["$msCompile"]
+    },
+    {
+      "type": "shell",
+      "label": "LINK Callbackguest",
+      "command": "link.exe",
+      "args": [
+        "/OUT:${workspaceFolder}\\src\\tests\\Guests\\callbackguest\\x64\\Debug\\callbackguest.exe",
+        "/DYNAMICBASE:NO",
+        "/BASE:0x230000",
+        "/MACHINE:X64",
+        "/SAFESEH:NO",
+        "/ENTRY:entryPoint",
+        "/NXCOMPAT",
+        "/DEBUG",
+        "/ALIGN:512",
+        "${workspaceFolder}\\src\\tests\\Guests\\callbackguest\\x64\\Debug\\*.obj"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}\\src\\tests\\Guests\\callbackguest\\x64\\Debug"
+      },
+      "problemMatcher": ["$msCompile"]
+    },
+    {
+      "label": "Build Callbackguest",
+      "dependsOn": [
+        "Create Dirs",
+        "MASM Callbackguest",
+        "CL Callbackguest",
+        "LINK Callbackguest"
+      ],
+      "dependsOrder": "sequence",
+      "group": "build"
+    },
+    {
+      "label": "Build Example Host",
+      "dependsOn": [
+        "Build Hyperlight",
+        "Build Simpleguest",
+        "Build Callbackguest",
+        "Build NativeHost Example"
+      ],
+      "dependsOrder": "sequence",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build All",
+      "dependsOn": [
+        "Build Hyperlight",
+        "Build Simpleguest",
+        "Build Callbackguest",
+        "Build NativeHost Example",
+        "Build Tests"
+      ],
+      "dependsOrder": "sequence",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build Tests",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "-c",
+        "Debug",
+        "${workspaceFolder}/src/tests/Hyperlight.Tests/Hyperlight.Tests.csproj"
+      ],
+      "group": "build",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Publish Tests",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "publish",
+        "${workspaceFolder}/src/tests/Hyperlight.Tests/Hyperlight.Tests.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Watch Tests",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "watch",
+        "run",
+        "${workspaceFolder}/src/tests/Hyperlight.Tests/Hyperlight.Tests.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Build Hyperlight",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "-c",
+        "Debug",
+        "${workspaceFolder}/src/Hyperlight/Hyperlight.csproj"
+      ],
+      "group": "build",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Publish Hyperlight",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "publish",
+        "${workspaceFolder}/src/Hyperlight/Hyperlight.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Watch Hyperlight",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "watch",
+        "run",
+        "${workspaceFolder}/src/Hyperlight/Hyperlight.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Build NativeHost Example",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "-c",
+        "Debug",
+        "${workspaceFolder}/src//examples/NativeHost/NativeHost.csproj"
+      ],
+      "group": "build",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Publish NativeHost Example",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "publish",
+        "${workspaceFolder}/src/examples/NativeHost/NativeHost.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Watch NativeHost Example",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "watch",
+        "run",
+        "${workspaceFolder}/src/examples/NativeHost/NativeHost.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}
