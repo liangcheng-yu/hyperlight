@@ -5,7 +5,6 @@
     <TargetFramework>net5.0</TargetFramework>
     <Nullable>disable</Nullable>
     <Platforms>x64</Platforms>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
@@ -13,8 +12,30 @@
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <Authors>Jeffrey Cooperstein, Simon Davies</Authors>
+    <Company>Microsoft</Company>
+    <Description>Provides the ability to run code in an embedded Hypervisor partition using HyperV or KVM. WARNING: Hyperlight is experimental. It is not considered production-grade by its developers, neither is it "supported" software..</Description>
+    <PackageId>Deislabs.HyperLight</PackageId>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/deislabs/hyperlight</PackageProjectUrl>
+    <!--     
+     TODO: Add a README.md to the package
+    <PackageReadmeFile>readme.md</PackageReadmeFile> -->
+    <PackageReleaseNotes>https://github.com/deislabshyperlight/releases</PackageReleaseNotes>
+    <PackageTags>Hyperlight;HyperV;KVM;WebAssembly;</PackageTags>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <RootNamespace>Hyperlight</RootNamespace>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <TargetFrameworks>net5.0</TargetFrameworks>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="System.Reflection.Emit.Lightweight" Version="4.7.0" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All"/>
   </ItemGroup>
 
 </Project>
