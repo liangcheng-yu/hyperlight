@@ -33,17 +33,17 @@ jobs:
         msbuild-architecture: x64
     # Need to build the native guest projects first to make sure the solution build succeeds, this can be done by placing dependencies in the test project but doing this causes dotnet test to fail.
     - name: Build Native Guests
-      run: msbuild hyperlight.sln /p:Configuration=$CONFIG /p:Platform=$PLATFORM /t:Test\Guests\callbackguest /t:Test\Guests\simpleguest -m:2
+      run: msbuild hyperlight.sln /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /t:Test\Guests\callbackguest /t:Test\Guests\simpleguest -m:2
       shell: pwsh
     - name: Build Solution
-      run: msbuild hyperlight.sln /p:Configuration=$CONFIG /p:Platform=$PLATFORM /p:ContinuousIntegrationBuild=true
+      run: msbuild hyperlight.sln /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /p:ContinuousIntegrationBuild=true
       shell: pwsh
     - name: Test
       shell: pwsh
-      run: dotnet test -c $CONFIG
+      run: dotnet test -c $env:CONFIG
       working-directory: src/tests/Hyperlight.Tests
     - name: Package templates
-      run: dotnet pack -c $CONFIG --include-symbols -p:RepositoryUrl=https://github.com/${{ github.repository }}.git 
+      run: dotnet pack -c $env:CONFIG --include-symbols -p:RepositoryUrl=https://github.com/${{ github.repository }}.git 
       working-directory: src/Hyperlight
       shell: pwsh
     - name: Publish Github Packages
