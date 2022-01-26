@@ -57,16 +57,6 @@ jobs:
       working-directory: src/Hyperlight
 
       # Publish the native guests so that its possible to use Hyperlight without building it.
-
-    - name: Create Release
-      uses: actions/create-release@v1
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: ${{ github.ref }}
-        body: ${{ steps.github_release.outputs.changelog }}
-        prerelease: ${{ contains(github.ref, '-preview') }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Create Release
       uses: ncipollo/release-action@v1
       with:
