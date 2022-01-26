@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using Xunit;
-using Xunit.Sdk;
 
 namespace Hyperlight.Tests
 {
@@ -14,7 +13,6 @@ namespace Hyperlight.Tests
             //TODO: implment skip for this
             Assert.True(Sandbox.IsSupportedPlatform, "Hyperlight Sandbox is not supported on this platform.");
         }
-
         public class TestData
         {
             public enum ExposeMembersToGuest
@@ -51,11 +49,8 @@ namespace Hyperlight.Tests
                 this.ExposeMembers = exposeMembers;
             }
 
-
-
             public object?[] TestInstanceOrTypes()
             {
-
                 if (instance != null)
                 {
                     return ExposeMembers switch
@@ -69,7 +64,6 @@ namespace Hyperlight.Tests
 
                 return Array.Empty<object?>();
             }
-
         }
 
         public class NoExposedMembers { }
@@ -134,18 +128,15 @@ namespace Hyperlight.Tests
             public static void StaticGetNothingWithArgs(string arg1, int arg2) { }
         }
 
-        [Theory]
+        [TheorySkipIfNotWindows]
         [MemberData(nameof(GetSimpleTestData))]
         public void Test_Loads_Windows_Exe(TestData testData)
         {
-            // TODO:Handle not running on Windows
-
             SandboxRunOptions[] options = { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunFromGuestBinary | SandboxRunOptions.RunInProcess };
             foreach (var option in options)
             {
                 RunTests(testData, option, SimpleTest);
             }
-
         }
 
         [Theory]
@@ -159,12 +150,10 @@ namespace Hyperlight.Tests
             }
         }
 
-        [Theory]
+        [TheorySkipIfHyperVisorNotPresent]
         [MemberData(nameof(GetSimpleTestData))]
         public void Test_Runs_InHyperVisor(TestData testData)
         {
-            //TODO: handle Hypervisor not present
-            Assert.True(Sandbox.IsHypervisorPresent(), "Hypervisor is not present on this platform.");
             SandboxRunOptions[] options = { SandboxRunOptions.None, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
             foreach (var option in options)
             {
@@ -178,18 +167,15 @@ namespace Hyperlight.Tests
             }
         }
 
-        [Theory]
+        [TheorySkipIfNotWindows]
         [MemberData(nameof(GetCallbackTestData))]
         public void Test_Loads_Windows_Exe_With_Callback(TestData testData)
         {
-            // TODO:Handle not running on Windows
-
             SandboxRunOptions[] options = { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunFromGuestBinary | SandboxRunOptions.RunInProcess };
             foreach (var option in options)
             {
                 RunTests(testData, option, CallbackTest);
             }
-
         }
 
         // 
@@ -209,12 +195,10 @@ namespace Hyperlight.Tests
             }
         }
 
-        [Theory]
+        [TheorySkipIfHyperVisorNotPresent]
         [MemberData(nameof(GetCallbackTestData))]
         public void Test_Runs_InHyperVisor_With_Callback(TestData testData)
         {
-            //TODO: handle Hypervisor not present
-            Assert.True(Sandbox.IsHypervisorPresent(), "Hypervisor is not present on this platform.");
             SandboxRunOptions[] options = { SandboxRunOptions.None, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
             foreach (var option in options)
             {
@@ -286,7 +270,6 @@ namespace Hyperlight.Tests
 
             if (testData.CurrentInstance == null)
             {
-
                 var ex = Record.Exception(() => sandbox.Run(testData.Workload, testData.Args[0], testData.Args[1], testData.Args[2]));
                 Assert.NotNull(ex);
                 Assert.IsType<Exception>(ex);

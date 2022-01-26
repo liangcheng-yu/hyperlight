@@ -43,7 +43,7 @@ jobs:
         msbuild-architecture: x64
     # Need to build the native guest projects first to make sure the solution build succeeds, this can be done by placing dependencies in the test project but doing this causes dotnet test to fail.
     - name: Build Native Guests
-      run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /t:Test\Guests\callbackguest /t:Test\Guests\simpleguest
+      run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /t:Test\Guests\callbackguest /t:Test\Guests\simpleguest -m:2
       shell: pwsh
     - name: Build Solution
       run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }}
