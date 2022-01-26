@@ -1,20 +1,17 @@
-name: Build Test and Publish
+# TODO: When Github Actions allows Reusable Workflows with strategies then move build test to a reuasble workflow.
+# https://docs.github.com/en/actions/using-workflows/reusing-workflows#limitations
+
+name: Validate Pull Request
 
 on:
-  push:
-    tags: 
-    - '[0-9]+.[0-9]+.[0-9]+'
-    - '[0-9]+.[0-9]+.[0-9]+-preview'
-    branches: [ main ]
   pull_request:
     branches: [ main ]
   
 jobs:
   build:
-    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         build: [ windows-debug ]
         include:
@@ -22,7 +19,6 @@ jobs:
             os: windows-latest
             config: debug
             platform: x64
-
     steps:
     - uses: actions/checkout@v2
       with:
@@ -46,9 +42,9 @@ jobs:
       run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /t:Test\Guests\callbackguest /t:Test\Guests\simpleguest -m:2
       shell: pwsh
     - name: Build Solution
-      run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }}
+      run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
       shell: pwsh
     - name: Test
       shell: pwsh
-      run: dotnet test -c ${{ matrix.config }} -v d
+      run: dotnet test -c ${{ matrix.config }}
       working-directory: src/tests/Hyperlight.Tests
