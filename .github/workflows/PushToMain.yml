@@ -12,7 +12,7 @@ jobs:
     runs-on: windows-latest
     env:
       PLATFORM: x64
-      CONFIG: debug
+      CONFIG: Debug
     steps:
     - uses: actions/checkout@v2
       with:
@@ -55,3 +55,26 @@ jobs:
            done
       shell: bash
       working-directory: src/Hyperlight
+
+      # Publish the native guests so that its possible to use Hyperlight without building it.
+
+    - name: Create Release
+      uses: actions/create-release@v1
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: ${{ github.ref }}
+        body: ${{ steps.github_release.outputs.changelog }}
+        prerelease: ${{ contains(github.ref, '-preview') }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Create Release
+      uses: ncipollo/release-action@v1
+      with:
+        allowUpdates: true
+        release_name: ${{ github.ref }}
+        tag: ${{ github.ref }}
+        artifacts: "src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe,src/tests/Guests/simpleguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/simpleguest.exe"
+        artifactContentType: application/vnd.microsoft.portable-executable
+        body: "The release artifacts contain sample guest binaries that can be used with Hyperlight. The binaries are windows PE(exe) files but they can be used on any platform that Hyperlight runs on"
+        token: ${{ secrets.GITHUB_TOKEN }}
+        prerelease: ${{ contains(github.ref, '-preview') }}
