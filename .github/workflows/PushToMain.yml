@@ -9,7 +9,7 @@ on:
   
 jobs:
   publish:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     env:
       PLATFORM: x64
       CONFIG: Debug
@@ -51,7 +51,7 @@ jobs:
       with:
         type: zip
         filename: windows-x64.zip
-        path: src/examples/NativeHost/bin/${{ env.CONFIG }}/net5.0/win-x64/publish
+        directory: src/examples/NativeHost/bin/${{ env.CONFIG }}/net5.0/win-x64/publish
     - name: Build Example for Linux
       shell: pwsh
       run: dotnet publish -c $env:CONFIG --self-contained -r linux-x64
@@ -61,7 +61,7 @@ jobs:
       with:
         type: tar
         filename: linux-x64.tar.gz
-        path: src/examples/NativeHost/bin/${{ env.CONFIG }}/net5.0/linux-x64/publish
+        directory: src/examples/NativeHost/bin/${{ env.CONFIG }}/net5.0/linux-x64/publish
     - name: Package solution
       run: dotnet pack -c $env:CONFIG --include-symbols -p:RepositoryUrl=https://github.com/${{ github.repository }}.git 
       working-directory: src/Hyperlight
