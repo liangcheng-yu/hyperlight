@@ -42,7 +42,27 @@ jobs:
       shell: pwsh
       run: dotnet test -c $env:CONFIG
       working-directory: src/tests/Hyperlight.Tests
-    - name: Package templates
+    - name: Build Example for Windows 
+      shell: pwsh
+      run: dotnet publish -c $env:CONFIG --self-contained -r win-x64
+      working-directory: src/examples/NativeHost
+    - name: Archive Windows Release
+      uses: thedoctor0/zip-release@master
+      with:
+        type: zip
+        filename: windows-x64.zip
+        directory: src/examples/NativeHost/bin/${{ env.CONFIG }}/net5.0/win-x64/publish
+    - name: Build Example for Linux
+      shell: pwsh
+      run: dotnet publish -c $env:CONFIG --self-contained -r linux-x64
+      working-directory: src/examples/NativeHost
+    - name: Archive Linux Release
+      uses: thedoctor0/zip-release@master
+      with:
+        type: tar
+        filename: linux-x64.tar.gz
+        directory: src/examples/NativeHost/bin/${{ env.CONFIG }}/net5.0/linux-x64/publish
+    - name: Package solution
       run: dotnet pack -c $env:CONFIG --include-symbols -p:RepositoryUrl=https://github.com/${{ github.repository }}.git 
       working-directory: src/Hyperlight
       shell: pwsh
@@ -63,8 +83,8 @@ jobs:
         allowUpdates: true
         release_name: ${{ github.ref }}
         tag: ${{ github.ref }}
-        artifacts: "src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe,src/tests/Guests/simpleguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/simpleguest.exe"
+        artifacts: "src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe,src/tests/Guests/simpleguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/simpleguest.exe, src/examples/NativeHost/bin/${{ env.CONFIG }}/net5.0/win-x64/publish/windows-x64.zip,src/examples/NativeHost/bin/${{ env.CONFIG }}/net5.0/win-x64/publish/linux-x64.tar.gz"
         artifactContentType: application/vnd.microsoft.portable-executable
-        body: "The release artifacts contain sample guest binaries that can be used with Hyperlight. The binaries are windows PE(exe) files but they can be used on any platform that Hyperlight runs on"
+        body: "The release artifacts contain sample guest binaries that can be used with Hyperlight. The binaries are windows PE(exe) files but they can be used on any platform that Hyperlight runs on. The zip/tar.gz files contain the example NativeHost client for Windows and Linux respectively, you can try out Hyperlight by downloading and extracting the arhives and running NativeHost.exe/NativeHost."
         token: ${{ secrets.GITHUB_TOKEN }}
         prerelease: ${{ contains(github.ref, '-preview') }}

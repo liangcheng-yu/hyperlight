@@ -13,11 +13,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\..\tests\Guests\simpleguest\x64\Debug\simpleguest.exe">
+    <Content Include="..\..\tests\Guests\simpleguest\x64\$(Configuration)\simpleguest.exe">
       <Link>simpleguest.exe</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\..\tests\Guests\callbackguest\x64\Debug\callbackguest.exe">
+    <Content Include="..\..\tests\Guests\callbackguest\x64\$(Configuration)\callbackguest.exe">
       <Link>callbackguest.exe</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
