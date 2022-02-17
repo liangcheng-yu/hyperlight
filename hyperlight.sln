@@ -6,6 +6,10 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Hyperlight", "src\Hyperlight\Hyperlight.csproj", "{7645F846-EEE6-42E0-8C59-E84A1C9076EA}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Hyperlight.Tests", "src\tests\Hyperlight.Tests\Hyperlight.Tests.csproj", "{2E05D691-0742-4B7D-9613-31648B6AB9DD}"
+	ProjectSection(ProjectDependencies) = postProject
+		{54F7736B-3D54-4F64-97B3-CDA63A3AABB2} = {54F7736B-3D54-4F64-97B3-CDA63A3AABB2}
+		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A} = {0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Test", "Test", "{782EB312-50B2-476A-9DB2-E58CA13FAD65}"
 EndProject
@@ -20,6 +24,10 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "NativeHost", "NativeHost", "{E28F9ADB-0282-454C-8025-0469E57229AC}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NativeHost", "src\examples\NativeHost\NativeHost.csproj", "{B1E7FD52-2DA2-41BA-9AC5-73B28DD61669}"
+	ProjectSection(ProjectDependencies) = postProject
+		{54F7736B-3D54-4F64-97B3-CDA63A3AABB2} = {54F7736B-3D54-4F64-97B3-CDA63A3AABB2}
+		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A} = {0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
