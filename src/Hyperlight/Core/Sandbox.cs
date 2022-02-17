@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Runtime.InteropServices;
 using Hyperlight.HyperVisors;
@@ -47,6 +48,7 @@ namespace Hyperlight
     }
     public class Sandbox : IDisposable
     {
+        static readonly ConcurrentDictionary<string, byte[]> GuestBinaries = new ConcurrentDictionary<string, byte[]>(StringComparer.InvariantCultureIgnoreCase);
         static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         static bool IsLinux => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
         public static bool IsSupportedPlatform => IsLinux || IsWindows;
@@ -209,7 +211,12 @@ namespace Hyperlight
             }
             else
             {
-                var payload = File.ReadAllBytes(guestBinaryPath);
+                var payload =  GuestBinaries.GetOrAdd(guestBinaryPath, (guestBinaryPath) =>
+                {
+                    // TODO: store the entrypointOffset with the binary
+                    return  File.ReadAllBytes(guestBinaryPath);
+                });
+
                 // Load the binary into memory
                 entryPoint = 0x230000;
                 if ((payload[0] == (byte)'M' || payload[0] == (byte)'J') && payload[1] == (byte)'Z')
