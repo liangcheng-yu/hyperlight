@@ -1,12 +1,8 @@
 using System;
-using System.Collections.Generic;
-using System.Reflection;
-using System.Reflection.Emit;
-
 namespace Hyperlight
 {
     [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class | AttributeTargets.Delegate | AttributeTargets.Field | AttributeTargets.Property, Inherited = true)]
-    public sealed class ExposeToGuestAttribute : Attribute
+    public class ExposeToGuestAttribute : Attribute
     {
         private readonly bool expose;
         public bool Expose => expose;
@@ -16,5 +12,4 @@ namespace Hyperlight
             this.expose = expose;
         }
     }
-
 }
