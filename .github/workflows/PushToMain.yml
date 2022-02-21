@@ -79,7 +79,7 @@ jobs:
         artifactContentType: application/vnd.microsoft.portable-executable
         body: "The release artifacts contain sample guest binaries that can be used with Hyperlight. The binaries are windows PE(exe) files but they can be used on any platform that Hyperlight runs on. The zip/tar.gz files contain the example NativeHost client for Windows and Linux respectively, you can try out Hyperlight by downloading and extracting the arhives and running NativeHost.exe/NativeHost."
         token: ${{ secrets.GITHUB_TOKEN }}
-        prerelease: ${{ contains(github.ref, '-preview') }}
+        prerelease: true
         removeArtifacts: true
         replacesArtifacts: true
 
