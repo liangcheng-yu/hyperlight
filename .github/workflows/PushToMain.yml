@@ -67,18 +67,16 @@ jobs:
            done
       shell: bash
       working-directory: src/Hyperlight
-
-      # Publish the native guests so that its possible to use Hyperlight without building it.
+    # Publish the native guests so that its possible to use Hyperlight without building it.
     - name: Create Release
-      uses: ncipollo/release-action@v1
+      uses: "marvinpinto/action-automatic-releases@latest"
       with:
-        allowUpdates: true
-        name: ${{ github.ref }}-${{ env.MINVERBUILDMETADATA}}
-        artifacts: "src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe,src/tests/Guests/simpleguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/simpleguest.exe, src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/net5.0/win-x64/windows-x64.zip,src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/net5.0/linux-x64/linux-x64.tar.gz"
-        artifactContentType: application/vnd.microsoft.portable-executable
-        body: "The release artifacts contain sample guest binaries that can be used with Hyperlight. The binaries are windows PE(exe) files but they can be used on any platform that Hyperlight runs on. The zip/tar.gz files contain the example NativeHost client for Windows and Linux respectively, you can try out Hyperlight by downloading and extracting the arhives and running NativeHost.exe/NativeHost."
-        token: ${{ secrets.GITHUB_TOKEN }}
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
         prerelease: true
-        removeArtifacts: true
-        replacesArtifacts: true
-
+        automatic_release_tag: latest
+        title: "Latest Development Build From Main Branch"
+        files: |
+           src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe
+           src/tests/Guests/simpleguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/simpleguest.exe
+           src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/net5.0/win-x64/windows-x64.zip
+           src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/net5.0/linux-x64/linux-x64.tar.gz

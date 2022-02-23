@@ -6,22 +6,13 @@
     <Nullable>disable</Nullable>
     <Platforms>x64</Platforms>
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <PlatformTarget>x64</PlatformTarget>
-  </PropertyGroup>
-
-  <PropertyGroup>
     <Authors>Jeffrey Cooperstein, Simon Davies</Authors>
     <Company>Microsoft</Company>
     <Description>Provides the ability to run code in an embedded Hypervisor partition using HyperV or KVM. WARNING: Hyperlight is experimental. It is not considered production-grade by its developers, neither is it "supported" software..</Description>
     <PackageId>Deislabs.HyperLight</PackageId>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/deislabs/hyperlight</PackageProjectUrl>
-    <!--     
-     TODO: Add a README.md to the package
-    <PackageReadmeFile>readme.md</PackageReadmeFile> -->
+    <!-- TODO: Add a README.md to the package <PackageReadmeFile>readme.md</PackageReadmeFile> -->
     <PackageReleaseNotes>https://github.com/deislabshyperlight/releases</PackageReleaseNotes>
     <PackageTags>Hyperlight;HyperV;KVM;WebAssembly;</PackageTags>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -32,6 +23,10 @@
     <TargetFrameworks>net5.0</TargetFrameworks>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <IncludeSymbols>true</IncludeSymbols>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
 
   <ItemGroup>

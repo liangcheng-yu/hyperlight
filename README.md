@@ -10,7 +10,7 @@ WARNING: This is experimental code. It is not considered production-grade by its
 
 Hyperlight runs guest applications in its Sandbox without a kernel or operating system, for this reason those guest applications must be written specifically for the Hyperlight. The intention is that most developers will not need to write such applications, but will take advantage of pre-existing applications written for Hyperlight.
 
-One primary scenerio is to run WASM modules. A developer using Hyperlight to run WASM modules in their sandbox will be able to do so by using the [Hyperlight WASM guest application](https://github.com/deislabs/hyperlight-wasm) in a similar way to how they would use a WASM runtime if they were not using Hyperlight.
+One primary scenerio is to run WASM modules. A developer using Hyperlight to run WASM modules in their sandbox will be able to do so by using the [Hyperlight WASM](https://github.com/deislabs/hyperlight-wasm) in a similar way to how they would use a WASM runtime if they were not using Hyperlight.
 
 This repo contains Hyperlight along with a couple of sample guest applications that can be used to either test or try it out.
 
@@ -19,8 +19,8 @@ This repo contains Hyperlight along with a couple of sample guest applications t
 Here is the quickest way to try out Hyperlight:
 
 1. Get the latest release for [Windows](https://github.com/deislabs/hyperlight/releases/download/refs%2Fheads%2Fmain/windows-x64.zip) or [Linux](https://github.com/deislabs/hyperlight/releases/download/refs%2Fheads%2Fmain/linux-x64.tar.gz).
-2. Extract the archive to a location on your computer
-3. Run the NativeHost.exe or NativeHost in the extracted directory.
+1. Extract the archive to a location on your computer
+1. Run the NativeHost.exe or NativeHost in the extracted directory.
 
 Note: You can also run the linux version using WSL2 on Windows. At present their is no version available for macOS.
 
@@ -44,21 +44,27 @@ If you want to build/test Hyperlight without installing Visual Studio or the Vis
 
 Hyperlight will build using the `dotnet build` command on any machine that has the [dotnet 5.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/5.0) installed:
 
-1. Clone the repo
-2. `cd src/Hyperlight`
-3. `dotnet build`
+```console
+git clone git@github.com:deislabs/hyperlight.git
+cd src/Hyperlight
+dotnet build
+```
 
 To run the tests and examples you will need to download the simpleguest.exe and callbackguest.exe applications from here
 
 ### Running tests
 
-1. `cd src/tests/Hyperlight.Test`
-2. `dotnet test`
+```console
+cd src/tests/Hyperlight.Test
+dotnet test
+```
 
 ### Running examples
 
-1. `cd src/examples/NativeHost`
-2. `dotnet run`
+```console
+cd src/examples/NativeHost
+dotnet run
+```
 
 ## Debugging Guest Applications
 
