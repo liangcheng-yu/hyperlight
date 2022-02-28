@@ -3,8 +3,9 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <string.h>
+#include "hyperlight_peb.h"
 
-
+HyperlightPEB* pPeb;
 bool runningHyperlight = true;
 bool runningAsExe = false;
 void (*outb_ptr)(uint16_t port, uint8_t value) = NULL;
@@ -88,6 +89,7 @@ int main(int argc, char *argv[])
 
 long entryPoint()
 {
+    pPeb = (HyperlightPEB*)0x200000;
     int result = 0;
     if (*((const char *)0x230000) == 'M')
     {
@@ -114,7 +116,7 @@ long entryPoint()
     if (!runningAsExe)
     {
         // Setup return values
-        *(uint32_t *)0x220000 = result;
+        *(uint32_t*)&pPeb->output = result;
         halt(); // This is a nop if we are running as an EXE or if we were just loaded into memory
     }
 

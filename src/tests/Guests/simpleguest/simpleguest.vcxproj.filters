@@ -24,4 +24,9 @@
       <Filter>Source Files</Filter>
     </MASM>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="hyperlight_peb.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
 </Project>
