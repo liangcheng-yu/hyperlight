@@ -15,7 +15,7 @@ namespace Hyperlight.HyperVisors
         readonly WindowsHypervisorPlatform.MyUInt128[] ripValue = new WindowsHypervisorPlatform.MyUInt128[1];
         readonly bool virtualProcessorCreated;
 
-        internal HyperV(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb) : base(entryPoint, rsp, outb)
+        internal HyperV(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb) : base(sourceAddress, entryPoint, rsp, outb)
         {
             WindowsHypervisorPlatform.WHvCreatePartition(out hPartition);
             WindowsHypervisorPlatform.SetProcessorCount(hPartition, 1);
@@ -52,6 +52,7 @@ namespace Hyperlight.HyperVisors
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRcx, 1, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRdx, 1, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterR8, 1, 0);
+            AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterR9, 1, 0);
 
             // Here is the GCC way
             //AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRdi, 1, 0);
@@ -102,6 +103,7 @@ namespace Hyperlight.HyperVisors
         internal override void Run(int argument1, int argument2, int argument3)
         {
             {
+                registerValues[^4].low = (ulong)sourceAddress;
                 registerValues[^3].low = (ulong)argument1;
                 registerValues[^2].low = (ulong)argument2;
                 registerValues[^1].low = (ulong)argument3;

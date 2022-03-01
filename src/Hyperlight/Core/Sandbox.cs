@@ -57,6 +57,8 @@ namespace Hyperlight
         readonly ulong size;
         readonly string guestBinaryPath;
         IntPtr loadAddress = IntPtr.Zero;
+
+        readonly IntPtr baseAddress = (IntPtr)0x200000;
         readonly bool recycleAfterRun;
         readonly byte[] initialMemorySavedForMultipleRunCalls;
         readonly bool runFromProcessMemory;
@@ -65,7 +67,9 @@ namespace Hyperlight
         ulong rsp;
         readonly HyperlightGuestInterfaceGlue guestInterfaceGlue;
         private bool disposedValue; // To detect redundant calls
-        delegate long CallMain(int a, int b, int c);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        delegate long CallLinuxEntryPoint(int c, int b, int a, IntPtr baseAddress);
+        delegate long CallWindowsEntryPoint(IntPtr baseAddress, int a, int b, int c);
 
         // Platform dependent delegate for callbacks from native code when native code is calling 'outb' functionality
         // On Linux, delegates passed from .NET core to native code expect arguments to be passed RDI, RSI, RDX, RCX.
@@ -202,7 +206,7 @@ namespace Hyperlight
                 entryPoint += 0x230000 + entryPointFileOffset; // Currently entryPoint points to the VA of the start of the file
 
                 // Allocate only the first 0x30000 bytes - After that is the EXE
-                sourceAddress = OS.VirtualAlloc((IntPtr)0x200000/*IntPtr.Zero*/, (IntPtr)0x30000, OS.AllocationType.Commit | OS.AllocationType.Reserve, OS.MemoryProtection.EXECUTE_READWRITE);
+                sourceAddress = OS.VirtualAlloc(baseAddress/*IntPtr.Zero*/, (IntPtr)0x30000, OS.AllocationType.Commit | OS.AllocationType.Reserve, OS.MemoryProtection.EXECUTE_READWRITE);
                 if (IntPtr.Zero == sourceAddress)
                 {
                     throw new Exception("VirtualAlloc failed");
@@ -227,7 +231,7 @@ namespace Hyperlight
                     entryPoint += entryPointFileOffset; // Currently entryPoint points to the VA of the start of the file
                 }
 
-                sourceAddress = OS.Allocate((IntPtr)0x200000, size);
+                sourceAddress = OS.Allocate(baseAddress, size);
                 Marshal.Copy(payload, 0, sourceAddress + 0x30000, payload.Length);
             }
         }
@@ -264,7 +268,7 @@ namespace Hyperlight
 
         public void SetUpHyperVisorPartition()
         {
-            rsp = size + 0x200000; // Add 0x200000 because that's the start of mapped memory
+            rsp = size + (ulong)baseAddress; // Add 0x200000 because that's the start of mapped memory
 
             // For MSVC, move rsp down by 0x28.  This gives the called 'main' function the appearance that rsp was
             // was 16 byte aligned before the 'call' that calls main (note we don't really have a return value on the
@@ -293,7 +297,7 @@ namespace Hyperlight
 
             if (IsLinux)
             {
-                hyperVisor = new KVM(pml4_addr, size, entryPoint, rsp, HandleOutb);
+                hyperVisor = new KVM(sourceAddress, pml4_addr, size, entryPoint, rsp, HandleOutb);
             }
             else if (IsWindows)
             {
@@ -327,22 +331,23 @@ namespace Hyperlight
 
             if (runFromProcessMemory)
             {
-                var callMain = Marshal.GetDelegateForFunctionPointer<CallMain>((IntPtr)entryPoint);
                 if (IsLinux)
                 {
                     Marshal.WriteInt64((IntPtr)0x210000 - 16, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Linux>((_, _, value, port) => HandleOutb(port, value)));
+                    var callEntryPoint = Marshal.GetDelegateForFunctionPointer<CallLinuxEntryPoint>((IntPtr)entryPoint);
+                    returnValue = callEntryPoint( argument3, argument2, argument1, sourceAddress);
                 }
                 else if (IsWindows)
                 {
                     Marshal.WriteInt64((IntPtr)0x210000 - 16, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Windows>((port, value) => HandleOutb(port, value)));
+                    var callEntryPoint = Marshal.GetDelegateForFunctionPointer<CallWindowsEntryPoint>((IntPtr)entryPoint);
+                    returnValue = callEntryPoint(sourceAddress, argument1, argument2, argument3);
                 }
                 else
                 {
                     // Should never get here
                     throw new NotSupportedException();
                 }
-
-                returnValue = callMain(argument1, argument2, argument3);
 
             }
             else
@@ -453,10 +458,12 @@ namespace Hyperlight
                 if (disposing)
                 {
                     hyperVisor?.Dispose();
+
                 }
 
                 if (IntPtr.Zero != sourceAddress)
                 {
+                    // TODO: check if this should take account of space used by loadlibrary.
                     OS.Free(sourceAddress, size);
                 }
 

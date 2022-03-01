@@ -10,7 +10,7 @@ namespace Hyperlight.HyperVisors
         readonly IntPtr pRun = IntPtr.Zero;
         readonly int vcpufd = -1;
         readonly int vmfd = -1;
-        internal KVM(int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb) : base(entryPoint, rsp, outb)
+        internal KVM(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb) : base(sourceAddress, entryPoint, rsp, outb)
         {
             if (!LinuxKVM.IsHypervisorPresent())
             {
@@ -121,9 +121,10 @@ namespace Hyperlight.HyperVisors
             {
                 rip = EntryPoint,
                 rsp = rsp,
-                rcx = (ulong)argument1,
-                rdx = (ulong)argument2,
-                r8 = (ulong)argument3,
+                rcx = (ulong)sourceAddress,
+                rdx = (ulong)argument1,
+                r8 = (ulong)argument2,
+                r9 = (ulong)argument3,
                 rflags = 0x0002,
             };
             // TODO: Handle error

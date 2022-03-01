@@ -87,11 +87,11 @@ int main(int argc, char *argv[])
     return printOutput("Hello, World!!\n");
 }
 
-long entryPoint()
+long entryPoint(uint64_t pebAddress, int a, int b, int c)
 {
-    pPeb = (HyperlightPEB*)0x200000;
+    pPeb = (HyperlightPEB*)pebAddress;
     int result = 0;
-    if (*((const char *)0x230000) == 'M')
+    if (NULL == pPeb)
     {
         // We were run as a normal EXE
         runningHyperlight = false;
@@ -100,6 +100,10 @@ long entryPoint()
     }
     else
     {
+        if (*((const char*)&pPeb->code) != 'J')
+        {
+            return -1;
+        }
         // TODO: Populate the args.
 
         int argc = 0;

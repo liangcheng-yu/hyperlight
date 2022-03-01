@@ -95,7 +95,7 @@ namespace NativeHost
                     Console.WriteLine($"Guest returned {returnValue}");
                 }
             }
-
+            Console.WriteLine("Done");
         }
 
         static void WaitForUserInput()
