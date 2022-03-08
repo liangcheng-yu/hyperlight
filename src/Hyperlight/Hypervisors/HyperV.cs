@@ -88,11 +88,11 @@ namespace Hyperlight.HyperVisors
                 }
                 else if (exitContext.ExitReason != WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_REASON.WHvRunVpExitReasonX64Halt)
                 {
-                    Console.WriteLine($"{exitContext.VpContext.Rip:X16}");
                     var v2 = new WindowsHypervisorPlatform.MyUInt128[registerNames.Length];
                     WindowsHypervisorPlatform.WHvGetVirtualProcessorRegisters(hPartition, 0, registerNames, (uint)registerNames.Length, v2);
                     for (var i = 0; i < v2.Length; i++)
                     {
+                        //TODO: put this in an exception.
                         Console.WriteLine($"{registerNames[i]} - {v2[i].low:X16}");
                     }
                     throw new Exception($"Did not recieve a halt as expected - Received {exitContext.ExitReason}");
@@ -103,7 +103,7 @@ namespace Hyperlight.HyperVisors
         internal override void Run(int argument1, int argument2, int argument3)
         {
             {
-                registerValues[^4].low = (ulong)sourceAddress;
+                registerValues[^4].low = (ulong)0x200000;
                 registerValues[^3].low = (ulong)argument1;
                 registerValues[^2].low = (ulong)argument2;
                 registerValues[^1].low = (ulong)argument3;

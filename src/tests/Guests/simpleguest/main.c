@@ -69,7 +69,7 @@ int printOutput(const char *format, ...)
         char* buffer = (char*)_alloca(BUFFER_SIZE);
         vsprintf_s(buffer, BUFFER_SIZE, format, args);
         result = strlen(buffer);
-        strcpy_s((char *)0x220000, BUFFER_SIZE, buffer);
+        strcpy_s((char*)&pPeb->output, BUFFER_SIZE, buffer);
         outb(100, 0);
     }
     va_end(args);
@@ -100,17 +100,28 @@ long entryPoint(uint64_t pebAddress, int a, int b, int c)
     }
     else
     {
-        if (*((const char*)&pPeb->code) != 'J')
+        if (NULL != *((const char*)&pPeb->code))
         {
-            return -1;
+            if (*((const char*)&pPeb->code) != 'J')
+            {
+                return -1;
+            }
         }
+        else
+        {
+            if (*((const char**)&pPeb->pCode)[0] != 'J')
+            {
+                return -1;
+            }
+        }
+
         // TODO: Populate the args.
 
         int argc = 0;
         char **argv = NULL;
 
         // Either in WHP partition (hyperlight) or in memory.  If in memory, outb_ptr will be non-NULL
-        outb_ptr = *(void **)(0x210000 - 16);
+        outb_ptr = *(void**)pPeb->pOutb;
         if (outb_ptr)
             runningHyperlight = false;
         result = main(argc, argv);

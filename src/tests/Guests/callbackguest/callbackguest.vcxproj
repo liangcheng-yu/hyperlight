@@ -130,8 +130,6 @@
       <EnableUAC>false</EnableUAC>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <EntryPointSymbol>entryPoint</EntryPointSymbol>
-      <BaseAddress>0x230000</BaseAddress>
-      <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <SectionAlignment>512</SectionAlignment>
     </Link>
   </ItemDefinitionGroup>
@@ -150,10 +148,7 @@
       <EnableUAC>false</EnableUAC>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EntryPointSymbol>entryPoint</EntryPointSymbol>
-      <BaseAddress>0x230000</BaseAddress>
-      <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <GenerateMapFile>false</GenerateMapFile>
-      <FixedBaseAddress>true</FixedBaseAddress>
       <SectionAlignment>512</SectionAlignment>
     </Link>
   </ItemDefinitionGroup>
@@ -166,7 +161,7 @@
     </MASM>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\hyperlight_peb.h" />
+    <ClInclude Include="hyperlight_peb.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

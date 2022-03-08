@@ -230,10 +230,21 @@ long entryPoint(uint64_t pebAddress, int a, int b, int c)
     }
     else
     {
-        if (*((const char*)&pPeb->code) != 'J')
+        if (NULL != *((const char*)&pPeb->code))
         {
-            return -1;
+            if (*((const char*)&pPeb->code) != 'J')
+            {
+                return -1;
+            }
         }
+        else
+        {
+            if (*((const char**)&pPeb->pCode)[0] != 'J')
+            {
+                return -1;
+            }
+        }
+
         // TODO: Populate the args.
 
         int argc = 0;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.InteropServices;
 
 namespace Hyperlight.Native
@@ -143,6 +143,8 @@ namespace Hyperlight.Native
             var kvm = -1;
             try
             {
+                //TODO: Create exceptions for errors.
+
                 if (-1 == (kvm = open("/dev/kvm", O_RDWR | O_CLOEXEC)))
                 {
                     Console.Error.WriteLine("Unable to open '/dev/kvm'");

@@ -17,11 +17,11 @@
   <ItemGroup>
     <Content Include="../../tests/Guests/callbackguest/x64/$(Configuration)/callbackguest.exe">
       <Link>callbackguest.exe</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="../../tests/Guests/simpleguest/x64/$(Configuration)/simpleguest.exe">
       <Link>simpleguest.exe</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
 

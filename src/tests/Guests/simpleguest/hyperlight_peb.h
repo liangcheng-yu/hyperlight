@@ -8,7 +8,8 @@ typedef struct
     uint8_t pdtp[4096];
     uint8_t pd[4096];
     uint8_t funcs[4096];
-    uint8_t padding2[45040];
+    uint8_t padding2[45032];
+    uint8_t pCode[8];
     uint8_t pOutb[16];
     uint8_t input[65536];
     uint8_t output[65536];

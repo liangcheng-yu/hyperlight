@@ -25,7 +25,7 @@
     </MASM>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\hyperlight_peb.h">
+    <ClInclude Include="hyperlight_peb.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
