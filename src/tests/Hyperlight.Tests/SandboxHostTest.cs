@@ -224,7 +224,14 @@ namespace Hyperlight.Tests
         [MemberData(nameof(GetSimpleTestData))]
         public void Test_Runs_InHyperVisor_Concurrently(TestData testData)
         {
-            Parallel.For(0, 10, (_) =>
+            var numberOfParallelTests = 10;
+            // TODO: Remove when multiple WHP partitions can be created.
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                numberOfParallelTests = 1;
+            }
+
+            Parallel.For(0, numberOfParallelTests, (_) =>
             {
                 SandboxRunOptions[] options = { SandboxRunOptions.None, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
                 foreach (var option in options)
@@ -251,53 +258,50 @@ namespace Hyperlight.Tests
             }
         }
 
-        //TODO: Need to implement concurrent tests.
-
         [TheorySkipIfNotWindows]
         [MemberData(nameof(GetCallbackTestData))]
         public void Test_Loads_Windows_Exe_With_Callback_Concurrently(TestData testData)
         {
             SandboxRunOptions[] options = { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunFromGuestBinary | SandboxRunOptions.RunInProcess };
-            //foreach (var option in options)
-            //{
-            //    var output1 = new StringWriter();
-            //    var sandbox1 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, output1);
-            //    testData.CurrentInstance = null;
-            //    SimpleTest(sandbox1, testData, output1);
-            //    var output2 = new StringWriter();
-            //    Sandbox sandbox2 = null;
-            //    var ex = Record.Exception(() => sandbox2 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, output2));
-            //    Assert.NotNull(ex);
-            //    Assert.IsType<System.ApplicationException>(ex);
-            //    Assert.Equal("Only one instance of Sandbox is allowed when running from guest binary", ex.Message);
-            //    sandbox1.Dispose();
-            //    sandbox2?.Dispose();
-            //    output1.Dispose();
-            //    output2.Dispose();
-            //    using (var output = new StringWriter())
-            //    {
-            //        using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, option, output))
-            //        {
-            //            SimpleTest(sandbox, testData, output);
-            //        }
-            //    }
-
-            //    if (testData.TestInstanceOrTypes().Length > 0)
-            //    {
-            //        foreach (var instanceOrType in testData.TestInstanceOrTypes())
-            //        {
-            //            testData.CurrentInstance = instanceOrType;
-            //            RunTest(testData, options, instanceOrType, test, parallelInstances);
-            //        }
-            //    }
-            //    else
-            //    {
-            //        testData.CurrentInstance = null;
-            //        RunTest(testData, options, test, parallelInstances);
-            //    }
-
-            //    RunTests(testData, option, CallbackTest);
-            //}
+            foreach (var option in options)
+            {
+                foreach (var instanceOrType in testData.TestInstanceOrTypes())
+                {
+                    var output1 = new StringWriter();
+                    var sandbox1 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, instanceOrType, output1);
+                    testData.CurrentInstance = instanceOrType;
+                    CallbackTest(sandbox1, testData, output1);
+                    var output2 = new StringWriter();
+                    Sandbox sandbox2 = null;
+                    object instanceOrType1;
+                    object instanceOrType2;
+                    if (instanceOrType is not null && instanceOrType is not Type)
+                    {
+                        instanceOrType1 = GetInstance(instanceOrType.GetType());
+                        instanceOrType2 = GetInstance(instanceOrType.GetType());
+                    }
+                    else
+                    {
+                        instanceOrType1 = instanceOrType;
+                        instanceOrType2 = instanceOrType;
+                    }
+                    var ex = Record.Exception(() => sandbox2 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, instanceOrType1, output2));
+                    Assert.NotNull(ex);
+                    Assert.IsType<System.ApplicationException>(ex);
+                    Assert.Equal("Only one instance of Sandbox is allowed when running from guest binary", ex.Message);
+                    sandbox1.Dispose();
+                    sandbox2?.Dispose();
+                    output1.Dispose();
+                    output2.Dispose();
+                    using (var output = new StringWriter())
+                    {
+                        using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, option, instanceOrType2, output))
+                        {
+                            CallbackTest(sandbox, testData, output);
+                        }
+                    }
+                }
+            }
         }
 
         // 
@@ -347,6 +351,35 @@ namespace Hyperlight.Tests
                 testData.CurrentInstance = instanceOrType;
                 RunTest(testData, instanceOrType, CallbackTest);
             }
+        }
+
+
+        [TheorySkipIfHyperVisorNotPresent]
+        [MemberData(nameof(GetCallbackTestData))]
+        public void Test_Runs_InHyperVisor_With_Callback_Concurrently(TestData testData)
+        {
+            var numberOfParallelTests = 10;
+            // TODO: Remove when multiple WHP partitions can be created.
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                numberOfParallelTests = 1;
+            }
+
+            Parallel.For(0, numberOfParallelTests, (_) =>
+            {
+                SandboxRunOptions[] options = { SandboxRunOptions.None, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
+                foreach (var option in options)
+                {
+                    RunTests(testData, option, CallbackTest);
+                }
+
+                // Run tests using constructors without options
+                foreach (var instanceOrType in testData.TestInstanceOrTypes())
+                {
+                    testData.CurrentInstance = instanceOrType;
+                    RunTest(testData, instanceOrType, CallbackTest);
+                }
+            });
         }
 
         private void RunTests(TestData testData, SandboxRunOptions options, Action<Sandbox, TestData, StringWriter> test, int parallelInstances = 1)

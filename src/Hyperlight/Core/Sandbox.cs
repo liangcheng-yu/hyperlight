@@ -102,7 +102,7 @@ namespace Hyperlight
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, StringWriter writer = null) : this(size, guestBinaryPath, SandboxRunOptions.None, writer, null)
+        public Sandbox(ulong size, string guestBinaryPath, StringWriter writer = null) : this(size, guestBinaryPath, SandboxRunOptions.None, null, writer)
         {
         }
 
