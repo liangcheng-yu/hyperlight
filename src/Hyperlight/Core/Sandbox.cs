@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
-using Hyperlight.HyperVisors;
+using Hyperlight.Hypervisors;
 using Hyperlight.Native;
 
 namespace Hyperlight
@@ -49,7 +49,7 @@ namespace Hyperlight
     }
     public class Sandbox : IDisposable
     {
-        static readonly ConcurrentDictionary<string, PEInfo> GuestPEInfo = new ConcurrentDictionary<string, PEInfo>(StringComparer.InvariantCultureIgnoreCase);
+        static readonly ConcurrentDictionary<string, PEInfo> guestPEInfo = new(StringComparer.InvariantCultureIgnoreCase);
         static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         static bool IsLinux => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
         public static bool IsSupportedPlatform => IsLinux || IsWindows;
@@ -107,7 +107,7 @@ namespace Hyperlight
         }
 
         public Sandbox(ulong size, string guestBinaryPath, StringWriter writer, object instanceOrType = null) : this(size, guestBinaryPath, SandboxRunOptions.None, instanceOrType, writer)
-        { 
+        {
         }
 
         public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, StringWriter writer = null) : this(size, guestBinaryPath, runOptions, null, writer)
@@ -123,7 +123,7 @@ namespace Hyperlight
 
             if (!File.Exists(guestBinaryPath))
             {
-                throw new Exception($"Cannot find file {guestBinaryPath} to load into hyperlight");
+                throw new ArgumentException($"Cannot find file {guestBinaryPath} to load into hyperlight");
             }
 
             this.writer = writer;
@@ -138,7 +138,7 @@ namespace Hyperlight
             // TODO: should we make this work?
             if (recycleAfterRun && runFromGuestBinary)
             {
-                throw new Exception("Cannot run from guest binary and recycle after run at the same time");
+                throw new ArgumentException("Cannot run from guest binary and recycle after run at the same time");
             }
 
             if (null != instanceOrType)
@@ -158,7 +158,7 @@ namespace Hyperlight
                 }
                 else
                 {
-                    throw new Exception("Hypervisor not found");
+                    throw new ArgumentException("Hypervisor not found");
                 }
             }
 
@@ -202,7 +202,7 @@ namespace Hyperlight
                 }
                 else
                 {
-                    throw new Exception("Unsupported parameter type");
+                    throw new ArgumentException("Unsupported parameter type");
                 }
             }
 
@@ -221,7 +221,7 @@ namespace Hyperlight
 
         void LoadGuestBinary()
         {
-            var peInfo = GuestPEInfo.GetOrAdd(guestBinaryPath, (guestBinaryPath) => new PEInfo(guestBinaryPath, (ulong)codeAddress));
+            var peInfo = guestPEInfo.GetOrAdd(guestBinaryPath, (guestBinaryPath) => new PEInfo(guestBinaryPath, (ulong)codeAddress));
 
             if (runFromGuestBinary)
             {
@@ -259,7 +259,7 @@ namespace Hyperlight
 
                 if (IntPtr.Zero == sourceAddress)
                 {
-                    throw new Exception("VirtualAlloc failed");
+                    throw new ApplicationException("VirtualAlloc failed");
                 }
 
                 // Write a pointer to code so that guest exe can check that it is running in Hyperlight
@@ -298,7 +298,7 @@ namespace Hyperlight
                     // TODO: Add support for void return types
                     if (mi.ReturnType != typeof(int))
                     {
-                        throw new Exception("Only int return types are supported");
+                        throw new ArgumentException("Only int return types are supported");
                     }
 
                     var parameterSignature = "";
@@ -309,7 +309,7 @@ namespace Hyperlight
                         else if (pi.ParameterType == typeof(string))
                             parameterSignature += "$";
                         else
-                            throw new Exception("Only int and string parameters are supported");
+                            throw new ArgumentException("Only int and string parameters are supported");
                     }
 
                     peb.AddFunction(mi.Name, $"({parameterSignature})i", 0);
@@ -366,7 +366,7 @@ namespace Hyperlight
 
             if (countRunCalls > 0 && !recycleAfterRun)
             {
-                throw new Exception("You must set option RecycleAfterRun when creating the Sandbox if you need to call Run more than once");
+                throw new ArgumentException("You must set option RecycleAfterRun when creating the Sandbox if you need to call Run more than once");
             }
 
             if (recycleAfterRun)
@@ -383,13 +383,13 @@ namespace Hyperlight
             {
                 if (IsLinux)
                 {
-                    Marshal.WriteInt64(sourceAddress+pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Linux>((_, _, value, port) => HandleOutb(port, value)));
+                    Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Linux>((_, _, value, port) => HandleOutb(port, value)));
                     var callEntryPoint = Marshal.GetDelegateForFunctionPointer<CallLinuxEntryPoint>((IntPtr)entryPoint);
-                    returnValue = callEntryPoint( argument3, argument2, argument1, sourceAddress);
+                    returnValue = callEntryPoint(argument3, argument2, argument1, sourceAddress);
                 }
                 else if (IsWindows)
                 {
-                    Marshal.WriteInt64(sourceAddress+pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Windows>((port, value) => HandleOutb(port, value)));
+                    Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Windows>((port, value) => HandleOutb(port, value)));
                     var callEntryPoint = Marshal.GetDelegateForFunctionPointer<CallWindowsEntryPoint>((IntPtr)entryPoint);
                     returnValue = callEntryPoint(sourceAddress, argument1, argument2, argument3);
                 }
@@ -410,6 +410,10 @@ namespace Hyperlight
             return ((uint)Marshal.ReadInt32(sourceAddress + outputDataOffset), Marshal.PtrToStringAnsi(sourceAddress + outputDataOffset + 0x10), Marshal.ReadInt64(sourceAddress + outputDataOffset + 0x8));
         }
 
+
+        //TODO: throwing exceptions here does not work as this function is invoked from native code
+        //need to figure out how to return errors and log issues instead
+
         internal void HandleOutb(ushort port, byte _)
         {
             // Offset contains the adjustment that needs to be made to addresses when running in Hypervisor so that the address reflects the host or guest address correctly
@@ -425,17 +429,17 @@ namespace Hyperlight
                     {
                         var outputDataAddress = sourceAddress + outputDataOffset;
                         var strPtr = Marshal.ReadInt64((IntPtr)outputDataAddress);
-                        var functionName = Marshal.PtrToStringAnsi((IntPtr)((ulong)strPtr+offset));
+                        var functionName = Marshal.PtrToStringAnsi((IntPtr)((ulong)strPtr + offset));
                         if (string.IsNullOrEmpty(functionName))
                         {
-                            throw new Exception("Function name is null or empty");
+                            throw new ArgumentNullException("Function name is null or empty");
                         }
 
                         if (guestInterfaceGlue != null)
                         {
                             if (!guestInterfaceGlue.mapHostFunctionNamesToMethodInfo.ContainsKey(functionName))
                             {
-                                throw new Exception($"Could not find host function name {functionName}");
+                                throw new ArgumentNullException($"Could not find host function name {functionName}");
                             }
                             var mi = guestInterfaceGlue.mapHostFunctionNamesToMethodInfo[functionName];
                             var parameters = mi.GetParameters();
@@ -444,7 +448,7 @@ namespace Hyperlight
                             {
                                 if (parameters[i].ParameterType == typeof(int))
                                 {
-                                    args[i] = Marshal.ReadInt32(outputDataAddress + 8 * (i+1));
+                                    args[i] = Marshal.ReadInt32(outputDataAddress + 8 * (i + 1));
                                 }
                                 else if (parameters[i].ParameterType == typeof(string))
                                 {
@@ -453,7 +457,7 @@ namespace Hyperlight
                                 }
                                 else
                                 {
-                                    throw new Exception("Unsupported parameter type");
+                                    throw new ArgumentException("Unsupported parameter type");
                                 }
                             }
                             var returnFromHost = (int)guestInterfaceGlue.DispatchCallFromGuest(functionName, args);
@@ -461,7 +465,7 @@ namespace Hyperlight
                         }
                         else
                         {
-                            throw new Exception($"Could not find host function name {functionName}. GuestInterfaceGlue is null");
+                            throw new ArgumentNullException($"Could not find host function name {functionName}. GuestInterfaceGlue is null");
                         }
                         break;
                     }
@@ -525,8 +529,8 @@ namespace Hyperlight
                     {
                         Interlocked.Decrement(ref isRunningFromGuestBinary);
                     }
-                   
-                        hyperVisor?.Dispose();
+
+                    hyperVisor?.Dispose();
 
                 }
 

@@ -18,8 +18,57 @@
       "command": "cmd",
       "type": "process",
       "args": [
-        "/C if not exist ${workspaceFolder}\\src\\tests\\Guests\\simpleguest\\x64\\Debug md ${workspaceFolder}\\src\\tests\\Guests\\simpleguest\\x64\\Debug & if not exist ${workspaceFolder}\\src\\tests\\Guests\\callbackguest\\x64\\Debug md ${workspaceFolder}\\src\\tests\\Guests\\callbackguest\\x64\\Debug"
+        "/C if not exist ${workspaceFolder}\\src\\tests\\Guests\\simpleguest\\x64\\Debug md ${workspaceFolder}\\src\\tests\\Guests\\simpleguest\\x64\\Debug & if not exist ${workspaceFolder}\\src\\tests\\Guests\\callbackguest\\x64\\Debug md ${workspaceFolder}\\src\\tests\\Guests\\callbackguest\\x64\\Debug & if not exist ${workspaceFolder}\\src\\HyperlightSurrogate\\x64\\Debug md ${workspaceFolder}\\src\\HyperlightSurrogate\\x64\\Debug"
       ]
+    },
+    {
+      "type": "shell",
+      "label": "CL HyperlightSurrogate",
+      "command": "cl.exe",
+      "args": [
+        "/c",
+        "/Zi",
+        "/Fo${workspaceFolder}\\src\\HyperlightSurrogate\\x64\\Debug\\",
+        "/EHsc",
+        "/GS-",
+        "/W3",
+        "/MT",
+        "/Od",
+        "/Ob0",
+        "${workspaceFolder}\\src\\HyperlightSurrogate\\*.c"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}\\src\\HyperlightSurrogate\\x64\\Debug"
+      },
+      "problemMatcher": ["$msCompile"]
+    },
+    {
+      "type": "shell",
+      "label": "LINK HyperlightSurrogate",
+      "command": "link.exe",
+      "args": [
+        "/OUT:${workspaceFolder}\\src\\HyperlightSurrogate\\x64\\Debug\\HyperlightSurrogate.exe",
+        "/MACHINE:X64",
+        "/DYNAMICBASE",
+        "/SAFESEH:NO",
+        "/NXCOMPAT",
+        "/DEBUG",
+        "${workspaceFolder}\\src\\HyperlightSurrogate\\x64\\Debug\\*.obj"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}\\src\\HyperlightSurrogate\\x64\\Debug"
+      },
+      "problemMatcher": ["$msCompile"]
+    },
+    {
+      "label": "Build HyperlightSurrogate",
+      "dependsOn": [
+        "Create Dirs",
+        "CL HyperlightSurrogate",
+        "LINK HyperlightSurrogate"
+      ],
+      "dependsOrder": "sequence",
+      "group": "build"
     },
     {
       "label": "MASM Simpleguest",
@@ -60,9 +109,8 @@
       "command": "link.exe",
       "args": [
         "/OUT:${workspaceFolder}\\src\\tests\\Guests\\simpleguest\\x64\\Debug\\simpleguest.exe",
-        "/DYNAMICBASE:NO",
-        "/BASE:0x230000",
         "/MACHINE:X64",
+        "/DYNAMICBASE",
         "/SAFESEH:NO",
         "/ENTRY:entryPoint",
         "/NXCOMPAT",
@@ -129,10 +177,9 @@
       "command": "link.exe",
       "args": [
         "/OUT:${workspaceFolder}\\src\\tests\\Guests\\callbackguest\\x64\\Debug\\callbackguest.exe",
-        "/DYNAMICBASE:NO",
-        "/BASE:0x230000",
         "/MACHINE:X64",
         "/SAFESEH:NO",
+        "/DYNAMICBASE",
         "/ENTRY:entryPoint",
         "/NXCOMPAT",
         "/DEBUG",
@@ -173,6 +220,7 @@
     {
       "label": "Build All",
       "dependsOn": [
+        "Build HyperlightSurrogate",
         "Build Hyperlight",
         "Build Simpleguest",
         "Build Callbackguest",

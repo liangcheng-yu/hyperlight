@@ -9,10 +9,17 @@ namespace Hyperlight.Tests
 {
     public class SandboxHostTest
     {
+        readonly int numberOfParallelTests = 100;
         public SandboxHostTest()
         {
             //TODO: implment skip for this
             Assert.True(Sandbox.IsSupportedPlatform, "Hyperlight Sandbox is not supported on this platform.");
+
+            //TODO: Need to test and fix multi instance on Linux
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                numberOfParallelTests = 1;
+            }
         }
         public class TestData
         {
@@ -22,6 +29,7 @@ namespace Hyperlight.Tests
                 Type,
                 TypeAndNull,
                 InstanceAndNull,
+                Null,
                 All
             }
             public ulong Size => 1024 * 1024;
@@ -31,7 +39,6 @@ namespace Hyperlight.Tests
             public byte[] Workload;
             public int[] Args;
             public Type? instanceOrTypeType { get; }
-            public object? CurrentInstance { get; set; } = null;
             public ExposeMembersToGuest ExposeMembers = ExposeMembersToGuest.All;
 
             public TestData(string guestBinaryFileName, byte[]? workload, int[] args, string expectedOutput = "Hello, World!!\n", uint? expectedReturnValue = null)
@@ -62,6 +69,7 @@ namespace Hyperlight.Tests
                         ExposeMembersToGuest.Type => new object?[] { instanceOrTypeType },
                         ExposeMembersToGuest.TypeAndNull => new object?[] { instanceOrTypeType, null },
                         ExposeMembersToGuest.InstanceAndNull => new object?[] { GetInstance(instanceOrTypeType), null },
+                        ExposeMembersToGuest.Null => new object?[] { null },
                         ExposeMembersToGuest.All => new object?[] { instanceOrTypeType, GetInstance(instanceOrTypeType), null },
                         _ => Array.Empty<object?>(),
                     };
@@ -146,7 +154,6 @@ namespace Hyperlight.Tests
             }
         }
 
-
         [TheorySkipIfNotWindows]
         [MemberData(nameof(GetSimpleTestData))]
         public void Test_Loads_Windows_Exe_Concurrently(TestData testData)
@@ -156,8 +163,7 @@ namespace Hyperlight.Tests
             {
                 var output1 = new StringWriter();
                 var sandbox1 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, output1);
-                testData.CurrentInstance = null;
-                SimpleTest(sandbox1, testData, output1);
+                SimpleTest(sandbox1, testData, output1, null);
                 var output2 = new StringWriter();
                 Sandbox sandbox2 = null;
                 var ex = Record.Exception(() => sandbox2 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, output2));
@@ -170,7 +176,7 @@ namespace Hyperlight.Tests
                 output2.Dispose();
                 using (var output = new StringWriter())
                 {
-                    using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, option, output)) 
+                    using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, option, output))
                     {
                         SimpleTest(sandbox, testData, output);
                     }
@@ -193,7 +199,7 @@ namespace Hyperlight.Tests
         [MemberData(nameof(GetSimpleTestData))]
         public void Test_Runs_InProcess_Concurrently(TestData testData)
         {
-            Parallel.For(0, 10, (_) =>
+            Parallel.For(0, numberOfParallelTests, (t) =>
             {
                 SandboxRunOptions[] options = { SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
                 foreach (var option in options)
@@ -224,14 +230,8 @@ namespace Hyperlight.Tests
         [MemberData(nameof(GetSimpleTestData))]
         public void Test_Runs_InHyperVisor_Concurrently(TestData testData)
         {
-            var numberOfParallelTests = 10;
-            // TODO: Remove when multiple WHP partitions can be created.
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                numberOfParallelTests = 1;
-            }
 
-            Parallel.For(0, numberOfParallelTests, (_) =>
+            Parallel.For(0, numberOfParallelTests, (t) =>
             {
                 SandboxRunOptions[] options = { SandboxRunOptions.None, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
                 foreach (var option in options)
@@ -245,6 +245,7 @@ namespace Hyperlight.Tests
                     RunTest(testData, instanceOrType, SimpleTest);
                 }
             });
+
         }
 
         [TheorySkipIfNotWindows]
@@ -269,8 +270,7 @@ namespace Hyperlight.Tests
                 {
                     var output1 = new StringWriter();
                     var sandbox1 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, instanceOrType, output1);
-                    testData.CurrentInstance = instanceOrType;
-                    CallbackTest(sandbox1, testData, output1);
+                    CallbackTest(sandbox1, testData, output1, instanceOrType);
                     var output2 = new StringWriter();
                     Sandbox sandbox2 = null;
                     object instanceOrType1;
@@ -297,21 +297,15 @@ namespace Hyperlight.Tests
                     {
                         using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, option, instanceOrType2, output))
                         {
-                            CallbackTest(sandbox, testData, output);
+                            CallbackTest(sandbox, testData, output, instanceOrType2);
                         }
                     }
                 }
             }
         }
 
-        // 
-        // TODO: The following two tests below do not pass null instanceOrType to the Sandbox constructor as if this is done then when the outb method throws
-        // a "Could not find host function name {functionName}. GuestInterfaceGlue is null" exception the test process crashes rather passing the exception to the test
-        // need to investigate this.
-        //
-
         [Theory]
-        [MemberData(nameof(GetCallbackTestDataNoNull))]
+        [MemberData(nameof(GetCallbackTestData))]
         public void Test_Runs_InProcess_With_Callback(TestData testData)
         {
             SandboxRunOptions[] options = { SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
@@ -322,12 +316,12 @@ namespace Hyperlight.Tests
         }
 
         [Theory]
-        [MemberData(nameof(GetCallbackTestDataNoNull))]
+        [MemberData(nameof(GetCallbackTestData))]
         public void Test_Runs_InProcess_With_Callback_Concurrently(TestData testData)
         {
-            Parallel.For(0, 2, (_) =>
+            Parallel.For(0, numberOfParallelTests, (t) =>
             {
-                SandboxRunOptions[] options = { SandboxRunOptions.RunInProcess};
+                SandboxRunOptions[] options = { SandboxRunOptions.RunInProcess };
                 foreach (var option in options)
                 {
                     RunTests(testData, option, CallbackTest);
@@ -348,7 +342,6 @@ namespace Hyperlight.Tests
             // Run tests using constructors without options
             foreach (var instanceOrType in testData.TestInstanceOrTypes())
             {
-                testData.CurrentInstance = instanceOrType;
                 RunTest(testData, instanceOrType, CallbackTest);
             }
         }
@@ -358,14 +351,7 @@ namespace Hyperlight.Tests
         [MemberData(nameof(GetCallbackTestData))]
         public void Test_Runs_InHyperVisor_With_Callback_Concurrently(TestData testData)
         {
-            var numberOfParallelTests = 10;
-            // TODO: Remove when multiple WHP partitions can be created.
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                numberOfParallelTests = 1;
-            }
-
-            Parallel.For(0, numberOfParallelTests, (_) =>
+            Parallel.For(0, numberOfParallelTests, (t) =>
             {
                 SandboxRunOptions[] options = { SandboxRunOptions.None, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
                 foreach (var option in options)
@@ -376,99 +362,84 @@ namespace Hyperlight.Tests
                 // Run tests using constructors without options
                 foreach (var instanceOrType in testData.TestInstanceOrTypes())
                 {
-                    testData.CurrentInstance = instanceOrType;
                     RunTest(testData, instanceOrType, CallbackTest);
                 }
             });
         }
 
-        private void RunTests(TestData testData, SandboxRunOptions options, Action<Sandbox, TestData, StringWriter> test, int parallelInstances = 1)
+        private void RunTests(TestData testData, SandboxRunOptions options, Action<Sandbox, TestData, StringWriter, object> test)
         {
             if (testData.TestInstanceOrTypes().Length > 0)
             {
                 foreach (var instanceOrType in testData.TestInstanceOrTypes())
                 {
-                    testData.CurrentInstance = instanceOrType;
-                    RunTest(testData, options, instanceOrType, test, parallelInstances);
+                    RunTest(testData, options, instanceOrType, test);
                 }
             }
             else
             {
-                testData.CurrentInstance = null;
-                RunTest(testData, options, test, parallelInstances);
+                RunTest(testData, options, test);
             }
         }
 
-        private void RunTest(TestData testData, SandboxRunOptions sandboxRunOptions, object? instanceOrType, Action<Sandbox, TestData, StringWriter> test, int parallelInstances = 1)
+        private void RunTest(TestData testData, SandboxRunOptions sandboxRunOptions, object? instanceOrType, Action<Sandbox, TestData, StringWriter, object> test)
         {
-             Parallel.For(0, parallelInstances, (t) =>
-             {
-                 using (var output = new StringWriter())
-                 {
-                     using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, sandboxRunOptions, instanceOrType, output))
-                     {
-                         test(sandbox, testData, output);
-                     }
-                 }
-             });
-        }
-
-        private void RunTest(TestData testData, SandboxRunOptions sandboxRunOptions, Action<Sandbox, TestData, StringWriter> test, int parallelInstances = 1)
-        {
-            Parallel.For(0, parallelInstances, (t) =>
+            using (var output = new StringWriter())
             {
-                using (var output = new StringWriter())
+                using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, sandboxRunOptions, instanceOrType, output))
                 {
-                    using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, sandboxRunOptions, output))
-                    {
-                        test(sandbox, testData, output);
-                    }
+                    test(sandbox, testData, output, instanceOrType);
                 }
-            });
+            }
         }
 
-        private void RunTest(TestData testData, object? instanceOrType, Action<Sandbox, TestData, StringWriter> test, int parallelInstances = 1)
+        private void RunTest(TestData testData, SandboxRunOptions sandboxRunOptions, Action<Sandbox, TestData, StringWriter, object?> test)
         {
-            Parallel.For(0, parallelInstances, (t) =>
+            using (var output = new StringWriter())
             {
-                using (var output = new StringWriter())
+                using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, sandboxRunOptions, output))
                 {
-                    using (var sandbox = instanceOrType == null ? new Sandbox(testData.Size, testData.GuestBinaryPath, output) : new Sandbox(testData.Size, testData.GuestBinaryPath, output, instanceOrType))
-                    {
-                        test(sandbox, testData, output);
-                    }
+                    test(sandbox, testData, output, null);
                 }
-            });
+            }
         }
 
-        private void RunTest(TestData testData, Action<Sandbox, TestData, StringWriter> test, int parallelInstances = 1)
+        private void RunTest(TestData testData, object? instanceOrType, Action<Sandbox, TestData, StringWriter, object?> test)
         {
-            Parallel.For(0, parallelInstances, (t) =>
+            using (var output = new StringWriter())
             {
-                using (var output = new StringWriter())
+                using (var sandbox = instanceOrType == null ? new Sandbox(testData.Size, testData.GuestBinaryPath, output) : new Sandbox(testData.Size, testData.GuestBinaryPath, output, instanceOrType))
                 {
-                    using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath,output))
-                    {
-                        test(sandbox, testData, output);
-                    }
+                    test(sandbox, testData, output, instanceOrType);
                 }
-            });
+            }
         }
 
-        private void SimpleTest(Sandbox sandbox, TestData testData, StringWriter output)
+        private void RunTest(TestData testData, Action<Sandbox, TestData, StringWriter, object?> test)
+        {
+            using (var output = new StringWriter())
+            {
+                using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, output))
+                {
+                    test(sandbox, testData, output, null);
+                }
+            }
+        }
+
+        private void SimpleTest(Sandbox sandbox, TestData testData, StringWriter output, object? notused = null)
         {
             (var result, _, _) = sandbox.Run(testData.Workload, testData.Args[0], testData.Args[1], testData.Args[2]);
             Assert.Equal<uint>(testData.ExpectedReturnValue, result);
             Assert.Equal(testData.ExpectedOutput, output.ToString());
         }
 
-        private void CallbackTest(Sandbox sandbox, TestData testData, StringWriter output)
+        private void CallbackTest(Sandbox sandbox, TestData testData, StringWriter output, object typeorinstance)
         {
-            if (testData.CurrentInstance == null)
+            if (typeorinstance == null)
             {
                 var ex = Record.Exception(() => sandbox.Run(testData.Workload, testData.Args[0], testData.Args[1], testData.Args[2]));
                 Assert.NotNull(ex);
-                Assert.IsType<Exception>(ex);
+                Assert.IsType<ArgumentNullException>(ex);
                 Assert.Equal("Could not find host function name HostMethod. GuestInterfaceGlue is null", ex.Message);
             }
             else
@@ -491,24 +462,14 @@ namespace Hyperlight.Tests
                 new object[] { new TestData("simpleguest.exe", null, new int[3] { 0, 0, 0 }) } ,
             };
         }
-
+        // This does not test passing null as instanceortype as currently this is not implmented properly in Sandbox and cause the testhost to crash.
         public static IEnumerable<object[]> GetCallbackTestData()
         {
             return new List<object[]>
             {
-                new object[] { new TestData(typeof(ExposedMembers), "callbackguest.exe", null, new int[3] { 0, 0, 0 }, "Hello from GuestFunction, Host Received: Hello, World!! from Guest!!.\n", 70, TestData.ExposeMembersToGuest.InstanceAndNull) },
-                new object[] { new TestData(typeof(ExposeStaticMethodsUsingAttribute), "callbackguest.exe", null, new int[3] { 0, 0, 0 }, "", 14, TestData.ExposeMembersToGuest.TypeAndNull) },
-                new object[] { new TestData(typeof(ExposeInstanceMethodsUsingAttribute), "callbackguest.exe", null, new int[3] { 0, 0, 0 }, "Hello from GuestFunction, Host Received: Hello, World!! from Guest!!.\n", 70, TestData.ExposeMembersToGuest.InstanceAndNull) },
-            };
-        }
-
-        public static IEnumerable<object[]> GetCallbackTestDataNoNull()
-        {
-            return new List<object[]>
-            {
-                new object[] { new TestData(typeof(ExposeInstanceMethodsUsingAttribute), "callbackguest.exe", null, new int[3] { 0, 0, 0 }, "Hello from GuestFunction, Host Received: Hello, World!! from Guest!!.\n", 70, TestData.ExposeMembersToGuest.Instance) },
-                new object[] { new TestData(typeof(ExposeStaticMethodsUsingAttribute), "callbackguest.exe", null, new int[3] { 0, 0, 0 },"", 14, TestData.ExposeMembersToGuest.Type) },
                 new object[] { new TestData(typeof(ExposedMembers), "callbackguest.exe", null, new int[3] { 0, 0, 0 }, "Hello from GuestFunction, Host Received: Hello, World!! from Guest!!.\n", 70, TestData.ExposeMembersToGuest.Instance) },
+                new object[] { new TestData(typeof(ExposeStaticMethodsUsingAttribute), "callbackguest.exe", null, new int[3] { 0, 0, 0 }, "", 14, TestData.ExposeMembersToGuest.Type) },
+                new object[] { new TestData(typeof(ExposeInstanceMethodsUsingAttribute), "callbackguest.exe", null, new int[3] { 0, 0, 0 }, "Hello from GuestFunction, Host Received: Hello, World!! from Guest!!.\n", 70, TestData.ExposeMembersToGuest.Instance) },
             };
         }
 

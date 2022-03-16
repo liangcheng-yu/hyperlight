@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using Hyperlight.Native;
 
-namespace Hyperlight.HyperVisors
+namespace Hyperlight.Hypervisors
 {
     internal class KVM : Hypervisor, IDisposable
     {

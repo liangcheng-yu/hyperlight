@@ -1,6 +1,6 @@
 using System;
 
-namespace Hyperlight.HyperVisors
+namespace Hyperlight.Hypervisors
 {
     abstract class Hypervisor : IDisposable
     {

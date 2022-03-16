@@ -41,7 +41,18 @@ namespace Hyperlight.Native
         public static extern IntPtr VirtualAlloc(IntPtr lpAddress, IntPtr dwSize, AllocationType flAllocationType, MemoryProtection flProtect);
 
         [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        public static extern IntPtr VirtualAllocEx(IntPtr hProcess, IntPtr lpAddress, IntPtr dwSize, AllocationType flAllocationType, MemoryProtection flProtect);
+
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
         public static extern int VirtualFree(IntPtr lpAddress, IntPtr dwSize, uint dwFreeType);
+
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        public static extern int VirtualFreeEx(IntPtr hProcess, IntPtr lpAddress, IntPtr dwSize, uint dwFreeType);
+        
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        public static extern bool ReadProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, IntPtr lpBuffer, IntPtr nSize, out IntPtr lpNumberOfBytesRead);
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        public static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, IntPtr lpBuffer, IntPtr nSize, out IntPtr lpNumberOfBytesWritten);
 
         [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Ansi)]
         public static extern IntPtr LoadLibrary([MarshalAs(UnmanagedType.LPStr)] string lpFileName);
@@ -71,6 +82,8 @@ namespace Hyperlight.Native
 
         [DllImport("libc", SetLastError = true)]
         public static extern IntPtr munmap(IntPtr addr, ulong length);
+
+        // Memory allocation/free functions
 
         public static IntPtr Allocate(IntPtr addr, ulong size)
         {
@@ -113,5 +126,125 @@ namespace Hyperlight.Native
                 throw new NotSupportedException();
             }
         }
+
+        // Windows Job and Process management structures and functions
+
+        [StructLayout(LayoutKind.Sequential)]
+        public class SecurityAttributes
+        {
+            public int nLength;
+            public IntPtr lpSecurityDescriptor = IntPtr.Zero;
+            public bool bInheritHandle;
+            public SecurityAttributes()
+            {
+                nLength = Marshal.SizeOf(this);
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct IoCounters
+        {
+            public ulong ReadOperationCount;
+            public ulong WriteOperationCount;
+            public ulong OtherOperationCount;
+            public ulong ReadTransferCount;
+            public ulong WriteTransferCount;
+            public ulong OtherTransferCount;
+        }
+
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct JobBasicLimitInfo
+        {
+            public long PerProcessUserTimeLimit;
+            public long PerJobUserTimeLimit;
+            public JobLimitInfo LimitFlags;
+            public UIntPtr MinimumWorkingSetSize;
+            public UIntPtr MaximumWorkingSetSize;
+            public uint ActiveProcessLimit;
+            public UIntPtr Affinity;
+            public uint PriorityClass;
+            public uint SchedulingClass;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct JobExtentedLimitInfo
+        {
+            public JobBasicLimitInfo BasicLimitInformation;
+            public IoCounters IoInfo;
+            public UIntPtr ProcessMemoryLimit;
+            public UIntPtr JobMemoryLimit;
+            public UIntPtr PeakProcessMemoryUsed;
+            public UIntPtr PeakJobMemoryUsed;
+        }
+
+        public enum JobObjectInfoType
+        {
+            ExtendedLimitInformation = 9,
+        }
+
+        [Flags]
+        public enum JobLimitInfo : uint
+        {
+            JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000,
+        }
+
+        [Flags]
+        public enum CreateProcessFlags : uint
+        {
+            CREATE_SUSPENDED = 0x00000004,
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public class StartupInfo
+        {
+            public int cb;
+            public IntPtr lpReserved = IntPtr.Zero;
+            public IntPtr lpDesktop = IntPtr.Zero;
+            public IntPtr lpTitle = IntPtr.Zero;
+            public int dwX;
+            public int dwY;
+            public int dwXSize;
+            public int dwYSize;
+            public int dwXCountChars;
+            public int dwYCountChars;
+            public int dwFillAttributes;
+            public int dwFlags;
+            public short wShowWindow;
+            public short cbReserved;
+            public IntPtr lpReserved2 = IntPtr.Zero;
+            public IntPtr hStdInput = IntPtr.Zero;
+            public IntPtr hStdOutput = IntPtr.Zero;
+            public IntPtr hStdErr = IntPtr.Zero;
+            public StartupInfo()
+            {
+                this.cb = Marshal.SizeOf(this);
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct ProcessInformation
+        {
+            public IntPtr hProcess;
+            public IntPtr hThread;
+            public int dwProcessId;
+            public int dwThreadId;
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        public static extern bool CreateProcess(string? lpApplicationName, string lpCommandLine, SecurityAttributes lpProcessAttributes, SecurityAttributes lpThreadAttributes, bool bInheritHandles, CreateProcessFlags dwCreationFlags, IntPtr lpEnvironment, string? lpCurrentDirectory, [In] StartupInfo lpStartupInfo, out ProcessInformation lpProcessInformation);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        public static extern IntPtr CreateJobObject(SecurityAttributes jobSecurityAttributes, string lpName);
+
+        [DllImport("kernel32.dll")]
+        public static extern bool SetInformationJobObject(IntPtr hJob, JobObjectInfoType infoType, IntPtr lpJobObjectInfo, uint cbJobObjectInfoLength);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool CloseHandle(IntPtr hObject);
     }
 }

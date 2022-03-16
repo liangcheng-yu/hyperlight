@@ -4,6 +4,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 16.0.32002.261
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Hyperlight", "src\Hyperlight\Hyperlight.csproj", "{7645F846-EEE6-42E0-8C59-E84A1C9076EA}"
+	ProjectSection(ProjectDependencies) = postProject
+		{80D5E229-52C8-40DA-B778-5C6CCC181F4D} = {80D5E229-52C8-40DA-B778-5C6CCC181F4D}
+	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Hyperlight.Tests", "src\tests\Hyperlight.Tests\Hyperlight.Tests.csproj", "{2E05D691-0742-4B7D-9613-31648B6AB9DD}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -29,6 +32,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NativeHost", "src\examples\
 		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A} = {0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HyperlightSurrogate", "src\HyperlightSurrogate\HyperlightSurrogate.vcxproj", "{80D5E229-52C8-40DA-B778-5C6CCC181F4D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -47,12 +52,12 @@ Global
 		{7645F846-EEE6-42E0-8C59-E84A1C9076EA}.Release|x64.Build.0 = Release|x64
 		{2E05D691-0742-4B7D-9613-31648B6AB9DD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{2E05D691-0742-4B7D-9613-31648B6AB9DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{2E05D691-0742-4B7D-9613-31648B6AB9DD}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{2E05D691-0742-4B7D-9613-31648B6AB9DD}.Debug|x64.Build.0 = Debug|Any CPU
+		{2E05D691-0742-4B7D-9613-31648B6AB9DD}.Debug|x64.ActiveCfg = Debug|x64
+		{2E05D691-0742-4B7D-9613-31648B6AB9DD}.Debug|x64.Build.0 = Debug|x64
 		{2E05D691-0742-4B7D-9613-31648B6AB9DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2E05D691-0742-4B7D-9613-31648B6AB9DD}.Release|Any CPU.Build.0 = Release|Any CPU
-		{2E05D691-0742-4B7D-9613-31648B6AB9DD}.Release|x64.ActiveCfg = Release|Any CPU
-		{2E05D691-0742-4B7D-9613-31648B6AB9DD}.Release|x64.Build.0 = Release|Any CPU
+		{2E05D691-0742-4B7D-9613-31648B6AB9DD}.Release|x64.ActiveCfg = Release|x64
+		{2E05D691-0742-4B7D-9613-31648B6AB9DD}.Release|x64.Build.0 = Release|x64
 		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.Debug|Any CPU.ActiveCfg = Debug|x64
 		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.Debug|Any CPU.Build.0 = Debug|x64
 		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.Debug|x64.ActiveCfg = Debug|x64
@@ -77,6 +82,14 @@ Global
 		{B1E7FD52-2DA2-41BA-9AC5-73B28DD61669}.Release|Any CPU.Build.0 = Release|Any CPU
 		{B1E7FD52-2DA2-41BA-9AC5-73B28DD61669}.Release|x64.ActiveCfg = Release|Any CPU
 		{B1E7FD52-2DA2-41BA-9AC5-73B28DD61669}.Release|x64.Build.0 = Release|Any CPU
+		{80D5E229-52C8-40DA-B778-5C6CCC181F4D}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{80D5E229-52C8-40DA-B778-5C6CCC181F4D}.Debug|Any CPU.Build.0 = Debug|x64
+		{80D5E229-52C8-40DA-B778-5C6CCC181F4D}.Debug|x64.ActiveCfg = Debug|x64
+		{80D5E229-52C8-40DA-B778-5C6CCC181F4D}.Debug|x64.Build.0 = Debug|x64
+		{80D5E229-52C8-40DA-B778-5C6CCC181F4D}.Release|Any CPU.ActiveCfg = Release|x64
+		{80D5E229-52C8-40DA-B778-5C6CCC181F4D}.Release|Any CPU.Build.0 = Release|x64
+		{80D5E229-52C8-40DA-B778-5C6CCC181F4D}.Release|x64.ActiveCfg = Release|x64
+		{80D5E229-52C8-40DA-B778-5C6CCC181F4D}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

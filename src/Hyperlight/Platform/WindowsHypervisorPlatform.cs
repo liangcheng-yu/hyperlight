@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.InteropServices;
 
 namespace Hyperlight.Native
@@ -340,6 +340,9 @@ namespace Hyperlight.Native
 
         [DllImport("WinHvPlatform.dll", PreserveSig = false)]
         public static extern void WHvMapGpaRange(IntPtr hPartition, IntPtr sourceAddress, IntPtr guestAddress, ulong sizeInBytes, WHV_MAP_GPA_RANGE_FLAGS flags);
+
+        [DllImport("WinHvPlatform.dll", PreserveSig = false)]
+        public static extern void WHvMapGpaRange2(IntPtr hPartition, IntPtr process, IntPtr sourceAddress, IntPtr guestAddress, ulong sizeInBytes, WHV_MAP_GPA_RANGE_FLAGS flags);
 
         [DllImport("WinHvPlatform.dll", PreserveSig = false)]
         public static extern void WHvCreateVirtualProcessor(IntPtr hPartition, uint vpIndex, uint flags);
