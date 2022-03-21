@@ -28,7 +28,7 @@ namespace Hyperlight.Hypervisors
                 throw new Exception("KVM_CREATE_VM returned -1");
             }
 
-            var region = new LinuxKVM.KVM_USERSPACE_MEMORY_REGION() { slot = 0, guest_phys_addr = 0x200000, memory_size = size, userspace_addr = (ulong)sourceAddress };
+            var region = new LinuxKVM.KVM_USERSPACE_MEMORY_REGION() { slot = 0, guest_phys_addr = (ulong)Sandbox.BaseAddress, memory_size = size, userspace_addr = (ulong)sourceAddress };
             // TODO: Handle error
             _ = LinuxKVM.ioctl(vmfd, LinuxKVM.KVM_SET_USER_MEMORY_REGION, ref region);
             vcpufd = LinuxKVM.ioctl(vmfd, LinuxKVM.KVM_CREATE_VCPU, 0);
@@ -71,7 +71,7 @@ namespace Hyperlight.Hypervisors
         }
         private bool disposedValue;
 
-        internal override void DispactchCallFromHost(ulong pDispatchFunction)
+        internal override void DispatchCallFromHost(ulong pDispatchFunction)
         {
             // Move rip to the DispatchFunction pointer
             var regs = new LinuxKVM.KVM_REGS();
@@ -121,7 +121,7 @@ namespace Hyperlight.Hypervisors
             {
                 rip = EntryPoint,
                 rsp = rsp,
-                rcx = (ulong)0x200000,
+                rcx = (ulong)Sandbox.BaseAddress,
                 rdx = (ulong)argument1,
                 r8 = (ulong)argument2,
                 r9 = (ulong)argument3,

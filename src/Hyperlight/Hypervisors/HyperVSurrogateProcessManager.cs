@@ -22,15 +22,15 @@ namespace Hyperlight.Hypervisors
     /// Cannot create the partition for the virtualization infrastructure driver because another partition with the same name already exists. (0xC0370008)\ ERROR_VID_PARTITION_ALREADY_EXISTS
     /// when called for a second time from a process.
     /// 
-    /// There is an undocumented API (WHvMapGpaRange2) that has a second parameter which is a handle to a process. This process merely has to exist, there is no need for the memeory being 
-    /// mapped from the host to the guest partition to come from the process specified or to be mapped into the process calling the API.
+    /// There is an undocumented API (WHvMapGpaRange2) that has a second parameter which is a handle to a process. This process merely has to exist, the memeory being 
+    /// mapped from the host to the guest partition is allocated/freed using VirtualAllocEx/VirtualFreeEx. Memory for the HyperVisor partition is copied to and from the host process in Sandbox before and after the VCPU is run.
     /// 
     /// This class deals with the creation/ destruction of these surrogate processes (HyperlightSurrogate.exe) , pooling of the process handles, the distribution of these handles from the pool to 
-    /// a Hyperlight Sandbox instance and the return of the handle to the pool once a Sandbox instance is disposed. It is intended to be created as a singleton and assigned to a
-    /// Static property in the HyperV class.
+    /// a Hyperlight Sandbox instance and the return of the handle to the pool once a Sandbox instance is disposed, it also allocates and frees memory in the process on allocation/return to/from a Sandbox instance.
+    /// It is intended to be created as a singleton and assigned to a static property in the HyperV class.
     /// 
     /// There is a limit of 512 partitions per process therefore this class will create a maximum of 512 processes, and if the pool is empty when a Sandbox is created it will 
-    /// throw an exception after waiting 5 seconds. 
+    /// wait for a free process, this behaviour can be overridden by passing a cancellation token to the GetProcess method. 
     /// </summary>
     /// 
 
@@ -39,8 +39,8 @@ namespace Hyperlight.Hypervisors
         private const string SurrogateProcessBinaryName = "HyperlightSurrogate.exe";
         private static readonly Lazy<HyperVSurrogateProcessManager> instance = new(() => new HyperVSurrogateProcessManager());
         // The maximum number of processes that can be created 
-        private const int NumberOfProcesses = 512;
-        // A job is used to make sure that the processes are cleaned up when the 
+        internal const int NumberOfProcesses = 512;
+        // A job is used to make sure that the processes are cleaned up when the host process ends
         IntPtr jobHandle = IntPtr.Zero;
         private bool disposedValue;
         private readonly BlockingCollection<SafeProcessHandle> surrogateProcesses = new(NumberOfProcesses);
@@ -102,7 +102,7 @@ namespace Hyperlight.Hypervisors
             }
         }
         // Allocates a process from the pool to a Sandbox instance so that the process can be used in call to WHvMapGpaRange2
-        // allocated Virtual Memory in that process to macth the size and address of the memory of the Sandbox instance.
+        // and allocates Virtual Memory in that process to match the size and address of the memory of the Sandbox instance.
         //
         internal SurrogateProcess GetProcess(IntPtr size, IntPtr sourceAddress, CancellationToken cancellationToken=default(CancellationToken))
         {
@@ -110,7 +110,7 @@ namespace Hyperlight.Hypervisors
             var destAddress = OS.VirtualAllocEx(safeProcessHandle.DangerousGetHandle(), sourceAddress, size, OS.AllocationType.Commit | OS.AllocationType.Reserve, OS.MemoryProtection.EXECUTE_READWRITE);
             return new SurrogateProcess { safeProcessHandle = safeProcessHandle, sourceAddress = destAddress };
         }
-        // returns the process to the pool . this is called when a Sandbox is disposed. Also free the virtua memory allocated to the process.
+        // returns the process to the pool . this is called when a Sandbox is disposed. Also free the virtual memory allocated to the process.
         internal void ReturnProcess(SurrogateProcess surrogateProcess)
         {
             //TODO: HandleError

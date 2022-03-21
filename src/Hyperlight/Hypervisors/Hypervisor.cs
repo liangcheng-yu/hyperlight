@@ -17,7 +17,7 @@ namespace Hyperlight.Hypervisors
             this.sourceAddress = sourceAddress;
         }
 
-        internal abstract void DispactchCallFromHost(ulong pDispatchFunction);
+        internal abstract void DispatchCallFromHost(ulong pDispatchFunction);
         internal abstract void ExecuteUntilHalt();
         internal abstract void Run(int argument1, int argument2, int argument3);
         internal void HandleOutb(ushort port, byte value)

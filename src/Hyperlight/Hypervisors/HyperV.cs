@@ -28,7 +28,7 @@ namespace Hyperlight.Hypervisors
             WindowsHypervisorPlatform.WHvSetupPartition(hPartition);
             surrogateProcess = processManager.GetProcess((IntPtr)size, sourceAddress);
             var hProcess = surrogateProcess.safeProcessHandle.DangerousGetHandle();
-            WindowsHypervisorPlatform.WHvMapGpaRange2(hPartition, hProcess, sourceAddress, (IntPtr)0x200000/*IntPtr.Zero*/, size, WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagRead | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagWrite | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagExecute);
+            WindowsHypervisorPlatform.WHvMapGpaRange2(hPartition, hProcess, sourceAddress, (IntPtr)Sandbox.BaseAddress, size, WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagRead | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagWrite | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagExecute);
             WindowsHypervisorPlatform.WHvCreateVirtualProcessor(hPartition, 0, 0);
             virtualProcessorCreated = true;
 
@@ -71,7 +71,7 @@ namespace Hyperlight.Hypervisors
             registerValues = registerValuesList.ToArray();
         }
 
-        internal override void DispactchCallFromHost(ulong pDispatchFunction)
+        internal override void DispatchCallFromHost(ulong pDispatchFunction)
         {
             // Move rip to the DispatchFunction pointer
             ripValue[0].low = pDispatchFunction;
@@ -135,7 +135,7 @@ namespace Hyperlight.Hypervisors
         internal override void Run(int argument1, int argument2, int argument3)
         {
             {
-                registerValues[^4].low = (ulong)0x200000;
+                registerValues[^4].low = (ulong)Sandbox.BaseAddress;
                 registerValues[^3].low = (ulong)argument1;
                 registerValues[^2].low = (ulong)argument2;
                 registerValues[^1].low = (ulong)argument3;

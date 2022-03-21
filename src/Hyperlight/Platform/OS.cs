@@ -94,7 +94,7 @@ namespace Hyperlight.Native
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                memPtr = OS.VirtualAlloc(addr, (IntPtr)size - 1, OS.AllocationType.Commit | OS.AllocationType.Reserve, OS.MemoryProtection.EXECUTE_READWRITE);
+                memPtr = OS.VirtualAlloc(addr, (IntPtr)size, OS.AllocationType.Commit | OS.AllocationType.Reserve, OS.MemoryProtection.EXECUTE_READWRITE);
             }
             else
             {

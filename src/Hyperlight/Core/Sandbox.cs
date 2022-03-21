@@ -60,17 +60,18 @@ namespace Hyperlight
         readonly string guestBinaryPath;
         IntPtr loadAddress = IntPtr.Zero;
 
-        readonly IntPtr baseAddress = (IntPtr)0x200000;
-        readonly IntPtr codeAddress = (IntPtr)0x230000;
-        readonly int pCodeOffset = 0x10000 - 24;
-        readonly int pOutBOffset = 0x10000 - 16;
-        readonly int dispatchPointerOffset = 0x4008;
-        readonly int inputDataOffset = 0x10000;
-        readonly int outputDataOffset = 0x20000;
-        readonly int codeOffset = 0x30000;
-        readonly int pml4_addr = 0x201000;
-        readonly int pdpt_addr = 0x202000;
-        readonly int pd_addr = 0x203000;
+        public static readonly IntPtr BaseAddress = (IntPtr)0x200000;
+        static readonly int codeOffset = 0x30000;
+        static readonly IntPtr codeAddress = BaseAddress + codeOffset;
+        static readonly int dispatchPointerOffset = 0x4008;
+        static readonly int inputDataOffset = 0x10000;
+        static readonly int outputDataOffset = 0x20000;
+        static readonly int pCodeOffset = inputDataOffset - 24;
+        static readonly int pOutBOffset = inputDataOffset - 16;
+        static readonly int pml4_addr = (int)BaseAddress + 0x1000;
+        static readonly int pdpt_addr = (int)BaseAddress + 0x2000;
+        static readonly int pd_addr = (int)BaseAddress + 0x3000;
+
         readonly bool recycleAfterRun;
         readonly byte[] initialMemorySavedForMultipleRunCalls;
         readonly bool runFromProcessMemory;
@@ -99,6 +100,12 @@ namespace Hyperlight
         delegate void CallOutb_Linux(int unused1, int unused2, byte value, ushort port);
         delegate void CallDispatchFunction();
         int countRunCalls;
+
+        /// <summary>
+        /// Returns the maximum number of partitions per process, on windows its the mximum number of processes that can be handled by the HyperVSurrogateProcessManager , on Linux its not fixed and dependent on resources.
+        /// </summary>
+
+        public static int MaxPartitionsPerProcess => IsWindows ? HyperVSurrogateProcessManager.NumberOfProcesses : -1;
 
         public Sandbox(ulong size, string guestBinaryPath, object instanceOrType) : this(size, guestBinaryPath, null, instanceOrType)
         {
@@ -177,7 +184,7 @@ namespace Hyperlight
             ulong offset = 0;
             if (!runFromGuestBinary && !runFromProcessMemory)
             {
-                offset = (ulong)sourceAddress - (ulong)baseAddress;
+                offset = (ulong)sourceAddress - (ulong)BaseAddress;
             }
 
             var outputDataAddress = sourceAddress + outputDataOffset;
@@ -214,7 +221,7 @@ namespace Hyperlight
             }
             else
             {
-                hyperVisor!.DispactchCallFromHost(pDispatchFunction);
+                hyperVisor!.DispatchCallFromHost(pDispatchFunction);
             }
 
             return Marshal.ReadInt32(outputDataAddress);
@@ -254,9 +261,11 @@ namespace Hyperlight
 
                 entryPoint += (ulong)loadAddress + peInfo.EntryPointOffset; // Currently entryPoint points to the VA of the start of the file
 
-                // Allocate 0x30001 for IO the extra byte at the end is where the code will be loaded InProcess or under HyperVisor
+                // Allocate 0x30001 for IO the additonal byte at the end is where the code would be loaded if we were running InProcess or under HyperVisor
+                // The Guest will check this byte to see if it is null, if so it has been run from LoadLibrary and it will locate the code 
+                // by looking at the address at pCodeOffset it then checks to ensure the code header is correct so it knows it is running in Hyperlight
                 // Allows the guest to find the code if we are debugging 
-                sourceAddress = OS.Allocate((IntPtr)0, (ulong)codeOffset + 2);
+                sourceAddress = OS.Allocate((IntPtr)0, (ulong)codeOffset + 1);
 
                 if (IntPtr.Zero == sourceAddress)
                 {
@@ -321,7 +330,7 @@ namespace Hyperlight
 
         public void SetUpHyperVisorPartition()
         {
-            rsp = size + (ulong)baseAddress; // Add 0x200000 because that's the start of mapped memory
+            rsp = size + (ulong)BaseAddress; // Add 0x200000 because that's the start of mapped memory
 
             // For MSVC, move rsp down by 0x28.  This gives the called 'main' function the appearance that rsp was
             // was 16 byte aligned before the 'call' that calls main (note we don't really have a return value on the
@@ -334,14 +343,14 @@ namespace Hyperlight
 
             // Create pagetable
 
-            var pml4 = IntPtr.Add(sourceAddress, pml4_addr - (int)baseAddress);
-            var pdpt = IntPtr.Add(sourceAddress, pdpt_addr - (int)baseAddress);
-            var pd = IntPtr.Add(sourceAddress, pd_addr - (int)baseAddress);
+            var pml4 = IntPtr.Add(sourceAddress, pml4_addr - (int)BaseAddress);
+            var pdpt = IntPtr.Add(sourceAddress, pdpt_addr - (int)BaseAddress);
+            var pd = IntPtr.Add(sourceAddress, pd_addr - (int)BaseAddress);
 
             Marshal.WriteInt64(pml4, 0, (long)(X64.PDE64_PRESENT | X64.PDE64_RW | X64.PDE64_USER | (ulong)pdpt_addr));
             Marshal.WriteInt64(pdpt, 0, (long)(X64.PDE64_PRESENT | X64.PDE64_RW | X64.PDE64_USER | (ulong)pd_addr));
 
-            for (var i = 0 /*We do not map first 2 megs*/; i < 512; i++)
+            for (var i = 0/*We do not map first 2 megs*/; i < 512; i++)
             {
                 Marshal.WriteInt64(IntPtr.Add(pd, i * 8), ((i /*We map each VA to physical memory 2 megs lower*/) << 21) + (long)(X64.PDE64_PRESENT | X64.PDE64_RW | X64.PDE64_USER | X64.PDE64_PS));
             }
@@ -446,7 +455,7 @@ namespace Hyperlight
             ulong offset = 0;
             if (!runFromGuestBinary && !runFromProcessMemory)
             {
-                offset = (ulong)sourceAddress - (ulong)baseAddress;
+                offset = (ulong)sourceAddress - (ulong)BaseAddress;
             }
             switch (port)
             {
