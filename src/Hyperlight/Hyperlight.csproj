@@ -24,7 +24,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Condition="'$(RuntimeIdentifier)'=='win-x64'" Include="..\HyperlightSurrogate\x64\$(Configuration)\HyperlightSurrogate.exe" Pack="true" PackagePath="contentFiles">
+    <Content Condition="'$(RuntimeIdentifier)'=='win-x64' or ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And  '$(RuntimeIdentifier)'=='')" Include="..\HyperlightSurrogate\x64\$(Configuration)\HyperlightSurrogate.exe" Pack="true" PackagePath="contentFiles">
       <Link>HyperlightSurrogate.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <PackageCopyToOutput>true</PackageCopyToOutput>
