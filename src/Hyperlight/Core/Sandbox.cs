@@ -49,6 +49,7 @@ namespace Hyperlight
     }
     public class Sandbox : IDisposable
     {
+        static object peInfoLock = new object();
         static readonly ConcurrentDictionary<string, PEInfo> guestPEInfo = new(StringComparer.InvariantCultureIgnoreCase);
         static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         static bool IsLinux => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
@@ -82,9 +83,11 @@ namespace Hyperlight
         ulong rsp;
         readonly HyperlightGuestInterfaceGlue guestInterfaceGlue;
         private bool disposedValue; // To detect redundant calls
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         delegate long CallLinuxEntryPoint(int c, int b, int a, IntPtr baseAddress);
         delegate long CallWindowsEntryPoint(IntPtr baseAddress, int a, int b, int c);
+
+        unsafe delegate* unmanaged<IntPtr, int, int, int, long> callEntryPointWindows;
+        unsafe delegate* unmanaged<int, int, int, IntPtr, long> callEntryPointLinux;
 
         // Platform dependent delegate for callbacks from native code when native code is calling 'outb' functionality
         // On Linux, delegates passed from .NET core to native code expect arguments to be passed RDI, RSI, RDX, RCX.
@@ -93,7 +96,6 @@ namespace Hyperlight
         // that will take RCX and RDX in the different positions and pass it to the HandleOutb method correctly
 
         delegate void CallOutb_Windows(ushort port, byte value);
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         delegate void CallOutb_Linux(int unused1, int unused2, byte value, ushort port);
         delegate void CallDispatchFunction();
         int countRunCalls;
@@ -125,7 +127,6 @@ namespace Hyperlight
             {
                 throw new ArgumentException($"Cannot find file {guestBinaryPath} to load into hyperlight");
             }
-
             this.writer = writer;
             this.guestBinaryPath = guestBinaryPath;
             // TODO: Validate the size.
@@ -221,7 +222,7 @@ namespace Hyperlight
 
         void LoadGuestBinary()
         {
-            var peInfo = guestPEInfo.GetOrAdd(guestBinaryPath, (guestBinaryPath) => new PEInfo(guestBinaryPath, (ulong)codeAddress));
+            var peInfo = guestPEInfo.GetOrAdd(guestBinaryPath, (guestBinaryPath) => GetPEInfo(guestBinaryPath, (ulong)codeAddress));
 
             if (runFromGuestBinary)
             {
@@ -383,15 +384,40 @@ namespace Hyperlight
             {
                 if (IsLinux)
                 {
+                    // This code is unstable, it causes segmetation faults so for now we are throwing an exception if we try to run in process in Linux
+                    // I think this is due to the fact that the guest binary is built for windows
+                    // x64 compilation for windows uses fastcall which is different on windows and linux
+                    // dotnet will default to the calling convention for the platform that the code is running on
+                    // so we need to set the calling convention to the one that the guest binary is built for (windows x64 https://docs.microsoft.com/en-us/cpp/build/x64-calling-convention?view=msvc-170)
+                    // on linux however, this isn't possible (https://docs.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.callingconvention?view=net-6.0 )
+                    // Alternatives:
+                    // 1. we need to build the binary for windows and linux and then run the correct version for the platform that we are running on
+                    // 2. alter the calling convention of the guest binary and then tell dotnet to use that calling convention
+                    // the only option for this seems to be vectorcall https://docs.microsoft.com/en-us/cpp/cpp/vectorcall?view=msvc-170 (cdecl and stdcall are not possible using CL on x64 platform))    
+                    // vectorcall is not supported by dotnet  (https://github.com/dotnet/runtime/issues/8300) 
+                    // 3. write our own code to correct the calling convention
+                    // 4. write epilog/prolog code in the guest binary.     
+                    // also see https://www.agner.org/optimize/calling_conventions.pdf
+                    // and https://eli.thegreenplace.net/2011/09/06/stack-frame-layout-on-x86-64/
+                    // 
+
+                    throw new NotSupportedException("Cannot run in process on Linux");
+
                     Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Linux>((_, _, value, port) => HandleOutb(port, value)));
-                    var callEntryPoint = Marshal.GetDelegateForFunctionPointer<CallLinuxEntryPoint>((IntPtr)entryPoint);
-                    returnValue = callEntryPoint(argument3, argument2, argument1, sourceAddress);
+                    unsafe
+                    {
+                        callEntryPointLinux = (delegate* unmanaged<int, int, int, IntPtr, long>)entryPoint;
+                        returnValue = callEntryPointLinux(argument1, argument2, argument3, sourceAddress);
+                    }
                 }
                 else if (IsWindows)
                 {
                     Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Windows>((port, value) => HandleOutb(port, value)));
-                    var callEntryPoint = Marshal.GetDelegateForFunctionPointer<CallWindowsEntryPoint>((IntPtr)entryPoint);
-                    returnValue = callEntryPoint(sourceAddress, argument1, argument2, argument3);
+                    unsafe
+                    {
+                        callEntryPointWindows = (delegate* unmanaged<IntPtr, int, int, int, long>)entryPoint;
+                        returnValue = callEntryPointWindows(sourceAddress, argument1, argument2, argument3);
+                    }
                 }
                 else
                 {
@@ -517,6 +543,18 @@ namespace Hyperlight
                 return WindowsHypervisorPlatform.IsHypervisorPresent();
             }
             return false;
+        }
+
+        static PEInfo GetPEInfo(string fileName, ulong hyperVisorCodeAddress)
+        {
+            lock (peInfoLock)
+            {
+                if (guestPEInfo.ContainsKey(fileName))
+                {
+                    return guestPEInfo[fileName];
+                }
+                return new PEInfo(fileName, hyperVisorCodeAddress);
+            }
         }
 
         protected virtual void Dispose(bool disposing)

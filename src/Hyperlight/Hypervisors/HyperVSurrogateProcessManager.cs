@@ -108,7 +108,6 @@ namespace Hyperlight.Hypervisors
         {
             var safeProcessHandle = surrogateProcesses.Take(cancellationToken);
             var destAddress = OS.VirtualAllocEx(safeProcessHandle.DangerousGetHandle(), sourceAddress, size, OS.AllocationType.Commit | OS.AllocationType.Reserve, OS.MemoryProtection.EXECUTE_READWRITE);
-            Debug.Assert(sourceAddress == destAddress);
             return new SurrogateProcess { safeProcessHandle = safeProcessHandle, sourceAddress = destAddress };
         }
         // returns the process to the pool . this is called when a Sandbox is disposed. Also free the virtua memory allocated to the process.

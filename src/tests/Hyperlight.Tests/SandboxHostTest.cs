@@ -184,7 +184,24 @@ namespace Hyperlight.Tests
             }
         }
 
-        [Theory]
+        [FactSkipIfNotLinux]
+        public void Test_Throws_InProcess_On_Linux()
+        {
+            SandboxRunOptions[] options = { SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
+            foreach (var option in options)
+            {
+                var binary = "simpleguest.exe";
+                var path = AppDomain.CurrentDomain.BaseDirectory;
+                var guestBinaryPath = Path.Combine(path, binary);
+                ulong size = 1024 * 1024;
+                var ex = Record.Exception(() => new Sandbox(size, guestBinaryPath, option));
+                Assert.NotNull(ex);
+                Assert.IsType<NotSupportedException>(ex);
+                Assert.Equal("Cannot run in process on Linux", ex.Message);
+            }
+        }
+
+        [TheorySkipIfNotWindows]
         [MemberData(nameof(GetSimpleTestData))]
         public void Test_Runs_InProcess(TestData testData)
         {
@@ -195,7 +212,7 @@ namespace Hyperlight.Tests
             }
         }
 
-        [Theory]
+        [TheorySkipIfNotWindows]
         [MemberData(nameof(GetSimpleTestData))]
         public void Test_Runs_InProcess_Concurrently(TestData testData)
         {
