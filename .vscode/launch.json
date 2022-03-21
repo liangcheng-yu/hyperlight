@@ -9,7 +9,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "Build NativeHost Example",
-            "program": "${workspaceFolder}/src/examples/NativeHost/bin/Debug/net5.0/NativeHost.exe",
+            "program": "${workspaceFolder}/src/examples/NativeHost/bin/Debug/net5.0/NativeHost",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": true,

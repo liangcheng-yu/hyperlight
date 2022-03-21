@@ -194,7 +194,11 @@ namespace Hyperlight.Tests
                 var path = AppDomain.CurrentDomain.BaseDirectory;
                 var guestBinaryPath = Path.Combine(path, binary);
                 ulong size = 1024 * 1024;
-                var ex = Record.Exception(() => new Sandbox(size, guestBinaryPath, option));
+                var ex = Record.Exception(() =>
+                {
+                    var sandbox = new Sandbox(size, guestBinaryPath, option);
+                    sandbox.Run(null,0,0,0);
+                });
                 Assert.NotNull(ex);
                 Assert.IsType<NotSupportedException>(ex);
                 Assert.Equal("Cannot run in process on Linux", ex.Message);
@@ -321,7 +325,7 @@ namespace Hyperlight.Tests
             }
         }
 
-        [Theory]
+        [TheorySkipIfNotWindows]
         [MemberData(nameof(GetCallbackTestData))]
         public void Test_Runs_InProcess_With_Callback(TestData testData)
         {
@@ -332,7 +336,7 @@ namespace Hyperlight.Tests
             }
         }
 
-        [Theory]
+        [TheorySkipIfNotWindows]
         [MemberData(nameof(GetCallbackTestData))]
         public void Test_Runs_InProcess_With_Callback_Concurrently(TestData testData)
         {
@@ -463,7 +467,7 @@ namespace Hyperlight.Tests
             {
                 (var result, _, _) = sandbox.Run(testData.Workload, testData.Args[0], testData.Args[1], testData.Args[2]);
                 Assert.Equal<uint>(testData.ExpectedReturnValue, result);
-                Assert.Equal(testData.ExpectedOutput, output.ToString());
+                Assert.StartsWith(testData.ExpectedOutput, output.ToString());
             }
         }
 
