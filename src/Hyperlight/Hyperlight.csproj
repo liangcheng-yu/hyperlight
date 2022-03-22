@@ -2,7 +2,7 @@
   
   <PropertyGroup>
     <!-- TODO: Enable nullable reference types -->
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFrameworks>net5.0;net6.0</TargetFrameworks>
     <Nullable>disable</Nullable>
     <Platforms>x64</Platforms>
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
@@ -13,25 +13,52 @@
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/deislabs/hyperlight</PackageProjectUrl>
     <!-- TODO: Add a README.md to the package <PackageReadmeFile>readme.md</PackageReadmeFile> -->
-    <PackageReleaseNotes>https://github.com/deislabshyperlight/releases</PackageReleaseNotes>
+    <PackageReleaseNotes>https://github.com/deislabs/hyperlight/releases</PackageReleaseNotes>
     <PackageTags>Hyperlight;HyperV;KVM;WebAssembly;</PackageTags>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <RootNamespace>Hyperlight</RootNamespace>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
-    <TargetFrameworks>net5.0</TargetFrameworks>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <IncludeSymbols>true</IncludeSymbols>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Condition="'$(RuntimeIdentifier)'=='win-x64' or ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And  '$(RuntimeIdentifier)'=='')" Include="..\HyperlightSurrogate\x64\$(Configuration)\HyperlightSurrogate.exe" Pack="true" PackagePath="contentFiles">
+      <Link>HyperlightSurrogate.exe</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </Content>
+    <Content Include="Deislabs.HyperLight.props" PackagePath="build/Deislabs.HyperLight.props" />
+  </ItemGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net5.0|x64'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net5.0|x64'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net6.0|x64'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net6.0|x64'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="System.Reflection.Emit.Lightweight" Version="4.7.0" />
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All"/>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
   </ItemGroup>
 
 </Project>

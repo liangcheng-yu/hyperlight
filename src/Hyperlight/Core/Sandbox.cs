@@ -2,7 +2,8 @@ using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Runtime.InteropServices;
-using Hyperlight.HyperVisors;
+using System.Threading;
+using Hyperlight.Hypervisors;
 using Hyperlight.Native;
 
 namespace Hyperlight
@@ -48,7 +49,8 @@ namespace Hyperlight
     }
     public class Sandbox : IDisposable
     {
-        static readonly ConcurrentDictionary<string, byte[]> GuestBinaries = new ConcurrentDictionary<string, byte[]>(StringComparer.InvariantCultureIgnoreCase);
+        static object peInfoLock = new object();
+        static readonly ConcurrentDictionary<string, PEInfo> guestPEInfo = new(StringComparer.InvariantCultureIgnoreCase);
         static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         static bool IsLinux => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
         public static bool IsSupportedPlatform => IsLinux || IsWindows;
@@ -57,40 +59,71 @@ namespace Hyperlight
         readonly ulong size;
         readonly string guestBinaryPath;
         IntPtr loadAddress = IntPtr.Zero;
+
+        public static readonly IntPtr BaseAddress = (IntPtr)0x200000;
+        static readonly int codeOffset = 0x30000;
+        static readonly IntPtr codeAddress = BaseAddress + codeOffset;
+        static readonly int dispatchPointerOffset = 0x4008;
+        static readonly int inputDataOffset = 0x10000;
+        static readonly int outputDataOffset = 0x20000;
+        static readonly int pCodeOffset = inputDataOffset - 24;
+        static readonly int pOutBOffset = inputDataOffset - 16;
+        static readonly int pml4_addr = (int)BaseAddress + 0x1000;
+        static readonly int pdpt_addr = (int)BaseAddress + 0x2000;
+        static readonly int pd_addr = (int)BaseAddress + 0x3000;
+
         readonly bool recycleAfterRun;
         readonly byte[] initialMemorySavedForMultipleRunCalls;
         readonly bool runFromProcessMemory;
         readonly bool runFromGuestBinary;
+        bool didRunFromGuestBinary;
+        const int IS_RUNNING_FROM_GUEST_BINARY = 1;
+        static int isRunningFromGuestBinary = 0;
+        readonly StringWriter writer;
         ulong entryPoint;
         ulong rsp;
         readonly HyperlightGuestInterfaceGlue guestInterfaceGlue;
         private bool disposedValue; // To detect redundant calls
-        delegate long CallMain(int a, int b, int c);
+        delegate long CallLinuxEntryPoint(int c, int b, int a, IntPtr baseAddress);
+        delegate long CallWindowsEntryPoint(IntPtr baseAddress, int a, int b, int c);
+
+        unsafe delegate* unmanaged<IntPtr, int, int, int, long> callEntryPointWindows;
+        unsafe delegate* unmanaged<int, int, int, IntPtr, long> callEntryPointLinux;
 
         // Platform dependent delegate for callbacks from native code when native code is calling 'outb' functionality
         // On Linux, delegates passed from .NET core to native code expect arguments to be passed RDI, RSI, RDX, RCX.
-        // On Winodws, the expected order starts with RCX, RDX.  Our native code assumes this Windows calling convention
+        // On Windows, the expected order starts with RCX, RDX.  Our native code assumes this Windows calling convention
         // so 'port' is passed in RCX and 'value' is passed in RDX.  When run in Linux, we have an alternate callback
         // that will take RCX and RDX in the different positions and pass it to the HandleOutb method correctly
+
         delegate void CallOutb_Windows(ushort port, byte value);
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         delegate void CallOutb_Linux(int unused1, int unused2, byte value, ushort port);
         delegate void CallDispatchFunction();
         int countRunCalls;
 
-        public Sandbox(ulong size, string guestBinaryPath) : this(size, guestBinaryPath, SandboxRunOptions.None, null)
+        /// <summary>
+        /// Returns the maximum number of partitions per process, on windows its the mximum number of processes that can be handled by the HyperVSurrogateProcessManager , on Linux its not fixed and dependent on resources.
+        /// </summary>
+
+        public static int MaxPartitionsPerProcess => IsWindows ? HyperVSurrogateProcessManager.NumberOfProcesses : -1;
+
+        public Sandbox(ulong size, string guestBinaryPath, object instanceOrType) : this(size, guestBinaryPath, null, instanceOrType)
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, object instanceOrType) : this(size, guestBinaryPath, SandboxRunOptions.None, instanceOrType)
+        public Sandbox(ulong size, string guestBinaryPath, StringWriter writer = null) : this(size, guestBinaryPath, SandboxRunOptions.None, null, writer)
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions) : this(size, guestBinaryPath, runOptions, null)
+        public Sandbox(ulong size, string guestBinaryPath, StringWriter writer, object instanceOrType = null) : this(size, guestBinaryPath, SandboxRunOptions.None, instanceOrType, writer)
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, object instanceOrType)
+        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, StringWriter writer = null) : this(size, guestBinaryPath, runOptions, null, writer)
+        {
+        }
+
+        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, object instanceOrType, StringWriter writer = null)
         {
             if (!IsSupportedPlatform)
             {
@@ -99,9 +132,9 @@ namespace Hyperlight
 
             if (!File.Exists(guestBinaryPath))
             {
-                throw new Exception($"Cannot find file {guestBinaryPath} to load into hyperlight");
+                throw new ArgumentException($"Cannot find file {guestBinaryPath} to load into hyperlight");
             }
-
+            this.writer = writer;
             this.guestBinaryPath = guestBinaryPath;
             // TODO: Validate the size.
             this.size = size;
@@ -113,7 +146,7 @@ namespace Hyperlight
             // TODO: should we make this work?
             if (recycleAfterRun && runFromGuestBinary)
             {
-                throw new Exception("Cannot run from guest binary and recycle after run at the same time");
+                throw new ArgumentException("Cannot run from guest binary and recycle after run at the same time");
             }
 
             if (null != instanceOrType)
@@ -133,7 +166,7 @@ namespace Hyperlight
                 }
                 else
                 {
-                    throw new Exception("Hypervisor not found");
+                    throw new ArgumentException("Hypervisor not found");
                 }
             }
 
@@ -147,22 +180,38 @@ namespace Hyperlight
 
         internal object DispatchCallFromHost(string functionName, object[] args)
         {
+
+            ulong offset = 0;
+            if (!runFromGuestBinary && !runFromProcessMemory)
+            {
+                offset = (ulong)sourceAddress - (ulong)BaseAddress;
+            }
+
+            var outputDataAddress = sourceAddress + outputDataOffset;
+            var dispatchFunctionAddress = sourceAddress + dispatchPointerOffset;
             // Get DispatchFunction pointer from PEB
-            var pDispatchFunction = (ulong)Marshal.ReadInt64((IntPtr)0x204008);
+            var pDispatchFunction = (ulong)Marshal.ReadInt64(dispatchFunctionAddress);
 
             var headerSize = 0x08 + 0x08 + 0x08 * args.Length; // Pointer to function name, count of args, and arg list
-            var stringTable = new SimpleStringTable((IntPtr)0x220000 + headerSize, 0x10000 - headerSize);
+            var stringTable = new SimpleStringTable(outputDataAddress + headerSize, inputDataOffset - headerSize, offset);
 
-            Marshal.WriteInt64((IntPtr)0x220000, (long)stringTable.AddString(functionName));
-            Marshal.WriteInt64((IntPtr)0x220008, args.Length);
+            Marshal.WriteInt64(outputDataAddress, (long)stringTable.AddString(functionName));
+            Marshal.WriteInt64(outputDataAddress + 0x8, args.Length);
             for (var i = 0; i < args.Length; i++)
             {
                 if (args[i].GetType() == typeof(int))
-                    Marshal.WriteInt64((IntPtr)(0x220010 + 8 * i), (int)args[i]);
+                {
+                    Marshal.WriteInt64(outputDataAddress + 0x10 + 8 * i, (int)args[i]);
+                }
                 else if (args[i].GetType() == typeof(string))
-                    Marshal.WriteInt64((IntPtr)(0x220010 + 8 * i), (long)(0x8000000000000000 | stringTable.AddString((string)args[i])));
+                {
+                    var addr = (long)(0x8000000000000000 | stringTable.AddString((string)args[i]));
+                    Marshal.WriteInt64(outputDataAddress + 0x10 + 8 * i, addr);
+                }
                 else
-                    throw new Exception("Unsupported parameter type");
+                {
+                    throw new ArgumentException("Unsupported parameter type");
+                }
             }
 
             if (runFromProcessMemory)
@@ -172,14 +221,16 @@ namespace Hyperlight
             }
             else
             {
-                hyperVisor!.DispactchCallFromHost(pDispatchFunction);
+                hyperVisor!.DispatchCallFromHost(pDispatchFunction);
             }
 
-            return Marshal.ReadInt32((IntPtr)0x220000);
+            return Marshal.ReadInt32(outputDataAddress);
         }
 
         void LoadGuestBinary()
         {
+            var peInfo = guestPEInfo.GetOrAdd(guestBinaryPath, (guestBinaryPath) => GetPEInfo(guestBinaryPath, (ulong)codeAddress));
+
             if (runFromGuestBinary)
             {
                 if (!IsWindows)
@@ -188,47 +239,62 @@ namespace Hyperlight
                     throw new NotImplementedException("RunFromBinary is only supported on Windows");
                 }
 
-                loadAddress = OS.LoadLibrary(guestBinaryPath);
-                if (loadAddress != (IntPtr)0x230000)
+                // LoadLibrary does not support multple independent instances of a binary beng loaded 
+                // so we cannot support multiple instances using loadlibrary
+
+                if (Interlocked.CompareExchange(ref isRunningFromGuestBinary, IS_RUNNING_FROM_GUEST_BINARY, 0) == 0)
                 {
-                    throw new Exception("Wrong base address");
+                    didRunFromGuestBinary = true;
+                }
+                else
+                {
+                    throw new ApplicationException("Only one instance of Sandbox is allowed when running from guest binary");
                 }
 
-                // Mark first byte as '0' so we know we are running in hyperlight VM and not as real windows exe
+                loadAddress = OS.LoadLibrary(guestBinaryPath);
+
+                // Mark first byte as 'J' so we know we are running in hyperlight VM and not as real windows exe
+                // TODO: protect memory again after modification
                 OS.VirtualProtect(loadAddress, (UIntPtr)(1024 * 4), OS.MemoryProtection.EXECUTE_READWRITE, out _);
                 Marshal.WriteByte(loadAddress, (byte)'J');
-                var e_lfanew = Marshal.ReadInt32((IntPtr)0x230000 + 0x3C);
-                var entryPointFileOffset = (uint)Marshal.ReadInt32((IntPtr)0x230000 + e_lfanew + 0x28);
-                entryPoint += 0x230000 + entryPointFileOffset; // Currently entryPoint points to the VA of the start of the file
+                var e_lfanew = Marshal.ReadInt32(loadAddress + 0x3C);
 
-                // Allocate only the first 0x30000 bytes - After that is the EXE
-                sourceAddress = OS.VirtualAlloc((IntPtr)0x200000/*IntPtr.Zero*/, (IntPtr)0x30000, OS.AllocationType.Commit | OS.AllocationType.Reserve, OS.MemoryProtection.EXECUTE_READWRITE);
+                entryPoint += (ulong)loadAddress + peInfo.EntryPointOffset; // Currently entryPoint points to the VA of the start of the file
+
+                // Allocate 0x30001 for IO the additonal byte at the end is where the code would be loaded if we were running InProcess or under HyperVisor
+                // The Guest will check this byte to see if it is null, if so it has been run from LoadLibrary and it will locate the code 
+                // by looking at the address at pCodeOffset it then checks to ensure the code header is correct so it knows it is running in Hyperlight
+                // Allows the guest to find the code if we are debugging 
+                sourceAddress = OS.Allocate((IntPtr)0, (ulong)codeOffset + 1);
+
                 if (IntPtr.Zero == sourceAddress)
                 {
-                    throw new Exception("VirtualAlloc failed");
+                    throw new ApplicationException("VirtualAlloc failed");
                 }
 
+                // Write a pointer to code so that guest exe can check that it is running in Hyperlight
+
+                Marshal.WriteInt64(sourceAddress + pCodeOffset, (long)loadAddress);
             }
             else
             {
-                var payload =  GuestBinaries.GetOrAdd(guestBinaryPath, (guestBinaryPath) =>
-                {
-                    // TODO: store the entrypointOffset with the binary
-                    return  File.ReadAllBytes(guestBinaryPath);
-                });
 
-                // Load the binary into memory
-                entryPoint = 0x230000;
-                if ((payload[0] == (byte)'M' || payload[0] == (byte)'J') && payload[1] == (byte)'Z')
+                sourceAddress = OS.Allocate((IntPtr)0, size);
+
+                // If we are running in memory the entry point will be relative to the sourceAddress if we are running in a Hypervisor it will be relative to 0x230000 which is where the code is loaded in the GP
+                if (runFromProcessMemory)
                 {
-                    payload[0] = (byte)'J'; // Mark first byte as '0' so we know we are running in hyperlight VM and not as real windows exe
-                    var e_lfanew = BitConverter.ToInt32(payload, 0x3C);
-                    var entryPointFileOffset = (uint)BitConverter.ToInt32(payload, e_lfanew + 0x28);
-                    entryPoint += entryPointFileOffset; // Currently entryPoint points to the VA of the start of the file
+                    entryPoint = (ulong)sourceAddress + (ulong)codeOffset + peInfo.EntryPointOffset;
+                    Marshal.Copy(peInfo.Payload, 0, sourceAddress + codeOffset, peInfo.Payload.Length);
+
+                    // When loading in memory we need to fix up the relocations in the exe to reflect the address the exe was loaded at.
+                    peInfo.PatchExeRelocations((ulong)sourceAddress + (ulong)codeOffset);
                 }
-
-                sourceAddress = OS.Allocate((IntPtr)0x200000, size);
-                Marshal.Copy(payload, 0, sourceAddress + 0x30000, payload.Length);
+                else
+                {
+                    entryPoint = (ulong)codeAddress + peInfo.EntryPointOffset;
+                    Marshal.Copy(peInfo.HyperVisorPayload, 0, sourceAddress + codeOffset, peInfo.Payload.Length);
+                }
             }
         }
 
@@ -242,7 +308,7 @@ namespace Hyperlight
                     // TODO: Add support for void return types
                     if (mi.ReturnType != typeof(int))
                     {
-                        throw new Exception("Only int return types are supported");
+                        throw new ArgumentException("Only int return types are supported");
                     }
 
                     var parameterSignature = "";
@@ -253,7 +319,7 @@ namespace Hyperlight
                         else if (pi.ParameterType == typeof(string))
                             parameterSignature += "$";
                         else
-                            throw new Exception("Only int and string parameters are supported");
+                            throw new ArgumentException("Only int and string parameters are supported");
                     }
 
                     peb.AddFunction(mi.Name, $"({parameterSignature})i", 0);
@@ -264,7 +330,7 @@ namespace Hyperlight
 
         public void SetUpHyperVisorPartition()
         {
-            rsp = size + 0x200000; // Add 0x200000 because that's the start of mapped memory
+            rsp = size + (ulong)BaseAddress; // Add 0x200000 because that's the start of mapped memory
 
             // For MSVC, move rsp down by 0x28.  This gives the called 'main' function the appearance that rsp was
             // was 16 byte aligned before the 'call' that calls main (note we don't really have a return value on the
@@ -276,24 +342,22 @@ namespace Hyperlight
             rsp -= 0x28;
 
             // Create pagetable
-            var pml4_addr = 0x201000;
-            var pdpt_addr = 0x202000;
-            var pd_addr = 0x203000;
-            var pml4 = IntPtr.Add(sourceAddress, pml4_addr - 0x200000);
-            var pdpt = IntPtr.Add(sourceAddress, pdpt_addr - 0x200000);
-            var pd = IntPtr.Add(sourceAddress, pd_addr - 0x200000);
+
+            var pml4 = IntPtr.Add(sourceAddress, pml4_addr - (int)BaseAddress);
+            var pdpt = IntPtr.Add(sourceAddress, pdpt_addr - (int)BaseAddress);
+            var pd = IntPtr.Add(sourceAddress, pd_addr - (int)BaseAddress);
 
             Marshal.WriteInt64(pml4, 0, (long)(X64.PDE64_PRESENT | X64.PDE64_RW | X64.PDE64_USER | (ulong)pdpt_addr));
             Marshal.WriteInt64(pdpt, 0, (long)(X64.PDE64_PRESENT | X64.PDE64_RW | X64.PDE64_USER | (ulong)pd_addr));
 
-            for (var i = 0 /*We do not map first 2 megs*/; i < 512; i++)
+            for (var i = 0/*We do not map first 2 megs*/; i < 512; i++)
             {
                 Marshal.WriteInt64(IntPtr.Add(pd, i * 8), ((i /*We map each VA to physical memory 2 megs lower*/) << 21) + (long)(X64.PDE64_PRESENT | X64.PDE64_RW | X64.PDE64_USER | X64.PDE64_PS));
             }
 
             if (IsLinux)
             {
-                hyperVisor = new KVM(pml4_addr, size, entryPoint, rsp, HandleOutb);
+                hyperVisor = new KVM(sourceAddress, pml4_addr, size, entryPoint, rsp, HandleOutb);
             }
             else if (IsWindows)
             {
@@ -312,7 +376,7 @@ namespace Hyperlight
 
             if (countRunCalls > 0 && !recycleAfterRun)
             {
-                throw new Exception("You must set option RecycleAfterRun when creating the Sandbox if you need to call Run more than once");
+                throw new ArgumentException("You must set option RecycleAfterRun when creating the Sandbox if you need to call Run more than once");
             }
 
             if (recycleAfterRun)
@@ -322,19 +386,47 @@ namespace Hyperlight
 
             if (workloadBytes != null && workloadBytes.Length > 0)
             {
-                Marshal.Copy(workloadBytes, 0, sourceAddress + 0x10000, workloadBytes.Length);
+                Marshal.Copy(workloadBytes, 0, sourceAddress + inputDataOffset, workloadBytes.Length);
             }
 
             if (runFromProcessMemory)
             {
-                var callMain = Marshal.GetDelegateForFunctionPointer<CallMain>((IntPtr)entryPoint);
                 if (IsLinux)
                 {
-                    Marshal.WriteInt64((IntPtr)0x210000 - 16, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Linux>((_, _, value, port) => HandleOutb(port, value)));
+                    // This code is unstable, it causes segmetation faults so for now we are throwing an exception if we try to run in process in Linux
+                    // I think this is due to the fact that the guest binary is built for windows
+                    // x64 compilation for windows uses fastcall which is different on windows and linux
+                    // dotnet will default to the calling convention for the platform that the code is running on
+                    // so we need to set the calling convention to the one that the guest binary is built for (windows x64 https://docs.microsoft.com/en-us/cpp/build/x64-calling-convention?view=msvc-170)
+                    // on linux however, this isn't possible (https://docs.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.callingconvention?view=net-6.0 )
+                    // Alternatives:
+                    // 1. we need to build the binary for windows and linux and then run the correct version for the platform that we are running on
+                    // 2. alter the calling convention of the guest binary and then tell dotnet to use that calling convention
+                    // the only option for this seems to be vectorcall https://docs.microsoft.com/en-us/cpp/cpp/vectorcall?view=msvc-170 (cdecl and stdcall are not possible using CL on x64 platform))    
+                    // vectorcall is not supported by dotnet  (https://github.com/dotnet/runtime/issues/8300) 
+                    // 3. write our own code to correct the calling convention
+                    // 4. write epilog/prolog code in the guest binary.     
+                    // also see https://www.agner.org/optimize/calling_conventions.pdf
+                    // and https://eli.thegreenplace.net/2011/09/06/stack-frame-layout-on-x86-64/
+                    // 
+
+                    throw new NotSupportedException("Cannot run in process on Linux");
+
+                    Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Linux>((_, _, value, port) => HandleOutb(port, value)));
+                    unsafe
+                    {
+                        callEntryPointLinux = (delegate* unmanaged<int, int, int, IntPtr, long>)entryPoint;
+                        returnValue = callEntryPointLinux(argument1, argument2, argument3, sourceAddress);
+                    }
                 }
                 else if (IsWindows)
                 {
-                    Marshal.WriteInt64((IntPtr)0x210000 - 16, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Windows>((port, value) => HandleOutb(port, value)));
+                    Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Windows>((port, value) => HandleOutb(port, value)));
+                    unsafe
+                    {
+                        callEntryPointWindows = (delegate* unmanaged<IntPtr, int, int, int, long>)entryPoint;
+                        returnValue = callEntryPointWindows(sourceAddress, argument1, argument2, argument3);
+                    }
                 }
                 else
                 {
@@ -342,38 +434,47 @@ namespace Hyperlight
                     throw new NotSupportedException();
                 }
 
-                returnValue = callMain(argument1, argument2, argument3);
-
             }
             else
             {
-                // We do not currently look at returnValue - It will be stored at 0x220000
+                // We do not currently look at returnValue - It will be stored at sourceAddress + outputDataOffset
                 hyperVisor!.Run(argument1, argument2, argument3);
             }
             countRunCalls++;
 
-            return ((uint)Marshal.ReadInt32(sourceAddress + 0x20000), Marshal.PtrToStringAnsi(sourceAddress + 0x20010), Marshal.ReadInt64(sourceAddress + 0x20008));
+            return ((uint)Marshal.ReadInt32(sourceAddress + outputDataOffset), Marshal.PtrToStringAnsi(sourceAddress + outputDataOffset + 0x10), Marshal.ReadInt64(sourceAddress + outputDataOffset + 0x8));
         }
+
+
+        //TODO: throwing exceptions here does not work as this function is invoked from native code
+        //need to figure out how to return errors and log issues instead
 
         internal void HandleOutb(ushort port, byte _)
         {
+            // Offset contains the adjustment that needs to be made to addresses when running in Hypervisor so that the address reflects the host or guest address correctly
+            ulong offset = 0;
+            if (!runFromGuestBinary && !runFromProcessMemory)
+            {
+                offset = (ulong)sourceAddress - (ulong)BaseAddress;
+            }
             switch (port)
             {
 
                 case 101: // call Function
                     {
-                        var strPtr = Marshal.ReadInt64((IntPtr)0x220000);
-                        var functionName = Marshal.PtrToStringAnsi((IntPtr)strPtr);
+                        var outputDataAddress = sourceAddress + outputDataOffset;
+                        var strPtr = Marshal.ReadInt64((IntPtr)outputDataAddress);
+                        var functionName = Marshal.PtrToStringAnsi((IntPtr)((ulong)strPtr + offset));
                         if (string.IsNullOrEmpty(functionName))
                         {
-                            throw new Exception("Function name is null or empty");
+                            throw new ArgumentNullException("Function name is null or empty");
                         }
 
                         if (guestInterfaceGlue != null)
                         {
                             if (!guestInterfaceGlue.mapHostFunctionNamesToMethodInfo.ContainsKey(functionName))
                             {
-                                throw new Exception($"Could not find host function name {functionName}");
+                                throw new ArgumentNullException($"Could not find host function name {functionName}");
                             }
                             var mi = guestInterfaceGlue.mapHostFunctionNamesToMethodInfo[functionName];
                             var parameters = mi.GetParameters();
@@ -382,52 +483,59 @@ namespace Hyperlight
                             {
                                 if (parameters[i].ParameterType == typeof(int))
                                 {
-                                    args[i] = Marshal.ReadInt32((IntPtr)(0x220008 + 8 * i));
+                                    args[i] = Marshal.ReadInt32(outputDataAddress + 8 * (i + 1));
                                 }
                                 else if (parameters[i].ParameterType == typeof(string))
                                 {
-                                    args[i] = Marshal.PtrToStringAnsi(Marshal.ReadIntPtr((IntPtr)(0x220008 + 8 * i)));
+                                    strPtr = Marshal.ReadInt64(outputDataAddress + 8 * (i + 1));
+                                    args[i] = Marshal.PtrToStringAnsi((IntPtr)((ulong)strPtr + offset));
                                 }
                                 else
                                 {
-                                    throw new Exception("Unsupported parameter type");
+                                    throw new ArgumentException("Unsupported parameter type");
                                 }
                             }
                             var returnFromHost = (int)guestInterfaceGlue.DispatchCallFromGuest(functionName, args);
-                            Marshal.WriteInt32((IntPtr)0x210000, returnFromHost);
+                            Marshal.WriteInt32(sourceAddress + inputDataOffset, returnFromHost);
                         }
                         else
                         {
-                            throw new Exception($"Could not find host function name {functionName}. GuestInterfaceGlue is null");
+                            throw new ArgumentNullException($"Could not find host function name {functionName}. GuestInterfaceGlue is null");
                         }
                         break;
                     }
                 case 100: // Write with no carriage return
                     {
-                        // Read string from 0x220000;
-                        var str = Marshal.PtrToStringAnsi(sourceAddress + 0x20000);
-                        var oldColor = Console.ForegroundColor;
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.Write(str);
-                        Console.ForegroundColor = oldColor;
+                        // Read string from 0x20000 offset into virtual memory;
+                        var str = Marshal.PtrToStringAnsi(sourceAddress + outputDataOffset);
+                        if (this.writer != null)
+                        {
+                            writer.Write(str);
+                        }
+                        else
+                        {
+                            var oldColor = Console.ForegroundColor;
+                            Console.ForegroundColor = ConsoleColor.Green;
+                            Console.Write(str);
+                            Console.ForegroundColor = oldColor;
+                        }
                         break;
                     }
                 case 99: // Write with carriage return
                     {
-                        // Read string from 0x220000;
-                        var str = Marshal.PtrToStringAnsi(sourceAddress + 0x20000);
-                        var oldColor = Console.ForegroundColor;
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine(str);
-                        Console.ForegroundColor = oldColor;
-                        break;
-                    }
-                case 98:
-                    {
-                        var a = Marshal.ReadInt32(sourceAddress + 0x20000);
-                        var b = Marshal.ReadInt32(sourceAddress + 0x20004);
-                        var digits = a.ToString().Length + b.ToString().Length;
-                        Marshal.WriteInt32(sourceAddress + 0x20000, digits);
+                        // Read string from 0x20000 offset into virtual memory;
+                        var str = Marshal.PtrToStringAnsi(sourceAddress + outputDataOffset);
+                        if (this.writer != null)
+                        {
+                            writer.WriteLine(str);
+                        }
+                        else
+                        {
+                            var oldColor = Console.ForegroundColor;
+                            Console.ForegroundColor = ConsoleColor.Green;
+                            Console.WriteLine(str);
+                            Console.ForegroundColor = oldColor;
+                        }
                         break;
                     }
             }
@@ -446,17 +554,36 @@ namespace Hyperlight
             return false;
         }
 
+        static PEInfo GetPEInfo(string fileName, ulong hyperVisorCodeAddress)
+        {
+            lock (peInfoLock)
+            {
+                if (guestPEInfo.ContainsKey(fileName))
+                {
+                    return guestPEInfo[fileName];
+                }
+                return new PEInfo(fileName, hyperVisorCodeAddress);
+            }
+        }
+
         protected virtual void Dispose(bool disposing)
         {
             if (!disposedValue)
             {
                 if (disposing)
                 {
+                    if (didRunFromGuestBinary)
+                    {
+                        Interlocked.Decrement(ref isRunningFromGuestBinary);
+                    }
+
                     hyperVisor?.Dispose();
+
                 }
 
                 if (IntPtr.Zero != sourceAddress)
                 {
+                    // TODO: check if this should take account of space used by loadlibrary.
                     OS.Free(sourceAddress, size);
                 }
 

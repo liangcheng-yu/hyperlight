@@ -1,6 +1,8 @@
 # TODO: When Github Actions allows Reusable Workflows with strategies then move build test to a reuasble workflow.
 # https://docs.github.com/en/actions/using-workflows/reusing-workflows#limitations
 
+# TODO: Add tests for linux before publish
+
 name: Push to main
 
 on:
@@ -17,10 +19,12 @@ jobs:
     - uses: actions/checkout@v2
       with:
         fetch-depth: 0
-    - name: Setup .NET 5.0
+    - name: Setup dotnet
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: 5.0.x
+        dotnet-version: | 
+          5.0.x
+          6.0.x 
     - name: Restore
       run: dotnet restore
       shell: pwsh

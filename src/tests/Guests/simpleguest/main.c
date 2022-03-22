@@ -3,8 +3,9 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <string.h>
+#include "hyperlight_peb.h"
 
-
+HyperlightPEB* pPeb;
 bool runningHyperlight = true;
 bool runningAsExe = false;
 void (*outb_ptr)(uint16_t port, uint8_t value) = NULL;
@@ -68,7 +69,7 @@ int printOutput(const char *format, ...)
         char* buffer = (char*)_alloca(BUFFER_SIZE);
         vsprintf_s(buffer, BUFFER_SIZE, format, args);
         result = strlen(buffer);
-        strcpy_s((char *)0x220000, BUFFER_SIZE, buffer);
+        strcpy_s((char*)&pPeb->output, BUFFER_SIZE, buffer);
         outb(100, 0);
     }
     va_end(args);
@@ -86,10 +87,11 @@ int main(int argc, char *argv[])
     return printOutput("Hello, World!!\n");
 }
 
-long entryPoint()
+long entryPoint(uint64_t pebAddress, int a, int b, int c)
 {
+    pPeb = (HyperlightPEB*)pebAddress;
     int result = 0;
-    if (*((const char *)0x230000) == 'M')
+    if (NULL == pPeb)
     {
         // We were run as a normal EXE
         runningHyperlight = false;
@@ -98,13 +100,28 @@ long entryPoint()
     }
     else
     {
+        if (NULL != *((const char*)&pPeb->code))
+        {
+            if (*((const char*)&pPeb->code) != 'J')
+            {
+                return -1;
+            }
+        }
+        else
+        {
+            if (*((const char**)&pPeb->pCode)[0] != 'J')
+            {
+                return -1;
+            }
+        }
+
         // TODO: Populate the args.
 
         int argc = 0;
         char **argv = NULL;
 
         // Either in WHP partition (hyperlight) or in memory.  If in memory, outb_ptr will be non-NULL
-        outb_ptr = *(void **)(0x210000 - 16);
+        outb_ptr = *(void**)pPeb->pOutb;
         if (outb_ptr)
             runningHyperlight = false;
         result = main(argc, argv);
@@ -114,7 +131,7 @@ long entryPoint()
     if (!runningAsExe)
     {
         // Setup return values
-        *(uint32_t *)0x220000 = result;
+        *(uint32_t*)&pPeb->output = result;
         halt(); // This is a nop if we are running as an EXE or if we were just loaded into memory
     }
 

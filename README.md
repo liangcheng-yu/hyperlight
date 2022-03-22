@@ -26,31 +26,45 @@ Note: You can also run the linux version using WSL2 on Windows. At present their
 
 The code for the NativeHost application is available [here](https://github.com/deislabs/hyperlight/blob/main/src/examples/NativeHost/Program.cs).
 
-If you dont have Windows Hypervisor Platform enabled or KVM installed then the example application will only run in 'in process' mode, this mode is provided for development purposes and is not intended to be used in production. If you want to see the example running code in a Hypervisor partition then you will need to either install [Windows Hypervisor Platform](https://devblogs.microsoft.com/visualstudio/hyper-v-android-emulator-support/#1-enable-hyper-v-and-the-windows-hypervisor-platform) or [KVM](https://help.ubuntu.com/community/KVM/Installation).
+If you dont have Windows Hypervisor Platform enabled or KVM installed then the example application will only run in 'in process' mode, this mode is provided for development purposes and is not intended to be used in production. If you want to see the example running code in a Hypervisor partition then you will need to either install [Windows Hypervisor Platform](https://devblogs.microsoft.com/visualstudio/hyper-v-android-emulator-support/#1-enable-hyper-v-and-the-windows-hypervisor-platform) or [KVM](https://help.ubuntu.com/community/KVM/Installation). NOTE - To enable WHP on Windows Server you need to enable the Windows Hypervisor Platform feature using PowerShell `Enable-WindowsOptionalFeature -Online -FeatureName HyperVisorPlatform`.
 
 ## Building and testing Hyperlight
 
-Currently the complete solution including tests and examples will only build on Windows with Visual Studio 2019 (or later) or the Visual Studio 2019 (or later) Build Tools along with dotnet 5.0 as the test and example projects are dependent upon a couple of projects that need to be compiled with the Microsoft Visual C compiler. 
+Currently the complete solution including tests and examples will only build on Windows with Visual Studio 2019 (or later) or the Visual Studio 2022 Build Tools along with dotnet 5.0 and dotnet 6.0, this is becasue the test and example projects are dependent upon a couple of projects that currently need to be compiled with the Microsoft Visual C compiler. 
 
 If you do not have these tools and wish to install them you can find Visual Studio 2019 (https://visualstudio.microsoft.com/downloads/) and the build tools [here](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022).
 
 To use Visual Studio clone the repo and run the following command and open the Hyperlight.sln file. 
 
-You can also use Visual Studio code, to do this make sure that you start Visual Studio Code from a [Visual Studio Command Prompt](https://docs.microsoft.com/en-us/visualstudio/ide/reference/command-prompt-powershell?view=vs-2019) and then open the folder that you cloned the repo to.
+You can also use Visual Studio code, to do this make sure that you start Visual Studio Code from a [Visual Studio Command Prompt](https://docs.microsoft.com/en-us/visualstudio/ide/reference/command-prompt-powershell?view=vs-2022) and then open the folder that you cloned the repo to.
 
 If you want to build/test Hyperlight without installing Visual Studio or the Visual Studio buld tools or on Linux then you can do this by following the instructions below.
 
 ### Building and Hyperlight using only dotnet on Linux or Windows
 
-Hyperlight will build using the `dotnet build` command on any machine that has the [dotnet 5.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/5.0) installed:
+Hyperlight will build using the `dotnet build` command on any machine that has the [dotnet 5.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/5.0) and/or [dotnet 6.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/5.0) installed:
 
 ```console
 git clone git@github.com:deislabs/hyperlight.git
 cd src/Hyperlight
+```
+
+To build for dotnet 5.0:
+```
+dotnet build -f net5.0
+```
+
+To build for dotnet 6.0:
+```
+dotnet build -f net6.0
+```
+
+To build for both:
+```
 dotnet build
 ```
 
-To run the tests and examples you will need to download the simpleguest.exe and callbackguest.exe applications from here
+To run the tests and examples you will need to download the simpleguest.exe and callbackguest.exe applications from [here] (https://github.com/deislabs/hyperlight/releases).
 
 ### Running tests
 

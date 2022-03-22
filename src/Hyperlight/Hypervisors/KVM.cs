@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using Hyperlight.Native;
 
-namespace Hyperlight.HyperVisors
+namespace Hyperlight.Hypervisors
 {
     internal class KVM : Hypervisor, IDisposable
     {
@@ -10,7 +10,7 @@ namespace Hyperlight.HyperVisors
         readonly IntPtr pRun = IntPtr.Zero;
         readonly int vcpufd = -1;
         readonly int vmfd = -1;
-        internal KVM(int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb) : base(entryPoint, rsp, outb)
+        internal KVM(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb) : base(sourceAddress, entryPoint, rsp, outb)
         {
             if (!LinuxKVM.IsHypervisorPresent())
             {
@@ -28,7 +28,7 @@ namespace Hyperlight.HyperVisors
                 throw new Exception("KVM_CREATE_VM returned -1");
             }
 
-            var region = new LinuxKVM.KVM_USERSPACE_MEMORY_REGION() { slot = 0, guest_phys_addr = 0x200000, memory_size = size, userspace_addr = (ulong)0x200000 };
+            var region = new LinuxKVM.KVM_USERSPACE_MEMORY_REGION() { slot = 0, guest_phys_addr = (ulong)Sandbox.BaseAddress, memory_size = size, userspace_addr = (ulong)sourceAddress };
             // TODO: Handle error
             _ = LinuxKVM.ioctl(vmfd, LinuxKVM.KVM_SET_USER_MEMORY_REGION, ref region);
             vcpufd = LinuxKVM.ioctl(vmfd, LinuxKVM.KVM_CREATE_VCPU, 0);
@@ -71,7 +71,7 @@ namespace Hyperlight.HyperVisors
         }
         private bool disposedValue;
 
-        internal override void DispactchCallFromHost(ulong pDispatchFunction)
+        internal override void DispatchCallFromHost(ulong pDispatchFunction)
         {
             // Move rip to the DispatchFunction pointer
             var regs = new LinuxKVM.KVM_REGS();
@@ -121,9 +121,10 @@ namespace Hyperlight.HyperVisors
             {
                 rip = EntryPoint,
                 rsp = rsp,
-                rcx = (ulong)argument1,
-                rdx = (ulong)argument2,
-                r8 = (ulong)argument3,
+                rcx = (ulong)Sandbox.BaseAddress,
+                rdx = (ulong)argument1,
+                r8 = (ulong)argument2,
+                r9 = (ulong)argument3,
                 rflags = 0x0002,
             };
             // TODO: Handle error

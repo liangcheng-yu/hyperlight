@@ -42,7 +42,7 @@ namespace Hyperlight
                 throw new Exception("Not enough memory for header structures");
             }
 
-            var stringTable = new SimpleStringTable(IntPtr.Add(ptr, totalHeaderSize), length - totalHeaderSize);
+            var stringTable = new SimpleStringTable(IntPtr.Add(ptr, totalHeaderSize), length - totalHeaderSize, 0);
 
             Marshal.StructureToPtr(header, ptr, false);
             ptr += headerSize;

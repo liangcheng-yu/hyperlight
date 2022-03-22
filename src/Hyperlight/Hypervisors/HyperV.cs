@@ -1,26 +1,34 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Hyperlight.Native;
+using Microsoft.Win32.SafeHandles;
 
-namespace Hyperlight.HyperVisors
+namespace Hyperlight.Hypervisors
 {
     internal class HyperV : Hypervisor, IDisposable
     {
-        private bool disposedValue;
+        readonly HyperVSurrogateProcessManager processManager = HyperVSurrogateProcessManager.Instance;
+        readonly SurrogateProcess surrogateProcess;
+        bool disposedValue;
         readonly IntPtr hPartition = IntPtr.Zero;
         readonly WindowsHypervisorPlatform.WHV_REGISTER_NAME[] registerNames;
         readonly WindowsHypervisorPlatform.MyUInt128[] registerValues;
         readonly WindowsHypervisorPlatform.WHV_REGISTER_NAME[] ripName = new WindowsHypervisorPlatform.WHV_REGISTER_NAME[] { WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRip };
         readonly WindowsHypervisorPlatform.MyUInt128[] ripValue = new WindowsHypervisorPlatform.MyUInt128[1];
         readonly bool virtualProcessorCreated;
+        readonly ulong size;
 
-        internal HyperV(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb) : base(entryPoint, rsp, outb)
+        internal HyperV(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb) : base(sourceAddress, entryPoint, rsp, outb)
         {
+            this.size = size;
             WindowsHypervisorPlatform.WHvCreatePartition(out hPartition);
             WindowsHypervisorPlatform.SetProcessorCount(hPartition, 1);
             WindowsHypervisorPlatform.WHvSetupPartition(hPartition);
-            WindowsHypervisorPlatform.WHvMapGpaRange(hPartition, sourceAddress, (IntPtr)0x200000/*IntPtr.Zero*/, size, WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagRead | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagWrite | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagExecute);
+            surrogateProcess = processManager.GetProcess((IntPtr)size, sourceAddress);
+            var hProcess = surrogateProcess.safeProcessHandle.DangerousGetHandle();
+            WindowsHypervisorPlatform.WHvMapGpaRange2(hPartition, hProcess, sourceAddress, (IntPtr)Sandbox.BaseAddress, size, WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagRead | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagWrite | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagExecute);
             WindowsHypervisorPlatform.WHvCreateVirtualProcessor(hPartition, 0, 0);
             virtualProcessorCreated = true;
 
@@ -52,6 +60,7 @@ namespace Hyperlight.HyperVisors
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRcx, 1, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRdx, 1, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterR8, 1, 0);
+            AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterR9, 1, 0);
 
             // Here is the GCC way
             //AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRdi, 1, 0);
@@ -62,7 +71,7 @@ namespace Hyperlight.HyperVisors
             registerValues = registerValuesList.ToArray();
         }
 
-        internal override void DispactchCallFromHost(ulong pDispatchFunction)
+        internal override void DispatchCallFromHost(ulong pDispatchFunction)
         {
             // Move rip to the DispatchFunction pointer
             ripValue[0].low = pDispatchFunction;
@@ -75,7 +84,31 @@ namespace Hyperlight.HyperVisors
             WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_CONTEXT exitContext;
             do
             {
+                // TODO optimise this
+                // the following write to and read from process memory is required as we need to use
+                // surrogate processes to allow more than one WHP Partition per process
+                // see HyperVSurrogateProcessManager
+                // this needs updating so that 
+                // 1. it only writes to memory that changes between usage
+                // 2. memory is allocated in the process once and then only freed and reallocated if the 
+                // memory needs to grow.
+                if (!OS.WriteProcessMemory(surrogateProcess.safeProcessHandle.DangerousGetHandle(), surrogateProcess.sourceAddress, sourceAddress, (IntPtr)size, out IntPtr written))
+                {
+                    int error = Marshal.GetLastWin32Error();
+                    if (error != 0)
+                    {
+                        throw new ApplicationException($"WriteProcessMemory Error: {error}");
+                    }
+                }
                 WindowsHypervisorPlatform.WHvRunVirtualProcessor(hPartition, 0, out exitContext, (uint)Marshal.SizeOf<WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_CONTEXT>());
+                if (!OS.ReadProcessMemory(surrogateProcess.safeProcessHandle.DangerousGetHandle(), surrogateProcess.sourceAddress, sourceAddress, (IntPtr)size, out IntPtr read))
+                {
+                    int error = Marshal.GetLastWin32Error();
+                    if (error != 0)
+                    {
+                        throw new ApplicationException($"WriteProcessMemory Error: {error}");
+                    }
+                }
 
                 if (exitContext.ExitReason == WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_REASON.WHvRunVpExitReasonX64IoPortAccess)
                 {
@@ -87,11 +120,11 @@ namespace Hyperlight.HyperVisors
                 }
                 else if (exitContext.ExitReason != WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_REASON.WHvRunVpExitReasonX64Halt)
                 {
-                    Console.WriteLine($"{exitContext.VpContext.Rip:X16}");
                     var v2 = new WindowsHypervisorPlatform.MyUInt128[registerNames.Length];
                     WindowsHypervisorPlatform.WHvGetVirtualProcessorRegisters(hPartition, 0, registerNames, (uint)registerNames.Length, v2);
                     for (var i = 0; i < v2.Length; i++)
                     {
+                        //TODO: put this in an exception.
                         Console.WriteLine($"{registerNames[i]} - {v2[i].low:X16}");
                     }
                     throw new Exception($"Did not recieve a halt as expected - Received {exitContext.ExitReason}");
@@ -102,6 +135,7 @@ namespace Hyperlight.HyperVisors
         internal override void Run(int argument1, int argument2, int argument3)
         {
             {
+                registerValues[^4].low = (ulong)Sandbox.BaseAddress;
                 registerValues[^3].low = (ulong)argument1;
                 registerValues[^2].low = (ulong)argument2;
                 registerValues[^1].low = (ulong)argument3;
@@ -118,7 +152,7 @@ namespace Hyperlight.HyperVisors
             {
                 if (disposing)
                 {
-                    // TODO: dispose managed state (managed objects)
+                    processManager.ReturnProcess(surrogateProcess);
                 }
 
                 if (virtualProcessorCreated)

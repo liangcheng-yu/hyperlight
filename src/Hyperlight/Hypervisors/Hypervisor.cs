@@ -1,21 +1,23 @@
 using System;
 
-namespace Hyperlight.HyperVisors
+namespace Hyperlight.Hypervisors
 {
     abstract class Hypervisor : IDisposable
     {
         protected readonly ulong EntryPoint;
         protected ulong rsp;
         protected Action<ushort, byte> handleoutb;
+        protected IntPtr sourceAddress;
 
-        internal Hypervisor(ulong entryPoint, ulong rsp, Action<ushort, byte> outb)
+        internal Hypervisor(IntPtr sourceAddress, ulong entryPoint, ulong rsp, Action<ushort, byte> outb)
         {
             this.handleoutb = outb;
             this.EntryPoint = entryPoint;
             this.rsp = rsp;
+            this.sourceAddress = sourceAddress;
         }
 
-        internal abstract void DispactchCallFromHost(ulong pDispatchFunction);
+        internal abstract void DispatchCallFromHost(ulong pDispatchFunction);
         internal abstract void ExecuteUntilHalt();
         internal abstract void Run(int argument1, int argument2, int argument3);
         internal void HandleOutb(ushort port, byte value)

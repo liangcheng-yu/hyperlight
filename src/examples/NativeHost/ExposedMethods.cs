@@ -1,6 +1,4 @@
 using System;
-using System.IO;
-using System.Runtime.InteropServices;
 using Hyperlight;
 
 namespace NativeHost
@@ -13,10 +11,10 @@ namespace NativeHost
         // The Attribute can be used on individual members to give fine grained control.
         // A delegate is used to allow the host to invoke a method in the guest.
         [ExposeToGuest(true)]
-        public static Func<string, int>? GuestMethod = null;
+        public Func<string, int>? GuestMethod = null;
 
         [ExposeToGuest(true)]
-        public static int HostMethod(string msg)
+        public int HostMethod(string msg)
         {
             return GuestMethod!($"Host Received: {msg} from Guest");
         }

@@ -3,11 +3,13 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <string.h>
-#include "include/hyperlight_peb.h"
+#include "hyperlight_peb.h"
 
 bool runningHyperlight = true;
 bool runningAsExe = false;
 int BUFFER_SIZE = 256;
+
+HyperlightPEB* pPeb;
 
 void (*outb_ptr)(uint16_t port, uint8_t value) = NULL;
 typedef int (*guestFunc)(char *);
@@ -64,7 +66,7 @@ int printOutput(const char *format, ...)
         char *buffer = (char *)_alloca(BUFFER_SIZE);
         vsprintf_s(buffer, BUFFER_SIZE, format, args);
         result = strlen(buffer);
-        strcpy_s((char *)0x220000, BUFFER_SIZE, buffer);
+        strcpy_s((char *)&pPeb->output, BUFFER_SIZE, buffer);
         outb(100, 0);
     }
     va_end(args);
@@ -100,12 +102,14 @@ halt()
 
 void DispatchFunction()
 {
+
+    GuestFunctionCall *funcCall = &pPeb->output;
     // TODO: How to return error details?
-    char *functionName = *(char **)0x220000;
-    if (NULL == functionName)
+    
+    if (NULL == funcCall->FunctionName)
     {
         printOutput("No function name found in DispatchFunction.\n");
-        *(uint32_t *)0x220000 = -1;
+        *(uint32_t *)&pPeb->output = -1;
         return;
     }
 
@@ -113,7 +117,7 @@ void DispatchFunction()
 
     for (uint32_t i = 0; funcTable[i].pFuncName != NULL; i++)
     {
-        if (strcmp(functionName, funcTable[i].pFuncName) == 0)
+        if (strcmp(funcCall->FunctionName, funcTable[i].pFuncName) == 0)
         {
             pFunc = funcTable[i].pFunc;
             break;
@@ -122,41 +126,43 @@ void DispatchFunction()
 
     if (NULL == pFunc)
     {
-        printOutput("Function %s not found in FunctionTable.\n", functionName);
-        *(uint32_t *)0x220000 = -1;
+        printOutput("Function %s not found in FunctionTable.\n", funcCall->FunctionName);
+        *(uint32_t *)&pPeb->output = -1;
         return;
     }
-   
-    uint32_t cParams = *(uint32_t *)0x220008;
 
-    if (cParams == 0)
+    if (funcCall->argc == 0)
     {
         printOutput("No parameters found\n");
-        *(uint32_t *)0x220000 = -1;
+        *(uint32_t *)&pPeb->output = -1;
         return;
     }
+
+    char* param;
 
     // TODO: Handle multiple parameters and ints
     // only processes the first argument if is not a string then convert to string
+    // for (uint32_t i = 0; i < funcCall->argc; i++)
 
-    char *param;
-
-    uint64_t arg64 = *(uint64_t *)(0x220010);
-    // arg is a string
-    if (arg64 & 0x8000000000000000)
+    for (uint32_t i = 0; i < 1; i++)
     {
-        param = (char*)(arg64 &= 0x7FFFFFFFFFFFFFFF);
-    }
-    // arg is an int
-    else
-    {
-        char *buffer = (char *)_alloca(BUFFER_SIZE);
-        sprintf_s(buffer, BUFFER_SIZE, "%d",(uint32_t)arg64);
-        param = buffer;
+        uint64_t arg64 = (funcCall->argv + (8*i));
+        // arg is a string
+        if (arg64 & 0x8000000000000000)
+        {
+            param = (char*)(arg64 &= 0x7FFFFFFFFFFFFFFF);
+        }
+        // arg is an int
+        else
+        {
+            char* buffer = (char*)_alloca(BUFFER_SIZE);
+            sprintf_s(buffer, BUFFER_SIZE, "%d", (uint32_t)arg64);
+            param = buffer;
+        }
     }
     
 
-    *(uint32_t *)0x220000 = pFunc(param);
+    *(uint32_t *)&pPeb->output = pFunc(param);
 
     halt();
 }
@@ -164,17 +170,23 @@ void DispatchFunction()
 int native_symbol_thunk(char *functionName, void *a, void *b, void *c, void *d)
 {
 
-    *(char **)0x220000 = functionName;
-    *(void **)0x220008 = a;
-    *(void **)0x220010 = b;
-    *(void **)0x220018 = c;
-    *(void **)0x220020 = d;
+    HostFunctionCall* functionCall = (HostFunctionCall*)&pPeb->output;
+    functionCall->FunctionName = functionName;
+    uint64_t* ptr = &functionCall->argv;
+
+    *ptr = a;
+    ptr++;
+    *ptr = b;
+    ptr++;
+    *ptr = c;
+    ptr++;
+    *ptr = d;
 
     // TODO: Why is the return code getting output via outb?
     // This only happens if runing in Hyperlight and on KVM.
 
     outb(101, 0);
-    return *(int *)0x210000;
+    return *(int *)&pPeb->input;
 }
 
 #pragma optimize("", on)
@@ -204,10 +216,12 @@ int main(int argc, char *argv[])
     return printOutput("Hello, World!!\n");
 }
 
-long entryPoint()
+long entryPoint(uint64_t pebAddress, int a, int b, int c)
 {
+
+    pPeb = (HyperlightPEB*)pebAddress;
     int result = 0;
-    if (*((const char *)0x230000) == 'M')
+    if (NULL == pPeb)
     {
         // We were run as a normal EXE
         runningHyperlight = false;
@@ -216,19 +230,34 @@ long entryPoint()
     }
     else
     {
+        if (NULL != *((const char*)&pPeb->code))
+        {
+            if (*((const char*)&pPeb->code) != 'J')
+            {
+                return -1;
+            }
+        }
+        else
+        {
+            if (*((const char**)&pPeb->pCode)[0] != 'J')
+            {
+                return -1;
+            }
+        }
+
         // TODO: Populate the args.
 
         int argc = 0;
         char **argv = NULL;
 
         // Either in WHP partition (hyperlight) or in memory.  If in memory, outb_ptr will be non-NULL
-        outb_ptr = *(void **)(0x210000 - 16);
+        
+        outb_ptr = *(void **)pPeb->pOutb;
         if (outb_ptr)
             runningHyperlight = false;
 
-        // Provide the DispatchFunction pointer
-        HyperlightPEB *pPeb = (HyperlightPEB *)0x204000;
-        pPeb->header.DispatchFunction = (uint64_t)DispatchFunction;
+        HostFunctions* pFuncs = pPeb->funcs;
+        pFuncs->header.DispatchFunction = (uint64_t)DispatchFunction;
         result = main(argc, argv);
     }
 
@@ -236,7 +265,7 @@ long entryPoint()
     if (!runningAsExe)
     {
         // Setup return values
-        *(uint32_t *)0x220000 = result;
+        *(uint32_t *)&pPeb->output = result;
         halt(); // This is a nop if we are running as an EXE or if we were just loaded into memory
     }
 
