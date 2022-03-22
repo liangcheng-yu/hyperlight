@@ -15,6 +15,7 @@ jobs:
     env:
       PLATFORM: x64
       CONFIG: Debug
+      FRAMEWORK: net6.0
     steps:
     - uses: actions/checkout@v2
       with:
@@ -44,7 +45,7 @@ jobs:
       working-directory: src/tests/Hyperlight.Tests
     - name: Build Example for Windows 
       shell: pwsh
-      run: dotnet publish -c $env:CONFIG --self-contained -r win-x64
+      run: dotnet publish -c $env:CONFIG --self-contained -r win-x64 -f $env:FRAMEWORK
       working-directory: src/examples/NativeHost
     - name: Archive Windows Release
       shell: pwsh
@@ -52,7 +53,7 @@ jobs:
       working-directory: src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/net5.0/win-x64/publish
     - name: Build Example for Linux
       shell: pwsh
-      run: dotnet publish -c $env:CONFIG --self-contained -r linux-x64
+      run: dotnet publish -c $env:CONFIG --self-contained -r linux-x64 -f $env:FRAMEWORK
       working-directory: src/examples/NativeHost
     - name: Archive Linux Release
       shell: pwsh
