@@ -174,12 +174,9 @@ int native_symbol_thunk(char *functionName, void *a, void *b, void *c, void *d)
     functionCall->FunctionName = functionName;
     uint64_t* ptr = &functionCall->argv;
 
-    *ptr = a;
-    ptr++;
-    *ptr = b;
-    ptr++;
-    *ptr = c;
-    ptr++;
+    *ptr++ = a;
+    *ptr++ = b;
+    *ptr++ = c;
     *ptr = d;
 
     // TODO: Why is the return code getting output via outb?
