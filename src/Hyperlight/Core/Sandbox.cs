@@ -420,21 +420,38 @@ namespace Hyperlight
                     // 
 
                     throw new NotSupportedException("Cannot run in process on Linux");
-
-                    Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Linux>((_, _, value, port) => HandleOutb(port, value)));
-                    unsafe
+                    var callOutB = new CallOutb_Linux((_, _, value, port) => HandleOutb(port, value));
+                    var gCHandle = GCHandle.Alloc(callOutB);
+                    try
                     {
-                        callEntryPointLinux = (delegate* unmanaged<int, int, int, IntPtr, long>)entryPoint;
-                        returnValue = callEntryPointLinux(argument1, argument2, argument3, sourceAddress);
+                        Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Linux>(callOutB));
+                        unsafe
+                        {
+                            callEntryPointLinux = (delegate* unmanaged<int, int, int, IntPtr, long>)entryPoint;
+                            returnValue = callEntryPointLinux(argument1, argument2, argument3, sourceAddress);
+                        }
+                    }
+                    finally
+                    {
+                        gCHandle.Free();
                     }
                 }
                 else if (IsWindows)
                 {
-                    Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Windows>((port, value) => HandleOutb(port, value)));
-                    unsafe
+                    var callOutB = new CallOutb_Windows((port, value) => HandleOutb(port, value));
+                    var gCHandle = GCHandle.Alloc(callOutB);
+                    try
                     {
-                        callEntryPointWindows = (delegate* unmanaged<IntPtr, int, int, int, long>)entryPoint;
-                        returnValue = callEntryPointWindows(sourceAddress, argument1, argument2, argument3);
+                        Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Windows>(callOutB));
+                        unsafe
+                        {
+                            callEntryPointWindows = (delegate* unmanaged<IntPtr, int, int, int, long>)entryPoint;
+                            returnValue = callEntryPointWindows(sourceAddress, argument1, argument2, argument3);
+                        }
+                    }
+                    finally
+                    {
+                        gCHandle.Free();
                     }
                 }
                 else
@@ -442,7 +459,6 @@ namespace Hyperlight
                     // Should never get here
                     throw new NotSupportedException();
                 }
-
             }
             else
             {
