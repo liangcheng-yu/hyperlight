@@ -14,6 +14,7 @@ namespace Hyperlight
     // 0x00001000    0x00201000    PML4
     // 0x00002000    0x00202000    PDTP
     // 0x00003000    0x00203000    PD
+    // 0x00004000    0x00204000    Function Definitions    
     // 0x00010000    0x00210000    64k for input data
     // 0x00020000    0x00220000    64k for output data
     // 0x00030000    0x00230000    Start of Code
@@ -27,6 +28,7 @@ namespace Hyperlight
     // 0x00001000    0x00201000    PML4
     // 0x00002000    0x00202000    PDTP
     // 0x00003000    0x00203000    PD
+    // 0x00004000    0x00204000    Function Definitions  
     // 0x00010000    0x00210000    64k for input data
     // 0x00020000    0x00220000    64k for output data
     // 0x00030000    0x00230000    Start of Code
@@ -71,6 +73,8 @@ namespace Hyperlight
         static readonly int pml4_addr = (int)BaseAddress + 0x1000;
         static readonly int pdpt_addr = (int)BaseAddress + 0x2000;
         static readonly int pd_addr = (int)BaseAddress + 0x3000;
+        static readonly int functionDefinitionOffset = 0x4000;
+        static readonly int functionDefinitionLength = 0x1000;
 
         readonly bool recycleAfterRun;
         readonly byte[] initialMemorySavedForMultipleRunCalls;
@@ -182,7 +186,7 @@ namespace Hyperlight
         {
 
             ulong offset = 0;
-            if (!runFromGuestBinary && !runFromProcessMemory)
+            if (!runFromProcessMemory)
             {
                 offset = (ulong)sourceAddress - (ulong)BaseAddress;
             }
@@ -325,7 +329,12 @@ namespace Hyperlight
                     peb.AddFunction(mi.Name, $"({parameterSignature})i", 0);
                 }
             }
-            peb.WriteToMemory(IntPtr.Add(sourceAddress, 0x4000), 0x1000);
+            ulong offset = 0;
+            if (!runFromProcessMemory)
+            {
+                offset = (ulong)sourceAddress - (ulong)BaseAddress;
+            }
+            peb.WriteToMemory(IntPtr.Add(sourceAddress, functionDefinitionOffset), functionDefinitionLength, offset);
         }
 
         public void SetUpHyperVisorPartition()
@@ -411,21 +420,38 @@ namespace Hyperlight
                     // 
 
                     throw new NotSupportedException("Cannot run in process on Linux");
-
-                    Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Linux>((_, _, value, port) => HandleOutb(port, value)));
-                    unsafe
+                    var callOutB = new CallOutb_Linux((_, _, value, port) => HandleOutb(port, value));
+                    var gCHandle = GCHandle.Alloc(callOutB);
+                    try
                     {
-                        callEntryPointLinux = (delegate* unmanaged<int, int, int, IntPtr, long>)entryPoint;
-                        returnValue = callEntryPointLinux(argument1, argument2, argument3, sourceAddress);
+                        Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Linux>(callOutB));
+                        unsafe
+                        {
+                            callEntryPointLinux = (delegate* unmanaged<int, int, int, IntPtr, long>)entryPoint;
+                            returnValue = callEntryPointLinux(argument1, argument2, argument3, sourceAddress);
+                        }
+                    }
+                    finally
+                    {
+                        gCHandle.Free();
                     }
                 }
                 else if (IsWindows)
                 {
-                    Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Windows>((port, value) => HandleOutb(port, value)));
-                    unsafe
+                    var callOutB = new CallOutb_Windows((port, value) => HandleOutb(port, value));
+                    var gCHandle = GCHandle.Alloc(callOutB);
+                    try
                     {
-                        callEntryPointWindows = (delegate* unmanaged<IntPtr, int, int, int, long>)entryPoint;
-                        returnValue = callEntryPointWindows(sourceAddress, argument1, argument2, argument3);
+                        Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Windows>(callOutB));
+                        unsafe
+                        {
+                            callEntryPointWindows = (delegate* unmanaged<IntPtr, int, int, int, long>)entryPoint;
+                            returnValue = callEntryPointWindows(sourceAddress, argument1, argument2, argument3);
+                        }
+                    }
+                    finally
+                    {
+                        gCHandle.Free();
                     }
                 }
                 else
@@ -433,7 +459,6 @@ namespace Hyperlight
                     // Should never get here
                     throw new NotSupportedException();
                 }
-
             }
             else
             {

@@ -63,14 +63,14 @@ namespace Hyperlight
                         if (!ShouldExposeMember(fieldInfo.GetCustomAttribute<ExposeToGuestAttribute>()))
                         {
                             // TODO implement logging rather than using console.write                           
-                            Console.WriteLine($"Skipping delegate ${fieldInfo.Name} as it is excluded using ExposeToGuestAttribute.");
+                            Console.WriteLine($"Skipping delegate {fieldInfo.Name} as it is excluded using ExposeToGuestAttribute.");
                             continue;
                         }
 
                         if (fieldInfo.GetValue(target) != null)
                         {
                             // TODO implement logging rather than using console.write
-                            Console.WriteLine($"Skipping delegate ${fieldInfo.Name} as it has an implementation. Use the ExposeToGuestAttribute to explictly exclude this delegate");
+                            Console.WriteLine($"Skipping delegate {fieldInfo.Name} as it has an implementation. Use the ExposeToGuestAttribute to explictly exclude this delegate");
                             continue;
                         }
 
