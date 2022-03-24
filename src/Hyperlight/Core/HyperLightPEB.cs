@@ -31,7 +31,7 @@ namespace Hyperlight
         {
             listFunctions.Add(new FunctionDetails() { FunctionName = functionName, FunctionSignature = functionSignature, Flags = flags });
         }
-        public void WriteToMemory(IntPtr ptr, int length)
+        public void WriteToMemory(IntPtr ptr, int length, ulong offset)
         {
             var header = new Header() { CountFunctions = (ulong)listFunctions.Count, DispatchFunction = 0 };
             var headerSize = Marshal.SizeOf<Header>();
@@ -42,7 +42,7 @@ namespace Hyperlight
                 throw new Exception("Not enough memory for header structures");
             }
 
-            var stringTable = new SimpleStringTable(IntPtr.Add(ptr, totalHeaderSize), length - totalHeaderSize, 0);
+            var stringTable = new SimpleStringTable(IntPtr.Add(ptr, totalHeaderSize), length - totalHeaderSize, offset);
 
             Marshal.StructureToPtr(header, ptr, false);
             ptr += headerSize;
