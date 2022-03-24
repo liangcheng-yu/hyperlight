@@ -29,7 +29,7 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </Content>
-    <Content Include="Deislabs.HyperLight.props" PackagePath="build/Deislabs.HyperLight.props" />
+    <Content Include="Deislabs.HyperLight.targets" PackagePath="build/Deislabs.HyperLight.targets" />
   </ItemGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
