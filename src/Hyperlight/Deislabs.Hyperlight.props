@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-    <ItemGroup>
-        <WasmHost Include="$(MSBuildThisFileDirectory)\..\contentFiles\HyperLightSurrogate.exe" />
-    </ItemGroup>
-    <Target Name="CopyWasmHost" BeforeTargets="Build">
-        <Copy SourceFiles="@(WasmHost)" DestinationFolder="$(TargetDir)" />
-    </Target>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)\..\contentFiles\HyperLightSurrogate.exe">
+      <Link>HyperLightSurrogate.exe</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>
