@@ -24,12 +24,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Condition="'$(RuntimeIdentifier)'=='win-x64' or ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And  '$(RuntimeIdentifier)'=='')" Include="..\HyperlightSurrogate\x64\$(Configuration)\HyperlightSurrogate.exe" Pack="true" PackagePath="contentFiles">
+    <Content Condition="'$(RuntimeIdentifier)'=='win-x64' or ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And  '$(RuntimeIdentifier)'=='')" Include="..\HyperlightSurrogate\x64\$(Configuration)\HyperlightSurrogate.exe" Pack="true" PackagePath="native">
       <Link>HyperlightSurrogate.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </Content>
-    <Content Include="Deislabs.HyperLight.targets" PackagePath="build/Deislabs.HyperLight.targets" />
+    <Content Include="Deislabs.HyperLight.targets" PackagePath="buildTransitive/Deislabs.HyperLight.targets" />
   </ItemGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
