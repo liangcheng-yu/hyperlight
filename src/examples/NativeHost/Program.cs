@@ -64,7 +64,7 @@ namespace NativeHost
 
                 using (var inProcSandboxWithCallBack = new Sandbox(size, guestBinaryPath, options))
                 {
-                    (var returnValue, _, _) = inProcSandboxWithCallBack.Run(null, 0, 0, 0);
+                    (var returnValue, _, _) = inProcSandboxWithCallBack.Run();
                     Console.WriteLine($"Guest returned {returnValue}");
                 }
 
@@ -78,7 +78,7 @@ namespace NativeHost
 
                 using (var inProcSandboxWithCallBack = new Sandbox(size, guestBinaryPath, options, new ExposedMethods()))
                 {
-                    (var returnValue, _, _) = inProcSandboxWithCallBack.Run(null, 0, 0, 0);
+                    (var returnValue, _, _) = inProcSandboxWithCallBack.Run();
                     Console.WriteLine($"Guest returned {returnValue}");
                 }
 
@@ -99,7 +99,7 @@ namespace NativeHost
                      {
                          using (var sandbox = new Sandbox(size, guestBinaryPath, options, writer))
                          {
-                             (var returnValue, _, _) = sandbox.Run(null, 0, 0, 0);
+                             (var returnValue, _, _) = sandbox.Run();
                              OutputBuffer.Add($"Instance {i}:{writer}");
                              OutputBuffer.Add($"Instance {i}:Guest returned {returnValue}");
                          }
@@ -139,7 +139,7 @@ namespace NativeHost
                         using (var sandbox = new Sandbox(size, guestBinaryPath, options, new ExposedMethods(), writer))
                         {
                             OutputBuffer.Add($"Created Sandbox Instance {i}:");
-                            (var returnValue, _, _) = sandbox.Run(null, 0, 0, 0);
+                            (var returnValue, _, _) = sandbox.Run();
                             OutputBuffer.Add($"Run Sandbox Instance {i}:");
                             OutputBuffer.Add($"Instance {i}:Guest returned {returnValue}");
                         }
@@ -173,7 +173,7 @@ namespace NativeHost
                     {
                         using (var sandbox = new Sandbox(size, guestBinaryPath, writer))
                         {
-                            sandbox.Run(null, 0, 0, 0);
+                            sandbox.Run();
                             OutputBuffer.Add($"Instance {i}:{writer}");
                         }
                     }
@@ -202,7 +202,7 @@ namespace NativeHost
                     {
                         using (var sandbox = new Sandbox(size, guestBinaryPath, writer, new ExposedMethods()))
                         {
-                            (var returnValue, _, _) = sandbox.Run(null, 0, 0, 0);
+                            (var returnValue, _, _) = sandbox.Run();
                             OutputBuffer.Add($"Instance {i}:{writer}");
                             OutputBuffer.Add($"Instance {i}:Guest returned {returnValue}");
                         }
@@ -235,7 +235,7 @@ namespace NativeHost
                             var builder = writer.GetStringBuilder();
                             for (var i = 0; i < numberofIterations; i++)
                             {
-                                hypervisorSandbox.Run(null, 0, 0, 0);
+                                hypervisorSandbox.Run();
                                 OutputBuffer.Add($"Instance {p} Iteration {i}:{builder.ToString()}");
                                 builder.Remove(0, builder.Length);
                             }
@@ -267,7 +267,7 @@ namespace NativeHost
                             var builder = writer.GetStringBuilder();
                             for (var i = 0; i < numberofIterations; i++)
                             {
-                                (var returnValue, _, _) = hypervisorSandbox.Run(null, 0, 0, 0);
+                                (var returnValue, _, _) = hypervisorSandbox.Run();
                                 OutputBuffer.Add($"Instance {p} Iteration {i}:{builder.ToString()}");
                                 builder.Remove(0, builder.Length);
                                 OutputBuffer.Add($"Instance {p} Iteration {i}:Guest returned {returnValue}");

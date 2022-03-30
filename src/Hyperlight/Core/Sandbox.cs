@@ -88,11 +88,9 @@ namespace Hyperlight
         ulong rsp;
         readonly HyperlightGuestInterfaceGlue guestInterfaceGlue;
         private bool disposedValue; // To detect redundant calls
-        delegate long CallLinuxEntryPoint(int c, int b, int a, IntPtr baseAddress);
-        delegate long CallWindowsEntryPoint(IntPtr baseAddress, int a, int b, int c);
+        delegate long CallEntryPoint(IntPtr baseAddress);
 
-        unsafe delegate* unmanaged<IntPtr, int, int, int, long> callEntryPointWindows;
-        unsafe delegate* unmanaged<int, int, int, IntPtr, long> callEntryPointLinux;
+        unsafe delegate* unmanaged<IntPtr, long> callEntryPoint;
 
         // Platform dependent delegate for callbacks from native code when native code is calling 'outb' functionality
         // On Linux, delegates passed from .NET core to native code expect arguments to be passed RDI, RSI, RDX, RCX.
@@ -379,7 +377,7 @@ namespace Hyperlight
             }
         }
 
-        public (uint returnValue, string returnValueString, long returnValue64) Run(byte[] workloadBytes, int argument1, int argument2, int argument3)
+        public (uint returnValue, string returnValueString, long returnValue64) Run(byte[] workloadBytes = null)
         {
             long returnValue = 0;
 
@@ -427,8 +425,8 @@ namespace Hyperlight
                         Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Linux>(callOutB));
                         unsafe
                         {
-                            callEntryPointLinux = (delegate* unmanaged<int, int, int, IntPtr, long>)entryPoint;
-                            returnValue = callEntryPointLinux(argument1, argument2, argument3, sourceAddress);
+                            callEntryPoint= (delegate* unmanaged<IntPtr, long>)entryPoint;
+                            returnValue = callEntryPoint(sourceAddress);
                         }
                     }
                     finally
@@ -445,8 +443,8 @@ namespace Hyperlight
                         Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Windows>(callOutB));
                         unsafe
                         {
-                            callEntryPointWindows = (delegate* unmanaged<IntPtr, int, int, int, long>)entryPoint;
-                            returnValue = callEntryPointWindows(sourceAddress, argument1, argument2, argument3);
+                            callEntryPoint= (delegate* unmanaged<IntPtr, long>)entryPoint;
+                            returnValue = callEntryPoint(sourceAddress);
                         }
                     }
                     finally
@@ -463,7 +461,7 @@ namespace Hyperlight
             else
             {
                 // We do not currently look at returnValue - It will be stored at sourceAddress + outputDataOffset
-                hyperVisor!.Run(argument1, argument2, argument3);
+                hyperVisor!.Run();
             }
             countRunCalls++;
 

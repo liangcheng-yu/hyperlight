@@ -37,23 +37,21 @@ namespace Hyperlight.Tests
             public string ExpectedOutput;
             public string GuestBinaryPath { get; }
             public byte[] Workload;
-            public int[] Args;
             public Type? instanceOrTypeType { get; }
             public ExposeMembersToGuest ExposeMembers = ExposeMembersToGuest.All;
 
-            public TestData(string guestBinaryFileName, byte[]? workload, int[] args, string expectedOutput = "Hello, World!!\n", uint? expectedReturnValue = null)
+            public TestData(string guestBinaryFileName, byte[]? workload, string expectedOutput = "Hello, World!!\n", uint? expectedReturnValue = null)
             {
                 var path = AppDomain.CurrentDomain.BaseDirectory;
                 var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
                 Assert.True(File.Exists(guestBinaryPath), $"Cannot find file {guestBinaryPath} to load into hyperlight");
                 this.GuestBinaryPath = guestBinaryPath;
                 this.Workload = workload ?? Array.Empty<byte>();
-                this.Args = args;
                 this.ExpectedOutput = expectedOutput;
                 this.ExpectedReturnValue = expectedReturnValue ?? (uint)expectedOutput.Length;
             }
 
-            public TestData(Type instanceOrTypeType, string guestBinaryFileName, byte[]? workload, int[] args, string expectedOutput = "Hello, World!!\n", uint? expectedReturnValue = null, ExposeMembersToGuest exposeMembers = ExposeMembersToGuest.All) : this(guestBinaryFileName, workload, args, expectedOutput, expectedReturnValue)
+            public TestData(Type instanceOrTypeType, string guestBinaryFileName, byte[]? workload = null, string expectedOutput = "Hello, World!!\n", uint? expectedReturnValue = null, ExposeMembersToGuest exposeMembers = ExposeMembersToGuest.All) : this(guestBinaryFileName, workload, expectedOutput, expectedReturnValue)
             {
                 this.instanceOrTypeType = instanceOrTypeType;
                 this.ExposeMembers = exposeMembers;
@@ -197,7 +195,7 @@ namespace Hyperlight.Tests
                 var ex = Record.Exception(() =>
                 {
                     var sandbox = new Sandbox(size, guestBinaryPath, option);
-                    sandbox.Run(null,0,0,0);
+                    sandbox.Run();
                 });
                 Assert.NotNull(ex);
                 Assert.IsType<NotSupportedException>(ex);
@@ -449,7 +447,7 @@ namespace Hyperlight.Tests
 
         private void SimpleTest(Sandbox sandbox, TestData testData, StringWriter output, object? notused = null)
         {
-            (var result, _, _) = sandbox.Run(testData.Workload, testData.Args[0], testData.Args[1], testData.Args[2]);
+            (var result, _, _) = sandbox.Run(testData.Workload);
             Assert.Equal<uint>(testData.ExpectedReturnValue, result);
             Assert.Equal(testData.ExpectedOutput, output.ToString());
         }
@@ -458,14 +456,14 @@ namespace Hyperlight.Tests
         {
             if (typeorinstance == null)
             {
-                var ex = Record.Exception(() => sandbox.Run(testData.Workload, testData.Args[0], testData.Args[1], testData.Args[2]));
+                var ex = Record.Exception(() => sandbox.Run(testData.Workload));
                 Assert.NotNull(ex);
                 Assert.IsType<ArgumentNullException>(ex);
                 Assert.Equal("Could not find host function name HostMethod. GuestInterfaceGlue is null", ex.Message);
             }
             else
             {
-                (var result, _, _) = sandbox.Run(testData.Workload, testData.Args[0], testData.Args[1], testData.Args[2]);
+                (var result, _, _) = sandbox.Run(testData.Workload);
                 Assert.Equal<uint>(testData.ExpectedReturnValue, result);
                 Assert.StartsWith(testData.ExpectedOutput, output.ToString());
             }
@@ -475,12 +473,12 @@ namespace Hyperlight.Tests
         {
             return new List<object[]>
             {
-                new object[] { new TestData(typeof(NoExposedMembers), "simpleguest.exe", null, new int[3] { 0, 0, 0 }) },
-                new object[] { new TestData(typeof(ExposedMembers), "simpleguest.exe", null, new int[3] { 0, 0, 0 }) },
-                new object[] { new TestData(typeof(ExposeStaticMethodsUsingAttribute), "simpleguest.exe", null, new int[3] { 0, 0, 0 }) },
-                new object[] { new TestData(typeof(ExposeInstanceMethodsUsingAttribute), "simpleguest.exe", null, new int[3] { 0, 0, 0 }) },
-                new object[] { new TestData(typeof(DontExposeSomeMembersUsingAttribute), "simpleguest.exe", null, new int[3] { 0, 0, 0 }) },
-                new object[] { new TestData("simpleguest.exe", null, new int[3] { 0, 0, 0 }) } ,
+                new object[] { new TestData(typeof(NoExposedMembers), "simpleguest.exe") },
+                new object[] { new TestData(typeof(ExposedMembers), "simpleguest.exe") },
+                new object[] { new TestData(typeof(ExposeStaticMethodsUsingAttribute), "simpleguest.exe") },
+                new object[] { new TestData(typeof(ExposeInstanceMethodsUsingAttribute), "simpleguest.exe") },
+                new object[] { new TestData(typeof(DontExposeSomeMembersUsingAttribute), "simpleguest.exe") },
+                new object[] { new TestData("simpleguest.exe", null) } ,
             };
         }
         // This does not test passing null as instanceortype as currently this is not implmented properly in Sandbox and cause the testhost to crash.
@@ -488,9 +486,9 @@ namespace Hyperlight.Tests
         {
             return new List<object[]>
             {
-                new object[] { new TestData(typeof(ExposedMembers), "callbackguest.exe", null, new int[3] { 0, 0, 0 }, "Hello from GuestFunction, Host Received: Hello, World!! from Guest!!.\n", 70, TestData.ExposeMembersToGuest.Instance) },
-                new object[] { new TestData(typeof(ExposeStaticMethodsUsingAttribute), "callbackguest.exe", null, new int[3] { 0, 0, 0 }, "", 14, TestData.ExposeMembersToGuest.Type) },
-                new object[] { new TestData(typeof(ExposeInstanceMethodsUsingAttribute), "callbackguest.exe", null, new int[3] { 0, 0, 0 }, "Hello from GuestFunction, Host Received: Hello, World!! from Guest!!.\n", 70, TestData.ExposeMembersToGuest.Instance) },
+                new object[] { new TestData(typeof(ExposedMembers), "callbackguest.exe", null, "Hello from GuestFunction, Host Received: Hello, World!! from Guest!!.\n", 70, TestData.ExposeMembersToGuest.Instance) },
+                new object[] { new TestData(typeof(ExposeStaticMethodsUsingAttribute), "callbackguest.exe", null, "", 14, TestData.ExposeMembersToGuest.Type) },
+                new object[] { new TestData(typeof(ExposeInstanceMethodsUsingAttribute), "callbackguest.exe", null, "Hello from GuestFunction, Host Received: Hello, World!! from Guest!!.\n", 70, TestData.ExposeMembersToGuest.Instance) },
             };
         }
 

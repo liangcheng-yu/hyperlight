@@ -132,17 +132,11 @@ namespace Hyperlight.Hypervisors
             } while (exitContext.ExitReason != WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_REASON.WHvRunVpExitReasonX64Halt);
         }
 
-        internal override void Run(int argument1, int argument2, int argument3)
+        internal override void Run()
         {
-            {
-                registerValues[^4].low = (ulong)Sandbox.BaseAddress;
-                registerValues[^3].low = (ulong)argument1;
-                registerValues[^2].low = (ulong)argument2;
-                registerValues[^1].low = (ulong)argument3;
-
-                WindowsHypervisorPlatform.WHvSetVirtualProcessorRegisters(hPartition, 0, registerNames, (uint)registerNames.Length, registerValues);
-            }
-
+            Debug.Assert(registerNames[^4] == WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRcx);
+            registerValues[^4].low = (ulong)Sandbox.BaseAddress;
+            WindowsHypervisorPlatform.WHvSetVirtualProcessorRegisters(hPartition, 0, registerNames, (uint)registerNames.Length, registerValues);
             ExecuteUntilHalt();
         }
 
