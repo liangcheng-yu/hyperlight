@@ -51,7 +51,7 @@ jobs:
       run: dotnet test -c ${{ matrix.config }}
       working-directory: src/tests/Hyperlight.Tests
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: guest-binaries-${{ matrix.config }}
         path: src\tests\Guests\*\${{ matrix.platform }}\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']
