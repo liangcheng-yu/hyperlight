@@ -71,6 +71,7 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <EntryPointSymbol>entryPoint</EntryPointSymbol>
       <SectionAlignment>512</SectionAlignment>
+      <SubSystem>Native</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -90,6 +91,7 @@
       <EntryPointSymbol>entryPoint</EntryPointSymbol>
       <GenerateMapFile>false</GenerateMapFile>
       <SectionAlignment>512</SectionAlignment>
+      <SubSystem>Native</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -101,6 +103,7 @@
     </MASM>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="hyperlight_error.h" />
     <ClInclude Include="hyperlight_peb.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace Hyperlight
@@ -25,15 +26,51 @@ namespace Hyperlight
             public ulong Flags { get; set; }
 
         }
-        readonly List<FunctionDetails> listFunctions = new();
+        readonly HashSet<FunctionDetails> listFunctions = new();
+        readonly IntPtr basePtr;
+        readonly int length;
+        readonly ulong offset;
+
+        public HyperlightPEB(IntPtr ptr, int length, ulong offset)
+        {
+            this.basePtr = ptr;
+            this.length = length;
+            this.offset = offset;
+        }
+
+        // TODO: Allow overloaded functions;
+
+        public bool FunctionExists(string functionName)
+        {
+            return listFunctions.Where(f => f.FunctionName == functionName).Any();
+        }
 
         public void AddFunction(string functionName, string functionSignature, ulong flags)
         {
+            // TODO: Allow virtual function names so a function a name can point to a fully qualified name. 
+            if (listFunctions.Where(f => f.FunctionName == functionName).Any())
+            {
+                throw new ArgumentException($"functionName already exists");
+            }
             listFunctions.Add(new FunctionDetails() { FunctionName = functionName, FunctionSignature = functionSignature, Flags = flags });
         }
-        public void WriteToMemory(IntPtr ptr, int length, ulong offset)
+        public void Create()
         {
+            var ptr = basePtr;
             var header = new Header() { CountFunctions = (ulong)listFunctions.Count, DispatchFunction = 0 };
+            WriteToMemory(ptr, header);
+        }
+
+        public void Update()
+        {
+            var ptr = basePtr;
+            var header = Marshal.PtrToStructure<Header>(ptr);
+            header.CountFunctions = (ulong)listFunctions.Count;
+            WriteToMemory(ptr, header);
+        }
+
+        private void WriteToMemory(IntPtr ptr, Header header)
+        {
             var headerSize = Marshal.SizeOf<Header>();
             var functionDefinitionSize = Marshal.SizeOf<FunctionDefinition>();
             var totalHeaderSize = headerSize + (int)header.CountFunctions * functionDefinitionSize;
@@ -43,7 +80,6 @@ namespace Hyperlight
             }
 
             var stringTable = new SimpleStringTable(IntPtr.Add(ptr, totalHeaderSize), length - totalHeaderSize, offset);
-
             Marshal.StructureToPtr(header, ptr, false);
             ptr += headerSize;
 
