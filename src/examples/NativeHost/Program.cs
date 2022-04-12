@@ -59,12 +59,23 @@ namespace NativeHost
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
+                // The host process can invoke methods exported by the guest binary.
+                // The guest binary can also invoke methods exported by the host process.
+                // Host methods to be exposed can be static or instance methods on a type or an object.
+                // Guest methods are represented by delegates .
+                // Attributes can be used to control which methods/delegates are exposed.
+                // The type or object containing the methods/delegates can be passed to the sandbox as a constructor parameter
+                // Methods or delegates can also be exposed or bound to the guest explicitly using the BindGuestFunction or ExposeHostMethod methods.
+
                 Console.WriteLine($"Running guest binary {guestBinary} by loading exe into memory");
                 Console.WriteLine();
 
-                using (var inProcSandboxWithCallBack = new Sandbox(size, guestBinaryPath, options))
+                using (var sandbox = new Sandbox(size, guestBinaryPath, options))
                 {
-                    var returnValue = inProcSandboxWithCallBack.Run();
+                    var guestMethods = new ExposedMethods();
+                    sandbox.BindGuestFunction("PrintOutput", guestMethods);
+                    var returnValue = guestMethods.PrintOutput!("Hello World!!!!!");
+                    Console.WriteLine();
                     Console.WriteLine($"Guest returned {returnValue}");
                 }
 
@@ -75,10 +86,41 @@ namespace NativeHost
 
                 Console.WriteLine($"Running guest binary {guestBinary} by loading exe into memory with host and guest method execution");
                 Console.WriteLine();
-
-                using (var inProcSandboxWithCallBack = new Sandbox(size, guestBinaryPath, options, new ExposedMethods()))
+                var exposedMethods = new ExposedMethods();
+                using (var sandbox = new Sandbox(size, guestBinaryPath, options, exposedMethods))
                 {
-                    var returnValue = inProcSandboxWithCallBack.Run();
+                    // The GuestMethod Delegate has to be called in the context of the Sandboxes CallGuest method as the GuestMethod calls back into the host which in turn calls back to the PrintOutput function
+                    // without executing the call via CallGuest the state of the sandbox would be reset between the GuestMethod and PrintOutput calls and the call would fail.
+                    var returnValue = sandbox.CallGuest<int>(() => { return exposedMethods.GuestMethod!("Hello from Hyperlight Host"); });
+                    Console.WriteLine();
+                    Console.WriteLine($"Guest returned {returnValue}");
+                }
+
+                WaitForUserInput();
+
+
+                // The initialisation of the Sandbox is performed by invoking the entrypoint on the GuestBinary
+                // To enable customisation of the initialisation functions in the guest can be called during initialistation 
+                // This is done by passing an Action<Sandbox> to the Sandbox constructor, the constructor will call the Action 
+                // after the entrypoint in the guest binary has been called and before the state of the Sandbox is snapshotted
+
+                Console.WriteLine($"Running guest binary {guestBinary} by loading exe into memory and customising Sandbox initialisation");
+                Console.WriteLine();
+
+                exposedMethods = new ExposedMethods();
+                Action<Sandbox> func = (s) => {
+                    s.BindGuestFunction("PrintOutput", exposedMethods);
+                    Console.WriteLine();
+                    exposedMethods.PrintOutput!("Hello from Sandbox Initialisation");
+                    Console.WriteLine();
+                    exposedMethods.PrintOutput!("Hello again from Sandbox Initialisation");
+                    Console.WriteLine();
+                };
+
+                using (var sandbox = new Sandbox(size, guestBinaryPath, options, func))
+                {
+                    var returnValue = exposedMethods.PrintOutput!("Hello World!!!!!");
+                    Console.WriteLine();
                     Console.WriteLine($"Guest returned {returnValue}");
                 }
 
@@ -99,7 +141,9 @@ namespace NativeHost
                      {
                          using (var sandbox = new Sandbox(size, guestBinaryPath, options, writer))
                          {
-                             var returnValue = sandbox.Run();
+                             var guestMethods = new ExposedMethods();
+                             sandbox.BindGuestFunction("PrintOutput", guestMethods);
+                             var returnValue = guestMethods.PrintOutput!($"Hello World!! from Instance {i}");
                              OutputBuffer.Add($"Instance {i}:{writer}");
                              OutputBuffer.Add($"Instance {i}:Guest returned {returnValue}");
                          }
@@ -113,14 +157,6 @@ namespace NativeHost
                 Console.WriteLine($"Created and run {numberofparallelInstances} parallel instances in {elapsed.TotalSeconds:00}.{elapsed.Milliseconds:000}{elapsed.Ticks / 10 % 1000:000} seconds");
 
                 WaitForUserInput();
-
-
-                // The guest binary can invoke methods exported by the host process.
-                // The host process can also invoke methods exported by the guest binary.
-                // Host methods to be exposed can be static or instance methods on a type or an object.
-                // Attributes can be used to control which methods are exposed.
-                // Guest methods are represented by delegates on the type.
-                // The type or object containing the methods/delegates is passed to the sandbox as a parameter
 
                 // Call between the guest and host in-process.
 
@@ -136,11 +172,12 @@ namespace NativeHost
                     using (var writer = new StringWriter())
                     {
                         OutputBuffer.Add($"Created Writer Instance {i}:");
-                        using (var sandbox = new Sandbox(size, guestBinaryPath, options, new ExposedMethods(), writer))
+                        var exposedMethods = new ExposedMethods();
+                        using (var sandbox = new Sandbox(size, guestBinaryPath, options, exposedMethods, writer))
                         {
                             OutputBuffer.Add($"Created Sandbox Instance {i}:");
-                            var returnValue = sandbox.Run();
-                            OutputBuffer.Add($"Run Sandbox Instance {i}:");
+                            var returnValue = sandbox.CallGuest<int>(() => { return exposedMethods.GuestMethod!($"Hello from Hyperlight Host: Instance{i}"); });
+                            OutputBuffer.Add($"Instance {i}:{writer}");
                             OutputBuffer.Add($"Instance {i}:Guest returned {returnValue}");
                         }
                     }
@@ -173,8 +210,11 @@ namespace NativeHost
                     {
                         using (var sandbox = new Sandbox(size, guestBinaryPath, writer))
                         {
-                            sandbox.Run();
+                            var guestMethods = new ExposedMethods();
+                            sandbox.BindGuestFunction("PrintOutput", guestMethods);
+                            var returnValue = guestMethods.PrintOutput!($"Hello World from instance {i}!!!!!");
                             OutputBuffer.Add($"Instance {i}:{writer}");
+                            OutputBuffer.Add($"Instance {i}:Guest returned {returnValue}");
                         }
                     }
                 });
@@ -187,7 +227,7 @@ namespace NativeHost
 
                 WaitForUserInput();
 
-                // Call between the guest and host in-process.
+                // Call between the guest and host .
 
                 guestBinary = "callbackguest.exe";
                 guestBinaryPath = Path.Combine(path, guestBinary);
@@ -200,9 +240,11 @@ namespace NativeHost
                 {
                     using (var writer = new StringWriter())
                     {
-                        using (var sandbox = new Sandbox(size, guestBinaryPath, writer, new ExposedMethods()))
+                        var exposedMethods = new ExposedMethods();
+                        using (var sandbox = new Sandbox(size, guestBinaryPath, writer, exposedMethods))
                         {
-                            var returnValue = sandbox.Run();
+                            OutputBuffer.Add($"Created Sandbox Instance {i}:");
+                            var returnValue = sandbox.CallGuest<int>(() => { return exposedMethods.GuestMethod!($"Hello Guest in Hypervisor from Hyperlight Host: Instance{i}"); });
                             OutputBuffer.Add($"Instance {i}:{writer}");
                             OutputBuffer.Add($"Instance {i}:Guest returned {returnValue}");
                         }
@@ -221,7 +263,7 @@ namespace NativeHost
                 WaitForUserInput();
 
                 options = SandboxRunOptions.RecycleAfterRun;
-                Console.WriteLine($"Running {numberofparallelInstances} parallel instances of guest binary {guestBinary} in Hypervisor sandbox {numberofIterations} times");
+                Console.WriteLine($"Running {numberofparallelInstances} parallel instances of guest binary {guestBinary} in Hypervisor sandbox {numberofIterations} times with custom Sandbox initialisation.");
                 Console.WriteLine();
                 Console.WriteLine();
                 stopWatch = Stopwatch.StartNew();
@@ -230,12 +272,22 @@ namespace NativeHost
                 {
                     using (var writer = new StringWriter())
                     {
-                        using (var hypervisorSandbox = new Sandbox(size, guestBinaryPath, options, writer))
+                        var exposedMethods = new ExposedMethods();
+                        Action<Sandbox> func = (s) => {
+                            s.BindGuestFunction("PrintOutput", exposedMethods);
+                            exposedMethods.PrintOutput!($"{Environment.NewLine}");
+                            exposedMethods.PrintOutput!($"Hello from Sandbox Initialisation. {Environment.NewLine}");
+                            exposedMethods.PrintOutput!($"Hello again from Sandbox Initialisation.{Environment.NewLine}");
+                        };
+
+                        var builder = writer.GetStringBuilder();
+                        using (var hypervisorSandbox = new Sandbox(size, guestBinaryPath, options, func, writer))
                         {
-                            var builder = writer.GetStringBuilder();
+                            OutputBuffer.Add($"Instance {p} Initialisation:{builder.ToString()}");
+                            builder.Remove(0, builder.Length);
                             for (var i = 0; i < numberofIterations; i++)
                             {
-                                hypervisorSandbox.Run();
+                                var returnValue = exposedMethods.PrintOutput!("Hello World!!!!!");
                                 OutputBuffer.Add($"Instance {p} Iteration {i}:{builder.ToString()}");
                                 builder.Remove(0, builder.Length);
                             }
@@ -247,7 +299,7 @@ namespace NativeHost
                 elapsed = stopWatch.Elapsed;
 
                 Console.WriteLine();
-                Console.WriteLine($"Created and run {numberofparallelInstances} parallel instances with {numberofIterations} iterations in {elapsed.TotalSeconds:00}.{elapsed.Milliseconds:000}{elapsed.Ticks / 10 % 1000:000} seconds");
+                Console.WriteLine($"Created and run {numberofparallelInstances} parallel instances with {numberofIterations} iterations and custom Sandbox initialisation in {elapsed.TotalSeconds:00}.{elapsed.Milliseconds:000}{elapsed.Ticks / 10 % 1000:000} seconds");
 
                 WaitForUserInput();
 
@@ -262,12 +314,13 @@ namespace NativeHost
                 {
                     using (var writer = new StringWriter())
                     {
-                        using (var hypervisorSandbox = new Sandbox(size, guestBinaryPath, options, new ExposedMethods(), writer))
+                        var exposedMethods = new ExposedMethods();
+                        using (var hypervisorSandbox = new Sandbox(size, guestBinaryPath, options, exposedMethods, writer))
                         {
                             var builder = writer.GetStringBuilder();
                             for (var i = 0; i < numberofIterations; i++)
                             {
-                                var returnValue = hypervisorSandbox.Run();
+                                var returnValue = hypervisorSandbox.CallGuest<int>(() => { return exposedMethods.GuestMethod!($"Hello Guest in Hypervisor from Hyperlight Host: Instance{p} Iteration {i}"); });
                                 OutputBuffer.Add($"Instance {p} Iteration {i}:{builder.ToString()}");
                                 builder.Remove(0, builder.Length);
                                 OutputBuffer.Add($"Instance {p} Iteration {i}:Guest returned {returnValue}");

@@ -129,7 +129,7 @@ namespace Hyperlight.Tests
             public static void StaticGetNothingWithArgs(string arg1, int arg2) { }
             public static Func<string, int>? GuestMethod = null;
             [ExposeToGuest(true)]
-            public static int HostMethod(string msg)
+            public static int HostMethod1(string msg)
             {
                 return msg.Length;
             }
@@ -147,8 +147,15 @@ namespace Hyperlight.Tests
             [ExposeToGuest(true)]
             public int HostMethod(string msg)
             {
-                return GuestMethod!($"Host Received: {msg} from Guest");
+                return PrintOutput!($"Host Received: {msg} from Guest");
             }
+            [ExposeToGuest(true)]
+            public int HostMethod1(string msg)
+            {
+                return PrintOutput!($"Host Method 1 Received: {msg} from Guest");
+            }
+            [ExposeToGuest(true)]
+            public Func<String, int>? PrintOutput = null;
         }
 
         public class DontExposeSomeMembersUsingAttribute
@@ -192,8 +199,8 @@ namespace Hyperlight.Tests
             { 
                 (typeof(NoExposedMembers), new(), new(), new()),
                 (typeof(ExposedMembers), new() { "GetOne", "MethodWithArgs", "HostMethod1" }, new() { "GuestMethod1", "PrintOutput" }, new() { "GetTwo", "StaticMethodWithArgs" }),
-                (typeof(ExposeStaticMethodsUsingAttribute), new(), new(), new() { "StaticGetInt", "HostMethod" }),
-                (typeof(ExposeInstanceMethodsUsingAttribute), new() { "HostMethod" }, new() { "GuestMethod" }, new()),
+                (typeof(ExposeStaticMethodsUsingAttribute), new(), new(), new() { "StaticGetInt", "HostMethod1" }),
+                (typeof(ExposeInstanceMethodsUsingAttribute), new() { "HostMethod", "HostMethod1" }, new() { "GuestMethod" }, new()),
                 (typeof(DontExposeSomeMembersUsingAttribute), new() { "GetOne", "MethodWithArgs" }, new(), new() { "GetTwo", "StaticMethodWithArgs" }),
             };
             foreach (var option in options)
@@ -222,7 +229,7 @@ namespace Hyperlight.Tests
                     var instance = new CallbackTestMembers();
                     foreach (var delegateName in delegateNames)
                     {
-                        sandbox.BindGuestMethod(delegateName, instance);
+                        sandbox.BindGuestFunction(delegateName, instance);
                     }
                     foreach (var hostMethod in hostMethods)
                     {
@@ -284,19 +291,24 @@ namespace Hyperlight.Tests
 
             ulong size = 1024 * 1024;
             var path = AppDomain.CurrentDomain.BaseDirectory;
-            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryFileName = "callbackguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
             Assert.True(File.Exists(guestBinaryPath), $"Cannot find file {guestBinaryPath} to load into hyperlight");
 
             List<(Type type, List<string> exposedMethods, List<string> boundDelegates, List<string> exposedStaticMethods, List<(string delegateName, int returnValue, string expectedOutput, object[]? args)> expectedResults)> testData = new()
             {
-                //(typeof(ExposedMembers), new() { "GetOne", "MethodWithArgs", "HostMethod1" }, new() { "GuestMethod1", "PrintOutput" }, new() { "GetTwo", "StaticMethodWithArgs" }, new()
-                //{
-                //    ("GuestMethod1", 79, "Host Method 1 Received: Hello from GuestFunction1, Hello from Init from Guest", new object[] { "Hello from Init" }),
-                //}),
-                (typeof(ExposeStaticMethodsUsingAttribute), new(), new(), new() { "StaticGetInt", "HostMethod" }, new()),
-                //(typeof(ExposeInstanceMethodsUsingAttribute), new() { "HostMethod" }, new() { "GuestMethod" }, new(), new()),
-                //(typeof(DontExposeSomeMembersUsingAttribute), new() { "GetOne", "MethodWithArgs", "GetTwo", "StaticMethodWithArgs" }, new(), new() { "GetTwo", "StaticMethodWithArgs" }, new()),
+                (typeof(ExposedMembers), new() { "GetOne", "MethodWithArgs", "HostMethod1" }, new() { "GuestMethod1", "PrintOutput" }, new() { "GetTwo", "StaticMethodWithArgs" }, new()
+                {
+                    ("GuestMethod1", 77, "Host Method 1 Received: Hello from GuestFunction1, Hello from Init from Guest", new object[] { "Hello from Init" }),
+                    ("PrintOutput", 15, "Hello from Init", new object[] { "Hello from Init" }),
+                }),
+                (typeof(ExposeStaticMethodsUsingAttribute), new(), new(), new() { "StaticGetInt", "HostMethod1" }, new()),
+                (typeof(ExposeInstanceMethodsUsingAttribute), new() { "HostMethod", "HostMethod1" }, new() { "GuestMethod", "PrintOutput" }, new(), new()
+                {
+                    ("GuestMethod", 67, "Host Received: Hello from GuestFunction, Hello from Init from Guest", new object[] { "Hello from Init" }),
+                    ("PrintOutput", 21, "Hello again from Init", new object[] { "Hello again from Init" }),
+                }),
+                (typeof(DontExposeSomeMembersUsingAttribute), new() { "GetOne", "MethodWithArgs" }, new(), new() { "GetTwo", "StaticMethodWithArgs" }, new()),
             };
 
             Action<Sandbox> func;
@@ -307,10 +319,10 @@ namespace Hyperlight.Tests
             {
                 foreach (var (type, exposedMethods, boundDelegates, exposedStaticMethods, expectedResults) in testData)
                 {
+                    output = new StringWriter();
+                    var numberOfCalls = 0;
                     foreach (var target in new object[] { type, GetInstance(type) })
                     {
-                        output = new StringWriter();
-                        var numberOfCalls = 0;
                         // Call init explicity creating delegates and binding methods
                         if (target is Type)
                         {
@@ -336,7 +348,7 @@ namespace Hyperlight.Tests
                                 }
                                 foreach (var boundDelegate in boundDelegates)
                                 {
-                                    s.BindGuestMethod(boundDelegate, target);
+                                    s.BindGuestFunction(boundDelegate, target);
                                 }
                                 foreach (var expectedResult in expectedResults)
                                 {
@@ -355,10 +367,18 @@ namespace Hyperlight.Tests
                             Assert.Equal<int>(expectedResults.Count, numberOfCalls);
                         }
                         sandbox.Dispose();
+                    }
+
+                    foreach (var target in new object[] { type, GetInstance(type) })
+                    {
 
                         // Pass instance/type via constructor and call methods in init.
 
-                        if (target is not Type)
+                        if (target is Type)
+                        {
+                            func = null;
+                        }
+                        else
                         {
                             func = (s) =>
                             {
@@ -467,7 +487,7 @@ namespace Hyperlight.Tests
                 {
                     var sandbox = new Sandbox(size, guestBinaryPath, option);
                     var guestMethods = new SimpleTestMembers();
-                    sandbox.BindGuestMethod("PrintOutput", guestMethods);
+                    sandbox.BindGuestFunction("PrintOutput", guestMethods);
                     var result = guestMethods.PrintOutput("This will throw an exception");
                 });
                 Assert.NotNull(ex);
@@ -737,7 +757,7 @@ namespace Hyperlight.Tests
         private void SimpleTest(Sandbox sandbox, TestData testData, StringWriter output, StringBuilder builder, object? _ = null)
         {
             var guestMethods = new SimpleTestMembers();
-            sandbox.BindGuestMethod("PrintOutput", guestMethods);
+            sandbox.BindGuestFunction("PrintOutput", guestMethods);
             var result = guestMethods.PrintOutput!(testData.ExpectedOutput);
             Assert.Equal<int>(testData.ExpectedReturnValue, result);
             Assert.Equal(testData.ExpectedOutput, builder.ToString());
@@ -750,7 +770,7 @@ namespace Hyperlight.Tests
             {
                 //TODO: Enables this by handling errors correctly in Sandbox when crossing managed native bounary.
                 //var guestMethods = new CallbackTestMembers();
-                //sandbox.BindGuestMethod("GuestMethod", guestMethods);
+                //sandbox.BindGuestFunction("GuestMethod", guestMethods);
                 //var ex = Record.Exception(() =>
                 //{
                 //    var result = guestMethods.GuestMethod(testData.ExpectedOutput);
@@ -793,13 +813,13 @@ namespace Hyperlight.Tests
             static void CallGuestMethod1(Sandbox sandbox, TestData testData, StringBuilder builder)
             {
                 var guestMethods = new CallbackTestMembers();
-                sandbox.BindGuestMethod("GuestMethod1", guestMethods);
-                sandbox.BindGuestMethod("PrintOutput", guestMethods);
+                sandbox.BindGuestFunction("GuestMethod1", guestMethods);
+                sandbox.BindGuestFunction("PrintOutput", guestMethods);
                 sandbox.ExposeHostMethod("HostMethod1", guestMethods);
                 var message = "Hello from CallbackTest";
                 var expectedMessage = string.Format(testData.ExpectedOutput, message);
                 var result = sandbox.CallGuest<int>(() => { return guestMethods.GuestMethod1!(message); });
-                Assert.Equal<int>(expectedMessage.Length, result);
+                Assert.Equal<int>(testData.ExpectedReturnValue, result);
                 Assert.Equal(expectedMessage, builder.ToString());
             }
         }
@@ -831,10 +851,10 @@ namespace Hyperlight.Tests
         {
             return new List<object[]>
             {
-                new object[] { new TestData(typeof(ExposedMembers), "callbackguest.exe", null, "Host Method 1 Received: Hello from GuestFunction1, {0} from Guest", 87,0,0,TestData.ExposeMembersToGuest.TypeAndInstance) },
-                //new object[] { new TestData("callbackguest.exe", null, "Host Method 1 Received: Hello from GuestFunction1, {0} from Guest", 87, 0,0,TestData.ExposeMembersToGuest.Null) },
-                //new object[] { new TestData(typeof(ExposeStaticMethodsUsingAttribute), "callbackguest.exe", null, "", 14,0,0, TestData.ExposeMembersToGuest.Type) },
-                //new object[] { new TestData(typeof(ExposeInstanceMethodsUsingAttribute), "callbackguest.exe", null, "Hello from GuestFunction, Host Received: Hello, World!! from Guest!!.\n", 70, TestData.ExposeMembersToGuest.Instance) },
+                new object[] { new TestData(typeof(ExposedMembers), "callbackguest.exe", null, "Host Method 1 Received: Hello from GuestFunction1, {0} from Guest", 85,0,0,TestData.ExposeMembersToGuest.TypeAndInstance) },
+                new object[] { new TestData("callbackguest.exe", null, "Host Method 1 Received: Hello from GuestFunction1, {0} from Guest", 85, 0,0,TestData.ExposeMembersToGuest.Null) },
+                new object[] { new TestData(typeof(ExposeStaticMethodsUsingAttribute), "callbackguest.exe", null, "", 50,0,0, TestData.ExposeMembersToGuest.Type) },
+                new object[] { new TestData(typeof(ExposeInstanceMethodsUsingAttribute), "callbackguest.exe", null, "Host Method 1 Received: Hello from GuestFunction1, Hello from CallbackTest from Guest", 85, 0,0,TestData.ExposeMembersToGuest.Instance) },
             };
         }
 

@@ -751,13 +751,13 @@ namespace Hyperlight
             }
         }
 
-        public void BindGuestMethod(string methodName, object instance)
+        public void BindGuestFunction(string delegateName, object instance)
         {
             if (instance == null)
             {
                 throw new ArgumentNullException(nameof(instance));
             }
-            guestInterfaceGlue.BindGuestFunctionToDelegate(methodName, instance);
+            guestInterfaceGlue.BindGuestFunctionToDelegate(delegateName, instance);
         }
 
         public void ExposeHostMethod(string methodName, object instance)

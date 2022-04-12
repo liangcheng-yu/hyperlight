@@ -14,9 +14,12 @@ namespace NativeHost
         public Func<string, int>? GuestMethod = null;
 
         [ExposeToGuest(true)]
+        public Func<String, int>? PrintOutput = null;
+
+        [ExposeToGuest(true)]
         public int HostMethod(string msg)
         {
-            return GuestMethod!($"Host Received: {msg} from Guest");
+            return PrintOutput!($"Host Received: {msg} from Guest");
         }
     }
 }
