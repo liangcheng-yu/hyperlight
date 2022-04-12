@@ -177,17 +177,31 @@ namespace Hyperlight.Tests
         [Fact]
         public void Test_Bind_And_Expose_Methods()
         {
+
             SandboxRunOptions[] options;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                options = new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.None, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
+                if (Sandbox.IsHypervisorPresent())
+                {
+                    options = new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.None, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
+                }
+                else
+                {
+                    options = new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun};
+                }
             }
             else
             {
-                options = new SandboxRunOptions[] { SandboxRunOptions.None, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
+                if (Sandbox.IsHypervisorPresent())
+                {
+                    options = new SandboxRunOptions[] { SandboxRunOptions.None, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
+                }
+                else
+                {
+                    options = new SandboxRunOptions[] {};
+                }
             }
-
 
             ulong size = 1024 * 1024;
             var path = AppDomain.CurrentDomain.BaseDirectory;
@@ -282,11 +296,25 @@ namespace Hyperlight.Tests
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                options = new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.None, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
+                if (Sandbox.IsHypervisorPresent())
+                {
+                    options = new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.None, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
+                }
+                else
+                {
+                    options = new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
+                }
             }
             else
             {
-                options = new SandboxRunOptions[] { SandboxRunOptions.None, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
+                if (Sandbox.IsHypervisorPresent())
+                {
+                    options = new SandboxRunOptions[] { SandboxRunOptions.None, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
+                }
+                else
+                {
+                    options = new SandboxRunOptions[] { };
+                }
             }
 
             ulong size = 1024 * 1024;
