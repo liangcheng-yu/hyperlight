@@ -87,10 +87,13 @@ namespace NativeHost
                 Console.WriteLine($"Running guest binary {guestBinary} by loading exe into memory with host and guest method execution");
                 Console.WriteLine();
                 var exposedMethods = new ExposedMethods();
-                using (var sandbox = new Sandbox(size, guestBinaryPath, options, exposedMethods))
+                using (var sandbox = new Sandbox(size, guestBinaryPath, options))
                 {
+                    sandbox.ExposeAndBindMembers(exposedMethods);
+
                     // The GuestMethod Delegate has to be called in the context of the Sandboxes CallGuest method as the GuestMethod calls back into the host which in turn calls back to the PrintOutput function
                     // without executing the call via CallGuest the state of the sandbox would be reset between the GuestMethod and PrintOutput calls and the call would fail.
+
                     var returnValue = sandbox.CallGuest<int>(() => { return exposedMethods.GuestMethod!("Hello from Hyperlight Host"); });
                     Console.WriteLine();
                     Console.WriteLine($"Guest returned {returnValue}");
@@ -108,7 +111,8 @@ namespace NativeHost
                 Console.WriteLine();
 
                 exposedMethods = new ExposedMethods();
-                Action<Sandbox> func = (s) => {
+                Action<Sandbox> func = (s) =>
+                {
                     s.BindGuestFunction("PrintOutput", exposedMethods);
                     Console.WriteLine();
                     exposedMethods.PrintOutput!("Hello from Sandbox Initialisation");
@@ -173,8 +177,9 @@ namespace NativeHost
                     {
                         OutputBuffer.Add($"Created Writer Instance {i}:");
                         var exposedMethods = new ExposedMethods();
-                        using (var sandbox = new Sandbox(size, guestBinaryPath, options, exposedMethods, writer))
+                        using (var sandbox = new Sandbox(size, guestBinaryPath, options, writer))
                         {
+                            sandbox.ExposeAndBindMembers(exposedMethods);
                             OutputBuffer.Add($"Created Sandbox Instance {i}:");
                             var returnValue = sandbox.CallGuest<int>(() => { return exposedMethods.GuestMethod!($"Hello from Hyperlight Host: Instance{i}"); });
                             OutputBuffer.Add($"Instance {i}:{writer}");
@@ -241,8 +246,9 @@ namespace NativeHost
                     using (var writer = new StringWriter())
                     {
                         var exposedMethods = new ExposedMethods();
-                        using (var sandbox = new Sandbox(size, guestBinaryPath, writer, exposedMethods))
+                        using (var sandbox = new Sandbox(size, guestBinaryPath, writer))
                         {
+                            sandbox.ExposeAndBindMembers(exposedMethods);
                             OutputBuffer.Add($"Created Sandbox Instance {i}:");
                             var returnValue = sandbox.CallGuest<int>(() => { return exposedMethods.GuestMethod!($"Hello Guest in Hypervisor from Hyperlight Host: Instance{i}"); });
                             OutputBuffer.Add($"Instance {i}:{writer}");
@@ -273,7 +279,8 @@ namespace NativeHost
                     using (var writer = new StringWriter())
                     {
                         var exposedMethods = new ExposedMethods();
-                        Action<Sandbox> func = (s) => {
+                        Action<Sandbox> func = (s) =>
+                        {
                             s.BindGuestFunction("PrintOutput", exposedMethods);
                             exposedMethods.PrintOutput!($"{Environment.NewLine}");
                             exposedMethods.PrintOutput!($"Hello from Sandbox Initialisation. {Environment.NewLine}");
@@ -315,8 +322,9 @@ namespace NativeHost
                     using (var writer = new StringWriter())
                     {
                         var exposedMethods = new ExposedMethods();
-                        using (var hypervisorSandbox = new Sandbox(size, guestBinaryPath, options, exposedMethods, writer))
+                        using (var hypervisorSandbox = new Sandbox(size, guestBinaryPath, options, writer))
                         {
+                            hypervisorSandbox.ExposeAndBindMembers(exposedMethods);
                             var builder = writer.GetStringBuilder();
                             for (var i = 0; i < numberofIterations; i++)
                             {

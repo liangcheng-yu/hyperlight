@@ -118,99 +118,31 @@ namespace Hyperlight
 
         public static int MaxPartitionsPerProcess => IsWindows ? HyperVSurrogateProcessManager.NumberOfProcesses : -1;
 
-        public Sandbox(ulong size, string guestBinaryPath, byte[] workloadBytes = null) : this(size, guestBinaryPath, workloadBytes, null, null)
+        public Sandbox(ulong size, string guestBinaryPath) : this(size, guestBinaryPath, SandboxRunOptions.None, null, null)
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath) : this(size, guestBinaryPath, null, null, null)
+        public Sandbox(ulong size, string guestBinaryPath, Action<Sandbox> initFunction = null) : this(size, guestBinaryPath, SandboxRunOptions.None, initFunction, null)
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, Action<Sandbox> initFunction = null, StringWriter writer = null) : this(size, guestBinaryPath, SandboxRunOptions.None, null, null, initFunction, writer)
+        public Sandbox(ulong size, string guestBinaryPath, StringWriter writer = null) : this(size, guestBinaryPath, SandboxRunOptions.None, null, writer)
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, byte[] workloadBytes, Action<Sandbox> initFunction = null) : this(size, guestBinaryPath, SandboxRunOptions.None, workloadBytes, null, initFunction, null)
+        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, Action<Sandbox> initFunction = null) : this(size, guestBinaryPath, runOptions, initFunction, null)
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, byte[] workloadBytes, Action<Sandbox> initFunction, StringWriter writer = null) : this(size, guestBinaryPath, SandboxRunOptions.None, workloadBytes, null, initFunction, null)
+        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions) : this(size, guestBinaryPath, runOptions,  null, null)
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, object instanceOrType, byte[] workloadBytes = null) : this(size, guestBinaryPath, SandboxRunOptions.None, instanceOrType, workloadBytes, null, null)
+        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, StringWriter writer = null) : this(size, guestBinaryPath, runOptions, null, writer)
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, object instanceOrType, Action<Sandbox> initFunction) : this(size, guestBinaryPath, SandboxRunOptions.None, instanceOrType, null, initFunction, null)
-        {
-        }
-
-        public Sandbox(ulong size, string guestBinaryPath, StringWriter writer = null) : this(size, guestBinaryPath, SandboxRunOptions.None, null, null, null, writer)
-        {
-        }
-
-        public Sandbox(ulong size, string guestBinaryPath, byte[] workloadBytes, StringWriter writer = null) : this(size, guestBinaryPath, SandboxRunOptions.None, null, workloadBytes, null, writer)
-        {
-        }
-
-        public Sandbox(ulong size, string guestBinaryPath, byte[] workloadBytes, StringWriter writer, object instanceOrType = null) : this(size, guestBinaryPath, SandboxRunOptions.None, instanceOrType, workloadBytes, null, writer)
-        {
-        }
-
-        public Sandbox(ulong size, string guestBinaryPath, byte[] workloadBytes, StringWriter writer, Action<Sandbox> initFunction, object instanceOrType = null) : this(size, guestBinaryPath, SandboxRunOptions.None, instanceOrType, workloadBytes, initFunction, writer)
-        {
-        }
-
-        public Sandbox(ulong size, string guestBinaryPath,  StringWriter writer, Action<Sandbox> initFunction, object instanceOrType = null) : this(size, guestBinaryPath, SandboxRunOptions.None, instanceOrType, null, initFunction, writer)
-        {
-        }
-
-        public Sandbox(ulong size, string guestBinaryPath, StringWriter writer, object instanceOrType = null) : this(size, guestBinaryPath, SandboxRunOptions.None, instanceOrType, null, null, writer)
-        {
-        }
-
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, object instanceOrType = null) : this(size, guestBinaryPath, runOptions, instanceOrType, null, null, null)
-        {
-        }
-
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, object instanceOrType, Action<Sandbox> initFunction=null) : this(size, guestBinaryPath, runOptions, instanceOrType, null, initFunction, null)
-        {
-        }
-
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, Action<Sandbox> initFunction = null) : this(size, guestBinaryPath, runOptions, null, null, initFunction, null)
-        {
-        }
-
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions) : this(size, guestBinaryPath, runOptions, null, null, null, null)
-        {
-        }
-
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, StringWriter writer = null) : this(size, guestBinaryPath, runOptions, null, null, null, writer)
-        {
-        }
-
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, Action<Sandbox> initFunction, StringWriter writer = null) : this(size, guestBinaryPath, runOptions, null, null, initFunction, writer)
-        {
-        }
-
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, byte[] workloadBytes, Action<Sandbox> initFunction, StringWriter writer = null) : this(size, guestBinaryPath, runOptions, null, workloadBytes, initFunction, writer)
-        {
-        }
-
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, byte[] workloadBytes, StringWriter writer = null) : this(size, guestBinaryPath, runOptions, null, workloadBytes, null, writer)
-        {
-        }
-
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, object instanceOrType, StringWriter writer = null) : this(size, guestBinaryPath, runOptions, instanceOrType, null, null, writer)
-        {
-        }
-
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, object instanceOrType, Action<Sandbox> initFunction, StringWriter writer = null) : this(size, guestBinaryPath, runOptions, instanceOrType, null, initFunction, writer)
-        {
-        }
-
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, object instanceOrType, byte[] workloadBytes, Action<Sandbox> initFunction = null, StringWriter writer = null)
+        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, Action<Sandbox> initFunction = null, StringWriter writer = null)
         {
             if (!IsSupportedPlatform)
             {
@@ -236,7 +168,7 @@ namespace Hyperlight
                 throw new ArgumentException("Cannot run from guest binary and recycle after run at the same time");
             }
 
-            this.guestInterfaceGlue = new HyperlightGuestInterfaceGlue(instanceOrType, this);
+            this.guestInterfaceGlue = new HyperlightGuestInterfaceGlue(this);
 
             LoadGuestBinary();
             SetUpHyperLightPEB();
@@ -254,7 +186,7 @@ namespace Hyperlight
                 }
             }
 
-            InitSandbox(workloadBytes);
+            InitialiseSandbox();
 
             if (initFunction != null)
             {
@@ -503,14 +435,9 @@ namespace Hyperlight
             }
         }
 
-        private void InitSandbox(byte[] workloadBytes)
+        private void InitialiseSandbox()
         {
             int returnValue = 0;
-
-            if (workloadBytes != null && workloadBytes.Length > 0)
-            {
-                Marshal.Copy(workloadBytes, 0, sourceAddress + inputDataOffset, workloadBytes.Length);
-            }
 
             if (runFromProcessMemory)
             {
@@ -749,6 +676,26 @@ namespace Hyperlight
                         break;
                     }
             }
+        }
+
+        public void ExposeHostMethods(Type type)
+        {
+            if (type == null)
+            {
+                throw new ArgumentNullException(nameof(type));
+            }
+            guestInterfaceGlue.ExposeAndBindMembers(type);
+            UpdateHyperLightPEB();
+        }
+
+        public void ExposeAndBindMembers(object instance)
+        {
+            if (instance == null)
+            {
+                throw new ArgumentNullException(nameof(instance));
+            }
+            guestInterfaceGlue.ExposeAndBindMembers(instance);
+            UpdateHyperLightPEB();
         }
 
         public void BindGuestFunction(string delegateName, object instance)

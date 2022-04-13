@@ -5,7 +5,6 @@ using System.Reflection.Emit;
 
 namespace Hyperlight
 {
-
     internal struct HostMethodInfo
     {
         public object target;
@@ -18,20 +17,10 @@ namespace Hyperlight
         // the methods between guest and host
         static readonly HashSet<Type> supportedParameterAndReturnTypes = new() { typeof(int), typeof(long), typeof(bool), typeof(string) };
 
-        // The target object that has the guest helpers and the delegates to call the guest
-        // If null, we are dealing with a helpers defined on a static class
-        // Should members in the type/object be exposed to the guest.
-        readonly bool exposeMembers = true;
-
         public Dictionary<string, HostMethodInfo> MapHostFunctionNamesToMethodInfo = new();
 
-        public GuestInterfaceGlue(object guestObjectOrType)
+        public void ExposeAndBindMembers(object guestObjectOrType)
         {
-            if (guestObjectOrType == null)
-            {
-                return;
-            }
-
 
             // The type is either passed to us if we bind to static members, or
             // an instance of an object is passed to us if we bind to its instance members
@@ -48,6 +37,7 @@ namespace Hyperlight
             // the attribute may also be set on members so members are still enumerated.
 
             var exposeToGuestAttribute = type.GetCustomAttribute<ExposeToGuestAttribute>();
+            var exposeMembers = true;
             if (exposeToGuestAttribute != null && !exposeToGuestAttribute.Expose)
             {
                 exposeMembers = false;
@@ -71,7 +61,7 @@ namespace Hyperlight
                     // See if this field is a delegate
                     if (typeof(Delegate).IsAssignableFrom(fieldInfo.FieldType))
                     {
-                        if (!ShouldExposeMember(fieldInfo.GetCustomAttribute<ExposeToGuestAttribute>()))
+                        if (!ShouldExposeMember(fieldInfo.GetCustomAttribute<ExposeToGuestAttribute>(), exposeMembers))
                         {
                             // TODO implement logging rather than using console.write                           
                             Console.WriteLine($"Skipping delegate {fieldInfo.Name} as it is excluded using ExposeToGuestAttribute.");
@@ -99,7 +89,7 @@ namespace Hyperlight
                 // See if this field is a delegate
                 if (typeof(Delegate).IsAssignableFrom(fieldInfo.FieldType))
                 {
-                    if (ShouldExposeMember(fieldInfo.GetCustomAttribute<ExposeToGuestAttribute>()) && fieldInfo.GetValue(null) == null)
+                    if (ShouldExposeMember(fieldInfo.GetCustomAttribute<ExposeToGuestAttribute>(), exposeMembers) && fieldInfo.GetValue(null) == null)
                     {
                         // TODO implement logging rather throwing exception                       
                         throw new ApplicationException($"Skipping delegate ${fieldInfo.Name} as it is static. Use ExposeToGuestAttribute[false] to exclude this member");
@@ -119,14 +109,14 @@ namespace Hyperlight
             // Get method info for each host helper method
             foreach (var methodInfo in type.GetMethods(bindingFlags))
             {
-                ExposeHostMethod(methodInfo, target);
+                ExposeHostMethod(methodInfo, target, exposeMembers);
             }
         }
 
-        private void ExposeHostMethod(MethodInfo methodInfo, object target=null)
+        private void ExposeHostMethod(MethodInfo methodInfo, object target = null, bool exposeMembers = true)
         {
             // Validate that we support parameter list and return type
-            if (ShouldExposeMember(methodInfo.GetCustomAttribute<ExposeToGuestAttribute>()))
+            if (ShouldExposeMember(methodInfo.GetCustomAttribute<ExposeToGuestAttribute>(), exposeMembers))
             {
                 ValidateMethodSupported(methodInfo);
 
@@ -144,8 +134,8 @@ namespace Hyperlight
         {
 
             // TODO: check if it possible to call CreateDelegate multiple times on a DynamicMethod.
-            // As a DynamicMethod is Module scoped thenthe  if this is possible we only need to
-            // generate the IL once for each field and can cache a reference to the it
+            // As a DynamicMethod is Module scoped then if this is possible we only need to
+            // generate the IL once for each field and can cache a reference to it
             // and just call CreateDelegate for second and subsequent instances.
 
             // Get the Invoke method
@@ -195,7 +185,9 @@ namespace Hyperlight
             //
             // We basically want to turn an early bound call that the host defined into a call to DispatchCallFromHost(string functionName, object[] args)
             // where the early bound parameters are passed as an object[], boxing if necessary
-            // the calls to EnterDyamicMethod and ExitDynamicMethod perform the checks to see if this Sandbox has been used, if it has can it be recycled and if so performs the recycle
+            // the calls to EnterDyamicMethod and ExitDynamicMethod perform the checks to see if this Sandbox has been used already,
+            // if it has, then it check to see if it can it be recycled and it can performs the recycle. If the Sandbox has been used and it cannot be recycled
+            // EnterDynamicMethod will throw an exception.
 
             // Get an ILGenerator and emit a body for the dynamic method
             var il = dynamicMethod.GetILGenerator(256);
@@ -335,7 +327,7 @@ namespace Hyperlight
 
             il.Emit(OpCodes.Stloc_1);
             il.Emit(OpCodes.Leave, exceptionBlock);
-            
+
             // End Try 
 
             il.BeginFinallyBlock();
@@ -350,7 +342,7 @@ namespace Hyperlight
 
             //End Finally
 
-            // push the return value from first variable and return it
+            // push the return value from first variable and return
 
             il.Emit(OpCodes.Ldloc_1);
             il.Emit(OpCodes.Ret);
@@ -396,7 +388,7 @@ namespace Hyperlight
             ExposeHostMethod(methodInfo);
         }
 
-        private bool ShouldExposeMember(ExposeToGuestAttribute exposeToGuestAttribute) => exposeMembers ? exposeToGuestAttribute == null || exposeToGuestAttribute.Expose : exposeToGuestAttribute != null && exposeToGuestAttribute.Expose;
+        private bool ShouldExposeMember(ExposeToGuestAttribute exposeToGuestAttribute, bool exposeMembers) => exposeMembers ? exposeToGuestAttribute == null || exposeToGuestAttribute.Expose : exposeToGuestAttribute != null && exposeToGuestAttribute.Expose;
 
         public object DispatchCallFromGuest(string functionName, object[] args)
         {
@@ -464,7 +456,5 @@ namespace Hyperlight
                 throw new Exception($"Unsupported Return Type {methodInfo.ReturnType} on method {methodInfo.Name}");
             }
         }
-
-
     }
 }

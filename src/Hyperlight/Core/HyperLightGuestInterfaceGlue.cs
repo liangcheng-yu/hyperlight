@@ -3,7 +3,7 @@ namespace Hyperlight.Native
     class HyperlightGuestInterfaceGlue : GuestInterfaceGlue
     {
         readonly Sandbox sandbox;
-        public HyperlightGuestInterfaceGlue(object guestObjectOrType, Sandbox sandbox) : base(guestObjectOrType)
+        public HyperlightGuestInterfaceGlue(Sandbox sandbox)
         {
             this.sandbox = sandbox;
         }

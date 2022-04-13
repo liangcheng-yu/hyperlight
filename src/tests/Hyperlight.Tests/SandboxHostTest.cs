@@ -36,20 +36,18 @@ namespace Hyperlight.Tests
             public int ExpectedReturnValue;
             public string ExpectedOutput;
             public string GuestBinaryPath { get; }
-            public byte[] Workload;
             public Type? instanceOrTypeType { get; }
             public int NumberOfIterations { get; }
             public int NumberOfParallelTests { get; }
 
             public ExposeMembersToGuest ExposeMembers = ExposeMembersToGuest.All;
 
-            public TestData(string guestBinaryFileName, byte[]? workload, string expectedOutput = "Hello, World!!\n", int? expectedReturnValue = null, int numberOfIterations = 0, int numberOfParallelTests = 0, ExposeMembersToGuest exposeMembers = ExposeMembersToGuest.All)
+            public TestData(string guestBinaryFileName, string expectedOutput = "Hello, World!!\n", int? expectedReturnValue = null, int numberOfIterations = 0, int numberOfParallelTests = 0, ExposeMembersToGuest exposeMembers = ExposeMembersToGuest.All)
             {
                 var path = AppDomain.CurrentDomain.BaseDirectory;
                 var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
                 Assert.True(File.Exists(guestBinaryPath), $"Cannot find file {guestBinaryPath} to load into hyperlight");
                 this.GuestBinaryPath = guestBinaryPath;
-                this.Workload = workload ?? Array.Empty<byte>();
                 this.ExpectedOutput = expectedOutput;
                 this.ExpectedReturnValue = expectedReturnValue ?? expectedOutput.Length;
                 NumberOfIterations = numberOfIterations > 0 ? numberOfIterations : NUMBER_OF_ITERATIONS;
@@ -57,7 +55,7 @@ namespace Hyperlight.Tests
                 this.ExposeMembers = exposeMembers;
             }
 
-            public TestData(Type instanceOrTypeType, string guestBinaryFileName, byte[]? workload = null, string expectedOutput = "Hello, World!!\n", int? expectedReturnValue = null, int numberOfIterations = 0, int numberOfParallelTests = 0, ExposeMembersToGuest exposeMembers = ExposeMembersToGuest.All) : this(guestBinaryFileName, workload, expectedOutput, expectedReturnValue, numberOfIterations, numberOfParallelTests, exposeMembers)
+            public TestData(Type instanceOrTypeType, string guestBinaryFileName, string expectedOutput = "Hello, World!!\n", int? expectedReturnValue = null, int numberOfIterations = 0, int numberOfParallelTests = 0, ExposeMembersToGuest exposeMembers = ExposeMembersToGuest.All) : this(guestBinaryFileName, expectedOutput, expectedReturnValue, numberOfIterations, numberOfParallelTests, exposeMembers)
             {
                 this.instanceOrTypeType = instanceOrTypeType;
             }
@@ -210,7 +208,7 @@ namespace Hyperlight.Tests
             Assert.True(File.Exists(guestBinaryPath), $"Cannot find file {guestBinaryPath} to load into hyperlight");
 
             List<(Type type, List<string> exposedMethods, List<string> boundDelegates, List<string> exposedStaticMethods)> testData = new() 
-            { 
+            {
                 (typeof(NoExposedMembers), new(), new(), new()),
                 (typeof(ExposedMembers), new() { "GetOne", "MethodWithArgs", "HostMethod1" }, new() { "GuestMethod1", "PrintOutput" }, new() { "GetTwo", "StaticMethodWithArgs" }),
                 (typeof(ExposeStaticMethodsUsingAttribute), new(), new(), new() { "StaticGetInt", "HostMethod1" }),
@@ -223,8 +221,16 @@ namespace Hyperlight.Tests
                 {
                     foreach (var target in new object?[] { type, GetInstance(type) })
                     {
-                        using (var sandbox = new Sandbox(size, guestBinaryPath, option, target))
+                        using (var sandbox = new Sandbox(size, guestBinaryPath, option))
                         {
+                            if (target is Type)
+                            {
+                                sandbox.ExposeHostMethods(target as Type);
+                            }
+                            else
+                            {
+                                sandbox.ExposeAndBindMembers(target);
+                            }
                             Assert.NotNull(sandbox);
                             List<string> methodNames = target is Type ? exposedStaticMethods : exposedMethods.Concat(exposedStaticMethods).ToList();
                             CheckExposedMethods(sandbox, methodNames, target);
@@ -410,6 +416,7 @@ namespace Hyperlight.Tests
                         {
                             func = (s) =>
                             {
+                                s.ExposeAndBindMembers(target);
                                 foreach (var expectedResult in expectedResults)
                                 {
                                    InvokeMethod(target, expectedResult.delegateName, expectedResult.returnValue, expectedResult.expectedOutput, expectedResult.args, output, ref numberOfCalls);
@@ -419,9 +426,10 @@ namespace Hyperlight.Tests
 
                         numberOfCalls = 0;
                         output = new StringWriter();
-                        sandbox = new Sandbox(size, guestBinaryPath, option, target, func, output);
+                        sandbox = new Sandbox(size, guestBinaryPath, option, func, output);
                         if (target is Type)
                         {
+                            sandbox.ExposeHostMethods(target as Type);
                             CheckExposedMethods(sandbox, exposedStaticMethods, (Type)target);
                         }
                         else
@@ -610,23 +618,31 @@ namespace Hyperlight.Tests
                 {
                     var output1 = new StringWriter();
                     var builder = output1.GetStringBuilder();
-                    var sandbox1 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, instanceOrType, testData.Workload, null, output1);
+                    var sandbox1 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, null, output1);
+                    if (instanceOrType is not null)
+                    {
+                        if (instanceOrType is Type)
+                        {
+                            sandbox1.ExposeHostMethods(instanceOrType as Type);
+                        }
+                        else
+                        {
+                            sandbox1.ExposeAndBindMembers(instanceOrType);
+                        }
+                    }
                     CallbackTest(sandbox1, testData, output1, builder, instanceOrType);
                     var output2 = new StringWriter();
                     Sandbox sandbox2 = null;
                     object instanceOrType1;
-                    object instanceOrType2;
                     if (instanceOrType is not null && instanceOrType is not Type)
                     {
                         instanceOrType1 = GetInstance(instanceOrType.GetType());
-                        instanceOrType2 = GetInstance(instanceOrType.GetType());
                     }
                     else
                     {
                         instanceOrType1 = instanceOrType;
-                        instanceOrType2 = instanceOrType;
                     }
-                    var ex = Record.Exception(() => sandbox2 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, instanceOrType1, testData.Workload, null, output2));
+                    var ex = Record.Exception(() => sandbox2 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, null, output2));
                     Assert.NotNull(ex);
                     Assert.IsType<System.ApplicationException>(ex);
                     Assert.Equal("Only one instance of Sandbox is allowed when running from guest binary", ex.Message);
@@ -637,9 +653,20 @@ namespace Hyperlight.Tests
                     using (var output = new StringWriter())
                     {
                         builder = output.GetStringBuilder();
-                        using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, option, instanceOrType2, testData.Workload, null, output))
+                        using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, option, null, output))
                         {
-                            CallbackTest(sandbox, testData, output, builder, instanceOrType2);
+                            if (instanceOrType1 is not null)
+                            {
+                                if (instanceOrType1 is Type)
+                                {
+                                    sandbox.ExposeHostMethods(instanceOrType1 as Type);
+                                }
+                                else
+                                {
+                                    sandbox.ExposeAndBindMembers(instanceOrType1);
+                                }
+                            }
+                            CallbackTest(sandbox, testData, output, builder, instanceOrType1);
                         }
                     }
                 }
@@ -728,8 +755,19 @@ namespace Hyperlight.Tests
         {
             using (var output = new StringWriter())
             {
-                using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, sandboxRunOptions, instanceOrType, testData.Workload, null, output))
+                using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, sandboxRunOptions, null, output))
                 {
+                    if (instanceOrType is not null)
+                    {
+                        if (instanceOrType is Type)
+                        {
+                            sandbox.ExposeHostMethods(instanceOrType as Type);
+                        }
+                        else
+                        {
+                            sandbox.ExposeAndBindMembers(instanceOrType);
+                        }
+                    }
                     var numberOfIterations = sandboxRunOptions.HasFlag(SandboxRunOptions.RecycleAfterRun) ? testData.NumberOfIterations : 1;
                     var builder = output.GetStringBuilder();
                     for (var i = 0; i < numberOfIterations; i++)
@@ -762,8 +800,19 @@ namespace Hyperlight.Tests
         {
             using (var output = new StringWriter())
             {
-                using (var sandbox = instanceOrType == null ? new Sandbox(testData.Size, testData.GuestBinaryPath, output) : new Sandbox(testData.Size, testData.GuestBinaryPath, output, instanceOrType))
+                using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, output))
                 {
+                    if (instanceOrType is not null)
+                    {
+                        if (instanceOrType is Type)
+                        {
+                            sandbox.ExposeHostMethods(instanceOrType as Type);
+                        }
+                        else
+                        {
+                            sandbox.ExposeAndBindMembers(instanceOrType);
+                        }
+                    }
                     var builder = output.GetStringBuilder();
                     test(sandbox, testData, output, builder, instanceOrType);
                 }
@@ -871,7 +920,7 @@ namespace Hyperlight.Tests
                 new object[] { new TestData(typeof(ExposeStaticMethodsUsingAttribute), "simpleguest.exe") },
                 new object[] { new TestData(typeof(ExposeInstanceMethodsUsingAttribute), "simpleguest.exe") },
                 new object[] { new TestData(typeof(DontExposeSomeMembersUsingAttribute), "simpleguest.exe") },
-                new object[] { new TestData("simpleguest.exe", null) } ,
+                new object[] { new TestData("simpleguest.exe") } ,
             };
         }
         // This does not test passing null as instanceortype as currently this is not implmented properly in Sandbox and causes the testhost to crash.
@@ -879,10 +928,10 @@ namespace Hyperlight.Tests
         {
             return new List<object[]>
             {
-                new object[] { new TestData(typeof(ExposedMembers), "callbackguest.exe", null, "Host Method 1 Received: Hello from GuestFunction1, {0} from Guest", 85,0,0,TestData.ExposeMembersToGuest.TypeAndInstance) },
-                new object[] { new TestData("callbackguest.exe", null, "Host Method 1 Received: Hello from GuestFunction1, {0} from Guest", 85, 0,0,TestData.ExposeMembersToGuest.Null) },
-                new object[] { new TestData(typeof(ExposeStaticMethodsUsingAttribute), "callbackguest.exe", null, "", 50,0,0, TestData.ExposeMembersToGuest.Type) },
-                new object[] { new TestData(typeof(ExposeInstanceMethodsUsingAttribute), "callbackguest.exe", null, "Host Method 1 Received: Hello from GuestFunction1, Hello from CallbackTest from Guest", 85, 0,0,TestData.ExposeMembersToGuest.Instance) },
+                new object[] { new TestData(typeof(ExposedMembers), "callbackguest.exe", "Host Method 1 Received: Hello from GuestFunction1, {0} from Guest", 85,0,0,TestData.ExposeMembersToGuest.TypeAndInstance) },
+                new object[] { new TestData("callbackguest.exe", "Host Method 1 Received: Hello from GuestFunction1, {0} from Guest", 85, 0,0,TestData.ExposeMembersToGuest.Null) },
+                new object[] { new TestData(typeof(ExposeStaticMethodsUsingAttribute), "callbackguest.exe", "Host Method 1 Received: Hello from GuestFunction1, {0} from Guest", 85,0,0, TestData.ExposeMembersToGuest.Type) },
+                new object[] { new TestData(typeof(ExposeInstanceMethodsUsingAttribute), "callbackguest.exe", "Host Method 1 Received: Hello from GuestFunction1, Hello from CallbackTest from Guest", 85, 0,0,TestData.ExposeMembersToGuest.Instance) },
             };
         }
 
