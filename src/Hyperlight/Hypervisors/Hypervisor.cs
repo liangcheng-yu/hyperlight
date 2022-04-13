@@ -19,7 +19,7 @@ namespace Hyperlight.Hypervisors
 
         internal abstract void DispatchCallFromHost(ulong pDispatchFunction);
         internal abstract void ExecuteUntilHalt();
-        internal abstract void Run();
+        internal abstract void Initialise();
         internal void HandleOutb(ushort port, byte value)
         {
             handleoutb(port, value);

@@ -115,7 +115,7 @@ namespace Hyperlight.Hypervisors
             }
         }
 
-        internal override void Run()
+        internal override void Initialise()
         {
             var regs = new LinuxKVM.KVM_REGS()
             {

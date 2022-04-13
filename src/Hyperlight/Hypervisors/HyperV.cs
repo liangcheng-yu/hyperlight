@@ -132,7 +132,7 @@ namespace Hyperlight.Hypervisors
             } while (exitContext.ExitReason != WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_REASON.WHvRunVpExitReasonX64Halt);
         }
 
-        internal override void Run()
+        internal override void Initialise()
         {
             Debug.Assert(registerNames[^4] == WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRcx);
             registerValues[^4].low = (ulong)Sandbox.BaseAddress;

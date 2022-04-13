@@ -186,7 +186,7 @@ namespace Hyperlight
                 }
             }
 
-            InitialiseSandbox();
+            Initialise();
 
             if (initFunction != null)
             {
@@ -435,7 +435,7 @@ namespace Hyperlight
             }
         }
 
-        private void InitialiseSandbox()
+        private void Initialise()
         {
             int returnValue = 0;
 
@@ -493,8 +493,7 @@ namespace Hyperlight
             }
             else
             {
-                // We do not currently look at returnValue - It will be stored at sourceAddress + outputDataOffset
-                hyperVisor!.Run();
+                hyperVisor!.Initialise();
             }
 
             returnValue = Marshal.ReadInt32(sourceAddress + outputDataOffset);
@@ -551,7 +550,8 @@ namespace Hyperlight
         /// <exception cref="ApplicationException"></exception>
         internal bool EnterDynamicMethod()
         {
-            // Check if call is before initialisation is finished or invoked inside CallGuest<T> if so no need to check state
+            // Check if call is before initialisation is finished or invoked inside CallGuest<T>
+            // is both cases there is no need to check state
             if (!initialised || executingGuestCall == 1)
             {
                 return false;
