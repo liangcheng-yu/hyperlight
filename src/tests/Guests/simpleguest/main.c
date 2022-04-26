@@ -1,24 +1,26 @@
-#include <stdio.h>
-#include <stdint.h>
 #include <stdbool.h>
-#include <stdarg.h>
-#include <string.h>
 #include "hyperlight_peb.h"
+#include "hyperlight_error.h"
 
 HyperlightPEB* pPeb;
+typedef int (*guestFunc)(char*);
+struct FuncEntry
+{
+    char* pFuncName;
+    guestFunc pFunc;
+};
+
 bool runningHyperlight = true;
-bool runningAsExe = false;
 void (*outb_ptr)(uint16_t port, uint8_t value) = NULL;
 uint64_t getrsi();
 uint64_t getrdi();
 void setrsi(uint64_t rsi);
 void setrdi(uint64_t rsi);
-extern int mainCRTStartup(void);
 
 #pragma optimize("", off)
 void outb(uint16_t port, uint8_t value)
 {
-    const uint8_t outb[] = {0x89, 0xd0, 0x89, 0xca, 0xee, 0xc3};
+    const uint8_t outb[] = { 0x89, 0xd0, 0x89, 0xca, 0xee, 0xc3 };
 
     if (runningHyperlight)
         ((void (*)(uint16_t, uint8_t))outb)(port, value);
@@ -53,50 +55,128 @@ halt()
         ((void (*)()) & hlt)();
 }
 
-int printOutput(const char *format, ...)
+char* strncpy(char* dest, const char* src, size_t len)
 {
-    int result = 0;
-    va_list args = NULL;
-    va_start(args, format);
-
-    if (runningAsExe)
+    char* result = dest;
+    while (len--)
     {
-        result = vprintf(format, args);
+        *dest++ = *src++;
     }
-    else
-    {
-        int BUFFER_SIZE = 128;
-        char* buffer = (char*)_alloca(BUFFER_SIZE);
-        vsprintf_s(buffer, BUFFER_SIZE, format, args);
-        result = strlen(buffer);
-        strcpy_s((char*)&pPeb->output, BUFFER_SIZE, buffer);
-        outb(100, 0);
-    }
-    va_end(args);
+    *dest = 0;
     return result;
+}
+
+int strcmp(char string1[], char string2[])
+{
+    for (int i = 0;; i++) {
+        if (string1[i] != string2[i]) {
+            return string1[i] < string2[i] ? -1 : 1;
+        }
+
+        if (string1[i] == '\0') {
+            return 0;
+        }
+    }
+}
+
+int printOutput(const char* message)
+{
+    int result = strlen(message);
+    strncpy((void*)&pPeb->output, (void*)message, result);
+    outb(100, 0);
+    return result;
+}
+
+struct FuncEntry funcTable[] = {
+    {"PrintOutput", &printOutput},
+    {NULL, NULL} };
+
+int strlen(const char* str)
+{
+    const char* s;
+    for (s = str; *s; ++s)
+        ;
+    return (s - str);
+}
+
+void setError(uint64_t errorCode)
+{
+    pPeb->error = errorCode;
+}
+
+void DispatchFunction()
+{
+    setError(NO_ERROR);
+    GuestFunctionCall* funcCall = &pPeb->output;
+
+    if (NULL == funcCall->FunctionName)
+    {
+        setError(GUEST_FUNCTION_NAME_NOT_PROVIDED);
+        *(uint32_t*)&pPeb->output = -1;
+        return;
+    }
+
+    guestFunc pFunc = NULL;
+
+    for (uint32_t i = 0; funcTable[i].pFuncName != NULL; i++)
+    {
+        if (strcmp(funcCall->FunctionName, funcTable[i].pFuncName) == 0)
+        {
+            pFunc = funcTable[i].pFunc;
+            break;
+        }
+    }
+
+    if (NULL == pFunc)
+    {
+        setError(GUEST_FUNCTION_NOT_FOUND);
+        *(uint32_t*)&pPeb->output = -1;
+        return;
+    }
+
+    if (funcCall->argc == 0)
+    {
+        setError(GUEST_FUNCTION_PARAMETERS_NOT_FOUND);
+        *(uint32_t*)&pPeb->output = -1;
+        return;
+    }
+
+    char* param;
+
+    // TODO: Handle multiple parameters and ints
+    // only processes the first argument if is a string , otherwise returns -1
+    // for (uint32_t i = 0; i < funcCall->argc; i++)
+
+    for (uint32_t i = 0; i < 1; i++)
+    {
+        uint64_t arg64 = (funcCall->argv + (8 * i));
+        // arg is a string
+        if (arg64 & 0x8000000000000000)
+        {
+            param = (char*)(arg64 &= 0x7FFFFFFFFFFFFFFF);
+        }
+        // arg is an int
+        else
+        {
+            setError(UNSUPPORTED_PARAMETER_TYPE);
+            *(uint32_t*)&pPeb->output = -1;
+        }
+    }
+
+    *(uint32_t*)&pPeb->output = pFunc(param);
+
+    halt();
 }
 
 #pragma optimize("", on)
 
-int main(int argc, char *argv[])
-{
-    if (argc > 1 && argv[1] != NULL)
-    {
-        return printOutput("Hello, %s!!\n", argv[1]);
-    }
-    return printOutput("Hello, World!!\n");
-}
-
-long entryPoint(uint64_t pebAddress, int a, int b, int c)
+int entryPoint(uint64_t pebAddress)
 {
     pPeb = (HyperlightPEB*)pebAddress;
     int result = 0;
     if (NULL == pPeb)
     {
-        // We were run as a normal EXE
-        runningHyperlight = false;
-        runningAsExe = true;
-        mainCRTStartup();
+        return -1;
     }
     else
     {
@@ -104,6 +184,7 @@ long entryPoint(uint64_t pebAddress, int a, int b, int c)
         {
             if (*((const char*)&pPeb->code) != 'J')
             {
+                setError(CODE_HEADER_NOT_SET);
                 return -1;
             }
         }
@@ -111,29 +192,22 @@ long entryPoint(uint64_t pebAddress, int a, int b, int c)
         {
             if (*((const char**)&pPeb->pCode)[0] != 'J')
             {
+                setError(CODE_HEADER_NOT_SET);
                 return -1;
             }
         }
-
-        // TODO: Populate the args.
-
-        int argc = 0;
-        char **argv = NULL;
 
         // Either in WHP partition (hyperlight) or in memory.  If in memory, outb_ptr will be non-NULL
         outb_ptr = *(void**)pPeb->pOutb;
         if (outb_ptr)
             runningHyperlight = false;
-        result = main(argc, argv);
+        HostFunctions* pFuncs = pPeb->funcs;
+        pFuncs->header.DispatchFunction = (uint64_t)DispatchFunction;
     }
 
-    // For non-EXE, cpy return value to memory
-    if (!runningAsExe)
-    {
-        // Setup return values
-        *(uint32_t*)&pPeb->output = result;
-        halt(); // This is a nop if we are running as an EXE or if we were just loaded into memory
-    }
+    // Setup return values
+    *(int32_t*)&pPeb->output = result;
+    halt(); // This is a nop if we were just loaded into memory
 
-    return result;
+    return;
 }

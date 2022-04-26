@@ -57,6 +57,7 @@ namespace Hyperlight
         static bool IsLinux => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
         public static bool IsSupportedPlatform => IsLinux || IsWindows;
         Hypervisor hyperVisor;
+        GCHandle? gCHandle;
         IntPtr sourceAddress = IntPtr.Zero;
         readonly ulong size;
         readonly string guestBinaryPath;
@@ -76,6 +77,7 @@ namespace Hyperlight
         static readonly int functionDefinitionOffset = 0x4000;
         static readonly int functionDefinitionLength = 0x1000;
 
+        readonly bool initialised;
         readonly bool recycleAfterRun;
         readonly byte[] initialMemorySavedForMultipleRunCalls;
         readonly bool runFromProcessMemory;
@@ -88,11 +90,10 @@ namespace Hyperlight
         ulong rsp;
         readonly HyperlightGuestInterfaceGlue guestInterfaceGlue;
         private bool disposedValue; // To detect redundant calls
-        delegate long CallLinuxEntryPoint(int c, int b, int a, IntPtr baseAddress);
-        delegate long CallWindowsEntryPoint(IntPtr baseAddress, int a, int b, int c);
+        delegate long CallEntryPoint(IntPtr baseAddress);
+        HyperlightPEB hyperlightPEB;
 
-        unsafe delegate* unmanaged<IntPtr, int, int, int, long> callEntryPointWindows;
-        unsafe delegate* unmanaged<int, int, int, IntPtr, long> callEntryPointLinux;
+        unsafe delegate* unmanaged<IntPtr, int> callEntryPoint;
 
         // Platform dependent delegate for callbacks from native code when native code is calling 'outb' functionality
         // On Linux, delegates passed from .NET core to native code expect arguments to be passed RDI, RSI, RDX, RCX.
@@ -103,6 +104,12 @@ namespace Hyperlight
         delegate void CallOutb_Windows(ushort port, byte value);
         delegate void CallOutb_Linux(int unused1, int unused2, byte value, ushort port);
         delegate void CallDispatchFunction();
+
+        // 0 No calls are executing
+        // 1 Call guest is executing
+        // 2 Dynamic Method is executing standalone
+        int executingGuestCall;
+
         int countRunCalls;
 
         /// <summary>
@@ -111,7 +118,11 @@ namespace Hyperlight
 
         public static int MaxPartitionsPerProcess => IsWindows ? HyperVSurrogateProcessManager.NumberOfProcesses : -1;
 
-        public Sandbox(ulong size, string guestBinaryPath, object instanceOrType) : this(size, guestBinaryPath, null, instanceOrType)
+        public Sandbox(ulong size, string guestBinaryPath) : this(size, guestBinaryPath, SandboxRunOptions.None, null, null)
+        {
+        }
+
+        public Sandbox(ulong size, string guestBinaryPath, Action<Sandbox> initFunction = null) : this(size, guestBinaryPath, SandboxRunOptions.None, initFunction, null)
         {
         }
 
@@ -119,7 +130,11 @@ namespace Hyperlight
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, StringWriter writer, object instanceOrType = null) : this(size, guestBinaryPath, SandboxRunOptions.None, instanceOrType, writer)
+        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, Action<Sandbox> initFunction = null) : this(size, guestBinaryPath, runOptions, initFunction, null)
+        {
+        }
+
+        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions) : this(size, guestBinaryPath, runOptions,  null, null)
         {
         }
 
@@ -127,7 +142,7 @@ namespace Hyperlight
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, object instanceOrType, StringWriter writer = null)
+        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, Action<Sandbox> initFunction = null, StringWriter writer = null)
         {
             if (!IsSupportedPlatform)
             {
@@ -153,10 +168,7 @@ namespace Hyperlight
                 throw new ArgumentException("Cannot run from guest binary and recycle after run at the same time");
             }
 
-            if (null != instanceOrType)
-            {
-                this.guestInterfaceGlue = new HyperlightGuestInterfaceGlue(instanceOrType, this);
-            }
+            this.guestInterfaceGlue = new HyperlightGuestInterfaceGlue(this);
 
             LoadGuestBinary();
             SetUpHyperLightPEB();
@@ -174,11 +186,20 @@ namespace Hyperlight
                 }
             }
 
+            Initialise();
+
+            if (initFunction != null)
+            {
+                initFunction(this);
+            }
+
             if (recycleAfterRun)
             {
                 initialMemorySavedForMultipleRunCalls = new byte[size];
                 Marshal.Copy(sourceAddress, initialMemorySavedForMultipleRunCalls, 0, (int)size);
             }
+
+            initialised = true;
 
         }
 
@@ -194,7 +215,13 @@ namespace Hyperlight
             var outputDataAddress = sourceAddress + outputDataOffset;
             var dispatchFunctionAddress = sourceAddress + dispatchPointerOffset;
             // Get DispatchFunction pointer from PEB
+
             var pDispatchFunction = (ulong)Marshal.ReadInt64(dispatchFunctionAddress);
+
+            if (pDispatchFunction == 0)
+            {
+                throw new ArgumentException($"{nameof(pDispatchFunction)} is null");
+            }
 
             var headerSize = 0x08 + 0x08 + 0x08 * args.Length; // Pointer to function name, count of args, and arg list
             var stringTable = new SimpleStringTable(outputDataAddress + headerSize, inputDataOffset - headerSize, offset);
@@ -284,6 +311,10 @@ namespace Hyperlight
             {
 
                 sourceAddress = OS.Allocate((IntPtr)0, size);
+                if (IntPtr.Zero == sourceAddress)
+                {
+                    throw new ApplicationException("VirtualAlloc failed");
+                }
 
                 // If we are running in memory the entry point will be relative to the sourceAddress if we are running in a Hypervisor it will be relative to 0x230000 which is where the code is loaded in the GP
                 if (runFromProcessMemory)
@@ -304,38 +335,63 @@ namespace Hyperlight
 
         void SetUpHyperLightPEB()
         {
-            var peb = new HyperlightPEB();
-            if (guestInterfaceGlue != null)
-            {
-                foreach (var mi in guestInterfaceGlue.mapHostFunctionNamesToMethodInfo.Values)
-                {
-                    // TODO: Add support for void return types
-                    if (mi.ReturnType != typeof(int))
-                    {
-                        throw new ArgumentException("Only int return types are supported");
-                    }
-
-                    var parameterSignature = "";
-                    foreach (var pi in mi.GetParameters())
-                    {
-                        if (pi.ParameterType == typeof(int))
-                            parameterSignature += "i";
-                        else if (pi.ParameterType == typeof(string))
-                            parameterSignature += "$";
-                        else
-                            throw new ArgumentException("Only int and string parameters are supported");
-                    }
-
-                    peb.AddFunction(mi.Name, $"({parameterSignature})i", 0);
-                }
-            }
             ulong offset = 0;
             if (!runFromProcessMemory)
             {
                 offset = (ulong)sourceAddress - (ulong)BaseAddress;
             }
-            peb.WriteToMemory(IntPtr.Add(sourceAddress, functionDefinitionOffset), functionDefinitionLength, offset);
+
+            hyperlightPEB = new HyperlightPEB(IntPtr.Add(sourceAddress, functionDefinitionOffset), functionDefinitionLength, offset);
+            CreateHyperlightPEBInMemory();
         }
+
+        private void CreateHyperlightPEBInMemory()
+        {
+            UpdateFunctionMap();
+            hyperlightPEB.Create();
+        }
+
+        private void UpdateHyperlightPEBInMemory()
+        {
+            UpdateFunctionMap();
+            hyperlightPEB.Update();
+        }
+
+        private void UpdateFunctionMap()
+        {
+            foreach (var mi in guestInterfaceGlue.MapHostFunctionNamesToMethodInfo.Values)
+            {
+
+                // Dont add functions that already exist in the PEB
+                // TODO: allow overloaded functions
+
+                if (hyperlightPEB.FunctionExists(mi.methodInfo.Name))
+                {
+                    continue;
+                }
+
+                // TODO: Add support for void return types
+                if (mi.methodInfo.ReturnType != typeof(int))
+                {
+                    throw new ArgumentException("Only int return types are supported");
+                }
+
+                var parameterSignature = "";
+                foreach (var pi in mi.methodInfo.GetParameters())
+                {
+                    if (pi.ParameterType == typeof(int))
+                        parameterSignature += "i";
+                    else if (pi.ParameterType == typeof(string))
+                        parameterSignature += "$";
+                    else
+                        throw new ArgumentException("Only int and string parameters are supported");
+                }
+
+                hyperlightPEB.AddFunction(mi.methodInfo.Name, $"({parameterSignature})i", 0);
+            }
+        }
+
+
 
         public void SetUpHyperVisorPartition()
         {
@@ -379,24 +435,9 @@ namespace Hyperlight
             }
         }
 
-        public (uint returnValue, string returnValueString, long returnValue64) Run(byte[] workloadBytes, int argument1, int argument2, int argument3)
+        private void Initialise()
         {
-            long returnValue = 0;
-
-            if (countRunCalls > 0 && !recycleAfterRun)
-            {
-                throw new ArgumentException("You must set option RecycleAfterRun when creating the Sandbox if you need to call Run more than once");
-            }
-
-            if (recycleAfterRun)
-            {
-                Marshal.Copy(initialMemorySavedForMultipleRunCalls!, 0, sourceAddress, (int)size);
-            }
-
-            if (workloadBytes != null && workloadBytes.Length > 0)
-            {
-                Marshal.Copy(workloadBytes, 0, sourceAddress + inputDataOffset, workloadBytes.Length);
-            }
+            int returnValue = 0;
 
             if (runFromProcessMemory)
             {
@@ -421,37 +462,27 @@ namespace Hyperlight
 
                     throw new NotSupportedException("Cannot run in process on Linux");
                     var callOutB = new CallOutb_Linux((_, _, value, port) => HandleOutb(port, value));
-                    var gCHandle = GCHandle.Alloc(callOutB);
-                    try
+                    gCHandle = GCHandle.Alloc(callOutB);
+
+                    Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Linux>(callOutB));
+                    unsafe
                     {
-                        Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Linux>(callOutB));
-                        unsafe
-                        {
-                            callEntryPointLinux = (delegate* unmanaged<int, int, int, IntPtr, long>)entryPoint;
-                            returnValue = callEntryPointLinux(argument1, argument2, argument3, sourceAddress);
-                        }
+                        callEntryPoint = (delegate* unmanaged<IntPtr, int>)entryPoint;
+                        _ = callEntryPoint(sourceAddress);
                     }
-                    finally
-                    {
-                        gCHandle.Free();
-                    }
+
                 }
                 else if (IsWindows)
                 {
                     var callOutB = new CallOutb_Windows((port, value) => HandleOutb(port, value));
-                    var gCHandle = GCHandle.Alloc(callOutB);
-                    try
+
+                    gCHandle = GCHandle.Alloc(callOutB);
+
+                    Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Windows>(callOutB));
+                    unsafe
                     {
-                        Marshal.WriteInt64(sourceAddress + pOutBOffset, (long)Marshal.GetFunctionPointerForDelegate<CallOutb_Windows>(callOutB));
-                        unsafe
-                        {
-                            callEntryPointWindows = (delegate* unmanaged<IntPtr, int, int, int, long>)entryPoint;
-                            returnValue = callEntryPointWindows(sourceAddress, argument1, argument2, argument3);
-                        }
-                    }
-                    finally
-                    {
-                        gCHandle.Free();
+                        callEntryPoint = (delegate* unmanaged<IntPtr, int>)entryPoint;
+                        _ = callEntryPoint(sourceAddress);
                     }
                 }
                 else
@@ -462,14 +493,101 @@ namespace Hyperlight
             }
             else
             {
-                // We do not currently look at returnValue - It will be stored at sourceAddress + outputDataOffset
-                hyperVisor!.Run(argument1, argument2, argument3);
+                hyperVisor!.Initialise();
             }
-            countRunCalls++;
 
-            return ((uint)Marshal.ReadInt32(sourceAddress + outputDataOffset), Marshal.PtrToStringAnsi(sourceAddress + outputDataOffset + 0x10), Marshal.ReadInt64(sourceAddress + outputDataOffset + 0x8));
+            returnValue = Marshal.ReadInt32(sourceAddress + outputDataOffset);
+
+            if (returnValue != 0)
+            {
+                //TODO: Convert this to a specific exception
+                throw new ApplicationException($"Init Function Failed with error code:{returnValue}");
+            }
         }
 
+        /// <summary>
+        /// Enables the host to call multiple functions in the Guest and have the sandbox state reset at the start of the call
+        /// Ensures that only one call can be made concurrently
+        /// </summary>
+        /// <typeparam name="T">The return type of the function</typeparam>
+        /// <param name="func">The function to be executed</param>
+        /// <returns>T</returns>
+        /// <exception cref="ArgumentNullException">func is null</exception>
+        /// <exception cref="ApplicationException">a call to the guest is already in progress</exception>
+
+        public T CallGuest<T>(Func<T> func)
+        {
+            if (func == null)
+            {
+                throw new ArgumentNullException("func");
+            }
+            var shouldRelease = false;
+            try
+            {
+                if (Interlocked.CompareExchange(ref executingGuestCall, 1, 0) != 0)
+                {
+                    throw new ApplicationException("Guest call already in progress");
+                }
+                shouldRelease = true;
+                ResetState();
+                return func();
+            }
+            finally
+            {
+                if (shouldRelease)
+                {
+                    Interlocked.Exchange(ref executingGuestCall, 0);
+                }
+            }
+        }
+
+        /// <summary>
+        /// This method is called by DynamicMethods generated to call guest functions.
+        /// It first checks to see if the sadnbox has been initialised yet or if there is a CallGuest Method call in progress, if so it just
+        /// returns false as there is no need to check state
+        /// </summary>
+        /// <returns></returns>
+        /// <exception cref="ApplicationException"></exception>
+        internal bool EnterDynamicMethod()
+        {
+            // Check if call is before initialisation is finished or invoked inside CallGuest<T>
+            // is both cases there is no need to check state
+            if (!initialised || executingGuestCall == 1)
+            {
+                return false;
+            }
+
+            if ((Interlocked.CompareExchange(ref executingGuestCall, 2, 0)) != 0)
+            {
+                throw new ApplicationException("Guest call already in progress");
+            }
+            return true;
+        }
+
+        internal void ExitDynamicMethod(bool shouldRelease)
+        {
+            if (shouldRelease)
+            {
+                Interlocked.Exchange(ref executingGuestCall, 0);
+            }
+        }
+
+        internal void ResetState()
+        {
+
+            if (countRunCalls > 0 && !recycleAfterRun)
+            {
+                throw new ArgumentException("You must set option RecycleAfterRun when creating the Sandbox if you need to call a function in the guest more than once");
+            }
+
+            if (recycleAfterRun)
+            {
+                Marshal.Copy(initialMemorySavedForMultipleRunCalls!, 0, sourceAddress, (int)size);
+            }
+
+            countRunCalls++;
+
+        }
 
         //TODO: throwing exceptions here does not work as this function is invoked from native code
         //need to figure out how to return errors and log issues instead
@@ -495,38 +613,32 @@ namespace Hyperlight
                             throw new ArgumentNullException("Function name is null or empty");
                         }
 
-                        if (guestInterfaceGlue != null)
+                        if (!guestInterfaceGlue.MapHostFunctionNamesToMethodInfo.ContainsKey(functionName))
                         {
-                            if (!guestInterfaceGlue.mapHostFunctionNamesToMethodInfo.ContainsKey(functionName))
-                            {
-                                throw new ArgumentNullException($"Could not find host function name {functionName}");
-                            }
-                            var mi = guestInterfaceGlue.mapHostFunctionNamesToMethodInfo[functionName];
-                            var parameters = mi.GetParameters();
-                            var args = new object[parameters.Length];
-                            for (var i = 0; i < parameters.Length; i++)
-                            {
-                                if (parameters[i].ParameterType == typeof(int))
-                                {
-                                    args[i] = Marshal.ReadInt32(outputDataAddress + 8 * (i + 1));
-                                }
-                                else if (parameters[i].ParameterType == typeof(string))
-                                {
-                                    strPtr = Marshal.ReadInt64(outputDataAddress + 8 * (i + 1));
-                                    args[i] = Marshal.PtrToStringAnsi((IntPtr)((ulong)strPtr + offset));
-                                }
-                                else
-                                {
-                                    throw new ArgumentException("Unsupported parameter type");
-                                }
-                            }
-                            var returnFromHost = (int)guestInterfaceGlue.DispatchCallFromGuest(functionName, args);
-                            Marshal.WriteInt32(sourceAddress + inputDataOffset, returnFromHost);
+                            throw new ArgumentNullException($"{functionName}, Could not find host function name.");
                         }
-                        else
+
+                        var mi = guestInterfaceGlue.MapHostFunctionNamesToMethodInfo[functionName];
+                        var parameters = mi.methodInfo.GetParameters();
+                        var args = new object[parameters.Length];
+                        for (var i = 0; i < parameters.Length; i++)
                         {
-                            throw new ArgumentNullException($"Could not find host function name {functionName}. GuestInterfaceGlue is null");
+                            if (parameters[i].ParameterType == typeof(int))
+                            {
+                                args[i] = Marshal.ReadInt32(outputDataAddress + 8 * (i + 1));
+                            }
+                            else if (parameters[i].ParameterType == typeof(string))
+                            {
+                                strPtr = Marshal.ReadInt64(outputDataAddress + 8 * (i + 1));
+                                args[i] = Marshal.PtrToStringAnsi((IntPtr)((ulong)strPtr + offset));
+                            }
+                            else
+                            {
+                                throw new ArgumentException("Unsupported parameter type");
+                            }
                         }
+                        var returnFromHost = (int)guestInterfaceGlue.DispatchCallFromGuest(functionName, args);
+                        Marshal.WriteInt32(sourceAddress + inputDataOffset, returnFromHost);
                         break;
                     }
                 case 100: // Write with no carriage return
@@ -566,6 +678,68 @@ namespace Hyperlight
             }
         }
 
+        public void ExposeHostMethods(Type type)
+        {
+            if (type == null)
+            {
+                throw new ArgumentNullException(nameof(type));
+            }
+            guestInterfaceGlue.ExposeAndBindMembers(type);
+            UpdateHyperLightPEB();
+        }
+
+        public void ExposeAndBindMembers(object instance)
+        {
+            if (instance == null)
+            {
+                throw new ArgumentNullException(nameof(instance));
+            }
+            guestInterfaceGlue.ExposeAndBindMembers(instance);
+            UpdateHyperLightPEB();
+        }
+
+        public void BindGuestFunction(string delegateName, object instance)
+        {
+            if (instance == null)
+            {
+                throw new ArgumentNullException(nameof(instance));
+            }
+            guestInterfaceGlue.BindGuestFunctionToDelegate(delegateName, instance);
+        }
+
+        public void ExposeHostMethod(string methodName, object instance)
+        {
+            if (instance == null)
+            {
+                throw new ArgumentNullException(nameof(instance));
+            }
+            guestInterfaceGlue.ExposeHostMethod(methodName, instance);
+            UpdateHyperLightPEB();
+        }
+
+        public void ExposeHostMethod(string methodName, Type type)
+        {
+            if (type == null)
+            {
+                throw new ArgumentNullException(nameof(type));
+            }
+            guestInterfaceGlue.ExposeHostMethod(methodName, type);
+            UpdateHyperLightPEB();
+        }
+
+        private void UpdateHyperLightPEB()
+        {
+            if (recycleAfterRun && initialised)
+            {
+                Marshal.Copy(initialMemorySavedForMultipleRunCalls!, 0, sourceAddress, (int)size);
+            }
+            UpdateHyperlightPEBInMemory();
+            if (recycleAfterRun && initialised)
+            {
+                Marshal.Copy(sourceAddress, initialMemorySavedForMultipleRunCalls, 0, (int)size);
+            }
+        }
+
         public static bool IsHypervisorPresent()
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
@@ -601,6 +775,8 @@ namespace Hyperlight
                     {
                         Interlocked.Decrement(ref isRunningFromGuestBinary);
                     }
+
+                    gCHandle?.Free();
 
                     hyperVisor?.Dispose();
 

@@ -1,30 +1,21 @@
-#include <stdio.h>
-#include <stdint.h>
 #include <stdbool.h>
-#include <stdarg.h>
-#include <string.h>
 #include "hyperlight_peb.h"
-
-bool runningHyperlight = true;
-bool runningAsExe = false;
-int BUFFER_SIZE = 256;
+#include "hyperlight_error.h"
 
 HyperlightPEB* pPeb;
-
-void (*outb_ptr)(uint16_t port, uint8_t value) = NULL;
-typedef int (*guestFunc)(char *);
+typedef int (*guestFunc)(char*);
 struct FuncEntry
 {
-    char *pFuncName;
+    char* pFuncName;
     guestFunc pFunc;
 };
 
+bool runningHyperlight = true;
+void (*outb_ptr)(uint16_t port, uint8_t value) = NULL;
 uint64_t getrsi();
 uint64_t getrdi();
 void setrsi(uint64_t rsi);
 void setrdi(uint64_t rsi);
-
-extern int mainCRTStartup(void);
 
 #pragma optimize("", off)
 
@@ -51,41 +42,88 @@ void outb(uint16_t port, uint8_t value)
     }
 }
 
-int printOutput(const char *format, ...)
+char* strncpy(char* dest, const char* src, size_t len)
 {
-    int result = 0;
-    va_list args = NULL;
-    va_start(args, format);
-
-    if (runningAsExe)
+    char* result = dest;
+    while (len--)
     {
-        result = vprintf(format, args);
+        *dest++ = *src++;
     }
-    else
-    {
-        char *buffer = (char *)_alloca(BUFFER_SIZE);
-        vsprintf_s(buffer, BUFFER_SIZE, format, args);
-        result = strlen(buffer);
-        strcpy_s((char *)&pPeb->output, BUFFER_SIZE, buffer);
-        outb(100, 0);
-    }
-    va_end(args);
+    *dest = 0;
     return result;
+}
+
+int strcmp(char string1[], char string2[])
+{
+    for (int i = 0;; i++) {
+        if (string1[i] != string2[i]) {
+            return string1[i] < string2[i] ? -1 : 1;
+        }
+
+        if (string1[i] == '\0') {
+            return 0;
+        }
+    }
+}
+
+char* strncat(char* dest, const char* src, int length )
+{
+    char* result = dest;
+    dest += strlen(dest);
+    int count = 0;
+
+    while (++count <= length)
+        *dest++ = *src++;
+            
+    *(++dest) = '0';
+    return result;
+}
+
+int sendMessagetoHostMethod(char* methodName, char* guestMessage, char* message)
+{
+    char* messageToHost = strncat(guestMessage, message, strlen(message));
+    return native_symbol_thunk(methodName, messageToHost, NULL, NULL, NULL);
 }
 
 int guestFunction(char *message)
 {
-    if (NULL != message)
-    {
-        return printOutput("Hello from GuestFunction, %s!!.\n", message);
-    }
+    
+    char guestMessage[256] = "Hello from GuestFunction, ";
+    sendMessagetoHostMethod("HostMethod", guestMessage, message);
+}
 
-    return printOutput("Hello, World!! from Guest Function\n");
+int guestFunction1(char* message)
+{
+    char guestMessage[256] = "Hello from GuestFunction1, ";
+    sendMessagetoHostMethod("HostMethod1", guestMessage, message);
+}
+
+int printOutput(const char* message)
+{
+    int result = strlen(message);
+    strncpy((void*)&pPeb->output, (void*)message, result);
+    outb(100, 0);
+    return result;
 }
 
 struct FuncEntry funcTable[] = {
     {"GuestMethod", &guestFunction},
+    {"GuestMethod1", &guestFunction1},
+    {"PrintOutput", &printOutput},
     {NULL, NULL}};
+
+int strlen(const char* str)
+{
+    const char* s;
+    for (s = str; *s; ++s)
+        ;
+    return (s - str);
+}
+
+void setError(uint64_t errorCode)
+{
+    pPeb->error = errorCode;
+}
 
 // Prevents compiler inserted function from generating Memory Access exits when calling alloca.
 void __chkstk()
@@ -108,7 +146,7 @@ void DispatchFunction()
     
     if (NULL == funcCall->FunctionName)
     {
-        printOutput("No function name found in DispatchFunction.\n");
+        setError(GUEST_FUNCTION_NAME_NOT_PROVIDED);
         *(uint32_t *)&pPeb->output = -1;
         return;
     }
@@ -126,14 +164,14 @@ void DispatchFunction()
 
     if (NULL == pFunc)
     {
-        printOutput("Function %s not found in FunctionTable.\n", funcCall->FunctionName);
+        setError(GUEST_FUNCTION_NOT_FOUND); 
         *(uint32_t *)&pPeb->output = -1;
         return;
     }
 
     if (funcCall->argc == 0)
     {
-        printOutput("No parameters found\n");
+        setError(GUEST_FUNCTION_PARAMETERS_NOT_FOUND);
         *(uint32_t *)&pPeb->output = -1;
         return;
     }
@@ -141,7 +179,7 @@ void DispatchFunction()
     char* param;
 
     // TODO: Handle multiple parameters and ints
-    // only processes the first argument if is not a string then convert to string
+    // only processes the first argument if is a string , otherwise returns -1
     // for (uint32_t i = 0; i < funcCall->argc; i++)
 
     for (uint32_t i = 0; i < 1; i++)
@@ -155,13 +193,11 @@ void DispatchFunction()
         // arg is an int
         else
         {
-            char* buffer = (char*)_alloca(BUFFER_SIZE);
-            sprintf_s(buffer, BUFFER_SIZE, "%d", (uint32_t)arg64);
-            param = buffer;
+            setError(UNSUPPORTED_PARAMETER_TYPE);
+            *(uint32_t*)&pPeb->output = -1;
         }
     }
     
-
     *(uint32_t *)&pPeb->output = pFunc(param);
 
     halt();
@@ -180,7 +216,7 @@ int native_symbol_thunk(char *functionName, void *a, void *b, void *c, void *d)
     *ptr = d;
 
     // TODO: Why is the return code getting output via outb?
-    // This only happens if runing in Hyperlight and on KVM.
+    // This only happens if running in Hyperlight and on KVM.
 
     outb(101, 0);
     return *(int *)&pPeb->input;
@@ -188,42 +224,13 @@ int native_symbol_thunk(char *functionName, void *a, void *b, void *c, void *d)
 
 #pragma optimize("", on)
 
-int main(int argc, char *argv[])
-{
-    if (!runningAsExe)
-    {
-        char *message;
-        if (argc > 1 && argv[1] != NULL)
-        {
-            message = (char *)_alloca(BUFFER_SIZE);
-            sprintf_s(message, BUFFER_SIZE, "Hello, %s!!", argv[1]);
-        }
-        else
-        {
-            message = "Hello, World!!";
-        }
-        return native_symbol_thunk("HostMethod", message, NULL, NULL, NULL);
-    }
-
-    if (argc > 1 && argv[1] != NULL)
-    {
-        return printOutput("Hello, %s!!\n", argv[1]);
-    }
-
-    return printOutput("Hello, World!!\n");
-}
-
 long entryPoint(uint64_t pebAddress, int a, int b, int c)
 {
-
     pPeb = (HyperlightPEB*)pebAddress;
     int result = 0;
     if (NULL == pPeb)
     {
-        // We were run as a normal EXE
-        runningHyperlight = false;
-        runningAsExe = true;
-        mainCRTStartup();
+        return -1;
     }
     else
     {
@@ -231,40 +238,41 @@ long entryPoint(uint64_t pebAddress, int a, int b, int c)
         {
             if (*((const char*)&pPeb->code) != 'J')
             {
-                return -1;
+                setError(CODE_HEADER_NOT_SET);
+                *(uint32_t*)&pPeb->output = -1;
+                return;
             }
         }
         else
         {
             if (*((const char**)&pPeb->pCode)[0] != 'J')
             {
-                return -1;
+                setError(CODE_HEADER_NOT_SET);
+                *(uint32_t*)&pPeb->output = -1;
+                return;
             }
         }
 
-        // TODO: Populate the args.
-
-        int argc = 0;
-        char **argv = NULL;
-
         // Either in WHP partition (hyperlight) or in memory.  If in memory, outb_ptr will be non-NULL
-        
-        outb_ptr = *(void **)pPeb->pOutb;
+
+        outb_ptr = *(void**)pPeb->pOutb;
         if (outb_ptr)
             runningHyperlight = false;
 
         HostFunctions* pFuncs = pPeb->funcs;
         pFuncs->header.DispatchFunction = (uint64_t)DispatchFunction;
-        result = main(argc, argv);
+
+        if (!pFuncs->header.DispatchFunction)
+        {
+            setError(DISPATCH_FUNCTION_POINTER_NOT_SET);
+            *(uint32_t*)&pPeb->output = -1;
+            return;
+        }
     }
 
-    // For non-EXE, cpy return value to memory
-    if (!runningAsExe)
-    {
-        // Setup return values
-        *(uint32_t *)&pPeb->output = result;
-        halt(); // This is a nop if we are running as an EXE or if we were just loaded into memory
-    }
-
+    // Setup return values
+    *(uint32_t *)&pPeb->output = result;
+    halt(); // This is a nop if we were just loaded into memory
+   
     return result;
 }

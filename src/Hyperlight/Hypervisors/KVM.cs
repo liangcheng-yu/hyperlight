@@ -115,16 +115,13 @@ namespace Hyperlight.Hypervisors
             }
         }
 
-        internal override void Run(int argument1, int argument2, int argument3)
+        internal override void Initialise()
         {
             var regs = new LinuxKVM.KVM_REGS()
             {
                 rip = EntryPoint,
                 rsp = rsp,
-                rcx = (ulong)Sandbox.BaseAddress,
-                rdx = (ulong)argument1,
-                r8 = (ulong)argument2,
-                r9 = (ulong)argument3,
+                r9 = (ulong)Sandbox.BaseAddress,
                 rflags = 0x0002,
             };
             // TODO: Handle error
