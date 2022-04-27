@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stdarg.h>
 #include "hyperlight_peb.h"
 #include "hyperlight_error.h"
 
@@ -82,7 +83,7 @@ char* strncat(char* dest, const char* src, int length )
 int sendMessagetoHostMethod(char* methodName, char* guestMessage, char* message)
 {
     char* messageToHost = strncat(guestMessage, message, strlen(message));
-    return native_symbol_thunk(methodName, messageToHost, NULL, NULL, NULL);
+    return native_symbol_thunk(methodName, messageToHost);
 }
 
 int guestFunction(char *message)
@@ -114,15 +115,40 @@ struct FuncEntry funcTable[] = {
 
 int strlen(const char* str)
 {
+    if (NULL == str)
+    {
+        return 0;
+    }
     const char* s;
     for (s = str; *s; ++s)
         ;
     return (s - str);
 }
-
-void setError(uint64_t errorCode)
+void resetError()
 {
-    pPeb->error = errorCode;
+    pPeb->error.errorNo = 0;
+    *pPeb->error.message = NULL;
+}
+
+void setError(uint64_t errorCode, char* message)
+{
+    pPeb->error.errorNo = errorCode;
+    int length = strlen(message);
+    if (length >= sizeof(pPeb->error.message))
+    {
+        length = sizeof(pPeb->error.message);
+    }
+
+    if (length == 0)
+    {
+        *pPeb->error.message = NULL;
+    }
+    else
+    {
+        strncpy(pPeb->error.message, message, length);
+    }
+
+    *(uint32_t*)&pPeb->output = -1;
 }
 
 // Prevents compiler inserted function from generating Memory Access exits when calling alloca.
@@ -140,15 +166,14 @@ halt()
 
 void DispatchFunction()
 {
+    resetError();
 
     GuestFunctionCall *funcCall = &pPeb->output;
-    // TODO: How to return error details?
     
     if (NULL == funcCall->FunctionName)
     {
-        setError(GUEST_FUNCTION_NAME_NOT_PROVIDED);
-        *(uint32_t *)&pPeb->output = -1;
-        return;
+        setError(GUEST_FUNCTION_NAME_NOT_PROVIDED, NULL);
+        goto halt;
     }
 
     guestFunc pFunc = NULL;
@@ -164,16 +189,14 @@ void DispatchFunction()
 
     if (NULL == pFunc)
     {
-        setError(GUEST_FUNCTION_NOT_FOUND); 
-        *(uint32_t *)&pPeb->output = -1;
-        return;
+        setError(GUEST_FUNCTION_NOT_FOUND, funcCall->FunctionName);
+        goto halt;
     }
 
     if (funcCall->argc == 0)
     {
-        setError(GUEST_FUNCTION_PARAMETERS_NOT_FOUND);
-        *(uint32_t *)&pPeb->output = -1;
-        return;
+        setError(GUEST_FUNCTION_PARAMETERS_MISSING, NULL);
+        goto halt;
     }
 
     char* param;
@@ -193,36 +216,46 @@ void DispatchFunction()
         // arg is an int
         else
         {
-            setError(UNSUPPORTED_PARAMETER_TYPE);
-            *(uint32_t*)&pPeb->output = -1;
+            setError(UNSUPPORTED_PARAMETER_TYPE, "0");
+            goto halt;
         }
     }
     
     *(uint32_t *)&pPeb->output = pFunc(param);
 
+halt:
+
     halt();
 }
 
-int native_symbol_thunk(char *functionName, void *a, void *b, void *c, void *d)
+int native_symbol_thunk(char* functionName, ...)
 {
 
     HostFunctionCall* functionCall = (HostFunctionCall*)&pPeb->output;
     functionCall->FunctionName = functionName;
     uint64_t* ptr = &functionCall->argv;
 
-    *ptr++ = a;
-    *ptr++ = b;
-    *ptr++ = c;
-    *ptr = d;
+    va_list ap;
+
+    va_start(ap, functionName);
+
+    void* arg;
+
+    while (arg = va_arg(ap, void*))
+    {
+        *ptr++ = arg;
+    }
+
+    va_end(ap);
 
     // TODO: Why is the return code getting output via outb?
     // This only happens if running in Hyperlight and on KVM.
 
     outb(101, 0);
-    return *(int *)&pPeb->input;
+    return *(int*)&pPeb->input;
 }
 
-#pragma optimize("", on)
+
 
 long entryPoint(uint64_t pebAddress, int a, int b, int c)
 {
@@ -234,22 +267,21 @@ long entryPoint(uint64_t pebAddress, int a, int b, int c)
     }
     else
     {
+        resetError();
         if (NULL != *((const char*)&pPeb->code))
         {
             if (*((const char*)&pPeb->code) != 'J')
             {
-                setError(CODE_HEADER_NOT_SET);
-                *(uint32_t*)&pPeb->output = -1;
-                return;
+                setError(CODE_HEADER_NOT_SET, NULL);
+                goto halt;
             }
         }
         else
         {
             if (*((const char**)&pPeb->pCode)[0] != 'J')
             {
-                setError(CODE_HEADER_NOT_SET);
-                *(uint32_t*)&pPeb->output = -1;
-                return;
+                setError(CODE_HEADER_NOT_SET, NULL);
+                goto halt;
             }
         }
 
@@ -264,15 +296,15 @@ long entryPoint(uint64_t pebAddress, int a, int b, int c)
 
         if (!pFuncs->header.DispatchFunction)
         {
-            setError(DISPATCH_FUNCTION_POINTER_NOT_SET);
-            *(uint32_t*)&pPeb->output = -1;
-            return;
+            setError(DISPATCH_FUNCTION_POINTER_NOT_SET, NULL);
+            goto halt;
         }
     }
 
     // Setup return values
     *(uint32_t *)&pPeb->output = result;
+
+halt:
     halt(); // This is a nop if we were just loaded into memory
-   
     return result;
 }

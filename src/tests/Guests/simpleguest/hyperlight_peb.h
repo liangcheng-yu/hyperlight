@@ -1,6 +1,15 @@
 #pragma once
 #include <stdint.h>
 
+//TODO: Optmise this so it doesnt use fixed amounts of memory.
+
+typedef struct
+{
+    uint64_t errorNo;
+    char message[256];
+
+} GuestError;
+
 typedef struct
 {
     uint8_t padding1[4096];
@@ -8,8 +17,9 @@ typedef struct
     uint8_t pdtp[4096];
     uint8_t pd[4096];
     uint8_t funcs[4096];
-    uint8_t padding2[45024];
-    uint64_t error;
+    uint8_t padding2[40672];
+    uint8_t hostException[4096];
+    GuestError error;
     uint8_t pCode[8];
     uint8_t pOutb[16];
     uint8_t input[65536];

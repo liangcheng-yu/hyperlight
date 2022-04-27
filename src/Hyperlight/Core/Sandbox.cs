@@ -2,19 +2,28 @@ using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
+using Hyperlight.Core;
 using Hyperlight.Hypervisors;
 using Hyperlight.Native;
+using Newtonsoft.Json;
 
 namespace Hyperlight
 {
+
+
     // Address Space Layout - Assume 10 meg physical (0xA00000) memory and 1 meg code (0x100000)
     // Physical      Virtual
     // 0x00000000    0x00200000    Start of physical/min-Valid virtual
     // 0x00001000    0x00201000    PML4
     // 0x00002000    0x00202000    PDTP
     // 0x00003000    0x00203000    PD
-    // 0x00004000    0x00204000    Function Definitions    
+    // 0x00004000    0x00204000    Function Definitions
+    // 0x0000EEE0    0x0020EEE0    HostException - this contains any exception that occured in the host when called from the guest it allows the guest to signal an error occured and then have the exception rethrown when control returns to the host. 
+    // 0x0000FEE0    0x0020FEE0    Guest Error - contains details of any errors that occured in the guest. 
+    // 0x0000FFE8    0x0020FFE8    Pointer to code (this is used when code was loaded using loadlibrary so that the guest can check the code header to ensure it is running in HyperLight)
+    // 0x0000FFF0    0x0020FFF0    Pointer to outb function (used when running in proc)
     // 0x00010000    0x00210000    64k for input data
     // 0x00020000    0x00220000    64k for output data
     // 0x00030000    0x00230000    Start of Code
@@ -28,7 +37,11 @@ namespace Hyperlight
     // 0x00001000    0x00201000    PML4
     // 0x00002000    0x00202000    PDTP
     // 0x00003000    0x00203000    PD
-    // 0x00004000    0x00204000    Function Definitions  
+    // 0x00004000    0x00204000    Function Definitions
+    // 0x0000EEE0    0x0020EEE0    HostException - this contains any exception that occured in the host when called from the guest it allows the guest to signal an error occured and then have the exception rethrown when control returns to the host. 
+    // 0x0000FEE0    0x0020FEE0    Guest Error - contains details of any errors that occured in the guest. 
+    // 0x0000FFE8    0x0020FFE8    Pointer to code (this is used when code was loaded using loadlibrary so that the guest can check the code header to ensure it is running in HyperLight)
+    // 0x0000FFF0    0x0020FFF0    Pointer to outb function (used when running in proc)
     // 0x00010000    0x00210000    64k for input data
     // 0x00020000    0x00220000    64k for output data
     // 0x00030000    0x00230000    Start of Code
@@ -69,6 +82,9 @@ namespace Hyperlight
         static readonly int dispatchPointerOffset = 0x4008;
         static readonly int inputDataOffset = 0x10000;
         static readonly int outputDataOffset = 0x20000;
+        static readonly int hostExceptionOffset = 0xEEE0;
+        static readonly int hostExceptionSize = 4096;
+        static readonly int guestErrorOffset = 0xFEE0;
         static readonly int pCodeOffset = inputDataOffset - 24;
         static readonly int pOutBOffset = inputDataOffset - 16;
         static readonly int pml4_addr = (int)BaseAddress + 0x1000;
@@ -134,7 +150,7 @@ namespace Hyperlight
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions) : this(size, guestBinaryPath, runOptions,  null, null)
+        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions) : this(size, guestBinaryPath, runOptions, null, null)
         {
         }
 
@@ -188,10 +204,7 @@ namespace Hyperlight
 
             Initialise();
 
-            if (initFunction != null)
-            {
-                initFunction(this);
-            }
+            initFunction?.Invoke(this);
 
             if (recycleAfterRun)
             {
@@ -255,7 +268,37 @@ namespace Hyperlight
                 hyperVisor!.DispatchCallFromHost(pDispatchFunction);
             }
 
+            CheckForGuestError();
+
             return Marshal.ReadInt32(outputDataAddress);
+        }
+
+        public void CheckForGuestError()
+        {
+            var guestErrorAddress = sourceAddress + guestErrorOffset;
+            var hostExceptionPointer = sourceAddress + hostExceptionOffset;
+            var guestError = Marshal.PtrToStructure<GuestError>(guestErrorAddress);
+            if (guestError == null)
+            {
+                throw new ArgumentNullException(nameof(guestError));
+            }
+            if (guestError.ErrorCode != GuestErrorCode.NO_ERROR)
+            {
+                if (guestError.ErrorCode == GuestErrorCode.OUTB_ERROR)
+                {
+                    var exception = GetHostException(hostExceptionPointer);
+                    if (exception != null)
+                    {
+                        if (exception.InnerException != null)
+                        {
+                            throw exception.InnerException;
+                        }
+                        throw exception;
+                    }
+                }
+                var message = $"{guestError.ErrorCode}:{guestError.Message}";
+                throw new HyperlightException(message);
+            }
         }
 
         void LoadGuestBinary()
@@ -589,9 +632,6 @@ namespace Hyperlight
 
         }
 
-        //TODO: throwing exceptions here does not work as this function is invoked from native code
-        //need to figure out how to return errors and log issues instead
-
         internal void HandleOutb(ushort port, byte _)
         {
             // Offset contains the adjustment that needs to be made to addresses when running in Hypervisor so that the address reflects the host or guest address correctly
@@ -600,82 +640,137 @@ namespace Hyperlight
             {
                 offset = (ulong)sourceAddress - (ulong)BaseAddress;
             }
-            switch (port)
+            try
             {
+                switch (port)
+                {
 
-                case 101: // call Function
-                    {
-                        var outputDataAddress = sourceAddress + outputDataOffset;
-                        var strPtr = Marshal.ReadInt64((IntPtr)outputDataAddress);
-                        var functionName = Marshal.PtrToStringAnsi((IntPtr)((ulong)strPtr + offset));
-                        if (string.IsNullOrEmpty(functionName))
+                    case 101: // call Function
                         {
-                            throw new ArgumentNullException("Function name is null or empty");
-                        }
 
-                        if (!guestInterfaceGlue.MapHostFunctionNamesToMethodInfo.ContainsKey(functionName))
-                        {
-                            throw new ArgumentNullException($"{functionName}, Could not find host function name.");
-                        }
-
-                        var mi = guestInterfaceGlue.MapHostFunctionNamesToMethodInfo[functionName];
-                        var parameters = mi.methodInfo.GetParameters();
-                        var args = new object[parameters.Length];
-                        for (var i = 0; i < parameters.Length; i++)
-                        {
-                            if (parameters[i].ParameterType == typeof(int))
+                            var outputDataAddress = sourceAddress + outputDataOffset;
+                            var strPtr = Marshal.ReadInt64((IntPtr)outputDataAddress);
+                            var functionName = Marshal.PtrToStringAnsi((IntPtr)((ulong)strPtr + offset));
+                            if (string.IsNullOrEmpty(functionName))
                             {
-                                args[i] = Marshal.ReadInt32(outputDataAddress + 8 * (i + 1));
+                                throw new ArgumentNullException("Function name is null or empty");
                             }
-                            else if (parameters[i].ParameterType == typeof(string))
+
+                            if (!guestInterfaceGlue.MapHostFunctionNamesToMethodInfo.ContainsKey(functionName))
                             {
-                                strPtr = Marshal.ReadInt64(outputDataAddress + 8 * (i + 1));
-                                args[i] = Marshal.PtrToStringAnsi((IntPtr)((ulong)strPtr + offset));
+                                throw new ArgumentException($"{functionName}, Could not find host function name.");
+                            }
+
+                            var mi = guestInterfaceGlue.MapHostFunctionNamesToMethodInfo[functionName];
+                            var parameters = mi.methodInfo.GetParameters();
+                            var args = new object[parameters.Length];
+                            for (var i = 0; i < parameters.Length; i++)
+                            {
+                                if (parameters[i].ParameterType == typeof(int))
+                                {
+                                    args[i] = Marshal.ReadInt32(outputDataAddress + 8 * (i + 1));
+                                }
+                                else if (parameters[i].ParameterType == typeof(string))
+                                {
+                                    strPtr = Marshal.ReadInt64(outputDataAddress + 8 * (i + 1));
+                                    args[i] = Marshal.PtrToStringAnsi((IntPtr)((ulong)strPtr + offset));
+                                }
+                                else
+                                {
+                                    throw new ArgumentException($"Unsupported parameter type: {parameters[i].ParameterType}");
+                                }
+                            }
+                            var returnFromHost = (int)guestInterfaceGlue.DispatchCallFromGuest(functionName, args);
+                            Marshal.WriteInt32(sourceAddress + inputDataOffset, returnFromHost);
+
+                            break;
+
+                        }
+                    case 100: // Write with no carriage return
+                        {
+                            // Read string from 0x20000 offset into virtual memory;
+                            var str = Marshal.PtrToStringAnsi(sourceAddress + outputDataOffset);
+                            if (this.writer != null)
+                            {
+                                writer.Write(str);
                             }
                             else
                             {
-                                throw new ArgumentException("Unsupported parameter type");
+                                var oldColor = Console.ForegroundColor;
+                                Console.ForegroundColor = ConsoleColor.Green;
+                                Console.Write(str);
+                                Console.ForegroundColor = oldColor;
                             }
+                            break;
                         }
-                        var returnFromHost = (int)guestInterfaceGlue.DispatchCallFromGuest(functionName, args);
-                        Marshal.WriteInt32(sourceAddress + inputDataOffset, returnFromHost);
-                        break;
-                    }
-                case 100: // Write with no carriage return
-                    {
-                        // Read string from 0x20000 offset into virtual memory;
-                        var str = Marshal.PtrToStringAnsi(sourceAddress + outputDataOffset);
-                        if (this.writer != null)
+                    case 99: // Write with carriage return
                         {
-                            writer.Write(str);
+                            // Read string from 0x20000 offset into virtual memory;
+                            var str = Marshal.PtrToStringAnsi(sourceAddress + outputDataOffset);
+                            if (this.writer != null)
+                            {
+                                writer.WriteLine(str);
+                            }
+                            else
+                            {
+                                var oldColor = Console.ForegroundColor;
+                                Console.ForegroundColor = ConsoleColor.Green;
+                                Console.WriteLine(str);
+                                Console.ForegroundColor = oldColor;
+                            }
+                            break;
                         }
-                        else
-                        {
-                            var oldColor = Console.ForegroundColor;
-                            Console.ForegroundColor = ConsoleColor.Green;
-                            Console.Write(str);
-                            Console.ForegroundColor = oldColor;
-                        }
-                        break;
-                    }
-                case 99: // Write with carriage return
-                    {
-                        // Read string from 0x20000 offset into virtual memory;
-                        var str = Marshal.PtrToStringAnsi(sourceAddress + outputDataOffset);
-                        if (this.writer != null)
-                        {
-                            writer.WriteLine(str);
-                        }
-                        else
-                        {
-                            var oldColor = Console.ForegroundColor;
-                            Console.ForegroundColor = ConsoleColor.Green;
-                            Console.WriteLine(str);
-                            Console.ForegroundColor = oldColor;
-                        }
-                        break;
-                    }
+                }
             }
+            catch (Exception ex)
+            {
+                // if this is running from a guest binary we can just rethrow the exception otherwise we need to persist the details and 
+                // raise the error in the guest.
+                if (runFromGuestBinary)
+                {
+                    throw;
+                }
+
+                var guestError = new GuestError() { ErrorCode = GuestErrorCode.OUTB_ERROR, Message = $"Port:{port}, Message:{ex.Message}" };
+                Marshal.StructureToPtr<GuestError>(guestError, sourceAddress + guestErrorOffset, false);
+                var hyperLightException = ex.GetType() == typeof(HyperlightException) ? ex as HyperlightException : new HyperlightException("OutB Error", ex);
+                var hostExceptionPointer = sourceAddress + hostExceptionOffset;
+                // TODO: Switch to System.Text.Json - requires custom serialisation as default throws an exception when serialising if an inner exception is present
+                // as it contains a Type: System.NotSupportedException: Serialization and deserialization of 'System.Type' instances are not supported and should be avoided since they can lead to security issues.
+                // https://docs.microsoft.com/en-us/dotnet/standard/serialization/system-text-json-converters-how-to?pivots=dotnet-6-0
+                var exceptionAsJson = JsonConvert.SerializeObject(hyperLightException, new JsonSerializerSettings
+                {
+                    TypeNameHandling = TypeNameHandling.Auto
+                });
+                var data = Encoding.UTF8.GetBytes(exceptionAsJson);
+                var dataLength = data.Length;
+                // TODO: Currently the size of the serialised exception is fixed , once it is dynamic remove this
+                if (dataLength <= hostExceptionSize - sizeof(int))
+                {
+                    Marshal.WriteInt32(hostExceptionPointer, dataLength);
+                    Marshal.Copy(data, 0, hostExceptionPointer + sizeof(int), data.Length);
+                }
+            }
+        }
+
+        static HyperlightException GetHostException(IntPtr hostExceptionPointer)
+        {
+            HyperlightException hyperlightException = null;
+            var dataLength = Marshal.ReadInt32(hostExceptionPointer);
+            var data = new byte[dataLength];
+            if (dataLength > 0)
+            {
+                Marshal.Copy(hostExceptionPointer + sizeof(int), data, 0, dataLength);
+                var exceptionAsJson = Encoding.UTF8.GetString(data);
+                // TODO: Switch to System.Text.Json - requires custom serialisation as default throws an exception when serialising if an inner exception is present
+                // as it contains a Type: System.NotSupportedException: Serialization and deserialization of 'System.Type' instances are not supported and should be avoided since they can lead to security issues.
+                // https://docs.microsoft.com/en-us/dotnet/standard/serialization/system-text-json-converters-how-to?pivots=dotnet-6-0
+                hyperlightException = JsonConvert.DeserializeObject<HyperlightException>(exceptionAsJson, new JsonSerializerSettings
+                {
+                    TypeNameHandling = TypeNameHandling.Auto
+                });
+            }
+            return hyperlightException;
         }
 
         public void ExposeHostMethods(Type type)

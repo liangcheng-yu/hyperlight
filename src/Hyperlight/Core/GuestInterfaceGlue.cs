@@ -166,8 +166,8 @@ namespace Hyperlight
 
             // We are going to create a delegate that looks like this:
             //
-            //   public object GuestFunction(int o1, int o2, bool o3, int o4, bool o5, int o6, bool o7, Byte[] o8, int o9, int o10, int o11) {
-            //      
+            //   public object GuestFunction(int o1, int o2, bool o3, int o4, bool o5, int o6, bool o7, Byte[] o8, int o9, int o10, int o11) 
+            //   {   
             //      bool shouldReset=EnterDynamicMethod();
             //      try
             //      {
