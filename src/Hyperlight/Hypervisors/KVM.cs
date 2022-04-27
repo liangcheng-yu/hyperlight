@@ -29,14 +29,21 @@ namespace Hyperlight.Hypervisors
             }
 
             var region = new LinuxKVM.KVM_USERSPACE_MEMORY_REGION() { slot = 0, guest_phys_addr = (ulong)Sandbox.BaseAddress, memory_size = size, userspace_addr = (ulong)sourceAddress };
-            // TODO: Handle error
-            _ = LinuxKVM.ioctl(vmfd, LinuxKVM.KVM_SET_USER_MEMORY_REGION, ref region);
+            ioctl(vmfd, LinuxKVM.KVM_SET_USER_MEMORY_REGION, ref region, 0);
             vcpufd = LinuxKVM.ioctl(vmfd, LinuxKVM.KVM_CREATE_VCPU, 0);
+            if (-1 == vcpufd)
+            {
+                throw new Exception("KVM_CREATE_VCPU returned -1");
+            }
             var mmap_size = LinuxKVM.ioctl(kvm, LinuxKVM.KVM_GET_VCPU_MMAP_SIZE, 0);
+            if(-1 == mmap_size)
+            {
+                throw new Exception("KVM_GET_VCPU_MMAP_SIZE returned -1");
+            }
+
             pRun = OS.mmap(IntPtr.Zero, (ulong)mmap_size, OS.PROT_READ | OS.PROT_WRITE, OS.MAP_SHARED, vcpufd, 0);
             var sregs = new LinuxKVM.KVM_SREGS();
-            // TODO: Handle error
-            _ = LinuxKVM.ioctl(vcpufd, LinuxKVM.KVM_GET_SREGS, ref sregs);
+            ioctl(vcpufd, LinuxKVM.KVM_GET_SREGS, ref sregs, 0);
 
             sregs.cr3 = (ulong)pml4_addr;
             sregs.cr4 = X64.CR4_PAE | X64.CR4_OSFXSR | X64.CR4_OSXMMEXCPT;
@@ -65,21 +72,55 @@ namespace Hyperlight.Hypervisors
             sregs.gs = seg;
             sregs.ss = seg;
 
-            // TODO: Handle error
-            _ = LinuxKVM.ioctl(vcpufd, LinuxKVM.KVM_SET_SREGS, ref sregs);
+            ioctl(vcpufd, LinuxKVM.KVM_SET_SREGS, ref sregs, 0);
 
         }
         private bool disposedValue;
 
+        // call ioctl and compare its exit code to 
+        // expectedExit. If they are not equal, throw
+        // an exception.
+        //
+        // Use this function or its overloads only when
+        // you know what the return value should be, prior
+        // to calling. If you don't, such as a call
+        // to KVM_CREATE_VCPU or KVM_GET_VCPU_MMAP_SIZE,
+        // call LinuxKVM.ioctl directly and check the 
+        // return value directly.
+        internal void ioctl(int vcpufd, ulong req, ref LinuxKVM.KVM_SREGS arg, int expectedExit)
+        {
+            // issue ioctl command.
+            // KVM API documentation has details on how most
+            // of the KVM-applicable ioctl commands work.
+            // https://www.kernel.org/doc/Documentation/virtual/kvm/api.txt
+            var exit = LinuxKVM.ioctl(vcpufd, req, ref arg);
+            if (expectedExit != exit)
+            {
+                throw new Exception($"ioctl command returned {exit}");
+            }
+        }
+
+        internal void ioctl(int vcpufd, ulong req, ref LinuxKVM.KVM_REGS arg, int expectedExit)
+        {
+            var exit = LinuxKVM.ioctl(vcpufd, req, ref arg);
+            if (exit != expectedExit) {
+                throw new Exception($"ioctl command returned {exit}");
+            }
+        }
+        internal void ioctl(int vcpufd, ulong req, ref LinuxKVM.KVM_USERSPACE_MEMORY_REGION arg, int expectedExit)
+        {
+            var exit = LinuxKVM.ioctl(vcpufd, req, ref arg);
+            if (exit != expectedExit) {
+                throw new Exception($"ioctl command returned {exit}");
+            }
+        }
         internal override void DispatchCallFromHost(ulong pDispatchFunction)
         {
             // Move rip to the DispatchFunction pointer
             var regs = new LinuxKVM.KVM_REGS();
-            // TODO: Handle error
-            _ = LinuxKVM.ioctl(vcpufd, LinuxKVM.KVM_GET_REGS, ref regs);
+            ioctl(vcpufd, LinuxKVM.KVM_GET_REGS, ref regs, 0);
             regs.rip = pDispatchFunction;
-            // TODO: Handle error
-            _ = LinuxKVM.ioctl(vcpufd, LinuxKVM.KVM_SET_REGS, ref regs);
+            ioctl(vcpufd, LinuxKVM.KVM_SET_REGS, ref regs, 0);
             ExecuteUntilHalt();
         }
 
@@ -87,8 +128,9 @@ namespace Hyperlight.Hypervisors
         {
             while (true)
             {
-                // TODO: Handle error
-                _ = LinuxKVM.ioctl(vcpufd, LinuxKVM.KVM_RUN_REQ, 0);
+                var runRegs = new LinuxKVM.KVM_REGS();
+                ioctl(vcpufd, LinuxKVM.KVM_RUN_REQ, ref runRegs, 0);
+
                 var run = Marshal.PtrToStructure<LinuxKVM.KVM_RUN>(pRun);
                 switch (run.exit_reason)
                 {
@@ -97,17 +139,14 @@ namespace Hyperlight.Hypervisors
                     case LinuxKVM.KVM_EXIT_IO:
                         // Save rip, call HandleOutb, then restore rip
                         var regs = new LinuxKVM.KVM_REGS();
-                        // TODO: Handle error
-                        _ = LinuxKVM.ioctl(vcpufd, LinuxKVM.KVM_GET_REGS, ref regs);
+                        ioctl(vcpufd, LinuxKVM.KVM_GET_REGS, ref regs, 0);
                         var ripOrig = regs.rip;
                         HandleOutb(run.port, Marshal.ReadByte(pRun, (int)run.data_offset));
 
-                        // TODO: Handle error
                         // Restore rip
-                        _ = LinuxKVM.ioctl(vcpufd, LinuxKVM.KVM_GET_REGS, ref regs);
+                        ioctl(vcpufd, LinuxKVM.KVM_GET_REGS, ref regs, 0);
                         regs.rip = ripOrig;
-                        // TODO: Handle error
-                        _ = LinuxKVM.ioctl(vcpufd, LinuxKVM.KVM_SET_REGS, ref regs);
+                        ioctl(vcpufd, LinuxKVM.KVM_SET_REGS, ref regs, 0);
                         break;
                     default:
                         throw new Exception($"Unknown exit_reason = {run.exit_reason}");
@@ -124,8 +163,7 @@ namespace Hyperlight.Hypervisors
                 r9 = (ulong)Sandbox.BaseAddress,
                 rflags = 0x0002,
             };
-            // TODO: Handle error
-            _ = LinuxKVM.ioctl(vcpufd, LinuxKVM.KVM_SET_REGS, ref regs);
+            ioctl(vcpufd, LinuxKVM.KVM_SET_REGS, ref regs, 0);
             ExecuteUntilHalt();
         }
 
