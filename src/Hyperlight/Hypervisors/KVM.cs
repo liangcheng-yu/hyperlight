@@ -87,8 +87,16 @@ namespace Hyperlight.Hypervisors
         {
             while (true)
             {
-                // TODO: Handle error
-                _ = LinuxKVM.ioctl(vcpufd, LinuxKVM.KVM_RUN_REQ, 0);
+                // issue KVM_RUN ioctl command.
+                // see section 4.10 of the KVM API documentation 
+                // for details on how this works.
+                // https://www.kernel.org/doc/Documentation/virtual/kvm/api.txt
+                var ioctlError = LinuxKVM.ioctl(vcpufd, LinuxKVM.KVM_RUN_REQ, 0);
+                if (ioctlError != 0)
+                {
+                    throw new Exception($"KVM_RUN_REQ returned {ioctlError}");
+                }
+
                 var run = Marshal.PtrToStructure<LinuxKVM.KVM_RUN>(pRun);
                 switch (run.exit_reason)
                 {
