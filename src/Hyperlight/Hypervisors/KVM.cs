@@ -72,7 +72,7 @@ namespace Hyperlight.Hypervisors
             sregs.gs = seg;
             sregs.ss = seg;
 
-            ioctl(vcpufd, LinuxKVM.KVM_SET_SREGS, ref sregs, o);
+            ioctl(vcpufd, LinuxKVM.KVM_SET_SREGS, ref sregs, 0);
 
         }
         private bool disposedValue;
