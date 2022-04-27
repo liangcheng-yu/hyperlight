@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using Xunit;
+using Hyperlight.Core;
 
 namespace Hyperlight.Tests
 {
@@ -69,7 +70,7 @@ namespace Hyperlight.Tests
                         ExposeMembersToGuest.Instance => new object?[] { GetInstance(instanceOrTypeType) },
                         ExposeMembersToGuest.Type => new object?[] { instanceOrTypeType },
                         ExposeMembersToGuest.TypeAndNull => new object?[] { instanceOrTypeType, null },
-                        ExposeMembersToGuest.TypeAndInstance => new object?[] { instanceOrTypeType, GetInstance(instanceOrTypeType)},
+                        ExposeMembersToGuest.TypeAndInstance => new object?[] { instanceOrTypeType, GetInstance(instanceOrTypeType) },
                         ExposeMembersToGuest.InstanceAndNull => new object?[] { GetInstance(instanceOrTypeType), null },
                         ExposeMembersToGuest.Null => new object?[] { null },
                         ExposeMembersToGuest.All => new object?[] { instanceOrTypeType, GetInstance(instanceOrTypeType), null },
@@ -172,12 +173,95 @@ namespace Hyperlight.Tests
             public static void StaticGetNothingWithArgs(string arg1, int arg2) { }
         }
 
-        [Fact]
-        public void Test_Bind_And_Expose_Methods()
+        class GuestFunctionErrors
         {
+            public Func<string,int>? FunctionDoesntExist = null;
+            public Func<int>? PrintOutput = null;
+            public Func<int, int>? GuestMethod = null;
+        }
 
+        [Fact]
+        public void Test_Invalid_Guest_Function_Causes_Exception()
+        {
+            var options = GetSandboxRunOptions();
+            ulong size = 1024 * 1024;
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "callbackguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                using (var sandbox = new Sandbox(size, guestBinaryPath, option))
+                {
+                    var functions = new GuestFunctionErrors();
+                    sandbox.BindGuestFunction("FunctionDoesntExist", functions);
+                    var ex = Record.Exception(() =>
+                    {
+                        string arg = string.Empty;
+                        functions.FunctionDoesntExist!(arg);
+                    });
+                    Assert.NotNull(ex);
+                    Assert.IsType<HyperlightException>(ex);
+                    Assert.Equal("GUEST_FUNCTION_NOT_FOUND:FunctionDoesntExist", ex.Message);
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_Invalid_Type_Of_Guest_Function_Parameter_Causes_Exception()
+        {
+            var options = GetSandboxRunOptions();
+            ulong size = 1024 * 1024;
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "callbackguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                using (var sandbox = new Sandbox(size, guestBinaryPath, option))
+                {
+                    var functions = new GuestFunctionErrors();
+                    sandbox.BindGuestFunction("GuestMethod", functions);
+                    var ex = Record.Exception(() =>
+                    {
+                        functions.GuestMethod!(1);
+                    });
+                    Assert.NotNull(ex);
+                    Assert.IsType<HyperlightException>(ex);
+                    Assert.Equal("UNSUPPORTED_PARAMETER_TYPE:0", ex.Message);
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_Invalid_Number_Of_Guest_Function_Parameters_Causes_Exception()
+        {
+            var options = GetSandboxRunOptions();
+            ulong size = 1024 * 1024;
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "callbackguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                using (var sandbox = new Sandbox(size, guestBinaryPath, option))
+                {
+                    var functions = new GuestFunctionErrors();
+                    sandbox.BindGuestFunction("PrintOutput", functions);
+                    var ex = Record.Exception(() =>
+                    {
+                        functions.PrintOutput!();
+                    });
+                    Assert.NotNull(ex);
+                    Assert.IsType<HyperlightException>(ex);
+                    Assert.Equal("GUEST_FUNCTION_PARAMETERS_MISSING:", ex.Message);
+                }
+            }
+        }
+
+        private SandboxRunOptions[] GetSandboxRunOptions()
+        {
             SandboxRunOptions[] options;
-
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 if (Sandbox.IsHypervisorPresent())
@@ -186,7 +270,7 @@ namespace Hyperlight.Tests
                 }
                 else
                 {
-                    options = new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun};
+                    options = new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
                 }
             }
             else
@@ -197,17 +281,23 @@ namespace Hyperlight.Tests
                 }
                 else
                 {
-                    options = new SandboxRunOptions[] {};
+                    options = new SandboxRunOptions[] { };
                 }
             }
+            return options;
+        }
 
+        [Fact]
+        public void Test_Bind_And_Expose_Methods()
+        {
+            var options = GetSandboxRunOptions();
             ulong size = 1024 * 1024;
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
             Assert.True(File.Exists(guestBinaryPath), $"Cannot find file {guestBinaryPath} to load into hyperlight");
 
-            List<(Type type, List<string> exposedMethods, List<string> boundDelegates, List<string> exposedStaticMethods)> testData = new() 
+            List<(Type type, List<string> exposedMethods, List<string> boundDelegates, List<string> exposedStaticMethods)> testData = new()
             {
                 (typeof(NoExposedMembers), new(), new(), new()),
                 (typeof(ExposedMembers), new() { "GetOne", "MethodWithArgs", "HostMethod1" }, new() { "GuestMethod1", "PrintOutput" }, new() { "GetTwo", "StaticMethodWithArgs" }),
@@ -298,31 +388,7 @@ namespace Hyperlight.Tests
         [Fact]
         private void Test_SandboxInit()
         {
-            SandboxRunOptions[] options;
-
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                if (Sandbox.IsHypervisorPresent())
-                {
-                    options = new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.None, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
-                }
-                else
-                {
-                    options = new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
-                }
-            }
-            else
-            {
-                if (Sandbox.IsHypervisorPresent())
-                {
-                    options = new SandboxRunOptions[] { SandboxRunOptions.None, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
-                }
-                else
-                {
-                    options = new SandboxRunOptions[] { };
-                }
-            }
-
+            var options = GetSandboxRunOptions();
             ulong size = 1024 * 1024;
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "callbackguest.exe";
@@ -419,7 +485,7 @@ namespace Hyperlight.Tests
                                 s.ExposeAndBindMembers(target);
                                 foreach (var expectedResult in expectedResults)
                                 {
-                                   InvokeMethod(target, expectedResult.delegateName, expectedResult.returnValue, expectedResult.expectedOutput, expectedResult.args, output, ref numberOfCalls);
+                                    InvokeMethod(target, expectedResult.delegateName, expectedResult.returnValue, expectedResult.expectedOutput, expectedResult.args, output, ref numberOfCalls);
                                 }
                             };
                         }
@@ -456,7 +522,7 @@ namespace Hyperlight.Tests
 
         private static Delegate GetDelegate(object target, string delegateName)
         {
-           var fieldInfo = target.GetType().GetField(delegateName, BindingFlags.Public | BindingFlags.Instance);
+            var fieldInfo = target.GetType().GetField(delegateName, BindingFlags.Public | BindingFlags.Instance);
             Assert.NotNull(fieldInfo);
             Assert.True(typeof(Delegate).IsAssignableFrom(fieldInfo.FieldType));
             var fieldValue = fieldInfo.GetValue(target);
@@ -587,8 +653,8 @@ namespace Hyperlight.Tests
                     RunTests(testData, option, SimpleTest);
                 }
 
-                // Run tests using constructors without options
-                foreach (var instanceOrType in testData.TestInstanceOrTypes())
+        // Run tests using constructors without options
+        foreach (var instanceOrType in testData.TestInstanceOrTypes())
                 {
                     RunTest(testData, instanceOrType, SimpleTest);
                 }
@@ -728,8 +794,8 @@ namespace Hyperlight.Tests
                     RunTests(testData, option, CallbackTest);
                 }
 
-                // Run tests using constructors without options
-                foreach (var instanceOrType in testData.TestInstanceOrTypes())
+        // Run tests using constructors without options
+        foreach (var instanceOrType in testData.TestInstanceOrTypes())
                 {
                     RunTest(testData, instanceOrType, CallbackTest);
                 }
@@ -845,17 +911,16 @@ namespace Hyperlight.Tests
 
             if (typeorinstance == null)
             {
-                //TODO: Enables this by handling errors correctly in Sandbox when crossing managed native bounary.
-                //var guestMethods = new CallbackTestMembers();
-                //sandbox.BindGuestFunction("GuestMethod", guestMethods);
-                //var ex = Record.Exception(() =>
-                //{
-                //    var result = guestMethods.GuestMethod(testData.ExpectedOutput);
-                //});
-                //Assert.NotNull(ex);
-                //Assert.IsType<ArgumentNullException>(ex);
-                //Assert.Equal("Value cannot be null. (Parameter 'HostMethod, Could not find host function name.')", ex.Message);
-                CallGuestMethod1(sandbox, testData, builder);
+                // TODO: Enables this by handling errors correctly in Sandbox when crossing managed native bounary.
+                var guestMethods = new CallbackTestMembers();
+                sandbox.BindGuestFunction("GuestMethod", guestMethods);
+                var ex = Record.Exception(() =>
+                {
+                    var result = guestMethods.GuestMethod(testData.ExpectedOutput);
+                });
+                Assert.NotNull(ex);
+                Assert.IsType<ArgumentException>(ex);
+                Assert.Equal("HostMethod, Could not find host function name.", ex.Message);
             }
             else
             {
@@ -874,7 +939,7 @@ namespace Hyperlight.Tests
                         Assert.NotNull(fieldValue);
                         var del = (Delegate)fieldValue!;
                         Assert.NotNull(del);
-                        var args = new object [] { message };
+                        var args = new object[] { message };
                         var result = sandbox.CallGuest<int>(() => { return (int)del!.DynamicInvoke(args); });
                         Assert.NotNull(result);
                         Assert.Equal<int>(expectedMessage.Length, (int)result!);
@@ -923,21 +988,20 @@ namespace Hyperlight.Tests
                 new object[] { new TestData("simpleguest.exe") } ,
             };
         }
-        // This does not test passing null as instanceortype as currently this is not implmented properly in Sandbox and causes the testhost to crash.
+        
         public static IEnumerable<object[]> GetCallbackTestData()
         {
             return new List<object[]>
             {
-                new object[] { new TestData(typeof(ExposedMembers), "callbackguest.exe", "Host Method 1 Received: Hello from GuestFunction1, {0} from Guest", 85,0,0,TestData.ExposeMembersToGuest.TypeAndInstance) },
+                new object[] { new TestData(typeof(ExposedMembers), "callbackguest.exe", "Host Method 1 Received: Hello from GuestFunction1, {0} from Guest", 85,0,0,TestData.ExposeMembersToGuest.All) },
                 new object[] { new TestData("callbackguest.exe", "Host Method 1 Received: Hello from GuestFunction1, {0} from Guest", 85, 0,0,TestData.ExposeMembersToGuest.Null) },
-                new object[] { new TestData(typeof(ExposeStaticMethodsUsingAttribute), "callbackguest.exe", "Host Method 1 Received: Hello from GuestFunction1, {0} from Guest", 85,0,0, TestData.ExposeMembersToGuest.Type) },
-                new object[] { new TestData(typeof(ExposeInstanceMethodsUsingAttribute), "callbackguest.exe", "Host Method 1 Received: Hello from GuestFunction1, Hello from CallbackTest from Guest", 85, 0,0,TestData.ExposeMembersToGuest.Instance) },
+                new object[] { new TestData(typeof(ExposeStaticMethodsUsingAttribute), "callbackguest.exe", "Host Method 1 Received: Hello from GuestFunction1, {0} from Guest", 85,0,0, TestData.ExposeMembersToGuest.TypeAndNull) },
+                new object[] { new TestData(typeof(ExposeInstanceMethodsUsingAttribute), "callbackguest.exe", "Host Method 1 Received: Hello from GuestFunction1, Hello from CallbackTest from Guest", 85, 0,0,TestData.ExposeMembersToGuest.InstanceAndNull) },
             };
         }
 
         private static object GetInstance(Type type) => Activator.CreateInstance(type);
         private static T GetInstance<T>() => Activator.CreateInstance<T>();
-
         static bool RunningOnWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
     }
 }
