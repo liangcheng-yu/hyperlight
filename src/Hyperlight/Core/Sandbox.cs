@@ -64,13 +64,13 @@ namespace Hyperlight
         IntPtr loadAddress = IntPtr.Zero;
 
         public static readonly IntPtr BaseAddress = (IntPtr)0x200000;
-        static readonly int codeOffset = 0x30000;
+        const int codeOffset = 0x30000;
         static readonly IntPtr codeAddress = BaseAddress + codeOffset;
-        static readonly int dispatchPointerOffset = 0x4008;
-        static readonly int inputDataOffset = 0x10000;
-        static readonly int outputDataOffset = 0x20000;
-        static readonly int pCodeOffset = inputDataOffset - 24;
-        static readonly int pOutBOffset = inputDataOffset - 16;
+        const int dispatchPointerOffset = 0x4008;
+        const int inputDataOffset = 0x10000;
+        const int outputDataOffset = 0x20000;
+        const int pCodeOffset = inputDataOffset - 24;
+        const int pOutBOffset = inputDataOffset - 16;
         static readonly int pml4_addr = (int)BaseAddress + 0x1000;
         static readonly int pdpt_addr = (int)BaseAddress + 0x2000;
         static readonly int pd_addr = (int)BaseAddress + 0x3000;
@@ -84,6 +84,8 @@ namespace Hyperlight
         readonly bool runFromGuestBinary;
         bool didRunFromGuestBinary;
         const int IS_RUNNING_FROM_GUEST_BINARY = 1;
+        // this is passed as a ref to several functions below,
+        // therefore cannot be readonly
         static int isRunningFromGuestBinary = 0;
         readonly StringWriter writer;
         ulong entryPoint;
