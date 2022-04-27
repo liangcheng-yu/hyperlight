@@ -18,9 +18,10 @@ This repo contains Hyperlight along with a couple of sample guest applications t
 
 Here is the quickest way to try out Hyperlight:
 
-1. Get the latest release for [Windows](https://github.com/deislabs/hyperlight/releases/download/refs%2Fheads%2Fmain/windows-x64.zip) or [Linux](https://github.com/deislabs/hyperlight/releases/download/refs%2Fheads%2Fmain/linux-x64.tar.gz).
-1. Extract the archive to a location on your computer
-1. Run the NativeHost.exe or NativeHost in the extracted directory.
+1. Get the latest release for [Windows](https://github.com/deislabs/hyperlight/releases/download/latest/windows-x64.zip) or [Linux](https://github.com/deislabs/hyperlight/releases/download/latest/linux-x64.tar.gz).
+   1. If you have GitHub's `gh` CLI, run this command: `gh release download latest` from within a new folder, as it will download several files at once.
+2. Extract the archive to a location on your computer
+3. Run the NativeHost.exe or NativeHost in the extracted directory.
 
 Note: You can also run the linux version using WSL2 on Windows. At present their is no version available for macOS.
 
