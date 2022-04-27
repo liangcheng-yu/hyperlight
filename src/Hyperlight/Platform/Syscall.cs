@@ -11,9 +11,21 @@ namespace Hyperlight.Native
             Func<int> fn,
             int expectedReturnVal
         ) {
+            return CheckReturnVal(
+                opName,
+                fn,
+                (int retVal) => retVal == expectedReturnVal
+            );
+        }
+
+        public static int CheckReturnVal(
+            OpName opName,
+            Func<int> fn,
+            Func<int, bool> checkRetVal
+        ) {
             var ret = fn();
-            if(ret != expectedReturnVal) {
-                throw new Exception($"${opName}: Expected return value {expectedReturnVal}, got {ret}");
+            if(!checkRetVal(ret)) {
+                throw new Exception($"${opName}: Expected return value, got {ret}");
             }
             return ret;
         }
@@ -23,9 +35,21 @@ namespace Hyperlight.Native
             Func<uint> fn,
             uint expectedReturnVal
         ) {
+            return CheckReturnVal(
+                opName,
+                fn,
+                (uint retVal) => retVal == expectedReturnVal
+            );
+        }
+
+        public static uint CheckReturnVal(
+            OpName opName,
+            Func<uint> fn,
+            Func<uint, bool> checkRetVal
+        ) {
             var ret = fn();
-            if(ret != expectedReturnVal) {
-                throw new Exception($"${opName}: Expected return value {expectedReturnVal}, got {ret}");
+            if(!checkRetVal(ret)) {
+                throw new Exception($"${opName}: Expected return value, got {ret}");
             }
             return ret;
         }
