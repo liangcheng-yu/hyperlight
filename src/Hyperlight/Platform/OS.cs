@@ -118,8 +118,11 @@ namespace Hyperlight.Native
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                // TODO: Handle error
-                _ = OS.VirtualFree(addr, IntPtr.Zero, (uint)AllocationType.Release);
+                Syscall.CheckReturnVal(
+                    "Free virtual memory",
+                    () => OS.VirtualFree(addr, IntPtr.Zero, (uint)AllocationType.Release),
+                    0
+                );
             }
             else
             {
