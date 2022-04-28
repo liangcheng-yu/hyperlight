@@ -187,7 +187,6 @@ namespace Hyperlight.Hypervisors
 
                 if (vcpufd != -1)
                 {
-                    // TODO: Handle error
                     Syscall.CheckReturnVal(
                         "KVM close vcpufd",
                         () => LinuxKVM.close(vcpufd),
