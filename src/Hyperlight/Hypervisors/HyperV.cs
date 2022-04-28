@@ -135,7 +135,7 @@ namespace Hyperlight.Hypervisors
         internal override void Initialise()
         {
             Debug.Assert(registerNames[^4] == WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRcx);
-            registerValues[^4].low = (ulong)Sandbox.BaseAddress;
+            registerValues[^4].low = (ulong)Sandbox.BaseAddress + Sandbox.pebOffset;
             WindowsHypervisorPlatform.WHvSetVirtualProcessorRegisters(hPartition, 0, registerNames, (uint)registerNames.Length, registerValues);
             ExecuteUntilHalt();
         }
