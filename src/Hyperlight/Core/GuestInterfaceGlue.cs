@@ -388,7 +388,7 @@ namespace Hyperlight
             ExposeHostMethod(methodInfo);
         }
 
-        private bool ShouldExposeMember(ExposeToGuestAttribute exposeToGuestAttribute, bool exposeMembers) => exposeMembers ? exposeToGuestAttribute == null || exposeToGuestAttribute.Expose : exposeToGuestAttribute != null && exposeToGuestAttribute.Expose;
+        private static bool ShouldExposeMember(ExposeToGuestAttribute exposeToGuestAttribute, bool exposeMembers) => exposeMembers ? exposeToGuestAttribute == null || exposeToGuestAttribute.Expose : exposeToGuestAttribute != null && exposeToGuestAttribute.Expose;
 
         public object DispatchCallFromGuest(string functionName, object[] args)
         {
