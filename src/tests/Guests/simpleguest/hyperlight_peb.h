@@ -12,12 +12,7 @@ typedef struct
 
 typedef struct
 {
-    uint8_t padding1[4096];
-    uint8_t pml4[4096];
-    uint8_t pdtp[4096];
-    uint8_t pd[4096];
     uint8_t funcs[4096];
-    uint8_t padding2[40672];
     uint8_t hostException[4096];
     GuestError error;
     uint8_t pCode[8];

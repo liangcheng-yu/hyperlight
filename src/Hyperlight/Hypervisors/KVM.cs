@@ -160,7 +160,7 @@ namespace Hyperlight.Hypervisors
             {
                 rip = EntryPoint,
                 rsp = rsp,
-                r9 = (ulong)Sandbox.BaseAddress,
+                r9 = (ulong)Sandbox.BaseAddress + Sandbox.pebOffset,
                 rflags = 0x0002,
             };
             ioctl(vcpufd, LinuxKVM.KVM_SET_REGS, ref regs, 0);

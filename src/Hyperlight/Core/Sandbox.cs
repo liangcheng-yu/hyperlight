@@ -77,20 +77,21 @@ namespace Hyperlight
         IntPtr loadAddress = IntPtr.Zero;
 
         public static readonly IntPtr BaseAddress = (IntPtr)0x200000;
-        const int codeOffset = 0x30000;
+        public const int pebOffset = 0x3000;
+        const int codeOffset = 0x25120;
         static readonly IntPtr codeAddress = BaseAddress + codeOffset;
-        const int dispatchPointerOffset = 0x4008;
-        const int inputDataOffset = 0x10000;
-        const int outputDataOffset = 0x20000;
-        const int hostExceptionOffset = 0xEEE0;
+        const int dispatchPointerOffset = 0x3008;
+        const int inputDataOffset = 0x5120;
+        const int outputDataOffset = 0x15120;
+        const int hostExceptionOffset = 0x4000;
         const int hostExceptionSize = 4096;
-        const int guestErrorOffset = 0xFEE0;
+        const int guestErrorOffset = 0x5000;
         const int pCodeOffset = inputDataOffset - 24;
         const int pOutBOffset = inputDataOffset - 16;
-        static readonly int pml4_addr = (int)BaseAddress + 0x1000;
-        static readonly int pdpt_addr = (int)BaseAddress + 0x2000;
-        static readonly int pd_addr = (int)BaseAddress + 0x3000;
-        static readonly int functionDefinitionOffset = 0x4000;
+        static readonly int pml4_addr = (int)BaseAddress;
+        static readonly int pdpt_addr = (int)BaseAddress + 0x1000;
+        static readonly int pd_addr = (int)BaseAddress + 0x2000;
+        static readonly int functionDefinitionOffset = 0x3000;
         static readonly int functionDefinitionLength = 0x1000;
 
         readonly bool initialised;
@@ -513,7 +514,7 @@ namespace Hyperlight
                     unsafe
                     {
                         callEntryPoint = (delegate* unmanaged<IntPtr, int>)entryPoint;
-                        _ = callEntryPoint(sourceAddress);
+                        _ = callEntryPoint(sourceAddress + pebOffset);
                     }
 
                 }
@@ -527,7 +528,7 @@ namespace Hyperlight
                     unsafe
                     {
                         callEntryPoint = (delegate* unmanaged<IntPtr, int>)entryPoint;
-                        _ = callEntryPoint(sourceAddress);
+                        _ = callEntryPoint(sourceAddress + pebOffset);
                     }
                 }
                 else
