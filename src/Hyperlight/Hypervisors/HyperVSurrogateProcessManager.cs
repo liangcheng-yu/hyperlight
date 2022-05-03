@@ -107,6 +107,7 @@ namespace Hyperlight.Hypervisors
         internal SurrogateProcess GetProcess(IntPtr size, IntPtr sourceAddress, CancellationToken cancellationToken=default(CancellationToken))
         {
             var safeProcessHandle = surrogateProcesses.Take(cancellationToken);
+            //TODO: Handle Cancellation.
             var destAddress = OS.VirtualAllocEx(safeProcessHandle.DangerousGetHandle(), sourceAddress, size, OS.AllocationType.Commit | OS.AllocationType.Reserve, OS.MemoryProtection.EXECUTE_READWRITE);
             return new SurrogateProcess { safeProcessHandle = safeProcessHandle, sourceAddress = destAddress };
         }

@@ -99,21 +99,42 @@ int strlen(const char* str)
     return (s - str);
 }
 
-void setError(uint64_t errorCode)
+void resetError()
 {
-    pPeb->error = errorCode;
+    pPeb->error.errorNo = 0;
+    *pPeb->error.message = NULL;
+}
+
+void setError(uint64_t errorCode, char* message)
+{
+    pPeb->error.errorNo = errorCode;
+    int length = strlen(message);
+    if (length >= sizeof(pPeb->error.message))
+    {
+        length = sizeof(pPeb->error.message);
+    }
+
+    if (length == 0)
+    {
+        *pPeb->error.message = NULL;
+    }
+    else
+    {
+        strncpy(pPeb->error.message, message, length);
+    }
+
+    *(uint32_t*)&pPeb->output = -1;
 }
 
 void DispatchFunction()
 {
-    setError(NO_ERROR);
+    resetError();
     GuestFunctionCall* funcCall = &pPeb->output;
 
     if (NULL == funcCall->FunctionName)
     {
-        setError(GUEST_FUNCTION_NAME_NOT_PROVIDED);
-        *(uint32_t*)&pPeb->output = -1;
-        return;
+        setError(GUEST_FUNCTION_NAME_NOT_PROVIDED, NULL);
+        goto halt;
     }
 
     guestFunc pFunc = NULL;
@@ -129,23 +150,20 @@ void DispatchFunction()
 
     if (NULL == pFunc)
     {
-        setError(GUEST_FUNCTION_NOT_FOUND);
-        *(uint32_t*)&pPeb->output = -1;
-        return;
+        setError(GUEST_FUNCTION_NOT_FOUND, funcCall->FunctionName);
+        goto halt;
     }
 
     if (funcCall->argc == 0)
     {
-        setError(GUEST_FUNCTION_PARAMETERS_NOT_FOUND);
-        *(uint32_t*)&pPeb->output = -1;
-        return;
+        setError(GUEST_FUNCTION_PARAMETERS_MISSING, NULL);
+        goto halt;
     }
 
     char* param;
 
     // TODO: Handle multiple parameters and ints
-    // only processes the first argument if is a string , otherwise returns -1
-    // for (uint32_t i = 0; i < funcCall->argc; i++)
+    // only processes the first argument if is a string ,otherwise returns -1
 
     for (uint32_t i = 0; i < 1; i++)
     {
@@ -158,12 +176,14 @@ void DispatchFunction()
         // arg is an int
         else
         {
-            setError(UNSUPPORTED_PARAMETER_TYPE);
-            *(uint32_t*)&pPeb->output = -1;
+            setError(UNSUPPORTED_PARAMETER_TYPE, "0");
+            goto halt;
         }
     }
 
     *(uint32_t*)&pPeb->output = pFunc(param);
+
+halt:
 
     halt();
 }
@@ -184,16 +204,16 @@ int entryPoint(uint64_t pebAddress)
         {
             if (*((const char*)&pPeb->code) != 'J')
             {
-                setError(CODE_HEADER_NOT_SET);
-                return -1;
+                setError(CODE_HEADER_NOT_SET, NULL);
+                goto halt;
             }
         }
         else
         {
             if (*((const char**)&pPeb->pCode)[0] != 'J')
             {
-                setError(CODE_HEADER_NOT_SET);
-                return -1;
+                setError(CODE_HEADER_NOT_SET, NULL);
+                goto halt;
             }
         }
 
@@ -207,7 +227,9 @@ int entryPoint(uint64_t pebAddress)
 
     // Setup return values
     *(int32_t*)&pPeb->output = result;
-    halt(); // This is a nop if we were just loaded into memory
 
+halt:
+
+    halt(); // This is a nop if we were just loaded into memory
     return;
 }
