@@ -98,11 +98,6 @@
     <ClCompile Include="main.c" />
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="asm\regaccess.asm">
-      <FileType>Document</FileType>
-    </MASM>
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="hyperlight_error.h" />
     <ClInclude Include="hyperlight_peb.h" />
   </ItemGroup>

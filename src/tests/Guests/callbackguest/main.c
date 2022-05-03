@@ -13,12 +13,32 @@ struct FuncEntry
 
 bool runningHyperlight = true;
 void (*outb_ptr)(uint16_t port, uint8_t value) = NULL;
-uint64_t getrsi();
-uint64_t getrdi();
-void setrsi(uint64_t rsi);
-void setrdi(uint64_t rsi);
+const uint8_t get_rsi[] = { 0x48, 0x8b, 0xc6, 0xc3 };
+const uint8_t get_rdi[] = { 0x48, 0x8b, 0xc7, 0xc3 };
+const uint8_t set_rsi[] = { 0x48, 0x8b, 0xf1, 0xc3 };
+const uint8_t set_rdi[] = { 0x48, 0x8b, 0xf9, 0xc3 };
 
 #pragma optimize("", off)
+
+uint64_t getrsi()
+{
+    ((uint64_t(*)(void)) get_rsi)();
+}
+
+uint64_t getrdi()
+{
+    ((uint64_t(*)(void)) get_rdi)();
+}
+
+void setrsi(uint64_t rsi)
+{
+    ((void(*)(uint64_t)) set_rsi)(rsi);
+}
+
+void setrdi(uint64_t rdi)
+{
+    ((void(*)(uint64_t)) set_rdi)(rdi);
+}
 
 void outb(uint16_t port, uint8_t value)
 {
