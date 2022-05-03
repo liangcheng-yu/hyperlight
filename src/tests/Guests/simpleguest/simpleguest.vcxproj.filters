@@ -20,11 +20,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="asm\regaccess.asm">
-      <Filter>Source Files</Filter>
-    </MASM>
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="hyperlight_peb.h">
       <Filter>Header Files</Filter>
     </ClInclude>

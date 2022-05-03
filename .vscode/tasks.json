@@ -71,18 +71,6 @@
       "group": "build"
     },
     {
-      "label": "MASM Simpleguest",
-      "command": "ml64.exe",
-      "type": "shell",
-      "args": [
-        "/nologo", "/Zi", "/W3", "/c", "${workspaceFolder}\\src\\tests\\Guests\\simpleguest\\asm\\regaccess.asm"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}\\src\\tests\\Guests\\simpleguest\\x64\\Debug\\"
-      },
-      "problemMatcher": ["$msCompile"]
-    },
-    {
       "type": "shell",
       "label": "CL Simpleguest",
       "command": "cl.exe",
@@ -127,28 +115,11 @@
       "label": "Build Simpleguest",
       "dependsOn": [
         "Create Dirs",
-        "MASM Simpleguest",
         "CL Simpleguest",
         "LINK Simpleguest"
       ],
       "dependsOrder": "sequence",
       "group": "build"
-    },
-    {
-      "label": "MASM Callbackguest",
-      "command": "ml64.exe",
-      "type": "shell",
-      "args": [
-        "/nologo", 
-        "/Zi", 
-        "/W3", 
-        "/c", 
-        "${workspaceFolder}\\src\\tests\\Guests\\callbackguest\\asm\\regaccess.asm"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}\\src\\tests\\Guests\\callbackguest\\x64\\Debug\\"
-      },
-      "problemMatcher": ["$msCompile"]
     },
     {
       "type": "shell",
@@ -195,7 +166,6 @@
       "label": "Build Callbackguest",
       "dependsOn": [
         "Create Dirs",
-        "MASM Callbackguest",
         "CL Callbackguest",
         "LINK Callbackguest"
       ],
