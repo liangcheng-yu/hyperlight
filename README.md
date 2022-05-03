@@ -22,7 +22,8 @@ This repo contains Hyperlight along with a couple of sample guest applications t
 
 - [src/Hyperlight](./src/HyperLight) - This is the "host", which launches binaries within a Hypervisor partition.
 - [src/NativeHost](./src/examples/NativeHost) - This is a "driver" program used for testing. It knows how to run the two "guest" applications that live within the `test/` directory (see below) within sandboxes. If you are developing Hyperlight itself, you'll need this program, but if you're using the library to build your own applications, you won't need this project.
-- [src/HyperlightSurrogate](./src/HyperlightSurrogate) - This is a tiny application that is simply used as a sub-process for the host. When the host runs on Windows with the Windows Hypervisor Platform (e.g. Hyper-V), it launches several of these surrogates, assigns memory to them, and then launches partitions from there.
+- [src/HyperlightSurrogate](./src/HyperlightSurrogate) - This is a tiny application that is simply used as a sub-process for the host. When the host runs on Windows with the Windows Hypervisor Platform (WHP, e.g. Hyper-V), it launches several of these surrogates, assigns memory to them, and then launches partitions from there.
+  - The use of surrogates is a temporary workaround on Windows until WHP allows us to create more than one partition per running process.
 - [src/tests](./src/tests) - Tests for the host
   - This directory contains two applications written in C, which are intended to be launched within partitions as "guests".
 
