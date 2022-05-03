@@ -277,7 +277,7 @@ int native_symbol_thunk(char* functionName, ...)
 
 
 
-long entryPoint(uint64_t pebAddress, int a, int b, int c)
+long entryPoint(uint64_t pebAddress)
 {
     pPeb = (HyperlightPEB*)pebAddress;
     int result = 0;
