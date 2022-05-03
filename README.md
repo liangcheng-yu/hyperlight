@@ -43,25 +43,11 @@ If you want to build/test Hyperlight without installing Visual Studio or the Vis
 
 ### Building and Hyperlight using only dotnet on Linux or Windows
 
-Hyperlight will build using the `dotnet build` command on any machine that has the [dotnet 5.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/5.0) and/or [dotnet 6.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/5.0) installed:
+Hyperlight will build using the `dotnet build` command on any machine that has the  [dotnet 6.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/6.0) installed:
 
 ```console
 git clone git@github.com:deislabs/hyperlight.git
 cd src/Hyperlight
-```
-
-To build for dotnet 5.0:
-```
-dotnet build -f net5.0
-```
-
-To build for dotnet 6.0:
-```
-dotnet build -f net6.0
-```
-
-To build for both:
-```
 dotnet build
 ```
 

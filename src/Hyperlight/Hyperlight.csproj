@@ -2,7 +2,7 @@
   
   <PropertyGroup>
     <!-- TODO: Enable nullable reference types -->
-    <TargetFrameworks>net5.0;net6.0</TargetFrameworks>
+    <TargetFrameworks>net6.0</TargetFrameworks>
     <Nullable>disable</Nullable>
     <Platforms>x64</Platforms>
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
@@ -37,14 +37,6 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net5.0|x64'">
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net5.0|x64'">
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
