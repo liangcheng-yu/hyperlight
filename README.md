@@ -1,18 +1,31 @@
 # Hyperlight - An lightweight Hypervisor Sandbox
 
-_Hyperlight_ is a lightweight Hypervisor Sandbox. Its purpose is to enable applications to  safely run untrusted or third party code within a HyperVisor Partition with very low latency/overhead.
+_Hyperlight_ is a lightweight Hypervisor Sandbox. Its purpose is to enable applications to safely run untrusted or third party code within a HyperVisor Partition with very low latency/overhead.
 
 This initial release is designed to be used in a dotnet application, future versions will be made available for other languages and frameworks.
 
 Hyperlight currently supports running applications using either the [Windows Hypervisor Platform](https://docs.microsoft.com/en-us/virtualization/api/#windows-hypervisor-platform) on Windows or [KVM](https://www.linux-kvm.org/page/Main_Page) on Linux.
 
-WARNING: This is experimental code. It is not considered production-grade by its developers, neither is it "supported" software.
+>WARNING: This is experimental code. It is not considered production-grade by its developers, neither is it "supported" software.
 
-Hyperlight runs guest applications in its Sandbox without a kernel or operating system, for this reason those guest applications must be written specifically for the Hyperlight. The intention is that most developers will not need to write such applications, but will take advantage of pre-existing applications written for Hyperlight.
+## The Hyperlight Sandbox and Guest Applications
 
-One primary scenerio is to run WASM modules. A developer using Hyperlight to run WASM modules in their sandbox will be able to do so by using the [Hyperlight WASM](https://github.com/deislabs/hyperlight-wasm) in a similar way to how they would use a WASM runtime if they were not using Hyperlight.
+Hyperlight runs applications in a "sandbox" that it provides. A sandbox is a VM partition along with a very small runtime Hyperlight provides. Since Hyperlight runs guest applications within a Sandbox without a kernel or operating system, all guest applications must be written specifically for the Hyperlight runtime. The intention is that most developers will not need to write such applications, but will take advantage of pre-existing applications written for Hyperlight.
 
-This repo contains Hyperlight along with a couple of sample guest applications that can be used to either test or try it out.
+## Hyperlight-Wasm
+
+One primary scenerio is to run WebAssembly (WASM) modules. A sibling project called [Hyperlight WASM](https://github.com/deislabs/hyperlight-wasm) is available to make it easy for users to build tools that run arbitrary WASM modules within a Hyperlight sandbox. Hyperlight WASM is an example of a "guest" application, but a very general one that comes with a full WASM runtime and provides a simple API to run WASM modules within a sandbox.
+
+## Projects Inside This Repository
+
+This repo contains Hyperlight along with a couple of sample guest applications that can be used to either test or try it out:
+
+- [src/Hyperlight](./src/HyperLight) - This is the "host", which launches binaries within a Hypervisor partition.
+- [src/NativeHost](./src/examples/NativeHost) - This is a "driver" program used for testing. It knows how to run the two "guest" applications that live within the `test/` directory (see below) within sandboxes. If you are developing Hyperlight itself, you'll need this program, but if you're using the library to build your own applications, you won't need this project.
+- [src/HyperlightSurrogate](./src/HyperlightSurrogate) - This is a tiny application that is simply used as a sub-process for the host. When the host runs on Windows with the Windows Hypervisor Platform (WHP, e.g. Hyper-V), it launches several of these surrogates, assigns memory to them, and then launches partitions from there.
+  - The use of surrogates is a temporary workaround on Windows until WHP allows us to create more than one partition per running process.
+- [src/tests](./src/tests) - Tests for the host
+  - This directory contains two applications written in C, which are intended to be launched within partitions as "guests".
 
 ## Quickstart
 
