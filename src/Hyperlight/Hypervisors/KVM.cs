@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using Hyperlight.Core;
 using Hyperlight.Native;
 
 namespace Hyperlight.Hypervisors
@@ -10,7 +11,7 @@ namespace Hyperlight.Hypervisors
         readonly IntPtr pRun = IntPtr.Zero;
         readonly int vcpufd = -1;
         readonly int vmfd = -1;
-        internal KVM(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb) : base(sourceAddress, entryPoint, rsp, outb)
+        internal KVM(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, ulong pebAddress) : base(sourceAddress, entryPoint, rsp, outb, pebAddress)
         {
             if (!LinuxKVM.IsHypervisorPresent())
             {
@@ -28,7 +29,7 @@ namespace Hyperlight.Hypervisors
                 throw new Exception("KVM_CREATE_VM returned -1");
             }
 
-            var region = new LinuxKVM.KVM_USERSPACE_MEMORY_REGION() { slot = 0, guest_phys_addr = (ulong)Sandbox.BaseAddress, memory_size = size, userspace_addr = (ulong)sourceAddress };
+            var region = new LinuxKVM.KVM_USERSPACE_MEMORY_REGION() { slot = 0, guest_phys_addr = (ulong)SandboxMemoryManager.BaseAddress, memory_size = size, userspace_addr = (ulong)sourceAddress };
             ioctl(vmfd, LinuxKVM.KVM_SET_USER_MEMORY_REGION, ref region, 0);
             vcpufd = LinuxKVM.ioctl(vmfd, LinuxKVM.KVM_CREATE_VCPU, 0);
             if (-1 == vcpufd)
@@ -160,7 +161,7 @@ namespace Hyperlight.Hypervisors
             {
                 rip = EntryPoint,
                 rsp = rsp,
-                r9 = (ulong)Sandbox.BaseAddress + Sandbox.pebOffset,
+                r9 = pebAddress,
                 rflags = 0x0002,
             };
             ioctl(vcpufd, LinuxKVM.KVM_SET_REGS, ref regs, 0);

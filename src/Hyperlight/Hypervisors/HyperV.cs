@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Hyperlight.Core;
 using Hyperlight.Native;
-using Microsoft.Win32.SafeHandles;
+
 
 namespace Hyperlight.Hypervisors
 {
@@ -20,7 +21,7 @@ namespace Hyperlight.Hypervisors
         readonly bool virtualProcessorCreated;
         readonly ulong size;
 
-        internal HyperV(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb) : base(sourceAddress, entryPoint, rsp, outb)
+        internal HyperV(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, ulong pebAddress) : base(sourceAddress, entryPoint, rsp, outb, pebAddress)
         {
             this.size = size;
             WindowsHypervisorPlatform.WHvCreatePartition(out hPartition);
@@ -28,7 +29,7 @@ namespace Hyperlight.Hypervisors
             WindowsHypervisorPlatform.WHvSetupPartition(hPartition);
             surrogateProcess = processManager.GetProcess((IntPtr)size, sourceAddress);
             var hProcess = surrogateProcess.safeProcessHandle.DangerousGetHandle();
-            WindowsHypervisorPlatform.WHvMapGpaRange2(hPartition, hProcess, sourceAddress, (IntPtr)Sandbox.BaseAddress, size, WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagRead | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagWrite | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagExecute);
+            WindowsHypervisorPlatform.WHvMapGpaRange2(hPartition, hProcess, sourceAddress, (IntPtr)SandboxMemoryManager.BaseAddress, size, WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagRead | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagWrite | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagExecute);
             WindowsHypervisorPlatform.WHvCreateVirtualProcessor(hPartition, 0, 0);
             virtualProcessorCreated = true;
 
@@ -135,7 +136,7 @@ namespace Hyperlight.Hypervisors
         internal override void Initialise()
         {
             Debug.Assert(registerNames[^4] == WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRcx);
-            registerValues[^4].low = (ulong)Sandbox.BaseAddress + Sandbox.pebOffset;
+            registerValues[^4].low = pebAddress;
             WindowsHypervisorPlatform.WHvSetVirtualProcessorRegisters(hPartition, 0, registerNames, (uint)registerNames.Length, registerValues);
             ExecuteUntilHalt();
         }

@@ -920,7 +920,7 @@ namespace Hyperlight.Tests
                 });
                 Assert.NotNull(ex);
                 Assert.IsType<ArgumentException>(ex);
-                Assert.Equal("HostMethod, Could not find host function name.", ex.Message);
+                Assert.Equal("HostMethod, Could not find host method name.", ex.Message);
             }
             else
             {
