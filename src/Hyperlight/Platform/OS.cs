@@ -118,8 +118,18 @@ namespace Hyperlight.Native
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                // TODO: Handle error
-                _ = OS.VirtualFree(addr, IntPtr.Zero, (uint)AllocationType.Release);
+                // according to the following link, nonzero return
+                // values indicate success.
+                // https://docs.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualfree
+                //
+                // Note: practically speaking, this seems to always return
+                // a strictly positive value, but we're taking the
+                // documentation about "nonzero" literally here.
+                Syscall.CheckReturnVal(
+                    "Free virtual memory",
+                    () => OS.VirtualFree(addr, IntPtr.Zero, (uint)AllocationType.Release),
+                    (int retVal) => retVal != 0
+                );
             }
             else
             {

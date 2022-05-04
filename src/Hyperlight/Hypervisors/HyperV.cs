@@ -152,8 +152,11 @@ namespace Hyperlight.Hypervisors
 
                 if (virtualProcessorCreated)
                 {
-                    // TODO: Handle error
-                    _ = WindowsHypervisorPlatform.WHvDeleteVirtualProcessor(hPartition, 0);
+                    Syscall.CheckReturnVal(
+                        "HyperV WHvDeleteVirtualProcessor",
+                        () => WindowsHypervisorPlatform.WHvDeleteVirtualProcessor(hPartition, 0),
+                        0
+                    );
                 }
 
                 if (IntPtr.Zero != hPartition)
