@@ -179,8 +179,11 @@ namespace Hyperlight.Native
             {
                 if (kvm != -1)
                 {
-                    // TODO: Handle error
-                    _ = close(kvm);
+                    Syscall.CheckReturnVal(
+                        "close kvm",
+                        () => close(kvm),
+                        0
+                    );
                 }
             }
             return true;
