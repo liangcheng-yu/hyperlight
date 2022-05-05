@@ -111,7 +111,7 @@ namespace NativeHost
                 Console.WriteLine();
 
                 exposedMethods = new ExposedMethods();
-                Action<Sandbox> func = (s) =>
+                Action<ISandboxRegistration> func = (s) =>
                 {
                     s.BindGuestFunction("PrintOutput", exposedMethods);
                     Console.WriteLine();
@@ -279,7 +279,7 @@ namespace NativeHost
                     using (var writer = new StringWriter())
                     {
                         var exposedMethods = new ExposedMethods();
-                        Action<Sandbox> func = (s) =>
+                        Action<ISandboxRegistration> func = (s) =>
                         {
                             s.BindGuestFunction("PrintOutput", exposedMethods);
                             exposedMethods.PrintOutput!($"{Environment.NewLine}");
