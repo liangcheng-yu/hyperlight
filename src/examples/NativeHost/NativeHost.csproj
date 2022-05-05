@@ -4,7 +4,7 @@
     <OutputType>Exe</OutputType>
     <TargetFrameworks>net6.0</TargetFrameworks>
     <Nullable>enable</Nullable>
-    <Platforms>x64</Platforms>
+    <Platforms>AnyCpu</Platforms>
   </PropertyGroup>
 
   <ItemGroup>

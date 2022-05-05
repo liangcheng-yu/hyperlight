@@ -31,7 +31,6 @@ jobs:
       uses: actions/setup-dotnet@v2
       with:
         dotnet-version: | 
-          5.0.x
           6.0.x 
     - name: Restore
       run: dotnet restore
@@ -44,7 +43,7 @@ jobs:
       with:
         msbuild-architecture: x64
     - name: Build Solution
-      run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
+      run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform="Any CPU" /p:ContinuousIntegrationBuild=true
       shell: pwsh
     - name: Test
       shell: pwsh
@@ -79,7 +78,6 @@ jobs:
       uses: actions/setup-dotnet@v2
       with:
         dotnet-version: |
-          5.0.x
           6.0.x 
     - name: Restore
       run: dotnet restore
