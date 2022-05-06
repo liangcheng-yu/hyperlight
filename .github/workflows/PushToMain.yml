@@ -15,7 +15,7 @@ jobs:
   publish:
     runs-on: windows-latest
     env:
-      PLATFORM: x64
+      PLATFORM: "Any CPU"
       CONFIG: Debug
       FRAMEWORK: net6.0
     steps:
@@ -28,7 +28,7 @@ jobs:
         dotnet-version: | 
           6.0.x 
     - name: Restore
-      run: dotnet restore
+      run: dotnet restore 
       shell: pwsh
     - name: Set MINVERBUILDMETADATA
       run:  echo "MINVERBUILDMETADATA=$(git rev-parse --short ${{ github.sha }})" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
@@ -82,7 +82,7 @@ jobs:
         automatic_release_tag: latest
         title: "Latest Development Build From Main Branch"
         files: |
-           src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe
-           src/tests/Guests/simpleguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/simpleguest.exe
+           src/tests/Guests/callbackguest/x64/${{ env.CONFIG }}/callbackguest.exe
+           src/tests/Guests/simpleguest/x64/${{ env.CONFIG }}/simpleguest.exe
            src/examples/NativeHost/bin/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
            src/examples/NativeHost/bin/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz
