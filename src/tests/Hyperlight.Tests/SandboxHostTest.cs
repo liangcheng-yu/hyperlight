@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using Xunit;
+using Hyperlight;
 using Hyperlight.Core;
 
 namespace Hyperlight.Tests
@@ -411,7 +412,7 @@ namespace Hyperlight.Tests
                 (typeof(DontExposeSomeMembersUsingAttribute), new() { "GetOne", "MethodWithArgs" }, new(), new() { "GetTwo", "StaticMethodWithArgs" }, new()),
             };
 
-            Action<Sandbox> func;
+            Action<ISandboxRegistration> func;
             StringWriter output;
             Sandbox sandbox;
 

@@ -62,9 +62,9 @@ namespace Hyperlight
         RecycleAfterRun = 2,
         RunFromGuestBinary = 4,
     }
-    public class Sandbox : IDisposable
+    public class Sandbox : IDisposable, ISandboxRegistration
     {
-        static object peInfoLock = new object();
+        static readonly object peInfoLock = new();
         static readonly ConcurrentDictionary<string, PEInfo> guestPEInfo = new(StringComparer.InvariantCultureIgnoreCase);
         static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         static bool IsLinux => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
@@ -141,7 +141,7 @@ namespace Hyperlight
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, Action<Sandbox> initFunction = null) : this(size, guestBinaryPath, SandboxRunOptions.None, initFunction, null)
+        public Sandbox(ulong size, string guestBinaryPath, Action<ISandboxRegistration> initFunction = null) : this(size, guestBinaryPath, SandboxRunOptions.None, initFunction, null)
         {
         }
 
@@ -149,7 +149,7 @@ namespace Hyperlight
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, Action<Sandbox> initFunction = null) : this(size, guestBinaryPath, runOptions, initFunction, null)
+        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction = null) : this(size, guestBinaryPath, runOptions, initFunction, null)
         {
         }
 
@@ -161,7 +161,7 @@ namespace Hyperlight
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, Action<Sandbox> initFunction = null, StringWriter writer = null)
+        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction = null, StringWriter writer = null)
         {
             if (!IsSupportedPlatform)
             {
@@ -563,10 +563,7 @@ namespace Hyperlight
 
         public T CallGuest<T>(Func<T> func)
         {
-            if (func == null)
-            {
-                throw new ArgumentNullException("func");
-            }
+            ArgumentNullException.ThrowIfNull(func, nameof(func));
             var shouldRelease = false;
             try
             {
