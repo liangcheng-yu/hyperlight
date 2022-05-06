@@ -51,7 +51,7 @@ jobs:
     - name: Archive Windows Release
       shell: pwsh
       run: 7z a -tzip  ../windows-x64.zip .
-      working-directory: src/examples/NativeHost/bin/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/publish
+      working-directory: src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/publish
     - name: Build Example for Linux
       shell: pwsh
       run: dotnet publish -c $env:CONFIG --self-contained -r linux-x64 -f $env:FRAMEWORK
@@ -59,7 +59,7 @@ jobs:
     - name: Archive Linux Release
       shell: pwsh
       run: tar -zcvf ../linux-x64.tar.gz .
-      working-directory: src/examples/NativeHost/bin/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/publish
+      working-directory: src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/publish
     - name: Package solution
       run: dotnet pack -c $env:CONFIG --include-symbols -p:RepositoryUrl=https://github.com/${{ github.repository }}.git 
       working-directory: src/Hyperlight
@@ -84,5 +84,5 @@ jobs:
         files: |
            src/tests/Guests/callbackguest/x64/${{ env.CONFIG }}/callbackguest.exe
            src/tests/Guests/simpleguest/x64/${{ env.CONFIG }}/simpleguest.exe
-           src/examples/NativeHost/bin/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
-           src/examples/NativeHost/bin/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz
+           src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
+           src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz
