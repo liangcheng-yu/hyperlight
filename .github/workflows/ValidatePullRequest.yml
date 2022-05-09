@@ -43,7 +43,7 @@ jobs:
       with:
         msbuild-architecture: x64
     - name: Build Solution
-      run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform="Any CPU" /p:ContinuousIntegrationBuild=true
+      run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
       shell: pwsh
     - name: Test
       shell: pwsh
