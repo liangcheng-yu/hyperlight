@@ -1,4 +1,4 @@
-namespace Hyperlight.Native
+namespace Hyperlight
 {
     class HyperlightGuestInterfaceGlue : GuestInterfaceGlue
     {

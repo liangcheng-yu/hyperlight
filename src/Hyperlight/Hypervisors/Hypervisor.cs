@@ -8,13 +8,15 @@ namespace Hyperlight.Hypervisors
         protected ulong rsp;
         protected Action<ushort, byte> handleoutb;
         protected IntPtr sourceAddress;
+        protected ulong pebAddress;
 
-        internal Hypervisor(IntPtr sourceAddress, ulong entryPoint, ulong rsp, Action<ushort, byte> outb)
+        internal Hypervisor(IntPtr sourceAddress, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, ulong pebAddress)
         {
             this.handleoutb = outb;
             this.EntryPoint = entryPoint;
             this.rsp = rsp;
             this.sourceAddress = sourceAddress;
+            this.pebAddress = pebAddress;
         }
 
         internal abstract void DispatchCallFromHost(ulong pDispatchFunction);
