@@ -34,7 +34,6 @@ namespace Hyperlight.Tests
                 Null,
                 All
             }
-            public ulong Size => 1024 * 1024;
             public int ExpectedReturnValue;
             public string ExpectedOutput;
             public string GuestBinaryPath { get; }
@@ -185,14 +184,13 @@ namespace Hyperlight.Tests
         public void Test_Invalid_Guest_Function_Causes_Exception()
         {
             var options = GetSandboxRunOptions();
-            ulong size = 1024 * 1024;
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "callbackguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
 
             foreach (var option in options)
             {
-                using (var sandbox = new Sandbox(size, guestBinaryPath, option))
+                using (var sandbox = new Sandbox(guestBinaryPath, option))
                 {
                     var functions = new GuestFunctionErrors();
                     sandbox.BindGuestFunction("FunctionDoesntExist", functions);
@@ -212,14 +210,13 @@ namespace Hyperlight.Tests
         public void Test_Invalid_Type_Of_Guest_Function_Parameter_Causes_Exception()
         {
             var options = GetSandboxRunOptions();
-            ulong size = 1024 * 1024;
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "callbackguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
 
             foreach (var option in options)
             {
-                using (var sandbox = new Sandbox(size, guestBinaryPath, option))
+                using (var sandbox = new Sandbox(guestBinaryPath, option))
                 {
                     var functions = new GuestFunctionErrors();
                     sandbox.BindGuestFunction("GuestMethod", functions);
@@ -238,14 +235,13 @@ namespace Hyperlight.Tests
         public void Test_Invalid_Number_Of_Guest_Function_Parameters_Causes_Exception()
         {
             var options = GetSandboxRunOptions();
-            ulong size = 1024 * 1024;
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "callbackguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
 
             foreach (var option in options)
             {
-                using (var sandbox = new Sandbox(size, guestBinaryPath, option))
+                using (var sandbox = new Sandbox(guestBinaryPath, option))
                 {
                     var functions = new GuestFunctionErrors();
                     sandbox.BindGuestFunction("PrintOutput", functions);
@@ -292,7 +288,6 @@ namespace Hyperlight.Tests
         public void Test_Bind_And_Expose_Methods()
         {
             var options = GetSandboxRunOptions();
-            ulong size = 1024 * 1024;
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
@@ -312,7 +307,7 @@ namespace Hyperlight.Tests
                 {
                     foreach (var target in new object?[] { type, GetInstance(type) })
                     {
-                        using (var sandbox = new Sandbox(size, guestBinaryPath, option))
+                        using (var sandbox = new Sandbox(guestBinaryPath, option))
                         {
                             if (target is Type)
                             {
@@ -335,7 +330,7 @@ namespace Hyperlight.Tests
 
                 var delegateNames = new List<string> { "GuestMethod", "GuestMethod1" };
                 var hostMethods = new List<string> { "HostMethod", "HostMethod1" };
-                using (var sandbox = new Sandbox(size, guestBinaryPath, option))
+                using (var sandbox = new Sandbox(guestBinaryPath, option))
                 {
                     var instance = new CallbackTestMembers();
                     foreach (var delegateName in delegateNames)
@@ -390,7 +385,6 @@ namespace Hyperlight.Tests
         private void Test_SandboxInit()
         {
             var options = GetSandboxRunOptions();
-            ulong size = 1024 * 1024;
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "callbackguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
@@ -458,7 +452,7 @@ namespace Hyperlight.Tests
                             };
                         }
 
-                        sandbox = new Sandbox(size, guestBinaryPath, option, func, output);
+                        sandbox = new Sandbox(guestBinaryPath, option, func, output);
                         if (target is Type)
                         {
                             CheckExposedMethods(sandbox, exposedStaticMethods, (Type)target);
@@ -493,7 +487,7 @@ namespace Hyperlight.Tests
 
                         numberOfCalls = 0;
                         output = new StringWriter();
-                        sandbox = new Sandbox(size, guestBinaryPath, option, func, output);
+                        sandbox = new Sandbox(guestBinaryPath, option, func, output);
                         if (target is Type)
                         {
                             sandbox.ExposeHostMethods(target as Type);
@@ -552,12 +546,12 @@ namespace Hyperlight.Tests
             foreach (var option in options)
             {
                 var output1 = new StringWriter();
-                var sandbox1 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, output1);
+                var sandbox1 = new Sandbox(testData.GuestBinaryPath, option, output1);
                 var builder = output1.GetStringBuilder();
                 SimpleTest(sandbox1, testData, output1, builder);
                 var output2 = new StringWriter();
                 Sandbox sandbox2 = null;
-                var ex = Record.Exception(() => sandbox2 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, output2));
+                var ex = Record.Exception(() => sandbox2 = new Sandbox(testData.GuestBinaryPath, option, output2));
                 Assert.NotNull(ex);
                 Assert.IsType<System.ApplicationException>(ex);
                 Assert.Equal("Only one instance of Sandbox is allowed when running from guest binary", ex.Message);
@@ -567,7 +561,7 @@ namespace Hyperlight.Tests
                 output2.Dispose();
                 using (var output = new StringWriter())
                 {
-                    using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, option, output))
+                    using (var sandbox = new Sandbox(testData.GuestBinaryPath, option, output))
                     {
                         builder = output.GetStringBuilder();
                         SimpleTest(sandbox, testData, output, builder);
@@ -588,7 +582,7 @@ namespace Hyperlight.Tests
                 ulong size = 1024 * 1024;
                 var ex = Record.Exception(() =>
                 {
-                    var sandbox = new Sandbox(size, guestBinaryPath, option);
+                    var sandbox = new Sandbox(guestBinaryPath, option);
                     var guestMethods = new SimpleTestMembers();
                     sandbox.BindGuestFunction("PrintOutput", guestMethods);
                     var result = guestMethods.PrintOutput("This will throw an exception");
@@ -685,7 +679,7 @@ namespace Hyperlight.Tests
                 {
                     var output1 = new StringWriter();
                     var builder = output1.GetStringBuilder();
-                    var sandbox1 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, null, output1);
+                    var sandbox1 = new Sandbox(testData.GuestBinaryPath, option, null, output1);
                     if (instanceOrType is not null)
                     {
                         if (instanceOrType is Type)
@@ -709,7 +703,7 @@ namespace Hyperlight.Tests
                     {
                         instanceOrType1 = instanceOrType;
                     }
-                    var ex = Record.Exception(() => sandbox2 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, null, output2));
+                    var ex = Record.Exception(() => sandbox2 = new Sandbox(testData.GuestBinaryPath, option, null, output2));
                     Assert.NotNull(ex);
                     Assert.IsType<System.ApplicationException>(ex);
                     Assert.Equal("Only one instance of Sandbox is allowed when running from guest binary", ex.Message);
@@ -720,7 +714,7 @@ namespace Hyperlight.Tests
                     using (var output = new StringWriter())
                     {
                         builder = output.GetStringBuilder();
-                        using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, option, null, output))
+                        using (var sandbox = new Sandbox(testData.GuestBinaryPath, option, null, output))
                         {
                             if (instanceOrType1 is not null)
                             {
@@ -822,7 +816,7 @@ namespace Hyperlight.Tests
         {
             using (var output = new StringWriter())
             {
-                using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, sandboxRunOptions, null, output))
+                using (var sandbox = new Sandbox(testData.GuestBinaryPath, sandboxRunOptions, null, output))
                 {
                     if (instanceOrType is not null)
                     {
@@ -850,7 +844,7 @@ namespace Hyperlight.Tests
         {
             using (var output = new StringWriter())
             {
-                using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, sandboxRunOptions, output))
+                using (var sandbox = new Sandbox(testData.GuestBinaryPath, sandboxRunOptions, output))
                 {
                     var numberOfIterations = sandboxRunOptions.HasFlag(SandboxRunOptions.RecycleAfterRun) ? testData.NumberOfIterations : 1;
                     var builder = output.GetStringBuilder();
@@ -867,7 +861,7 @@ namespace Hyperlight.Tests
         {
             using (var output = new StringWriter())
             {
-                using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, output))
+                using (var sandbox = new Sandbox(testData.GuestBinaryPath, output))
                 {
                     if (instanceOrType is not null)
                     {
@@ -890,7 +884,7 @@ namespace Hyperlight.Tests
         {
             using (var output = new StringWriter())
             {
-                using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, output))
+                using (var sandbox = new Sandbox(testData.GuestBinaryPath, output))
                 {
                     var builder = output.GetStringBuilder();
                     test(sandbox, testData, output, builder, null);

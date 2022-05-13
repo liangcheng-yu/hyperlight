@@ -62,12 +62,6 @@ void outb(uint16_t port, uint8_t value)
     }
 }
 
-// Prevents compiler inserted function from generating Memory Access exits when calling alloca. 
-// TODO: need to figure out if this needs a real implementation.
-void
-__chkstk()
-{}
-
 static void
 halt()
 {
@@ -130,9 +124,9 @@ void setError(uint64_t errorCode, char* message)
 {
     pPeb->error.errorNo = errorCode;
     int length = strlen(message);
-    if (length >= sizeof(pPeb->error.message))
+    if (length >= pPeb->error.messageSize)
     {
-        length = sizeof(pPeb->error.message);
+        length = pPeb->error.messageSize - 1;
     }
 
     if (length == 0)
@@ -221,21 +215,12 @@ int entryPoint(uint64_t pebAddress)
     }
     else
     {
-        if (NULL != *((const char*)&pPeb->code))
+        resetError();
+
+        if (*((const char**)&pPeb->pCode)[0] != 'J')
         {
-            if (*((const char*)&pPeb->code) != 'J')
-            {
-                setError(CODE_HEADER_NOT_SET, NULL);
-                goto halt;
-            }
-        }
-        else
-        {
-            if (*((const char**)&pPeb->pCode)[0] != 'J')
-            {
-                setError(CODE_HEADER_NOT_SET, NULL);
-                goto halt;
-            }
+            setError(CODE_HEADER_NOT_SET, NULL);
+            goto halt;
         }
 
         // Either in WHP partition (hyperlight) or in memory.  If in memory, outb_ptr will be non-NULL

@@ -154,9 +154,9 @@ void setError(uint64_t errorCode, char* message)
 {
     pPeb->error.errorNo = errorCode;
     int length = strlen(message);
-    if (length >= sizeof(pPeb->error.message))
+    if (length >= pPeb->error.messageSize)
     {
-        length = sizeof(pPeb->error.message);
+        length = pPeb->error.messageSize-1;
     }
 
     if (length == 0)
@@ -169,11 +169,6 @@ void setError(uint64_t errorCode, char* message)
     }
 
     *(uint32_t*)&pPeb->output = -1;
-}
-
-// Prevents compiler inserted function from generating Memory Access exits when calling alloca.
-void __chkstk()
-{
 }
 
 static void
@@ -275,8 +270,6 @@ int native_symbol_thunk(char* functionName, ...)
     return *(int*)&pPeb->input;
 }
 
-
-
 long entryPoint(uint64_t pebAddress)
 {
     pPeb = (HyperlightPEB*)pebAddress;
@@ -288,22 +281,12 @@ long entryPoint(uint64_t pebAddress)
     else
     {
         resetError();
-        if (NULL != *((const char*)&pPeb->code))
+        if (*((const char**)&pPeb->pCode)[0] != 'J')
         {
-            if (*((const char*)&pPeb->code) != 'J')
-            {
-                setError(CODE_HEADER_NOT_SET, NULL);
-                goto halt;
-            }
+            setError(CODE_HEADER_NOT_SET, NULL);
+            goto halt;
         }
-        else
-        {
-            if (*((const char**)&pPeb->pCode)[0] != 'J')
-            {
-                setError(CODE_HEADER_NOT_SET, NULL);
-                goto halt;
-            }
-        }
+        
 
         // Either in WHP partition (hyperlight) or in memory.  If in memory, outb_ptr will be non-NULL
 
