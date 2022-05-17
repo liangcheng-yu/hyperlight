@@ -29,7 +29,7 @@ namespace Hyperlight.Hypervisors
             WindowsHypervisorPlatform.WHvSetupPartition(hPartition);
             surrogateProcess = processManager.GetProcess((IntPtr)size, sourceAddress);
             var hProcess = surrogateProcess.safeProcessHandle.DangerousGetHandle();
-            WindowsHypervisorPlatform.WHvMapGpaRange2(hPartition, hProcess, sourceAddress, (IntPtr)SandboxMemoryConfiguration.BaseAddress, size, WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagRead | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagWrite | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagExecute);
+            WindowsHypervisorPlatform.WHvMapGpaRange2(hPartition, hProcess, sourceAddress, (IntPtr)SandboxMemoryLayout.BaseAddress, size, WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagRead | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagWrite | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagExecute);
             WindowsHypervisorPlatform.WHvCreateVirtualProcessor(hPartition, 0, 0);
             virtualProcessorCreated = true;
 

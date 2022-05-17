@@ -76,15 +76,15 @@ namespace Hyperlight
         {
         }
 
-        public Sandbox( string guestBinaryPath, Action<ISandboxRegistration> initFunction, StringWriter writer = null) : this(SandboxMemoryConfiguration.Default, guestBinaryPath, SandboxRunOptions.None, initFunction, writer)
+        public Sandbox( string guestBinaryPath, Action<ISandboxRegistration> initFunction, StringWriter writer = null) : this(new SandboxMemoryConfiguration(), guestBinaryPath, SandboxRunOptions.None, initFunction, writer)
         {
         }
 
-        public Sandbox(string guestBinaryPath, Action<ISandboxRegistration> initFunction = null) : this(SandboxMemoryConfiguration.Default, guestBinaryPath, SandboxRunOptions.None, initFunction, null)
+        public Sandbox(string guestBinaryPath, Action<ISandboxRegistration> initFunction = null) : this(new SandboxMemoryConfiguration(), guestBinaryPath, SandboxRunOptions.None, initFunction, null)
         {
         }
 
-        public Sandbox(string guestBinaryPath, StringWriter writer = null) : this(SandboxMemoryConfiguration.Default, guestBinaryPath, SandboxRunOptions.None, null, writer)
+        public Sandbox(string guestBinaryPath, StringWriter writer = null) : this(new SandboxMemoryConfiguration(), guestBinaryPath, SandboxRunOptions.None, null, writer)
         {
         }
 
@@ -92,7 +92,7 @@ namespace Hyperlight
         {
         }
 
-        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction) : this(SandboxMemoryConfiguration.Default, guestBinaryPath, runOptions, initFunction, null)
+        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction) : this(new SandboxMemoryConfiguration(), guestBinaryPath, runOptions, initFunction, null)
         {
         }
 
@@ -100,14 +100,18 @@ namespace Hyperlight
         {
         }
 
-        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, StringWriter writer = null) : this(SandboxMemoryConfiguration.Default, guestBinaryPath, runOptions, null, writer)
+        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, StringWriter writer = null) : this(new SandboxMemoryConfiguration(), guestBinaryPath, runOptions, null, writer)
         {
         }
 
-        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, SandboxRunOptions runOptions, StringWriter writer = null) : this(sandboxMemoryConfiguaration, guestBinaryPath, runOptions, null, writer)
+        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, SandboxRunOptions runOptions, StringWriter writer) : this(sandboxMemoryConfiguaration, guestBinaryPath, runOptions, null, writer)
         {
         }
-        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction, StringWriter writer = null) : this(SandboxMemoryConfiguration.Default, guestBinaryPath, runOptions, initFunction, writer)
+        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction, StringWriter writer) : this(new SandboxMemoryConfiguration(), guestBinaryPath, runOptions, initFunction, writer)
+        {
+        }
+
+        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, SandboxRunOptions runOptions) : this(sandboxMemoryConfiguaration, guestBinaryPath, runOptions, null, null)
         {
         }
 
@@ -197,11 +201,7 @@ namespace Hyperlight
 
         public void CheckForGuestError()
         {
-            var guestError = sandboxMemoryManager.GetGuestError();
-            if (guestError is null)
-            {
-                return;
-            }
+            (GuestErrorCode ErrorCode, string Message) guestError = sandboxMemoryManager.GetGuestError();
             if (guestError.ErrorCode != GuestErrorCode.NO_ERROR)
             {
                 if (guestError.ErrorCode == GuestErrorCode.OUTB_ERROR)
@@ -223,7 +223,7 @@ namespace Hyperlight
 
         void LoadGuestBinary()
         {
-            var peInfo = guestPEInfo.GetOrAdd(guestBinaryPath, (guestBinaryPath) => GetPEInfo(guestBinaryPath, sandboxMemoryManager.GuestCodeAddress));
+            var peInfo = guestPEInfo.GetOrAdd(guestBinaryPath, (guestBinaryPath) => GetPEInfo(guestBinaryPath, SandboxMemoryLayout.GuestCodeAddress));
 
             if (runFromGuestBinary)
             {
@@ -315,11 +315,11 @@ namespace Hyperlight
 
             if (IsLinux)
             {
-                hyperVisor = new KVM(sandboxMemoryManager.SourceAddress, SandboxMemoryConfiguration.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, sandboxMemoryManager.GetPebAddress());
+                hyperVisor = new KVM(sandboxMemoryManager.SourceAddress, SandboxMemoryLayout.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, sandboxMemoryManager.GetPebAddress());
             }
             else if (IsWindows)
             {
-                hyperVisor = new HyperV(sandboxMemoryManager.SourceAddress, SandboxMemoryConfiguration.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, sandboxMemoryManager.GetPebAddress());
+                hyperVisor = new HyperV(sandboxMemoryManager.SourceAddress, SandboxMemoryLayout.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, sandboxMemoryManager.GetPebAddress());
             }
             else
             {

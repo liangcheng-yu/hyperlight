@@ -29,9 +29,9 @@ namespace Hyperlight
         readonly HashSet<FunctionDetails> listFunctions = new();
         readonly IntPtr basePtr;
         readonly int length;
-        readonly ulong offset;
+        readonly long offset;
 
-        public HyperlightPEB(IntPtr ptr, int length, ulong offset)
+        public HyperlightPEB(IntPtr ptr, int length, long offset)
         {
             this.basePtr = ptr;
             this.length = length;

@@ -116,26 +116,26 @@ int strlen(const char* str)
 
 void resetError()
 {
-    pPeb->error.errorNo = 0;
-    *pPeb->error.message = NULL;
+    pPeb->guestError.errorNo = 0;
+    *pPeb->guestError.message = NULL;
 }
 
 void setError(uint64_t errorCode, char* message)
 {
-    pPeb->error.errorNo = errorCode;
+    pPeb->guestError.errorNo = errorCode;
     int length = strlen(message);
-    if (length >= pPeb->error.messageSize)
+    if (length >= pPeb->guestError.messageSize)
     {
-        length = pPeb->error.messageSize - 1;
+        length = pPeb->guestError.messageSize - 1;
     }
 
     if (length == 0)
     {
-        *pPeb->error.message = NULL;
+        *pPeb->guestError.message = NULL;
     }
     else
     {
-        strncpy(pPeb->error.message, message, length);
+        strncpy(pPeb->guestError.message, message, length);
     }
 
     *(uint32_t*)&pPeb->output = -1;
@@ -217,17 +217,17 @@ int entryPoint(uint64_t pebAddress)
     {
         resetError();
 
-        if (*((const char**)&pPeb->pCode)[0] != 'J')
+        if (*pPeb->pCode != 'J')
         {
             setError(CODE_HEADER_NOT_SET, NULL);
             goto halt;
         }
 
         // Either in WHP partition (hyperlight) or in memory.  If in memory, outb_ptr will be non-NULL
-        outb_ptr = *(void**)pPeb->pOutb;
+        outb_ptr = pPeb->pOutb;
         if (outb_ptr)
             runningHyperlight = false;
-        HostFunctions* pFuncs = pPeb->funcs;
+        HostFunctions* pFuncs = pPeb->guestFunctionDefinition.functionDefinitions;
         pFuncs->header.DispatchFunction = (uint64_t)DispatchFunction;
     }
 

@@ -1,9 +1,11 @@
 using System;
+using System.Net.Http;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace Hyperlight.Core
 {
-    enum GuestErrorCode : ulong
+    enum GuestErrorCode : long
     {
         NO_ERROR = 0,  // The function call was successful
         CODE_HEADER_NOT_SET = 1,   // The expected PE header was not found in the Guest Binary
@@ -16,26 +18,7 @@ namespace Hyperlight.Core
         UNKNOWN_ERROR = 8,   // The guest error is unknown.
     }
 
-
-    [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
-    internal class GuestError
-    {
-        internal GuestErrorCode ErrorCode;
-        internal ulong MaxMessageSize;
-        internal string Message;
-
-        internal GuestError(GuestErrorCode guestErrorCode, int maxMessageSize, string message)
-        {
-            if (message.Length >= maxMessageSize)
-            {
-                message = message.Substring(0, maxMessageSize - 1);
-            }
-            Message = message;
-            ErrorCode = guestErrorCode;
-            MaxMessageSize = (ulong)maxMessageSize;
-        }
-    }
-
+  
 
     [Serializable]
     public class HyperlightException : Exception
