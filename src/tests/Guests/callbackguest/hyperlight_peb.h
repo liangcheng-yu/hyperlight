@@ -15,19 +15,18 @@ typedef struct
 {
     uint64_t functionDefinitionSize;
     void* functionDefinitions;
-} GuestFunctionDefinitions;
+} HostFunctionDefinitions;
 
 typedef struct
 {
-    uint32_t size;
-    char* execeptionAsJson;
+    uint64_t hostExceptionSize;
 
 } HostException;
 
 typedef struct
 {
-    GuestFunctionDefinitions guestFunctionDefinition;
-    uint8_t hostException[4096];
+    HostFunctionDefinitions hostFunctionDefinitions;
+    HostException hostException;
     GuestError guestError;
     char* pCode;
     void* pOutb;

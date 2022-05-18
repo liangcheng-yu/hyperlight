@@ -262,6 +262,64 @@ namespace Hyperlight.Tests
         }
 
         [Fact]
+        public void Test_Config_Minimum_Sizes()
+        {
+            var minInputSize = 0x10000;
+            var minOutputSize = 0x10000;
+            var minMemoryBufferSize = 0x40000;
+            var minStackSize = 0x100000;
+            var minHostFunctionDefinitionSize = 0x400;
+            var minHostExceptionSize = 0x400;
+            var minGuestErrorMessageSize = 0x100;
+            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration(0, 0, 0, 0, 0, 0, 0);
+            Assert.Equal(minInputSize, sandboxMemoryConfiguration.InputDataSize);
+            Assert.Equal(minOutputSize, sandboxMemoryConfiguration.OutputDataSize);
+            Assert.Equal(minMemoryBufferSize, sandboxMemoryConfiguration.MemoryBufferSize);
+            Assert.Equal(minHostFunctionDefinitionSize, sandboxMemoryConfiguration.HostFunctionDefinitionSize);
+            Assert.Equal(minHostExceptionSize, sandboxMemoryConfiguration.HostExceptionSize);
+            Assert.Equal(minGuestErrorMessageSize, sandboxMemoryConfiguration.GuestErrorMessageSize);
+            Assert.Equal(minStackSize, sandboxMemoryConfiguration.StackSize);
+        }
+
+        [Fact]
+        public void Test_Host_Exceptions_Size()
+        {
+            var options = GetSandboxRunOptions();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                var size = GetHostExceptionSize();
+                using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(hostExceptionSize: size), guestBinaryPath, option))
+                {
+                    var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance;
+                    var fieldInfo = sandbox.GetType().GetField("sandboxMemoryManager", bindingFlags);
+                    Assert.NotNull(fieldInfo);
+                    var sandboxMemoryManager = fieldInfo!.GetValue(sandbox);
+                    Assert.NotNull(sandboxMemoryManager);
+                    fieldInfo = sandboxMemoryManager!.GetType().GetField("sandboxMemoryLayout", bindingFlags);
+                    Assert.NotNull(fieldInfo);
+                    var sandboxMemoryLayout = fieldInfo!.GetValue(sandboxMemoryManager);
+                    Assert.NotNull(sandboxMemoryLayout);
+                    bindingFlags = BindingFlags.Public | BindingFlags.Instance;
+                    var propInfo = sandboxMemoryManager!.GetType().GetProperty("SourceAddress", bindingFlags);
+                    Assert.NotNull(propInfo);
+                    var sourceAddress = propInfo!.GetValue(sandboxMemoryManager);
+                    Assert.NotNull(sourceAddress);
+                    var methodInfo = sandboxMemoryLayout!.GetType().GetMethod("GetHostExceptionLengthAddress", bindingFlags);
+                    Assert.NotNull(methodInfo);
+                    var addr = methodInfo!.Invoke(sandboxMemoryLayout, new object[] { sourceAddress! });
+                    Assert.NotNull(addr);
+                    Assert.IsType<IntPtr>(addr);
+                    var hostExceptionSize = Marshal.ReadInt64((IntPtr)addr!);
+                    Assert.Equal(size, hostExceptionSize);
+                }
+            }
+        }
+
+        [Fact]
         public void Test_Invalid_Guest_Function_Causes_Exception()
         {
             var options = GetSandboxRunOptions();
@@ -1070,16 +1128,17 @@ namespace Hyperlight.Tests
         {
             var errorMessageSize = GetErrorMessageSize();
             var functionDefinitionSize = GetFunctionDefinitionSize();
+            var hostExceptionSize = GetHostExceptionSize();
 
             // This is just so sometimes the defaults are used.
 
-            if (errorMessageSize % 8 == 0 || functionDefinitionSize % 8 == 0)
+            if (errorMessageSize % 8 == 0 || functionDefinitionSize % 8 == 0 || hostExceptionSize % 8 == 0)
             {
                 output.WriteLine("Using Default Configuration");
                 return new SandboxMemoryConfiguration();
             }
-            output.WriteLine($"Using Configuration: guestErrorMessageSize: {errorMessageSize} functionDefinitionSize: {functionDefinitionSize}");
-            return new SandboxMemoryConfiguration(guestErrorMessageSize: errorMessageSize, functionDefinitionSize: functionDefinitionSize);
+            output.WriteLine($"Using Configuration: guestErrorMessageSize: {errorMessageSize} functionDefinitionSize: {functionDefinitionSize} hostExceptionSize: {hostExceptionSize}");
+            return new SandboxMemoryConfiguration(guestErrorMessageSize: errorMessageSize, functionDefinitionSize: functionDefinitionSize, hostExceptionSize: hostExceptionSize);
         }
 
         private int GetErrorMessageSize()
@@ -1091,6 +1150,14 @@ namespace Hyperlight.Tests
         }
 
         private int GetFunctionDefinitionSize()
+        {
+            var min = 1024;
+            var max = 8196;
+            var random = new Random();
+            return random.Next(min, max + 1);
+        }
+
+        private int GetHostExceptionSize()
         {
             var min = 1024;
             var max = 8196;

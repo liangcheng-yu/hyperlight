@@ -6,9 +6,17 @@ namespace Hyperlight.Core
         const int DefaultOutputSize = 0x10000;
         const int DefaultMemoryBufferSize = 0x40000;
         const int DefaultStackSize = 0x100000;
-        const int DefaultFunctionDefinitionSize = 0x1000;
+        const int DefaultHostFunctionDefinitionSize = 0x1000;
         const int DefaultHostExceptionSize = 0x1000;
         const int DefaultGuestErrorMessageSize = 0x100;
+
+        const int MinInputSize = 0x10000;
+        const int MinOutputSize = 0x10000;
+        const int MinMemoryBufferSize = 0x40000;
+        const int MinStackSize = 0x100000;
+        const int MinHostFunctionDefinitionSize = 0x400;
+        const int MinHostExceptionSize = 0x400;
+        const int MinGuestErrorMessageSize = 0x100;
 
         /// <summary>
         /// GuestErrorMessageSize defines the maximum size of the guest error message field.
@@ -17,7 +25,7 @@ namespace Hyperlight.Core
         /// <summary>
         /// FunctionDefinitionSize defines the size of the memory buffer that is made available for Guest Function Definitions
         /// </summary>
-        public int FunctionDefinitionSize { get; }
+        public int HostFunctionDefinitionSize { get; }
         /// <summary>
         /// HostExceptionSize defines the size of the memory buffer that is made available for serialising Host Exceptions
         /// </summary>
@@ -42,15 +50,15 @@ namespace Hyperlight.Core
         /// </summary>
         public int StackSize { get; }
 
-        public SandboxMemoryConfiguration(int inputDataSize = DefaultInputSize, int outputDataSize = DefaultOutputSize, int memoryBufferSize = DefaultMemoryBufferSize, int stackSize = DefaultStackSize, int functionDefinitionSize = DefaultFunctionDefinitionSize, int hostExceptionSize = DefaultHostExceptionSize, int guestErrorMessageSize = DefaultGuestErrorMessageSize)
+        public SandboxMemoryConfiguration(int inputDataSize = DefaultInputSize, int outputDataSize = DefaultOutputSize, int memoryBufferSize = DefaultMemoryBufferSize, int stackSize = DefaultStackSize, int functionDefinitionSize = DefaultHostFunctionDefinitionSize, int hostExceptionSize = DefaultHostExceptionSize, int guestErrorMessageSize = DefaultGuestErrorMessageSize)
         {
-            InputDataSize = inputDataSize;
-            OutputDataSize = outputDataSize;
-            MemoryBufferSize = memoryBufferSize;
-            StackSize = stackSize;
-            FunctionDefinitionSize = functionDefinitionSize;
-            HostExceptionSize = hostExceptionSize;
-            GuestErrorMessageSize = guestErrorMessageSize;
+            InputDataSize = inputDataSize < MinInputSize ? MinInputSize : inputDataSize;
+            OutputDataSize = outputDataSize < MinOutputSize ? MinOutputSize : outputDataSize;
+            MemoryBufferSize = memoryBufferSize < MinMemoryBufferSize ? MinMemoryBufferSize : memoryBufferSize;
+            StackSize = stackSize < MinStackSize ? MinStackSize : stackSize;
+            HostFunctionDefinitionSize = functionDefinitionSize < MinHostFunctionDefinitionSize ? MinHostFunctionDefinitionSize : functionDefinitionSize;
+            HostExceptionSize = hostExceptionSize < MinHostExceptionSize ? MinHostExceptionSize : hostExceptionSize;
+            GuestErrorMessageSize = guestErrorMessageSize < MinGuestErrorMessageSize ? MinGuestErrorMessageSize : guestErrorMessageSize;
         }
     }
 }

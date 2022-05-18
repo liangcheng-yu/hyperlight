@@ -3,19 +3,26 @@ using System.Runtime.InteropServices;
 
 namespace Hyperlight.Core
 {
+
+    [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
+    struct HostFunctionDefinitions
+    {
+        internal ulong FunctionDefinitionSize;
+        internal IntPtr FunctionDefinitions;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
+    struct HostExceptionData
+    {
+        internal ulong HostExceptionSize;
+    }
+
     [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
     struct GuestError
     {
         internal GuestErrorCode ErrorCode;
         internal ulong MaxMessageSize;
         internal IntPtr Message;
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
-    struct GuestFunctionDefinitions
-    {
-        internal ulong FunctionDefinitionSize;
-        internal IntPtr FunctionDefinitions;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
@@ -62,46 +69,55 @@ namespace Hyperlight.Core
         public const int PDGuestAddress = BaseAddress + PDOffset;
         public const ulong GuestCodeAddress = BaseAddress + CodeOffSet;
 
-        int PebOffset => PageTableSize + codeSize;
-        int InputDataOffset => PageTableSize + Marshal.SizeOf(typeof(GuestFunctionDefinitions)) + sandboxMemoryConfiguration.HostExceptionSize + Marshal.SizeOf(typeof(GuestError)) + Marshal.SizeOf(typeof(CodeAndOutBPointers)) + codeSize;
-        int OutputDataOffset => InputDataOffset + sandboxMemoryConfiguration.InputDataSize;
+        readonly int pebOffset;
+        readonly int inputDataOffset;
+        readonly int outputDataOffset;
         readonly SandboxMemoryConfiguration sandboxMemoryConfiguration;
         readonly int codeSize;
+        readonly int hostFunctionsOffset;
+        readonly int hostExceptionOffset;
+        readonly int errorMessageOffset;
 
-        public ulong PEBAddress => (ulong)(BaseAddress + PebOffset);
-        public int ErrorMessageOffset => OutputDataOffset + sandboxMemoryConfiguration.OutputDataSize;
+        public ulong PEBAddress { get; init; }
 
-        public IntPtr GetGuestErrorMessageAddress(IntPtr address, long offset) => (IntPtr)((long)address + ErrorMessageOffset - offset);
-        public IntPtr GetGuestErrorAddress(IntPtr address) => address + PageTableSize + Marshal.SizeOf(typeof(GuestFunctionDefinitions)) + sandboxMemoryConfiguration.HostExceptionSize + codeSize;
+
+        public IntPtr GetGuestErrorMessageAddress(IntPtr address) => IntPtr.Add(address, errorMessageOffset);
+        public IntPtr GetGuestErrorAddress(IntPtr address) => address + PageTableSize + Marshal.SizeOf(typeof(HostFunctionDefinitions)) + Marshal.SizeOf(typeof(HostExceptionData)) + codeSize;
         public IntPtr GetGuestErrorMessageLengthAddress(IntPtr address) => GetGuestErrorAddress(address) + 8;
         public IntPtr GetGuestErrorMessagePointerAddress(IntPtr address) => GetGuestErrorAddress(address) + 16;
-        public IntPtr GetFunctionDefinitionAddress(IntPtr address) => (IntPtr)((long)GetOutputDataAddress(address) + sandboxMemoryConfiguration.OutputDataSize + sandboxMemoryConfiguration.GuestErrorMessageSize);
-        public IntPtr GetFunctionDefinitionAddress(IntPtr address, long offset) => (IntPtr)((long)GetFunctionDefinitionAddress(address) - offset);
+        public IntPtr GetFunctionDefinitionAddress(IntPtr address) => IntPtr.Add(address, hostFunctionsOffset);
         public IntPtr GetFunctionDefinitionLengthAddress(IntPtr address) => address + PageTableSize + codeSize;
         public IntPtr GetFunctionDefinitionPointerAddress(IntPtr address) => GetFunctionDefinitionLengthAddress(address) + 8;
-        public IntPtr GetHostExceptionAddress(IntPtr address) => address + PageTableSize + Marshal.SizeOf(typeof(GuestFunctionDefinitions)) + codeSize;
-        public IntPtr GetOutBPointerAddress(IntPtr address) => address + InputDataOffset - 8; // OutB pointer is the 8 bytes before the input data buffer. 
-        public IntPtr GetOutputDataAddress(IntPtr address) => address + OutputDataOffset;
-        public IntPtr GetInputDataAddress(IntPtr address) => address + InputDataOffset;
-        public IntPtr GetCodePointerAddress(IntPtr address) => address + InputDataOffset - 16; // Code pointer is the 16 bytes before the input data buffer.
+        public IntPtr GetHostExceptionLengthAddress(IntPtr address) => address + PageTableSize + Marshal.SizeOf(typeof(HostFunctionDefinitions)) + codeSize; //Size is the first 8 bytes
+        public IntPtr GetHostExceptionAddress(IntPtr address) => IntPtr.Add(address, hostExceptionOffset);
+        public IntPtr GetOutBPointerAddress(IntPtr address) => address + inputDataOffset - 8; // OutB pointer is the 8 bytes before the input data buffer. 
+        public IntPtr GetOutputDataAddress(IntPtr address) => address + outputDataOffset;
+        public IntPtr GetInputDataAddress(IntPtr address) => address + inputDataOffset;
+        public IntPtr GetCodePointerAddress(IntPtr address) => address + inputDataOffset - 16; // Code pointer is the 16 bytes before the input data buffer.
         public IntPtr GetDispatchFunctionPointerAddress(IntPtr address) => GetFunctionDefinitionAddress(address) + 8; // Pointer to Function Definitions is second element in Structure.
-        public ulong GetInProcessPEBAddress(IntPtr address) => (ulong)(address + PebOffset);
+        public ulong GetInProcessPEBAddress(IntPtr address) => (ulong)(address + pebOffset);
 
         public static IntPtr GetHostPML4Address(IntPtr address) => address;
         public static IntPtr GetHostPDPTAddress(IntPtr address) => address + PDPTOffset;
         public static IntPtr GetHostPDAddress(IntPtr address) => address + PDOffset;
         public static IntPtr GetHostCodeAddress(IntPtr address) => address + CodeOffSet;
 
-
         internal SandboxMemoryLayout(SandboxMemoryConfiguration sandboxMemoryConfiguration, int codeSize)
         {
             this.sandboxMemoryConfiguration = sandboxMemoryConfiguration;
             this.codeSize = codeSize;
+            pebOffset = PageTableSize + codeSize;
+            inputDataOffset = PageTableSize + Marshal.SizeOf(typeof(HostFunctionDefinitions)) + Marshal.SizeOf(typeof(HostExceptionData)) + Marshal.SizeOf(typeof(GuestError)) + Marshal.SizeOf(typeof(CodeAndOutBPointers)) + codeSize;
+            outputDataOffset = inputDataOffset + sandboxMemoryConfiguration.InputDataSize;
+            PEBAddress = (ulong)(BaseAddress + pebOffset);
+            hostFunctionsOffset = outputDataOffset + sandboxMemoryConfiguration.OutputDataSize;
+            hostExceptionOffset = hostFunctionsOffset + sandboxMemoryConfiguration.HostFunctionDefinitionSize;
+            errorMessageOffset = hostExceptionOffset + sandboxMemoryConfiguration.HostExceptionSize;
         }
 
         internal ulong GetMemorySize()
         {
-            var totalMemory = codeSize + sandboxMemoryConfiguration.InputDataSize + sandboxMemoryConfiguration.OutputDataSize + sandboxMemoryConfiguration.MemoryBufferSize + sandboxMemoryConfiguration.StackSize + Marshal.SizeOf(typeof(GuestFunctionDefinitions)) + sandboxMemoryConfiguration.HostExceptionSize + Marshal.SizeOf(typeof(GuestError)) + sandboxMemoryConfiguration.GuestErrorMessageSize + PageTableSize + Marshal.SizeOf(typeof(CodeAndOutBPointers));
+            var totalMemory = codeSize + sandboxMemoryConfiguration.InputDataSize + sandboxMemoryConfiguration.OutputDataSize + sandboxMemoryConfiguration.MemoryBufferSize + sandboxMemoryConfiguration.StackSize + Marshal.SizeOf(typeof(HostFunctionDefinitions)) + sandboxMemoryConfiguration.HostExceptionSize + Marshal.SizeOf(typeof(HostExceptionData)) + Marshal.SizeOf(typeof(GuestError)) + sandboxMemoryConfiguration.GuestErrorMessageSize + PageTableSize + Marshal.SizeOf(typeof(CodeAndOutBPointers));
 
             // Size should be a multiple of 4K.
 

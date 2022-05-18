@@ -99,34 +99,29 @@ namespace Hyperlight.Core
 
         }
 
-        internal long GetHostAddressOffset()
-        {
-            long offset = 0;
-            if (!runFromProcessMemory)
-            {
-                offset = (long)SourceAddress - SandboxMemoryLayout.BaseAddress;
-            }
-            return offset;
-        }
-
         internal HyperlightPEB SetUpHyperLightPEB()
         {
-            var offset = GetHostAddressOffset();
 
-            // Set up Guest Error Buffer
+            var offset = GetAddressOffset();
+
+            // Set up Guest Error Header
             var errorMessageLengthPointer = sandboxMemoryLayout.GetGuestErrorMessageLengthAddress(SourceAddress);
             Marshal.WriteInt64(errorMessageLengthPointer, sandboxMemoryConfiguration.GuestErrorMessageSize);
             var errorMessagePointerAddress = sandboxMemoryLayout.GetGuestErrorMessagePointerAddress(SourceAddress);
-            var errorMessageAddress = sandboxMemoryLayout.GetGuestErrorMessageAddress(SourceAddress, offset);
+            var errorMessageAddress = sandboxMemoryLayout.GetGuestErrorMessageAddress(GetGuestAddressFromPointer(SourceAddress));
             Marshal.WriteIntPtr(errorMessagePointerAddress, errorMessageAddress);
 
-            // Set up Function Definition Buffer
+            // Set up Host Exception Header
+            var hostExceptionLengthPointer = sandboxMemoryLayout.GetHostExceptionLengthAddress(SourceAddress);
+            Marshal.WriteInt64(hostExceptionLengthPointer, sandboxMemoryConfiguration.HostExceptionSize);
+
+            // Set up Function Definition Header
             var functionDefinitionLengthPointer = sandboxMemoryLayout.GetFunctionDefinitionLengthAddress(SourceAddress);
-            Marshal.WriteInt64(functionDefinitionLengthPointer, sandboxMemoryConfiguration.FunctionDefinitionSize);
+            Marshal.WriteInt64(functionDefinitionLengthPointer, sandboxMemoryConfiguration.HostFunctionDefinitionSize);
             var functionDefinitionPointerAddress = sandboxMemoryLayout.GetFunctionDefinitionPointerAddress(SourceAddress);
-            var functionDefinitionAddress = sandboxMemoryLayout.GetFunctionDefinitionAddress(SourceAddress, offset);
+            var functionDefinitionAddress = sandboxMemoryLayout.GetFunctionDefinitionAddress(GetGuestAddressFromPointer(SourceAddress));
             Marshal.WriteIntPtr(functionDefinitionPointerAddress, functionDefinitionAddress);
-            return new HyperlightPEB(sandboxMemoryLayout.GetFunctionDefinitionAddress(SourceAddress), sandboxMemoryConfiguration.FunctionDefinitionSize, offset);
+            return new HyperlightPEB(sandboxMemoryLayout.GetFunctionDefinitionAddress(SourceAddress), sandboxMemoryConfiguration.HostFunctionDefinitionSize, offset);
         }
 
         internal ulong SetUpHyperVisorPartition()
@@ -201,7 +196,7 @@ namespace Hyperlight.Core
             }
 
             var guestErrorMessagePointerAddress = sandboxMemoryLayout.GetGuestErrorMessagePointerAddress(SourceAddress);
-            var guestErrorMessageAddress = GetGuestAddressFromPointer(Marshal.ReadInt64(guestErrorMessagePointerAddress));
+            var guestErrorMessageAddress = GetHostAddressFromPointer(Marshal.ReadInt64(guestErrorMessagePointerAddress));
             var errorMessage = Marshal.PtrToStringAnsi(guestErrorMessageAddress);
 
             if (guestErrorCode == GuestErrorCode.UNKNOWN_ERROR)
@@ -246,14 +241,14 @@ namespace Hyperlight.Core
         SimpleStringTable GetGuestCallStringTable(int headerSize)
         {
             var outputDataAddress = sandboxMemoryLayout.GetOutputDataAddress(SourceAddress);
-            return new SimpleStringTable(outputDataAddress + headerSize, sandboxMemoryConfiguration.OutputDataSize - headerSize, GetHostAddressOffset());
+            return new SimpleStringTable(outputDataAddress + headerSize, sandboxMemoryConfiguration.OutputDataSize - headerSize, GetAddressOffset());
         }
 
         internal string GetHostCallMethodName()
         {
             var outputDataAddress = sandboxMemoryLayout.GetOutputDataAddress(SourceAddress);
             var strPtr = Marshal.ReadInt64((IntPtr)outputDataAddress);
-            var methodName = Marshal.PtrToStringAnsi(GetGuestAddressFromPointer(strPtr));
+            var methodName = Marshal.PtrToStringAnsi(GetHostAddressFromPointer(strPtr));
             ArgumentNullException.ThrowIfNull(methodName);
             return methodName;
         }
@@ -272,7 +267,7 @@ namespace Hyperlight.Core
                 else if (parameters[i].ParameterType == typeof(string))
                 {
                     strPtr = Marshal.ReadInt64(outputDataAddress + 8 * (i + 1));
-                    args[i] = Marshal.PtrToStringAnsi(GetGuestAddressFromPointer(strPtr));
+                    args[i] = Marshal.PtrToStringAnsi(GetHostAddressFromPointer(strPtr));
                 }
                 else
                 {
@@ -290,13 +285,13 @@ namespace Hyperlight.Core
 
         internal HyperlightException GetHostException()
         {
-            var hostExceptionPointer = sandboxMemoryLayout.GetHostExceptionAddress(SourceAddress);
+            var hostExceptionAddress = sandboxMemoryLayout.GetHostExceptionAddress(SourceAddress);
             HyperlightException hyperlightException = null;
-            var dataLength = Marshal.ReadInt32(hostExceptionPointer);
-            var data = new byte[dataLength];
+            var dataLength = Marshal.ReadInt32(hostExceptionAddress);
             if (dataLength > 0)
             {
-                Marshal.Copy(hostExceptionPointer + sizeof(int), data, 0, dataLength);
+                var data = new byte[dataLength];
+                Marshal.Copy(hostExceptionAddress + sizeof(int), data, 0, dataLength);
                 var exceptionAsJson = Encoding.UTF8.GetString(data);
                 // TODO: Switch to System.Text.Json - requires custom serialisation as default throws an exception when serialising if an inner exception is present
                 // as it contains a Type: System.NotSupportedException: Serialization and deserialization of 'System.Type' instances are not supported and should be avoided since they can lead to security issues.
@@ -309,14 +304,19 @@ namespace Hyperlight.Core
             return hyperlightException;
         }
 
-        internal IntPtr GetGuestAddressFromPointer(long address)
+        internal IntPtr GetHostAddressFromPointer(long address)
         {
-            long offset = 0;
-            if (!runFromProcessMemory)
-            {
-                offset = (long)SourceAddress - SandboxMemoryLayout.BaseAddress;
-            }
-            return (IntPtr)(address + offset);
+            return (IntPtr)(address + GetAddressOffset());
+        }
+
+        internal IntPtr GetGuestAddressFromPointer(IntPtr address)
+        {
+            return (IntPtr)((long)address - GetAddressOffset());
+        }
+
+        internal long GetAddressOffset()
+        {
+            return runFromProcessMemory ? 0 : (long)SourceAddress - SandboxMemoryLayout.BaseAddress;
         }
 
         internal void WriteOutbException(Exception ex, ushort port)
@@ -325,7 +325,7 @@ namespace Hyperlight.Core
             Marshal.WriteInt64(guestErrorAddress, (long)GuestErrorCode.OUTB_ERROR);
 
             var guestErrorMessagePointerAddress = sandboxMemoryLayout.GetGuestErrorMessagePointerAddress(SourceAddress);
-            var guestErrorMessageAddress = GetGuestAddressFromPointer(Marshal.ReadInt64(guestErrorMessagePointerAddress));
+            var guestErrorMessageAddress = GetHostAddressFromPointer(Marshal.ReadInt64(guestErrorMessagePointerAddress));
             var data = Encoding.UTF8.GetBytes($"Port:{port}, Message:{ex.Message}\0");
             if (data.Length <= sandboxMemoryConfiguration.GuestErrorMessageSize)
             {
@@ -333,7 +333,8 @@ namespace Hyperlight.Core
             }
 
             var hyperLightException = ex.GetType() == typeof(HyperlightException) ? ex as HyperlightException : new HyperlightException("OutB Error", ex);
-            var hostExceptionPointer = sandboxMemoryLayout.GetHostExceptionAddress(SourceAddress); ;
+            var hostExceptionPointer = sandboxMemoryLayout.GetHostExceptionAddress(SourceAddress);
+            
             // TODO: Switch to System.Text.Json - requires custom serialisation as default throws an exception when serialising if an inner exception is present
             // as it contains a Type: System.NotSupportedException: Serialization and deserialization of 'System.Type' instances are not supported and should be avoided since they can lead to security issues.
             // https://docs.microsoft.com/en-us/dotnet/standard/serialization/system-text-json-converters-how-to?pivots=dotnet-6-0

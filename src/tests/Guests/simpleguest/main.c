@@ -227,7 +227,7 @@ int entryPoint(uint64_t pebAddress)
         outb_ptr = pPeb->pOutb;
         if (outb_ptr)
             runningHyperlight = false;
-        HostFunctions* pFuncs = pPeb->guestFunctionDefinition.functionDefinitions;
+        HostFunctions* pFuncs = pPeb->hostFunctionDefinitions.functionDefinitions;
         pFuncs->header.DispatchFunction = (uint64_t)DispatchFunction;
     }
 
