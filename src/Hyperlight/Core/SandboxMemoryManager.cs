@@ -33,7 +33,7 @@ namespace Hyperlight.Core
 
         internal void LoadGuestBinaryUsingLoadLibrary(string guestBinaryPath, PEInfo peInfo)
         {
-            sandboxMemoryLayout = new SandboxMemoryLayout(sandboxMemoryConfiguration, 0);
+            sandboxMemoryLayout = new SandboxMemoryLayout(sandboxMemoryConfiguration, 0, peInfo.StackReserve, peInfo.HeapReserve);
             Size = sandboxMemoryLayout.GetMemorySize();
             ArgumentNullException.ThrowIfNull(guestBinaryPath, nameof(guestBinaryPath));
             ArgumentNullException.ThrowIfNull(peInfo, nameof(peInfo));
@@ -65,7 +65,7 @@ namespace Hyperlight.Core
         }
         internal void LoadGuestBinaryIntoMemory(PEInfo peInfo)
         {
-            sandboxMemoryLayout = new SandboxMemoryLayout(sandboxMemoryConfiguration, peInfo.Payload.Length);
+            sandboxMemoryLayout = new SandboxMemoryLayout(sandboxMemoryConfiguration, peInfo.Payload.Length, peInfo.StackReserve, peInfo.HeapReserve);
             Size = sandboxMemoryLayout.GetMemorySize();
             SourceAddress = OS.Allocate((IntPtr)0, Size);
             if (IntPtr.Zero == SourceAddress)
@@ -101,26 +101,8 @@ namespace Hyperlight.Core
 
         internal HyperlightPEB SetUpHyperLightPEB()
         {
-
+            sandboxMemoryLayout.WriteMemoryLayout(SourceAddress, GetGuestAddressFromPointer(SourceAddress));
             var offset = GetAddressOffset();
-
-            // Set up Guest Error Header
-            var errorMessageLengthPointer = sandboxMemoryLayout.GetGuestErrorMessageLengthAddress(SourceAddress);
-            Marshal.WriteInt64(errorMessageLengthPointer, sandboxMemoryConfiguration.GuestErrorMessageSize);
-            var errorMessagePointerAddress = sandboxMemoryLayout.GetGuestErrorMessagePointerAddress(SourceAddress);
-            var errorMessageAddress = sandboxMemoryLayout.GetGuestErrorMessageAddress(GetGuestAddressFromPointer(SourceAddress));
-            Marshal.WriteIntPtr(errorMessagePointerAddress, errorMessageAddress);
-
-            // Set up Host Exception Header
-            var hostExceptionLengthPointer = sandboxMemoryLayout.GetHostExceptionLengthAddress(SourceAddress);
-            Marshal.WriteInt64(hostExceptionLengthPointer, sandboxMemoryConfiguration.HostExceptionSize);
-
-            // Set up Function Definition Header
-            var functionDefinitionLengthPointer = sandboxMemoryLayout.GetFunctionDefinitionLengthAddress(SourceAddress);
-            Marshal.WriteInt64(functionDefinitionLengthPointer, sandboxMemoryConfiguration.HostFunctionDefinitionSize);
-            var functionDefinitionPointerAddress = sandboxMemoryLayout.GetFunctionDefinitionPointerAddress(SourceAddress);
-            var functionDefinitionAddress = sandboxMemoryLayout.GetFunctionDefinitionAddress(GetGuestAddressFromPointer(SourceAddress));
-            Marshal.WriteIntPtr(functionDefinitionPointerAddress, functionDefinitionAddress);
             return new HyperlightPEB(sandboxMemoryLayout.GetFunctionDefinitionAddress(SourceAddress), sandboxMemoryConfiguration.HostFunctionDefinitionSize, offset);
         }
 

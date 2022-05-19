@@ -1,8 +1,6 @@
 #pragma once
 #include <stdint.h>
 
-//TODO: Optmise this so it doesnt use fixed amounts of memory.
-
 typedef struct
 {
     uint64_t errorNo;
@@ -25,13 +23,34 @@ typedef struct
 
 typedef struct
 {
+    uint64_t inputDataSize;
+    void* inputDataBuffer;
+
+} InputData;
+
+typedef struct
+{
+    uint64_t outputDataSize;
+    void* outputDataBuffer;
+
+} OutputData;
+
+typedef struct
+{
+    uint64_t guestHeapSize;
+    void* guestHeapBuffer;
+} GuestHeapData;
+
+typedef struct
+{
     HostFunctionDefinitions hostFunctionDefinitions;
     HostException hostException;
     GuestError guestError;
     char* pCode;
     void* pOutb;
-    uint8_t input[65536];
-    uint8_t output[65536];
+    InputData inputdata;
+    OutputData outputdata;
+    GuestHeapData guestheapData;
 } HyperlightPEB;
 
 typedef struct

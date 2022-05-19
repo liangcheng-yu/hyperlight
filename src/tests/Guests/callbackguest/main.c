@@ -122,7 +122,7 @@ int guestFunction1(char* message)
 int printOutput(const char* message)
 {
     int result = strlen(message);
-    strncpy((void*)&pPeb->output, (void*)message, result);
+    strncpy((void*)pPeb->outputdata.outputDataBuffer, (void*)message, result);
     outb(100, 0);
     return result;
 }
@@ -168,7 +168,7 @@ void setError(uint64_t errorCode, char* message)
         strncpy(pPeb->guestError.message, message, length);
     }
 
-    *(uint32_t*)&pPeb->output = -1;
+    *(uint32_t*)pPeb->outputdata.outputDataBuffer = -1;
 }
 
 static void
@@ -183,7 +183,7 @@ void DispatchFunction()
 {
     resetError();
 
-    GuestFunctionCall *funcCall = &pPeb->output;
+    GuestFunctionCall *funcCall = pPeb->outputdata.outputDataBuffer;
     
     if (NULL == funcCall->FunctionName)
     {
@@ -236,7 +236,7 @@ void DispatchFunction()
         }
     }
     
-    *(uint32_t *)&pPeb->output = pFunc(param);
+    *(uint32_t *)pPeb->outputdata.outputDataBuffer = pFunc(param);
 
 halt:
 
@@ -246,7 +246,7 @@ halt:
 int native_symbol_thunk(char* functionName, ...)
 {
 
-    HostFunctionCall* functionCall = (HostFunctionCall*)&pPeb->output;
+    HostFunctionCall* functionCall = (HostFunctionCall*)pPeb->outputdata.outputDataBuffer;
     functionCall->FunctionName = functionName;
     uint64_t* ptr = &functionCall->argv;
 
@@ -267,7 +267,7 @@ int native_symbol_thunk(char* functionName, ...)
     // This only happens if running in Hyperlight and on KVM.
 
     outb(101, 0);
-    return *(int*)&pPeb->input;
+    return *(int*)pPeb->inputdata.inputDataBuffer;
 }
 
 long entryPoint(uint64_t pebAddress)
@@ -305,7 +305,7 @@ long entryPoint(uint64_t pebAddress)
     }
 
     // Setup return values
-    *(uint32_t *)&pPeb->output = result;
+    *(uint32_t *)pPeb->outputdata.outputDataBuffer = result;
 
 halt:
     halt(); // This is a nop if we were just loaded into memory

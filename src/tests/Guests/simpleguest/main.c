@@ -94,10 +94,15 @@ int strcmp(char string1[], char string2[])
     }
 }
 
+void __report_gsfailure()
+{
+
+}
+
 int printOutput(const char* message)
 {
     int result = strlen(message);
-    strncpy((void*)&pPeb->output, (void*)message, result);
+    strncpy((void*)pPeb->outputdata.outputDataBuffer, (void*)message, result);
     outb(100, 0);
     return result;
 }
@@ -138,13 +143,13 @@ void setError(uint64_t errorCode, char* message)
         strncpy(pPeb->guestError.message, message, length);
     }
 
-    *(uint32_t*)&pPeb->output = -1;
+    *(uint32_t*)pPeb->outputdata.outputDataBuffer = -1;
 }
 
 void DispatchFunction()
 {
     resetError();
-    GuestFunctionCall* funcCall = &pPeb->output;
+    GuestFunctionCall* funcCall = pPeb->outputdata.outputDataBuffer;
 
     if (NULL == funcCall->FunctionName)
     {
@@ -196,7 +201,7 @@ void DispatchFunction()
         }
     }
 
-    *(uint32_t*)&pPeb->output = pFunc(param);
+    *(uint32_t*)pPeb->outputdata.outputDataBuffer = pFunc(param);
 
 halt:
 
@@ -207,6 +212,7 @@ halt:
 
 int entryPoint(uint64_t pebAddress)
 {
+    __security_init_cookie;
     pPeb = (HyperlightPEB*)pebAddress;
     int result = 0;
     if (NULL == pPeb)
@@ -232,7 +238,7 @@ int entryPoint(uint64_t pebAddress)
     }
 
     // Setup return values
-    *(int32_t*)&pPeb->output = result;
+    *(int32_t*)pPeb->outputdata.outputDataBuffer = result;
 
 halt:
 

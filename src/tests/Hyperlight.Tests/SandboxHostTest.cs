@@ -198,27 +198,7 @@ namespace Hyperlight.Tests
                 var size = GetErrorMessageSize();
                 using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(guestErrorMessageSize: size), guestBinaryPath, option))
                 {
-                    var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance;
-                    var fieldInfo = sandbox.GetType().GetField("sandboxMemoryManager", bindingFlags);
-                    Assert.NotNull(fieldInfo);
-                    var sandboxMemoryManager = fieldInfo!.GetValue(sandbox);
-                    Assert.NotNull(sandboxMemoryManager);
-                    fieldInfo = sandboxMemoryManager!.GetType().GetField("sandboxMemoryLayout", bindingFlags);
-                    Assert.NotNull(fieldInfo);
-                    var sandboxMemoryLayout = fieldInfo!.GetValue(sandboxMemoryManager);
-                    Assert.NotNull(sandboxMemoryLayout);
-                    bindingFlags = BindingFlags.Public | BindingFlags.Instance;
-                    var propInfo = sandboxMemoryManager!.GetType().GetProperty("SourceAddress", bindingFlags);
-                    Assert.NotNull(propInfo);
-                    var sourceAddress = propInfo!.GetValue(sandboxMemoryManager);
-                    Assert.NotNull(sourceAddress);
-                    var methodInfo = sandboxMemoryLayout!.GetType().GetMethod("GetGuestErrorMessageLengthAddress", bindingFlags);
-                    Assert.NotNull(methodInfo);
-                    var addr = methodInfo!.Invoke(sandboxMemoryLayout, new object[] { sourceAddress! });
-                    Assert.NotNull(addr);
-                    Assert.IsType<IntPtr>(addr);
-                    var messageSize = Marshal.ReadInt64((IntPtr)addr!);
-                    Assert.Equal(size, messageSize);
+                    CheckSize(size, sandbox, "GetGuestErrorMessageSizeAddress");
                 }
             }
         }
@@ -236,27 +216,43 @@ namespace Hyperlight.Tests
                 var size = GetFunctionDefinitionSize();
                 using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(functionDefinitionSize: size), guestBinaryPath, option))
                 {
-                    var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance;
-                    var fieldInfo = sandbox.GetType().GetField("sandboxMemoryManager", bindingFlags);
-                    Assert.NotNull(fieldInfo);
-                    var sandboxMemoryManager = fieldInfo!.GetValue(sandbox);
-                    Assert.NotNull(sandboxMemoryManager);
-                    fieldInfo = sandboxMemoryManager!.GetType().GetField("sandboxMemoryLayout", bindingFlags);
-                    Assert.NotNull(fieldInfo);
-                    var sandboxMemoryLayout = fieldInfo!.GetValue(sandboxMemoryManager);
-                    Assert.NotNull(sandboxMemoryLayout);
-                    bindingFlags = BindingFlags.Public | BindingFlags.Instance;
-                    var propInfo = sandboxMemoryManager!.GetType().GetProperty("SourceAddress", bindingFlags);
-                    Assert.NotNull(propInfo);
-                    var sourceAddress = propInfo!.GetValue(sandboxMemoryManager);
-                    Assert.NotNull(sourceAddress);
-                    var methodInfo = sandboxMemoryLayout!.GetType().GetMethod("GetFunctionDefinitionLengthAddress", bindingFlags);
-                    Assert.NotNull(methodInfo);
-                    var addr = methodInfo!.Invoke(sandboxMemoryLayout, new object[] { sourceAddress! });
-                    Assert.NotNull(addr);
-                    Assert.IsType<IntPtr>(addr);
-                    var functionDefinitionSize = Marshal.ReadInt64((IntPtr)addr!);
-                    Assert.Equal(size, functionDefinitionSize);
+                    CheckSize(size, sandbox, "GetFunctionDefinitionSizeAddress");
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_InputData_Size()
+        {
+            var options = GetSandboxRunOptions();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                var size = GetInputDataSize();
+                using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(inputDataSize: size), guestBinaryPath, option))
+                {
+                    CheckSize(size, sandbox, "GetInputDataSizeAddress");
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_OutputData_Size()
+        {
+            var options = GetSandboxRunOptions();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                var size = GetOutputDataSize();
+                using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(outputDataSize: size), guestBinaryPath, option))
+                {
+                    CheckSize(size, sandbox, "GetOutputDataSizeAddress");
                 }
             }
         }
@@ -264,21 +260,17 @@ namespace Hyperlight.Tests
         [Fact]
         public void Test_Config_Minimum_Sizes()
         {
-            var minInputSize = 0x10000;
-            var minOutputSize = 0x10000;
-            var minMemoryBufferSize = 0x40000;
-            var minStackSize = 0x100000;
+            var minInputSize = 0x2000;
+            var minOutputSize = 0x2000;
             var minHostFunctionDefinitionSize = 0x400;
             var minHostExceptionSize = 0x400;
-            var minGuestErrorMessageSize = 0x100;
-            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration(0, 0, 0, 0, 0, 0, 0);
+            var minGuestErrorMessageSize = 0x80;
+            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration(0, 0, 0, 0, 0);
             Assert.Equal(minInputSize, sandboxMemoryConfiguration.InputDataSize);
             Assert.Equal(minOutputSize, sandboxMemoryConfiguration.OutputDataSize);
-            Assert.Equal(minMemoryBufferSize, sandboxMemoryConfiguration.MemoryBufferSize);
             Assert.Equal(minHostFunctionDefinitionSize, sandboxMemoryConfiguration.HostFunctionDefinitionSize);
             Assert.Equal(minHostExceptionSize, sandboxMemoryConfiguration.HostExceptionSize);
             Assert.Equal(minGuestErrorMessageSize, sandboxMemoryConfiguration.GuestErrorMessageSize);
-            Assert.Equal(minStackSize, sandboxMemoryConfiguration.StackSize);
         }
 
         [Fact]
@@ -294,29 +286,34 @@ namespace Hyperlight.Tests
                 var size = GetHostExceptionSize();
                 using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(hostExceptionSize: size), guestBinaryPath, option))
                 {
-                    var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance;
-                    var fieldInfo = sandbox.GetType().GetField("sandboxMemoryManager", bindingFlags);
-                    Assert.NotNull(fieldInfo);
-                    var sandboxMemoryManager = fieldInfo!.GetValue(sandbox);
-                    Assert.NotNull(sandboxMemoryManager);
-                    fieldInfo = sandboxMemoryManager!.GetType().GetField("sandboxMemoryLayout", bindingFlags);
-                    Assert.NotNull(fieldInfo);
-                    var sandboxMemoryLayout = fieldInfo!.GetValue(sandboxMemoryManager);
-                    Assert.NotNull(sandboxMemoryLayout);
-                    bindingFlags = BindingFlags.Public | BindingFlags.Instance;
-                    var propInfo = sandboxMemoryManager!.GetType().GetProperty("SourceAddress", bindingFlags);
-                    Assert.NotNull(propInfo);
-                    var sourceAddress = propInfo!.GetValue(sandboxMemoryManager);
-                    Assert.NotNull(sourceAddress);
-                    var methodInfo = sandboxMemoryLayout!.GetType().GetMethod("GetHostExceptionLengthAddress", bindingFlags);
-                    Assert.NotNull(methodInfo);
-                    var addr = methodInfo!.Invoke(sandboxMemoryLayout, new object[] { sourceAddress! });
-                    Assert.NotNull(addr);
-                    Assert.IsType<IntPtr>(addr);
-                    var hostExceptionSize = Marshal.ReadInt64((IntPtr)addr!);
-                    Assert.Equal(size, hostExceptionSize);
+                    CheckSize(size, sandbox, "GetHostExceptionSizeAddress");
                 }
             }
+        }
+
+        private static void CheckSize(int size, Sandbox sandbox, string methodName)
+        {
+            var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance;
+            var fieldInfo = sandbox.GetType().GetField("sandboxMemoryManager", bindingFlags);
+            Assert.NotNull(fieldInfo);
+            var sandboxMemoryManager = fieldInfo!.GetValue(sandbox);
+            Assert.NotNull(sandboxMemoryManager);
+            fieldInfo = sandboxMemoryManager!.GetType().GetField("sandboxMemoryLayout", bindingFlags);
+            Assert.NotNull(fieldInfo);
+            var sandboxMemoryLayout = fieldInfo!.GetValue(sandboxMemoryManager);
+            Assert.NotNull(sandboxMemoryLayout);
+            bindingFlags = BindingFlags.Public | BindingFlags.Instance;
+            var propInfo = sandboxMemoryManager!.GetType().GetProperty("SourceAddress", bindingFlags);
+            Assert.NotNull(propInfo);
+            var sourceAddress = propInfo!.GetValue(sandboxMemoryManager);
+            Assert.NotNull(sourceAddress);
+            var methodInfo = sandboxMemoryLayout!.GetType().GetMethod(methodName, bindingFlags);
+            Assert.NotNull(methodInfo);
+            var addr = methodInfo!.Invoke(sandboxMemoryLayout, new object[] { sourceAddress! });
+            Assert.NotNull(addr);
+            Assert.IsType<IntPtr>(addr);
+            var hostExceptionSize = Marshal.ReadInt64((IntPtr)addr!);
+            Assert.Equal(size, hostExceptionSize);
         }
 
         [Fact]
@@ -1129,6 +1126,8 @@ namespace Hyperlight.Tests
             var errorMessageSize = GetErrorMessageSize();
             var functionDefinitionSize = GetFunctionDefinitionSize();
             var hostExceptionSize = GetHostExceptionSize();
+            var inputDataSize = GetInputDataSize();
+            var outputDataSize = GetOutputDataSize();
 
             // This is just so sometimes the defaults are used.
 
@@ -1137,8 +1136,8 @@ namespace Hyperlight.Tests
                 output.WriteLine("Using Default Configuration");
                 return new SandboxMemoryConfiguration();
             }
-            output.WriteLine($"Using Configuration: guestErrorMessageSize: {errorMessageSize} functionDefinitionSize: {functionDefinitionSize} hostExceptionSize: {hostExceptionSize}");
-            return new SandboxMemoryConfiguration(guestErrorMessageSize: errorMessageSize, functionDefinitionSize: functionDefinitionSize, hostExceptionSize: hostExceptionSize);
+            output.WriteLine($"Using Configuration: guestErrorMessageSize: {errorMessageSize} functionDefinitionSize: {functionDefinitionSize} hostExceptionSize: {hostExceptionSize} inputDataSize: {inputDataSize} outputDataSize: {outputDataSize}");
+            return new SandboxMemoryConfiguration(guestErrorMessageSize: errorMessageSize, functionDefinitionSize: functionDefinitionSize, hostExceptionSize: hostExceptionSize, inputDataSize: inputDataSize, outputDataSize: outputDataSize);
         }
 
         private int GetErrorMessageSize()
@@ -1152,7 +1151,7 @@ namespace Hyperlight.Tests
         private int GetFunctionDefinitionSize()
         {
             var min = 1024;
-            var max = 8196;
+            var max = 8192;
             var random = new Random();
             return random.Next(min, max + 1);
         }
@@ -1160,7 +1159,23 @@ namespace Hyperlight.Tests
         private int GetHostExceptionSize()
         {
             var min = 1024;
-            var max = 8196;
+            var max = 8192;
+            var random = new Random();
+            return random.Next(min, max + 1);
+        }
+
+        private int GetInputDataSize()
+        {
+            var min = 8182;
+            var max = 65536;
+            var random = new Random();
+            return random.Next(min, max + 1);
+        }
+
+        private int GetOutputDataSize()
+        {
+            var min = 8182;
+            var max = 65536;
             var random = new Random();
             return random.Next(min, max + 1);
         }
