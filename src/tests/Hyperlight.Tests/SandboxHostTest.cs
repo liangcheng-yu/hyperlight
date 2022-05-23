@@ -186,6 +186,152 @@ namespace Hyperlight.Tests
         }
 
         [Fact]
+        public void Test_Heap_Size()
+        {
+            var options = GetSandboxRunOptions();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            // Heap size is set on the linker options in simpleguest.exe
+            // This test will fail if it is changed on the binary and not here
+            var heapSize = 65536;
+
+            using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(), guestBinaryPath, options[0]))
+            {
+                CheckSize(heapSize, sandbox, "GetHeapSizeAddress");
+            }
+        }
+
+
+        [Fact]
+        public void Test_Stack_Size()
+        {
+            var options = GetSandboxRunOptions();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            // Stack size is set on the linker options in simpleguest.exe
+            // This test will fail if it is changed on the binary and not here
+            long stackSize = 65536;
+
+            using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(), guestBinaryPath, options[0]))
+            {
+                var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance;
+                var fieldInfo = sandbox.GetType().GetField("sandboxMemoryManager", bindingFlags);
+                Assert.NotNull(fieldInfo);
+                var sandboxMemoryManager = fieldInfo!.GetValue(sandbox);
+                Assert.NotNull(sandboxMemoryManager);
+                fieldInfo = sandboxMemoryManager!.GetType().GetField("sandboxMemoryLayout", bindingFlags);
+                Assert.NotNull(fieldInfo);
+                var sandboxMemoryLayout = fieldInfo!.GetValue(sandboxMemoryManager);
+                Assert.NotNull(sandboxMemoryLayout);
+                fieldInfo = sandboxMemoryLayout!.GetType().GetField("stackSize", bindingFlags);
+                Assert.NotNull(fieldInfo);
+                long configuredStackSize = (long)fieldInfo!.GetValue(sandboxMemoryLayout);
+                Assert.NotNull(configuredStackSize);
+                Assert.Equal(stackSize, configuredStackSize);
+            }
+        }
+
+        [Fact]
+        public void Test_Memory_Size()
+        {
+            var option = SandboxRunOptions.RunFromGuestBinary;
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration();
+
+            ulong expectedSize = GetExpectedMemorySize(sandboxMemoryConfiguration, guestBinaryPath, option);
+
+            using (var sandbox = new Sandbox(sandboxMemoryConfiguration, guestBinaryPath, option))
+            {
+                var size = GetMemorySize(sandbox);
+                Assert.Equal(expectedSize, size);
+            }
+
+            option = SandboxRunOptions.RunInProcess;
+            expectedSize = GetExpectedMemorySize(sandboxMemoryConfiguration, guestBinaryPath, option);
+            using (var sandbox = new Sandbox(sandboxMemoryConfiguration, guestBinaryPath, option))
+            {
+                var size = GetMemorySize(sandbox);
+                Assert.Equal(expectedSize, size);
+            }
+        }
+
+
+        [Fact]
+        public void Test_Maximum_Memory_Size()
+        {
+            var option = SandboxRunOptions.RunInProcess;
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration(inputDataSize: 1073741824);
+            Sandbox sandbox = null;
+            var ex = Record.Exception(() =>
+            {
+                using var sandbox = new Sandbox(sandboxMemoryConfiguration, guestBinaryPath, option);
+                
+            });
+            Assert.NotNull(ex);
+            Assert.IsType<ArgumentException>(ex);
+            Assert.StartsWith("Total memory size ", ex.Message);
+        }
+
+        private static ulong GetExpectedMemorySize(SandboxMemoryConfiguration sandboxMemoryConfiguration, string guestBinaryPath, SandboxRunOptions option)
+        {
+            // Stack size and heap size are set on the linker options in simpleguest.exe
+            // This test will fail if they are changed on the binary and not here
+            long stackSize = 65536;
+            long heapSize = 65536;
+            long pageTableSize = 0x3000;
+            var headerSize = 112;
+            ulong totalSize;
+            var codeSize = 0;
+            if (!option.HasFlag(SandboxRunOptions.RunFromGuestBinary))
+            {
+                var codePayload = File.ReadAllBytes(guestBinaryPath);
+                codeSize = codePayload.Length;
+            }
+            totalSize = (ulong)(codeSize
+                                + stackSize
+                                + heapSize
+                                + pageTableSize
+                                + sandboxMemoryConfiguration.HostFunctionDefinitionSize
+                                + sandboxMemoryConfiguration.InputDataSize
+                                + sandboxMemoryConfiguration.OutputDataSize
+                                + sandboxMemoryConfiguration.HostExceptionSize
+                                + sandboxMemoryConfiguration.GuestErrorMessageSize
+                                + headerSize);
+
+            var rem = totalSize % 4096;
+            if (rem != 0)
+            {
+                totalSize += 4096 - rem;
+            }
+            return totalSize;
+        }
+
+        private static ulong GetMemorySize(Sandbox sandbox)
+        {
+            var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance;
+            var fieldInfo = sandbox.GetType().GetField("sandboxMemoryManager", bindingFlags);
+            Assert.NotNull(fieldInfo);
+            var sandboxMemoryManager = fieldInfo!.GetValue(sandbox);
+            Assert.NotNull(sandboxMemoryManager);
+            fieldInfo = sandboxMemoryManager!.GetType().GetField("sandboxMemoryLayout", bindingFlags);
+            Assert.NotNull(fieldInfo);
+            var sandboxMemoryLayout = fieldInfo!.GetValue(sandboxMemoryManager);
+            Assert.NotNull(sandboxMemoryLayout);
+            var methodInfo = sandboxMemoryLayout!.GetType().GetMethod("GetMemorySize", bindingFlags);
+            Assert.NotNull(methodInfo);
+            var size = methodInfo!.Invoke(sandboxMemoryLayout, Array.Empty<object>());
+            Assert.NotNull(size);
+            return (ulong)size;
+        }
+
+        [Fact]
         public void Test_Guest_Error_Message_Size()
         {
             var options = GetSandboxRunOptions();

@@ -162,7 +162,7 @@ namespace Hyperlight.Core
             outputDataOffset = inputDataOffset + Marshal.SizeOf(typeof(InputData));
             heapDataOffset = outputDataOffset + Marshal.SizeOf(typeof(OutputData));
             PEBAddress = (ulong)(BaseAddress + pebOffset);
-            hostFunctionsBufferOffset = outputDataOffset + Marshal.SizeOf(typeof(OutputData));
+            hostFunctionsBufferOffset = heapDataOffset + Marshal.SizeOf(typeof(GuestHeap));
             hostExceptionBufferOffset = hostFunctionsBufferOffset + sandboxMemoryConfiguration.HostFunctionDefinitionSize;
             guestErrorMessageBufferOffset = hostExceptionBufferOffset + sandboxMemoryConfiguration.HostExceptionSize;
             inputDataBufferOffset = guestErrorMessageBufferOffset + sandboxMemoryConfiguration.GuestErrorMessageSize;
@@ -239,7 +239,7 @@ namespace Hyperlight.Core
             // Set up heap buffer pointer
 
             var heapSizePointer = GetHeapSizeAddress(sourceAddress);
-            Marshal.WriteInt64(heapSizePointer, sandboxMemoryConfiguration.OutputDataSize);
+            Marshal.WriteInt64(heapSizePointer, heapSize);
             var heapPointerAddress = GetHeapPointerAddress(sourceAddress);
             var heapAddress = GetHeapAddress(guestAddress);
             Marshal.WriteIntPtr(heapPointerAddress, heapAddress);

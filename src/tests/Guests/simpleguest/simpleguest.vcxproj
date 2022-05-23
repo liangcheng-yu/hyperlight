@@ -89,6 +89,10 @@
       <EntryPointSymbol>entryPoint</EntryPointSymbol>
       <RandomizedBaseAddress>true</RandomizedBaseAddress>
       <SubSystem>Native</SubSystem>
+      <HeapReserveSize>65536</HeapReserveSize>
+      <HeapCommitSize>65536</HeapCommitSize>
+      <StackReserveSize>65536</StackReserveSize>
+      <StackCommitSize>65536</StackCommitSize>
     </Link>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -96,8 +100,8 @@
       <UseFullPaths>false</UseFullPaths>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BufferSecurityCheck>true</BufferSecurityCheck>
+      <AdditionalOptions>/Gs65536 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
