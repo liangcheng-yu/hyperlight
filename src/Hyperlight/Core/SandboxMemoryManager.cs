@@ -41,10 +41,7 @@ namespace Hyperlight.Core
             loadAddress = OS.LoadLibrary(guestBinaryPath);
 
             // Mark first byte as 'J' so we know we are running in hyperlight VM and not as real windows exe
-
-            OS.VirtualProtect(loadAddress, (UIntPtr)(1024 * 4), OS.MemoryProtection.EXECUTE_READWRITE, out _);
             Marshal.WriteByte(loadAddress, (byte)'J');
-            OS.VirtualProtect(loadAddress, (UIntPtr)(1024 * 4), OS.MemoryProtection.EXECUTE, out _);
 
             EntryPoint = (ulong)loadAddress + peInfo.EntryPointOffset;
 
@@ -101,7 +98,7 @@ namespace Hyperlight.Core
 
         internal HyperlightPEB SetUpHyperLightPEB()
         {
-            sandboxMemoryLayout.WriteMemoryLayout(SourceAddress, GetGuestAddressFromPointer(SourceAddress));
+            sandboxMemoryLayout.WriteMemoryLayout(SourceAddress, GetGuestAddressFromPointer(SourceAddress), Size);
             var offset = GetAddressOffset();
             return new HyperlightPEB(sandboxMemoryLayout.GetFunctionDefinitionAddress(SourceAddress), sandboxMemoryConfiguration.HostFunctionDefinitionSize, offset);
         }

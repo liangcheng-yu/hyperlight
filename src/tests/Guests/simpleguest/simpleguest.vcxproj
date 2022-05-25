@@ -98,7 +98,7 @@
       <UseFullPaths>false</UseFullPaths>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
-      <BufferSecurityCheck>true</BufferSecurityCheck>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <IntrinsicFunctions>false</IntrinsicFunctions>
     </ClCompile>
@@ -109,12 +109,6 @@
   <ItemGroup>
     <ClInclude Include="hyperlight_peb.h" />
     <ClInclude Include="hyperlight_error.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <MASM Include="gettopofstackaddr.asm" />
-    <MASM Include="jmp.asm">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
-    </MASM>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
