@@ -17,7 +17,6 @@ namespace Hyperlight.Tests
     public class SandboxHostTest
     {
         private readonly ITestOutputHelper output;
-
         public const int NUMBER_OF_ITERATIONS = 10;
         public const int NUMBER_OF_PARALLEL_TESTS = 100;
         public SandboxHostTest(ITestOutputHelper output)
@@ -192,14 +191,22 @@ namespace Hyperlight.Tests
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
-            // Heap size is set on the linker options in simpleguest.exe
-            // This test will fail if it is changed on the binary and not here
-            var heapSize = 65536;
+            // Heap size is set on the assembly metadata and linker arguments using the build property GUESTHEAPSIZE
+            // this is set in \src\tests\Directory.Build.props
+            // the value used can be changed by running msbuild with /p:GUESTHEAPSIZE=VALUE
+            var assemblyHeapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
+            Assert.NotNull(assemblyHeapSize);
+            Assert.True(int.TryParse(assemblyHeapSize, out int heapSize));
 
             using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(), guestBinaryPath, options[0]))
             {
                 CheckSize(heapSize, sandbox, "GetHeapSizeAddress");
             }
+        }
+
+        public string GetAssemblyMetadataAttribute(string name)
+        {
+            return GetType().Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().Where(a=>a.Key==name).Select(a=>a.Value).FirstOrDefault();
         }
 
 
@@ -210,9 +217,12 @@ namespace Hyperlight.Tests
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
-            // Stack size is set on the linker options in simpleguest.exe
-            // This test will fail if it is changed on the binary and not here
-            long stackSize = 65536;
+            // Stack size is set on the assembly metadata and linker arguments using the build property GUESTSTACKSIZE
+            // this is set in \src\tests\Directory.Build.props
+            // the value used can be changed by running msbuild with /p:GUESTSTACKSIZE=VALUE
+            var assemblyStackSize = GetAssemblyMetadataAttribute("GUESTSTACKSIZE");
+            Assert.NotNull(assemblyStackSize);
+            Assert.True(int.TryParse(assemblyStackSize, out int stackSize));
 
             using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(), guestBinaryPath, options[0]))
             {
@@ -259,7 +269,6 @@ namespace Hyperlight.Tests
             }
         }
 
-
         [Fact]
         public void Test_Maximum_Memory_Size()
         {
@@ -268,7 +277,6 @@ namespace Hyperlight.Tests
             var guestBinaryFileName = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
             var sandboxMemoryConfiguration = new SandboxMemoryConfiguration(inputDataSize: 1073741824);
-            Sandbox sandbox = null;
             var ex = Record.Exception(() =>
             {
                 using var sandbox = new Sandbox(sandboxMemoryConfiguration, guestBinaryPath, option);
@@ -279,14 +287,21 @@ namespace Hyperlight.Tests
             Assert.StartsWith("Total memory size ", ex.Message);
         }
 
-        private static ulong GetExpectedMemorySize(SandboxMemoryConfiguration sandboxMemoryConfiguration, string guestBinaryPath, SandboxRunOptions option)
+        private ulong GetExpectedMemorySize(SandboxMemoryConfiguration sandboxMemoryConfiguration, string guestBinaryPath, SandboxRunOptions option)
         {
-            // Stack size and heap size are set on the linker options in simpleguest.exe
-            // This test will fail if they are changed on the binary and not here
-            long stackSize = 65536;
-            long heapSize = 65536;
+
+            // Heap size and Stack size are set on the assembly metadata and linker arguments using the build property GUESTHEAPSIZE and GUESTSTACKSIZE
+            // this is set in \src\tests\Directory.Build.props
+            // the value used can be changed by running msbuild with /p:GUESTHEAPSIZE=VALUE
+            var assemblyHeapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
+            Assert.NotNull(assemblyHeapSize);
+            Assert.True(int.TryParse(assemblyHeapSize, out int heapSize));
+            // the value used can be changed by running msbuild with /p:GUESTSTACKSIZE=VALUE
+            var assemblyStackSize = GetAssemblyMetadataAttribute("GUESTSTACKSIZE");
+            Assert.NotNull(assemblyStackSize);
+            Assert.True(int.TryParse(assemblyStackSize, out int stackSize));
             long pageTableSize = 0x3000;
-            var headerSize = 112;
+            var headerSize = 120;
             ulong totalSize;
             var codeSize = 0;
             if (!option.HasFlag(SandboxRunOptions.RunFromGuestBinary))
@@ -439,7 +454,7 @@ namespace Hyperlight.Tests
 
         private static void CheckSize(int size, Sandbox sandbox, string methodName)
         {
-            var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance;
+            var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public;
             var fieldInfo = sandbox.GetType().GetField("sandboxMemoryManager", bindingFlags);
             Assert.NotNull(fieldInfo);
             var sandboxMemoryManager = fieldInfo!.GetValue(sandbox);
@@ -448,7 +463,6 @@ namespace Hyperlight.Tests
             Assert.NotNull(fieldInfo);
             var sandboxMemoryLayout = fieldInfo!.GetValue(sandboxMemoryManager);
             Assert.NotNull(sandboxMemoryLayout);
-            bindingFlags = BindingFlags.Public | BindingFlags.Instance;
             var propInfo = sandboxMemoryManager!.GetType().GetProperty("SourceAddress", bindingFlags);
             Assert.NotNull(propInfo);
             var sourceAddress = propInfo!.GetValue(sandboxMemoryManager);
@@ -540,30 +554,27 @@ namespace Hyperlight.Tests
 
         private SandboxRunOptions[] GetSandboxRunOptions()
         {
-            SandboxRunOptions[] options;
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 if (Sandbox.IsHypervisorPresent())
                 {
-                    options = new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.None, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
+                   return new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.None, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
                 }
                 else
                 {
-                    options = new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
+                   return new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
                 }
             }
-            else
+            return GetSandboxRunInHyperVisorOptions();
+        }
+
+        private SandboxRunOptions[] GetSandboxRunInHyperVisorOptions()
+        {
+            if (Sandbox.IsHypervisorPresent())
             {
-                if (Sandbox.IsHypervisorPresent())
-                {
-                    options = new SandboxRunOptions[] { SandboxRunOptions.None, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
-                }
-                else
-                {
-                    options = new SandboxRunOptions[] { };
-                }
+                 return new SandboxRunOptions[] { SandboxRunOptions.None, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
             }
-            return options;
+            return new SandboxRunOptions[] { };
         }
 
         [Fact]

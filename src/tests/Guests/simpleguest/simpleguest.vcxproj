@@ -89,10 +89,8 @@
       <EntryPointSymbol>entryPoint</EntryPointSymbol>
       <RandomizedBaseAddress>true</RandomizedBaseAddress>
       <SubSystem>Native</SubSystem>
-      <HeapReserveSize>65536</HeapReserveSize>
-      <HeapCommitSize>65536</HeapCommitSize>
-      <StackReserveSize>65536</StackReserveSize>
-      <StackCommitSize>65536</StackCommitSize>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+      <LinkErrorReporting>NoErrorReport</LinkErrorReporting>
     </Link>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -101,7 +99,8 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
       <BufferSecurityCheck>true</BufferSecurityCheck>
-      <AdditionalOptions>/Gs65536 %(AdditionalOptions)</AdditionalOptions>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <IntrinsicFunctions>false</IntrinsicFunctions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -110,6 +109,12 @@
   <ItemGroup>
     <ClInclude Include="hyperlight_peb.h" />
     <ClInclude Include="hyperlight_error.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="gettopofstackaddr.asm" />
+    <MASM Include="jmp.asm">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+    </MASM>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

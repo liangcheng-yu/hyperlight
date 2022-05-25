@@ -11,7 +11,7 @@ namespace Hyperlight.Core
     // Virtual Address
     //
     // 0x200000    PML4
-    // 0x201000    PDTP
+    // 0x201000    PDPT
     // 0x202000    PD
     // 0x203000    The guest PE code (When the code has been loaded using LoadLibrary to debug the guest this will not be present and code length will be zero;
 
@@ -66,6 +66,12 @@ namespace Hyperlight.Core
         internal IntPtr GuestHeapBuffer;
     }
 
+    [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
+    struct GuestStack
+    {
+        internal IntPtr MinGuestStackAddress;
+    }
+
     // Following these structures are the memory buffers as follows:
 
     // Host Function definitions - length sandboxMemoryConfiguration.HostFunctionDefinitionSize
@@ -81,7 +87,7 @@ namespace Hyperlight.Core
 
     // Guest Heap - length heapSize this is a memory buffer provided to the guest to be used as heap memory.
 
-    // Guest Stack - length stackSize this is the memory used for the guest stack (in reality the stack may be slightly bigger as the total memory size is rounded up to nearest 4K).
+    // Guest Stack - length stackSize this is the memory used for the guest stack (in reality the stack may be slightly bigger or smaller as the total memory size is rounded up to nearest 4K and there is a 16 bte stack guard written to the top of the stack).
 
     internal class SandboxMemoryLayout
     {
@@ -108,6 +114,7 @@ namespace Hyperlight.Core
         readonly int inputDataOffset;
         readonly int outputDataOffset;
         readonly int heapDataOffset;
+        readonly int stackDataOffset;
         readonly SandboxMemoryConfiguration sandboxMemoryConfiguration;
         readonly int codeSize;
         readonly int hostFunctionsBufferOffset;
@@ -116,31 +123,34 @@ namespace Hyperlight.Core
         readonly int inputDataBufferOffset;
         readonly int outputDataBufferOffset;
         readonly int guestHeapBufferOffset;
+        readonly long guestStackBufferOffset;
 
         public ulong PEBAddress { get; init; }
 
-        public IntPtr GetGuestErrorMessageAddress(IntPtr address) => IntPtr.Add(address, guestErrorMessageBufferOffset);
+        IntPtr GetGuestErrorMessageAddress(IntPtr address) => IntPtr.Add(address, guestErrorMessageBufferOffset);
         public IntPtr GetGuestErrorAddress(IntPtr address) => IntPtr.Add(address, guestErrorMessageOffset);
-        public IntPtr GetGuestErrorMessageSizeAddress(IntPtr address) => IntPtr.Add(GetGuestErrorAddress(address), sizeof(ulong)); // Size of error message is after the GuestErrorMessage field which is a ulong.
+        IntPtr GetGuestErrorMessageSizeAddress(IntPtr address) => IntPtr.Add(GetGuestErrorAddress(address), sizeof(ulong)); // Size of error message is after the GuestErrorMessage field which is a ulong.
         public IntPtr GetGuestErrorMessagePointerAddress(IntPtr address) => IntPtr.Add(GetGuestErrorMessageSizeAddress(address), sizeof(ulong)); // Pointer to the error message is after the Size field which is a ulong.
         public IntPtr GetFunctionDefinitionAddress(IntPtr address) => IntPtr.Add(address, hostFunctionsBufferOffset);
-        public IntPtr GetFunctionDefinitionSizeAddress(IntPtr address) => IntPtr.Add(address, hostFunctionsOffset);
-        public IntPtr GetFunctionDefinitionPointerAddress(IntPtr address) => IntPtr.Add(GetFunctionDefinitionSizeAddress(address), sizeof(ulong)); // Pointer to functions data is after the size field which is a ulong.
-        public IntPtr GetHostExceptionSizeAddress(IntPtr address) => IntPtr.Add(address, hostExceptionOffset);
+        IntPtr GetFunctionDefinitionSizeAddress(IntPtr address) => IntPtr.Add(address, hostFunctionsOffset);
+        IntPtr GetFunctionDefinitionPointerAddress(IntPtr address) => IntPtr.Add(GetFunctionDefinitionSizeAddress(address), sizeof(ulong)); // Pointer to functions data is after the size field which is a ulong.
+        IntPtr GetHostExceptionSizeAddress(IntPtr address) => IntPtr.Add(address, hostExceptionOffset);
         public IntPtr GetHostExceptionAddress(IntPtr address) => IntPtr.Add(address, hostExceptionBufferOffset);
         public IntPtr GetOutBPointerAddress(IntPtr address) => IntPtr.Add(GetCodePointerAddress(address), sizeof(ulong)); // OutB pointer is after the Code Pointer field which is a ulong.. 
-        public IntPtr GetOutputDataSizeAddress(IntPtr address) => IntPtr.Add(address, outputDataOffset);
-        public IntPtr GetOutputDataPointerAddress(IntPtr address) => IntPtr.Add(GetOutputDataSizeAddress(address), sizeof(ulong)); // Pointer to input data is after the size field which is a ulong.
+        IntPtr GetOutputDataSizeAddress(IntPtr address) => IntPtr.Add(address, outputDataOffset);
+        IntPtr GetOutputDataPointerAddress(IntPtr address) => IntPtr.Add(GetOutputDataSizeAddress(address), sizeof(ulong)); // Pointer to input data is after the size field which is a ulong.
         public IntPtr GetOutputDataAddress(IntPtr address) => IntPtr.Add(address, outputDataBufferOffset);
-        public IntPtr GetInputDataSizeAddress(IntPtr address) => IntPtr.Add(address, inputDataOffset);
-        public IntPtr GetInputDataPointerAddress(IntPtr address) => IntPtr.Add(GetInputDataSizeAddress(address), sizeof(ulong)); // Pointer to input data is after the size field which is a ulong.
+        IntPtr GetInputDataSizeAddress(IntPtr address) => IntPtr.Add(address, inputDataOffset);
+        IntPtr GetInputDataPointerAddress(IntPtr address) => IntPtr.Add(GetInputDataSizeAddress(address), sizeof(ulong)); // Pointer to input data is after the size field which is a ulong.
         public IntPtr GetInputDataAddress(IntPtr address) => IntPtr.Add(address, inputDataBufferOffset);
         public IntPtr GetCodePointerAddress(IntPtr address) => IntPtr.Add(address, codeandOutbPointerOffset);
         public IntPtr GetDispatchFunctionPointerAddress(IntPtr address) => IntPtr.Add(GetFunctionDefinitionAddress(address), sizeof(ulong)); // Pointer to Dispatch Function is offset eight bytes into the FunctionDefinition.
         public ulong GetInProcessPEBAddress(IntPtr address) => (ulong)(address + pebOffset);
-        public IntPtr GetHeapSizeAddress(IntPtr address) => IntPtr.Add(address, heapDataOffset);
-        public IntPtr GetHeapPointerAddress(IntPtr address) => IntPtr.Add(GetHeapSizeAddress(address), sizeof(ulong)); // Pointer to heap data is after the size field which is a ulong.
-        public IntPtr GetHeapAddress(IntPtr address) => IntPtr.Add(address, guestHeapBufferOffset);
+        IntPtr GetHeapSizeAddress(IntPtr address) => IntPtr.Add(address, heapDataOffset);
+        IntPtr GetHeapPointerAddress(IntPtr address) => IntPtr.Add(GetHeapSizeAddress(address), sizeof(ulong)); // Pointer to heap data is after the size field which is a ulong.
+        IntPtr GetHeapAddress(IntPtr address) => IntPtr.Add(address, guestHeapBufferOffset);
+        IntPtr GetMinGuestStackAddressPointer(IntPtr address) => IntPtr.Add(address, stackDataOffset);
+        public IntPtr GetTopOfStackAddress(IntPtr address) => (IntPtr)((long)address + guestStackBufferOffset);
 
         public static IntPtr GetHostPML4Address(IntPtr address) => address;
         public static IntPtr GetHostPDPTAddress(IntPtr address) => IntPtr.Add(address, PDPTOffset);
@@ -161,13 +171,15 @@ namespace Hyperlight.Core
             inputDataOffset = codeandOutbPointerOffset + Marshal.SizeOf(typeof(CodeAndOutBPointers));
             outputDataOffset = inputDataOffset + Marshal.SizeOf(typeof(InputData));
             heapDataOffset = outputDataOffset + Marshal.SizeOf(typeof(OutputData));
+            stackDataOffset = heapDataOffset + Marshal.SizeOf(typeof(GuestHeap));
             PEBAddress = (ulong)(BaseAddress + pebOffset);
-            hostFunctionsBufferOffset = heapDataOffset + Marshal.SizeOf(typeof(GuestHeap));
+            hostFunctionsBufferOffset = stackDataOffset + Marshal.SizeOf(typeof(GuestStack));
             hostExceptionBufferOffset = hostFunctionsBufferOffset + sandboxMemoryConfiguration.HostFunctionDefinitionSize;
             guestErrorMessageBufferOffset = hostExceptionBufferOffset + sandboxMemoryConfiguration.HostExceptionSize;
             inputDataBufferOffset = guestErrorMessageBufferOffset + sandboxMemoryConfiguration.GuestErrorMessageSize;
             outputDataBufferOffset = inputDataBufferOffset + sandboxMemoryConfiguration.InputDataSize;
             guestHeapBufferOffset = outputDataBufferOffset + sandboxMemoryConfiguration.OutputDataSize;
+            guestStackBufferOffset = guestHeapBufferOffset + heapSize;
         }
 
         internal ulong GetMemorySize()
@@ -186,6 +198,7 @@ namespace Hyperlight.Core
                               + Marshal.SizeOf(typeof(InputData))
                               + Marshal.SizeOf(typeof(OutputData))
                               + Marshal.SizeOf(typeof(GuestHeap))
+                              + Marshal.SizeOf(typeof(GuestStack))
                               + heapSize
                               + stackSize;
 
@@ -207,7 +220,7 @@ namespace Hyperlight.Core
 
             return size;
         }
-        internal void WriteMemoryLayout(IntPtr sourceAddress, IntPtr guestAddress)
+        internal void WriteMemoryLayout(IntPtr sourceAddress, IntPtr guestAddress, ulong size)
         {
             // Set up Guest Error Header
             var errorMessageSizePointer = GetGuestErrorMessageSizeAddress(sourceAddress);
@@ -250,6 +263,12 @@ namespace Hyperlight.Core
             var functionDefinitionPointerAddress = GetFunctionDefinitionPointerAddress(sourceAddress);
             var functionDefinitionAddress = GetFunctionDefinitionAddress(guestAddress);
             Marshal.WriteIntPtr(functionDefinitionPointerAddress, functionDefinitionAddress);
+
+            // Set up Max Guest Stack Address
+            var minGuestStackAddressPointer = GetMinGuestStackAddressPointer(sourceAddress);
+            var minGuestStackAddressOffset = size - (ulong)stackSize;
+            var minGuestStackAddress = (long)guestAddress + (long)minGuestStackAddressOffset;
+            Marshal.WriteInt64(minGuestStackAddressPointer, minGuestStackAddress);
         }
     }
 }

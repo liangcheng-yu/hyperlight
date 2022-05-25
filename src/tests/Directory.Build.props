@@ -1,3 +1,32 @@
 <Project>
-  <!-- Only here so that the default Directory.Build.props will not be used. -->
+  <PropertyGroup>
+    <GuestStackSize Condition="'$(GuestStackSize)'==''">65536</GuestStackSize>
+    <GuestHeapSize Condition="'$(GuestHeapSize)'==''">65536</GuestHeapSize>
+  </PropertyGroup>
+
+  <Target Name="AddStackAndHeapMetadataAssemblyAttributes" BeforeTargets="CoreGenerateAssemblyInfo">
+    <ItemGroup>
+        <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute" Condition="$(GuestStackSize) != ''" >
+            <_Parameter1>GUESTSTACKSIZE</_Parameter1>
+            <_Parameter2>$(GuestStackSize)</_Parameter2>
+        </AssemblyAttribute>
+        <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute" Condition="$(GuestHeapSize) != ''" >
+          <_Parameter1>GUESTHEAPSIZE</_Parameter1>
+          <_Parameter2>$(GuestHeapSize)</_Parameter2>
+      </AssemblyAttribute>
+    </ItemGroup>
+  </Target>
+
+  
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);GUEST_STACK_SIZE=$(GuestStackSize);GUEST_HEAP_SIZE=$(GuestHeapSize);</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <HeapReserveSize>$(GuestHeapSize)</HeapReserveSize>
+      <HeapCommitSize>$(GuestHeapSize)</HeapCommitSize>
+      <StackReserveSize>$(GuestStackSize)</StackReserveSize>
+      <StackCommitSize>$(GuestStackSize)</StackCommitSize>
+    </Link> 
+  </ItemDefinitionGroup>
 </Project>

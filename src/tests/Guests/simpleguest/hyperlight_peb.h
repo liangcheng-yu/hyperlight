@@ -43,6 +43,12 @@ typedef struct
 
 typedef struct
 {
+    uint64_t minStackAddress;
+
+} GuestStackData;
+
+typedef struct
+{
     HostFunctionDefinitions hostFunctionDefinitions;
     HostException hostException;
     GuestError guestError;
@@ -51,6 +57,7 @@ typedef struct
     InputData inputdata;
     OutputData outputdata;
     GuestHeapData guestheapData;
+    GuestStackData gueststackData;
 } HyperlightPEB;
 
 typedef struct
