@@ -6,20 +6,24 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using Xunit;
-using Hyperlight;
 using Hyperlight.Core;
+using Xunit;
+using Xunit.Abstractions;
 
 namespace Hyperlight.Tests
 {
+
+
     public class SandboxHostTest
     {
+        private readonly ITestOutputHelper output;
         public const int NUMBER_OF_ITERATIONS = 10;
         public const int NUMBER_OF_PARALLEL_TESTS = 100;
-        public SandboxHostTest()
+        public SandboxHostTest(ITestOutputHelper output)
         {
             //TODO: implment skip for this
             Assert.True(Sandbox.IsSupportedPlatform, "Hyperlight Sandbox is not supported on this platform.");
+            this.output = output;
         }
 
         public class TestData
@@ -34,7 +38,6 @@ namespace Hyperlight.Tests
                 Null,
                 All
             }
-            public ulong Size => 1024 * 1024;
             public int ExpectedReturnValue;
             public string ExpectedOutput;
             public string GuestBinaryPath { get; }
@@ -176,23 +179,351 @@ namespace Hyperlight.Tests
 
         class GuestFunctionErrors
         {
-            public Func<string,int>? FunctionDoesntExist = null;
+            public Func<string, int>? FunctionDoesntExist = null;
             public Func<int>? PrintOutput = null;
             public Func<int, int>? GuestMethod = null;
+        }
+
+
+        [FactSkipIfNotWindowsAndNoHypervisor]
+        public void Test_Heap_Size()
+        {
+            var options = GetSandboxRunOptions();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            // Heap size is set on the assembly metadata and linker arguments using the build property GUESTHEAPSIZE
+            // this is set in \src\tests\Directory.Build.props
+            // the value used can be changed by running msbuild with /p:GUESTHEAPSIZE=VALUE
+            var assemblyHeapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
+            Assert.NotNull(assemblyHeapSize);
+            Assert.True(int.TryParse(assemblyHeapSize, out int heapSize));
+
+            using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(), guestBinaryPath, options[0]))
+            {
+                CheckSize(heapSize, sandbox, "GetHeapSizeAddress");
+            }
+        }
+
+        public string GetAssemblyMetadataAttribute(string name)
+        {
+            return GetType().Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().Where(a=>a.Key==name).Select(a=>a.Value).FirstOrDefault();
+        }
+
+
+        [FactSkipIfNotWindowsAndNoHypervisor]
+        public void Test_Stack_Size()
+        {
+            var options = GetSandboxRunOptions();
+            if (options.Length == 0)
+            {
+                return;
+            }
+
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            // Stack size is set on the assembly metadata and linker arguments using the build property GUESTSTACKSIZE
+            // this is set in \src\tests\Directory.Build.props
+            // the value used can be changed by running msbuild with /p:GUESTSTACKSIZE=VALUE
+            var assemblyStackSize = GetAssemblyMetadataAttribute("GUESTSTACKSIZE");
+            Assert.NotNull(assemblyStackSize);
+            Assert.True(int.TryParse(assemblyStackSize, out int stackSize));
+
+            using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(), guestBinaryPath, options[0]))
+            {
+                var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance;
+                var fieldInfo = sandbox.GetType().GetField("sandboxMemoryManager", bindingFlags);
+                Assert.NotNull(fieldInfo);
+                var sandboxMemoryManager = fieldInfo!.GetValue(sandbox);
+                Assert.NotNull(sandboxMemoryManager);
+                fieldInfo = sandboxMemoryManager!.GetType().GetField("sandboxMemoryLayout", bindingFlags);
+                Assert.NotNull(fieldInfo);
+                var sandboxMemoryLayout = fieldInfo!.GetValue(sandboxMemoryManager);
+                Assert.NotNull(sandboxMemoryLayout);
+                fieldInfo = sandboxMemoryLayout!.GetType().GetField("stackSize", bindingFlags);
+                Assert.NotNull(fieldInfo);
+                long configuredStackSize = (long)fieldInfo!.GetValue(sandboxMemoryLayout);
+                Assert.Equal(stackSize, configuredStackSize);
+            }
+        }
+
+        [FactSkipIfNotWindows]
+        public void Test_Memory_Size_From_GuestBinary()
+        {
+            var option = SandboxRunOptions.RunFromGuestBinary;
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration();
+
+            ulong expectedSize = GetExpectedMemorySize(sandboxMemoryConfiguration, guestBinaryPath, option);
+
+            using (var sandbox = new Sandbox(sandboxMemoryConfiguration, guestBinaryPath, option))
+            {
+                var size = GetMemorySize(sandbox);
+                Assert.Equal(expectedSize, size);
+            }
+
+        }
+        [FactSkipIfNotWindows]
+        public void Test_Memory_Size_InProcess()
+        {
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration();
+            var options = new SandboxRunOptions[] { SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
+
+            foreach (var option in options)
+            {
+                ulong expectedSize = GetExpectedMemorySize(sandboxMemoryConfiguration, guestBinaryPath, option);
+                using (var sandbox = new Sandbox(sandboxMemoryConfiguration, guestBinaryPath, option))
+                {
+                    var size = GetMemorySize(sandbox);
+                    Assert.Equal(expectedSize, size);
+                }
+            }
+        }
+
+        [FactSkipIfHypervisorNotPresent]
+        public void Test_Memory_Size_InHypervisor()
+        {
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration();
+            var options = new SandboxRunOptions[] { SandboxRunOptions.None, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
+
+            foreach (var option in options)
+            {
+                ulong expectedSize = GetExpectedMemorySize(sandboxMemoryConfiguration, guestBinaryPath, option);
+                using (var sandbox = new Sandbox(sandboxMemoryConfiguration, guestBinaryPath, option))
+                {
+                    var size = GetMemorySize(sandbox);
+                    Assert.Equal(expectedSize, size);
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_Maximum_Memory_Size()
+        {
+            var option = SandboxRunOptions.RunInProcess;
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration(inputDataSize: 1073741824);
+            var ex = Record.Exception(() =>
+            {
+                using var sandbox = new Sandbox(sandboxMemoryConfiguration, guestBinaryPath, option);
+                
+            });
+            Assert.NotNull(ex);
+            Assert.IsType<ArgumentException>(ex);
+            Assert.StartsWith("Total memory size ", ex.Message);
+        }
+
+        private ulong GetExpectedMemorySize(SandboxMemoryConfiguration sandboxMemoryConfiguration, string guestBinaryPath, SandboxRunOptions option)
+        {
+
+            // Heap size and Stack size are set on the assembly metadata and linker arguments using the build property GUESTHEAPSIZE and GUESTSTACKSIZE
+            // this is set in \src\tests\Directory.Build.props
+            // the value used can be changed by running msbuild with /p:GUESTHEAPSIZE=VALUE
+            var assemblyHeapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
+            Assert.NotNull(assemblyHeapSize);
+            Assert.True(int.TryParse(assemblyHeapSize, out int heapSize));
+            // the value used can be changed by running msbuild with /p:GUESTSTACKSIZE=VALUE
+            var assemblyStackSize = GetAssemblyMetadataAttribute("GUESTSTACKSIZE");
+            Assert.NotNull(assemblyStackSize);
+            Assert.True(int.TryParse(assemblyStackSize, out int stackSize));
+            long pageTableSize = 0x3000;
+            var headerSize = 120;
+            ulong totalSize;
+            var codeSize = 0;
+            if (!option.HasFlag(SandboxRunOptions.RunFromGuestBinary))
+            {
+                var codePayload = File.ReadAllBytes(guestBinaryPath);
+                codeSize = codePayload.Length;
+            }
+            totalSize = (ulong)(codeSize
+                                + stackSize
+                                + heapSize
+                                + pageTableSize
+                                + sandboxMemoryConfiguration.HostFunctionDefinitionSize
+                                + sandboxMemoryConfiguration.InputDataSize
+                                + sandboxMemoryConfiguration.OutputDataSize
+                                + sandboxMemoryConfiguration.HostExceptionSize
+                                + sandboxMemoryConfiguration.GuestErrorMessageSize
+                                + headerSize);
+
+            var rem = totalSize % 4096;
+            if (rem != 0)
+            {
+                totalSize += 4096 - rem;
+            }
+            return totalSize;
+        }
+
+        private static ulong GetMemorySize(Sandbox sandbox)
+        {
+            var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance;
+            var fieldInfo = sandbox.GetType().GetField("sandboxMemoryManager", bindingFlags);
+            Assert.NotNull(fieldInfo);
+            var sandboxMemoryManager = fieldInfo!.GetValue(sandbox);
+            Assert.NotNull(sandboxMemoryManager);
+            fieldInfo = sandboxMemoryManager!.GetType().GetField("sandboxMemoryLayout", bindingFlags);
+            Assert.NotNull(fieldInfo);
+            var sandboxMemoryLayout = fieldInfo!.GetValue(sandboxMemoryManager);
+            Assert.NotNull(sandboxMemoryLayout);
+            var methodInfo = sandboxMemoryLayout!.GetType().GetMethod("GetMemorySize", bindingFlags);
+            Assert.NotNull(methodInfo);
+            var size = methodInfo!.Invoke(sandboxMemoryLayout, Array.Empty<object>());
+            Assert.NotNull(size);
+            return (ulong)size;
+        }
+
+        [Fact]
+        public void Test_Guest_Error_Message_Size()
+        {
+            var options = GetSandboxRunOptions();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                var size = GetErrorMessageSize();
+                using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(guestErrorMessageSize: size), guestBinaryPath, option))
+                {
+                    CheckSize(size, sandbox, "GetGuestErrorMessageSizeAddress");
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_Function_Definitions_Size()
+        {
+            var options = GetSandboxRunOptions();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                var size = GetFunctionDefinitionSize();
+                using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(functionDefinitionSize: size), guestBinaryPath, option))
+                {
+                    CheckSize(size, sandbox, "GetFunctionDefinitionSizeAddress");
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_InputData_Size()
+        {
+            var options = GetSandboxRunOptions();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                var size = GetInputDataSize();
+                using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(inputDataSize: size), guestBinaryPath, option))
+                {
+                    CheckSize(size, sandbox, "GetInputDataSizeAddress");
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_OutputData_Size()
+        {
+            var options = GetSandboxRunOptions();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                var size = GetOutputDataSize();
+                using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(outputDataSize: size), guestBinaryPath, option))
+                {
+                    CheckSize(size, sandbox, "GetOutputDataSizeAddress");
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_Config_Minimum_Sizes()
+        {
+            var minInputSize = 0x2000;
+            var minOutputSize = 0x2000;
+            var minHostFunctionDefinitionSize = 0x400;
+            var minHostExceptionSize = 0x400;
+            var minGuestErrorMessageSize = 0x80;
+            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration(0, 0, 0, 0, 0);
+            Assert.Equal(minInputSize, sandboxMemoryConfiguration.InputDataSize);
+            Assert.Equal(minOutputSize, sandboxMemoryConfiguration.OutputDataSize);
+            Assert.Equal(minHostFunctionDefinitionSize, sandboxMemoryConfiguration.HostFunctionDefinitionSize);
+            Assert.Equal(minHostExceptionSize, sandboxMemoryConfiguration.HostExceptionSize);
+            Assert.Equal(minGuestErrorMessageSize, sandboxMemoryConfiguration.GuestErrorMessageSize);
+        }
+
+        [Fact]
+        public void Test_Host_Exceptions_Size()
+        {
+            var options = GetSandboxRunOptions();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                var size = GetHostExceptionSize();
+                using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(hostExceptionSize: size), guestBinaryPath, option))
+                {
+                    CheckSize(size, sandbox, "GetHostExceptionSizeAddress");
+                }
+            }
+        }
+
+        private static void CheckSize(int size, Sandbox sandbox, string methodName)
+        {
+            var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public;
+            var fieldInfo = sandbox.GetType().GetField("sandboxMemoryManager", bindingFlags);
+            Assert.NotNull(fieldInfo);
+            var sandboxMemoryManager = fieldInfo!.GetValue(sandbox);
+            Assert.NotNull(sandboxMemoryManager);
+            fieldInfo = sandboxMemoryManager!.GetType().GetField("sandboxMemoryLayout", bindingFlags);
+            Assert.NotNull(fieldInfo);
+            var sandboxMemoryLayout = fieldInfo!.GetValue(sandboxMemoryManager);
+            Assert.NotNull(sandboxMemoryLayout);
+            var propInfo = sandboxMemoryManager!.GetType().GetProperty("SourceAddress", bindingFlags);
+            Assert.NotNull(propInfo);
+            var sourceAddress = propInfo!.GetValue(sandboxMemoryManager);
+            Assert.NotNull(sourceAddress);
+            var methodInfo = sandboxMemoryLayout!.GetType().GetMethod(methodName, bindingFlags);
+            Assert.NotNull(methodInfo);
+            var addr = methodInfo!.Invoke(sandboxMemoryLayout, new object[] { sourceAddress! });
+            Assert.NotNull(addr);
+            Assert.IsType<IntPtr>(addr);
+            var hostExceptionSize = Marshal.ReadInt64((IntPtr)addr!);
+            Assert.Equal(size, hostExceptionSize);
         }
 
         [Fact]
         public void Test_Invalid_Guest_Function_Causes_Exception()
         {
             var options = GetSandboxRunOptions();
-            ulong size = 1024 * 1024;
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "callbackguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
 
             foreach (var option in options)
             {
-                using (var sandbox = new Sandbox(size, guestBinaryPath, option))
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
                 {
                     var functions = new GuestFunctionErrors();
                     sandbox.BindGuestFunction("FunctionDoesntExist", functions);
@@ -212,14 +543,13 @@ namespace Hyperlight.Tests
         public void Test_Invalid_Type_Of_Guest_Function_Parameter_Causes_Exception()
         {
             var options = GetSandboxRunOptions();
-            ulong size = 1024 * 1024;
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "callbackguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
 
             foreach (var option in options)
             {
-                using (var sandbox = new Sandbox(size, guestBinaryPath, option))
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
                 {
                     var functions = new GuestFunctionErrors();
                     sandbox.BindGuestFunction("GuestMethod", functions);
@@ -238,14 +568,13 @@ namespace Hyperlight.Tests
         public void Test_Invalid_Number_Of_Guest_Function_Parameters_Causes_Exception()
         {
             var options = GetSandboxRunOptions();
-            ulong size = 1024 * 1024;
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "callbackguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
 
             foreach (var option in options)
             {
-                using (var sandbox = new Sandbox(size, guestBinaryPath, option))
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
                 {
                     var functions = new GuestFunctionErrors();
                     sandbox.BindGuestFunction("PrintOutput", functions);
@@ -262,37 +591,33 @@ namespace Hyperlight.Tests
 
         private SandboxRunOptions[] GetSandboxRunOptions()
         {
-            SandboxRunOptions[] options;
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 if (Sandbox.IsHypervisorPresent())
                 {
-                    options = new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.None, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
+                   return new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.None, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
                 }
                 else
                 {
-                    options = new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
+                   return new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
                 }
             }
-            else
+            return GetSandboxRunInHyperVisorOptions();
+        }
+
+        private SandboxRunOptions[] GetSandboxRunInHyperVisorOptions()
+        {
+            if (Sandbox.IsHypervisorPresent())
             {
-                if (Sandbox.IsHypervisorPresent())
-                {
-                    options = new SandboxRunOptions[] { SandboxRunOptions.None, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
-                }
-                else
-                {
-                    options = new SandboxRunOptions[] { };
-                }
+                 return new SandboxRunOptions[] { SandboxRunOptions.None, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
             }
-            return options;
+            return new SandboxRunOptions[] { };
         }
 
         [Fact]
         public void Test_Bind_And_Expose_Methods()
         {
             var options = GetSandboxRunOptions();
-            ulong size = 1024 * 1024;
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
@@ -312,7 +637,7 @@ namespace Hyperlight.Tests
                 {
                     foreach (var target in new object?[] { type, GetInstance(type) })
                     {
-                        using (var sandbox = new Sandbox(size, guestBinaryPath, option))
+                        using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
                         {
                             if (target is Type)
                             {
@@ -335,7 +660,7 @@ namespace Hyperlight.Tests
 
                 var delegateNames = new List<string> { "GuestMethod", "GuestMethod1" };
                 var hostMethods = new List<string> { "HostMethod", "HostMethod1" };
-                using (var sandbox = new Sandbox(size, guestBinaryPath, option))
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
                 {
                     var instance = new CallbackTestMembers();
                     foreach (var delegateName in delegateNames)
@@ -368,8 +693,6 @@ namespace Hyperlight.Tests
             var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
             var fieldInfo = sandbox.GetType().GetField("hyperlightPEB", bindingFlags);
             Assert.NotNull(fieldInfo);
-            var hyperlightPEBType = typeof(Sandbox).Assembly.GetType("Hyperlight.HyperlightPEB");
-            Assert.NotNull(hyperlightPEBType);
             var hyperlightPEB = fieldInfo!.GetValue(sandbox);
             Assert.NotNull(hyperlightPEB);
             fieldInfo = hyperlightPEB!.GetType().GetField("listFunctions", bindingFlags);
@@ -390,7 +713,6 @@ namespace Hyperlight.Tests
         private void Test_SandboxInit()
         {
             var options = GetSandboxRunOptions();
-            ulong size = 1024 * 1024;
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "callbackguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
@@ -458,7 +780,7 @@ namespace Hyperlight.Tests
                             };
                         }
 
-                        sandbox = new Sandbox(size, guestBinaryPath, option, func, output);
+                        sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option, func, output);
                         if (target is Type)
                         {
                             CheckExposedMethods(sandbox, exposedStaticMethods, (Type)target);
@@ -493,7 +815,7 @@ namespace Hyperlight.Tests
 
                         numberOfCalls = 0;
                         output = new StringWriter();
-                        sandbox = new Sandbox(size, guestBinaryPath, option, func, output);
+                        sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option, func, output);
                         if (target is Type)
                         {
                             sandbox.ExposeHostMethods(target as Type);
@@ -552,12 +874,12 @@ namespace Hyperlight.Tests
             foreach (var option in options)
             {
                 var output1 = new StringWriter();
-                var sandbox1 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, output1);
+                var sandbox1 = new Sandbox(GetSandboxMemoryConfiguration(), testData.GuestBinaryPath, option, output1);
                 var builder = output1.GetStringBuilder();
                 SimpleTest(sandbox1, testData, output1, builder);
                 var output2 = new StringWriter();
                 Sandbox sandbox2 = null;
-                var ex = Record.Exception(() => sandbox2 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, output2));
+                var ex = Record.Exception(() => sandbox2 = new Sandbox(GetSandboxMemoryConfiguration(), testData.GuestBinaryPath, option, output2));
                 Assert.NotNull(ex);
                 Assert.IsType<System.ApplicationException>(ex);
                 Assert.Equal("Only one instance of Sandbox is allowed when running from guest binary", ex.Message);
@@ -567,7 +889,7 @@ namespace Hyperlight.Tests
                 output2.Dispose();
                 using (var output = new StringWriter())
                 {
-                    using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, option, output))
+                    using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), testData.GuestBinaryPath, option, output))
                     {
                         builder = output.GetStringBuilder();
                         SimpleTest(sandbox, testData, output, builder);
@@ -585,10 +907,9 @@ namespace Hyperlight.Tests
                 var binary = "simpleguest.exe";
                 var path = AppDomain.CurrentDomain.BaseDirectory;
                 var guestBinaryPath = Path.Combine(path, binary);
-                ulong size = 1024 * 1024;
                 var ex = Record.Exception(() =>
                 {
-                    var sandbox = new Sandbox(size, guestBinaryPath, option);
+                    var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option);
                     var guestMethods = new SimpleTestMembers();
                     sandbox.BindGuestFunction("PrintOutput", guestMethods);
                     var result = guestMethods.PrintOutput("This will throw an exception");
@@ -654,8 +975,8 @@ namespace Hyperlight.Tests
                     RunTests(testData, option, SimpleTest);
                 }
 
-        // Run tests using constructors without options
-        foreach (var instanceOrType in testData.TestInstanceOrTypes())
+                // Run tests using constructors without options
+                foreach (var instanceOrType in testData.TestInstanceOrTypes())
                 {
                     RunTest(testData, instanceOrType, SimpleTest);
                 }
@@ -685,7 +1006,7 @@ namespace Hyperlight.Tests
                 {
                     var output1 = new StringWriter();
                     var builder = output1.GetStringBuilder();
-                    var sandbox1 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, null, output1);
+                    var sandbox1 = new Sandbox(GetSandboxMemoryConfiguration(), testData.GuestBinaryPath, option, null, output1);
                     if (instanceOrType is not null)
                     {
                         if (instanceOrType is Type)
@@ -709,7 +1030,7 @@ namespace Hyperlight.Tests
                     {
                         instanceOrType1 = instanceOrType;
                     }
-                    var ex = Record.Exception(() => sandbox2 = new Sandbox(testData.Size, testData.GuestBinaryPath, option, null, output2));
+                    var ex = Record.Exception(() => sandbox2 = new Sandbox(GetSandboxMemoryConfiguration(), testData.GuestBinaryPath, option, null, output2));
                     Assert.NotNull(ex);
                     Assert.IsType<System.ApplicationException>(ex);
                     Assert.Equal("Only one instance of Sandbox is allowed when running from guest binary", ex.Message);
@@ -720,7 +1041,7 @@ namespace Hyperlight.Tests
                     using (var output = new StringWriter())
                     {
                         builder = output.GetStringBuilder();
-                        using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, option, null, output))
+                        using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), testData.GuestBinaryPath, option, null, output))
                         {
                             if (instanceOrType1 is not null)
                             {
@@ -795,8 +1116,8 @@ namespace Hyperlight.Tests
                     RunTests(testData, option, CallbackTest);
                 }
 
-        // Run tests using constructors without options
-        foreach (var instanceOrType in testData.TestInstanceOrTypes())
+                // Run tests using constructors without options
+                foreach (var instanceOrType in testData.TestInstanceOrTypes())
                 {
                     RunTest(testData, instanceOrType, CallbackTest);
                 }
@@ -822,7 +1143,7 @@ namespace Hyperlight.Tests
         {
             using (var output = new StringWriter())
             {
-                using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, sandboxRunOptions, null, output))
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), testData.GuestBinaryPath, sandboxRunOptions, null, output))
                 {
                     if (instanceOrType is not null)
                     {
@@ -850,7 +1171,7 @@ namespace Hyperlight.Tests
         {
             using (var output = new StringWriter())
             {
-                using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, sandboxRunOptions, output))
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), testData.GuestBinaryPath, sandboxRunOptions, output))
                 {
                     var numberOfIterations = sandboxRunOptions.HasFlag(SandboxRunOptions.RecycleAfterRun) ? testData.NumberOfIterations : 1;
                     var builder = output.GetStringBuilder();
@@ -867,7 +1188,7 @@ namespace Hyperlight.Tests
         {
             using (var output = new StringWriter())
             {
-                using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, output))
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), testData.GuestBinaryPath, output))
                 {
                     if (instanceOrType is not null)
                     {
@@ -882,18 +1203,6 @@ namespace Hyperlight.Tests
                     }
                     var builder = output.GetStringBuilder();
                     test(sandbox, testData, output, builder, instanceOrType);
-                }
-            }
-        }
-
-        private void RunTest(TestData testData, Action<Sandbox, TestData, StringWriter, StringBuilder, object?> test)
-        {
-            using (var output = new StringWriter())
-            {
-                using (var sandbox = new Sandbox(testData.Size, testData.GuestBinaryPath, output))
-                {
-                    var builder = output.GetStringBuilder();
-                    test(sandbox, testData, output, builder, null);
                 }
             }
         }
@@ -942,7 +1251,6 @@ namespace Hyperlight.Tests
                         Assert.NotNull(del);
                         var args = new object[] { message };
                         var result = sandbox.CallGuest<int>(() => { return (int)del!.DynamicInvoke(args); });
-                        Assert.NotNull(result);
                         Assert.Equal<int>(expectedMessage.Length, (int)result!);
                         Assert.Equal(expectedMessage, builder.ToString());
                     }
@@ -989,7 +1297,7 @@ namespace Hyperlight.Tests
                 new object[] { new TestData("simpleguest.exe") } ,
             };
         }
-        
+
         public static IEnumerable<object[]> GetCallbackTestData()
         {
             return new List<object[]>
@@ -1004,5 +1312,64 @@ namespace Hyperlight.Tests
         private static object GetInstance(Type type) => Activator.CreateInstance(type);
         private static T GetInstance<T>() => Activator.CreateInstance<T>();
         static bool RunningOnWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
+        private SandboxMemoryConfiguration GetSandboxMemoryConfiguration()
+        {
+            var errorMessageSize = GetErrorMessageSize();
+            var functionDefinitionSize = GetFunctionDefinitionSize();
+            var hostExceptionSize = GetHostExceptionSize();
+            var inputDataSize = GetInputDataSize();
+            var outputDataSize = GetOutputDataSize();
+
+            // This is just so sometimes the defaults are used.
+
+            if (errorMessageSize % 8 == 0 || functionDefinitionSize % 8 == 0 || hostExceptionSize % 8 == 0)
+            {
+                output.WriteLine("Using Default Configuration");
+                return new SandboxMemoryConfiguration();
+            }
+            output.WriteLine($"Using Configuration: guestErrorMessageSize: {errorMessageSize} functionDefinitionSize: {functionDefinitionSize} hostExceptionSize: {hostExceptionSize} inputDataSize: {inputDataSize} outputDataSize: {outputDataSize}");
+            return new SandboxMemoryConfiguration(guestErrorMessageSize: errorMessageSize, functionDefinitionSize: functionDefinitionSize, hostExceptionSize: hostExceptionSize, inputDataSize: inputDataSize, outputDataSize: outputDataSize);
+        }
+
+        private int GetErrorMessageSize()
+        {
+            var min = 256;
+            var max = 1024;
+            var random = new Random();
+            return random.Next(min, max + 1);
+        }
+
+        private int GetFunctionDefinitionSize()
+        {
+            var min = 1024;
+            var max = 8192;
+            var random = new Random();
+            return random.Next(min, max + 1);
+        }
+
+        private int GetHostExceptionSize()
+        {
+            var min = 1024;
+            var max = 8192;
+            var random = new Random();
+            return random.Next(min, max + 1);
+        }
+
+        private int GetInputDataSize()
+        {
+            var min = 8182;
+            var max = 65536;
+            var random = new Random();
+            return random.Next(min, max + 1);
+        }
+
+        private int GetOutputDataSize()
+        {
+            var min = 8182;
+            var max = 65536;
+            var random = new Random();
+            return random.Next(min, max + 1);
+        }
     }
 }

@@ -46,7 +46,6 @@ namespace NativeHost
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinary = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinary);
-            var size = (ulong)1048576; // 1MB
             Stopwatch stopWatch;
             TimeSpan elapsed;
 
@@ -70,7 +69,7 @@ namespace NativeHost
                 Console.WriteLine($"Running guest binary {guestBinary} by loading exe into memory");
                 Console.WriteLine();
 
-                using (var sandbox = new Sandbox(size, guestBinaryPath, options))
+                using (var sandbox = new Sandbox(guestBinaryPath, options))
                 {
                     var guestMethods = new ExposedMethods();
                     sandbox.BindGuestFunction("PrintOutput", guestMethods);
@@ -87,7 +86,7 @@ namespace NativeHost
                 Console.WriteLine($"Running guest binary {guestBinary} by loading exe into memory with host and guest method execution");
                 Console.WriteLine();
                 var exposedMethods = new ExposedMethods();
-                using (var sandbox = new Sandbox(size, guestBinaryPath, options))
+                using (var sandbox = new Sandbox(guestBinaryPath, options))
                 {
                     sandbox.ExposeAndBindMembers(exposedMethods);
 
@@ -121,7 +120,7 @@ namespace NativeHost
                     Console.WriteLine();
                 };
 
-                using (var sandbox = new Sandbox(size, guestBinaryPath, options, func))
+                using (var sandbox = new Sandbox(guestBinaryPath, options, func))
                 {
                     var returnValue = exposedMethods.PrintOutput!("Hello World!!!!!");
                     Console.WriteLine();
@@ -143,7 +142,7 @@ namespace NativeHost
                  {
                      using (var writer = new StringWriter())
                      {
-                         using (var sandbox = new Sandbox(size, guestBinaryPath, options, writer))
+                         using (var sandbox = new Sandbox(guestBinaryPath, options, writer))
                          {
                              var guestMethods = new ExposedMethods();
                              sandbox.BindGuestFunction("PrintOutput", guestMethods);
@@ -177,7 +176,7 @@ namespace NativeHost
                     {
                         OutputBuffer.Add($"Created Writer Instance {i}:");
                         var exposedMethods = new ExposedMethods();
-                        using (var sandbox = new Sandbox(size, guestBinaryPath, options, writer))
+                        using (var sandbox = new Sandbox(guestBinaryPath, options, writer))
                         {
                             sandbox.ExposeAndBindMembers(exposedMethods);
                             OutputBuffer.Add($"Created Sandbox Instance {i}:");
@@ -213,7 +212,7 @@ namespace NativeHost
                 {
                     using (var writer = new StringWriter())
                     {
-                        using (var sandbox = new Sandbox(size, guestBinaryPath, writer))
+                        using (var sandbox = new Sandbox(guestBinaryPath, writer))
                         {
                             var guestMethods = new ExposedMethods();
                             sandbox.BindGuestFunction("PrintOutput", guestMethods);
@@ -246,7 +245,7 @@ namespace NativeHost
                     using (var writer = new StringWriter())
                     {
                         var exposedMethods = new ExposedMethods();
-                        using (var sandbox = new Sandbox(size, guestBinaryPath, writer))
+                        using (var sandbox = new Sandbox(guestBinaryPath, writer))
                         {
                             sandbox.ExposeAndBindMembers(exposedMethods);
                             OutputBuffer.Add($"Created Sandbox Instance {i}:");
@@ -288,7 +287,7 @@ namespace NativeHost
                         };
 
                         var builder = writer.GetStringBuilder();
-                        using (var hypervisorSandbox = new Sandbox(size, guestBinaryPath, options, func, writer))
+                        using (var hypervisorSandbox = new Sandbox(guestBinaryPath, options, func, writer))
                         {
                             OutputBuffer.Add($"Instance {p} Initialisation:{builder.ToString()}");
                             builder.Remove(0, builder.Length);
@@ -322,7 +321,7 @@ namespace NativeHost
                     using (var writer = new StringWriter())
                     {
                         var exposedMethods = new ExposedMethods();
-                        using (var hypervisorSandbox = new Sandbox(size, guestBinaryPath, options, writer))
+                        using (var hypervisorSandbox = new Sandbox(guestBinaryPath, options, writer))
                         {
                             hypervisorSandbox.ExposeAndBindMembers(exposedMethods);
                             var builder = writer.GetStringBuilder();

@@ -29,7 +29,7 @@ namespace Hyperlight.Hypervisors
                 throw new Exception("KVM_CREATE_VM returned -1");
             }
 
-            var region = new LinuxKVM.KVM_USERSPACE_MEMORY_REGION() { slot = 0, guest_phys_addr = (ulong)SandboxMemoryManager.BaseAddress, memory_size = size, userspace_addr = (ulong)sourceAddress };
+            var region = new LinuxKVM.KVM_USERSPACE_MEMORY_REGION() { slot = 0, guest_phys_addr = (ulong)SandboxMemoryLayout.BaseAddress, memory_size = size, userspace_addr = (ulong)sourceAddress };
             Syscall.CheckReturnVal(
                 "ioctl KVM_SET_USER_MEMORY_REGION",
                 () => LinuxKVM.ioctl(vmfd, LinuxKVM.KVM_CREATE_VCPU, ref region),

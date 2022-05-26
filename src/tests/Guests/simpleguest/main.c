@@ -62,12 +62,6 @@ void outb(uint16_t port, uint8_t value)
     }
 }
 
-// Prevents compiler inserted function from generating Memory Access exits when calling alloca. 
-// TODO: need to figure out if this needs a real implementation.
-void
-__chkstk()
-{}
-
 static void
 halt()
 {
@@ -100,10 +94,15 @@ int strcmp(char string1[], char string2[])
     }
 }
 
+void __report_gsfailure()
+{
+
+}
+
 int printOutput(const char* message)
 {
     int result = strlen(message);
-    strncpy((void*)&pPeb->output, (void*)message, result);
+    strncpy((void*)pPeb->outputdata.outputDataBuffer, (void*)message, result);
     outb(100, 0);
     return result;
 }
@@ -122,35 +121,35 @@ int strlen(const char* str)
 
 void resetError()
 {
-    pPeb->error.errorNo = 0;
-    *pPeb->error.message = NULL;
+    pPeb->guestError.errorNo = 0;
+    *pPeb->guestError.message = NULL;
 }
 
 void setError(uint64_t errorCode, char* message)
 {
-    pPeb->error.errorNo = errorCode;
+    pPeb->guestError.errorNo = errorCode;
     int length = strlen(message);
-    if (length >= sizeof(pPeb->error.message))
+    if (length >= pPeb->guestError.messageSize)
     {
-        length = sizeof(pPeb->error.message);
+        length = pPeb->guestError.messageSize - 1;
     }
 
     if (length == 0)
     {
-        *pPeb->error.message = NULL;
+        *pPeb->guestError.message = NULL;
     }
     else
     {
-        strncpy(pPeb->error.message, message, length);
+        strncpy(pPeb->guestError.message, message, length);
     }
 
-    *(uint32_t*)&pPeb->output = -1;
+    *(uint32_t*)pPeb->outputdata.outputDataBuffer = -1;
 }
 
 void DispatchFunction()
 {
     resetError();
-    GuestFunctionCall* funcCall = &pPeb->output;
+    GuestFunctionCall* funcCall = pPeb->outputdata.outputDataBuffer;
 
     if (NULL == funcCall->FunctionName)
     {
@@ -202,7 +201,7 @@ void DispatchFunction()
         }
     }
 
-    *(uint32_t*)&pPeb->output = pFunc(param);
+    *(uint32_t*)pPeb->outputdata.outputDataBuffer = pFunc(param);
 
 halt:
 
@@ -213,6 +212,7 @@ halt:
 
 int entryPoint(uint64_t pebAddress)
 {
+    __security_init_cookie;
     pPeb = (HyperlightPEB*)pebAddress;
     int result = 0;
     if (NULL == pPeb)
@@ -221,33 +221,24 @@ int entryPoint(uint64_t pebAddress)
     }
     else
     {
-        if (NULL != *((const char*)&pPeb->code))
+        resetError();
+
+        if (*pPeb->pCode != 'J')
         {
-            if (*((const char*)&pPeb->code) != 'J')
-            {
-                setError(CODE_HEADER_NOT_SET, NULL);
-                goto halt;
-            }
-        }
-        else
-        {
-            if (*((const char**)&pPeb->pCode)[0] != 'J')
-            {
-                setError(CODE_HEADER_NOT_SET, NULL);
-                goto halt;
-            }
+            setError(CODE_HEADER_NOT_SET, NULL);
+            goto halt;
         }
 
         // Either in WHP partition (hyperlight) or in memory.  If in memory, outb_ptr will be non-NULL
-        outb_ptr = *(void**)pPeb->pOutb;
+        outb_ptr = pPeb->pOutb;
         if (outb_ptr)
             runningHyperlight = false;
-        HostFunctions* pFuncs = pPeb->funcs;
+        HostFunctions* pFuncs = pPeb->hostFunctionDefinitions.functionDefinitions;
         pFuncs->header.DispatchFunction = (uint64_t)DispatchFunction;
     }
 
     // Setup return values
-    *(int32_t*)&pPeb->output = result;
+    *(int32_t*)pPeb->outputdata.outputDataBuffer = result;
 
 halt:
 

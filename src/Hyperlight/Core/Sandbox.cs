@@ -27,10 +27,8 @@ namespace Hyperlight
         public static bool IsSupportedPlatform => IsLinux || IsWindows;
         Hypervisor hyperVisor;
         GCHandle? gCHandle;
-        readonly ulong size;
         readonly string guestBinaryPath;
-
-        readonly SandboxMemoryManager memoryManager;
+        readonly SandboxMemoryManager sandboxMemoryManager;
         readonly bool initialised;
         readonly bool recycleAfterRun;
         readonly bool runFromProcessMemory;
@@ -70,31 +68,54 @@ namespace Hyperlight
 
         public static int MaxPartitionsPerProcess => IsWindows ? HyperVSurrogateProcessManager.NumberOfProcesses : -1;
 
-        public Sandbox(ulong size, string guestBinaryPath) : this(size, guestBinaryPath, SandboxRunOptions.None, null, null)
+        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath) : this(sandboxMemoryConfiguaration, guestBinaryPath, SandboxRunOptions.None, null, null)
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, Action<ISandboxRegistration> initFunction = null) : this(size, guestBinaryPath, SandboxRunOptions.None, initFunction, null)
+        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, Action<ISandboxRegistration> initFunction, StringWriter writer = null) : this(sandboxMemoryConfiguaration, guestBinaryPath, SandboxRunOptions.None, initFunction, writer)
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, StringWriter writer = null) : this(size, guestBinaryPath, SandboxRunOptions.None, null, writer)
+        public Sandbox( string guestBinaryPath, Action<ISandboxRegistration> initFunction, StringWriter writer = null) : this(new SandboxMemoryConfiguration(), guestBinaryPath, SandboxRunOptions.None, initFunction, writer)
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction = null) : this(size, guestBinaryPath, runOptions, initFunction, null)
+        public Sandbox(string guestBinaryPath, Action<ISandboxRegistration> initFunction = null) : this(new SandboxMemoryConfiguration(), guestBinaryPath, SandboxRunOptions.None, initFunction, null)
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions) : this(size, guestBinaryPath, runOptions, null, null)
+        public Sandbox(string guestBinaryPath, StringWriter writer = null) : this(new SandboxMemoryConfiguration(), guestBinaryPath, SandboxRunOptions.None, null, writer)
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, StringWriter writer = null) : this(size, guestBinaryPath, runOptions, null, writer)
+        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, StringWriter writer = null) : this(sandboxMemoryConfiguaration, guestBinaryPath, SandboxRunOptions.None, null, writer)
         {
         }
 
-        public Sandbox(ulong size, string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction = null, StringWriter writer = null)
+        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction) : this(new SandboxMemoryConfiguration(), guestBinaryPath, runOptions, initFunction, null)
+        {
+        }
+
+        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction = null) : this(sandboxMemoryConfiguaration, guestBinaryPath, runOptions, initFunction, null)
+        {
+        }
+
+        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, StringWriter writer = null) : this(new SandboxMemoryConfiguration(), guestBinaryPath, runOptions, null, writer)
+        {
+        }
+
+        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, SandboxRunOptions runOptions, StringWriter writer) : this(sandboxMemoryConfiguaration, guestBinaryPath, runOptions, null, writer)
+        {
+        }
+        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction, StringWriter writer) : this(new SandboxMemoryConfiguration(), guestBinaryPath, runOptions, initFunction, writer)
+        {
+        }
+
+        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, SandboxRunOptions runOptions) : this(sandboxMemoryConfiguaration, guestBinaryPath, runOptions, null, null)
+        {
+        }
+
+        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguration, string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction = null, StringWriter writer = null)
         {
             if (!IsSupportedPlatform)
             {
@@ -107,8 +128,7 @@ namespace Hyperlight
             }
             this.writer = writer;
             this.guestBinaryPath = guestBinaryPath;
-            // TODO: Validate the size.
-            this.size = size;
+
             this.recycleAfterRun = (runOptions & SandboxRunOptions.RecycleAfterRun) == SandboxRunOptions.RecycleAfterRun;
             this.runFromProcessMemory = (runOptions & SandboxRunOptions.RunInProcess) == SandboxRunOptions.RunInProcess ||
                                         (runOptions & SandboxRunOptions.RunFromGuestBinary) == SandboxRunOptions.RunFromGuestBinary;
@@ -122,7 +142,7 @@ namespace Hyperlight
 
             this.guestInterfaceGlue = new HyperlightGuestInterfaceGlue(this);
 
-            this.memoryManager = new SandboxMemoryManager(size, runFromProcessMemory);
+            this.sandboxMemoryManager = new SandboxMemoryManager(sandboxMemoryConfiguration, runFromProcessMemory);
 
             LoadGuestBinary();
             SetUpHyperLightPEB();
@@ -146,7 +166,7 @@ namespace Hyperlight
 
             if (recycleAfterRun)
             {
-                memoryManager.SnapshotState();
+                sandboxMemoryManager.SnapshotState();
             }
 
             initialised = true;
@@ -155,14 +175,14 @@ namespace Hyperlight
 
         internal object DispatchCallFromHost(string functionName, object[] args)
         {
-            var pDispatchFunction = memoryManager.GetPointerToDispatchFunction();
+            var pDispatchFunction = sandboxMemoryManager.GetPointerToDispatchFunction();
 
             if (pDispatchFunction == 0)
             {
                 throw new ArgumentException($"{nameof(pDispatchFunction)} is null");
             }
 
-            memoryManager.WriteGuestFunctionCallDetails(functionName, args);
+            sandboxMemoryManager.WriteGuestFunctionCallDetails(functionName, args);
 
             if (runFromProcessMemory)
             {
@@ -176,21 +196,17 @@ namespace Hyperlight
 
             CheckForGuestError();
 
-            return memoryManager.GetReturnValue();
+            return sandboxMemoryManager.GetReturnValue();
         }
 
         public void CheckForGuestError()
         {
-            var guestError = memoryManager.GetGuestError();
-            if (guestError == null)
-            {
-                throw new ArgumentNullException(nameof(guestError));
-            }
+            (GuestErrorCode ErrorCode, string Message) guestError = sandboxMemoryManager.GetGuestError();
             if (guestError.ErrorCode != GuestErrorCode.NO_ERROR)
             {
                 if (guestError.ErrorCode == GuestErrorCode.OUTB_ERROR)
                 {
-                    var exception = memoryManager.GetHostException();
+                    var exception = sandboxMemoryManager.GetHostException();
                     if (exception != null)
                     {
                         if (exception.InnerException != null)
@@ -207,7 +223,7 @@ namespace Hyperlight
 
         void LoadGuestBinary()
         {
-            var peInfo = guestPEInfo.GetOrAdd(guestBinaryPath, (guestBinaryPath) => GetPEInfo(guestBinaryPath, SandboxMemoryManager.CodeAddress));
+            var peInfo = guestPEInfo.GetOrAdd(guestBinaryPath, (guestBinaryPath) => GetPEInfo(guestBinaryPath, SandboxMemoryLayout.GuestCodeAddress));
 
             if (runFromGuestBinary)
             {
@@ -229,18 +245,18 @@ namespace Hyperlight
                     throw new ApplicationException("Only one instance of Sandbox is allowed when running from guest binary");
                 }
 
-                memoryManager.LoadGuestBinaryUsingLoadLibrary(guestBinaryPath, peInfo);
+                sandboxMemoryManager.LoadGuestBinaryUsingLoadLibrary(guestBinaryPath, peInfo);
             }
             else
             {
-                memoryManager.LoadGuestBinaryIntoMemory(peInfo);
+                sandboxMemoryManager.LoadGuestBinaryIntoMemory(peInfo);
 
             }
         }
 
         void SetUpHyperLightPEB()
         {
-            hyperlightPEB = memoryManager.SetUpHyperLightPEB();
+            hyperlightPEB = sandboxMemoryManager.SetUpHyperLightPEB();
             CreateHyperlightPEBInMemory();
         }
 
@@ -295,15 +311,15 @@ namespace Hyperlight
         public void SetUpHyperVisorPartition()
         {
 
-            var rsp = memoryManager.SetUpHyperVisorPartition();
+            var rsp = sandboxMemoryManager.SetUpHyperVisorPartition();
 
             if (IsLinux)
             {
-                hyperVisor = new KVM(memoryManager.SourceAddress, SandboxMemoryManager.Pml4_addr, size, memoryManager.EntryPoint, rsp, HandleOutb, memoryManager.GetPebAddress());
+                hyperVisor = new KVM(sandboxMemoryManager.SourceAddress, SandboxMemoryLayout.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, sandboxMemoryManager.GetPebAddress());
             }
             else if (IsWindows)
             {
-                hyperVisor = new HyperV(memoryManager.SourceAddress, SandboxMemoryManager.Pml4_addr, size, memoryManager.EntryPoint, rsp, HandleOutb, memoryManager.GetPebAddress());
+                hyperVisor = new HyperV(sandboxMemoryManager.SourceAddress, SandboxMemoryLayout.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, sandboxMemoryManager.GetPebAddress());
             }
             else
             {
@@ -340,7 +356,7 @@ namespace Hyperlight
                     throw new NotSupportedException("Cannot run in process on Linux");
                     var callOutB = new CallOutb_Linux((_, _, value, port) => HandleOutb(port, value));
                     gCHandle = GCHandle.Alloc(callOutB);
-                    memoryManager.SetOutBAddress((long)Marshal.GetFunctionPointerForDelegate<CallOutb_Linux>(callOutB));
+                    sandboxMemoryManager.SetOutBAddress((long)Marshal.GetFunctionPointerForDelegate<CallOutb_Linux>(callOutB));
                     CallEntryPoint();
 
                 }
@@ -349,7 +365,7 @@ namespace Hyperlight
                     var callOutB = new CallOutb_Windows((port, value) => HandleOutb(port, value));
 
                     gCHandle = GCHandle.Alloc(callOutB);
-                    memoryManager.SetOutBAddress((long)Marshal.GetFunctionPointerForDelegate<CallOutb_Windows>(callOutB));
+                    sandboxMemoryManager.SetOutBAddress((long)Marshal.GetFunctionPointerForDelegate<CallOutb_Windows>(callOutB));
                     CallEntryPoint();
                 }
                 else
@@ -363,7 +379,7 @@ namespace Hyperlight
                 hyperVisor!.Initialise();
             }
 
-            returnValue = memoryManager.GetReturnValue();
+            returnValue = sandboxMemoryManager.GetReturnValue();
 
             if (returnValue != 0)
             {
@@ -374,8 +390,8 @@ namespace Hyperlight
 
         unsafe void CallEntryPoint()
         {
-            callEntryPoint = (delegate* unmanaged<IntPtr, int>)memoryManager.EntryPoint;
-            _ = callEntryPoint((IntPtr)memoryManager.GetPebAddress());
+            callEntryPoint = (delegate* unmanaged<IntPtr, int>)sandboxMemoryManager.EntryPoint;
+            _ = callEntryPoint((IntPtr)sandboxMemoryManager.GetPebAddress());
         }
 
         /// <summary>
@@ -452,7 +468,7 @@ namespace Hyperlight
 
             if (recycleAfterRun)
             {
-                memoryManager.RestoreState();
+                sandboxMemoryManager.RestoreState();
             }
 
             countRunCalls++;
@@ -469,7 +485,7 @@ namespace Hyperlight
                     case 101: // call Function
                         {
 
-                            var methodName = memoryManager.GetHostCallMethodName();
+                            var methodName = sandboxMemoryManager.GetHostCallMethodName();
                             ArgumentNullException.ThrowIfNull(methodName);
                             
                             if (!guestInterfaceGlue.MapHostFunctionNamesToMethodInfo.ContainsKey(methodName))
@@ -479,15 +495,15 @@ namespace Hyperlight
 
                             var mi = guestInterfaceGlue.MapHostFunctionNamesToMethodInfo[methodName];
                             var parameters = mi.methodInfo.GetParameters();
-                            var args = memoryManager.GetHostCallArgs(parameters);
+                            var args = sandboxMemoryManager.GetHostCallArgs(parameters);
                             var returnFromHost = (int)guestInterfaceGlue.DispatchCallFromGuest(methodName, args);
-                            memoryManager.WriteResponseFromHostMethodCall(returnFromHost);
+                            sandboxMemoryManager.WriteResponseFromHostMethodCall(returnFromHost);
                             break;
 
                         }
                     case 100: // Write with no carriage return
                         {
-                            var str = memoryManager.ReadStringOutput();
+                            var str = sandboxMemoryManager.ReadStringOutput();
                             if (this.writer != null)
                             {
                                 writer.Write(str);
@@ -511,7 +527,7 @@ namespace Hyperlight
                 {
                     throw;
                 }
-                memoryManager.WriteOutbException(ex, port);
+                sandboxMemoryManager.WriteOutbException(ex, port);
             }
         }
 
@@ -568,12 +584,12 @@ namespace Hyperlight
         {
             if (recycleAfterRun && initialised)
             {
-                memoryManager.RestoreState();
+                sandboxMemoryManager.RestoreState();
             }
             UpdateHyperlightPEBInMemory();
             if (recycleAfterRun && initialised)
             {
-                memoryManager.SnapshotState();
+                sandboxMemoryManager.SnapshotState();
             }
         }
 
@@ -615,7 +631,7 @@ namespace Hyperlight
 
                     gCHandle?.Free();
 
-                    memoryManager?.Dispose();
+                    sandboxMemoryManager?.Dispose();
 
                     hyperVisor?.Dispose();
 

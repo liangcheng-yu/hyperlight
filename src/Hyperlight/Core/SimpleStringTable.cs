@@ -11,9 +11,9 @@ namespace Hyperlight
         IntPtr ptrCurrent;
         readonly IntPtr ptrEnd;
         readonly Dictionary<string, ulong> existingValues = new();
-        readonly ulong offset;
+        readonly long offset;
 
-        public SimpleStringTable(IntPtr ptrStart, int length, ulong offset)
+        public SimpleStringTable(IntPtr ptrStart, int length, long offset)
         {
             ptrEnd = IntPtr.Add(ptrStart, length);
             ptrCurrent = ptrStart;
@@ -35,11 +35,11 @@ namespace Hyperlight
             }
 
             Marshal.Copy(data, 0, ptrCurrent, data.Length);
-            var adjustedAddress = (ulong)ptrCurrent - offset;
+            var adjustedAddress = (ulong)ptrCurrent - (ulong)offset;
             existingValues.Add(s, adjustedAddress);
 
             ptrCurrent = ptrNew;
-            return (ulong)adjustedAddress;
+            return adjustedAddress;
         }
     }
 }

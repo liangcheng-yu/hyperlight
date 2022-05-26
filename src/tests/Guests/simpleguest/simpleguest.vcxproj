@@ -89,15 +89,18 @@
       <EntryPointSymbol>entryPoint</EntryPointSymbol>
       <RandomizedBaseAddress>true</RandomizedBaseAddress>
       <SubSystem>Native</SubSystem>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+      <LinkErrorReporting>NoErrorReport</LinkErrorReporting>
     </Link>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
-      <BufferSecurityCheck>false</BufferSecurityCheck>
       <UseFullPaths>false</UseFullPaths>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <IntrinsicFunctions>false</IntrinsicFunctions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>

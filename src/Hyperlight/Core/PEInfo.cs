@@ -57,11 +57,22 @@ namespace Hyperlight
         const int IMAGE_LOADADDRESS_OFFSET = 0x30;
         const int IMAGE_RELOCATIONHEADER_OFFSET = 0xB0;
         const int IMAGE_PE32PLUS = 0x20B;
+        const int IMAGE_STACK_RESERVE = 0x60;
+        const int IMAGE_STACK_COMMIT = 0x68;
+        const int IMAGE_HEAP_RESERVE = 0x70;
+        const int IMAGE_HEAP_COMMIT = 0x78;
+
         public ulong PrefferedLoadAddress;
         public uint EntryPointOffset;
         public readonly byte[] Payload;
         public readonly byte[] HyperVisorPayload;
         public int RelocationHeaderOffset;
+
+        public long HeapReserve { get; init; }
+        public long HeapCommit { get; init; }
+        public long StackReserve { get; init; }
+        public long StackCommit { get; init; }
+
 
         internal PEInfo(string guestBinaryPath, ulong hyperVisorCodeAddress)
         {
@@ -105,6 +116,11 @@ namespace Hyperlight
             {
                 throw new ArgumentException($"File {guestBinaryPath} is not a PE32+ formatted file");
             }
+
+            StackReserve = BitConverter.ToInt64(Payload, e_lfanew + IMAGE_STACK_RESERVE);
+            StackCommit = BitConverter.ToInt64(Payload, e_lfanew + IMAGE_STACK_COMMIT);
+            HeapReserve = BitConverter.ToInt64(Payload, e_lfanew + IMAGE_HEAP_RESERVE);
+            HeapCommit = BitConverter.ToInt64(Payload, e_lfanew + IMAGE_HEAP_COMMIT);
 
             EntryPointOffset = BitConverter.ToUInt32(Payload, e_lfanew + IMAGE_ENTRYPOINT_OFFSET);
             PrefferedLoadAddress = BitConverter.ToUInt64(Payload, e_lfanew + IMAGE_LOADADDRESS_OFFSET);

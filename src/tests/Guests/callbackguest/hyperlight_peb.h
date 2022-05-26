@@ -1,25 +1,63 @@
 #pragma once
 #include <stdint.h>
 
-//TODO: Optmise this so it doesnt use fixed amounts of memory.
-
 typedef struct
 {
     uint64_t errorNo;
-    char message[256];
+    uint64_t messageSize;
+    char* message;
 
 } GuestError;
 
 typedef struct
 {
-    uint8_t funcs[4096];
-    uint8_t hostException[4096];
-    GuestError error;
-    uint8_t pCode[8];
-    uint8_t pOutb[16];
-    uint8_t input[65536];
-    uint8_t output[65536];
-    uint8_t code;
+    uint64_t functionDefinitionSize;
+    void* functionDefinitions;
+} HostFunctionDefinitions;
+
+typedef struct
+{
+    uint64_t hostExceptionSize;
+
+} HostException;
+
+typedef struct
+{
+    uint64_t inputDataSize;
+    void* inputDataBuffer;
+
+} InputData;
+
+typedef struct
+{
+    uint64_t outputDataSize;
+    void* outputDataBuffer;
+
+} OutputData;
+
+typedef struct
+{
+    uint64_t guestHeapSize;
+    void* guestHeapBuffer;
+} GuestHeapData;
+
+typedef struct
+{
+    uint64_t minStackAddress;
+
+} GuestStackData;
+
+typedef struct
+{
+    HostFunctionDefinitions hostFunctionDefinitions;
+    HostException hostException;
+    GuestError guestError;
+    char* pCode;
+    void* pOutb;
+    InputData inputdata;
+    OutputData outputdata;
+    GuestHeapData guestheapData;
+    GuestStackData gueststackData;
 } HyperlightPEB;
 
 typedef struct
