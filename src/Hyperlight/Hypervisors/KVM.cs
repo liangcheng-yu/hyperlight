@@ -11,7 +11,7 @@ namespace Hyperlight.Hypervisors
         readonly IntPtr pRun = IntPtr.Zero;
         readonly int vcpufd = -1;
         readonly int vmfd = -1;
-        internal KVM(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, ulong pebAddress) : base(sourceAddress, entryPoint, rsp, outb, pebAddress)
+        internal KVM(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, Action handleMemoryAccess, ulong pebAddress) : base(sourceAddress, entryPoint, rsp, outb, handleMemoryAccess, pebAddress)
         {
             if (!LinuxKVM.IsHypervisorPresent())
             {
@@ -153,10 +153,21 @@ namespace Hyperlight.Hypervisors
                             0
                         );
                         break;
+                    case LinuxKVM.KVM_EXIT_MMIO:
+                        HandleMemoryAccess();
+                        ThrowExitException(run);
+                        break;
                     default:
-                        throw new Exception($"Unknown exit_reason = {run.exit_reason}");
+                        ThrowExitException(run);
+                        break;
                 }
             }
+        }
+
+        private void ThrowExitException(LinuxKVM.KVM_RUN run)
+        {
+            //TODO: Improve exception data;
+            throw new HyperlightException($"Unknown KVM exit_reason = {run.exit_reason}");
         }
 
         internal override void Initialise()

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Threading;
 using Hyperlight.Core;
 using Hyperlight.Hypervisors;
@@ -27,6 +28,7 @@ namespace Hyperlight
         public static bool IsSupportedPlatform => IsLinux || IsWindows;
         Hypervisor hyperVisor;
         GCHandle? gCHandle;
+        byte[] stackGuard;
         readonly string guestBinaryPath;
         readonly SandboxMemoryManager sandboxMemoryManager;
         readonly bool initialised;
@@ -76,7 +78,7 @@ namespace Hyperlight
         {
         }
 
-        public Sandbox( string guestBinaryPath, Action<ISandboxRegistration> initFunction, StringWriter writer = null) : this(new SandboxMemoryConfiguration(), guestBinaryPath, SandboxRunOptions.None, initFunction, writer)
+        public Sandbox(string guestBinaryPath, Action<ISandboxRegistration> initFunction, StringWriter writer = null) : this(new SandboxMemoryConfiguration(), guestBinaryPath, SandboxRunOptions.None, initFunction, writer)
         {
         }
 
@@ -146,6 +148,7 @@ namespace Hyperlight
 
             LoadGuestBinary();
             SetUpHyperLightPEB();
+            SetUpStackGuard();
 
             // If we are NOT running from process memory, we have to setup a Hypervisor partition
             if (!runFromProcessMemory)
@@ -194,30 +197,55 @@ namespace Hyperlight
                 hyperVisor!.DispatchCallFromHost(pDispatchFunction);
             }
 
+            if (!CheckStackGuard())
+            {
+                throw new StackOverflowException($"Calling {functionName}");
+            }
+
             CheckForGuestError();
 
             return sandboxMemoryManager.GetReturnValue();
         }
 
+        internal void HandleMMIOExit()
+        {
+            if (!CheckStackGuard())
+            {
+                throw new StackOverflowException();
+            }
+
+        }
+
         public void CheckForGuestError()
         {
             (GuestErrorCode ErrorCode, string Message) guestError = sandboxMemoryManager.GetGuestError();
-            if (guestError.ErrorCode != GuestErrorCode.NO_ERROR)
+
+            switch (guestError.ErrorCode)
             {
-                if (guestError.ErrorCode == GuestErrorCode.OUTB_ERROR)
-                {
-                    var exception = sandboxMemoryManager.GetHostException();
-                    if (exception != null)
+                case GuestErrorCode.NO_ERROR:
+                    break;
+                case GuestErrorCode.OUTB_ERROR:
                     {
-                        if (exception.InnerException != null)
+                        var exception = sandboxMemoryManager.GetHostException();
+                        if (exception != null)
                         {
-                            throw exception.InnerException;
+                            if (exception.InnerException != null)
+                            {
+                                throw exception.InnerException;
+                            }
+                            throw exception;
                         }
-                        throw exception;
+                        throw new ApplicationException("OutB Error");
                     }
-                }
-                var message = $"{guestError.ErrorCode}:{guestError.Message}";
-                throw new HyperlightException(message);
+                case GuestErrorCode.STACK_OVERFLOW:
+                    {
+                        throw new StackOverflowException();
+                    }
+                default:
+                    {
+                        var message = $"{guestError.ErrorCode}:{guestError.Message}";
+                        throw new HyperlightException(message);
+                    }
             }
         }
 
@@ -252,6 +280,17 @@ namespace Hyperlight
                 sandboxMemoryManager.LoadGuestBinaryIntoMemory(peInfo);
 
             }
+        }
+
+        void SetUpStackGuard()
+        {
+            stackGuard = RandomNumberGenerator.GetBytes(16);
+            sandboxMemoryManager.SetStackGuard(stackGuard);
+        }
+
+        bool CheckStackGuard()
+        {
+           return sandboxMemoryManager.CheckStackGuard(stackGuard);
         }
 
         void SetUpHyperLightPEB()
@@ -315,11 +354,11 @@ namespace Hyperlight
 
             if (IsLinux)
             {
-                hyperVisor = new KVM(sandboxMemoryManager.SourceAddress, SandboxMemoryLayout.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, sandboxMemoryManager.GetPebAddress());
+                hyperVisor = new KVM(sandboxMemoryManager.SourceAddress, SandboxMemoryLayout.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, HandleMMIOExit, sandboxMemoryManager.GetPebAddress());
             }
             else if (IsWindows)
             {
-                hyperVisor = new HyperV(sandboxMemoryManager.SourceAddress, SandboxMemoryLayout.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, sandboxMemoryManager.GetPebAddress());
+                hyperVisor = new HyperV(sandboxMemoryManager.SourceAddress, SandboxMemoryLayout.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, HandleMMIOExit, sandboxMemoryManager.GetPebAddress());
             }
             else
             {
@@ -379,11 +418,16 @@ namespace Hyperlight
                 hyperVisor!.Initialise();
             }
 
+            if (!CheckStackGuard())
+            {
+                throw new StackOverflowException($"Init Function Failed");
+            }
+
             returnValue = sandboxMemoryManager.GetReturnValue();
 
             if (returnValue != 0)
             {
-                //TODO: Convert this to a specific exception
+                CheckForGuestError();
                 throw new ApplicationException($"Init Function Failed with error code:{returnValue}");
             }
         }
@@ -487,7 +531,7 @@ namespace Hyperlight
 
                             var methodName = sandboxMemoryManager.GetHostCallMethodName();
                             ArgumentNullException.ThrowIfNull(methodName);
-                            
+
                             if (!guestInterfaceGlue.MapHostFunctionNamesToMethodInfo.ContainsKey(methodName))
                             {
                                 throw new ArgumentException($"{methodName}, Could not find host method name.");

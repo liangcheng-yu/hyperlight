@@ -1,10 +1,10 @@
 using System;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Hyperlight.Native;
 using System.Text;
 using Newtonsoft.Json;
-using System.Net.Http;
 
 namespace Hyperlight.Core
 {
@@ -94,6 +94,20 @@ namespace Hyperlight.Core
                 Marshal.WriteInt64(sandboxMemoryLayout.GetCodePointerAddress(SourceAddress), (long)SandboxMemoryLayout.GuestCodeAddress);
             }
 
+        }
+
+        internal void SetStackGuard(byte[] cookie)
+        {
+            var stackAddress = sandboxMemoryLayout.GetTopOfStackAddress(SourceAddress);
+            Marshal.Copy(cookie, 0, stackAddress, cookie.Length);
+        }
+
+        internal bool CheckStackGuard(byte[] cookie)
+        {
+            var guestCookie = new byte[cookie.Length];
+            var stackAddress = sandboxMemoryLayout.GetTopOfStackAddress(SourceAddress);
+            Marshal.Copy(stackAddress,guestCookie,0,guestCookie.Length);
+            return guestCookie.SequenceEqual(cookie);
         }
 
         internal HyperlightPEB SetUpHyperLightPEB()
@@ -313,7 +327,7 @@ namespace Hyperlight.Core
 
             var hyperLightException = ex.GetType() == typeof(HyperlightException) ? ex as HyperlightException : new HyperlightException("OutB Error", ex);
             var hostExceptionPointer = sandboxMemoryLayout.GetHostExceptionAddress(SourceAddress);
-            
+
             // TODO: Switch to System.Text.Json - requires custom serialisation as default throws an exception when serialising if an inner exception is present
             // as it contains a Type: System.NotSupportedException: Serialization and deserialization of 'System.Type' instances are not supported and should be avoided since they can lead to security issues.
             // https://docs.microsoft.com/en-us/dotnet/standard/serialization/system-text-json-converters-how-to?pivots=dotnet-6-0
