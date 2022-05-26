@@ -184,7 +184,8 @@ namespace Hyperlight.Tests
             public Func<int, int>? GuestMethod = null;
         }
 
-        [Fact]
+
+        [FactSkipIfNotWindowsAndNoHypervisor]
         public void Test_Heap_Size()
         {
             var options = GetSandboxRunOptions();
@@ -210,10 +211,15 @@ namespace Hyperlight.Tests
         }
 
 
-        [Fact]
+        [FactSkipIfNotWindowsAndNoHypervisor]
         public void Test_Stack_Size()
         {
             var options = GetSandboxRunOptions();
+            if (options.Length == 0)
+            {
+                return;
+            }
+
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
@@ -243,8 +249,8 @@ namespace Hyperlight.Tests
             }
         }
 
-        [Fact]
-        public void Test_Memory_Size()
+        [FactSkipIfNotWindows]
+        public void Test_Memory_Size_From_GuestBinary()
         {
             var option = SandboxRunOptions.RunFromGuestBinary;
             var path = AppDomain.CurrentDomain.BaseDirectory;
@@ -260,8 +266,16 @@ namespace Hyperlight.Tests
                 Assert.Equal(expectedSize, size);
             }
 
-            option = SandboxRunOptions.RunInProcess;
-            expectedSize = GetExpectedMemorySize(sandboxMemoryConfiguration, guestBinaryPath, option);
+        }
+        [Fact]
+        public void Test_Memory_Size()
+        {
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration();
+            var option = SandboxRunOptions.RunInProcess;
+            ulong expectedSize = GetExpectedMemorySize(sandboxMemoryConfiguration, guestBinaryPath, option);
             using (var sandbox = new Sandbox(sandboxMemoryConfiguration, guestBinaryPath, option))
             {
                 var size = GetMemorySize(sandbox);
@@ -870,7 +884,6 @@ namespace Hyperlight.Tests
                 var binary = "simpleguest.exe";
                 var path = AppDomain.CurrentDomain.BaseDirectory;
                 var guestBinaryPath = Path.Combine(path, binary);
-                ulong size = 1024 * 1024;
                 var ex = Record.Exception(() =>
                 {
                     var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option);
