@@ -244,7 +244,6 @@ namespace Hyperlight.Tests
                 fieldInfo = sandboxMemoryLayout!.GetType().GetField("stackSize", bindingFlags);
                 Assert.NotNull(fieldInfo);
                 long configuredStackSize = (long)fieldInfo!.GetValue(sandboxMemoryLayout);
-                Assert.NotNull(configuredStackSize);
                 Assert.Equal(stackSize, configuredStackSize);
             }
         }
@@ -267,19 +266,43 @@ namespace Hyperlight.Tests
             }
 
         }
-        [Fact]
-        public void Test_Memory_Size()
+        [FactSkipIfNotWindows]
+        public void Test_Memory_Size_InProcess()
         {
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
             var sandboxMemoryConfiguration = new SandboxMemoryConfiguration();
-            var option = SandboxRunOptions.RunInProcess;
-            ulong expectedSize = GetExpectedMemorySize(sandboxMemoryConfiguration, guestBinaryPath, option);
-            using (var sandbox = new Sandbox(sandboxMemoryConfiguration, guestBinaryPath, option))
+            var options = new SandboxRunOptions[] { SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
+
+            foreach (var option in options)
             {
-                var size = GetMemorySize(sandbox);
-                Assert.Equal(expectedSize, size);
+                ulong expectedSize = GetExpectedMemorySize(sandboxMemoryConfiguration, guestBinaryPath, option);
+                using (var sandbox = new Sandbox(sandboxMemoryConfiguration, guestBinaryPath, option))
+                {
+                    var size = GetMemorySize(sandbox);
+                    Assert.Equal(expectedSize, size);
+                }
+            }
+        }
+
+        [FactSkipIfHypervisorNotPresent]
+        public void Test_Memory_Size_InHypervisor()
+        {
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration();
+            var options = new SandboxRunOptions[] { SandboxRunOptions.None, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
+
+            foreach (var option in options)
+            {
+                ulong expectedSize = GetExpectedMemorySize(sandboxMemoryConfiguration, guestBinaryPath, option);
+                using (var sandbox = new Sandbox(sandboxMemoryConfiguration, guestBinaryPath, option))
+                {
+                    var size = GetMemorySize(sandbox);
+                    Assert.Equal(expectedSize, size);
+                }
             }
         }
 
@@ -1228,7 +1251,6 @@ namespace Hyperlight.Tests
                         Assert.NotNull(del);
                         var args = new object[] { message };
                         var result = sandbox.CallGuest<int>(() => { return (int)del!.DynamicInvoke(args); });
-                        Assert.NotNull(result);
                         Assert.Equal<int>(expectedMessage.Length, (int)result!);
                         Assert.Equal(expectedMessage, builder.ToString());
                     }
