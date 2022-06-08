@@ -45,7 +45,7 @@ namespace Hyperlight
         private bool disposedValue; // To detect redundant calls
         HyperlightPEB hyperlightPEB;
 
-        unsafe delegate* unmanaged<IntPtr, int> callEntryPoint;
+        unsafe delegate* unmanaged<IntPtr, ulong, int> callEntryPoint;
 
         // Platform dependent delegate for callbacks from native code when native code is calling 'outb' functionality
         // On Linux, delegates passed from .NET core to native code expect arguments to be passed RDI, RSI, RDX, RCX.
@@ -434,8 +434,15 @@ namespace Hyperlight
 
         unsafe void CallEntryPoint()
         {
-            callEntryPoint = (delegate* unmanaged<IntPtr, int>)sandboxMemoryManager.EntryPoint;
-            _ = callEntryPoint((IntPtr)sandboxMemoryManager.GetPebAddress());
+            var seedBytes = new byte[8];
+            using (var randomNumberGenerator = RandomNumberGenerator.Create())
+            {
+                randomNumberGenerator.GetBytes(seedBytes);
+            }
+            var seed = BitConverter.ToUInt64(seedBytes);
+
+            callEntryPoint = (delegate* unmanaged<IntPtr, ulong, int>)sandboxMemoryManager.EntryPoint;
+            _ = callEntryPoint((IntPtr)sandboxMemoryManager.GetPebAddress(), seed);
         }
 
         /// <summary>

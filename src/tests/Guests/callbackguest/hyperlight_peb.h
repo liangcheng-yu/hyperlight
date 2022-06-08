@@ -49,6 +49,7 @@ typedef struct
 
 typedef struct
 {
+    uint64_t security_cookie_init;
     HostFunctionDefinitions hostFunctionDefinitions;
     HostException hostException;
     GuestError guestError;

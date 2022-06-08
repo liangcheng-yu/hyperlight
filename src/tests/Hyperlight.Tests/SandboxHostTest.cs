@@ -192,6 +192,11 @@ namespace Hyperlight.Tests
             public Func<int, int>? SmallVar;
         }
 
+        public class BufferOverrunTests
+        {
+            public Func<string, int>? BufferOverrun;
+        }
+
         [FactSkipIfNotWindowsAndNoHypervisor]
         public void Test_Heap_Size()
         {
@@ -288,6 +293,45 @@ namespace Hyperlight.Tests
                 {
                     var size = GetMemorySize(sandbox);
                     Assert.Equal(expectedSize, size);
+                }
+            }
+        }
+        [Fact]
+        public void Test_Buffer_Overrun()
+        {
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration();
+            var options = GetSandboxRunOptions();
+            foreach (var option in options)
+            {
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
+                {
+                    var functions = new BufferOverrunTests();
+                    sandbox.BindGuestFunction("BufferOverrun", functions);
+                    var ex = Record.Exception(() =>
+                    {
+                        string arg = "This is a test and it should cause a GS_CHECK_FAILED error";
+                        functions.BufferOverrun!(arg);
+                    });
+                    Assert.NotNull(ex);
+                    Assert.IsType<Hyperlight.Core.HyperlightException>(ex);
+                    Assert.Equal("GS_CHECK_FAILED:", ex.Message);
+                }
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
+                {
+                    var functions = new BufferOverrunTests();
+                    sandbox.BindGuestFunction("BufferOverrun", functions);
+                    var result = 0;
+                    var ex = Record.Exception(() =>
+                    {
+                        string arg = "This should work!";
+                        result = functions.BufferOverrun!(arg);
+                    });
+                    Assert.Null(ex);
+
+                    Assert.Equal(0, result);
                 }
             }
         }

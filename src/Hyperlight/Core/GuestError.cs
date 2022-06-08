@@ -14,6 +14,7 @@ namespace Hyperlight.Core
         OUTB_ERROR = 7,  // Error in OutB Function
         UNKNOWN_ERROR = 8,  // The guest error is unknown.
         STACK_OVERFLOW = 9,  // Guest stack allocations caused stack overflow
+        GS_CHECK_FAILED = 10,  // __security_check_cookie failed
     }
 
 

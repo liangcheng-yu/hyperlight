@@ -10,10 +10,7 @@
 #pragma message("GUEST_STACK_SIZE is not defined.")
 #define  GUEST_STACK_SIZE 32768
 #endif
-// this section us used for the security cookie only, using it allows the Hyperlight Host (Via PEInfo) to easily locate and update the cookie value prior to executing code.
-#pragma data_seg(push, stack, ".secdata")
-uintptr_t __security_cookie=0xFFFFFFFFFFFFFFFF;
-#pragma data_seg(pop, stack)
+uintptr_t __security_cookie;
 
 jmp_buf jmpbuf;
 HyperlightPEB* pPeb;
@@ -108,21 +105,6 @@ int strcmp(char string1[], char string2[])
     }
 }
 
-void __report_gsfailure()
-{
-
-}
-
-void __GSHandlerCheck()
-{
-
-}
-
-void __security_check_cookie()
-{
-
-}
-
 int printOutput(const char* message)
 {
     int result = strlen(message);
@@ -140,6 +122,17 @@ int stackAllocate(int length)
     void* buffer = _alloca(length);
 
     return length;
+}
+
+int bufferOverrun(const char* str)
+{
+    char buffer[17];
+    int length = strlen(str);
+
+    // will overrun if length > 10;
+    strncpy(buffer, str, length);
+
+    return 17 - length;
 }
 
 int stackOverflow(int i)
@@ -169,6 +162,7 @@ struct FuncEntry funcTable[] = {
     {"PrintOutput", &printOutput},
     {"StackAllocate", &stackAllocate},
     {"StackOverflow", &stackOverflow},
+    {"BufferOverrun", &bufferOverrun},
     {"LargeVar", &largeVar},
     {"SmallVar", &smallVar},
     {NULL, NULL} };
@@ -273,36 +267,38 @@ void DispatchFunction()
     halt();  // This is a nop if we were just loaded into memory
 }
 
-#pragma optimize("", on)
-int entryPoint(uint64_t pebAddress)
+void report_gsfailure()
 {
+    setError(GS_CHECK_FAILED, NULL);
+}
+
+#pragma optimize("", on)
+__declspec(safebuffers)int entryPoint(uint64_t pebAddress, uint64_t seed)
+{
+    pPeb = (HyperlightPEB*)pebAddress;
+    if (NULL == pPeb)
+    {
+        return -1;
+    }
+
+    __security_init_cookie();
+    resetError();
+
     // setjmp is used to capture state so that if an error occurs then lngjmp is called and  control returns to this point , the if returns false and the program exits/halts
     if (!setjmp(jmpbuf))
-    {
-        __security_init_cookie;
-        pPeb = (HyperlightPEB*)pebAddress;
-       
-        if (NULL == pPeb)
+    {    
+        if (*pPeb->pCode != 'J')
         {
-            return -1;
-        }
-        else
-        {
-            resetError();
-
-            if (*pPeb->pCode != 'J')
-            {
-                setError(CODE_HEADER_NOT_SET, NULL);
-            }
-
-            // Either in WHP partition (hyperlight) or in memory.  If in memory, outb_ptr will be non-NULL
-            outb_ptr = pPeb->pOutb;
-            if (outb_ptr)
-                runningHyperlight = false;
-            HostFunctions* pFuncs = pPeb->hostFunctionDefinitions.functionDefinitions;
-            pFuncs->header.DispatchFunction = (uint64_t)DispatchFunction;
+            setError(CODE_HEADER_NOT_SET, NULL);
         }
 
+        // Either in WHP partition (hyperlight) or in memory.  If in memory, outb_ptr will be non-NULL
+        outb_ptr = pPeb->pOutb;
+        if (outb_ptr)
+            runningHyperlight = false;
+        HostFunctions* pFuncs = pPeb->hostFunctionDefinitions.functionDefinitions;
+        pFuncs->header.DispatchFunction = (uint64_t)DispatchFunction;
+        
         // Setup return values
         *(int32_t*)pPeb->outputdata.outputDataBuffer = 0;
     }
