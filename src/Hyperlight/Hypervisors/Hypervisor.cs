@@ -7,11 +7,13 @@ namespace Hyperlight.Hypervisors
         protected readonly ulong EntryPoint;
         protected ulong rsp;
         protected Action<ushort, byte> handleoutb;
+        protected Action handleMemoryAccess;
         protected IntPtr sourceAddress;
         protected ulong pebAddress;
 
-        internal Hypervisor(IntPtr sourceAddress, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, ulong pebAddress)
+        internal Hypervisor(IntPtr sourceAddress, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, Action handleMemoryAccess, ulong pebAddress)
         {
+            this.handleMemoryAccess = handleMemoryAccess;
             this.handleoutb = outb;
             this.EntryPoint = entryPoint;
             this.rsp = rsp;
@@ -25,6 +27,10 @@ namespace Hyperlight.Hypervisors
         internal void HandleOutb(ushort port, byte value)
         {
             handleoutb(port, value);
+        }
+        internal void HandleMemoryAccess()
+        {
+            handleMemoryAccess();
         }
         public abstract void Dispose();
     }

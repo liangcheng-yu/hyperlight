@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
 using Hyperlight.Core;
 using Hyperlight.Native;
 
@@ -21,7 +22,7 @@ namespace Hyperlight.Hypervisors
         readonly bool virtualProcessorCreated;
         readonly ulong size;
 
-        internal HyperV(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, ulong pebAddress) : base(sourceAddress, entryPoint, rsp, outb, pebAddress)
+        internal HyperV(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, Action handleMemoryAccess, ulong pebAddress) : base(sourceAddress, entryPoint, rsp, outb, handleMemoryAccess, pebAddress)
         {
             this.size = size;
             WindowsHypervisorPlatform.WHvCreatePartition(out hPartition);
@@ -111,26 +112,47 @@ namespace Hyperlight.Hypervisors
                     }
                 }
 
-                if (exitContext.ExitReason == WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_REASON.WHvRunVpExitReasonX64IoPortAccess)
+                switch (exitContext.ExitReason)
                 {
-                    HandleOutb(exitContext.IoPortAccess.PortNumber, 0/*todo add value*/);
+                    case WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_REASON.WHvRunVpExitReasonX64IoPortAccess:
+                        {
+                            HandleOutb(exitContext.IoPortAccess.PortNumber, 0/*todo add value*/);
 
-                    // Move rip forward to next instruction (size of current instruction in lower byte of InstructionLength_Cr8_Reserved)
-                    ripValue[0].low = exitContext.VpContext.Rip + (ulong)(exitContext.VpContext.InstructionLength_Cr8_Reserved & 0xF);
-                    WindowsHypervisorPlatform.WHvSetVirtualProcessorRegisters(hPartition, 0, ripName, 1, ripValue);
+                            // Move rip forward to next instruction (size of current instruction in lower byte of InstructionLength_Cr8_Reserved)
+                            ripValue[0].low = exitContext.VpContext.Rip + (ulong)(exitContext.VpContext.InstructionLength_Cr8_Reserved & 0xF);
+                            WindowsHypervisorPlatform.WHvSetVirtualProcessorRegisters(hPartition, 0, ripName, 1, ripValue);
+                            break;
+                        }
+                    case WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_REASON.WHvRunVpExitReasonX64Halt:
+                        {
+                            break;
+                        }
+                    case WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_REASON.WHvRunVpExitReasonMemoryAccess:
+                        {
+                            HandleMemoryAccess();
+                            ThrowExitException(exitContext);
+                            break;
+                        }
+                    default:
+                        {
+                            ThrowExitException(exitContext);
+                            break;
+                        }
                 }
-                else if (exitContext.ExitReason != WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_REASON.WHvRunVpExitReasonX64Halt)
-                {
-                    var v2 = new WindowsHypervisorPlatform.MyUInt128[registerNames.Length];
-                    WindowsHypervisorPlatform.WHvGetVirtualProcessorRegisters(hPartition, 0, registerNames, (uint)registerNames.Length, v2);
-                    for (var i = 0; i < v2.Length; i++)
-                    {
-                        //TODO: put this in an exception.
-                        Console.WriteLine($"{registerNames[i]} - {v2[i].low:X16}");
-                    }
-                    throw new Exception($"Did not recieve a halt as expected - Received {exitContext.ExitReason}");
-                }
+
             } while (exitContext.ExitReason != WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_REASON.WHvRunVpExitReasonX64Halt);
+        }
+
+        private void ThrowExitException(WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_CONTEXT exitContext)
+        {
+            var v2 = new WindowsHypervisorPlatform.MyUInt128[registerNames.Length];
+            WindowsHypervisorPlatform.WHvGetVirtualProcessorRegisters(hPartition, 0, registerNames, (uint)registerNames.Length, v2);
+            StringBuilder context = new($"Did not recieve a halt from Hypervisor as expected - Received {exitContext.ExitReason}");
+            for (var i = 0; i < v2.Length; i++)
+            {
+                context.AppendLine($"{registerNames[i]} - {v2[i].low:X16}");
+            }
+            throw new HyperlightException(context.ToString());
         }
 
         internal override void Initialise()

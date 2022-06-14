@@ -184,6 +184,18 @@ namespace Hyperlight.Tests
             public Func<int, int>? GuestMethod = null;
         }
 
+        public class StackOverflowTests
+        {
+            public Func<int, int>? StackAllocate;
+            public Func<int, int>? StackOverflow;
+            public Func<int, int>? LargeVar;
+            public Func<int, int>? SmallVar;
+        }
+
+        public class BufferOverrunTests
+        {
+            public Func<string, int>? BufferOverrun;
+        }
 
         [FactSkipIfNotWindowsAndNoHypervisor]
         public void Test_Heap_Size()
@@ -195,19 +207,20 @@ namespace Hyperlight.Tests
             // Heap size is set on the assembly metadata and linker arguments using the build property GUESTHEAPSIZE
             // this is set in \src\tests\Directory.Build.props
             // the value used can be changed by running msbuild with /p:GUESTHEAPSIZE=VALUE
-            var assemblyHeapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
-            Assert.NotNull(assemblyHeapSize);
-            Assert.True(int.TryParse(assemblyHeapSize, out int heapSize));
-
+            var heapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
+           
             using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(), guestBinaryPath, options[0]))
             {
                 CheckSize(heapSize, sandbox, "GetHeapSizeAddress");
             }
         }
 
-        public string GetAssemblyMetadataAttribute(string name)
+        public int GetAssemblyMetadataAttribute(string name)
         {
-            return GetType().Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().Where(a=>a.Key==name).Select(a=>a.Value).FirstOrDefault();
+            var value = GetType().Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().Where(a=>a.Key==name).Select(a=>a.Value).FirstOrDefault();
+            Assert.NotNull(value);
+            Assert.True(int.TryParse(value, out int intValue));
+            return intValue;
         }
 
 
@@ -226,10 +239,8 @@ namespace Hyperlight.Tests
             // Stack size is set on the assembly metadata and linker arguments using the build property GUESTSTACKSIZE
             // this is set in \src\tests\Directory.Build.props
             // the value used can be changed by running msbuild with /p:GUESTSTACKSIZE=VALUE
-            var assemblyStackSize = GetAssemblyMetadataAttribute("GUESTSTACKSIZE");
-            Assert.NotNull(assemblyStackSize);
-            Assert.True(int.TryParse(assemblyStackSize, out int stackSize));
-
+            var stackSize = GetAssemblyMetadataAttribute("GUESTSTACKSIZE");
+           
             using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(), guestBinaryPath, options[0]))
             {
                 var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance;
@@ -285,6 +296,141 @@ namespace Hyperlight.Tests
                 }
             }
         }
+        [Fact]
+        public void Test_Buffer_Overrun()
+        {
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration();
+            var options = GetSandboxRunOptions();
+            foreach (var option in options)
+            {
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
+                {
+                    var functions = new BufferOverrunTests();
+                    sandbox.BindGuestFunction("BufferOverrun", functions);
+                    var ex = Record.Exception(() =>
+                    {
+                        string arg = "This is a test and it should cause a GS_CHECK_FAILED error";
+                        functions.BufferOverrun!(arg);
+                    });
+                    Assert.NotNull(ex);
+                    Assert.IsType<Hyperlight.Core.HyperlightException>(ex);
+                    Assert.Equal("GS_CHECK_FAILED:", ex.Message);
+                }
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
+                {
+                    var functions = new BufferOverrunTests();
+                    sandbox.BindGuestFunction("BufferOverrun", functions);
+                    var result = 0;
+                    var ex = Record.Exception(() =>
+                    {
+                        string arg = "This should work!";
+                        result = functions.BufferOverrun!(arg);
+                    });
+                    Assert.Null(ex);
+
+                    Assert.Equal(0, result);
+                }
+            }
+        }
+
+        [FactSkipIfHypervisorNotPresent]
+        public void Test_Stack_Overflow()
+        {
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration();
+            var options = GetSandboxRunInHyperVisorOptions(); 
+            var size = GetAssemblyMetadataAttribute("GUESTSTACKSIZE") / 2;
+
+            // StackOverflow(int) function allocates a 16384 sized array and recursively calls itself int times
+            
+            var shouldNotOverflow = (GetAssemblyMetadataAttribute("GUESTSTACKSIZE") / 16384) - 2;
+            var shouldOverflow = shouldNotOverflow * 2;
+
+            foreach (var option in options)
+            {
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
+                {
+                    var functions = new StackOverflowTests();
+                    sandbox.BindGuestFunction("StackAllocate", functions);
+                    var ex = Record.Exception(() =>
+                    {
+                        int arg = 0;
+                        functions.StackAllocate!(arg);
+                    });
+                    Assert.NotNull(ex);
+                    Assert.IsType<System.StackOverflowException>(ex);
+                    Assert.Equal("Operation caused a stack overflow.", ex.Message);
+                }
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
+                {
+                    var functions = new StackOverflowTests();
+                    sandbox.BindGuestFunction("StackAllocate", functions);
+                    var result = functions.StackAllocate!(size);
+                    Assert.Equal(size, result);
+                }
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
+                {
+                    var functions = new StackOverflowTests();
+                    sandbox.BindGuestFunction("StackOverflow", functions);
+                    var ex = Record.Exception(() =>
+                    {
+                        var result = functions.StackOverflow!(shouldOverflow);
+                    });
+                    Assert.NotNull(ex);
+                    Assert.IsType<System.StackOverflowException>(ex);
+                    Assert.Equal("Operation caused a stack overflow.", ex.Message);
+                }
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
+                {
+                    var functions = new StackOverflowTests();
+                    sandbox.BindGuestFunction("StackOverflow", functions);
+                    var result = functions.StackOverflow!(shouldNotOverflow);
+                    Assert.Equal(-1, result);
+                }
+
+                // This test should overwrite the entire guest memory and cause a MMIO that should get detected as a stack overflow.
+
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
+                {
+                    var memorySize = GetMemorySize(sandbox);
+                    var iterations = (int)(memorySize / 16384) * 2;
+                    var functions = new StackOverflowTests();
+                    sandbox.BindGuestFunction("StackOverflow", functions);
+                    var ex = Record.Exception(() =>
+                    {
+                        var result = functions.StackOverflow!(iterations);
+                    });
+                    Assert.NotNull(ex);
+                    Assert.IsType<System.StackOverflowException>(ex);
+                    Assert.Equal("Operation caused a stack overflow.", ex.Message);
+                }
+                
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
+                {
+                    var functions = new StackOverflowTests();
+                    sandbox.BindGuestFunction("LargeVar", functions);
+                    var ex = Record.Exception(() =>
+                    {
+                        var result = functions.LargeVar!(0);
+                    });
+                    Assert.NotNull(ex);
+                    Assert.IsType<System.StackOverflowException>(ex);
+                    Assert.Equal("Operation caused a stack overflow.", ex.Message);
+                }
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
+                {
+                    var functions = new StackOverflowTests();
+                    sandbox.BindGuestFunction("SmallVar", functions);
+                    var result = functions.SmallVar!(0);
+                    Assert.Equal(1024, result);
+                }
+            }
+        }
 
         [FactSkipIfHypervisorNotPresent]
         public void Test_Memory_Size_InHypervisor()
@@ -330,13 +476,11 @@ namespace Hyperlight.Tests
             // Heap size and Stack size are set on the assembly metadata and linker arguments using the build property GUESTHEAPSIZE and GUESTSTACKSIZE
             // this is set in \src\tests\Directory.Build.props
             // the value used can be changed by running msbuild with /p:GUESTHEAPSIZE=VALUE
-            var assemblyHeapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
-            Assert.NotNull(assemblyHeapSize);
-            Assert.True(int.TryParse(assemblyHeapSize, out int heapSize));
+            var heapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
+           
             // the value used can be changed by running msbuild with /p:GUESTSTACKSIZE=VALUE
-            var assemblyStackSize = GetAssemblyMetadataAttribute("GUESTSTACKSIZE");
-            Assert.NotNull(assemblyStackSize);
-            Assert.True(int.TryParse(assemblyStackSize, out int stackSize));
+            var stackSize = GetAssemblyMetadataAttribute("GUESTSTACKSIZE");
+
             long pageTableSize = 0x3000;
             var headerSize = 120;
             ulong totalSize;

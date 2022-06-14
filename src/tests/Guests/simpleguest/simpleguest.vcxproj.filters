@@ -27,4 +27,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <MASM Include="jmp.asm">
+      <Filter>Source Files</Filter>
+    </MASM>
+    <MASM Include="__chkstk.asm">
+      <Filter>Source Files</Filter>
+    </MASM>
+    <MASM Include="__security_cookie.asm">
+      <Filter>Source Files</Filter>
+    </MASM>
+  </ItemGroup>
 </Project>

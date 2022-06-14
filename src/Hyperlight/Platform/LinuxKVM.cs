@@ -57,6 +57,7 @@ namespace Hyperlight.Native
 
         public const int KVM_EXIT_IO = 2;
         public const int KVM_EXIT_HLT = 5;
+        public const int KVM_EXIT_MMIO = 6;
 
         public const int KVM_EXIT_IO_IN = 0;
         public const int KVM_EXIT_IO_OUT = 1;

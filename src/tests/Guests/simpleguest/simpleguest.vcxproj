@@ -67,7 +67,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
-      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <BufferSecurityCheck>true</BufferSecurityCheck>
       <UseFullPaths>false</UseFullPaths>
       <DebugInformationFormat>None</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
@@ -98,7 +98,7 @@
       <UseFullPaths>false</UseFullPaths>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
-      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <BufferSecurityCheck>true</BufferSecurityCheck>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <IntrinsicFunctions>false</IntrinsicFunctions>
     </ClCompile>
@@ -109,6 +109,13 @@
   <ItemGroup>
     <ClInclude Include="hyperlight_peb.h" />
     <ClInclude Include="hyperlight_error.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="__chkstk.asm" />
+    <MASM Include="jmp.asm">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+    </MASM>
+    <MASM Include="__security_cookie.asm" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

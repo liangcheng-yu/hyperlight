@@ -1,12 +1,13 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 
 namespace Hyperlight.Core
 {
     // The folllowing structs are not used other than to calculate the size of the memory needed 
     // and also to illustrate the layout of the memory
 
-    // the start of the guest  memory contains the page tables and is always located at the Virtual Address 0x00200000 when running in a Hypervisor:
+    // the start of the guest  memory contains the page tables and is always located at the Virtual Address 0x200000 when running in a Hypervisor:
 
     // Virtual Address
     //
@@ -15,7 +16,13 @@ namespace Hyperlight.Core
     // 0x202000    PD
     // 0x203000    The guest PE code (When the code has been loaded using LoadLibrary to debug the guest this will not be present and code length will be zero;
 
-    // The pointer passed to the Entrypoint in the Guest application is the 0x200000 + size of page table + size of code, at this address structs below are laid out in this order
+    // The pointer passed to the Entrypoint in the Guest application is  0x200000 + size of page table + size of code, at this address structs below are laid out in this order
+
+    [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
+    struct GuestSecurityCookie
+    {
+        internal ulong SecurityCookieSeed;
+    }
 
     [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
     struct HostFunctionDefinitions
@@ -119,6 +126,7 @@ namespace Hyperlight.Core
         readonly int codeSize;
         readonly int hostFunctionsBufferOffset;
         readonly int hostExceptionBufferOffset;
+        readonly int guestSecurityCookieSeedOffset;
         readonly int guestErrorMessageBufferOffset;
         readonly int inputDataBufferOffset;
         readonly int outputDataBufferOffset;
@@ -127,6 +135,7 @@ namespace Hyperlight.Core
 
         public ulong PEBAddress { get; init; }
 
+        IntPtr GetSecurityCookieSeedAddress(IntPtr address) => IntPtr.Add(address, guestSecurityCookieSeedOffset);
         IntPtr GetGuestErrorMessageAddress(IntPtr address) => IntPtr.Add(address, guestErrorMessageBufferOffset);
         public IntPtr GetGuestErrorAddress(IntPtr address) => IntPtr.Add(address, guestErrorMessageOffset);
         IntPtr GetGuestErrorMessageSizeAddress(IntPtr address) => IntPtr.Add(GetGuestErrorAddress(address), sizeof(ulong)); // Size of error message is after the GuestErrorMessage field which is a ulong.
@@ -164,7 +173,8 @@ namespace Hyperlight.Core
             this.stackSize = stackSize;
             this.heapSize = heapSize;
             pebOffset = PageTableSize + codeSize;
-            hostFunctionsOffset = PageTableSize + codeSize;
+            guestSecurityCookieSeedOffset = PageTableSize + codeSize;
+            hostFunctionsOffset = guestSecurityCookieSeedOffset + Marshal.SizeOf(typeof(GuestSecurityCookie));
             hostExceptionOffset = hostFunctionsOffset + Marshal.SizeOf(typeof(HostFunctionDefinitions));
             guestErrorMessageOffset = hostExceptionOffset + Marshal.SizeOf(typeof(HostExceptionData));
             codeandOutbPointerOffset = guestErrorMessageOffset + Marshal.SizeOf(typeof(GuestError));
@@ -191,6 +201,7 @@ namespace Hyperlight.Core
                               + sandboxMemoryConfiguration.OutputDataSize
                               + sandboxMemoryConfiguration.HostExceptionSize
                               + sandboxMemoryConfiguration.GuestErrorMessageSize
+                              + Marshal.SizeOf(typeof(GuestSecurityCookie))
                               + Marshal.SizeOf(typeof(HostFunctionDefinitions))
                               + Marshal.SizeOf(typeof(HostExceptionData))
                               + Marshal.SizeOf(typeof(GuestError))
@@ -222,6 +233,15 @@ namespace Hyperlight.Core
         }
         internal void WriteMemoryLayout(IntPtr sourceAddress, IntPtr guestAddress, ulong size)
         {
+            // Set up the security cookie seed
+            var securityCookieSeed = new byte[8];
+            using (var randomNumberGenerator = RandomNumberGenerator.Create())
+            {
+                randomNumberGenerator.GetBytes(securityCookieSeed);
+            }
+            var securityCookieSeedPointer = GetSecurityCookieSeedAddress(sourceAddress);
+            Marshal.Copy(securityCookieSeed, 0, securityCookieSeedPointer, securityCookieSeed.Length);
+
             // Set up Guest Error Header
             var errorMessageSizePointer = GetGuestErrorMessageSizeAddress(sourceAddress);
             Marshal.WriteInt64(errorMessageSizePointer, sandboxMemoryConfiguration.GuestErrorMessageSize);

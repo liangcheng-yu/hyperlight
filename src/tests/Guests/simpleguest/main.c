@@ -1,7 +1,18 @@
+// Stack:<reserve> should all be set to the desired stack size value when building/linking this guest
+// The value should be specified in the GUEST_STACK_SIZE build parameter (the commit size will also be set to the same value but it is ignored at rntime)
+// this value is used to configure the stack size for the sandbox.
 #include <stdbool.h>
+#include <setjmp.h>
 #include "hyperlight_peb.h"
 #include "hyperlight_error.h"
 
+#ifndef GUEST_STACK_SIZE
+#pragma message("GUEST_STACK_SIZE is not defined.")
+#define  GUEST_STACK_SIZE 32768
+#endif
+uintptr_t __security_cookie;
+
+jmp_buf jmpbuf;
 HyperlightPEB* pPeb;
 typedef int (*guestFunc)(char*);
 struct FuncEntry
@@ -94,11 +105,6 @@ int strcmp(char string1[], char string2[])
     }
 }
 
-void __report_gsfailure()
-{
-
-}
-
 int printOutput(const char* message)
 {
     int result = strlen(message);
@@ -107,12 +113,66 @@ int printOutput(const char* message)
     return result;
 }
 
+int stackAllocate(int length)
+{
+    if (0 == length)
+    {
+        length = GUEST_STACK_SIZE + 1;
+    }
+    void* buffer = _alloca(length);
+
+    return length;
+}
+
+int bufferOverrun(const char* str)
+{
+    char buffer[17];
+    int length = strlen(str);
+
+    // will overrun if length > 10;
+    strncpy(buffer, str, length);
+
+    return 17 - length;
+}
+
+int stackOverflow(int i)
+{
+    while (i-- != 0)
+    {
+        char nums[16384] = { i };
+        stackOverflow(i);
+    }
+    return i;
+}
+
+int largeVar()
+{
+    char buffer[GUEST_STACK_SIZE + 1] = { 0 };
+    return GUEST_STACK_SIZE + 1;
+}
+
+
+int smallVar()
+{
+    char buffer[1024] = {0};
+    return 1024;
+}
+
 struct FuncEntry funcTable[] = {
     {"PrintOutput", &printOutput},
+    {"StackAllocate", &stackAllocate},
+    {"StackOverflow", &stackOverflow},
+    {"BufferOverrun", &bufferOverrun},
+    {"LargeVar", &largeVar},
+    {"SmallVar", &smallVar},
     {NULL, NULL} };
 
 int strlen(const char* str)
 {
+    if (NULL == str)
+    {
+        return 0;
+    }
     const char* s;
     for (s = str; *s; ++s)
         ;
@@ -124,6 +184,8 @@ void resetError()
     pPeb->guestError.errorNo = 0;
     *pPeb->guestError.message = NULL;
 }
+
+// SetError sets the specified error and message in memory and then halts execution by returning the the point that setjmp was called
 
 void setError(uint64_t errorCode, char* message)
 {
@@ -144,89 +206,90 @@ void setError(uint64_t errorCode, char* message)
     }
 
     *(uint32_t*)pPeb->outputdata.outputDataBuffer = -1;
+
+    longjmp(jmpbuf, 1);
 }
 
 void DispatchFunction()
 {
-    resetError();
-    GuestFunctionCall* funcCall = pPeb->outputdata.outputDataBuffer;
-
-    if (NULL == funcCall->FunctionName)
+    // setjmp is used to capture state so that if an error occurs then lngjmp is called and  control returns to this point , the if returns false and the program exits/halts
+    if (!setjmp(jmpbuf))
     {
-        setError(GUEST_FUNCTION_NAME_NOT_PROVIDED, NULL);
-        goto halt;
-    }
+        resetError();
+        GuestFunctionCall* funcCall = pPeb->outputdata.outputDataBuffer;
 
-    guestFunc pFunc = NULL;
-
-    for (uint32_t i = 0; funcTable[i].pFuncName != NULL; i++)
-    {
-        if (strcmp(funcCall->FunctionName, funcTable[i].pFuncName) == 0)
+        if (NULL == funcCall->FunctionName)
         {
-            pFunc = funcTable[i].pFunc;
-            break;
+            setError(GUEST_FUNCTION_NAME_NOT_PROVIDED, NULL);
         }
-    }
 
-    if (NULL == pFunc)
-    {
-        setError(GUEST_FUNCTION_NOT_FOUND, funcCall->FunctionName);
-        goto halt;
-    }
+        guestFunc pFunc = NULL;
 
-    if (funcCall->argc == 0)
-    {
-        setError(GUEST_FUNCTION_PARAMETERS_MISSING, NULL);
-        goto halt;
-    }
-
-    char* param;
-
-    // TODO: Handle multiple parameters and ints
-    // only processes the first argument if is a string ,otherwise returns -1
-
-    for (uint32_t i = 0; i < 1; i++)
-    {
-        uint64_t arg64 = (funcCall->argv + (8 * i));
-        // arg is a string
-        if (arg64 & 0x8000000000000000)
+        for (uint32_t i = 0; funcTable[i].pFuncName != NULL; i++)
         {
-            param = (char*)(arg64 &= 0x7FFFFFFFFFFFFFFF);
+            if (strcmp(funcCall->FunctionName, funcTable[i].pFuncName) == 0)
+            {
+                pFunc = funcTable[i].pFunc;
+                break;
+            }
         }
-        // arg is an int
-        else
+
+        if (NULL == pFunc)
         {
-            setError(UNSUPPORTED_PARAMETER_TYPE, "0");
-            goto halt;
+            setError(GUEST_FUNCTION_NOT_FOUND, funcCall->FunctionName);
         }
+
+        if (funcCall->argc == 0)
+        {
+            setError(GUEST_FUNCTION_PARAMETERS_MISSING, NULL);
+        }
+
+        void* param;
+
+        // TODO: Handle multiple parameters and ints
+
+        for (uint32_t i = 0; i < 1; i++)
+        {
+            uint64_t arg64 = (funcCall->argv + (8 * i));
+            // arg is a string
+            if (arg64 & 0x8000000000000000)
+            {
+                param = (char*)(arg64 &= 0x7FFFFFFFFFFFFFFF);
+            }
+            // arg is an int
+            else
+            {
+                param = (uint32_t)arg64;;
+            }
+        }
+        *(uint32_t*)pPeb->outputdata.outputDataBuffer = pFunc(param);
     }
+    halt();  // This is a nop if we were just loaded into memory
+}
 
-    *(uint32_t*)pPeb->outputdata.outputDataBuffer = pFunc(param);
-
-halt:
-
-    halt();
+void report_gsfailure()
+{
+    setError(GS_CHECK_FAILED, NULL);
 }
 
 #pragma optimize("", on)
-
-int entryPoint(uint64_t pebAddress)
+__declspec(safebuffers)int entryPoint(uint64_t pebAddress, uint64_t seed)
 {
-    __security_init_cookie;
     pPeb = (HyperlightPEB*)pebAddress;
-    int result = 0;
     if (NULL == pPeb)
     {
         return -1;
     }
-    else
-    {
-        resetError();
 
+    __security_init_cookie();
+    resetError();
+
+    // setjmp is used to capture state so that if an error occurs then lngjmp is called and  control returns to this point , the if returns false and the program exits/halts
+    if (!setjmp(jmpbuf))
+    {    
         if (*pPeb->pCode != 'J')
         {
             setError(CODE_HEADER_NOT_SET, NULL);
-            goto halt;
         }
 
         // Either in WHP partition (hyperlight) or in memory.  If in memory, outb_ptr will be non-NULL
@@ -235,13 +298,11 @@ int entryPoint(uint64_t pebAddress)
             runningHyperlight = false;
         HostFunctions* pFuncs = pPeb->hostFunctionDefinitions.functionDefinitions;
         pFuncs->header.DispatchFunction = (uint64_t)DispatchFunction;
+        
+        // Setup return values
+        *(int32_t*)pPeb->outputdata.outputDataBuffer = 0;
     }
-
-    // Setup return values
-    *(int32_t*)pPeb->outputdata.outputDataBuffer = result;
-
-halt:
-
+    
     halt(); // This is a nop if we were just loaded into memory
     return;
 }
