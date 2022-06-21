@@ -129,7 +129,7 @@ char* strncpy(char*, const char*, size_t);
 
 size_t dlmalloc_set_footprint_limit(size_t bytes);
 
-void RegisterFunction(const char*, guestFunc, int, ParameterKind);
+void RegisterFunction(const char*, guestFunc, int, ParameterKind[]);
 
 int GuestDispatchFunction(GuestFunctionDetails*);
 
