@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using Hyperlight;
 using Hyperlight.Core;
 using Xunit;
 using Xunit.Abstractions;
@@ -188,8 +189,27 @@ namespace Hyperlight.Tests
         {
             public Func<int, int>? StackAllocate;
             public Func<int, int>? StackOverflow;
-            public Func<int, int>? LargeVar;
-            public Func<int, int>? SmallVar;
+            public Func<int>? LargeVar;
+            public Func<int>? SmallVar;
+        }
+
+        public class MultipleGuestFunctionParameters
+        {
+            public Func<string, int, int>? PrintTwoArgs; 
+            public Func<string, int, long, int>? PrintThreeArgs;
+            public Func<string, int, long, string, int>? PrintFourArgs;
+            public Func<string, int, long, string, string, int>? PrintFiveArgs;
+            public Func<string, int, long, string, string, bool, int>? PrintSixArgs;
+            public Func<string, int, long, string, string, bool, bool, int>? PrintSevenArgs;
+            public Func<string, int, long, string, string, bool, bool, string, int>? PrintEightArgs;
+            public Func<string, int, long, string, string, bool, bool, string, long, int>? PrintNineArgs;
+            public Func<string, int, long, string, string, bool, bool, string, long, int, int>? PrintTenArgs;
+        }
+
+        public class MallocTests
+        {
+            public Func<int, int>? CallMalloc;
+            public Func<int, int>? MallocAndFree;
         }
 
         public class BufferOverrunTests
@@ -208,7 +228,7 @@ namespace Hyperlight.Tests
             // this is set in \src\tests\Directory.Build.props
             // the value used can be changed by running msbuild with /p:GUESTHEAPSIZE=VALUE
             var heapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
-           
+
             using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(), guestBinaryPath, options[0]))
             {
                 CheckSize(heapSize, sandbox, "GetHeapSizeAddress");
@@ -217,12 +237,11 @@ namespace Hyperlight.Tests
 
         public int GetAssemblyMetadataAttribute(string name)
         {
-            var value = GetType().Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().Where(a=>a.Key==name).Select(a=>a.Value).FirstOrDefault();
+            var value = GetType().Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().Where(a => a.Key == name).Select(a => a.Value).FirstOrDefault();
             Assert.NotNull(value);
             Assert.True(int.TryParse(value, out int intValue));
             return intValue;
         }
-
 
         [FactSkipIfNotWindowsAndNoHypervisor]
         public void Test_Stack_Size()
@@ -240,7 +259,7 @@ namespace Hyperlight.Tests
             // this is set in \src\tests\Directory.Build.props
             // the value used can be changed by running msbuild with /p:GUESTSTACKSIZE=VALUE
             var stackSize = GetAssemblyMetadataAttribute("GUESTSTACKSIZE");
-           
+
             using (var sandbox = new Sandbox(new SandboxMemoryConfiguration(), guestBinaryPath, options[0]))
             {
                 var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance;
@@ -277,6 +296,7 @@ namespace Hyperlight.Tests
             }
 
         }
+
         [FactSkipIfNotWindows]
         public void Test_Memory_Size_InProcess()
         {
@@ -296,6 +316,7 @@ namespace Hyperlight.Tests
                 }
             }
         }
+
         [Fact]
         public void Test_Buffer_Overrun()
         {
@@ -343,11 +364,11 @@ namespace Hyperlight.Tests
             var guestBinaryFileName = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
             var sandboxMemoryConfiguration = new SandboxMemoryConfiguration();
-            var options = GetSandboxRunInHyperVisorOptions(); 
+            var options = GetSandboxRunInHyperVisorOptions();
             var size = GetAssemblyMetadataAttribute("GUESTSTACKSIZE") / 2;
 
             // StackOverflow(int) function allocates a 16384 sized array and recursively calls itself int times
-            
+
             var shouldNotOverflow = (GetAssemblyMetadataAttribute("GUESTSTACKSIZE") / 16384) - 2;
             var shouldOverflow = shouldNotOverflow * 2;
 
@@ -409,24 +430,25 @@ namespace Hyperlight.Tests
                     Assert.IsType<System.StackOverflowException>(ex);
                     Assert.Equal("Operation caused a stack overflow.", ex.Message);
                 }
-                
+
                 using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
                 {
                     var functions = new StackOverflowTests();
                     sandbox.BindGuestFunction("LargeVar", functions);
                     var ex = Record.Exception(() =>
                     {
-                        var result = functions.LargeVar!(0);
+                        var result = functions.LargeVar!();
                     });
                     Assert.NotNull(ex);
                     Assert.IsType<System.StackOverflowException>(ex);
                     Assert.Equal("Operation caused a stack overflow.", ex.Message);
                 }
+
                 using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
                 {
                     var functions = new StackOverflowTests();
                     sandbox.BindGuestFunction("SmallVar", functions);
-                    var result = functions.SmallVar!(0);
+                    var result = functions.SmallVar!();
                     Assert.Equal(1024, result);
                 }
             }
@@ -463,7 +485,7 @@ namespace Hyperlight.Tests
             var ex = Record.Exception(() =>
             {
                 using var sandbox = new Sandbox(sandboxMemoryConfiguration, guestBinaryPath, option);
-                
+
             });
             Assert.NotNull(ex);
             Assert.IsType<ArgumentException>(ex);
@@ -477,7 +499,7 @@ namespace Hyperlight.Tests
             // this is set in \src\tests\Directory.Build.props
             // the value used can be changed by running msbuild with /p:GUESTHEAPSIZE=VALUE
             var heapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
-           
+
             // the value used can be changed by running msbuild with /p:GUESTSTACKSIZE=VALUE
             var stackSize = GetAssemblyMetadataAttribute("GUESTSTACKSIZE");
 
@@ -684,6 +706,88 @@ namespace Hyperlight.Tests
         }
 
         [Fact]
+        public void Test_Multiple_Guest_Function_Parameters()
+        {
+            var options = GetSandboxRunOptions();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+
+            List<(string Method, object[] args, int returnValue, string expectedOutput)> testData = new()
+            {
+                 (
+                    "PrintTwoArgs",
+                    new object[] { "Test2", 1 },
+                    27,
+                    "Message: arg1:Test2 arg2:1."
+                ),
+                (
+                    "PrintThreeArgs",
+                    new object[] { "Test3", 2, 3 },
+                    34,
+                    "Message: arg1:Test3 arg2:2 arg3:3."
+                ),
+                (
+                    "PrintFourArgs",
+                    new object[] { "Test4", 3, 4, "Tested" },
+                    46,
+                    "Message: arg1:Test4 arg2:3 arg3:4 arg4:Tested."
+                ),
+                (
+                    "PrintFiveArgs",
+                    new object[] { "Test5", 5, 6, "Tested", "Test5" },
+                    57,
+                    "Message: arg1:Test5 arg2:5 arg3:6 arg4:Tested arg5:Test5."
+                ),
+                (
+                    "PrintSixArgs",
+                    new object[] { "Test6", 7, 8, "Tested", "Test6", false },
+                    68,
+                    "Message: arg1:Test6 arg2:7 arg3:8 arg4:Tested arg5:Test6 arg6:False."
+                ),
+                (
+                    "PrintSevenArgs",
+                    new object[] { "Test7", 8, 9, "Tested", "Test7", false, true },
+                    78,
+                    "Message: arg1:Test7 arg2:8 arg3:9 arg4:Tested arg5:Test7 arg6:False arg7:True."
+                ),
+                (
+                    "PrintEightArgs",
+                    new object[] { "Test8", 10, 11, "Tested", "Test8", false, true, "Test8" },
+                    91,
+                    "Message: arg1:Test8 arg2:10 arg3:11 arg4:Tested arg5:Test8 arg6:False arg7:True arg8:Test8."
+                ),
+                (
+                    "PrintNineArgs",
+                    new object[] { "Test9", 12, 13, "Tested", "Test9", true, false, "Test9", 14 },
+                    99,
+                    "Message: arg1:Test9 arg2:12 arg3:13 arg4:Tested arg5:Test9 arg6:True arg7:False arg8:Test9 arg9:14."
+                ),
+                (
+                    "PrintTenArgs",
+                    new object[] { "Test10", 15, 16, "Tested", "Test10", true, false, "Test10", 17, 18 },
+                    111,
+                    "Message: arg1:Test10 arg2:15 arg3:16 arg4:Tested arg5:Test10 arg6:True arg7:False arg8:Test10 arg9:17 arg10:18."
+                )
+            };
+
+            foreach (var (method, args, returnValue, expectedOutput) in testData)
+            {
+                foreach (var option in options)
+                {
+                    int notused = 0;
+                    var testoutput = new StringWriter();
+                    using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option, testoutput))
+                    {
+                        var functions = new MultipleGuestFunctionParameters();
+                        sandbox.BindGuestFunction(method, functions);
+                        InvokeMethod(functions, method, returnValue, expectedOutput, args, testoutput, ref notused);
+                    }
+                }
+            }
+        }
+
+        [Fact]
         public void Test_Invalid_Type_Of_Guest_Function_Parameter_Causes_Exception()
         {
             var options = GetSandboxRunOptions();
@@ -703,7 +807,7 @@ namespace Hyperlight.Tests
                     });
                     Assert.NotNull(ex);
                     Assert.IsType<HyperlightException>(ex);
-                    Assert.Equal("UNSUPPORTED_PARAMETER_TYPE:0", ex.Message);
+                    Assert.Equal("GUEST_FUNCTION_PARAMETER_TYPE_MISMATCH:Function GuestMethod parameter 1.", ex.Message);
                 }
             }
         }
@@ -713,7 +817,7 @@ namespace Hyperlight.Tests
         {
             var options = GetSandboxRunOptions();
             var path = AppDomain.CurrentDomain.BaseDirectory;
-            var guestBinaryFileName = "callbackguest.exe";
+            var guestBinaryFileName = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
 
             foreach (var option in options)
@@ -728,7 +832,62 @@ namespace Hyperlight.Tests
                     });
                     Assert.NotNull(ex);
                     Assert.IsType<HyperlightException>(ex);
-                    Assert.Equal("GUEST_FUNCTION_PARAMETERS_MISSING:", ex.Message);
+                    Assert.Equal("GUEST_FUNCTION_INCORRECT_NO_OF_PARAMETERS:Called function PrintOutput with 0 parameters but it takes 1.", ex.Message);
+                }
+            }
+        }
+
+
+        [Fact]
+        public void Test_Guest_Malloc()
+        {
+            var options = GetSandboxRunOptions();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
+                {
+                    var functions = new MallocTests();
+                    var heapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
+                    sandbox.BindGuestFunction("CallMalloc", functions);
+                    var mallocSize = heapSize * 2;
+                    output.WriteLine($"GuestHeapSize:{heapSize} MallocSize:{mallocSize}");
+                    var ex = Record.Exception(() =>
+                    {
+                        functions.CallMalloc!(mallocSize);
+                    });
+                    Assert.NotNull(ex);
+                    Assert.IsType<HyperlightException>(ex);
+                    Assert.Equal("MALLOC_FAILED:", ex.Message);
+                }
+            }
+            foreach (var option in options)
+            {
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
+                {
+                    var functions = new MallocTests();
+                    var heapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
+                    var mallocSize = heapSize / 2;
+                    output.WriteLine($"GuestHeapSize:{heapSize} MallocSize:{mallocSize}");
+                    sandbox.BindGuestFunction("CallMalloc", functions);
+                    var result = functions.CallMalloc!(mallocSize);
+                    Assert.Equal<int>(mallocSize, result);
+                }
+            }
+            foreach (var option in options)
+            {
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
+                {
+                    var functions = new MallocTests();
+                    var heapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
+                    var mallocSize = heapSize / 2;
+                    output.WriteLine($"GuestHeapSize:{heapSize} MallocSize:{mallocSize}");
+                    sandbox.BindGuestFunction("MallocAndFree", functions);
+                    var result = functions.MallocAndFree!(mallocSize);
+                    Assert.Equal<int>(mallocSize, result);
                 }
             }
         }
@@ -739,11 +898,11 @@ namespace Hyperlight.Tests
             {
                 if (Sandbox.IsHypervisorPresent())
                 {
-                   return new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.None, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
+                    return new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.None, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
                 }
                 else
                 {
-                   return new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
+                    return new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
                 }
             }
             return GetSandboxRunInHyperVisorOptions();
@@ -753,7 +912,7 @@ namespace Hyperlight.Tests
         {
             if (Sandbox.IsHypervisorPresent())
             {
-                 return new SandboxRunOptions[] { SandboxRunOptions.None, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
+                return new SandboxRunOptions[] { SandboxRunOptions.None, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
             }
             return new SandboxRunOptions[] { };
         }
@@ -841,7 +1000,8 @@ namespace Hyperlight.Tests
             Assert.NotNull(hyperlightPEB);
             fieldInfo = hyperlightPEB!.GetType().GetField("listFunctions", bindingFlags);
             Assert.NotNull(fieldInfo);
-            var listFunctions = fieldInfo!.GetValue(hyperlightPEB) as IEnumerable<object>;
+            // Ignore GetTickCount exposed by Sandbox
+            var listFunctions = ((HashSet<FunctionDetails>)fieldInfo!.GetValue(hyperlightPEB)).Where(f => f.FunctionName != "GetTickCount");
             Assert.NotNull(listFunctions);
             Assert.Equal(methodNames.Count, listFunctions!.Count());
 

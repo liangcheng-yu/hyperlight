@@ -5,6 +5,14 @@ using System.Runtime.InteropServices;
 
 namespace Hyperlight
 {
+    public class FunctionDetails
+    {
+        public string FunctionName { get; set; }
+        public string FunctionSignature { get; set; }
+        public ulong Flags { get; set; }
+
+    }
+
     class HyperlightPEB
     {
         struct Header
@@ -19,13 +27,6 @@ namespace Hyperlight
             public ulong Flags;
         }
 
-        class FunctionDetails
-        {
-            public string FunctionName { get; set; }
-            public string FunctionSignature { get; set; }
-            public ulong Flags { get; set; }
-
-        }
         readonly HashSet<FunctionDetails> listFunctions = new();
         readonly IntPtr basePtr;
         readonly int length;

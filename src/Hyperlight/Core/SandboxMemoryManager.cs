@@ -45,10 +45,6 @@ namespace Hyperlight.Core
 
             EntryPoint = (ulong)loadAddress + peInfo.EntryPointOffset;
 
-            // Allocate 0x30001 for IO the additonal byte at the end is where the code would be loaded if we were running InProcess or under HyperVisor
-            // The Guest will check this byte to see if it is null, if so it has been run from LoadLibrary and it will locate the code 
-            // by looking at the address at pCodeOffset it then checks to ensure the code header is correct so it knows it is running in Hyperlight
-            // Allows the guest to find the code if we are debugging 
             SourceAddress = OS.Allocate((IntPtr)0, Size);
 
             if (IntPtr.Zero == SourceAddress)
@@ -106,7 +102,7 @@ namespace Hyperlight.Core
         {
             var guestCookie = new byte[cookie.Length];
             var stackAddress = sandboxMemoryLayout.GetTopOfStackAddress(SourceAddress);
-            Marshal.Copy(stackAddress,guestCookie,0,guestCookie.Length);
+            Marshal.Copy(stackAddress, guestCookie, 0, guestCookie.Length);
             return guestCookie.SequenceEqual(cookie);
         }
 
@@ -149,7 +145,6 @@ namespace Hyperlight.Core
 
         internal void SnapshotState()
         {
-
             //TODO: Track dirty pages instead of copying entire memory
             if (memorySnapShot == null)
             {
@@ -157,6 +152,7 @@ namespace Hyperlight.Core
             }
             Marshal.Copy(SourceAddress, memorySnapShot, 0, (int)Size);
         }
+
         internal void RestoreState()
         {
             Marshal.Copy(memorySnapShot!, 0, SourceAddress, (int)Size);
@@ -207,28 +203,50 @@ namespace Hyperlight.Core
 
         internal void WriteGuestFunctionCallDetails(string functionName, object[] args)
         {
-            var headerSize = 0x08 + 0x08 + 0x08 * args.Length; // Pointer to function name, count of args, and arg list
+            // The no of arguments to a guest function is fixed as serialisation of an array to memory
+            // requires a fixed size 
+            // if maxNoOfGuestFunctionArguments is changed then the attribute property sizeconst on the GuestArgument member
+            // on the GuestFunctionCall struct should also be changed
+            var maxNoOfGuestFunctionArguments = 10;
+            var guestFunctionCall = new GuestFunctionCall();
+            var guestArguments = new GuestArgument[maxNoOfGuestFunctionArguments];
+            guestFunctionCall.guestArguments = guestArguments;
+            var headerSize = Marshal.SizeOf(guestFunctionCall);
             var stringTable = GetGuestCallStringTable(headerSize);
             var outputDataAddress = sandboxMemoryLayout.GetOutputDataAddress(SourceAddress);
-            var pFunctionName = (long)stringTable.AddString(functionName);
-            Marshal.WriteInt64(outputDataAddress, pFunctionName);
-            Marshal.WriteInt64(outputDataAddress + 0x8, args.Length);
+            guestFunctionCall.pFunctionName = stringTable.AddString(functionName);
+            guestFunctionCall.argc = (ulong)args.Length;
             for (var i = 0; i < args.Length; i++)
             {
                 if (args[i].GetType() == typeof(int))
                 {
-                    Marshal.WriteInt64(outputDataAddress + 0x10 + 8 * i, (int)args[i]);
+                    var val = (int)args[i];
+                    guestArguments[i].argv = (ulong)val;
+                    guestArguments[i].argt = ParameterKind.i32;
+                }
+                else if (args[i].GetType() == typeof(long))
+                {
+                    var val = (long)args[i];
+                    guestArguments[i].argv = (ulong)val;
+                    guestArguments[i].argt = ParameterKind.i64;
                 }
                 else if (args[i].GetType() == typeof(string))
                 {
-                    var addr = (long)(0x8000000000000000 | stringTable.AddString((string)args[i]));
-                    Marshal.WriteInt64(outputDataAddress + 0x10 + 8 * i, addr);
+                    guestArguments[i].argv = stringTable.AddString((string)args[i]);
+                    guestArguments[i].argt = ParameterKind.str;
+                }
+                else if (args[i].GetType() == typeof(bool))
+                {
+                    var val = (bool)args[i];
+                    guestArguments[i].argv = Convert.ToUInt64(val);
+                    guestArguments[i].argt = ParameterKind.boolean;
                 }
                 else
                 {
                     throw new ArgumentException("Unsupported parameter type");
                 }
             }
+            Marshal.StructureToPtr(guestFunctionCall, outputDataAddress, false);
         }
 
         SimpleStringTable GetGuestCallStringTable(int headerSize)
@@ -270,10 +288,21 @@ namespace Hyperlight.Core
             return args;
         }
 
-        internal void WriteResponseFromHostMethodCall(int returnValue)
+        internal void WriteResponseFromHostMethodCall(Type type, object returnValue)
         {
             var inputDataAddress = sandboxMemoryLayout.GetInputDataAddress(SourceAddress);
-            Marshal.WriteInt32(inputDataAddress, returnValue);
+            if (type == typeof(int))
+            {
+                Marshal.WriteInt32(inputDataAddress, (int)returnValue);
+            }
+            else if (type == typeof(long))
+            {
+                Marshal.WriteInt64(inputDataAddress, (long)returnValue);
+            }
+            else
+            {
+                throw new ArgumentException("Unsupported Host Method Return Type", nameof(type));
+            }
         }
 
         internal HyperlightException GetHostException()
