@@ -26,6 +26,7 @@ void HyperlightMainDefault() {}
 int GuestDispatchFunctionDefault(GuestFunctionDetails* guestfunctionDetails)
 {
     setError(GUEST_FUNCTION_NOT_FOUND, guestfunctionDetails->functionName);
+    return 0;
 }
 
 // If the guest does not define a GuestDispatchFunction use the default GuestDispatchFunctionDefault instead

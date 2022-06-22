@@ -175,7 +175,7 @@ int native_symbol_thunk(char* functionName, ...)
 
     va_end(ap);
 
-    return *(int*)pPeb->inputdata.inputDataBuffer;
+    return *((int*)pPeb->inputdata.inputDataBuffer);
 }
 // Calls a Host Function that returns an long
 long native_symbol_thunk_returning_long(char* functionName, ...)
@@ -189,12 +189,56 @@ long native_symbol_thunk_returning_long(char* functionName, ...)
 
     va_end(ap);
 
-    return *(long*)pPeb->inputdata.inputDataBuffer;
+    return *((long*)pPeb->inputdata.inputDataBuffer);
 }
 // Exposed by Hyperlight Sandbox , used by dlmalloc
-long  GetHyperLightTickCount()
+long GetHyperLightTickCount()
 {
     return native_symbol_thunk_returning_long("GetTickCount");
+}
+
+int CallGuestFunction(GuestFunctionDetails* guestfunctionDetails)
+{
+    guestFunc pFunction = NULL;
+    int requiredParameterCount = 0;
+    ParameterKind* parameterKind = NULL;
+
+    for (int i = 0; i < funcTable->next; i++)
+    {
+        if (strcmp(guestfunctionDetails->functionName, funcTable->funcEntry[i]->FunctionName) == 0)
+        {
+            pFunction = funcTable->funcEntry[i]->pFunction;
+            requiredParameterCount = funcTable->funcEntry[i]->paramCount;
+            parameterKind = funcTable->funcEntry[i]->parameterKind;
+            break;
+        }
+    }
+
+    if (NULL == pFunction)
+    {
+        // If the function was not found call the GuestDispatchFunction method optionally provided by the guest program.
+        // This allows functions exposed by a guest runtime (e.g. WASM) to be called.
+        return GuestDispatchFunction(guestfunctionDetails);
+    }
+
+    if (requiredParameterCount != guestfunctionDetails->paramc)
+    {
+        char message[100] = { 0 };
+        snprintf(message, 100, "Called function %s with %d parameters but it takes %d.", guestfunctionDetails->functionName, guestfunctionDetails->paramc, requiredParameterCount);
+        setError(GUEST_FUNCTION_INCORRECT_NO_OF_PARAMETERS, message);
+    }
+
+    for (int i = 0; i < requiredParameterCount; i++)
+    {
+        if (guestfunctionDetails->paramv[i].kind != parameterKind[i])
+        {
+            char message[100] = { 0 };
+            snprintf(message, 100, "Function %s parameter %d.", guestfunctionDetails->functionName, guestfunctionDetails->paramc);
+            setError(GUEST_FUNCTION_PARAMETER_TYPE_MISMATCH, message);
+        }
+    }
+
+    return pFunction(guestfunctionDetails->paramv);
 }
 
 void DispatchFunction()
@@ -328,50 +372,6 @@ void* hyperlightMoreCore(size_t size)
 }
 
 #pragma optimize("", on)
-
-int CallGuestFunction(GuestFunctionDetails* guestfunctionDetails)
-{
-    guestFunc pFunction = NULL;
-    int requiredParameterCount = 0;
-    ParameterKind* parameterKind = NULL;
-
-    for (int i = 0; i < funcTable->next; i++)
-    {
-        if (strcmp(guestfunctionDetails->functionName, funcTable->funcEntry[i]->FunctionName) == 0)
-        {
-            pFunction = funcTable->funcEntry[i]->pFunction;
-            requiredParameterCount = funcTable->funcEntry[i]->paramCount;
-            parameterKind = funcTable->funcEntry[i]->parameterKind;
-            break;
-        }
-    }
-
-    if (NULL == pFunction)
-    {
-        // If the function was not found call the GuestDispatchFunction method optionally provided by the guest program.
-        // This allows functions exposed by a guest runtime (e.g. WASM) to be called.
-        return GuestDispatchFunction(guestfunctionDetails);
-    }
-
-    if (requiredParameterCount != guestfunctionDetails->paramc)
-    {
-        char message[100] = { 0 };
-        snprintf(message, 100, "Called function %s with %d parameters but it takes %d.", guestfunctionDetails->functionName, guestfunctionDetails->paramc, requiredParameterCount);
-        setError(GUEST_FUNCTION_INCORRECT_NO_OF_PARAMETERS, message);
-    }
-
-    for (int i = 0; i < requiredParameterCount; i++)
-    {
-        if (guestfunctionDetails->paramv[i].kind != parameterKind[i])
-        {
-            char message[100] = { 0 };
-            snprintf(message, 100, "Function %s parameter %d.", guestfunctionDetails->functionName, guestfunctionDetails->paramc);
-            setError(GUEST_FUNCTION_PARAMETER_TYPE_MISMATCH, message);
-        }
-    }
-
-    return pFunction(guestfunctionDetails->paramv);
-}
 
 __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int functionTableSize)
 {

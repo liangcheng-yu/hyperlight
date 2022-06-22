@@ -21,7 +21,7 @@ namespace Hyperlight.Core
     {
         public ulong pFunctionName;
         public ulong argc;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 10)]
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS)]
         public GuestArgument[] guestArguments;
     }
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using Hyperlight.Core;
 
 namespace Hyperlight
 {
@@ -436,9 +437,9 @@ namespace Hyperlight
             var parameters = methodInfo.GetParameters();
 
             // Currently we only support up to 10 parameters
-            if (parameters.Length > 10)
+            if (parameters.Length > Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS)
             {
-                throw new Exception("We do not currently support more than 4 parameters");
+                throw new Exception($"Method {methodInfo.Name} has too many parameters. Maximum of {Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS} allowed");
             }
 
             // Check if each parameter is a supported type

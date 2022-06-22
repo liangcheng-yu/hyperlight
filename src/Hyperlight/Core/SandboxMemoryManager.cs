@@ -203,13 +203,10 @@ namespace Hyperlight.Core
 
         internal void WriteGuestFunctionCallDetails(string functionName, object[] args)
         {
-            // The no of arguments to a guest function is fixed as serialisation of an array to memory
+            // The number of parameters to a guest function is fixed as serialisation of an array to memory
             // requires a fixed size 
-            // if maxNoOfGuestFunctionArguments is changed then the attribute property sizeconst on the GuestArgument member
-            // on the GuestFunctionCall struct should also be changed
-            var maxNoOfGuestFunctionArguments = 10;
             var guestFunctionCall = new GuestFunctionCall();
-            var guestArguments = new GuestArgument[maxNoOfGuestFunctionArguments];
+            var guestArguments = new GuestArgument[Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS];
             guestFunctionCall.guestArguments = guestArguments;
             var headerSize = Marshal.SizeOf(guestFunctionCall);
             var stringTable = GetGuestCallStringTable(headerSize);
