@@ -19,23 +19,4 @@
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="hyperlight_peb.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="hyperlight_error.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <MASM Include="jmp.asm">
-      <Filter>Source Files</Filter>
-    </MASM>
-    <MASM Include="__chkstk.asm">
-      <Filter>Source Files</Filter>
-    </MASM>
-    <MASM Include="__security_cookie.asm">
-      <Filter>Source Files</Filter>
-    </MASM>
-  </ItemGroup>
 </Project>

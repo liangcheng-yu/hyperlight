@@ -46,23 +46,25 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <GenerateManifest>false</GenerateManifest>
     <OutDir>$(SolutionDir)src\tests\Guests\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
+    <IncludePath>$(ProjectDir)..\..\..\HyperlightGuest\third_party\printf;$(ProjectDir)..\..\..\HyperlightGuest\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <GenerateManifest>false</GenerateManifest>
     <OutDir>$(SolutionDir)src\tests\Guests\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
+    <IncludePath>$(ProjectDir)..\..\..\HyperlightGuest\third_party\printf;$(ProjectDir)..\..\..\HyperlightGuest\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <ProjectReference>
-      <LinkLibraryDependencies>true</LinkLibraryDependencies>
-    </ProjectReference>
+    <ProjectReference />
     <Link>
-      <AdditionalDependencies />
+      <AdditionalDependencies>HyperlightGuest.lib</AdditionalDependencies>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <RandomizedBaseAddress>true</RandomizedBaseAddress>
       <SectionAlignment>512</SectionAlignment>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <EntryPointSymbol>entryPoint</EntryPointSymbol>
       <SubSystem>Native</SubSystem>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+      <AdditionalLibraryDirectories>$(SolutionDir)$(Platform)\$(Configuration)\</AdditionalLibraryDirectories>
     </Link>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -71,16 +73,13 @@
       <UseFullPaths>false</UseFullPaths>
       <DebugInformationFormat>None</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <ProjectReference>
-      <LinkLibraryDependencies>false</LinkLibraryDependencies>
-    </ProjectReference>
+    <ProjectReference />
     <Link>
-      <AdditionalDependencies>
-      </AdditionalDependencies>
+      <AdditionalDependencies>HyperlightGuest.lib</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <BaseAddress>
       </BaseAddress>
@@ -91,6 +90,7 @@
       <SubSystem>Native</SubSystem>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <LinkErrorReporting>NoErrorReport</LinkErrorReporting>
+      <AdditionalLibraryDirectories>$(SolutionDir)$(Platform)\$(Configuration)\</AdditionalLibraryDirectories>
     </Link>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -99,23 +99,11 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
       <BufferSecurityCheck>true</BufferSecurityCheck>
-      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <IntrinsicFunctions>false</IntrinsicFunctions>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.c" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="hyperlight_peb.h" />
-    <ClInclude Include="hyperlight_error.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <MASM Include="__chkstk.asm" />
-    <MASM Include="jmp.asm">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
-    </MASM>
-    <MASM Include="__security_cookie.asm" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

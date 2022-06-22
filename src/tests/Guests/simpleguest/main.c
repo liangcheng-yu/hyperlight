@@ -1,116 +1,116 @@
-// Stack:<reserve> should all be set to the desired stack size value when building/linking this guest
-// The value should be specified in the GUEST_STACK_SIZE build parameter (the commit size will also be set to the same value but it is ignored at rntime)
-// this value is used to configure the stack size for the sandbox.
-#include <stdbool.h>
-#include <setjmp.h>
-#include "hyperlight_peb.h"
-#include "hyperlight_error.h"
+#include "hyperlight.h"
 
-#ifndef GUEST_STACK_SIZE
-#pragma message("GUEST_STACK_SIZE is not defined.")
-#define  GUEST_STACK_SIZE 32768
-#endif
-uintptr_t __security_cookie;
-
-jmp_buf jmpbuf;
-HyperlightPEB* pPeb;
-typedef int (*guestFunc)(char*);
-struct FuncEntry
+int simpleprintOutput(const char* message)
 {
-    char* pFuncName;
-    guestFunc pFunc;
-};
-
-bool runningHyperlight = true;
-void (*outb_ptr)(uint16_t port, uint8_t value) = NULL;
-const uint8_t get_rsi[] = { 0x48, 0x8b, 0xc6, 0xc3 };
-const uint8_t get_rdi[] = { 0x48, 0x8b, 0xc7, 0xc3 };
-const uint8_t set_rsi[] = { 0x48, 0x8b, 0xf1, 0xc3 };
-const uint8_t set_rdi[] = { 0x48, 0x8b, 0xf9, 0xc3 };
-
-#pragma optimize("", off)
-
-uint64_t getrsi()
-{
-    ((uint64_t(*)(void)) get_rsi)();
+    return printOutput(message);
 }
 
-uint64_t getrdi()
+int printTwoArgs(const char* arg1, int arg2)
 {
-    ((uint64_t(*)(void)) get_rdi)();
-}
-
-void setrsi(uint64_t rsi)
-{
-    ((void(*)(uint64_t)) set_rsi)(rsi);
-}
-
-void setrdi(uint64_t rdi)
-{
-    ((void(*)(uint64_t)) set_rdi)(rdi);
-}
-
-void outb(uint16_t port, uint8_t value)
-{
-    const uint8_t outb[] = { 0x89, 0xd0, 0x89, 0xca, 0xee, 0xc3 };
-
-    if (runningHyperlight)
-        ((void (*)(uint16_t, uint8_t))outb)(port, value);
-    else if (NULL != outb_ptr)
+    size_t length = strlen(arg1)  + 35;
+    char* message = malloc(length);
+    if (NULL == message)
     {
-        // We were passed a function pointer for outb - Use it
-
-        // If we are running under Linux, it means the outb_ptr callback is
-        // implemented by dotnet running on Linux.  In this case, the calling conventions
-        // allow the dotnet code to overwrite rsi/rdi.  If this binary is built
-        // using MSVC, it expects rsi/rdi to be preserved by anything it calls.  The optimizer
-        // might make use of one of these registers, so we will save/restore them ourselves.
-        uint64_t rsi = getrsi();
-        uint64_t rdi = getrdi();
-        outb_ptr(port, value);
-        setrsi(rsi);
-        setrdi(rdi);
+        setError(MALLOC_FAILED, NULL);
     }
+    snprintf(message, length, "Message: arg1:%s arg2:%d.", arg1, arg2);
+    return printOutput(message);
 }
 
-static void
-halt()
+int printThreeArgs(const char* arg1, int arg2, int64_t arg3)
 {
-    const uint8_t hlt = 0xF4;
-    if (runningHyperlight)
-        ((void (*)()) & hlt)();
-}
-
-char* strncpy(char* dest, const char* src, size_t len)
-{
-    char* result = dest;
-    while (len--)
+    size_t length = strlen(arg1) + 61;
+    char* message = malloc(length);
+    if (NULL == message)
     {
-        *dest++ = *src++;
+        setError(MALLOC_FAILED, NULL);
     }
-    *dest = 0;
-    return result;
+    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d.", arg1, arg2, arg3);
+    return printOutput(message);
 }
 
-int strcmp(char string1[], char string2[])
+int printFourArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4)
 {
-    for (int i = 0;; i++) {
-        if (string1[i] != string2[i]) {
-            return string1[i] < string2[i] ? -1 : 1;
-        }
-
-        if (string1[i] == '\0') {
-            return 0;
-        }
+    size_t length = strlen(arg1) + strlen(arg4) + 67;
+    char* message = malloc(length);
+    if (NULL == message)
+    {
+        setError(MALLOC_FAILED, NULL);
     }
+    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s.", arg1, arg2, arg3, arg4);
+    return printOutput(message);
 }
 
-int printOutput(const char* message)
+int printFiveArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5)
 {
-    int result = strlen(message);
-    strncpy((void*)pPeb->outputdata.outputDataBuffer, (void*)message, result);
-    outb(100, 0);
-    return result;
+    size_t length = strlen(arg1) + strlen(arg4) + strlen(arg5) + 67;
+    char* message = malloc(length);
+    if (NULL == message)
+    {
+        setError(MALLOC_FAILED, NULL);
+    }
+    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s.", arg1, arg2, arg3, arg4, arg5);
+    return printOutput(message);
+}
+
+int printSixArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6)
+{
+    size_t length = strlen(arg1) + strlen(arg4) + strlen(arg5) + 79;
+    char* message = malloc(length);
+    if (NULL == message)
+    {
+        setError(MALLOC_FAILED, NULL);
+    }
+    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False");
+    return printOutput(message);
+}
+
+int printSevenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7)
+{
+    size_t length = strlen(arg1) + strlen(arg4) + strlen(arg5) + 90;
+    char* message = malloc(length);
+    if (NULL == message)
+    {
+        setError(MALLOC_FAILED, NULL);
+    }
+    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False", arg7 ? "True" : "False");
+    return printOutput(message);
+}
+
+int printEightArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, const char* arg8)
+{
+    size_t length = strlen(arg1) + strlen(arg4) + strlen(arg5) + strlen(arg8) + 96;
+    char* message = malloc(length);
+    if (NULL == message)
+    {
+        setError(MALLOC_FAILED, NULL);
+    }
+    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%s.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False", arg7 ? "True" : "False", arg8);
+    return printOutput(message);
+}
+
+int printNineArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, const char* arg8, int64_t arg9)
+{
+    size_t length = strlen(arg1) + strlen(arg4) + strlen(arg5) + strlen(arg8) + 122;
+    char* message = malloc(length);
+    if (NULL == message)
+    {
+        setError(MALLOC_FAILED, NULL);
+    }
+    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%s arg9:%d.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False", arg7 ? "True" : "False", arg8, arg9);
+    return printOutput(message);
+}
+
+int printTenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, const char* arg8, int64_t arg9, int arg10)
+{
+    size_t length = strlen(arg1) + strlen(arg4) + strlen(arg5) + strlen(arg8) + 139;
+    char* message = malloc(length);
+    if (NULL == message)
+    {
+        setError(MALLOC_FAILED, NULL);
+    }
+    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%s arg9:%d arg10:%d.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False", arg7 ? "True" : "False", arg8, arg9, arg10);
+    return printOutput(message);
 }
 
 int stackAllocate(int length)
@@ -127,12 +127,14 @@ int stackAllocate(int length)
 int bufferOverrun(const char* str)
 {
     char buffer[17];
-    int length = strlen(str);
+    size_t length = NULL == str ? 0 : strlen(str);
 
-    // will overrun if length > 10;
-    strncpy(buffer, str, length);
-
-    return 17 - length;
+    // will overrun if length > 17;
+    if (length > 0)
+    {
+        strncpy(buffer, str, length);
+    }
+    return (int) (17 - length);
 }
 
 int stackOverflow(int i)
@@ -151,158 +153,68 @@ int largeVar()
     return GUEST_STACK_SIZE + 1;
 }
 
-
 int smallVar()
 {
     char buffer[1024] = {0};
     return 1024;
 }
 
-struct FuncEntry funcTable[] = {
-    {"PrintOutput", &printOutput},
-    {"StackAllocate", &stackAllocate},
-    {"StackOverflow", &stackOverflow},
-    {"BufferOverrun", &bufferOverrun},
-    {"LargeVar", &largeVar},
-    {"SmallVar", &smallVar},
-    {NULL, NULL} };
-
-int strlen(const char* str)
+int callMalloc(int size)
 {
-    if (NULL == str)
+    void* heapMemory = malloc(size);
+    if (NULL == heapMemory)
     {
-        return 0;
+        setError(MALLOC_FAILED, NULL);
     }
-    const char* s;
-    for (s = str; *s; ++s)
-        ;
-    return (s - str);
+    return size;
 }
 
-void resetError()
+int mallocAndFree(int size)
 {
-    pPeb->guestError.errorNo = 0;
-    *pPeb->guestError.message = NULL;
+    void* heapMemory = malloc(size);
+    if (NULL == heapMemory)
+    {
+        setError(MALLOC_FAILED, NULL);
+    }
+    free(heapMemory);
+    return size;
 }
 
-// SetError sets the specified error and message in memory and then halts execution by returning the the point that setjmp was called
+GENERATE_FUNCTION(simpleprintOutput, 1, string);
+GENERATE_FUNCTION(stackAllocate, 1, i32);
+GENERATE_FUNCTION(stackOverflow, 1, i32);
+GENERATE_FUNCTION(bufferOverrun, 1, string);
+GENERATE_FUNCTION(largeVar, 0);
+GENERATE_FUNCTION(smallVar, 0);
+GENERATE_FUNCTION(callMalloc, 1, i32);
+GENERATE_FUNCTION(mallocAndFree, 1, i32);
+GENERATE_FUNCTION(printTwoArgs, 2, string, i32);
+GENERATE_FUNCTION(printThreeArgs, 3, string, i32, i64);
+GENERATE_FUNCTION(printFourArgs, 4, string, i32, i64, string);
+GENERATE_FUNCTION(printFiveArgs, 5, string, i32, i64, string, string);
+GENERATE_FUNCTION(printSixArgs, 6, string, i32, i64, string, string, boolean);
+GENERATE_FUNCTION(printSevenArgs, 7, string, i32, i64, string, string, boolean, boolean);
+GENERATE_FUNCTION(printEightArgs, 8, string, i32, i64, string, string, boolean, boolean, string);
+GENERATE_FUNCTION(printNineArgs, 9, string, i32, i64, string, string, boolean, boolean, string, i64);
+GENERATE_FUNCTION(printTenArgs, 10, string, i32, i64, string, string, boolean, boolean, string, i64, i32);
 
-void setError(uint64_t errorCode, char* message)
+void HyperlightMain()
 {
-    pPeb->guestError.errorNo = errorCode;
-    int length = strlen(message);
-    if (length >= pPeb->guestError.messageSize)
-    {
-        length = pPeb->guestError.messageSize - 1;
-    }
-
-    if (length == 0)
-    {
-        *pPeb->guestError.message = NULL;
-    }
-    else
-    {
-        strncpy(pPeb->guestError.message, message, length);
-    }
-
-    *(uint32_t*)pPeb->outputdata.outputDataBuffer = -1;
-
-    longjmp(jmpbuf, 1);
-}
-
-void DispatchFunction()
-{
-    // setjmp is used to capture state so that if an error occurs then lngjmp is called and  control returns to this point , the if returns false and the program exits/halts
-    if (!setjmp(jmpbuf))
-    {
-        resetError();
-        GuestFunctionCall* funcCall = pPeb->outputdata.outputDataBuffer;
-
-        if (NULL == funcCall->FunctionName)
-        {
-            setError(GUEST_FUNCTION_NAME_NOT_PROVIDED, NULL);
-        }
-
-        guestFunc pFunc = NULL;
-
-        for (uint32_t i = 0; funcTable[i].pFuncName != NULL; i++)
-        {
-            if (strcmp(funcCall->FunctionName, funcTable[i].pFuncName) == 0)
-            {
-                pFunc = funcTable[i].pFunc;
-                break;
-            }
-        }
-
-        if (NULL == pFunc)
-        {
-            setError(GUEST_FUNCTION_NOT_FOUND, funcCall->FunctionName);
-        }
-
-        if (funcCall->argc == 0)
-        {
-            setError(GUEST_FUNCTION_PARAMETERS_MISSING, NULL);
-        }
-
-        void* param;
-
-        // TODO: Handle multiple parameters and ints
-
-        for (uint32_t i = 0; i < 1; i++)
-        {
-            uint64_t arg64 = (funcCall->argv + (8 * i));
-            // arg is a string
-            if (arg64 & 0x8000000000000000)
-            {
-                param = (char*)(arg64 &= 0x7FFFFFFFFFFFFFFF);
-            }
-            // arg is an int
-            else
-            {
-                param = (uint32_t)arg64;;
-            }
-        }
-        *(uint32_t*)pPeb->outputdata.outputDataBuffer = pFunc(param);
-    }
-    halt();  // This is a nop if we were just loaded into memory
-}
-
-void report_gsfailure()
-{
-    setError(GS_CHECK_FAILED, NULL);
-}
-
-#pragma optimize("", on)
-__declspec(safebuffers)int entryPoint(uint64_t pebAddress, uint64_t seed)
-{
-    pPeb = (HyperlightPEB*)pebAddress;
-    if (NULL == pPeb)
-    {
-        return -1;
-    }
-
-    __security_init_cookie();
-    resetError();
-
-    // setjmp is used to capture state so that if an error occurs then lngjmp is called and  control returns to this point , the if returns false and the program exits/halts
-    if (!setjmp(jmpbuf))
-    {    
-        if (*pPeb->pCode != 'J')
-        {
-            setError(CODE_HEADER_NOT_SET, NULL);
-        }
-
-        // Either in WHP partition (hyperlight) or in memory.  If in memory, outb_ptr will be non-NULL
-        outb_ptr = pPeb->pOutb;
-        if (outb_ptr)
-            runningHyperlight = false;
-        HostFunctions* pFuncs = pPeb->hostFunctionDefinitions.functionDefinitions;
-        pFuncs->header.DispatchFunction = (uint64_t)DispatchFunction;
-        
-        // Setup return values
-        *(int32_t*)pPeb->outputdata.outputDataBuffer = 0;
-    }
-    
-    halt(); // This is a nop if we were just loaded into memory
-    return;
+    RegisterFunction("PrintOutput", FUNCTIONDETAILS(simpleprintOutput));
+    RegisterFunction("StackAllocate", FUNCTIONDETAILS(stackAllocate));
+    RegisterFunction("StackOverflow", FUNCTIONDETAILS(stackOverflow));
+    RegisterFunction("BufferOverrun", FUNCTIONDETAILS(bufferOverrun));
+    RegisterFunction("LargeVar", FUNCTIONDETAILS(largeVar));
+    RegisterFunction("SmallVar", FUNCTIONDETAILS(smallVar));
+    RegisterFunction("CallMalloc", FUNCTIONDETAILS(callMalloc));
+    RegisterFunction("MallocAndFree", FUNCTIONDETAILS(mallocAndFree)); 
+    RegisterFunction("PrintTwoArgs", FUNCTIONDETAILS(printTwoArgs));
+    RegisterFunction("PrintThreeArgs", FUNCTIONDETAILS(printThreeArgs));
+    RegisterFunction("PrintFourArgs", FUNCTIONDETAILS(printFourArgs));
+    RegisterFunction("PrintFiveArgs", FUNCTIONDETAILS(printFiveArgs));
+    RegisterFunction("PrintSixArgs", FUNCTIONDETAILS(printSixArgs));
+    RegisterFunction("PrintSevenArgs", FUNCTIONDETAILS(printSevenArgs));
+    RegisterFunction("PrintEightArgs", FUNCTIONDETAILS(printEightArgs));
+    RegisterFunction("PrintNineArgs", FUNCTIONDETAILS(printNineArgs));
+    RegisterFunction("PrintTenArgs", FUNCTIONDETAILS(printTenArgs));
 }

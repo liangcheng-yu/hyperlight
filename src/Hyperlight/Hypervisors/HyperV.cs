@@ -108,7 +108,7 @@ namespace Hyperlight.Hypervisors
                     int error = Marshal.GetLastWin32Error();
                     if (error != 0)
                     {
-                        throw new ApplicationException($"WriteProcessMemory Error: {error}");
+                        throw new ApplicationException($"ReadProcessMemory Error: {error}");
                     }
                 }
 

@@ -30,6 +30,7 @@ namespace Hyperlight
         GCHandle? gCHandle;
         byte[] stackGuard;
         readonly string guestBinaryPath;
+        readonly HyperLightExports hyperLightExports; 
         readonly SandboxMemoryManager sandboxMemoryManager;
         readonly bool initialised;
         readonly bool recycleAfterRun;
@@ -163,6 +164,9 @@ namespace Hyperlight
                 }
             }
 
+            hyperLightExports = new HyperLightExports();
+            ExposeAndBindMembers(hyperLightExports);
+
             Initialise();
 
             initFunction?.Invoke(this);
@@ -290,7 +294,7 @@ namespace Hyperlight
 
         bool CheckStackGuard()
         {
-           return sandboxMemoryManager.CheckStackGuard(stackGuard);
+            return sandboxMemoryManager.CheckStackGuard(stackGuard);
         }
 
         void SetUpHyperLightPEB()
@@ -324,11 +328,21 @@ namespace Hyperlight
                     continue;
                 }
 
+                string returntype = string.Empty;
                 // TODO: Add support for void return types
-                if (mi.methodInfo.ReturnType != typeof(int))
+                if (mi.methodInfo.ReturnType == typeof(int))
                 {
-                    throw new ArgumentException("Only int return types are supported");
+                    returntype = "i";
                 }
+                else if (mi.methodInfo.ReturnType == typeof(long))
+                {
+                    returntype = "I";
+                }
+                else
+                {
+                    throw new ArgumentException("Only int or long return types are supported");
+                }
+
 
                 var parameterSignature = "";
                 foreach (var pi in mi.methodInfo.GetParameters())
@@ -341,7 +355,7 @@ namespace Hyperlight
                         throw new ArgumentException("Only int and string parameters are supported");
                 }
 
-                hyperlightPEB.AddFunction(mi.methodInfo.Name, $"({parameterSignature})i", 0);
+                hyperlightPEB.AddFunction(mi.methodInfo.Name, $"({parameterSignature})${returntype}", 0);
             }
         }
 
@@ -547,8 +561,8 @@ namespace Hyperlight
                             var mi = guestInterfaceGlue.MapHostFunctionNamesToMethodInfo[methodName];
                             var parameters = mi.methodInfo.GetParameters();
                             var args = sandboxMemoryManager.GetHostCallArgs(parameters);
-                            var returnFromHost = (int)guestInterfaceGlue.DispatchCallFromGuest(methodName, args);
-                            sandboxMemoryManager.WriteResponseFromHostMethodCall(returnFromHost);
+                            var returnFromHost = guestInterfaceGlue.DispatchCallFromGuest(methodName, args);
+                            sandboxMemoryManager.WriteResponseFromHostMethodCall(mi.methodInfo.ReturnType,returnFromHost);
                             break;
 
                         }
@@ -572,12 +586,6 @@ namespace Hyperlight
             }
             catch (Exception ex)
             {
-                // if this is running from a guest binary we can just rethrow the exception otherwise we need to persist the details and 
-                // raise the error in the guest.
-                if (runFromGuestBinary)
-                {
-                    throw;
-                }
                 sandboxMemoryManager.WriteOutbException(ex, port);
             }
         }

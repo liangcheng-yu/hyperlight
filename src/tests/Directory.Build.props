@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <GuestStackSize Condition="'$(GuestStackSize)'==''">65536</GuestStackSize>
-    <GuestHeapSize Condition="'$(GuestHeapSize)'==''">65536</GuestHeapSize>
+    <GuestHeapSize Condition="'$(GuestHeapSize)'==''">131072</GuestHeapSize>
   </PropertyGroup>
 
   <Target Name="AddStackAndHeapMetadataAssemblyAttributes" BeforeTargets="CoreGenerateAssemblyInfo">

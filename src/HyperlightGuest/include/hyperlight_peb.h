@@ -5,7 +5,7 @@ typedef struct
 {
     uint64_t errorNo;
     uint64_t messageSize;
-    char* message;
+    char*  message;
 
 } GuestError;
 
@@ -49,7 +49,7 @@ typedef struct
 
 typedef struct
 {
-    uint64_t security_cookie_init;
+    uint64_t security_cookie_seed;
     HostFunctionDefinitions hostFunctionDefinitions;
     HostException hostException;
     GuestError guestError;
@@ -79,15 +79,27 @@ typedef struct
     HostFunctionHeader header;
 } HostFunctions;
 
+typedef enum {
+    i32,
+    i64,
+    string,
+    boolean,
+} ParameterKind;
+
+typedef struct
+{
+    ParameterKind argt;
+    uint64_t argv;
+
+} GuestArgument;
 
 typedef struct
 {
     char* FunctionName;
     uint64_t argc;
-    uint64_t** argv;
+    GuestArgument guestArguments[];
 
 } GuestFunctionCall;
-
 
 typedef struct
 {

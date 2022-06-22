@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using Hyperlight.Core;
 
 namespace Hyperlight
 {
@@ -15,7 +16,7 @@ namespace Hyperlight
 
         // Currently we will support int, Int64, bool, and string for parameters and return types of
         // the methods between guest and host
-        static readonly HashSet<Type> supportedParameterAndReturnTypes = new() { typeof(int), typeof(long), typeof(bool), typeof(string) };
+        static readonly HashSet<Type> supportedParameterAndReturnTypes = new() { typeof(int), typeof(long), typeof(ulong), typeof(bool), typeof(string) };
 
         public Dictionary<string, HostMethodInfo> MapHostFunctionNamesToMethodInfo = new();
 
@@ -435,10 +436,10 @@ namespace Hyperlight
         {
             var parameters = methodInfo.GetParameters();
 
-            // Currently we only support up to 4 parameters
-            if (parameters.Length > 4)
+            // Currently we only support up to 10 parameters
+            if (parameters.Length > Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS)
             {
-                throw new Exception("We do not currently support more than 4 parameters");
+                throw new Exception($"Method {methodInfo.Name} has too many parameters. Maximum of {Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS} allowed");
             }
 
             // Check if each parameter is a supported type
