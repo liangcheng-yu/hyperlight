@@ -50,20 +50,8 @@ namespace Hyperlight.Hypervisors
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRflags, 0x0002, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRip, entryPoint, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRsp, rsp, 0);
-
-            // MSVC entry point takes first three integer arguments in rcx, rdx, r8
-            // GCC entry point takes first three integer arguments in rdi, rsi, rdx
-            // We always pass MSVC style assuming that _start is compiled with __attribute__((msabi))
-            AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRcx, 1, 0);
-            AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRdx, 1, 0);
-            AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterR8, 1, 0);
-            AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterR9, 1, 0);
-
-            // Here is the GCC way
-            //AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRdi, 1, 0);
-            //AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRsi, 1, 0);
-            //AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRdx, 1, 0);
-
+            AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRcx, 0, 0);
+           
             registerNames = registerNamesList.ToArray();
             registerValues = registerValuesList.ToArray();
         }
@@ -114,7 +102,7 @@ namespace Hyperlight.Hypervisors
                             HandleOutb(exitContext.IoPortAccess.PortNumber, 0/*todo add value*/);
 
                             // Move rip forward to next instruction (size of current instruction in lower byte of InstructionLength_Cr8_Reserved)
-                            
+
                             var ripIncrement = (ulong)(exitContext.VpContext.InstructionLength_Cr8_Reserved & 0xF);
                             ripValue[0].low = exitContext.VpContext.Rip + (ulong)(exitContext.VpContext.InstructionLength_Cr8_Reserved & 0xF);
                             WindowsHypervisorPlatform.WHvSetVirtualProcessorRegisters(hPartition, 0, ripName, 1, ripValue);
@@ -154,8 +142,8 @@ namespace Hyperlight.Hypervisors
 
         internal override void Initialise()
         {
-            Debug.Assert(registerNames[^4] == WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRcx);
-            registerValues[^4].low = pebAddress;
+            Debug.Assert(registerNames[^1] == WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRcx);
+            registerValues[^1].low = pebAddress;
             WindowsHypervisorPlatform.WHvSetVirtualProcessorRegisters(hPartition, 0, registerNames, (uint)registerNames.Length, registerValues);
             ExecuteUntilHalt();
         }
