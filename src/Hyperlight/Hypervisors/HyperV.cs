@@ -47,11 +47,6 @@ namespace Hyperlight.Hypervisors
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterCr0, X64.CR0_PE | X64.CR0_MP | X64.CR0_ET | X64.CR0_NE | X64.CR0_WP | X64.CR0_AM | X64.CR0_PG, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterEfer, X64.EFER_LME | X64.EFER_LMA, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterCs, 0, 0xa09b0008ffffffff);
-            AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterDs, 0, 0xa0930010ffffffff);
-            AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterEs, 0, 0xa0930010ffffffff);
-            AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterFs, 0, 0xa0930010ffffffff);
-            AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterGs, 0, 0/*0xa0930010ffffffff*/);
-            AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterSs, 0, 0xa0930010ffffffff);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRflags, 0x0002, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRip, entryPoint, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRsp, rsp, 0);
@@ -119,6 +114,8 @@ namespace Hyperlight.Hypervisors
                             HandleOutb(exitContext.IoPortAccess.PortNumber, 0/*todo add value*/);
 
                             // Move rip forward to next instruction (size of current instruction in lower byte of InstructionLength_Cr8_Reserved)
+                            
+                            var ripIncrement = (ulong)(exitContext.VpContext.InstructionLength_Cr8_Reserved & 0xF);
                             ripValue[0].low = exitContext.VpContext.Rip + (ulong)(exitContext.VpContext.InstructionLength_Cr8_Reserved & 0xF);
                             WindowsHypervisorPlatform.WHvSetVirtualProcessorRegisters(hPartition, 0, ripName, 1, ripValue);
                             break;
