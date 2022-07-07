@@ -11,7 +11,7 @@ namespace Hyperlight.Hypervisors
         readonly IntPtr pRun = IntPtr.Zero;
         readonly int vcpufd = -1;
         readonly int vmfd = -1;
-        internal KVM(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, Action handleMemoryAccess, ulong pebAddress) : base(sourceAddress, entryPoint, rsp, outb, handleMemoryAccess, pebAddress)
+        internal KVM(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, Action handleMemoryAccess) : base(sourceAddress, entryPoint, rsp, outb, handleMemoryAccess)
         {
             if (!LinuxKVM.IsHypervisorPresent())
             {
@@ -32,7 +32,7 @@ namespace Hyperlight.Hypervisors
             var region = new LinuxKVM.KVM_USERSPACE_MEMORY_REGION() { slot = 0, guest_phys_addr = (ulong)SandboxMemoryLayout.BaseAddress, memory_size = size, userspace_addr = (ulong)sourceAddress };
             Syscall.CheckReturnVal(
                 "ioctl KVM_SET_USER_MEMORY_REGION",
-                () => LinuxKVM.ioctl(vmfd, LinuxKVM.KVM_CREATE_VCPU, ref region),
+                () => LinuxKVM.ioctl(vmfd, LinuxKVM.KVM_SET_USER_MEMORY_REGION, ref region),
                 0
             );
             
@@ -46,6 +46,9 @@ namespace Hyperlight.Hypervisors
             {
                 throw new Exception("KVM_GET_VCPU_MMAP_SIZE returned -1");
             }
+
+            // TODO: According to https://www.kernel.org/doc/html/latest/virt/kvm/api.html#general-description ioctls on a vcpu should occur on the same thread that created the vcpu. 
+            // Otherwise, there could be a performance impact.
 
             pRun = OS.mmap(IntPtr.Zero, (ulong)mmap_size, OS.PROT_READ | OS.PROT_WRITE, OS.MAP_SHARED, vcpufd, 0);
             var sregs = new LinuxKVM.KVM_SREGS();
@@ -117,10 +120,10 @@ namespace Hyperlight.Hypervisors
         {
             while (true)
             {
-                var runRegs = new LinuxKVM.KVM_REGS();
+                // var runRegs = new LinuxKVM.KVM_REGS();
                 Syscall.CheckReturnVal(
                     "ioctl KVM_RUN_REQ",
-                    () => LinuxKVM.ioctl(vcpufd, LinuxKVM.KVM_RUN_REQ, ref runRegs),
+                    () => LinuxKVM.ioctl(vcpufd, LinuxKVM.KVM_RUN_REQ, 0),
                     0
                 );
 
@@ -130,6 +133,7 @@ namespace Hyperlight.Hypervisors
                     case LinuxKVM.KVM_EXIT_HLT:
                         return;
                     case LinuxKVM.KVM_EXIT_IO:
+                        // TODO: reduce calls to get/set regs See https://www.kernel.org/doc/html/latest/virt/kvm/api.html#kvm-cap-sync-regs 
                         // Save rip, call HandleOutb, then restore rip
                         var regs = new LinuxKVM.KVM_REGS();
                         Syscall.CheckReturnVal(
@@ -146,7 +150,7 @@ namespace Hyperlight.Hypervisors
                             () => LinuxKVM.ioctl(vcpufd, LinuxKVM.KVM_GET_REGS, ref regs),
                             0
                         );
-                        regs.rip = ripOrig;
+                        regs.rip = ripOrig + 1; //TODO: +1 is a hack, but it works for now, need to figure out how to get the instruction length;
                         Syscall.CheckReturnVal(
                             "ioctl KVM_SET_REGS",
                             () => LinuxKVM.ioctl(vcpufd, LinuxKVM.KVM_SET_REGS, ref regs),
@@ -170,13 +174,14 @@ namespace Hyperlight.Hypervisors
             throw new HyperlightException($"Unknown KVM exit_reason = {run.exit_reason}");
         }
 
-        internal override void Initialise()
+        internal override void Initialise(IntPtr pebAddress, ulong seed)
         {
             var regs = new LinuxKVM.KVM_REGS()
             {
                 rip = EntryPoint,
                 rsp = rsp,
-                r9 = pebAddress,
+                rdx = seed,
+                rcx = (ulong)pebAddress,
                 rflags = 0x0002,
             };
             Syscall.CheckReturnVal(

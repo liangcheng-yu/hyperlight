@@ -22,7 +22,7 @@ namespace Hyperlight.Hypervisors
         readonly bool virtualProcessorCreated;
         readonly ulong size;
 
-        internal HyperV(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, Action handleMemoryAccess, ulong pebAddress) : base(sourceAddress, entryPoint, rsp, outb, handleMemoryAccess, pebAddress)
+        internal HyperV(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, Action handleMemoryAccess) : base(sourceAddress, entryPoint, rsp, outb, handleMemoryAccess)
         {
             this.size = size;
             WindowsHypervisorPlatform.WHvCreatePartition(out hPartition);
@@ -50,6 +50,7 @@ namespace Hyperlight.Hypervisors
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRflags, 0x0002, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRip, entryPoint, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRsp, rsp, 0);
+            AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRdx, 0, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRcx, 0, 0);
            
             registerNames = registerNamesList.ToArray();
@@ -140,10 +141,12 @@ namespace Hyperlight.Hypervisors
             throw new HyperlightException(context.ToString());
         }
 
-        internal override void Initialise()
+        internal override void Initialise(IntPtr pebAddress, ulong seed)
         {
             Debug.Assert(registerNames[^1] == WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRcx);
-            registerValues[^1].low = pebAddress;
+            registerValues[^1].low = (ulong)pebAddress;
+            Debug.Assert(registerNames[^2] == WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRdx);
+            registerValues[^2].low = seed;
             WindowsHypervisorPlatform.WHvSetVirtualProcessorRegisters(hPartition, 0, registerNames, (uint)registerNames.Length, registerValues);
             ExecuteUntilHalt();
         }
