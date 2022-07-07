@@ -195,7 +195,7 @@ namespace Hyperlight.Tests
 
         public class MultipleGuestFunctionParameters
         {
-            public Func<string, int, int>? PrintTwoArgs; 
+            public Func<string, int, int>? PrintTwoArgs;
             public Func<string, int, long, int>? PrintThreeArgs;
             public Func<string, int, long, string, int>? PrintFourArgs;
             public Func<string, int, long, string, string, int>? PrintFiveArgs;
