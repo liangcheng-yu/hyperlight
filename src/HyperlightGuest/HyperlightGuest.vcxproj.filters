@@ -59,5 +59,8 @@
     <MASM Include=".\src\asm\regaccess.asm">
       <Filter>Source Files\asm</Filter>
     </MASM>
+    <MASM Include="src\asm\outb.asm">
+      <Filter>Source Files\asm</Filter>
+    </MASM>
   </ItemGroup>
 </Project>

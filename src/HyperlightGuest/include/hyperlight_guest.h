@@ -44,3 +44,4 @@ uint64_t getrsi();
 uint64_t getrdi();
 void setrsi(uint64_t rsi);
 void setrdi(uint64_t rdi);
+void hloutb(uint16_t port, uint8_t value);
