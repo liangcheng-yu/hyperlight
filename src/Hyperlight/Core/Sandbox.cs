@@ -368,11 +368,11 @@ namespace Hyperlight
 
             if (IsLinux)
             {
-                hyperVisor = new KVM(sandboxMemoryManager.SourceAddress, SandboxMemoryLayout.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, HandleMMIOExit, sandboxMemoryManager.GetPebAddress());
+                hyperVisor = new KVM(sandboxMemoryManager.SourceAddress, SandboxMemoryLayout.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, HandleMMIOExit);
             }
             else if (IsWindows)
             {
-                hyperVisor = new HyperV(sandboxMemoryManager.SourceAddress, SandboxMemoryLayout.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, HandleMMIOExit, sandboxMemoryManager.GetPebAddress());
+                hyperVisor = new HyperV(sandboxMemoryManager.SourceAddress, SandboxMemoryLayout.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, HandleMMIOExit);
             }
             else
             {
@@ -384,6 +384,13 @@ namespace Hyperlight
         private void Initialise()
         {
             var returnValue = 0;
+            var seedBytes = new byte[8];
+            using (var randomNumberGenerator = RandomNumberGenerator.Create())
+            {
+                randomNumberGenerator.GetBytes(seedBytes);
+            }
+            var seed = BitConverter.ToUInt64(seedBytes);
+            var pebAddress = (IntPtr)sandboxMemoryManager.GetPebAddress();
 
             if (runFromProcessMemory)
             {
@@ -410,7 +417,7 @@ namespace Hyperlight
                     var callOutB = new CallOutb_Linux((_, _, value, port) => HandleOutb(port, value));
                     gCHandle = GCHandle.Alloc(callOutB);
                     sandboxMemoryManager.SetOutBAddress((long)Marshal.GetFunctionPointerForDelegate<CallOutb_Linux>(callOutB));
-                    CallEntryPoint();
+                    CallEntryPoint(pebAddress, seed);
 
                 }
                 else if (IsWindows)
@@ -419,7 +426,7 @@ namespace Hyperlight
 
                     gCHandle = GCHandle.Alloc(callOutB);
                     sandboxMemoryManager.SetOutBAddress((long)Marshal.GetFunctionPointerForDelegate<CallOutb_Windows>(callOutB));
-                    CallEntryPoint();
+                    CallEntryPoint(pebAddress, seed);
                 }
                 else
                 {
@@ -429,7 +436,7 @@ namespace Hyperlight
             }
             else
             {
-                hyperVisor!.Initialise();
+                hyperVisor!.Initialise(pebAddress, seed);
             }
 
             if (!CheckStackGuard())
@@ -446,17 +453,10 @@ namespace Hyperlight
             }
         }
 
-        unsafe void CallEntryPoint()
+        unsafe void CallEntryPoint(IntPtr pebAddress, ulong seed)
         {
-            var seedBytes = new byte[8];
-            using (var randomNumberGenerator = RandomNumberGenerator.Create())
-            {
-                randomNumberGenerator.GetBytes(seedBytes);
-            }
-            var seed = BitConverter.ToUInt64(seedBytes);
-
             callEntryPoint = (delegate* unmanaged<IntPtr, ulong, int>)sandboxMemoryManager.EntryPoint;
-            _ = callEntryPoint((IntPtr)sandboxMemoryManager.GetPebAddress(), seed);
+            _ = callEntryPoint(pebAddress, seed);
         }
 
         /// <summary>

@@ -195,7 +195,7 @@ namespace Hyperlight.Tests
 
         public class MultipleGuestFunctionParameters
         {
-            public Func<string, int, int>? PrintTwoArgs; 
+            public Func<string, int, int>? PrintTwoArgs;
             public Func<string, int, long, int>? PrintThreeArgs;
             public Func<string, int, long, string, int>? PrintFourArgs;
             public Func<string, int, long, string, string, int>? PrintFiveArgs;
@@ -854,7 +854,7 @@ namespace Hyperlight.Tests
                     var heapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
                     sandbox.BindGuestFunction("CallMalloc", functions);
                     var mallocSize = heapSize * 2;
-                    output.WriteLine($"GuestHeapSize:{heapSize} MallocSize:{mallocSize}");
+                    output.WriteLine($"Testing CallMalloc with GuestHeapSize:{heapSize} MallocSize:{mallocSize} option: {option}");
                     var ex = Record.Exception(() =>
                     {
                         functions.CallMalloc!(mallocSize);
@@ -871,7 +871,7 @@ namespace Hyperlight.Tests
                     var functions = new MallocTests();
                     var heapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
                     var mallocSize = heapSize / 2;
-                    output.WriteLine($"GuestHeapSize:{heapSize} MallocSize:{mallocSize}");
+                    output.WriteLine($"Testing CallMalloc with GuestHeapSize:{heapSize} MallocSize:{mallocSize} option: {option}");
                     sandbox.BindGuestFunction("CallMalloc", functions);
                     var result = functions.CallMalloc!(mallocSize);
                     Assert.Equal<int>(mallocSize, result);
@@ -884,7 +884,7 @@ namespace Hyperlight.Tests
                     var functions = new MallocTests();
                     var heapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
                     var mallocSize = heapSize / 2;
-                    output.WriteLine($"GuestHeapSize:{heapSize} MallocSize:{mallocSize}");
+                    output.WriteLine($"Testing MallocAndFree with GuestHeapSize:{heapSize} MallocSize:{mallocSize} option: {option}");
                     sandbox.BindGuestFunction("MallocAndFree", functions);
                     var result = functions.MallocAndFree!(mallocSize);
                     Assert.Equal<int>(mallocSize, result);

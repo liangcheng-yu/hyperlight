@@ -158,9 +158,6 @@ void callHostFunction(char* functionName, va_list ap)
         *ptr++ = arg;
     }
 
-    // TODO: Why is the return code getting output via outb?
-    // This only happens if running in Hyperlight and on KVM.
-
     outb(101, 0);
 }
 // Calls a Host Function that returns an int
