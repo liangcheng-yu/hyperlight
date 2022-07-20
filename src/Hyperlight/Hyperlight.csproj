@@ -32,6 +32,15 @@
     <Content Include="Deislabs.HyperLight.targets" PackagePath="buildTransitive/Deislabs.HyperLight.targets" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Condition="'$(RuntimeIdentifier)'=='win-x64' or ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And  '$(RuntimeIdentifier)'=='')" Include="..\..\x64\$(Configuration)\HyperlightGuest.lib" Pack="true" PackagePath="native">
+      <Link>HyperlightGuest.lib</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </Content>
+    <Content Include="Deislabs.HyperLight.targets" PackagePath="buildTransitive/Deislabs.HyperLight.targets" />
+  </ItemGroup>
+
   <PropertyGroup>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
