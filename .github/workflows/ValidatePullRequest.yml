@@ -63,11 +63,11 @@ jobs:
         build: [ linux-debug, linux-release]
         include:
           - build: linux-debug
-            os: ubuntu-latest
+            os: [self-hosted, Linux, X64, kvm]
             config: Debug
             platform: x64
           - build: linux-release
-            os: ubuntu-latest
+            os: [self-hosted, Linux, X64, kvm]
             config: Release
             platform: x64
     steps:
