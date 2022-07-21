@@ -50,11 +50,11 @@ jobs:
       run: dotnet test -c ${{ matrix.config }} --logger "console;verbosity=detailed" --blame
       working-directory: src/tests/Hyperlight.Tests
     - name: Build Example
-      shell: bash
+      shell: pwsh
       run: dotnet build -c ${{ matrix.config }}
       working-directory: src/examples/NativeHost
     - name: Run Example
-      shell: bash
+      shell: pwsh
       run:  dotnet run -- -nowait
       working-directory: src/examples/NativeHost
     - name: Upload Artifacts
