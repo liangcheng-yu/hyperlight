@@ -16,8 +16,8 @@ namespace NativeHost
         private static readonly BlockingCollection<string> OutputBuffer = new();
 
         private static bool waitforuserinput = true;
-        const int DEFAULT_NUMBER_OF_PARALLEL_INSTANCES = 10;
-        const int DEFAULT_NUMBER_OF_ITERATIONS = 10;
+        const int DEFAULT_NUMBER_OF_PARALLEL_INSTANCES = 100;
+        const int DEFAULT_NUMBER_OF_ITERATIONS = 50;
         static void Main()
         {
 
