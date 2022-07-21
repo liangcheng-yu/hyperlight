@@ -55,7 +55,7 @@ jobs:
       working-directory: src/examples/NativeHost
     - name: Run Example
       shell: pwsh
-      run:  dotnet run -- -nowait
+      run:  dotnet run -c ${{ matrix.config }} -- -nowait
       working-directory: src/examples/NativeHost
     - name: Upload Artifacts
       uses: actions/upload-artifact@v3
@@ -108,7 +108,7 @@ jobs:
       working-directory: src/examples/NativeHost
     - name: Run Example
       shell: bash
-      run:  dotnet run -- -nowait
+      run:  dotnet run -c ${{ matrix.config }} -- -nowait
       working-directory: src/examples/NativeHost
     - name: Test
       shell: bash
