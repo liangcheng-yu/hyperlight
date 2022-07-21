@@ -11,6 +11,7 @@ void* unusedHeapBufferPointer = 0;
 FuncTable* funcTable;
 
 bool runningHyperlight = true;
+bool useOutForHalt = false;
 void (*outb_ptr)(uint16_t port, uint8_t value) = NULL;
 
 #pragma optimize("", off)
@@ -58,12 +59,9 @@ void InitialiseFunctionTable(int size)
 
 void outb(uint16_t port, uint8_t value)
 {
-    const uint8_t outb[] = { 0x89, 0xd0, 0x89, 0xca, 0xee, 0xc3 };
-
     if (runningHyperlight)
     {
-        ((void (*)(uint16_t, uint8_t))outb)(port, value);
-
+        hloutb(port, value);
     }
     else if (NULL != outb_ptr)
     {
@@ -86,7 +84,17 @@ void halt()
 {
     const uint8_t hlt = 0xF4;
     if (runningHyperlight)
-        ((void (*)()) & hlt)();
+    {
+        // This is a workaround for an issue where HyperV on Linux does not exit after HLT is issued.
+        if (useOutForHalt)
+        {
+            hloutb(999, 0);
+        }
+        else
+        {
+            ((void (*)()) & hlt)();
+        }
+    }
 }
 
 char* strncpy(char* dest, const char* src, size_t len)
@@ -370,7 +378,7 @@ void* hyperlightMoreCore(size_t size)
 
 #pragma optimize("", on)
 
-__declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int functionTableSize)
+__declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, bool useOutInsteadOfHalt, int functionTableSize)
 {
     pPeb = (HyperlightPEB*)pebAddress;
     if (NULL == pPeb)
@@ -378,6 +386,7 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int f
         return -1;
     }
 
+    useOutForHalt = useOutInsteadOfHalt;
     __security_init_cookie();
     resetError();
 

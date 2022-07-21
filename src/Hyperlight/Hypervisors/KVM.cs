@@ -120,7 +120,6 @@ namespace Hyperlight.Hypervisors
         {
             while (true)
             {
-                // var runRegs = new LinuxKVM.KVM_REGS();
                 Syscall.CheckReturnVal(
                     "ioctl KVM_RUN_REQ",
                     () => LinuxKVM.ioctl(vcpufd, LinuxKVM.KVM_RUN_REQ, 0),

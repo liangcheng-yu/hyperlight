@@ -23,6 +23,7 @@
     <MASM Include=".\src\asm\__security_cookie.asm">
       <FileType>Document</FileType>
     </MASM>
+    <MASM Include="src\asm\outb.asm" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include=".\include\hyperlight_error.h" />
