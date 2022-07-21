@@ -16,11 +16,11 @@ jobs:
         build: [ windows-debug, windows-release]
         include:
           - build: windows-debug
-            os: windows-latest
+            os: [self-hosted, Windows, X64, whp]
             config: Debug
             platform: x64
           - build: windows-release
-            os: windows-latest
+            os: [self-hosted, Windows, X64, whp]
             config: Release
             platform: x64
     steps:
