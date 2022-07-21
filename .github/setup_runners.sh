@@ -75,8 +75,8 @@ runcmd:
   - tar xzf ./actions-runner-linux-x64-2.294.0.tar.gz
   - chown azureuser:azureuser -R .
   - su azureuser -c "./config.sh --url https://github.com/deislabs --token ${TOKEN} --name hyperlight-runner-linux-kvm --labels linux,kvm"
-  - ./svc.sh install
+  - ./svc.sh install azureuser
   - ./svc.sh start
 EOF
 
-az vm create --resource-group "${RESOURCE_GROUP}" --location "${LOCATION}" --name hyperlight-runner-linux-kvm --image UbuntuLTS --admin-username azureuser --generate-ssh-keys --public-ip-address "" --custom-data cloud-init.txt
+az vm create --resource-group "${RESOURCE_GROUP}" --location "${LOCATION}" --size Standard_D2ds_v5 --name hyperlight-runner-linux-kvm --image Canonical:0001-com-ubuntu-server-focal:20_04-lts:latest --admin-username azureuser --generate-ssh-keys --public-ip-address "" --custom-data cloud-init.txt
