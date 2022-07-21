@@ -68,14 +68,22 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        build: [ linux-debug, linux-release]
+        build: [ linux-kvm-debug, linux-kvm-release, linux-hyperv-debug, linux-hyperv-release]
         include:
-          - build: linux-debug
+          - build: linux-kvm-debug
             os: [self-hosted, Linux, X64, kvm]
             config: Debug
             platform: x64
-          - build: linux-release
+          - build: linux-kvm-release
             os: [self-hosted, Linux, X64, kvm]
+            config: Release
+            platform: x64
+          - build: linux-hyperv-debug
+            os: [self-hosted, Linux, X64, hyperv]
+            config: Debug
+            platform: x64
+          - build: linux-hyperv-release
+            os: [self-hosted, Linux, X64, hyperv]
             config: Release
             platform: x64
     steps:
