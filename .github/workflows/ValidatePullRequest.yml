@@ -47,8 +47,16 @@ jobs:
       shell: pwsh
     - name: Test
       shell: pwsh
-      run: dotnet test -c ${{ matrix.config }}
+      run: dotnet test -c ${{ matrix.config }} --logger "console;verbosity=detailed" --blame
       working-directory: src/tests/Hyperlight.Tests
+    - name: Build Example
+      shell: bash
+      run: dotnet build -c ${{ matrix.config }}
+      working-directory: src/examples/NativeHost
+    - name: Run Example
+      shell: bash
+      run:  dotnet run -- -nowait
+      working-directory: src/examples/NativeHost
     - name: Upload Artifacts
       uses: actions/upload-artifact@v3
       with:
@@ -94,11 +102,15 @@ jobs:
       shell: bash
       run: dotnet build -c ${{ matrix.config }}
       working-directory: src/Hyperlight
-    - name: Build Examples
+    - name: Build Example
       shell: bash
       run: dotnet build -c ${{ matrix.config }}
-      working-directory: src/tests/Hyperlight.Tests
+      working-directory: src/examples/NativeHost
+    - name: Run Example
+      shell: bash
+      run:  dotnet run -- -nowait
+      working-directory: src/examples/NativeHost
     - name: Test
       shell: bash
-      run: dotnet test -c ${{ matrix.config }}
+      run: dotnet test -c ${{ matrix.config }} --logger "console;verbosity=detailed" --blame
       working-directory: src/tests/Hyperlight.Tests

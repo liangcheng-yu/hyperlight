@@ -14,10 +14,21 @@ namespace NativeHost
     {
         private static readonly CancellationTokenSource cancellationTokenSource = new();
         private static readonly BlockingCollection<string> OutputBuffer = new();
+
+        private static bool waitforuserinput = true;
         const int DEFAULT_NUMBER_OF_PARALLEL_INSTANCES = 10;
         const int DEFAULT_NUMBER_OF_ITERATIONS = 10;
         static void Main()
         {
+
+            foreach (var arg in Environment.GetCommandLineArgs())
+            {
+                if (arg.ToLowerInvariant().Contains("nowait"))
+                {
+                    waitforuserinput = false;
+                }
+            }
+
             // check this is a supported platform.
 
             if (!Sandbox.IsSupportedPlatform)
@@ -349,11 +360,11 @@ namespace NativeHost
 
         static void WaitForUserInput()
         {
-            Console.WriteLine();
-            Console.WriteLine("Press any key to continue...");
-            Console.WriteLine();
-            if (!Debugger.IsAttached)
+            if (!Debugger.IsAttached && waitforuserinput)
             {
+                Console.WriteLine();
+                Console.WriteLine("Press any key to continue...");
+                Console.WriteLine();
                 Console.ReadKey();
             }
         }
@@ -361,11 +372,12 @@ namespace NativeHost
         static int GetNumberOfParallelInstances()
         {
             var numberOfInstances = DEFAULT_NUMBER_OF_PARALLEL_INSTANCES;
-            Console.WriteLine();
-            Console.WriteLine($"Enter the number of Sandbox Instances to concurrently create and press enter (default: {DEFAULT_NUMBER_OF_PARALLEL_INSTANCES})...");
-            Console.WriteLine();
-            if (!Debugger.IsAttached)
+
+            if (!Debugger.IsAttached && waitforuserinput)
             {
+                Console.WriteLine();
+                Console.WriteLine($"Enter the number of Sandbox Instances to concurrently create and press enter (default: {DEFAULT_NUMBER_OF_PARALLEL_INSTANCES})...");
+                Console.WriteLine();
                 var input = Console.ReadLine();
                 if (!int.TryParse(input, out numberOfInstances))
                 {
@@ -378,11 +390,12 @@ namespace NativeHost
         static int GetNumberOfIterations()
         {
             var numberOfIterations = DEFAULT_NUMBER_OF_ITERATIONS;
-            Console.WriteLine();
-            Console.WriteLine($"Enter the number of iterations to execute in a recycled sandbox instance (default: {DEFAULT_NUMBER_OF_ITERATIONS})...");
-            Console.WriteLine();
-            if (!Debugger.IsAttached)
+
+            if (!Debugger.IsAttached && waitforuserinput)
             {
+                Console.WriteLine();
+                Console.WriteLine($"Enter the number of iterations to execute in a recycled sandbox instance (default: {DEFAULT_NUMBER_OF_ITERATIONS})...");
+                Console.WriteLine();
                 var input = Console.ReadLine();
                 if (!int.TryParse(input, out numberOfIterations))
                 {
