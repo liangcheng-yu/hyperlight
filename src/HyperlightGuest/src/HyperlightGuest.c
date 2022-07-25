@@ -29,7 +29,8 @@ void RegisterFunction(const char* FunctionName, guestFunc pFunction, int paramCo
     {
         setError(MALLOC_FAILED, NULL);
     }
-    
+
+#pragma warning(suppress:6011)
     funcEntry->FunctionName = FunctionName;
     funcEntry->pFunction = pFunction;
     funcEntry->paramCount = paramCount;
@@ -48,6 +49,7 @@ void InitialiseFunctionTable(int size)
         setError(MALLOC_FAILED, NULL);
     }
 
+#pragma warning(suppress:6011)
     funcTable->next = 0;
     funcTable->size = size;
     funcTable->funcEntry = (FuncEntry**)(malloc(sizeof(FuncEntry*) * size));
@@ -113,7 +115,7 @@ int printOutput(const char* message)
     size_t result = strlen(message);
     if (result >= pPeb->outputdata.outputDataSize)
     {
-        result = (int)pPeb->outputdata.outputDataSize - 1;
+        result = (size_t)pPeb->outputdata.outputDataSize - 1;
     }
 #pragma warning(suppress : 4996)
     strncpy((char*)pPeb->outputdata.outputDataBuffer, (char*)message, result);
@@ -157,11 +159,11 @@ void callHostFunction(char* functionName, va_list ap)
 {
     HostFunctionCall* functionCall = (HostFunctionCall*)pPeb->outputdata.outputDataBuffer;
     functionCall->FunctionName = functionName;
-    uint64_t* ptr = &functionCall->argv;
+    uint64_t** ptr = &functionCall->argv;
 
-    void* arg;
+    uint64_t* arg;
 
-    while (arg = va_arg(ap, void*))
+    while (arg = va_arg(ap, uint64_t*))
     {
         *ptr++ = arg;
     }
@@ -267,6 +269,8 @@ void DispatchFunction()
         {
             setError(MALLOC_FAILED, NULL);
         }
+
+#pragma warning(suppress:6011)
         guestFunctionDetails->functionName = funcCall->FunctionName;
         guestFunctionDetails->paramc = (int32_t)funcCall->argc;
 
@@ -290,6 +294,7 @@ void DispatchFunction()
             switch (guestArgument.argt)
             {
                 case (string):
+#pragma warning(suppress:28182)
                     guestFunctionDetails->paramv[i].value.string = (char*)guestArgument.argv;
                     guestFunctionDetails->paramv[i].kind = string;
                     break;
