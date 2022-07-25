@@ -15,18 +15,18 @@ namespace Hyperlight.Hypervisors
         {
             if (!LinuxKVM.IsHypervisorPresent())
             {
-                throw new Exception("KVM Not Present");
+                throw new HyperlightException("KVM Not Present");
             }
 
             if (-1 == (kvm = LinuxKVM.open("/dev/kvm", LinuxKVM.O_RDWR | LinuxKVM.O_CLOEXEC)))
             {
-                throw new Exception("Unable to open '/dev/kvm'");
+                throw new HyperlightException("Unable to open '/dev/kvm'");
             }
 
             vmfd = LinuxKVM.ioctl(kvm, LinuxKVM.KVM_CREATE_VM, 0);
             if (-1 == vmfd)
             {
-                throw new Exception("KVM_CREATE_VM returned -1");
+                throw new HyperlightException("KVM_CREATE_VM returned -1");
             }
 
             var region = new LinuxKVM.KVM_USERSPACE_MEMORY_REGION() { slot = 0, guest_phys_addr = (ulong)SandboxMemoryLayout.BaseAddress, memory_size = size, userspace_addr = (ulong)sourceAddress };
@@ -39,12 +39,12 @@ namespace Hyperlight.Hypervisors
             vcpufd = LinuxKVM.ioctl(vmfd, LinuxKVM.KVM_CREATE_VCPU, 0);
             if (-1 == vcpufd)
             {
-                throw new Exception("KVM_CREATE_VCPU returned -1");
+                throw new HyperlightException("KVM_CREATE_VCPU returned -1");
             }
             var mmap_size = LinuxKVM.ioctl(kvm, LinuxKVM.KVM_GET_VCPU_MMAP_SIZE, 0);
             if(-1 == mmap_size)
             {
-                throw new Exception("KVM_GET_VCPU_MMAP_SIZE returned -1");
+                throw new HyperlightException("KVM_GET_VCPU_MMAP_SIZE returned -1");
             }
 
             // TODO: According to https://www.kernel.org/doc/html/latest/virt/kvm/api.html#general-description ioctls on a vcpu should occur on the same thread that created the vcpu. 
@@ -168,7 +168,7 @@ namespace Hyperlight.Hypervisors
             }
         }
 
-        private void ThrowExitException(LinuxKVM.KVM_RUN run)
+        private static void ThrowExitException(LinuxKVM.KVM_RUN run)
         {
             //TODO: Improve exception data;
             throw new HyperlightException($"Unknown KVM exit_reason = {run.exit_reason}");

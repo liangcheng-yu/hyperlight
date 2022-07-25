@@ -26,11 +26,11 @@ namespace Hyperlight
         static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         static bool IsLinux => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
         public static bool IsSupportedPlatform => IsLinux || IsWindows;
-        Hypervisor hyperVisor;
+        Hypervisor? hyperVisor;
         GCHandle? gCHandle;
-        byte[] stackGuard;
+        byte[]? stackGuard;
         readonly string guestBinaryPath;
-        readonly HyperLightExports hyperLightExports; 
+        readonly HyperLightExports hyperLightExports;
         readonly SandboxMemoryManager sandboxMemoryManager;
         readonly bool initialised;
         readonly bool recycleAfterRun;
@@ -41,10 +41,10 @@ namespace Hyperlight
         // this is passed as a ref to several functions below,
         // therefore cannot be readonly
         static int isRunningFromGuestBinary;
-        readonly StringWriter writer;
+        readonly StringWriter? writer;
         readonly HyperlightGuestInterfaceGlue guestInterfaceGlue;
         private bool disposedValue; // To detect redundant calls
-        HyperlightPEB hyperlightPEB;
+        HyperlightPEB? hyperlightPEB;
 
         unsafe delegate* unmanaged<IntPtr, ulong, int> callEntryPoint;
 
@@ -75,23 +75,23 @@ namespace Hyperlight
         {
         }
 
-        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, Action<ISandboxRegistration> initFunction, StringWriter writer = null) : this(sandboxMemoryConfiguaration, guestBinaryPath, SandboxRunOptions.None, initFunction, writer)
+        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, Action<ISandboxRegistration> initFunction, StringWriter? writer = null) : this(sandboxMemoryConfiguaration, guestBinaryPath, SandboxRunOptions.None, initFunction, writer)
         {
         }
 
-        public Sandbox(string guestBinaryPath, Action<ISandboxRegistration> initFunction, StringWriter writer = null) : this(new SandboxMemoryConfiguration(), guestBinaryPath, SandboxRunOptions.None, initFunction, writer)
+        public Sandbox(string guestBinaryPath, Action<ISandboxRegistration> initFunction, StringWriter? writer = null) : this(new SandboxMemoryConfiguration(), guestBinaryPath, SandboxRunOptions.None, initFunction, writer)
         {
         }
 
-        public Sandbox(string guestBinaryPath, Action<ISandboxRegistration> initFunction = null) : this(new SandboxMemoryConfiguration(), guestBinaryPath, SandboxRunOptions.None, initFunction, null)
+        public Sandbox(string guestBinaryPath, Action<ISandboxRegistration>? initFunction = null) : this(new SandboxMemoryConfiguration(), guestBinaryPath, SandboxRunOptions.None, initFunction, null)
         {
         }
 
-        public Sandbox(string guestBinaryPath, StringWriter writer = null) : this(new SandboxMemoryConfiguration(), guestBinaryPath, SandboxRunOptions.None, null, writer)
+        public Sandbox(string guestBinaryPath, StringWriter? writer = null) : this(new SandboxMemoryConfiguration(), guestBinaryPath, SandboxRunOptions.None, null, writer)
         {
         }
 
-        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, StringWriter writer = null) : this(sandboxMemoryConfiguaration, guestBinaryPath, SandboxRunOptions.None, null, writer)
+        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, StringWriter? writer = null) : this(sandboxMemoryConfiguaration, guestBinaryPath, SandboxRunOptions.None, null, writer)
         {
         }
 
@@ -99,11 +99,11 @@ namespace Hyperlight
         {
         }
 
-        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction = null) : this(sandboxMemoryConfiguaration, guestBinaryPath, runOptions, initFunction, null)
+        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration>? initFunction = null) : this(sandboxMemoryConfiguaration, guestBinaryPath, runOptions, initFunction, null)
         {
         }
 
-        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, StringWriter writer = null) : this(new SandboxMemoryConfiguration(), guestBinaryPath, runOptions, null, writer)
+        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, StringWriter? writer = null) : this(new SandboxMemoryConfiguration(), guestBinaryPath, runOptions, null, writer)
         {
         }
 
@@ -118,7 +118,7 @@ namespace Hyperlight
         {
         }
 
-        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguration, string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction = null, StringWriter writer = null)
+        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguration, string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration>? initFunction = null, StringWriter? writer = null)
         {
             if (!IsSupportedPlatform)
             {
@@ -203,7 +203,9 @@ namespace Hyperlight
 
             if (!CheckStackGuard())
             {
+#pragma warning disable CA2201 // Do not raise reserved exception types
                 throw new StackOverflowException($"Calling {functionName}");
+#pragma warning restore CA2201 // Do not raise reserved exception types
             }
 
             CheckForGuestError();
@@ -215,14 +217,16 @@ namespace Hyperlight
         {
             if (!CheckStackGuard())
             {
+#pragma warning disable CA2201 // Do not raise reserved exception types
                 throw new StackOverflowException();
+#pragma warning restore CA2201 // Do not raise reserved exception types
             }
 
         }
 
         public void CheckForGuestError()
         {
-            (GuestErrorCode ErrorCode, string Message) guestError = sandboxMemoryManager.GetGuestError();
+            (GuestErrorCode ErrorCode, string? Message) guestError = sandboxMemoryManager.GetGuestError();
 
             switch (guestError.ErrorCode)
             {
@@ -239,11 +243,13 @@ namespace Hyperlight
                             }
                             throw exception;
                         }
-                        throw new ApplicationException("OutB Error");
+                        throw new HyperlightException("OutB Error");
                     }
                 case GuestErrorCode.STACK_OVERFLOW:
                     {
+#pragma warning disable CA2201 // Do not raise reserved exception types
                         throw new StackOverflowException();
+#pragma warning restore CA2201 // Do not raise reserved exception types
                     }
                 default:
                     {
@@ -274,7 +280,7 @@ namespace Hyperlight
                 }
                 else
                 {
-                    throw new ApplicationException("Only one instance of Sandbox is allowed when running from guest binary");
+                    throw new HyperlightException("Only one instance of Sandbox is allowed when running from guest binary");
                 }
 
                 sandboxMemoryManager.LoadGuestBinaryUsingLoadLibrary(guestBinaryPath, peInfo);
@@ -306,13 +312,13 @@ namespace Hyperlight
         private void CreateHyperlightPEBInMemory()
         {
             UpdateFunctionMap();
-            hyperlightPEB.Create();
+            hyperlightPEB!.Create();
         }
 
         private void UpdateHyperlightPEBInMemory()
         {
             UpdateFunctionMap();
-            hyperlightPEB.Update();
+            hyperlightPEB!.Update();
         }
 
         private void UpdateFunctionMap()
@@ -323,7 +329,7 @@ namespace Hyperlight
                 // Dont add functions that already exist in the PEB
                 // TODO: allow overloaded functions
 
-                if (hyperlightPEB.FunctionExists(mi.methodInfo.Name))
+                if (hyperlightPEB!.FunctionExists(mi.methodInfo.Name))
                 {
                     continue;
                 }
@@ -414,10 +420,12 @@ namespace Hyperlight
                     // 
 
                     throw new NotSupportedException("Cannot run in process on Linux");
+#pragma warning disable CS0162 // Unreachable code detected - this is temporary until the issue above is fixed.
                     var callOutB = new CallOutb_Linux((_, _, value, port) => HandleOutb(port, value));
                     gCHandle = GCHandle.Alloc(callOutB);
                     sandboxMemoryManager.SetOutBAddress((long)Marshal.GetFunctionPointerForDelegate<CallOutb_Linux>(callOutB));
                     CallEntryPoint(pebAddress, seed);
+#pragma warning restore CS0162 // Unreachable code detected
 
                 }
                 else if (IsWindows)
@@ -441,7 +449,9 @@ namespace Hyperlight
 
             if (!CheckStackGuard())
             {
+#pragma warning disable CA2201 // Do not raise reserved exception types - this is intentional
                 throw new StackOverflowException($"Init Function Failed");
+#pragma warning restore CA2201 // Do not raise reserved exception types
             }
 
             returnValue = sandboxMemoryManager.GetReturnValue();
@@ -449,7 +459,7 @@ namespace Hyperlight
             if (returnValue != 0)
             {
                 CheckForGuestError();
-                throw new ApplicationException($"Init Function Failed with error code:{returnValue}");
+                throw new HyperlightException($"Init Function Failed with error code:{returnValue}");
             }
         }
 
@@ -467,7 +477,7 @@ namespace Hyperlight
         /// <param name="func">The function to be executed</param>
         /// <returns>T</returns>
         /// <exception cref="ArgumentNullException">func is null</exception>
-        /// <exception cref="ApplicationException">a call to the guest is already in progress</exception>
+        /// <exception cref="HyperlightException">a call to the guest is already in progress</exception>
 
         public T CallGuest<T>(Func<T> func)
         {
@@ -477,7 +487,7 @@ namespace Hyperlight
             {
                 if (Interlocked.CompareExchange(ref executingGuestCall, 1, 0) != 0)
                 {
-                    throw new ApplicationException("Guest call already in progress");
+                    throw new HyperlightException("Guest call already in progress");
                 }
                 shouldRelease = true;
                 ResetState();
@@ -498,7 +508,7 @@ namespace Hyperlight
         /// returns false as there is no need to check state
         /// </summary>
         /// <returns></returns>
-        /// <exception cref="ApplicationException"></exception>
+        /// <exception cref="HyperlightException"></exception>
         internal bool EnterDynamicMethod()
         {
             // Check if call is before initialisation is finished or invoked inside CallGuest<T>
@@ -510,7 +520,7 @@ namespace Hyperlight
 
             if ((Interlocked.CompareExchange(ref executingGuestCall, 2, 0)) != 0)
             {
-                throw new ApplicationException("Guest call already in progress");
+                throw new HyperlightException("Guest call already in progress");
             }
             return true;
         }
@@ -562,7 +572,7 @@ namespace Hyperlight
                             var parameters = mi.methodInfo.GetParameters();
                             var args = sandboxMemoryManager.GetHostCallArgs(parameters);
                             var returnFromHost = guestInterfaceGlue.DispatchCallFromGuest(methodName, args);
-                            sandboxMemoryManager.WriteResponseFromHostMethodCall(mi.methodInfo.ReturnType,returnFromHost);
+                            sandboxMemoryManager.WriteResponseFromHostMethodCall(mi.methodInfo.ReturnType, returnFromHost);
                             break;
 
                         }
@@ -584,7 +594,9 @@ namespace Hyperlight
                         }
                 }
             }
+#pragma warning disable CA1031 // Intentional to catch alll exceptions here as they are serilaised across the managed/unmanaged boundary and we don't want to lose the exception information
             catch (Exception ex)
+#pragma warning restore CA1031
             {
                 sandboxMemoryManager.WriteOutbException(ex, port);
             }

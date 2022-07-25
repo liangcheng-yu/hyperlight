@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using Hyperlight.Core;
 
 namespace Hyperlight.Native
 {
@@ -38,29 +39,40 @@ namespace Hyperlight.Native
         }
 
         [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern IntPtr VirtualAlloc(IntPtr lpAddress, IntPtr dwSize, AllocationType flAllocationType, MemoryProtection flProtect);
 
         [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern IntPtr VirtualAllocEx(IntPtr hProcess, IntPtr lpAddress, IntPtr dwSize, AllocationType flAllocationType, MemoryProtection flProtect);
 
         [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern int VirtualFree(IntPtr lpAddress, IntPtr dwSize, uint dwFreeType);
 
         [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern int VirtualFreeEx(IntPtr hProcess, IntPtr lpAddress, IntPtr dwSize, uint dwFreeType);
-        
+
         [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern bool ReadProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, IntPtr lpBuffer, IntPtr nSize, out IntPtr lpNumberOfBytesRead);
         [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, IntPtr lpBuffer, IntPtr nSize, out IntPtr lpNumberOfBytesWritten);
 
         [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Ansi)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+#pragma warning disable CA2101 // Specify marshaling for P/Invoke string arguments
         public static extern IntPtr LoadLibrary([MarshalAs(UnmanagedType.LPStr)] string lpFileName);
+#pragma warning restore CA2101 // Specify marshaling for P/Invoke string arguments
 
         [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Ansi)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern IntPtr FreeLibrary(IntPtr hModule);
 
         [DllImport("kernel32.dll")]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern bool VirtualProtect(IntPtr lpAddress, UIntPtr dwSize, OS.MemoryProtection flNewProtect, out OS.MemoryProtection lpflOldProtect);
 
 
@@ -78,9 +90,11 @@ namespace Hyperlight.Native
         public const int MAP_ANONYMOUS = 0x20;/* don't use a file */
 
         [DllImport("libc", SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
         public static extern IntPtr mmap(IntPtr addr, ulong length, int prot, int flags, int fd, ulong offset);
 
         [DllImport("libc", SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
         public static extern IntPtr munmap(IntPtr addr, ulong length);
 
         // Memory allocation/free functions
@@ -104,7 +118,7 @@ namespace Hyperlight.Native
             if (IntPtr.Zero == memPtr)
             {
                 var err = Marshal.GetLastWin32Error();
-                throw new Exception($"Failed to allocate memory. Error code: {err}");
+                throw new HyperlightException($"Failed to allocate memory. Error code: {err}");
             }
 
             return memPtr;
@@ -242,18 +256,23 @@ namespace Hyperlight.Native
         }
 
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern bool CreateProcess(string? lpApplicationName, string lpCommandLine, SecurityAttributes lpProcessAttributes, SecurityAttributes lpThreadAttributes, bool bInheritHandles, CreateProcessFlags dwCreationFlags, IntPtr lpEnvironment, string? lpCurrentDirectory, [In] StartupInfo lpStartupInfo, out ProcessInformation lpProcessInformation);
 
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern IntPtr CreateJobObject(SecurityAttributes jobSecurityAttributes, string lpName);
 
         [DllImport("kernel32.dll")]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern bool SetInformationJobObject(IntPtr hJob, JobObjectInfoType infoType, IntPtr lpJobObjectInfo, uint cbJobObjectInfoLength);
 
         [DllImport("kernel32.dll", SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
 
         [DllImport("kernel32.dll", SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool CloseHandle(IntPtr hObject);
     }

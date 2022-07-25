@@ -324,42 +324,55 @@ namespace Hyperlight.Native
 
         // Overload that returns a uint sized structure.  It is expected that this overload will be called with CapabilityBufferSizeInBytes == 4
         [DllImport("WinHvPlatform.dll", PreserveSig = false)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         static extern void WHvGetCapability(WHV_CAPABILITY_CODE capabilityCode, [Out] out uint capabilityBuffer, uint capabilityBufferSizeInBytes, [Out] out uint writtenSizeInBytes);
 
         [DllImport("WinHvPlatform.dll", PreserveSig = false)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern void WHvCreatePartition([Out] out IntPtr hPartition);
 
         [DllImport("WinHvPlatform.dll", PreserveSig = false)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern void WHvDeletePartition(IntPtr hPartition);
 
         [DllImport("WinHvPlatform.dll", PreserveSig = false)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         static extern void WHvSetPartitionProperty(IntPtr hPartition, WHV_PARTITION_PROPERTY_CODE propertyCode, [In][Out] ref uint propertyBuffer, uint propertyBufferSizeInBytes);
 
         [DllImport("WinHvPlatform.dll", PreserveSig = false)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern void WHvSetupPartition(IntPtr hPartition);
 
         [DllImport("WinHvPlatform.dll", PreserveSig = false)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern void WHvMapGpaRange(IntPtr hPartition, IntPtr sourceAddress, IntPtr guestAddress, ulong sizeInBytes, WHV_MAP_GPA_RANGE_FLAGS flags);
 
         [DllImport("WinHvPlatform.dll", PreserveSig = false)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern void WHvMapGpaRange2(IntPtr hPartition, IntPtr process, IntPtr sourceAddress, IntPtr guestAddress, ulong sizeInBytes, WHV_MAP_GPA_RANGE_FLAGS flags);
 
         [DllImport("WinHvPlatform.dll", PreserveSig = false)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern void WHvCreateVirtualProcessor(IntPtr hPartition, uint vpIndex, uint flags);
 
         [DllImport("WinHvPlatform.dll", PreserveSig = false)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern void WHvRunVirtualProcessor(IntPtr hPartition, uint vpIndex, [Out] out WHV_RUN_VP_EXIT_CONTEXT exitContext, uint exitContextSizeInBytes);
 
         [DllImport("WinHvPlatform.dll", PreserveSig = false)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern void WHvRunVirtualProcessor(IntPtr hPartition, uint vpIndex, IntPtr exitContext, uint exitContextSizeInBytes);
 
         [DllImport("WinHvPlatform.dll")]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern uint WHvDeleteVirtualProcessor(IntPtr hPartition, uint vpIndex);
 
         [DllImport("WinHvPlatform.dll", PreserveSig = false)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern void WHvSetVirtualProcessorRegisters(IntPtr hPartition, uint vpIndex, WHV_REGISTER_NAME[] registerNames, uint registerCount, MyUInt128[] registerValues);
 
         [DllImport("WinHvPlatform.dll", PreserveSig = false)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern void WHvGetVirtualProcessorRegisters(IntPtr hPartition, uint vpIndex, WHV_REGISTER_NAME[] registerNames, uint registerCount, [Out] MyUInt128[] registerValues);
 
 

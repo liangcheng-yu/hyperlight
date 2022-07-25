@@ -1185,7 +1185,7 @@ namespace Hyperlight.Tests
                 Sandbox sandbox2 = null;
                 var ex = Record.Exception(() => sandbox2 = new Sandbox(GetSandboxMemoryConfiguration(), testData.GuestBinaryPath, option, output2));
                 Assert.NotNull(ex);
-                Assert.IsType<System.ApplicationException>(ex);
+                Assert.IsType<HyperlightException>(ex);
                 Assert.Equal("Only one instance of Sandbox is allowed when running from guest binary", ex.Message);
                 sandbox1.Dispose();
                 sandbox2?.Dispose();
@@ -1336,7 +1336,7 @@ namespace Hyperlight.Tests
                     }
                     var ex = Record.Exception(() => sandbox2 = new Sandbox(GetSandboxMemoryConfiguration(), testData.GuestBinaryPath, option, null, output2));
                     Assert.NotNull(ex);
-                    Assert.IsType<System.ApplicationException>(ex);
+                    Assert.IsType<HyperlightException>(ex);
                     Assert.Equal("Only one instance of Sandbox is allowed when running from guest binary", ex.Message);
                     sandbox1.Dispose();
                     sandbox2?.Dispose();

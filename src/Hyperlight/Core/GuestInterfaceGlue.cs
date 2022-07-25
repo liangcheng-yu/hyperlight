@@ -8,7 +8,7 @@ namespace Hyperlight
 {
     internal struct HostMethodInfo
     {
-        public object target;
+        public object? target;
         public MethodInfo methodInfo;
     }
     abstract class GuestInterfaceGlue
@@ -93,7 +93,7 @@ namespace Hyperlight
                     if (ShouldExposeMember(fieldInfo.GetCustomAttribute<ExposeToGuestAttribute>(), exposeMembers) && fieldInfo.GetValue(null) == null)
                     {
                         // TODO implement logging rather throwing exception                       
-                        throw new ApplicationException($"Skipping delegate ${fieldInfo.Name} as it is static. Use ExposeToGuestAttribute[false] to exclude this member");
+                        throw new HyperlightException($"Skipping delegate ${fieldInfo.Name} as it is static. Use ExposeToGuestAttribute[false] to exclude this member");
                     }
                 }
             }
@@ -114,7 +114,7 @@ namespace Hyperlight
             }
         }
 
-        private void ExposeHostMethod(MethodInfo methodInfo, object target = null, bool exposeMembers = true)
+        private void ExposeHostMethod(MethodInfo methodInfo, object? target = null, bool exposeMembers = true)
         {
             // Validate that we support parameter list and return type
             if (ShouldExposeMember(methodInfo.GetCustomAttribute<ExposeToGuestAttribute>(), exposeMembers))
@@ -150,7 +150,7 @@ namespace Hyperlight
             // it is easier NOT to create an object[] in IL
 
             // Get delegate parameter list
-            var parameters = invokeMethod.GetParameters();
+            var parameters = invokeMethod!.GetParameters();
 
             // Our delegate will be bound to an instance of GuestInterfaceGlue so the first parameter will be typeof(GuestInterfaceGlue)
             // After that, the parameters will match the delegate we are trying to implement
@@ -207,6 +207,7 @@ namespace Hyperlight
 
             il.Emit(OpCodes.Ldarg_0);
             var enterDynamicMethod = typeof(GuestInterfaceGlue).GetMethod("EnterDynamicMethod", BindingFlags.NonPublic | BindingFlags.Instance);
+            ArgumentNullException.ThrowIfNull(enterDynamicMethod, nameof(enterDynamicMethod));
             il.Emit(OpCodes.Callvirt, enterDynamicMethod);
             il.Emit(OpCodes.Stloc_0);
 
@@ -220,6 +221,7 @@ namespace Hyperlight
             il.Emit(OpCodes.Brfalse, noreset);
             il.Emit(OpCodes.Ldarg_0);
             var resetState = typeof(GuestInterfaceGlue).GetMethod("ResetState", BindingFlags.NonPublic | BindingFlags.Instance);
+            ArgumentNullException.ThrowIfNull(resetState, nameof(resetState));
             il.Emit(OpCodes.Callvirt, resetState);
             il.MarkLabel(noreset);
 
@@ -270,7 +272,7 @@ namespace Hyperlight
             // Create object[] with a length equal to the number of parameters in the delegate
             if (parameters.Length > 255)
             {
-                throw new Exception("We do not support more than 255 parameters");
+                throw new HyperlightException("Hyperlight does not support calling a function with more than 255 parameters");
             }
 
             EmitLoadInt((byte)parameters.Length);
@@ -316,6 +318,7 @@ namespace Hyperlight
 
             // Emit call to DispatchCallFromHost
             var dispatchCallFromHost = typeof(GuestInterfaceGlue).GetMethod("DispatchCallFromHost", BindingFlags.NonPublic | BindingFlags.Instance);
+            ArgumentNullException.ThrowIfNull(dispatchCallFromHost, nameof(dispatchCallFromHost));
             il.EmitCall(OpCodes.Callvirt, dispatchCallFromHost, null);
 
             // See if we need to unbox
@@ -337,6 +340,7 @@ namespace Hyperlight
             // The argument is the return value from EnterDynamicMethod which is stored in the second variable declared above
             il.Emit(OpCodes.Ldloc_0);
             var exitDynamicMethod = typeof(GuestInterfaceGlue).GetMethod("ExitDynamicMethod", BindingFlags.NonPublic | BindingFlags.Instance);
+            ArgumentNullException.ThrowIfNull(exitDynamicMethod, nameof(exitDynamicMethod));
             il.Emit(OpCodes.Callvirt, exitDynamicMethod);
 
             il.EndExceptionBlock();
@@ -371,7 +375,7 @@ namespace Hyperlight
 
         public void ExposeHostMethod(string methodName, object instance)
         {
-            var methodInfo = instance.GetType().GetMethod(methodName, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.NonPublic |BindingFlags.Instance);
+            var methodInfo = instance.GetType().GetMethod(methodName, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
             if (methodInfo == null)
             {
                 throw new ArgumentException($"{methodName} not found.");
@@ -389,13 +393,13 @@ namespace Hyperlight
             ExposeHostMethod(methodInfo);
         }
 
-        private static bool ShouldExposeMember(ExposeToGuestAttribute exposeToGuestAttribute, bool exposeMembers) => exposeMembers ? exposeToGuestAttribute == null || exposeToGuestAttribute.Expose : exposeToGuestAttribute != null && exposeToGuestAttribute.Expose;
+        private static bool ShouldExposeMember(ExposeToGuestAttribute? exposeToGuestAttribute, bool exposeMembers) => exposeMembers ? exposeToGuestAttribute == null || exposeToGuestAttribute.Expose : exposeToGuestAttribute != null && exposeToGuestAttribute.Expose;
 
-        public object DispatchCallFromGuest(string functionName, object[] args)
+        public object? DispatchCallFromGuest(string functionName, object[] args)
         {
             if (!MapHostFunctionNamesToMethodInfo.ContainsKey(functionName))
             {
-                throw new Exception($"Host does not have helper function name {functionName}");
+                throw new HyperlightException($"Host does not have helper function name {functionName}");
             }
 
             var hostMethodInfo = MapHostFunctionNamesToMethodInfo[functionName];
@@ -404,7 +408,7 @@ namespace Hyperlight
             var parameters = hostMethodInfo.methodInfo.GetParameters();
             if (parameters.Length != args.Length)
             {
-                throw new Exception($"Passed wrong number of arguments - Expected {parameters.Length} Passed {args.Length}");
+                throw new HyperlightException($"Passed wrong number of arguments - Expected {parameters.Length} Passed {args.Length}");
             }
 
             for (var i = 0; i < parameters.Length; i++)
@@ -414,7 +418,7 @@ namespace Hyperlight
                 // We could make this more relaxed in the future
                 if (!parameters[i].ParameterType.IsAssignableFrom(args[i].GetType()))
                 {
-                    throw new Exception($"Passed argument that is not assignable to the expected type - Expected {parameters[i].ParameterType} Passed {args[i].GetType()}");
+                    throw new HyperlightException($"Passed argument that is not assignable to the expected type - Expected {parameters[i].ParameterType} Passed {args[i].GetType()}");
                 }
             }
 
@@ -432,14 +436,15 @@ namespace Hyperlight
 
         // Validate that we support the parameter count, parameter types, and return value
         // Throws exception if not supported.  Note that void is supported as a return type
-        static void ValidateMethodSupported(MethodInfo methodInfo)
+        static void ValidateMethodSupported(MethodInfo? methodInfo)
         {
+            ArgumentNullException.ThrowIfNull(methodInfo, nameof(methodInfo));
             var parameters = methodInfo.GetParameters();
 
             // Currently we only support up to 10 parameters
             if (parameters.Length > Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS)
             {
-                throw new Exception($"Method {methodInfo.Name} has too many parameters. Maximum of {Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS} allowed");
+                throw new HyperlightException($"Method {methodInfo.Name} has too many parameters. Maximum of {Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS} allowed");
             }
 
             // Check if each parameter is a supported type
@@ -447,14 +452,14 @@ namespace Hyperlight
             {
                 if (!supportedParameterAndReturnTypes.Contains(parameter.ParameterType))
                 {
-                    throw new Exception($"Unsupported Paramter Type {parameter.ParameterType} on parameter {parameter.Name} method {methodInfo.Name}");
+                    throw new HyperlightException($"Unsupported Paramter Type {parameter.ParameterType} on parameter {parameter.Name} method {methodInfo.Name}");
                 }
             }
 
             // Check if return value is a supported type of 'void'
             if (!(methodInfo.ReturnType == typeof(void)) && !supportedParameterAndReturnTypes.Contains(methodInfo.ReturnType))
             {
-                throw new Exception($"Unsupported Return Type {methodInfo.ReturnType} on method {methodInfo.Name}");
+                throw new HyperlightException($"Unsupported Return Type {methodInfo.ReturnType} on method {methodInfo.Name}");
             }
         }
     }

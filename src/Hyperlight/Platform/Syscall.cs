@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using Hyperlight.Core;
 
 namespace Hyperlight.Native
 {
@@ -27,7 +28,7 @@ namespace Hyperlight.Native
             var ret = fn();
             if(!checkRetVal(ret)) {
                 int error = Marshal.GetLastPInvokeError();
-                throw new Exception($"${opName}: Expected return value, got {ret} Pinvoke Last Error:{error}");
+                throw new HyperlightException($"${opName}: Expected return value, got {ret} Pinvoke Last Error:{error}");
             }
             return ret;
         }
@@ -51,7 +52,7 @@ namespace Hyperlight.Native
         ) {
             var ret = fn();
             if(!checkRetVal(ret)) {
-                throw new Exception($"${opName}: Expected return value, got {ret}");
+                throw new HyperlightException($"${opName}: Expected return value, got {ret}");
             }
             return ret;
         }

@@ -11,13 +11,17 @@ namespace Hyperlight.Core
         boolean,
     }
     [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
+#pragma warning disable CA1815 // Override equals and operator equals on value types
     public struct GuestArgument
+#pragma warning restore CA1815 // Override equals and operator equals on value types
     {
         public ParameterKind argt;
         public ulong argv;
     }
     [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
+#pragma warning disable CA1815 // Override equals and operator equals on value types
     public struct GuestFunctionCall
+#pragma warning restore CA1815 // Override equals and operator equals on value types
     {
         public ulong pFunctionName;
         public ulong argc;
