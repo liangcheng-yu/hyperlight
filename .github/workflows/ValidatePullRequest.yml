@@ -16,11 +16,11 @@ jobs:
         build: [ windows-debug, windows-release]
         include:
           - build: windows-debug
-            os: windows-latest
+            os: [self-hosted, Windows, X64, whp]
             config: Debug
             platform: x64
           - build: windows-release
-            os: windows-latest
+            os: [self-hosted, Windows, X64, whp]
             config: Release
             platform: x64
     steps:
@@ -47,8 +47,16 @@ jobs:
       shell: pwsh
     - name: Test
       shell: pwsh
-      run: dotnet test -c ${{ matrix.config }}
+      run: dotnet test -c ${{ matrix.config }} --logger "console;verbosity=detailed" --blame
       working-directory: src/tests/Hyperlight.Tests
+    - name: Build Example
+      shell: pwsh
+      run: dotnet build -c ${{ matrix.config }}
+      working-directory: src/examples/NativeHost
+    - name: Run Example
+      shell: pwsh
+      run:  dotnet run -c ${{ matrix.config }} -- -nowait
+      working-directory: src/examples/NativeHost
     - name: Upload Artifacts
       uses: actions/upload-artifact@v3
       with:
@@ -60,14 +68,22 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        build: [ linux-debug, linux-release]
+        build: [ linux-kvm-debug, linux-kvm-release, linux-hyperv-debug, linux-hyperv-release]
         include:
-          - build: linux-debug
-            os: ubuntu-latest
+          - build: linux-kvm-debug
+            os: [self-hosted, Linux, X64, kvm]
             config: Debug
             platform: x64
-          - build: linux-release
-            os: ubuntu-latest
+          - build: linux-kvm-release
+            os: [self-hosted, Linux, X64, kvm]
+            config: Release
+            platform: x64
+          - build: linux-hyperv-debug
+            os: [self-hosted, Linux, X64, hyperv]
+            config: Debug
+            platform: x64
+          - build: linux-hyperv-release
+            os: [self-hosted, Linux, X64, hyperv]
             config: Release
             platform: x64
     steps:
@@ -81,24 +97,28 @@ jobs:
           6.0.x 
     - name: Restore
       run: dotnet restore
-      shell: pwsh
+      shell: bash
     - name: Set MINVERBUILDMETADATA
-      run:  echo "MINVERBUILDMETADATA=$(git rev-parse --short ${{ github.sha }})" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
-      shell: pwsh
+      run:  echo "MINVERBUILDMETADATA=$(git rev-parse --short ${{ github.sha }})" >> $GITHUB_ENV 
+      shell: bash
     - name: Download Artifacts
       uses: actions/download-artifact@v3
       with:
         name: guest-binaries-${{ matrix.config }}
         path: src/tests/Guests/
     - name: Build Hyperlight
-      shell: pwsh
+      shell: bash
       run: dotnet build -c ${{ matrix.config }}
       working-directory: src/Hyperlight
-    - name: Build Examples
-      shell: pwsh
+    - name: Build Example
+      shell: bash
       run: dotnet build -c ${{ matrix.config }}
-      working-directory: src/tests/Hyperlight.Tests
+      working-directory: src/examples/NativeHost
+    - name: Run Example
+      shell: bash
+      run:  dotnet run -c ${{ matrix.config }} -- -nowait
+      working-directory: src/examples/NativeHost
     - name: Test
-      shell: pwsh
-      run: dotnet test -c ${{ matrix.config }}
+      shell: bash
+      run: dotnet test -c ${{ matrix.config }} --logger "console;verbosity=detailed" --blame
       working-directory: src/tests/Hyperlight.Tests
