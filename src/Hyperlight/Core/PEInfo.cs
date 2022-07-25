@@ -14,7 +14,6 @@ namespace Hyperlight
     [Flags]
     public enum ImageFileCharacteristics
     {
-        
         RELOCSSTRIPPED = 0x0001,
         EXECUTABLEIMAGE = 0x0002,
     }
