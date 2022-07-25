@@ -301,7 +301,7 @@ void DispatchFunction()
                     guestFunctionDetails->paramv[i].kind = boolean;
                     break;
                 default:
-                    setError(MALLOC_FAILED, NULL);
+                    setError(GUEST_FUNCTION_PARAMETER_TYPE_MISMATCH, NULL);
                     break;
             }
         }
