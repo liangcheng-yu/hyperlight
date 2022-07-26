@@ -1,35 +1,22 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using Hyperlight.Native;
+using Hyperlight.Core;
 
 namespace Hyperlight
 {
     public enum ImageRel
     {
-        IMAGE_REL_BASED_ABSOLUTE = 0,
-        IMAGE_REL_BASED_DIR64 = 10,
+        ABSOLUTE = 0,
+        DIR64 = 10,
     }
 
     [Flags]
     public enum ImageFileCharacteristics
     {
-        IMAGE_FILE_RELOCS_STRIPPED = 0x0001,
-        IMAGE_FILE_EXECUTABLE_IMAGE = 0x0002,
-        IMAGE_FILE_LINE_NUMS_STRIPPED = 0x0004,
-        IMAGE_FILE_LOCAL_SYMS_STRIPPED = 0x0008,
-        IMAGE_FILE_AGGRESSIVE_WS_TRIM = 0x0010,
-        IMAGE_FILE_LARGE_ADDRESS_AWARE = 0x0020,
-        IMAGE_FILE_RESERVED = 0x0040,
-        IMAGE_FILE_BYTES_REVERSED_LO = 0x0080,
-        IMAGE_FILE_32BIT_MACHINE = 0x0100,
-        IMAGE_FILE_DEBUG_STRIPPED = 0x0200,
-        IMAGE_FILE_REMOVABLE_RUN_FROM_SWAP = 0x0400,
-        IMAGE_FILE_NET_RUN_FROM_SWAP = 0x0800,
-        IMAGE_FILE_SYSTEM = 0x1000,
-        IMAGE_FILE_DLL = 0x2000,
-        IMAGE_FILE_UP_SYSTEM_ONLY = 0x4000,
-        IMAGE_FILE_BYTES_REVERSED_HI = 0x8000,
+        
+        RELOCSSTRIPPED = 0x0001,
+        EXECUTABLEIMAGE = 0x0002,
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
@@ -100,12 +87,12 @@ namespace Hyperlight
             var characteristics = BitConverter.ToUInt16(Payload, e_lfanew + IMAGE_CHARACTERISTCS_OFFSET);
             var imageFileCharacteristics = (ImageFileCharacteristics)characteristics;
             // validate that this is an exe and is not forced to load at its preferred base address.
-            if (!imageFileCharacteristics.HasFlag(ImageFileCharacteristics.IMAGE_FILE_EXECUTABLE_IMAGE))
+            if (!imageFileCharacteristics.HasFlag(ImageFileCharacteristics.EXECUTABLEIMAGE))
             {
                 throw new ArgumentException($"File {guestBinaryPath} is not an executable image");
             }
 
-            if (imageFileCharacteristics.HasFlag(ImageFileCharacteristics.IMAGE_FILE_RELOCS_STRIPPED))
+            if (imageFileCharacteristics.HasFlag(ImageFileCharacteristics.RELOCSSTRIPPED))
             {
                 throw new ArgumentException($"File {guestBinaryPath} should not be force to load at fixed address");
             }
@@ -214,7 +201,7 @@ namespace Hyperlight
                     var relocType = (relocationInfo & 0xf000) >> 12;
 
                     // Check that this is IMAGE_REL_BASED_DIR64 relocatin type
-                    if ((ImageRel)relocType == ImageRel.IMAGE_REL_BASED_DIR64)
+                    if ((ImageRel)relocType == ImageRel.DIR64)
                     {
                         // get the address to read the existing address from and write the new address to
                         var targetAddr = (IntPtr)(baseAddress + relocOffset);
@@ -226,9 +213,9 @@ namespace Hyperlight
                     else
                     {
                         // IMAGE_REL_BASED_ABSOLUTE is padding at end of block, the last block is empty.
-                        if ((ImageRel)relocType != ImageRel.IMAGE_REL_BASED_ABSOLUTE)
+                        if ((ImageRel)relocType != ImageRel.ABSOLUTE)
                         {
-                            throw new Exception($"Unexpected reloc type: {relocType}");
+                            throw new HyperlightException($"Unexpected reloc type: {relocType}");
                         }
                     }
                 }
