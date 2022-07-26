@@ -14,6 +14,7 @@ on:
 jobs:
   publish:
     runs-on: windows-latest
+    needs: [build-rust-ubuntu, build-rust-windows]
     env:
       PLATFORM: x64
       CONFIG: Debug
@@ -66,13 +67,25 @@ jobs:
       shell: pwsh
     - name: Publish Github Packages
       run: |
-           for nupkg in $(find . -name *.nupkg)
-           do
+          for nupkg in $(find . -name *.nupkg)
+          do
             echo Pushing $nupkg
             dotnet nuget push $nupkg --api-key ${{ secrets.GHPACKAGES_PAT }} --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json --skip-duplicate
-           done
+          done
       shell: bash
       working-directory: src/Hyperlight
+    - name: Download header file
+        uses: "actions/download-artifact@v2"
+        with:
+          name: hyperlight_host.h
+    - name: Download shared object file
+      uses: "actions/download-artifact@v2"
+      with:
+        name: libhyperlight_host.so
+    - name: Download DLL
+      uses: actions/download-artifact@v2
+      with:
+        name: hyperlight_host.dll
     # Publish the native guests so that its possible to use Hyperlight without building it.
     - name: Create Release
       uses: "marvinpinto/action-automatic-releases@latest"
@@ -82,7 +95,45 @@ jobs:
         automatic_release_tag: latest
         title: "Latest Development Build From Main Branch"
         files: |
-           src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe
-           src/tests/Guests/simpleguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/simpleguest.exe
-           src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
-           src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz
+          src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe
+          src/tests/Guests/simpleguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/simpleguest.exe
+          src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
+          src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz
+          hyperlight_host.h
+          libhyperlight_host.so
+          hyperlight_host.dll
+  build-rust-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: extractions/setup-just@v1
+        with:
+          just-version: 0.8 # optional semver specification, otherwise latest
+      - name: Install cbindgen
+        run: cargo install --force cbindgen
+      - name: Build
+        run: cargo build --verbose
+      - name: Generate header file
+        working-directory: src/hyperlight_host
+        run: just gen-headers
+      - name: Upload shared object file
+        uses: actions/upload-artifact@v2
+        with:
+          name: libhyperlight_host.so
+          path: target/debug/libhyperlight_host.so
+      - name: Upload header file
+        uses: actions/upload-artifact@v2
+        with:
+          name: hyperlight_host.h
+          path: src/hyperlight_host/include/hyperlight_host.h
+  build-rust-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build
+        run: cargo build --verbose
+      - name: Upload DLL file
+        uses: actions/upload-artifact@v2
+        with:
+          name: hyperlight_host.dll
+          path: target/debug/hyperlight_host.dll
