@@ -1,0 +1,34 @@
+lib-suffix := if os() == "windows" { ".dll" } else { "" }
+bin-suffix := if os() == "windows" { ".exe" } else { ".out" }
+test-command := if os() == "windows" { "./scripts/test-command.bat" } else { "LD_LIBRARY_PATH=../../target/debug ./bin/test_c.out" }
+# TODO: use UMDH here for windows?
+# https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/umdh
+valgrind-command := if os() == "windows" { "echo 'valgrind not supported on windows'" } else { "LD_LIBRARY_PATH=../../target/debug valgrind --leak-check=full --error-exitcode=1 --show-leak-kinds=all --gen-suppressions=all ./bin/test_c.out" }
+
+clang-checks := if os() == "windows" { "-Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" } else { "-Wall -Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" }
+
+gen-headers:
+    cbindgen \
+        -c ./cbindgen.toml \
+        --crate hyperlight_host \
+        --lang c \
+        --output include/hyperlight_host.h
+
+build:
+    cargo build
+
+build-tests-capi: build gen-headers
+    clang \
+    {{ clang-checks }} \
+    tests_capi/*.c \
+    tests_capi/munit/munit.c \
+    -Iinclude \
+    -o bin/test_c{{bin-suffix}} \
+    -l hyperlight_host{{lib-suffix}} \
+    -L../../target/debug
+
+run-tests-capi: build-tests-capi
+    {{test-command}}
+
+valgrind-tests-capi: build-tests-capi
+    {{valgrind-command}}

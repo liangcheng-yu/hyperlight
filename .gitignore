@@ -454,3 +454,6 @@ $RECYCLE.BIN/
 !.vscode/extensions.json
 
 /downloads
+
+# Rust build artifacts
+/target

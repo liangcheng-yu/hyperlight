@@ -27,6 +27,7 @@ This repo contains Hyperlight along with a couple of sample guest applications t
   - The use of surrogates is a temporary workaround on Windows until WHP allows us to create more than one partition per running process.
 - [src/tests](./src/tests) - Tests for the host
   - This directory contains two applications written in C, which are intended to be launched within partitions as "guests".
+- [src/hyperlight-host](./src/hyperlight_host) - This is the in-progress rewrite of the Hyperlight host into rust. See [the design document](https://hackmd.io/@arschles/hl-rust-port) for more information about this work, and see below for details on how to use this code.
 
 ## Quickstart
 
@@ -45,7 +46,7 @@ If you dont have Windows Hypervisor Platform enabled or KVM installed then the e
 
 ## Building and testing Hyperlight
 
-Currently the complete solution including tests and examples will only build on Windows with Visual Studio 2019 (or later) or the Visual Studio 2022 Build Tools along with dotnet 5.0 and dotnet 6.0, this is becasue the test and example projects are dependent upon a couple of projects that currently need to be compiled with the Microsoft Visual C compiler. 
+Currently the complete solution including tests and examples will only build on Windows with Visual Studio 2019 (or later) or the Visual Studio 2022 Build Tools along with dotnet 5.0 and dotnet 6.0, this is becasue the test and example projects are dependent upon a couple of projects that currently need to be compiled with the Microsoft Visual C compiler.
 
 If you do not have these tools and wish to install them you can find Visual Studio 2019 (https://visualstudio.microsoft.com/downloads/) and the build tools [here](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022).
 
@@ -92,6 +93,45 @@ Mixed mode debugging in Visual Studio is enabled in the solution, this means tha
 ### Debugging in Visual Studio Code
 
 Visual Studio Code does not currently support mixed mode debugging, to debug guest applications in Visual Studio Code you need to choose the `Debug Native Host` debuggin task when starting a debug session.
+
+## The Rust Host Rewrite (`hyperlight_host`)
+
+## Running on Windows
+
+Prerequisites:
+
+1. [Rust](https://www.rust-lang.org/tools/install)
+1. [Clang](https://clang.llvm.org/get_started.html).  If you have Visual Studio instructions are [here](https://docs.microsoft.com/en-us/cpp/build/clang-support-msbuild?view=msvc-170).
+1. [just](https://github.com/casey/just).  `cargo install just` or with chocolatey `choco install just`.
+1. [cbindgen](https://github.com/eqrion/cbindgen) `cargo install cbindgen`
+
+ Create powershell function to use pwsh as shell:
+
+ 1. Edit $PROFILE
+ 1. Add the following to the profile, this assumes that you have installed clang via Visual Studio and are happy to add the developer shell to your default pwsh profile.
+
+ ```PowerShell
+Import-Module "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+function just { C:\ProgramData\chocolatey\bin\just.exe --shell pwsh.exe --shell-arg -c @args}
+Enter-VsDevShell 001cb2cc -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64" 
+ ```
+
+## Using WSL2
+
+Prerequisites:
+
+1. [Rust](https://www.rust-lang.org/tools/install)
+1. [Clang](https://clang.llvm.org/get_started.html). `sudo apt install clang`.
+1. [just](https://github.com/casey/just).  `cargo install just` .
+1. [cbindgen](https://github.com/eqrion/cbindgen) `cargo install cbindgen`
+
+## Test it works
+
+```shell
+cd src/hyperlight_host
+just build-tests-capi
+```
+
 
 ## Code of Conduct
 
