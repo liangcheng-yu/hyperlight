@@ -11,7 +11,7 @@ int printTwoArgs(const char* arg1, int arg2)
     char* message = malloc(length);
     if (NULL == message)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     snprintf(message, length, "Message: arg1:%s arg2:%d.", arg1, arg2);
     return printOutput(message);
@@ -23,7 +23,7 @@ int printThreeArgs(const char* arg1, int arg2, int64_t arg3)
     char* message = malloc(length);
     if (NULL == message)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d.", arg1, arg2, arg3);
     return printOutput(message);
@@ -35,7 +35,7 @@ int printFourArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4)
     char* message = malloc(length);
     if (NULL == message)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s.", arg1, arg2, arg3, arg4);
     return printOutput(message);
@@ -47,7 +47,7 @@ int printFiveArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, co
     char* message = malloc(length);
     if (NULL == message)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s.", arg1, arg2, arg3, arg4, arg5);
     return printOutput(message);
@@ -59,7 +59,7 @@ int printSixArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, con
     char* message = malloc(length);
     if (NULL == message)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False");
     return printOutput(message);
@@ -71,7 +71,7 @@ int printSevenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, c
     char* message = malloc(length);
     if (NULL == message)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False", arg7 ? "True" : "False");
     return printOutput(message);
@@ -83,7 +83,7 @@ int printEightArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, c
     char* message = malloc(length);
     if (NULL == message)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%s.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False", arg7 ? "True" : "False", arg8);
     return printOutput(message);
@@ -95,7 +95,7 @@ int printNineArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, co
     char* message = malloc(length);
     if (NULL == message)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%s arg9:%d.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False", arg7 ? "True" : "False", arg8, arg9);
     return printOutput(message);
@@ -107,7 +107,7 @@ int printTenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, con
     char* message = malloc(length);
     if (NULL == message)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%s arg9:%d arg10:%d.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False", arg7 ? "True" : "False", arg8, arg9, arg10);
     return printOutput(message);
@@ -164,7 +164,7 @@ int callMalloc(int size)
     void* heapMemory = malloc(size);
     if (NULL == heapMemory)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     return size;
 }
@@ -174,7 +174,7 @@ int mallocAndFree(int size)
     void* heapMemory = malloc(size);
     if (NULL == heapMemory)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     free(heapMemory);
     return size;

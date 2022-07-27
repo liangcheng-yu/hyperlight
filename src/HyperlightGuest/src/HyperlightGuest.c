@@ -1,6 +1,8 @@
 
 #include "hyperlight.h" 
 #include "hyperlight_guest.h"
+#include "hyperlight_error.h"
+#include "hyperlight_peb.h"
 #include <setjmp.h>
 
 extern int _fltused = 0;
@@ -377,6 +379,30 @@ void* hyperlightMoreCore(size_t size)
 }
 
 #pragma optimize("", on)
+
+HostFunctionDetails* GetHostFunctionDetails()
+{
+
+    HostFunctionHeader* hostFunctionHeader = (HostFunctionHeader*)pPeb->hostFunctionDefinitions.functionDefinitions;
+    size_t functionCount = hostFunctionHeader->CountOfFunctions;
+    if (functionCount == 0)
+    {
+        return NULL;
+    }
+    
+    HostFunctionDetails* hostFunctionDetails = (HostFunctionDetails*)malloc(sizeof(HostFunctionDetails));
+    if (NULL == hostFunctionDetails)
+    {
+        setError(MALLOC_FAILED, NULL);
+    }
+
+#pragma warning(suppress:6011)
+    hostFunctionDetails->CountOfFunctions = functionCount;
+#pragma warning(suppress:6305) 
+    hostFunctionDetails->HostFunctionDefinitions = (HostFunctionDefinition**)(&pPeb->hostFunctionDefinitions.functionDefinitions + sizeof(HostFunctionHeader));
+    
+    return hostFunctionDetails;
+}
 
 __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, bool useOutInsteadOfHalt, int functionTableSize)
 {

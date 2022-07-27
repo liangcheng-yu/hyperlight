@@ -861,7 +861,7 @@ namespace Hyperlight.Tests
                     });
                     Assert.NotNull(ex);
                     Assert.IsType<HyperlightException>(ex);
-                    Assert.Equal("MALLOC_FAILED:", ex.Message);
+                    Assert.Equal("GUEST_ERROR:Malloc Failed", ex.Message);
                 }
             }
             foreach (var option in options)
@@ -1533,8 +1533,8 @@ namespace Hyperlight.Tests
                     var result = guestMethods.GuestMethod(testData.ExpectedOutput);
                 });
                 Assert.NotNull(ex);
-                Assert.IsType<ArgumentException>(ex);
-                Assert.Equal("HostMethod, Could not find host method name.", ex.Message);
+                Assert.IsType<HyperlightException>(ex);
+                Assert.Equal("GUEST_ERROR:Host Function Not Found: HostMethod", ex.Message);
             }
             else
             {
