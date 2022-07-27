@@ -878,8 +878,8 @@ namespace Hyperlight.Tests
             }
         }
 
-        // TODO: Investigage this test
-        [Fact(Skip="This test is flaky")]
+        // TODO: Investigate this test
+        [Fact(Skip = "This test is flaky")]
         public void Test_Guest_Malloc()
         {
             var options = GetSandboxRunOptions();

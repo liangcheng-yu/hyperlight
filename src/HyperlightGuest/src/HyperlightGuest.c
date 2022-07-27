@@ -336,6 +336,10 @@ void DispatchFunction()
                 }
             }
         }
+        if (nextParamIsLength)
+        {
+            setError(ARRAY_LENGTH_PARAM_IS_MISSING, "Last parameter should be the length of the array");
+        }
 
         *(uint32_t*)pPeb->outputdata.outputDataBuffer = CallGuestFunction(guestFunctionDetails);
     }
@@ -423,7 +427,7 @@ HostFunctionDetails* GetHostFunctionDetails()
 #pragma warning(suppress:6011)
     hostFunctionDetails->CountOfFunctions = functionCount;
 #pragma warning(suppress:6305) 
-    hostFunctionDetails->HostFunctionDefinitions = (HostFunctionDefinition**)(&pPeb->hostFunctionDefinitions.functionDefinitions + sizeof(HostFunctionHeader));
+    hostFunctionDetails->HostFunctionDefinitions = (HostFunctionDefinition*)(&pPeb->hostFunctionDefinitions.functionDefinitions + sizeof(HostFunctionHeader));
     
     return hostFunctionDetails;
 }

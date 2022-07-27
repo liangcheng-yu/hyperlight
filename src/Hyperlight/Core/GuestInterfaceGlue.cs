@@ -14,8 +14,8 @@ namespace Hyperlight
     abstract class GuestInterfaceGlue
     {
 
-        // Currently we will support int, Int64, bool, and string for parameters and return types of
-        // the methods between guest and host
+        // Currently we will support int, Int64, bool, byte[] and string for parameters and return types of long and int 
+        // for the methods between guest and host
         static readonly HashSet<Type> supportedParameterAndReturnTypes = new() { typeof(int), typeof(long), typeof(ulong), typeof(bool), typeof(string), typeof(byte[]) };
 
         public Dictionary<string, HostMethodInfo> MapHostFunctionNamesToMethodInfo = new();

@@ -9,7 +9,7 @@ int setByteArrayToZero(void* arrayPtr, int length)
 {
     while (length--)
     {
-        *(((char*)arrayPtr)++) = 0;
+        *((char*)arrayPtr)++ = 0;
     }
     return length;
 }
