@@ -91,6 +91,6 @@ typedef struct
 typedef struct
 {
     char* FunctionName;
-    uint64_t** argv;
+    uint64_t* argv;
 
 } HostFunctionCall;
