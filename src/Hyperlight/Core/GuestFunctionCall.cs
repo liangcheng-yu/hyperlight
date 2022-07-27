@@ -9,6 +9,7 @@ namespace Hyperlight.Core
         i64,
         str,
         boolean,
+        bytearray,
     }
     [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
 #pragma warning disable CA1815 // Override equals and operator equals on value types

@@ -81,13 +81,13 @@ namespace Hyperlight
                 throw new HyperlightException("Not enough memory for header structures");
             }
 
-            var stringTable = new SimpleStringTable(IntPtr.Add(ptr, totalHeaderSize), length - totalHeaderSize, offset);
+            var dataTable = new SimpleDataTable(IntPtr.Add(ptr, totalHeaderSize), length - totalHeaderSize, offset);
             Marshal.StructureToPtr(header, ptr, false);
             ptr += headerSize;
 
             foreach (var func in listFunctions)
             {
-                var fd = new FunctionDefinition() { FunctionName = stringTable.AddString(func.FunctionName!), FunctionSignature = stringTable.AddString(func.FunctionSignature!), Flags = func.Flags };
+                var fd = new FunctionDefinition() { FunctionName = dataTable.AddString(func.FunctionName!), FunctionSignature = dataTable.AddString(func.FunctionSignature!), Flags = func.Flags };
                 Marshal.StructureToPtr(fd, ptr, false);
                 ptr += functionDefinitionSize;
             }

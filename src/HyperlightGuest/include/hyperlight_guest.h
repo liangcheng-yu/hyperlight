@@ -1,4 +1,5 @@
 #pragma once
+#include "hyperlight_error.h"
 // dlmalloc defines
 
 #define MAX_SIZE_T           (~(size_t)0)

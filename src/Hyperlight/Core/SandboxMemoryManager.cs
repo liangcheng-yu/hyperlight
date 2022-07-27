@@ -210,47 +210,84 @@ namespace Hyperlight.Core
             var guestArguments = new GuestArgument[Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS];
             guestFunctionCall.guestArguments = guestArguments;
             var headerSize = Marshal.SizeOf(guestFunctionCall);
-            var stringTable = GetGuestCallStringTable(headerSize);
+            var dataTable = GetGuestCallDataTable(headerSize);
             var outputDataAddress = sandboxMemoryLayout!.GetOutputDataAddress(SourceAddress);
-            guestFunctionCall.pFunctionName = stringTable.AddString(functionName);
+            guestFunctionCall.pFunctionName = dataTable.AddString(functionName);
             guestFunctionCall.argc = (ulong)args.Length;
+            var nextArgShouldBeArrayLength = false;
+            var nextArgLength = 0;
             for (var i = 0; i < args.Length; i++)
             {
-                if (args[i].GetType() == typeof(int))
+                if (nextArgShouldBeArrayLength)
                 {
-                    var val = (int)args[i];
-                    guestArguments[i].argv = (ulong)val;
-                    guestArguments[i].argt = ParameterKind.i32;
-                }
-                else if (args[i].GetType() == typeof(long))
-                {
-                    var val = (long)args[i];
-                    guestArguments[i].argv = (ulong)val;
-                    guestArguments[i].argt = ParameterKind.i64;
-                }
-                else if (args[i].GetType() == typeof(string))
-                {
-                    guestArguments[i].argv = stringTable.AddString((string)args[i]);
-                    guestArguments[i].argt = ParameterKind.str;
-                }
-                else if (args[i].GetType() == typeof(bool))
-                {
-                    var val = (bool)args[i];
-                    guestArguments[i].argv = Convert.ToUInt64(val);
-                    guestArguments[i].argt = ParameterKind.boolean;
+                    if (args[i].GetType() == typeof(int))
+                    {
+                        var val = (int)args[i];
+                        if (nextArgLength != val)
+                        {
+                            throw new ArgumentException($"Array length {val} does not match expected length {nextArgLength}.");
+                        }
+                        guestArguments[i].argv = (ulong)val;
+                        guestArguments[i].argt = ParameterKind.i32;
+                        nextArgShouldBeArrayLength = false;
+                        nextArgLength = 0;
+                    }
+                    else
+                    {
+                        throw new ArgumentException($"Argument {i} is not an int, the length of the array must follow the array itself");
+                    }
                 }
                 else
                 {
-                    throw new ArgumentException("Unsupported parameter type");
+
+                    if (args[i].GetType() == typeof(int))
+                    {
+                        var val = (int)args[i];
+                        guestArguments[i].argv = (ulong)val;
+                        guestArguments[i].argt = ParameterKind.i32;
+                    }
+                    else if (args[i].GetType() == typeof(long))
+                    {
+                        var val = (long)args[i];
+                        guestArguments[i].argv = (ulong)val;
+                        guestArguments[i].argt = ParameterKind.i64;
+                    }
+                    else if (args[i].GetType() == typeof(string))
+                    {
+                        guestArguments[i].argv = dataTable.AddString((string)args[i]);
+                        guestArguments[i].argt = ParameterKind.str;
+                    }
+                    else if (args[i].GetType() == typeof(bool))
+                    {
+                        var val = (bool)args[i];
+                        guestArguments[i].argv = Convert.ToUInt64(val);
+                        guestArguments[i].argt = ParameterKind.boolean;
+                    }
+                    else if (args[i].GetType() == typeof(byte[]))
+                    {
+                        var val = (byte[])args[i];
+                        guestArguments[i].argv = dataTable.AddBytes(val);
+                        guestArguments[i].argt = ParameterKind.bytearray;
+                        nextArgShouldBeArrayLength = true;
+                        nextArgLength = val.Length;
+                    }
+                    else
+                    {
+                        throw new ArgumentException("Unsupported parameter type");
+                    }
                 }
+            }
+            if (nextArgShouldBeArrayLength)
+            {
+                throw new ArgumentException("Array length must be specified");
             }
             Marshal.StructureToPtr(guestFunctionCall, outputDataAddress, false);
         }
 
-        SimpleStringTable GetGuestCallStringTable(int headerSize)
+        SimpleDataTable GetGuestCallDataTable(int headerSize)
         {
             var outputDataAddress = sandboxMemoryLayout!.GetOutputDataAddress(SourceAddress);
-            return new SimpleStringTable(outputDataAddress + headerSize, sandboxMemoryConfiguration.OutputDataSize - headerSize, GetAddressOffset());
+            return new SimpleDataTable(outputDataAddress + headerSize, sandboxMemoryConfiguration.OutputDataSize - headerSize, GetAddressOffset());
         }
 
         internal string GetHostCallMethodName()

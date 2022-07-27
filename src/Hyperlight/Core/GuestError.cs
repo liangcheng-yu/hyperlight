@@ -19,6 +19,7 @@ namespace Hyperlight.Core
         FAILURE_IN_DLMALLOC = 12,  // this error is set when dlmalloc calls ABORT (e.g. function defined in #define ABORT (dlmalloc_abort() calls setError with this errorcode)
         MALLOC_FAILED = 13,  // this error is set when malloc returns 0 bytes.
         GUEST_FUNCTION_PARAMETER_TYPE_MISMATCH = 14,  // The function call parameter type was not the expected type.  
+        GUEST_ERROR = 15, // An error occurred in the guest Guest implementation should use this along with a message when calling setError. 
     }
 
     [Serializable]

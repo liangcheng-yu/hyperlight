@@ -16,6 +16,40 @@ char* strncat(char* dest, const char* src, int length )
 int sendMessagetoHostMethod(char* methodName, char* guestMessage, char* message)
 {
     char* messageToHost = strncat(guestMessage, message, strlen(message));
+
+    HostFunctionDetails* hostfunctionDetails = GetHostFunctionDetails();
+    if (NULL == hostfunctionDetails)
+    { 
+        setError(GUEST_ERROR, "No host functions found");
+    }
+
+    HostFunctionDefinition* hostFunctionDefinition = NULL;
+
+#pragma warning(suppress:6011)
+    for (int i = 0; i < hostfunctionDetails->CountOfFunctions; i++)
+    {
+        if (strcmp(methodName, hostfunctionDetails->HostFunctionDefinitions[i].FunctionName) == 0)
+        {
+            hostFunctionDefinition = &hostfunctionDetails->HostFunctionDefinitions[i];
+            break;
+        }
+    }
+
+    if (NULL == hostFunctionDefinition)
+    {
+        char message[100];
+        snprintf(message, 100, "Host Function Not Found: %s", methodName);
+        setError(GUEST_ERROR, message);
+    }
+#pragma warning(suppress:6011)
+    if (strcmp(hostFunctionDefinition->FunctionSignature, "($)$i") != 0)
+    {
+        char message[100];
+        snprintf(message, 100, "Host Function  %s has unexpected signature %s", methodName, hostFunctionDefinition->FunctionSignature);
+        setError(GUEST_ERROR, message);
+    }
+
+    free(hostfunctionDetails);
     return native_symbol_thunk(methodName, messageToHost);
 }
 
@@ -39,5 +73,5 @@ void HyperlightMain()
 {
     RegisterFunction("PrintOutput", FUNCTIONDETAILS(printOutput));
     RegisterFunction("GuestMethod", FUNCTIONDETAILS(guestFunction));
-    RegisterFunction("GuestMethod1", FUNCTIONDETAILS(guestFunction1));
+    RegisterFunction("GuestMethod1", FUNCTIONDETAILS(guestFunction1)); 
 }
