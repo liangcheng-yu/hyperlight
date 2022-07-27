@@ -86,6 +86,7 @@ typedef enum {
     i64,
     string,
     boolean,
+    bytearray,
 } ParameterKind;
 
 typedef struct
@@ -96,6 +97,7 @@ typedef struct
         int64_t i64;
         const char* string;
         bool boolean;
+        void* bytearray;
     } value;
     ParameterKind kind;
 } Parameter;

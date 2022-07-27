@@ -9,6 +9,7 @@ namespace Hyperlight.Core
         i64,
         str,
         boolean,
+        bytearray,
     }
     [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
     public struct GuestArgument

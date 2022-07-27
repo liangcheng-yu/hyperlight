@@ -6,14 +6,13 @@ using System.Text;
 namespace Hyperlight
 {
 
-    class SimpleStringTable
+    class SimpleDataTable
     {
         IntPtr ptrCurrent;
         readonly IntPtr ptrEnd;
-        readonly Dictionary<string, ulong> existingValues = new();
         readonly long offset;
 
-        public SimpleStringTable(IntPtr ptrStart, int length, long offset)
+        public SimpleDataTable(IntPtr ptrStart, int length, long offset)
         {
             ptrEnd = IntPtr.Add(ptrStart, length);
             ptrCurrent = ptrStart;
@@ -22,12 +21,18 @@ namespace Hyperlight
 
         public ulong AddString(string s)
         {
-            if (existingValues.ContainsKey(s))
-            {
-                return existingValues[s];
-            }
-
             var data = Encoding.UTF8.GetBytes(s + "\0");
+            var adjustedAddress = writeData(data);
+            return adjustedAddress;
+        }
+
+        public ulong AddBytes(byte[] data)
+        {
+            return writeData(data);
+        }
+
+        private ulong writeData(byte[] data)
+        {
             var ptrNew = IntPtr.Add(ptrCurrent, data.Length);
             if ((long)ptrNew > (long)ptrEnd)
             {
@@ -36,8 +41,6 @@ namespace Hyperlight
 
             Marshal.Copy(data, 0, ptrCurrent, data.Length);
             var adjustedAddress = (ulong)ptrCurrent - (ulong)offset;
-            existingValues.Add(s, adjustedAddress);
-
             ptrCurrent = ptrNew;
             return adjustedAddress;
         }

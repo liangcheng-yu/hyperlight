@@ -286,30 +286,54 @@ void DispatchFunction()
             guestFunctionDetails->paramv = paramv;
         }
 
+        bool nextParamIsLength = false;
         for (int32_t i = 0; i < guestFunctionDetails->paramc; i++)
         {
             GuestArgument guestArgument = funcCall->guestArguments[i];
-            switch (guestArgument.argt)
+            if (nextParamIsLength)
             {
-                case (string):
-                    guestFunctionDetails->paramv[i].value.string = (char*)guestArgument.argv;
-                    guestFunctionDetails->paramv[i].kind = string;
-                    break;
-                case (i32):
+                if (guestArgument.argt != i32)
+                {
+                    char message[15];
+                    snprintf(message, 15, "Parameter %d", i);
+                    setError(ARRAY_LENGTH_PARAM_IS_MISSING, message);
+                }
+                else
+                {
                     guestFunctionDetails->paramv[i].value.i32 = (uint32_t)guestArgument.argv;
                     guestFunctionDetails->paramv[i].kind = i32;
-                    break;
-                case (i64):
-                    guestFunctionDetails->paramv[i].value.i64 = (uint64_t)guestArgument.argv;
-                    guestFunctionDetails->paramv[i].kind = i64;
-                    break;
-                case (boolean):
-                    guestFunctionDetails->paramv[i].value.boolean = (bool)guestArgument.argv;
-                    guestFunctionDetails->paramv[i].kind = boolean;
-                    break;
-                default:
-                    setError(GUEST_FUNCTION_PARAMETER_TYPE_MISMATCH, NULL);
-                    break;
+                    nextParamIsLength = false;
+                }
+            }
+            else
+            {
+                switch (guestArgument.argt)
+                {
+                    case (string):
+                        guestFunctionDetails->paramv[i].value.string = (char*)guestArgument.argv;
+                        guestFunctionDetails->paramv[i].kind = string;
+                        break;
+                    case (i32):
+                        guestFunctionDetails->paramv[i].value.i32 = (uint32_t)guestArgument.argv;
+                        guestFunctionDetails->paramv[i].kind = i32;
+                        break;
+                    case (i64):
+                        guestFunctionDetails->paramv[i].value.i64 = (uint64_t)guestArgument.argv;
+                        guestFunctionDetails->paramv[i].kind = i64;
+                        break;
+                    case (boolean):
+                        guestFunctionDetails->paramv[i].value.boolean = (bool)guestArgument.argv;
+                        guestFunctionDetails->paramv[i].kind = boolean;
+                        break;
+                    case (bytearray):
+                        guestFunctionDetails->paramv[i].value.bytearray = (void*)guestArgument.argv;
+                        guestFunctionDetails->paramv[i].kind = bytearray;
+                        nextParamIsLength = true;
+                        break;
+                    default:
+                        setError(GUEST_FUNCTION_PARAMETER_TYPE_MISMATCH, NULL);
+                        break;
+                }
             }
         }
 

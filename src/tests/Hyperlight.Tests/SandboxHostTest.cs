@@ -4,9 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using Hyperlight;
 using Hyperlight.Core;
 using Xunit;
 using Xunit.Abstractions;
@@ -215,6 +215,47 @@ namespace Hyperlight.Tests
         public class BufferOverrunTests
         {
             public Func<string, int>? BufferOverrun;
+        }
+
+        public class BinaryArrayTests
+        {
+            public Func<byte[], int, int>? SetByteArrayToZero;
+            public Func<byte[], int>? SetByteArrayToZeroNoLength;
+        }
+
+        [FactSkipIfNotWindowsAndNoHypervisor]
+        public void Test_Passing_Byte_Array()
+        {
+            var options = GetSandboxRunOptions();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            foreach (var option in options)
+            {
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
+                {
+                    var functions = new BinaryArrayTests();
+                    sandbox.BindGuestFunction("SetByteArrayToZero", functions);
+                    byte[] bytes = new byte[10];
+                    RandomNumberGenerator.Create().GetBytes(bytes);
+                    var result = functions.SetByteArrayToZero!(bytes, 10);
+                    Assert.Equal(-1, result);
+                }
+                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
+                {
+                    var functions = new BinaryArrayTests();
+                    sandbox.BindGuestFunction("SetByteArrayToZeroNoLength", functions);
+                    byte[] bytes = new byte[10];
+                    RandomNumberGenerator.Create().GetBytes(bytes);
+                    var ex = Record.Exception(() =>
+                    {
+                        _ = functions.SetByteArrayToZeroNoLength!(bytes);
+                    });
+                    Assert.NotNull(ex);
+                    Assert.IsType<System.ArgumentException>(ex);
+                    Assert.Equal("Array length must be specified", ex.Message);
+                }
+            }
         }
 
         [FactSkipIfNotWindowsAndNoHypervisor]
@@ -837,8 +878,8 @@ namespace Hyperlight.Tests
             }
         }
 
-
-        [Fact]
+        // TODO: Investigage this test
+        [Fact(Skip="This test is flaky")]
         public void Test_Guest_Malloc()
         {
             var options = GetSandboxRunOptions();
@@ -891,6 +932,8 @@ namespace Hyperlight.Tests
                 }
             }
         }
+
+
 
         private SandboxRunOptions[] GetSandboxRunOptions()
         {
