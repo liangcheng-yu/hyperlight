@@ -1,0 +1,5 @@
+!/bin
+/include/*.h
+/bin/*.out
+/bin/*.exe
+/bin/*.dll

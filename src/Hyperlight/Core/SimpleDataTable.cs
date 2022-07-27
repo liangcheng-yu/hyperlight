@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
+using Hyperlight.Core;
 
 namespace Hyperlight
 {
@@ -36,7 +37,7 @@ namespace Hyperlight
             var ptrNew = IntPtr.Add(ptrCurrent, data.Length);
             if ((long)ptrNew > (long)ptrEnd)
             {
-                throw new Exception("Reached end of Buffer");
+                throw new HyperlightException("Reached end of Buffer");
             }
 
             Marshal.Copy(data, 0, ptrCurrent, data.Length);

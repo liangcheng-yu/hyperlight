@@ -1,0 +1,59 @@
+name: Tests and Lints
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        platform: [ubuntu-20.04, windows-latest]
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: Swatinem/rust-cache@v2
+      - name: fmt
+        run: cargo fmt --all -- --check
+      - name: clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Build
+        run: cargo build --verbose
+      - name: Run Rust tests
+        run: cargo test --verbose
+      - name: Install Just
+        uses: extractions/setup-just@v1
+        with:
+          just-version: 0.8 # optional semver specification, otherwise latest
+      - name: Cache munit
+        uses: actions/cache@v3
+        with:
+          path: src/hyperlight_hosts/tests_capi/munit
+          key: munit
+      - name: Set up munit
+        working-directory: src/hyperlight_host/tests_capi
+        if: steps.cache-munit.outputs.cache-hit != true
+        run: |
+          git submodule init
+          git submodule update
+      - name: Run C Tests (Windows only)
+        working-directory: src\hyperlight_host
+        if: runner.os == 'Windows'
+        run: |
+          echo "testdata:"
+          ls testdata
+          just run-tests-capi
+      - name: Install Valgrind (Linux only)
+        if: runner.os == 'Linux'
+        run: ./install_valgrind.sh
+        working-directory: ./scripts
+      - name: Valgrind C tests (Linux only)
+        working-directory: src/hyperlight_host
+        if: runner.os == 'Linux'
+        run: just valgrind-tests-capi
