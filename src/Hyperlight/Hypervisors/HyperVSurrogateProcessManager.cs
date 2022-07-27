@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.IO;
-using System.Threading;
 using System.Runtime.InteropServices;
+using System.Threading;
+using Hyperlight.Core;
 using Hyperlight.Native;
 using Microsoft.Win32.SafeHandles;
 
@@ -11,8 +11,14 @@ namespace Hyperlight.Hypervisors
 {
     internal class SurrogateProcess
     {
-        public SafeProcessHandle safeProcessHandle;
-        public IntPtr sourceAddress;
+        public SafeProcessHandle SafeProcessHandle { get; private set; }
+        public IntPtr SourceAddress { get; private set; }
+
+        internal SurrogateProcess(SafeProcessHandle safeProcessHandle, IntPtr sourceAddress)
+        {
+            SafeProcessHandle = safeProcessHandle;
+            SourceAddress = sourceAddress;
+        }
     }
 
     /// <summary>
@@ -93,7 +99,7 @@ namespace Hyperlight.Hypervisors
                 var error = Marshal.GetLastWin32Error();
                 if (error != 0)
                 {
-                    throw new ApplicationException("Failed to create Hyperlight Surrogate process");
+                    throw new HyperlightException("Failed to create Hyperlight Surrogate process");
                 }
 
                 var safeProcessHandle = new SafeProcessHandle(pi.hProcess, true);
@@ -104,19 +110,19 @@ namespace Hyperlight.Hypervisors
         // Allocates a process from the pool to a Sandbox instance so that the process can be used in call to WHvMapGpaRange2
         // and allocates Virtual Memory in that process to match the size and address of the memory of the Sandbox instance.
         //
-        internal SurrogateProcess GetProcess(IntPtr size, IntPtr sourceAddress, CancellationToken cancellationToken=default(CancellationToken))
+        internal SurrogateProcess GetProcess(IntPtr size, IntPtr sourceAddress, CancellationToken cancellationToken = default)
         {
             var safeProcessHandle = surrogateProcesses.Take(cancellationToken);
             //TODO: Handle Cancellation.
             var destAddress = OS.VirtualAllocEx(safeProcessHandle.DangerousGetHandle(), sourceAddress, size, OS.AllocationType.Commit | OS.AllocationType.Reserve, OS.MemoryProtection.EXECUTE_READWRITE);
-            return new SurrogateProcess { safeProcessHandle = safeProcessHandle, sourceAddress = destAddress };
+            return new SurrogateProcess(safeProcessHandle, destAddress);
         }
         // returns the process to the pool . this is called when a Sandbox is disposed. Also free the virtual memory allocated to the process.
         internal void ReturnProcess(SurrogateProcess surrogateProcess)
         {
             //TODO: HandleError
-            _= OS.VirtualFreeEx(surrogateProcess.safeProcessHandle.DangerousGetHandle(), surrogateProcess.sourceAddress, IntPtr.Zero, (uint)OS.AllocationType.Release);
-            surrogateProcesses.Add(surrogateProcess.safeProcessHandle);
+            _ = OS.VirtualFreeEx(surrogateProcess.SafeProcessHandle.DangerousGetHandle(), surrogateProcess.SourceAddress, IntPtr.Zero, (uint)OS.AllocationType.Release);
+            surrogateProcesses.Add(surrogateProcess.SafeProcessHandle);
         }
 
         private void Dispose(bool disposing)
@@ -130,11 +136,14 @@ namespace Hyperlight.Hypervisors
                         safeProcessHandle.Dispose();
                     }
                     surrogateProcesses.Dispose();
-                    if (jobHandle != IntPtr.Zero)
-                    {
-                        OS.CloseHandle(jobHandle);
-                    }
+
                 }
+
+                if (jobHandle != IntPtr.Zero)
+                {
+                    OS.CloseHandle(jobHandle);
+                }
+
                 disposedValue = true;
             }
         }
@@ -144,6 +153,12 @@ namespace Hyperlight.Hypervisors
             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
+        }
+
+        ~HyperVSurrogateProcessManager()
+        {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: false);
         }
     }
 }

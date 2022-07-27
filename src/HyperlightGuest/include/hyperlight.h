@@ -1,14 +1,13 @@
 #pragma once
 #include <stdint.h>
 #include <stdbool.h>
-#include "hyperlight_peb.h"
-#include "hyperlight_error.h"
 #include "printf.h"
 
 #define calloc               dlcalloc
 #define free                 dlfree
 #define malloc               dlmalloc
 #define realloc              dlrealloc
+#define GUEST_ERROR          15
 
 #define GENERATE_FUNCTION(function, paramsc, ... ) GENERATE_FUNCTION_EXPANDED(GENERATE_FUNCTION_##paramsc##, (function, __VA_ARGS__))
 
@@ -82,6 +81,14 @@ ParameterKind __##function##_pKind[] = {union0_member, union1_member, union2_mem
 
 #define FUNCTIONDETAILS(function) &__call_##function, __##function##_pcount, __##function##_pKind
 
+typedef enum {
+    i32,
+    i64,
+    string,
+    boolean,
+    bytearray,
+} ParameterKind;
+
 typedef struct
 {
     union
@@ -90,6 +97,7 @@ typedef struct
         int64_t i64;
         const char* string;
         bool boolean;
+        void* bytearray;
     } value;
     ParameterKind kind;
 } Parameter;
@@ -111,6 +119,20 @@ typedef struct {
 } GuestFunctionDetails;
 
 
+typedef struct
+{
+    char* FunctionName;
+    char* FunctionSignature;
+    uint64_t Flags;
+} HostFunctionDefinition;
+
+typedef struct
+{
+    uint64_t CountOfFunctions;
+    HostFunctionDefinition* HostFunctionDefinitions;
+    
+} HostFunctionDetails;
+
 int printOutput(const char*);
 
 void HyperlightMain();
@@ -130,6 +152,8 @@ char* strncpy(char*, const char*, size_t);
 size_t dlmalloc_set_footprint_limit(size_t bytes);
 
 void RegisterFunction(const char*, guestFunc, int, ParameterKind[]);
+
+HostFunctionDetails* GetHostFunctionDetails();
 
 int GuestDispatchFunction(GuestFunctionDetails*);
 

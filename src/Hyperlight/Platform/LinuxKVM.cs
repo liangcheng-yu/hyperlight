@@ -6,20 +6,28 @@ namespace Hyperlight.Native
     static class LinuxKVM
     {
         [DllImport("libc", SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
         public static extern int ioctl(int fd, ulong request, [In][Out] ref KVM_SREGS sregs);
         [DllImport("libc", SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
         public static extern int ioctl(int fd, ulong request, [In][Out] ref KVM_REGS regs);
         [DllImport("libc", SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
         public static extern int ioctl(int fd, ulong request, [In][Out] ref KVM_USERSPACE_MEMORY_REGION region);
 
         [DllImport("libc", SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
         public static extern int ioctl(int fd, ulong request, ulong arg1);
 
 
+#pragma warning disable CA2101 // Specify marshaling for P/Invoke string arguments
         [DllImport("libc", SetLastError = true)]
+#pragma warning restore CA2101 // Specify marshaling for P/Invoke string arguments
+        [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
         public static extern int open(string path, int flags);
 
         [DllImport("libc", SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
         public static extern int close(int fd);
 
         public const int O_RDWR = 2;
@@ -160,7 +168,7 @@ namespace Hyperlight.Native
                 }
                 if (12 != kvmApiVersion)
                 {
-                    Console.WriteLine("KVM API Version was not 12 as expected");
+                    Console.Error.WriteLine("KVM API Version was not 12 as expected");
                     return false;
                 }
 
