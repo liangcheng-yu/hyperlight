@@ -5,13 +5,22 @@ int simpleprintOutput(const char* message)
     return printOutput(message);
 }
 
+int setByteArrayToZero(void* arrayPtr, int length)
+{
+    while (length--)
+    {
+        *((char*)arrayPtr)++ = 0;
+    }
+    return length;
+}
+
 int printTwoArgs(const char* arg1, int arg2)
 {
-    size_t length = strlen(arg1)  + 35;
+    size_t length = (size_t)strlen(arg1)  + 35;
     char* message = malloc(length);
     if (NULL == message)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     snprintf(message, length, "Message: arg1:%s arg2:%d.", arg1, arg2);
     return printOutput(message);
@@ -19,11 +28,11 @@ int printTwoArgs(const char* arg1, int arg2)
 
 int printThreeArgs(const char* arg1, int arg2, int64_t arg3)
 {
-    size_t length = strlen(arg1) + 61;
+    size_t length = (size_t)strlen(arg1) + 61;
     char* message = malloc(length);
     if (NULL == message)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d.", arg1, arg2, arg3);
     return printOutput(message);
@@ -31,11 +40,11 @@ int printThreeArgs(const char* arg1, int arg2, int64_t arg3)
 
 int printFourArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4)
 {
-    size_t length = strlen(arg1) + strlen(arg4) + 67;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + 67;
     char* message = malloc(length);
     if (NULL == message)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s.", arg1, arg2, arg3, arg4);
     return printOutput(message);
@@ -43,11 +52,11 @@ int printFourArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4)
 
 int printFiveArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5)
 {
-    size_t length = strlen(arg1) + strlen(arg4) + strlen(arg5) + 67;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + 67;
     char* message = malloc(length);
     if (NULL == message)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s.", arg1, arg2, arg3, arg4, arg5);
     return printOutput(message);
@@ -55,11 +64,11 @@ int printFiveArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, co
 
 int printSixArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6)
 {
-    size_t length = strlen(arg1) + strlen(arg4) + strlen(arg5) + 79;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + 79;
     char* message = malloc(length);
     if (NULL == message)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False");
     return printOutput(message);
@@ -67,11 +76,11 @@ int printSixArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, con
 
 int printSevenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7)
 {
-    size_t length = strlen(arg1) + strlen(arg4) + strlen(arg5) + 90;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + 90;
     char* message = malloc(length);
     if (NULL == message)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False", arg7 ? "True" : "False");
     return printOutput(message);
@@ -79,11 +88,11 @@ int printSevenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, c
 
 int printEightArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, const char* arg8)
 {
-    size_t length = strlen(arg1) + strlen(arg4) + strlen(arg5) + strlen(arg8) + 96;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + (size_t)strlen(arg8) + 96;
     char* message = malloc(length);
     if (NULL == message)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%s.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False", arg7 ? "True" : "False", arg8);
     return printOutput(message);
@@ -91,11 +100,11 @@ int printEightArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, c
 
 int printNineArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, const char* arg8, int64_t arg9)
 {
-    size_t length = strlen(arg1) + strlen(arg4) + strlen(arg5) + strlen(arg8) + 122;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + (size_t)strlen(arg8) + 122;
     char* message = malloc(length);
     if (NULL == message)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%s arg9:%d.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False", arg7 ? "True" : "False", arg8, arg9);
     return printOutput(message);
@@ -103,11 +112,11 @@ int printNineArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, co
 
 int printTenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, const char* arg8, int64_t arg9, int arg10)
 {
-    size_t length = strlen(arg1) + strlen(arg4) + strlen(arg5) + strlen(arg8) + 139;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + (size_t)strlen(arg8) + 139;
     char* message = malloc(length);
     if (NULL == message)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%s arg9:%d arg10:%d.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False", arg7 ? "True" : "False", arg8, arg9, arg10);
     return printOutput(message);
@@ -119,6 +128,7 @@ int stackAllocate(int length)
     {
         length = GUEST_STACK_SIZE + 1;
     }
+#pragma warning(suppress:6255)
     void* buffer = _alloca(length);
 
     return length;
@@ -137,6 +147,7 @@ int bufferOverrun(const char* str)
     return (int) (17 - length);
 }
 
+#pragma warning(suppress:6262)
 int stackOverflow(int i)
 {
     while (i-- != 0)
@@ -147,6 +158,7 @@ int stackOverflow(int i)
     return i;
 }
 
+#pragma warning(suppress:6262)
 int largeVar()
 {
     char buffer[GUEST_STACK_SIZE + 1] = { 0 };
@@ -164,7 +176,7 @@ int callMalloc(int size)
     void* heapMemory = malloc(size);
     if (NULL == heapMemory)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     return size;
 }
@@ -174,7 +186,7 @@ int mallocAndFree(int size)
     void* heapMemory = malloc(size);
     if (NULL == heapMemory)
     {
-        setError(MALLOC_FAILED, NULL);
+        setError(GUEST_ERROR, "Malloc Failed");
     }
     free(heapMemory);
     return size;
@@ -197,6 +209,7 @@ GENERATE_FUNCTION(printSevenArgs, 7, string, i32, i64, string, string, boolean, 
 GENERATE_FUNCTION(printEightArgs, 8, string, i32, i64, string, string, boolean, boolean, string);
 GENERATE_FUNCTION(printNineArgs, 9, string, i32, i64, string, string, boolean, boolean, string, i64);
 GENERATE_FUNCTION(printTenArgs, 10, string, i32, i64, string, string, boolean, boolean, string, i64, i32);
+GENERATE_FUNCTION(setByteArrayToZero, 2, bytearray, i32);
 
 void HyperlightMain()
 {
@@ -217,4 +230,5 @@ void HyperlightMain()
     RegisterFunction("PrintEightArgs", FUNCTIONDETAILS(printEightArgs));
     RegisterFunction("PrintNineArgs", FUNCTIONDETAILS(printNineArgs));
     RegisterFunction("PrintTenArgs", FUNCTIONDETAILS(printTenArgs));
+    RegisterFunction("SetByteArrayToZero", FUNCTIONDETAILS(setByteArrayToZero));
 }

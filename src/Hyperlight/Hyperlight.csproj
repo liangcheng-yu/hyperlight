@@ -3,7 +3,7 @@
   <PropertyGroup>
     <!-- TODO: Enable nullable reference types -->
     <TargetFrameworks>net6.0</TargetFrameworks>
-    <Nullable>disable</Nullable>
+    <Nullable>enable</Nullable>
     <Platforms>AnyCPU</Platforms>
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
     <Authors>Jeffrey Cooperstein, Simon Davies</Authors>
@@ -45,6 +45,7 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="System.Reflection.Emit.Lightweight" Version="4.7.0" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
+    
   </ItemGroup>
 
 </Project>

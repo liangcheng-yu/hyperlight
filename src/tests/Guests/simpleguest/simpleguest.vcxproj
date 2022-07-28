@@ -65,6 +65,7 @@
       <SubSystem>Native</SubSystem>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <AdditionalLibraryDirectories>$(SolutionDir)$(Platform)\$(Configuration)\</AdditionalLibraryDirectories>
+      <AdditionalOptions>/ignore:4108 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -91,6 +92,7 @@
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <LinkErrorReporting>NoErrorReport</LinkErrorReporting>
       <AdditionalLibraryDirectories>$(SolutionDir)$(Platform)\$(Configuration)\</AdditionalLibraryDirectories>
+      <AdditionalOptions>/ignore:4108 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>

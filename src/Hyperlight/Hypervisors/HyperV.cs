@@ -11,7 +11,6 @@ namespace Hyperlight.Hypervisors
 {
     internal class HyperV : Hypervisor, IDisposable
     {
-        readonly HyperVSurrogateProcessManager processManager = HyperVSurrogateProcessManager.Instance;
         readonly SurrogateProcess surrogateProcess;
         bool disposedValue;
         readonly IntPtr hPartition = IntPtr.Zero;
@@ -28,8 +27,8 @@ namespace Hyperlight.Hypervisors
             WindowsHypervisorPlatform.WHvCreatePartition(out hPartition);
             WindowsHypervisorPlatform.SetProcessorCount(hPartition, 1);
             WindowsHypervisorPlatform.WHvSetupPartition(hPartition);
-            surrogateProcess = processManager.GetProcess((IntPtr)size, sourceAddress);
-            var hProcess = surrogateProcess.safeProcessHandle.DangerousGetHandle();
+            surrogateProcess = HyperVSurrogateProcessManager.Instance.GetProcess((IntPtr)size, sourceAddress);
+            var hProcess = surrogateProcess.SafeProcessHandle.DangerousGetHandle();
             WindowsHypervisorPlatform.WHvMapGpaRange2(hPartition, hProcess, sourceAddress, (IntPtr)SandboxMemoryLayout.BaseAddress, size, WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagRead | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagWrite | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagExecute);
             WindowsHypervisorPlatform.WHvCreateVirtualProcessor(hPartition, 0, 0);
             virtualProcessorCreated = true;
@@ -52,7 +51,7 @@ namespace Hyperlight.Hypervisors
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRsp, rsp, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRdx, 0, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRcx, 0, 0);
-           
+
             registerNames = registerNamesList.ToArray();
             registerValues = registerValuesList.ToArray();
         }
@@ -78,21 +77,21 @@ namespace Hyperlight.Hypervisors
                 // 1. it only writes to memory that changes between usage
                 // 2. memory is allocated in the process once and then only freed and reallocated if the 
                 // memory needs to grow.
-                if (!OS.WriteProcessMemory(surrogateProcess.safeProcessHandle.DangerousGetHandle(), surrogateProcess.sourceAddress, sourceAddress, (IntPtr)size, out IntPtr written))
+                if (!OS.WriteProcessMemory(surrogateProcess.SafeProcessHandle.DangerousGetHandle(), surrogateProcess.SourceAddress, sourceAddress, (IntPtr)size, out IntPtr written))
                 {
                     int error = Marshal.GetLastWin32Error();
                     if (error != 0)
                     {
-                        throw new ApplicationException($"WriteProcessMemory Error: {error}");
+                        throw new HyperlightException($"WriteProcessMemory Error: {error}");
                     }
                 }
                 WindowsHypervisorPlatform.WHvRunVirtualProcessor(hPartition, 0, out exitContext, (uint)Marshal.SizeOf<WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_CONTEXT>());
-                if (!OS.ReadProcessMemory(surrogateProcess.safeProcessHandle.DangerousGetHandle(), surrogateProcess.sourceAddress, sourceAddress, (IntPtr)size, out IntPtr read))
+                if (!OS.ReadProcessMemory(surrogateProcess.SafeProcessHandle.DangerousGetHandle(), surrogateProcess.SourceAddress, sourceAddress, (IntPtr)size, out IntPtr read))
                 {
                     int error = Marshal.GetLastWin32Error();
                     if (error != 0)
                     {
-                        throw new ApplicationException($"ReadProcessMemory Error: {error}");
+                        throw new HyperlightException($"ReadProcessMemory Error: {error}");
                     }
                 }
 
@@ -104,7 +103,6 @@ namespace Hyperlight.Hypervisors
 
                             // Move rip forward to next instruction (size of current instruction in lower byte of InstructionLength_Cr8_Reserved)
 
-                            var ripIncrement = (ulong)(exitContext.VpContext.InstructionLength_Cr8_Reserved & 0xF);
                             ripValue[0].low = exitContext.VpContext.Rip + (ulong)(exitContext.VpContext.InstructionLength_Cr8_Reserved & 0xF);
                             WindowsHypervisorPlatform.WHvSetVirtualProcessorRegisters(hPartition, 0, ripName, 1, ripValue);
                             break;
@@ -136,7 +134,9 @@ namespace Hyperlight.Hypervisors
             StringBuilder context = new($"Did not recieve a halt from Hypervisor as expected - Received {exitContext.ExitReason}");
             for (var i = 0; i < v2.Length; i++)
             {
+#pragma warning disable CA1305 // Specify IFormatProvider
                 context.AppendLine($"{registerNames[i]} - {v2[i].low:X16}");
+#pragma warning restore CA1305 // Specify IFormatProvider
             }
             throw new HyperlightException(context.ToString());
         }
@@ -157,7 +157,7 @@ namespace Hyperlight.Hypervisors
             {
                 if (disposing)
                 {
-                    processManager.ReturnProcess(surrogateProcess);
+                    HyperVSurrogateProcessManager.Instance.ReturnProcess(surrogateProcess);
                 }
 
                 if (virtualProcessorCreated)
