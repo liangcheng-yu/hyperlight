@@ -5,6 +5,8 @@
 #include "context_tests.h"
 #include "host_func_tests.h"
 #include "byte_array_tests.h"
+#include "mem_config.h"
+#include "mem_layout.h"
 
 int main()
 {
@@ -40,5 +42,13 @@ int main()
         // byte array tests
         munit_assert_int(MUNIT_OK, ==, test_byte_array_lifecycle());
         munit_assert_int(MUNIT_OK, ==, test_byte_array_new_from_file());
+    }
+    {
+        // mem config tests
+        munit_assert_int(MUNIT_OK, ==, test_mem_config_getters());
+    }
+    {
+        // mem layout tests
+        munit_assert_int(MUNIT_OK, ==, test_mem_layout_get());
     }
 }

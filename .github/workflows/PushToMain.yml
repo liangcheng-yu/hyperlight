@@ -99,6 +99,9 @@ jobs:
           src/tests/Guests/simpleguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/simpleguest.exe
           src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
           src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz
+          ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib
+          src/HyperlightGuest/include/hyperlight.h
+          src/HyperlightGuest/third_party/printf/printf.h
           hyperlight_host.h
           libhyperlight_host.so
           hyperlight_host.dll

@@ -1,5 +1,6 @@
-use super::context::Context;
+use super::context::{Context, ReadResult, WriteResult};
 use super::handle::Handle;
+use super::hdl::Hdl;
 use super::strings::{to_string, RawCString};
 use crate::sandbox::Sandbox;
 
@@ -16,5 +17,13 @@ use crate::sandbox::Sandbox;
 pub unsafe extern "C" fn sandbox_new(ctx: *mut Context, bin_path: RawCString) -> Handle {
     let bin_path = to_string(bin_path);
     let sbox = Sandbox::new(bin_path);
-    (*ctx).register_sandbox(sbox)
+    Context::register(sbox, &(*ctx).sandboxes, Hdl::Sandbox)
+}
+
+pub fn get_sandbox(ctx: &Context, handle: Handle) -> ReadResult<Sandbox> {
+    Context::get(handle, &ctx.sandboxes, |s| matches!(s, Hdl::Sandbox(_)))
+}
+
+pub fn get_sandbox_mut(ctx: &Context, handle: Handle) -> WriteResult<Sandbox> {
+    Context::get_mut(handle, &ctx.sandboxes, |s| matches!(s, Hdl::Sandbox(_)))
 }

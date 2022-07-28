@@ -1,5 +1,6 @@
-use super::context::Context;
+use super::context::{Context, ReadResult};
 use super::handle::Handle;
+use super::hdl::Hdl;
 use std::ffi::{CStr, CString, NulError};
 use std::os::raw::c_char;
 use std::string::String;
@@ -54,11 +55,15 @@ pub fn to_c_string<T: Into<Vec<u8>>>(string: T) -> Result<RawCString, NulError> 
 /// value to `free()` after you're done using it.
 #[no_mangle]
 pub unsafe extern "C" fn handle_get_string(ctx: *const Context, hdl: Handle) -> RawCString {
-    match (*ctx).get_string(hdl) {
+    match Context::get(hdl, &(*ctx).strings, |s| matches!(s, Hdl::String(_))) {
         Ok(str) => match to_c_string((*str).clone()) {
             Ok(s) => s,
             Err(_) => std::ptr::null(),
         },
         Err(_) => std::ptr::null(),
     }
+}
+
+pub fn get_string(ctx: &Context, handle: Handle) -> ReadResult<String> {
+    Context::get(handle, &ctx.strings, |s| matches!(s, Hdl::String(_)))
 }

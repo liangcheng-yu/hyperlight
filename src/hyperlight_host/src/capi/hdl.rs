@@ -12,6 +12,8 @@ pub enum Hdl {
     String(Key),
     ByteArray(Key),
     PEInfo(Key),
+    MemConfig(Key),
+    MemLayout(Key),
 }
 
 impl Hdl {
@@ -23,6 +25,8 @@ impl Hdl {
     const STRING_TYPE_ID: TypeID = 105;
     const BYTE_ARRAY_TYPE_ID: TypeID = 106;
     const PE_INFO_TYPE_ID: TypeID = 107;
+    const MEM_CONFIG_TYPE_ID: TypeID = 108;
+    const MEM_LAYOUT_TYPE_ID: TypeID = 109;
 
     pub fn type_id(&self) -> TypeID {
         match self {
@@ -34,8 +38,11 @@ impl Hdl {
             Hdl::String(_) => Self::STRING_TYPE_ID,
             Hdl::ByteArray(_) => Self::BYTE_ARRAY_TYPE_ID,
             Hdl::PEInfo(_) => Self::PE_INFO_TYPE_ID,
+            Hdl::MemConfig(_) => Self::MEM_CONFIG_TYPE_ID,
+            Hdl::MemLayout(_) => Self::MEM_LAYOUT_TYPE_ID,
         }
     }
+
     pub fn key(&self) -> Key {
         match self {
             Hdl::Err(key) => *key,
@@ -46,6 +53,25 @@ impl Hdl {
             Hdl::String(key) => *key,
             Hdl::ByteArray(key) => *key,
             Hdl::PEInfo(key) => *key,
+            Hdl::MemConfig(key) => *key,
+            Hdl::MemLayout(key) => *key,
+        }
+    }
+}
+
+impl std::fmt::Display for Hdl {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Hdl::Err(key) => write!(f, "Err({})", key),
+            Hdl::Sandbox(key) => write!(f, "Sandbox({})", key),
+            Hdl::Val(key) => write!(f, "Val({})", key),
+            Hdl::Empty() => write!(f, "Empty()"),
+            Hdl::HostFunc(key) => write!(f, "HostFunc({})", key),
+            Hdl::String(key) => write!(f, "String({})", key),
+            Hdl::ByteArray(key) => write!(f, "ByteArray({})", key),
+            Hdl::PEInfo(key) => write!(f, "PEInfo({})", key),
+            Hdl::MemConfig(key) => write!(f, "MemConfig({})", key),
+            Hdl::MemLayout(key) => write!(f, "MemLayout({})", key),
         }
     }
 }
@@ -66,6 +92,8 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::STRING_TYPE_ID => Ok(Hdl::String(key)),
             Self::BYTE_ARRAY_TYPE_ID => Ok(Hdl::ByteArray(key)),
             Self::PE_INFO_TYPE_ID => Ok(Hdl::PEInfo(key)),
+            Self::MEM_CONFIG_TYPE_ID => Ok(Hdl::MemConfig(key)),
+            Self::MEM_LAYOUT_TYPE_ID => Ok(Hdl::MemLayout(key)),
             _ => bail!("invalid handle type {}", hdl.type_id()),
         }
     }
