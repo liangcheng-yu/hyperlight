@@ -13,7 +13,7 @@ char* strncat(char* dest, const char* src, int length )
     return result;
 }
 
-int sendMessagetoHostMethod(char* methodName, char* guestMessage, char* message)
+int sendMessagetoHostMethod(char* methodName, char* guestMessage, const char* message)
 {
     char* messageToHost = strncat(guestMessage, message, strlen(message));
 
@@ -53,16 +53,16 @@ int sendMessagetoHostMethod(char* methodName, char* guestMessage, char* message)
     return native_symbol_thunk(methodName, messageToHost);
 }
 
-int guestFunction(char *message)
+int guestFunction(const char *message)
 { 
     char guestMessage[256] = "Hello from GuestFunction, ";
-    sendMessagetoHostMethod("HostMethod", guestMessage, message);
+    return sendMessagetoHostMethod("HostMethod", guestMessage, message);
 }
 
-int guestFunction1(char* message)
+int guestFunction1(const char* message)
 {
     char guestMessage[256] = "Hello from GuestFunction1, ";
-    sendMessagetoHostMethod("HostMethod1", guestMessage, message);
+    return sendMessagetoHostMethod("HostMethod1", guestMessage, message);
 }
 
 GENERATE_FUNCTION(printOutput, 1, string);

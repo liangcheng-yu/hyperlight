@@ -16,7 +16,7 @@ int setByteArrayToZero(void* arrayPtr, int length)
 
 int printTwoArgs(const char* arg1, int arg2)
 {
-    size_t length = strlen(arg1)  + 35;
+    size_t length = (size_t)strlen(arg1)  + 35;
     char* message = malloc(length);
     if (NULL == message)
     {
@@ -28,7 +28,7 @@ int printTwoArgs(const char* arg1, int arg2)
 
 int printThreeArgs(const char* arg1, int arg2, int64_t arg3)
 {
-    size_t length = strlen(arg1) + 61;
+    size_t length = (size_t)strlen(arg1) + 61;
     char* message = malloc(length);
     if (NULL == message)
     {
@@ -40,7 +40,7 @@ int printThreeArgs(const char* arg1, int arg2, int64_t arg3)
 
 int printFourArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4)
 {
-    size_t length = strlen(arg1) + strlen(arg4) + 67;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + 67;
     char* message = malloc(length);
     if (NULL == message)
     {
@@ -52,7 +52,7 @@ int printFourArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4)
 
 int printFiveArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5)
 {
-    size_t length = strlen(arg1) + strlen(arg4) + strlen(arg5) + 67;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + 67;
     char* message = malloc(length);
     if (NULL == message)
     {
@@ -64,7 +64,7 @@ int printFiveArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, co
 
 int printSixArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6)
 {
-    size_t length = strlen(arg1) + strlen(arg4) + strlen(arg5) + 79;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + 79;
     char* message = malloc(length);
     if (NULL == message)
     {
@@ -76,7 +76,7 @@ int printSixArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, con
 
 int printSevenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7)
 {
-    size_t length = strlen(arg1) + strlen(arg4) + strlen(arg5) + 90;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + 90;
     char* message = malloc(length);
     if (NULL == message)
     {
@@ -88,7 +88,7 @@ int printSevenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, c
 
 int printEightArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, const char* arg8)
 {
-    size_t length = strlen(arg1) + strlen(arg4) + strlen(arg5) + strlen(arg8) + 96;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + (size_t)strlen(arg8) + 96;
     char* message = malloc(length);
     if (NULL == message)
     {
@@ -100,7 +100,7 @@ int printEightArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, c
 
 int printNineArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, const char* arg8, int64_t arg9)
 {
-    size_t length = strlen(arg1) + strlen(arg4) + strlen(arg5) + strlen(arg8) + 122;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + (size_t)strlen(arg8) + 122;
     char* message = malloc(length);
     if (NULL == message)
     {
@@ -112,7 +112,7 @@ int printNineArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, co
 
 int printTenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, const char* arg8, int64_t arg9, int arg10)
 {
-    size_t length = strlen(arg1) + strlen(arg4) + strlen(arg5) + strlen(arg8) + 139;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + (size_t)strlen(arg8) + 139;
     char* message = malloc(length);
     if (NULL == message)
     {
@@ -128,6 +128,7 @@ int stackAllocate(int length)
     {
         length = GUEST_STACK_SIZE + 1;
     }
+#pragma warning(suppress:6255)
     void* buffer = _alloca(length);
 
     return length;
@@ -146,6 +147,7 @@ int bufferOverrun(const char* str)
     return (int) (17 - length);
 }
 
+#pragma warning(suppress:6262)
 int stackOverflow(int i)
 {
     while (i-- != 0)
@@ -156,6 +158,7 @@ int stackOverflow(int i)
     return i;
 }
 
+#pragma warning(suppress:6262)
 int largeVar()
 {
     char buffer[GUEST_STACK_SIZE + 1] = { 0 };

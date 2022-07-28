@@ -35,14 +35,15 @@ namespace Hyperlight.Hypervisors
                 () => LinuxKVM.ioctl(vmfd, LinuxKVM.KVM_SET_USER_MEMORY_REGION, ref region),
                 0
             );
-            
+
             vcpufd = LinuxKVM.ioctl(vmfd, LinuxKVM.KVM_CREATE_VCPU, 0);
             if (-1 == vcpufd)
             {
                 throw new HyperlightException("KVM_CREATE_VCPU returned -1");
             }
+
             var mmap_size = LinuxKVM.ioctl(kvm, LinuxKVM.KVM_GET_VCPU_MMAP_SIZE, 0);
-            if(-1 == mmap_size)
+            if (-1 == mmap_size)
             {
                 throw new HyperlightException("KVM_GET_VCPU_MMAP_SIZE returned -1");
             }

@@ -314,8 +314,9 @@ namespace Hyperlight.Tests
                 Assert.NotNull(sandboxMemoryLayout);
                 fieldInfo = sandboxMemoryLayout!.GetType().GetField("stackSize", bindingFlags);
                 Assert.NotNull(fieldInfo);
-                long configuredStackSize = (long)fieldInfo!.GetValue(sandboxMemoryLayout);
-                Assert.Equal(stackSize, configuredStackSize);
+                var configuredStackSize = fieldInfo!.GetValue(sandboxMemoryLayout);
+                Assert.NotNull(configuredStackSize);
+                Assert.Equal(stackSize, (long)configuredStackSize!);
             }
         }
 
@@ -587,7 +588,7 @@ namespace Hyperlight.Tests
             Assert.NotNull(methodInfo);
             var size = methodInfo!.Invoke(sandboxMemoryLayout, Array.Empty<object>());
             Assert.NotNull(size);
-            return (ulong)size;
+            return (ulong)size!;
         }
 
         [Fact]
@@ -981,13 +982,13 @@ namespace Hyperlight.Tests
             {
                 foreach (var (type, exposedMethods, boundDelegates, exposedStaticMethods) in testData)
                 {
-                    foreach (var target in new object?[] { type, GetInstance(type) })
+                    foreach (var target in new object[] { type, GetInstance(type) })
                     {
                         using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
                         {
                             if (target is Type)
                             {
-                                sandbox.ExposeHostMethods(target as Type);
+                                sandbox.ExposeHostMethods((Type)target!);
                             }
                             else
                             {
@@ -1044,7 +1045,7 @@ namespace Hyperlight.Tests
             fieldInfo = hyperlightPEB!.GetType().GetField("listFunctions", bindingFlags);
             Assert.NotNull(fieldInfo);
             // Ignore GetTickCount exposed by Sandbox
-            var listFunctions = ((HashSet<FunctionDetails>)fieldInfo!.GetValue(hyperlightPEB)).Where(f => f.FunctionName != "GetTickCount");
+            var listFunctions = ((HashSet<FunctionDetails>)fieldInfo!.GetValue(hyperlightPEB)!).Where(f => f.FunctionName != "GetTickCount");
             Assert.NotNull(listFunctions);
             Assert.Equal(methodNames.Count, listFunctions!.Count());
 
@@ -1081,7 +1082,7 @@ namespace Hyperlight.Tests
                 (typeof(DontExposeSomeMembersUsingAttribute), new() { "GetOne", "MethodWithArgs" }, new(), new() { "GetTwo", "StaticMethodWithArgs" }, new()),
             };
 
-            Action<ISandboxRegistration> func;
+            Action<ISandboxRegistration>? func;
             StringWriter output;
             Sandbox sandbox;
 
@@ -1165,7 +1166,7 @@ namespace Hyperlight.Tests
                         sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option, func, output);
                         if (target is Type)
                         {
-                            sandbox.ExposeHostMethods(target as Type);
+                            sandbox.ExposeHostMethods((Type)target);
                             CheckExposedMethods(sandbox, exposedStaticMethods, (Type)target);
                         }
                         else
@@ -1184,7 +1185,8 @@ namespace Hyperlight.Tests
             numberOfCalls++;
             var del = GetDelegate(target, delgateName);
             var result = del.DynamicInvoke(args);
-            Assert.Equal(returnValue, (int)result);
+            Assert.NotNull(result);
+            Assert.Equal(returnValue, (int)result!);
             var builder = output.GetStringBuilder();
             Assert.Equal(expectedOutput, builder.ToString());
             builder.Remove(0, builder.Length);
@@ -1194,7 +1196,7 @@ namespace Hyperlight.Tests
         {
             var fieldInfo = target.GetType().GetField(delegateName, BindingFlags.Public | BindingFlags.Instance);
             Assert.NotNull(fieldInfo);
-            Assert.True(typeof(Delegate).IsAssignableFrom(fieldInfo.FieldType));
+            Assert.True(typeof(Delegate).IsAssignableFrom(fieldInfo!.FieldType));
             var fieldValue = fieldInfo.GetValue(target);
             Assert.NotNull(fieldValue);
             var del = (Delegate)fieldValue!;
@@ -1225,7 +1227,7 @@ namespace Hyperlight.Tests
                 var builder = output1.GetStringBuilder();
                 SimpleTest(sandbox1, testData, output1, builder);
                 var output2 = new StringWriter();
-                Sandbox sandbox2 = null;
+                Sandbox? sandbox2 = null;
                 var ex = Record.Exception(() => sandbox2 = new Sandbox(GetSandboxMemoryConfiguration(), testData.GuestBinaryPath, option, output2));
                 Assert.NotNull(ex);
                 Assert.IsType<HyperlightException>(ex);
@@ -1259,7 +1261,7 @@ namespace Hyperlight.Tests
                     var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option);
                     var guestMethods = new SimpleTestMembers();
                     sandbox.BindGuestFunction("PrintOutput", guestMethods);
-                    var result = guestMethods.PrintOutput("This will throw an exception");
+                    var result = guestMethods.PrintOutput!("This will throw an exception");
                 });
                 Assert.NotNull(ex);
                 Assert.IsType<NotSupportedException>(ex);
@@ -1358,7 +1360,7 @@ namespace Hyperlight.Tests
                     {
                         if (instanceOrType is Type)
                         {
-                            sandbox1.ExposeHostMethods(instanceOrType as Type);
+                            sandbox1.ExposeHostMethods((Type)instanceOrType);
                         }
                         else
                         {
@@ -1367,8 +1369,8 @@ namespace Hyperlight.Tests
                     }
                     CallbackTest(sandbox1, testData, output1, builder, instanceOrType);
                     var output2 = new StringWriter();
-                    Sandbox sandbox2 = null;
-                    object instanceOrType1;
+                    Sandbox? sandbox2 = null;
+                    object? instanceOrType1;
                     if (instanceOrType is not null && instanceOrType is not Type)
                     {
                         instanceOrType1 = GetInstance(instanceOrType.GetType());
@@ -1394,7 +1396,7 @@ namespace Hyperlight.Tests
                             {
                                 if (instanceOrType1 is Type)
                                 {
-                                    sandbox.ExposeHostMethods(instanceOrType1 as Type);
+                                    sandbox.ExposeHostMethods((Type)instanceOrType1);
                                 }
                                 else
                                 {
@@ -1471,7 +1473,7 @@ namespace Hyperlight.Tests
             });
         }
 
-        private void RunTests(TestData testData, SandboxRunOptions options, Action<Sandbox, TestData, StringWriter, StringBuilder, object> test)
+        private void RunTests(TestData testData, SandboxRunOptions options, Action<Sandbox, TestData, StringWriter, StringBuilder, object?> test)
         {
             if (testData.TestInstanceOrTypes().Length > 0)
             {
@@ -1486,7 +1488,7 @@ namespace Hyperlight.Tests
             }
         }
 
-        private void RunTest(TestData testData, SandboxRunOptions sandboxRunOptions, object? instanceOrType, Action<Sandbox, TestData, StringWriter, StringBuilder, object> test)
+        private void RunTest(TestData testData, SandboxRunOptions sandboxRunOptions, object? instanceOrType, Action<Sandbox, TestData, StringWriter, StringBuilder, object?> test)
         {
             using (var output = new StringWriter())
             {
@@ -1496,7 +1498,7 @@ namespace Hyperlight.Tests
                     {
                         if (instanceOrType is Type)
                         {
-                            sandbox.ExposeHostMethods(instanceOrType as Type);
+                            sandbox.ExposeHostMethods((Type)instanceOrType);
                         }
                         else
                         {
@@ -1541,7 +1543,7 @@ namespace Hyperlight.Tests
                     {
                         if (instanceOrType is Type)
                         {
-                            sandbox.ExposeHostMethods(instanceOrType as Type);
+                            sandbox.ExposeHostMethods((Type)instanceOrType);
                         }
                         else
                         {
@@ -1563,7 +1565,7 @@ namespace Hyperlight.Tests
             Assert.Equal(testData.ExpectedOutput, builder.ToString());
         }
 
-        private void CallbackTest(Sandbox sandbox, TestData testData, StringWriter output, StringBuilder builder, object typeorinstance)
+        private void CallbackTest(Sandbox sandbox, TestData testData, StringWriter output, StringBuilder builder, object? typeorinstance)
         {
 
             if (typeorinstance == null)
@@ -1573,7 +1575,7 @@ namespace Hyperlight.Tests
                 sandbox.BindGuestFunction("GuestMethod", guestMethods);
                 var ex = Record.Exception(() =>
                 {
-                    var result = guestMethods.GuestMethod(testData.ExpectedOutput);
+                    var result = guestMethods.GuestMethod!(testData.ExpectedOutput);
                 });
                 Assert.NotNull(ex);
                 Assert.IsType<HyperlightException>(ex);
@@ -1597,7 +1599,12 @@ namespace Hyperlight.Tests
                         var del = (Delegate)fieldValue!;
                         Assert.NotNull(del);
                         var args = new object[] { message };
-                        var result = sandbox.CallGuest<int>(() => { return (int)del!.DynamicInvoke(args); });
+                        var result = sandbox.CallGuest<int>(() =>
+                        {
+                            var result = del!.DynamicInvoke(args);
+                            Assert.NotNull(result);
+                            return (int)result!;
+                        });
                         Assert.Equal<int>(expectedMessage.Length, (int)result!);
                         Assert.Equal(expectedMessage, builder.ToString());
                     }
@@ -1656,7 +1663,14 @@ namespace Hyperlight.Tests
             };
         }
 
-        private static object GetInstance(Type type) => Activator.CreateInstance(type);
+        private static object GetInstance(Type type)
+        {
+
+            var result = Activator.CreateInstance(type);
+            Assert.NotNull(result);
+            return result!;
+        }
+
         private static T GetInstance<T>() => Activator.CreateInstance<T>();
         static bool RunningOnWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 
