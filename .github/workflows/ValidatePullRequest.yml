@@ -145,4 +145,4 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: test-results-${{ matrix.config }}-${{ matrix.hypervisor }}
-        path: src\tests\\Hyperlight.Tests\TestResults\*.trx
+        path: src/tests/Hyperlight.Tests/TestResults/*.trx
