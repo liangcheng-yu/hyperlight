@@ -7,17 +7,10 @@ valgrind-command := if os() == "windows" { "echo 'valgrind not supported on wind
 
 clang-checks := if os() == "windows" { "-Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" } else { "-Wall -Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" }
 
-gen-headers:
-    cbindgen \
-        -c ./cbindgen.toml \
-        --crate hyperlight_host \
-        --lang c \
-        --output include/hyperlight_host.h
-
 build:
     cargo build
 
-build-tests-capi: build gen-headers
+build-tests-capi: build
     clang \
     {{ clang-checks }} \
     tests_capi/*.c \
