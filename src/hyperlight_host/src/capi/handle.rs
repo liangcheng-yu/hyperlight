@@ -122,7 +122,7 @@ pub extern "C" fn handle_is_empty(handle: Handle) -> bool {
 /// function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn handle_free(ctx: *mut Context, hdl: Handle) -> bool {
-    (*ctx).remove_handle(hdl)
+    (*ctx).remove(hdl, |_| true)
 }
 
 /// Return `true` if `handle1 == handle2`, `false` otherwise.

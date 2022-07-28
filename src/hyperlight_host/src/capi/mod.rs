@@ -50,6 +50,8 @@ pub mod err;
 pub mod filepath;
 pub mod handle;
 pub mod hdl;
+pub mod mem_config;
+pub mod mem_layout;
 pub mod pe;
 pub mod sandbox;
 pub mod strings;

@@ -1,5 +1,6 @@
 use super::context::Context;
 use super::handle::Handle;
+use super::hdl::Hdl;
 use crate::func::args::Val;
 use crate::func::def::HostFunc;
 
@@ -95,5 +96,5 @@ pub unsafe extern "C" fn host_func_create(
     };
 
     let hf = HostFunc::new(Box::new(func));
-    (*ctx).register_host_func(hf)
+    Context::register(hf, &(*ctx).host_funcs, Hdl::HostFunc)
 }

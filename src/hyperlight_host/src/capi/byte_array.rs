@@ -1,24 +1,37 @@
-use super::context::Context;
+use super::context::{Context, ReadResult, WriteResult};
 use super::fill_vec;
 use super::handle::Handle;
+use super::hdl::Hdl;
 use super::strings::{to_string, RawCString};
 use anyhow::anyhow;
 
 mod impls {
     use super::super::context::Context;
     use super::super::handle::Handle;
+    use crate::capi::hdl::Hdl;
     use anyhow::{anyhow, bail, Result};
     use std::fs::read;
 
-    pub fn get(ctx: &mut Context, handle: Handle) -> Result<Vec<u8>> {
-        match ctx.remove_byte_array(handle) {
-            Some(bytes) => Ok(bytes),
-            None => bail!("handle is not a byte array handle"),
+    fn get(ctx: &Context, handle: Handle) -> Result<Vec<u8>> {
+        match super::get_byte_array(ctx, handle) {
+            Ok(bytes) => Ok((*bytes).clone()),
+            _ => bail!("handle is not a byte array handle"),
+        }
+    }
+
+    pub fn remove(ctx: &mut Context, handle: Handle) -> Result<Vec<u8>> {
+        match Hdl::try_from(handle) {
+            Ok(Hdl::ByteArray(_)) => {
+                let val = get(ctx, handle)?;
+                ctx.remove(handle, |h| matches!(h, Hdl::ByteArray(_)));
+                Ok(val)
+            }
+            _ => bail!("handle is not a byte array handle"),
         }
     }
 
     pub fn len(ctx: &Context, handle: Handle) -> Result<usize> {
-        let arr = ctx.get_byte_array(handle)?;
+        let arr = super::get_byte_array(ctx, handle)?;
         Ok(arr.len())
     }
 
@@ -33,6 +46,12 @@ mod impls {
     }
 }
 
+pub fn get_byte_array(ctx: &Context, handle: Handle) -> ReadResult<Vec<u8>> {
+    Context::get(handle, &ctx.byte_arrays, |b| matches!(b, Hdl::ByteArray(_)))
+}
+pub fn get_byte_array_mut(ctx: &Context, handle: Handle) -> WriteResult<Vec<u8>> {
+    Context::get_mut(handle, &ctx.byte_arrays, |b| matches!(b, Hdl::ByteArray(_)))
+}
 /// Copy all the memory from `arr_ptr` to `arr_ptr + arr_len` into a new
 /// byte array, register the new byte array's memory with the given `ctx`,
 /// and return a `Handle` that references it.
@@ -52,7 +71,7 @@ pub unsafe extern "C" fn byte_array_new(
     arr_len: usize,
 ) -> Handle {
     let vec = fill_vec(arr_ptr, arr_len);
-    (*ctx).register_byte_array(vec)
+    Context::register(vec, &(*ctx).byte_arrays, Hdl::ByteArray)
 }
 
 /// Read the entire contents of the file at `file_name` into
@@ -74,7 +93,7 @@ pub unsafe extern "C" fn byte_array_new_from_file(
     let file_name_str = to_string(file_name);
     let vec_res = impls::new_from_file(&file_name_str);
     match vec_res {
-        Ok(vec) => (*ctx).register_byte_array(vec),
+        Ok(vec) => Context::register(vec, &(*ctx).byte_arrays, Hdl::ByteArray),
         Err(err) => (*ctx).register_err(anyhow!(err)),
     }
 }
@@ -113,8 +132,8 @@ pub unsafe extern "C" fn byte_array_len(ctx: *const Context, handle: Handle) -> 
 /// this memory when they're done with it, and it will no longer exist
 /// in `ctx`.
 #[no_mangle]
-pub unsafe extern "C" fn byte_array_get(ctx: *mut Context, handle: Handle) -> *const u8 {
-    match impls::get(&mut *ctx, handle) {
+pub unsafe extern "C" fn byte_array_remove(ctx: *mut Context, handle: Handle) -> *const u8 {
+    match impls::remove(&mut *ctx, handle) {
         Ok(vec) => {
             let ptr = vec.as_ptr();
             std::mem::forget(vec);
@@ -128,6 +147,7 @@ pub unsafe extern "C" fn byte_array_get(ctx: *mut Context, handle: Handle) -> *c
 mod tests {
     use super::super::context::Context;
     use super::super::err::handle_is_error;
+    use super::super::hdl::Hdl;
     use super::impls;
     use anyhow::Result;
     #[test]
@@ -146,7 +166,7 @@ mod tests {
         let ctx = Context::default();
         let barr = vec![1, 2, 3];
         let barr_len = barr.len();
-        let barr_hdl = ctx.register_byte_array(barr);
+        let barr_hdl = Context::register(barr, &ctx.byte_arrays, Hdl::ByteArray);
         assert!(!handle_is_error(barr_hdl));
         assert_eq!(impls::len(&ctx, barr_hdl)?, barr_len);
 
@@ -154,20 +174,20 @@ mod tests {
     }
 
     #[test]
-    fn byte_array_get() -> Result<()> {
+    fn byte_array_remove() -> Result<()> {
         let mut ctx = Context::default();
         let barr = vec![1, 2, 3];
         let barr_copy = barr.clone();
-        let barr_hdl = ctx.register_byte_array(barr);
+        let barr_hdl = Context::register(barr, &ctx.byte_arrays, Hdl::ByteArray);
         assert!(!handle_is_error(barr_hdl));
 
         {
-            let ret_barr = impls::get(&mut ctx, barr_hdl)?;
+            let ret_barr = impls::remove(&mut ctx, barr_hdl)?;
             assert_eq!(barr_copy, ret_barr);
         }
 
         {
-            let ret_barr_res = impls::get(&mut ctx, barr_hdl);
+            let ret_barr_res = impls::remove(&mut ctx, barr_hdl);
             assert!(ret_barr_res.is_err());
         }
 

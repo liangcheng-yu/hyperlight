@@ -1,13 +1,15 @@
-use super::context::Context;
+use super::context::{Context, ReadResult};
 use super::handle::Handle;
+use super::hdl::Hdl;
 use crate::func::args::Val;
 use crate::func::SerializationType;
+use anyhow::bail;
 use std::boxed::Box;
 
 mod impls {
-    use super::super::context::Context;
     use super::super::fill_vec;
     use super::super::handle::Handle;
+    use crate::capi::context::Context;
     use crate::func::args::Val;
     use crate::func::SerializationType;
 
@@ -21,11 +23,19 @@ mod impls {
     }
 
     pub fn val_ref_get(ctx: &Context, val_hdl: Handle) -> Box<Val> {
-        match ctx.get_val(val_hdl) {
+        match super::get_val(ctx, val_hdl) {
             Ok(val) => Box::new((*val).clone()),
             Err(_) => Box::new(Val::new(Vec::new(), SerializationType::Raw)),
         }
     }
+}
+
+pub fn get_val(ctx: &Context, val_hdl: Handle) -> ReadResult<Val> {
+    match Hdl::try_from(val_hdl) {
+        Ok(Hdl::Val(_)) => {}
+        _ => bail!("Handle is not a Val"),
+    }
+    Context::get(val_hdl, &ctx.vals, |v| matches!(v, Hdl::Val(_)))
 }
 
 /// Convert a `(i8*, usize)` (indicating a raw C array) and
@@ -109,5 +119,7 @@ pub unsafe extern "C" fn val_ref_get(ctx: *const Context, val_hdl: Handle) -> *m
 /// and no earlier than when this function returns.
 #[no_mangle]
 pub unsafe extern "C" fn val_ref_register(ctx: *mut Context, val: *const Val) -> Handle {
-    (*ctx).register_val((*val).clone())
+    let ctx_ref = &*ctx;
+    let val_ref = &*val;
+    Context::register(val_ref.clone(), &ctx_ref.vals, Hdl::Val)
 }
