@@ -15,6 +15,7 @@ char* strncat(char* dest, const char* src, int length )
 
 int sendMessagetoHostMethod(char* methodName, char* guestMessage, const char* message)
 {
+#pragma warning(suppress:4244)
     char* messageToHost = strncat(guestMessage, message, strlen(message));
 
     HostFunctionDetails* hostfunctionDetails = GetHostFunctionDetails();

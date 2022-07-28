@@ -19,7 +19,7 @@ namespace Hyperlight.Tests
     {
         private readonly ITestOutputHelper output;
         public const int NUMBER_OF_ITERATIONS = 10;
-        public const int NUMBER_OF_PARALLEL_TESTS = 100;
+        public const int NUMBER_OF_PARALLEL_TESTS = 10;
         public SandboxHostTest(ITestOutputHelper output)
         {
             //TODO: implment skip for this
