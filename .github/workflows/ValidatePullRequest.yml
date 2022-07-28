@@ -62,13 +62,16 @@ jobs:
       shell: pwsh
       run:  dotnet run -c ${{ matrix.config }} -- -nowait
       working-directory: src/examples/NativeHost
-    - name: Upload Artifacts
+    - name: Upload Binary Artifacts
       uses: actions/upload-artifact@v3
       with:
         name: guest-binaries-${{ matrix.config }}
-        path: |
-          src\tests\Guests\*\${{ matrix.platform }}\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']
-          src\tests\\Hyperlight.Tests\TestResults\*.trx
+        path: src\tests\Guests\*\${{ matrix.platform }}\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results-${{ matrix.config }}
+        path: src\tests\Hyperlight.Tests\TestResults\*.trx
   build-on-linux:
     needs: [ build-on-windows ]
     runs-on: ${{ matrix.os }}
@@ -141,5 +144,5 @@ jobs:
     - name: Upload Artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: guest-binaries-${{ matrix.config }}
+        name: test-results-${{ matrix.config }}-${{ matrix.hypervisor }}
         path: src\tests\\Hyperlight.Tests\TestResults\*.trx
