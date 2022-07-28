@@ -52,7 +52,7 @@ jobs:
       shell: pwsh
     - name: Test
       shell: pwsh
-      run: dotnet test -c ${{ matrix.config }} --logger "console;verbosity=detailed" --blame
+      run: dotnet test -c ${{ matrix.config }} --logger "trx;verbosity=detailed;LogFilePrefix=win-${{ matrix.config }}" --blame
       working-directory: src/tests/Hyperlight.Tests
     - name: Build Example
       shell: pwsh
@@ -66,7 +66,9 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: guest-binaries-${{ matrix.config }}
-        path: src\tests\Guests\*\${{ matrix.platform }}\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']
+        path: |
+          src\tests\Guests\*\${{ matrix.platform }}\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']
+          src\tests\\Hyperlight.Tests\TestResults\*.trx
   build-on-linux:
     needs: [ build-on-windows ]
     runs-on: ${{ matrix.os }}
@@ -79,18 +81,22 @@ jobs:
             os: [self-hosted, Linux, X64, kvm]
             config: Debug
             platform: x64
+            hypervisor: kvm
           - build: linux-kvm-release
             os: [self-hosted, Linux, X64, kvm]
             config: Release
             platform: x64
+            hypervisor: kvm
           - build: linux-hyperv-debug
             os: [self-hosted, Linux, X64, hyperv]
             config: Debug
             platform: x64
+            hypervisor: hyperv
           - build: linux-hyperv-release
             os: [self-hosted, Linux, X64, hyperv]
             config: Release
             platform: x64
+            hypervisor: hyperv
     steps:
     - uses: actions/checkout@v3
       with:
@@ -130,5 +136,10 @@ jobs:
       working-directory: src/examples/NativeHost
     - name: Test
       shell: bash
-      run: dotnet test -c ${{ matrix.config }} --logger "console;verbosity=detailed" --blame
+      run: dotnet test -c ${{ matrix.config }} --logger "trx;verbosity=detailed;LogFilePrefix=linux-${{ matrix.config }}-${{ matrix.hypervisor }}" --blame
       working-directory: src/tests/Hyperlight.Tests
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: guest-binaries-${{ matrix.config }}
+        path: src\tests\\Hyperlight.Tests\TestResults\*.trx
