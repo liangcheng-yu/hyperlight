@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Reflection;
 using System.Reflection.Emit;
 using Hyperlight.Core;
@@ -17,7 +18,7 @@ namespace Hyperlight
         // Currently we will support int, Int64, bool, byte[] and string for parameters and return types of long and int 
         // for the methods between guest and host
         static readonly HashSet<Type> supportedParameterAndReturnTypes = new() { typeof(int), typeof(long), typeof(ulong), typeof(bool), typeof(string), typeof(byte[]) };
-
+        static readonly ConcurrentDictionary<string, Lazy<DynamicMethod>> dynamicMethods = new();
         public Dictionary<string, HostMethodInfo> MapHostFunctionNamesToMethodInfo = new();
 
         public void ExposeAndBindMembers(object guestObjectOrType)
@@ -76,6 +77,7 @@ namespace Hyperlight
                             continue;
                         }
 
+
                         CreateDymanicMethod(fieldInfo, target);
                     }
                 }
@@ -130,231 +132,240 @@ namespace Hyperlight
                 }
             }
         }
-
         private void CreateDymanicMethod(FieldInfo fieldInfo, object target)
         {
+            var dynamicMethod = CreateOrAddDymanicMethod(fieldInfo, target);
+            fieldInfo.SetValue(target, dynamicMethod.Value.CreateDelegate(fieldInfo.FieldType, this));
+        }
 
-            // TODO: check if it possible to call CreateDelegate multiple times on a DynamicMethod.
-            // As a DynamicMethod is Module scoped then if this is possible we only need to
-            // generate the IL once for each field and can cache a reference to it
-            // and just call CreateDelegate for second and subsequent instances.
+        private Lazy<DynamicMethod> CreateOrAddDymanicMethod(FieldInfo fieldInfo, object target)
+        {
 
-            // Get the Invoke method
-            var invokeMethod = fieldInfo.FieldType.GetMethod("Invoke");
-
-            // Validate that we support parameter list and return type
-            ValidateMethodSupported(invokeMethod);
-
-            // Build delegate implementation that calls DispatchToGuest the right number of parameters.  This internally calls the abstract DispatchCallsFromHost
-            // where the real work can be done to call into the guest.  We don't directly try to generate a call to DispatchCallsFromHost because
-            // it is easier NOT to create an object[] in IL
-
-            // Get delegate parameter list
-            var parameters = invokeMethod!.GetParameters();
-
-            // Our delegate will be bound to an instance of GuestInterfaceGlue so the first parameter will be typeof(GuestInterfaceGlue)
-            // After that, the parameters will match the delegate we are trying to implement
-            var delegateParameters = new List<Type>() { this.GetType() };
-            foreach (var parameter in parameters)
+            return dynamicMethods.GetOrAdd(fieldInfo.Name, _ => new Lazy<DynamicMethod>(() =>
             {
-                delegateParameters.Add(parameter.ParameterType);
-            }
+                // TODO: check if it possible to call CreateDelegate multiple times on a DynamicMethod.
+                // As a DynamicMethod is Module scoped then if this is possible we only need to
+                // generate the IL once for each field and can cache a reference to it
+                // and just call CreateDelegate for second and subsequent instances.
 
-            var nameSuffix = Guid.NewGuid();
+                // Get the Invoke method
+                var invokeMethod = fieldInfo.FieldType.GetMethod("Invoke");
 
-            // Create dynamic method
-            var dynamicMethod = new DynamicMethod($"{fieldInfo.Name}-{nameSuffix}", invokeMethod.ReturnType, delegateParameters.ToArray(), this.GetType().Module, true);
+                // Validate that we support parameter list and return type
+                ValidateMethodSupported(invokeMethod);
 
-            // We are going to create a delegate that looks like this:
-            //
-            //   public object GuestFunction(int o1, int o2, bool o3, int o4, bool o5, int o6, bool o7, Byte[] o8, int o9, int o10, int o11) 
-            //   {   
-            //      bool shouldReset=EnterDynamicMethod();
-            //      try
-            //      {
-            //          if (shouldReset)
-            //          {
-            //              ResetState();
-            //          }
-            //          return DispatchCallFromHost("GuestFunction", new object[] {o1,o2,o3,o4,o5,o6,o7,o8,o9,o10,o11});
-            //      }
-            //      finally
-            //      {
-            //          ExitDynamicMethod(shouldReset);
-            //      }
-            //   }
-            //
-            // We basically want to turn an early bound call that the host defined into a call to DispatchCallFromHost(string functionName, object[] args)
-            // where the early bound parameters are passed as an object[], boxing if necessary
-            // the calls to EnterDyamicMethod and ExitDynamicMethod perform the checks to see if this Sandbox has been used already,
-            // if it has, then it check to see if it can it be recycled and it can performs the recycle. If the Sandbox has been used and it cannot be recycled
-            // EnterDynamicMethod will throw an exception.
+                // Build delegate implementation that calls DispatchToGuest the right number of parameters.  This internally calls the abstract DispatchCallsFromHost
+                // where the real work can be done to call into the guest.  We don't directly try to generate a call to DispatchCallsFromHost because
+                // it is easier NOT to create an object[] in IL
 
-            // Get an ILGenerator and emit a body for the dynamic method
-            var il = dynamicMethod.GetILGenerator(256);
+                // Get delegate parameter list
+                var parameters = invokeMethod!.GetParameters();
 
-            // Create a local variable for the result of EnterDynamicMethod and set to false;
-
-            il.DeclareLocal(typeof(bool));
-            il.Emit(OpCodes.Ldc_I4_0);
-            il.Emit(OpCodes.Stloc_0);
-
-            // Create a local variable for the result of DispatachCallFromHost and set to null;
-
-            il.DeclareLocal(typeof(object));
-            il.Emit(OpCodes.Ldnull);
-            il.Emit(OpCodes.Stloc_1);
-
-            il.Emit(OpCodes.Ldarg_0);
-            var enterDynamicMethod = typeof(GuestInterfaceGlue).GetMethod("EnterDynamicMethod", BindingFlags.NonPublic | BindingFlags.Instance);
-            ArgumentNullException.ThrowIfNull(enterDynamicMethod, nameof(enterDynamicMethod));
-            il.Emit(OpCodes.Callvirt, enterDynamicMethod);
-            il.Emit(OpCodes.Stloc_0);
-
-            var exceptionBlock = il.BeginExceptionBlock();
-
-            // Check the return value from EnterDynamic method if its true we need to call ResetState to check if the Sandbox state allows the call to proceed
-            // and if necessary reset the state of the sandbox.
-
-            var noreset = il.DefineLabel();
-            il.Emit(OpCodes.Ldloc_0);
-            il.Emit(OpCodes.Brfalse, noreset);
-            il.Emit(OpCodes.Ldarg_0);
-            var resetState = typeof(GuestInterfaceGlue).GetMethod("ResetState", BindingFlags.NonPublic | BindingFlags.Instance);
-            ArgumentNullException.ThrowIfNull(resetState, nameof(resetState));
-            il.Emit(OpCodes.Callvirt, resetState);
-            il.MarkLabel(noreset);
-
-            // First parameter to DispatchCallFromHost the GuestInterfaceGlue 'this' pointer that will be passed to the delegate
-            il.Emit(OpCodes.Ldarg_0);
-
-            // Second parameter to DispatchCallFromHost is the name of the function being called
-            il.Emit(OpCodes.Ldstr, fieldInfo.Name);
-
-            // Local helper function that does an Emit of Ldc_I4_0/Ldc_I4_1/Ldc_I4_2/.../Ldc_I4_3, or "Ldarg_s "i if 'i' is greater than 8
-            void EmitLoadInt(byte i)
-            {
-                switch (i)
+                // Our delegate will be bound to an instance of GuestInterfaceGlue so the first parameter will be typeof(GuestInterfaceGlue)
+                // After that, the parameters will match the delegate we are trying to implement
+                var delegateParameters = new List<Type>() { this.GetType() };
+                foreach (var parameter in parameters)
                 {
-                    case 0:
-                        il.Emit(OpCodes.Ldc_I4_0);
-                        break;
-                    case 1:
-                        il.Emit(OpCodes.Ldc_I4_1);
-                        break;
-                    case 2:
-                        il.Emit(OpCodes.Ldc_I4_2);
-                        break;
-                    case 3:
-                        il.Emit(OpCodes.Ldc_I4_3);
-                        break;
-                    case 4:
-                        il.Emit(OpCodes.Ldc_I4_4);
-                        break;
-                    case 5:
-                        il.Emit(OpCodes.Ldc_I4_5);
-                        break;
-                    case 6:
-                        il.Emit(OpCodes.Ldc_I4_6);
-                        break;
-                    case 7:
-                        il.Emit(OpCodes.Ldc_I4_7);
-                        break;
-                    case 8:
-                        il.Emit(OpCodes.Ldc_I4_8);
-                        break;
-                    default:
-                        il.Emit(OpCodes.Ldc_I4_S, i);
-                        break;
-                }
-            }
-
-            // Create object[] with a length equal to the number of parameters in the delegate
-            if (parameters.Length > 255)
-            {
-                throw new HyperlightException("Hyperlight does not support calling a function with more than 255 parameters");
-            }
-
-            EmitLoadInt((byte)parameters.Length);
-            il.Emit(OpCodes.Newarr, typeof(object));
-
-            // Put all the parameters into the new object[], boxing as necessary
-            for (var i = 0; i < parameters.Length; i++)
-            {
-                // Load the array we created
-                il.Emit(OpCodes.Dup);
-
-                // Load the index where we want to put this parameter
-                EmitLoadInt((byte)i);
-
-                // Load the passed parameter
-                // For the 2nd to 4th parameter, use Ldarg_1, Ldarg_2, Ldarg_3.  Then use Ldarg_S for all others.
-                // Note - the "first" parameter passed is the 'this pointer'
-                switch (i)
-                {
-                    case 0:
-                        il.Emit(OpCodes.Ldarg_1);
-                        break;
-                    case 1:
-                        il.Emit(OpCodes.Ldarg_2);
-                        break;
-                    case 2:
-                        il.Emit(OpCodes.Ldarg_3);
-                        break;
-                    default:
-                        il.Emit(OpCodes.Ldarg_S, i + 1);
-                        break;
+                    delegateParameters.Add(parameter.ParameterType);
                 }
 
-                // Box if necessary
-                if (parameters[i].ParameterType.IsValueType)
+                //var nameSuffix = Guid.NewGuid();
+
+                // Create dynamic method
+                var dynamicMethod = new DynamicMethod($"{fieldInfo.Name}", invokeMethod.ReturnType, delegateParameters.ToArray(), this.GetType().Module, true);
+
+                // We are going to create a delegate that looks like this:
+                //
+                //   public object GuestFunction(int o1, int o2, bool o3, int o4, bool o5, int o6, bool o7, Byte[] o8, int o9, int o10, int o11) 
+                //   {   
+                //      bool shouldReset=EnterDynamicMethod();
+                //      try
+                //      {
+                //          if (shouldReset)
+                //          {
+                //              ResetState();
+                //          }
+                //          return DispatchCallFromHost("GuestFunction", new object[] {o1,o2,o3,o4,o5,o6,o7,o8,o9,o10,o11});
+                //      }
+                //      finally
+                //      {
+                //          ExitDynamicMethod(shouldReset);
+                //      }
+                //   }
+                //
+                // We basically want to turn an early bound call that the host defined into a call to DispatchCallFromHost(string functionName, object[] args)
+                // where the early bound parameters are passed as an object[], boxing if necessary
+                // the calls to EnterDyamicMethod and ExitDynamicMethod perform the checks to see if this Sandbox has been used already,
+                // if it has, then it check to see if it can it be recycled and it can performs the recycle. If the Sandbox has been used and it cannot be recycled
+                // EnterDynamicMethod will throw an exception.
+
+                // Get an ILGenerator and emit a body for the dynamic method
+                var il = dynamicMethod.GetILGenerator(256);
+
+                // Create a local variable for the result of EnterDynamicMethod and set to false;
+
+                il.DeclareLocal(typeof(bool));
+                il.Emit(OpCodes.Ldc_I4_0);
+                il.Emit(OpCodes.Stloc_0);
+
+                // Create a local variable for the result of DispatachCallFromHost and set to null;
+
+                il.DeclareLocal(typeof(object));
+                il.Emit(OpCodes.Ldnull);
+                il.Emit(OpCodes.Stloc_1);
+
+                il.Emit(OpCodes.Ldarg_0);
+                var enterDynamicMethod = typeof(GuestInterfaceGlue).GetMethod("EnterDynamicMethod", BindingFlags.NonPublic | BindingFlags.Instance);
+                ArgumentNullException.ThrowIfNull(enterDynamicMethod, nameof(enterDynamicMethod));
+                il.Emit(OpCodes.Callvirt, enterDynamicMethod);
+                il.Emit(OpCodes.Stloc_0);
+
+                var exceptionBlock = il.BeginExceptionBlock();
+
+                // Check the return value from EnterDynamic method if its true we need to call ResetState to check if the Sandbox state allows the call to proceed
+                // and if necessary reset the state of the sandbox.
+
+                var noreset = il.DefineLabel();
+                il.Emit(OpCodes.Ldloc_0);
+                il.Emit(OpCodes.Brfalse, noreset);
+                il.Emit(OpCodes.Ldarg_0);
+                var resetState = typeof(GuestInterfaceGlue).GetMethod("ResetState", BindingFlags.NonPublic | BindingFlags.Instance);
+                ArgumentNullException.ThrowIfNull(resetState, nameof(resetState));
+                il.Emit(OpCodes.Callvirt, resetState);
+                il.MarkLabel(noreset);
+
+                // First parameter to DispatchCallFromHost the GuestInterfaceGlue 'this' pointer that will be passed to the delegate
+                il.Emit(OpCodes.Ldarg_0);
+
+                // Second parameter to DispatchCallFromHost is the name of the function being called
+                il.Emit(OpCodes.Ldstr, fieldInfo.Name);
+
+                // Local helper function that does an Emit of Ldc_I4_0/Ldc_I4_1/Ldc_I4_2/.../Ldc_I4_3, or "Ldarg_s "i if 'i' is greater than 8
+                void EmitLoadInt(byte i)
                 {
-                    il.Emit(OpCodes.Box, parameters[i].ParameterType);
+                    switch (i)
+                    {
+                        case 0:
+                            il.Emit(OpCodes.Ldc_I4_0);
+                            break;
+                        case 1:
+                            il.Emit(OpCodes.Ldc_I4_1);
+                            break;
+                        case 2:
+                            il.Emit(OpCodes.Ldc_I4_2);
+                            break;
+                        case 3:
+                            il.Emit(OpCodes.Ldc_I4_3);
+                            break;
+                        case 4:
+                            il.Emit(OpCodes.Ldc_I4_4);
+                            break;
+                        case 5:
+                            il.Emit(OpCodes.Ldc_I4_5);
+                            break;
+                        case 6:
+                            il.Emit(OpCodes.Ldc_I4_6);
+                            break;
+                        case 7:
+                            il.Emit(OpCodes.Ldc_I4_7);
+                            break;
+                        case 8:
+                            il.Emit(OpCodes.Ldc_I4_8);
+                            break;
+                        default:
+                            il.Emit(OpCodes.Ldc_I4_S, i);
+                            break;
+                    }
                 }
 
-                // Store the object in the array
-                il.Emit(OpCodes.Stelem_Ref);
-            }
+                // Create object[] with a length equal to the number of parameters in the delegate
+                if (parameters.Length > 255)
+                {
+                    throw new HyperlightException("Hyperlight does not support calling a function with more than 255 parameters");
+                }
 
-            // Emit call to DispatchCallFromHost
-            var dispatchCallFromHost = typeof(GuestInterfaceGlue).GetMethod("DispatchCallFromHost", BindingFlags.NonPublic | BindingFlags.Instance);
-            ArgumentNullException.ThrowIfNull(dispatchCallFromHost, nameof(dispatchCallFromHost));
-            il.EmitCall(OpCodes.Callvirt, dispatchCallFromHost, null);
+                EmitLoadInt((byte)parameters.Length);
+                il.Emit(OpCodes.Newarr, typeof(object));
 
-            // See if we need to unbox
-            if (invokeMethod.ReturnType.IsValueType)
-            {
-                il.Emit(OpCodes.Unbox_Any, invokeMethod.ReturnType);
-            }
+                // Put all the parameters into the new object[], boxing as necessary
+                for (var i = 0; i < parameters.Length; i++)
+                {
+                    // Load the array we created
+                    il.Emit(OpCodes.Dup);
 
-            //store return value in the first variable defined above
+                    // Load the index where we want to put this parameter
+                    EmitLoadInt((byte)i);
 
-            il.Emit(OpCodes.Stloc_1);
-            il.Emit(OpCodes.Leave, exceptionBlock);
+                    // Load the passed parameter
+                    // For the 2nd to 4th parameter, use Ldarg_1, Ldarg_2, Ldarg_3.  Then use Ldarg_S for all others.
+                    // Note - the "first" parameter passed is the 'this pointer'
+                    switch (i)
+                    {
+                        case 0:
+                            il.Emit(OpCodes.Ldarg_1);
+                            break;
+                        case 1:
+                            il.Emit(OpCodes.Ldarg_2);
+                            break;
+                        case 2:
+                            il.Emit(OpCodes.Ldarg_3);
+                            break;
+                        default:
+                            il.Emit(OpCodes.Ldarg_S, i + 1);
+                            break;
+                    }
 
-            // End Try 
+                    // Box if necessary
+                    if (parameters[i].ParameterType.IsValueType)
+                    {
+                        il.Emit(OpCodes.Box, parameters[i].ParameterType);
+                    }
 
-            il.BeginFinallyBlock();
+                    // Store the object in the array
+                    il.Emit(OpCodes.Stelem_Ref);
+                }
 
-            il.Emit(OpCodes.Ldarg_0);
-            // The argument is the return value from EnterDynamicMethod which is stored in the second variable declared above
-            il.Emit(OpCodes.Ldloc_0);
-            var exitDynamicMethod = typeof(GuestInterfaceGlue).GetMethod("ExitDynamicMethod", BindingFlags.NonPublic | BindingFlags.Instance);
-            ArgumentNullException.ThrowIfNull(exitDynamicMethod, nameof(exitDynamicMethod));
-            il.Emit(OpCodes.Callvirt, exitDynamicMethod);
+                // Emit call to DispatchCallFromHost
+                var dispatchCallFromHost = typeof(GuestInterfaceGlue).GetMethod("DispatchCallFromHost", BindingFlags.NonPublic | BindingFlags.Instance);
+                ArgumentNullException.ThrowIfNull(dispatchCallFromHost, nameof(dispatchCallFromHost));
+                il.EmitCall(OpCodes.Callvirt, dispatchCallFromHost, null);
 
-            il.EndExceptionBlock();
+                // See if we need to unbox
+                if (invokeMethod.ReturnType.IsValueType)
+                {
+                    il.Emit(OpCodes.Unbox_Any, invokeMethod.ReturnType);
+                }
 
-            //End Finally
+                //store return value in the first variable defined above
 
-            // push the return value from first variable and return
+                il.Emit(OpCodes.Stloc_1);
+                il.Emit(OpCodes.Leave, exceptionBlock);
 
-            il.Emit(OpCodes.Ldloc_1);
-            il.Emit(OpCodes.Ret);
+                // End Try 
 
-            // Get the delegate and assign to the field
+                il.BeginFinallyBlock();
 
-            fieldInfo.SetValue(target, dynamicMethod.CreateDelegate(fieldInfo.FieldType, this));
+                il.Emit(OpCodes.Ldarg_0);
+                // The argument is the return value from EnterDynamicMethod which is stored in the second variable declared above
+                il.Emit(OpCodes.Ldloc_0);
+                var exitDynamicMethod = typeof(GuestInterfaceGlue).GetMethod("ExitDynamicMethod", BindingFlags.NonPublic | BindingFlags.Instance);
+                ArgumentNullException.ThrowIfNull(exitDynamicMethod, nameof(exitDynamicMethod));
+                il.Emit(OpCodes.Callvirt, exitDynamicMethod);
+
+                il.EndExceptionBlock();
+
+                //End Finally
+
+                // push the return value from first variable and return
+
+                il.Emit(OpCodes.Ldloc_1);
+                il.Emit(OpCodes.Ret);
+
+                // Get the delegate and assign to the field
+
+                return dynamicMethod;
+            }));
+
         }
 
         public void BindGuestFunctionToDelegate(string memberName, object instance)
