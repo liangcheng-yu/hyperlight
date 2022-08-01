@@ -169,8 +169,6 @@ namespace Hyperlight
                     delegateParameters.Add(parameter.ParameterType);
                 }
 
-                //var nameSuffix = Guid.NewGuid();
-
                 // Create dynamic method
                 var dynamicMethod = new DynamicMethod($"{fieldInfo.Name}", invokeMethod.ReturnType, delegateParameters.ToArray(), this.GetType().Module, true);
 
