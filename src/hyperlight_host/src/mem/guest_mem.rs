@@ -1,6 +1,6 @@
 use anyhow::Result;
 use byteorder::{LittleEndian, WriteBytesExt};
-use mmap_rs::{MmapMut, MmapOptions};
+use libc::c_void;
 use std::cmp::min;
 
 /// GuestMemory is a representation of the guests's
@@ -8,15 +8,26 @@ use std::cmp::min;
 /// Memory or Guest Physical Addresses (GPA) in Windows
 /// Hypervisor Platform
 pub struct GuestMemory {
-    mem_map: Box<MmapMut>,
+    ptr: *mut c_void,
+    size: usize,
 }
 
 impl GuestMemory {
     pub fn new(min_size: usize) -> Result<Self> {
-        let mem_map = MmapOptions::new(min_size).map_mut()?;
-        Ok(Self {
-            mem_map: Box::new(mem_map),
-        })
+        cfg_if::cfg_if! {
+            if #[cfg(unix)] {
+                // https://docs.rs/libc/latest/libc/fn.mmap.html
+                // libc::mmap(
+                //     std::ptr::null(),
+                //         min_size,
+                // )
+                Ok(Self{ptr: std::ptr::null_mut(), size: min_size})
+            } else {
+                // https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/System/Memory/fn.VirtualAlloc.html
+                // windows::Win32::System::Memory::VirtualAlloc
+                Ok(Self{ptr: std::ptr::null_mut(), size: min_size})
+            }
+        }
     }
 
     /// Get the base address of guest memory
@@ -27,7 +38,7 @@ impl GuestMemory {
     /// Only use it to get the base address of the memory map so you
     /// can do things like calculate offsets, etc...
     pub fn source_address(&self) -> usize {
-        let source_address_ptr = self.mem_map.as_ptr();
+        let source_address_ptr = self.ptr;
         source_address_ptr as usize
     }
 
@@ -38,10 +49,9 @@ impl GuestMemory {
     /// larger, this function copy only the first N bytes where N = the
     /// size of guest memory
     pub fn copy_into(&mut self, from_bytes: &[u8]) -> Result<()> {
-        let size_to_copy = min(from_bytes.len(), self.mem_map.len());
-        self.mem_map
-            .as_mut_slice()
-            .copy_from_slice(&from_bytes[..size_to_copy]);
+        let size_to_copy = min(from_bytes.len(), self.size);
+        let slc = unsafe { self.as_mut_slice() };
+        slc.copy_from_slice(&from_bytes[..size_to_copy]);
         Ok(())
     }
 
@@ -52,10 +62,15 @@ impl GuestMemory {
         // them into guest mem
         let mut writer = vec![];
         writer.write_u64::<LittleEndian>(val)?;
-        let mut_slice = self.mem_map.as_mut_slice();
+        let slice = unsafe { self.as_mut_slice() };
         for (idx, item) in writer.iter().enumerate() {
-            mut_slice[offset + idx] = *item;
+            slice[offset + idx] = *item;
         }
         Ok(())
+    }
+
+    unsafe fn as_mut_slice(&mut self) -> &mut [u8] {
+        // inspired by https://docs.rs/mmap-rs/0.3.0/src/mmap_rs/lib.rs.html#309
+        std::slice::from_raw_parts_mut(self.ptr as *mut u8, self.size)
     }
 }

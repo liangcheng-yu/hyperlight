@@ -16,10 +16,10 @@ cty = { version="0.2.2" }
 goblin = { version = "0.5.1" }
 anyhow = { version = "1.0.57" }
 byteorder = { version = "1.4.3" }
-mmap-rs = { version = "0.3.0" }
 chashmap = { version = "2.2.2" }
 rand = { version = "0.8.5" }
 cfg-if = { version = "1.0.0" }
+libc = { version = "0.2.126" }
 windows = { version = "0.39.0" }
 
 [dev-dependencies]
