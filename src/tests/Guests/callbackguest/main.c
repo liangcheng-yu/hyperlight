@@ -66,13 +66,29 @@ int guestFunction1(const char* message)
     return sendMessagetoHostMethod("HostMethod1", guestMessage, message);
 }
 
+int guestFunction2(const char* message)
+{
+    char guestMessage[256] = "Hello from GuestFunction2, ";
+    return sendMessagetoHostMethod("HostMethod1", guestMessage, message);
+}
+
+int guestFunction3(const char* message)
+{
+    char guestMessage[256] = "Hello from GuestFunction3, ";
+    return sendMessagetoHostMethod("HostMethod1", guestMessage, message);
+}
+
 GENERATE_FUNCTION(printOutput, 1, string);
 GENERATE_FUNCTION(guestFunction, 1, string);
 GENERATE_FUNCTION(guestFunction1, 1, string);
+GENERATE_FUNCTION(guestFunction2, 1, string); 
+GENERATE_FUNCTION(guestFunction3, 1, string);
 
 void HyperlightMain()
 {
     RegisterFunction("PrintOutput", FUNCTIONDETAILS(printOutput));
     RegisterFunction("GuestMethod", FUNCTIONDETAILS(guestFunction));
-    RegisterFunction("GuestMethod1", FUNCTIONDETAILS(guestFunction1)); 
+    RegisterFunction("GuestMethod1", FUNCTIONDETAILS(guestFunction1));    
+    RegisterFunction("GuestMethod2", FUNCTIONDETAILS(guestFunction2));
+    RegisterFunction("GuestMethod3", FUNCTIONDETAILS(guestFunction3));
 }

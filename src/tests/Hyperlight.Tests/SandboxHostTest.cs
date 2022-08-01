@@ -181,8 +181,8 @@ namespace Hyperlight.Tests
         class GuestFunctionErrors
         {
             public Func<string, int>? FunctionDoesntExist = null;
-            public Func<int>? PrintOutput = null;
-            public Func<int, int>? GuestMethod = null;
+            public Func<int>? GuestMethod2 = null;
+            public Func<int, int>? GuestMethod3 = null;
         }
 
         public class StackOverflowTests
@@ -842,14 +842,14 @@ namespace Hyperlight.Tests
                 using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
                 {
                     var functions = new GuestFunctionErrors();
-                    sandbox.BindGuestFunction("GuestMethod", functions);
+                    sandbox.BindGuestFunction("GuestMethod3", functions);
                     var ex = Record.Exception(() =>
                     {
-                        functions.GuestMethod!(1);
+                        functions.GuestMethod3!(1);
                     });
                     Assert.NotNull(ex);
                     Assert.IsType<HyperlightException>(ex);
-                    Assert.Equal("GUEST_FUNCTION_PARAMETER_TYPE_MISMATCH:Function GuestMethod parameter 1.", ex.Message);
+                    Assert.Equal("GUEST_FUNCTION_PARAMETER_TYPE_MISMATCH:Function GuestMethod3 parameter 1.", ex.Message);
                 }
             }
         }
@@ -859,7 +859,7 @@ namespace Hyperlight.Tests
         {
             var options = GetSandboxRunOptions();
             var path = AppDomain.CurrentDomain.BaseDirectory;
-            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryFileName = "callbackguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
 
             foreach (var option in options)
@@ -867,14 +867,14 @@ namespace Hyperlight.Tests
                 using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(), guestBinaryPath, option))
                 {
                     var functions = new GuestFunctionErrors();
-                    sandbox.BindGuestFunction("PrintOutput", functions);
+                    sandbox.BindGuestFunction("GuestMethod2", functions);
                     var ex = Record.Exception(() =>
                     {
-                        functions.PrintOutput!();
+                        functions.GuestMethod2!();
                     });
                     Assert.NotNull(ex);
                     Assert.IsType<HyperlightException>(ex);
-                    Assert.Equal("GUEST_FUNCTION_INCORRECT_NO_OF_PARAMETERS:Called function PrintOutput with 0 parameters but it takes 1.", ex.Message);
+                    Assert.Equal("GUEST_FUNCTION_INCORRECT_NO_OF_PARAMETERS:Called function GuestMethod2 with 0 parameters but it takes 1.", ex.Message);
                 }
             }
         }
