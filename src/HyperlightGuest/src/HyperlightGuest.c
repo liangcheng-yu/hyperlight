@@ -359,7 +359,11 @@ void DispatchFunction()
 
 void _putchar(char c)
 {
-    *(char*)pPeb->outputdata.outputDataBuffer = c;
+
+    char* ptr = pPeb->outputdata.outputDataBuffer;
+    *ptr++ = c;
+    *ptr = '\0';
+
     outb(100, 0);
 }
 
