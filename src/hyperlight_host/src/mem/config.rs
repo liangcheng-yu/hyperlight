@@ -1,5 +1,7 @@
 use std::cmp::max;
 
+/// The complete set of configuration needed to create a guest
+/// memory region.
 #[derive(Copy, Clone, Debug)]
 pub struct SandboxMemoryConfiguration {
     /// The maximum size of the guest error message field.
@@ -14,17 +16,13 @@ pub struct SandboxMemoryConfiguration {
     pub output_data_size: usize,
 }
 impl SandboxMemoryConfiguration {
-    pub const DEFAULT_INPUT_SIZE: usize = 0x4000;
-    // const DEFAULT_OUTPUT_SIZE: usize = 0x4000;
-    // const DEFAULT_HOST_FUNCTION_DEFINITION_SIZE: usize = 0x1000;
-    // const DEFAULT_HOST_EXCEPTION_SIZE: usize = 0x1000;
-    // const DEFAULT_GUEST_ERROR_MESSAGE_SIZE: usize = 0x100;
     const MIN_INPUT_SIZE: usize = 0x2000;
     const MIN_OUTPUT_SIZE: usize = 0x2000;
     const MIN_HOST_FUNCTION_DEFINITION_SIZE: usize = 0x400;
     const MIN_HOST_EXCEPTION_SIZE: usize = 0x400;
     const MIN_GUEST_ERROR_MESSAGE_SIZE: usize = 0x80;
 
+    /// Create a new configuration for a sandbox with the given sizes.
     pub fn new(
         input_data_size: usize,
         output_data_size: usize,

@@ -13,12 +13,19 @@ use crate::func::{
 /// A Hyperlight Sandbox is a specialized VM environment
 /// intended specifically for running Hyperlight guest processes.
 pub struct Sandbox {
+    /// The path to the binary that will be executed in the sandbox.
     pub bin_path: String,
+    /// The functions to be available to the guest but are implemented
+    /// on the host side.
     pub host_funcs: HashMap<String, HostFunc>,
+    /// The functions that are implemented within the guest and are
+    /// callable by the host.
     pub guest_funcs: HashMap<String, GuestFunc>,
 }
 
 impl Sandbox {
+    /// Create a new sandbox configured to run the binary at path
+    /// `bin_path`.
     pub fn new(bin_path: String) -> Self {
         Self {
             bin_path,
@@ -53,6 +60,11 @@ impl Sandbox {
             .call(args)
     }
 
+    /// Determine whether a suitable hypervisor is available to run
+    /// this sandbox.
+    ///
+    /// Returns `Ok` with a boolean if it could be determined whether
+    /// an appropriate hypervisor is available, and `Err` otherwise.
     pub fn is_hypervisor_present(&self) -> Result<bool> {
         // TODO: implement
         Ok(true)

@@ -46,9 +46,16 @@ mod impls {
     }
 }
 
+/// Get the byte array in `ctx` referenced by `handle` in a `ReadResult`
+/// that can be used only to read the bytes, or `Err` if the
+/// byte array could not be fetched from `ctx`.
 pub fn get_byte_array(ctx: &Context, handle: Handle) -> ReadResult<Vec<u8>> {
     Context::get(handle, &ctx.byte_arrays, |b| matches!(b, Hdl::ByteArray(_)))
 }
+
+/// Get the byte array in `ctx` referenced by `handle` in a `WriteResult`
+/// that can be used to read or write the bytes, or `Err` if the
+/// byte array could not be fetched from `ctx`.
 pub fn get_byte_array_mut(ctx: &Context, handle: Handle) -> WriteResult<Vec<u8>> {
     Context::get_mut(handle, &ctx.byte_arrays, |b| matches!(b, Hdl::ByteArray(_)))
 }

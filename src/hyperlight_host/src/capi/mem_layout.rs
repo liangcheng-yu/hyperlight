@@ -45,27 +45,53 @@ pub unsafe extern "C" fn mem_layout_new(
     }
 }
 
+/// A snapshot of what a sandbox's memory layout looks like.
+///
+/// Functions that return a `SandboxMemoryLayoutView` will
+/// generally be returning a _copy_ of the layout, not a
+/// reference to the original.
 #[repr(C)]
 pub struct SandboxMemoryLayoutView {
+    /// The offset to the peb.
     pub peb_offset: usize,
+    /// The size of the stack.
     pub stack_size: usize,
+    /// The size of the heap.
     pub heap_size: usize,
+    /// The offset in memory to the start of host functions.
     pub host_functions_offset: usize,
+    /// The offset in memory to the start of host exceptions.
     pub host_exception_offset: usize,
+    /// The offset in memory to the start of guest error messages.
     pub guest_error_message_offset: usize,
+    /// The offset in memory to the start of code and the outb function
+    /// pointer.
     pub code_and_outb_pointer_offset: usize,
+    /// The offset in memory to input data.
     pub input_data_offset: usize,
+    /// The offset in memory to output data.
     pub output_data_offset: usize,
+    /// The offset in memory to heap data.
     pub heap_data_offset: usize,
+    /// The offset in memory to stack data.
     pub stack_data_offset: usize,
+    /// Total size of code.
     pub code_size: usize,
+    /// The offset in memory to the host functions buffer.
     pub host_functions_buffer_offset: usize,
+    /// The offset in memory to the host exceptions buffer.
     pub host_exception_buffer_offset: usize,
+    /// The offset in memory to the guest error message buffer.
     pub guest_error_message_buffer_offset: usize,
+    /// The offset in memory to the input data buffer.
     pub input_data_buffer_offset: usize,
+    /// The offset in memory to the output data buffer.
     pub output_data_buffer_offset: usize,
+    /// The offset in memory to the guest heap buffer.
     pub guest_heap_buffer_offset: usize,
+    /// The offset in memory to the guest stack buffer.
     pub guest_stack_buffer_offset: usize,
+    /// The address to the PEB.
     pub peb_address: usize,
 }
 

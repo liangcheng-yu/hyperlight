@@ -15,7 +15,16 @@ pub struct ValType {
 /// vice-versa
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Val {
+    /// The data being passed in this `Val`.
+    ///
+    /// This `Vec` should generally not be modified or read and
+    /// treated as opaque by most parts of the system. Generally
+    /// speaking, the only code that should attempt to read or
+    /// write it should also be code responsible for (de)serializing
+    /// it.
     pub data: Vec<i8>,
+    /// The method with which `data` was serialized and thus can
+    /// be deserialized.
     pub ser_type: SerializationType,
 }
 

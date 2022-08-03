@@ -30,6 +30,8 @@ mod impls {
     }
 }
 
+/// Get a read-only reference to a value from `ctx` that is
+/// referenced by `val_hdl`.
 pub fn get_val(ctx: &Context, val_hdl: Handle) -> ReadResult<Val> {
     match Hdl::try_from(val_hdl) {
         Ok(Hdl::Val(_)) => {}

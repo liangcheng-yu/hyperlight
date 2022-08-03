@@ -38,6 +38,9 @@ use crate::func::def::HostFunc;
 /// or there will be a leak.
 #[repr(C)]
 pub struct Callback {
+    /// The function pointer to the callback.
+    ///
+    /// This field must be a C-compatible function pointer.
     pub func: extern "C" fn(*mut Val) -> *mut Val,
 }
 
