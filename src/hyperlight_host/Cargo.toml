@@ -14,7 +14,7 @@ crate-type = ["cdylib"]
 [dependencies]
 cty = { version="0.2.2" }
 goblin = { version = "0.5.3" }
-anyhow = { version = "1.0.59" }
+anyhow = { version = "1.0.60" }
 byteorder = { version = "1.4.3" }
 chashmap = { version = "2.2.2" }
 rand = { version = "0.8.5" }
@@ -28,4 +28,4 @@ more-asserts = { version = "0.3.0" }
 
 [build-dependencies]
 cbindgen = { version = "0.24.3" }
-anyhow = { version = "1.0.59"}
+anyhow = { version = "1.0.60"}

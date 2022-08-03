@@ -2,7 +2,7 @@
 
 int simpleprintOutput(const char* message)
 {
-    return printOutput(message);
+    return printf("%s", message);
 }
 
 int setByteArrayToZero(void* arrayPtr, int length)
