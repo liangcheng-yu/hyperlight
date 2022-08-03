@@ -112,13 +112,8 @@ jobs:
       - uses: extractions/setup-just@v1
         with:
           just-version: 0.8 # optional semver specification, otherwise latest
-      - name: Install cbindgen
-        run: cargo install --force cbindgen
       - name: Build
         run: cargo build --verbose
-      - name: Generate header file
-        working-directory: src/hyperlight_host
-        run: just gen-headers
       - name: Upload shared object file
         uses: actions/upload-artifact@v2
         with:
