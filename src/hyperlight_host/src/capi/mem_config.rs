@@ -3,6 +3,8 @@ use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::mem::config::SandboxMemoryConfiguration;
 
+/// Get a read-only reference to a `SandboxMemoryConfiguration` within
+/// `ctx` that is referenced by `handle`.
 pub fn get_mem_config(ctx: &Context, handle: Handle) -> ReadResult<SandboxMemoryConfiguration> {
     Context::get(handle, &ctx.mem_configs, |m| matches!(m, Hdl::MemConfig(_)))
 }
@@ -60,7 +62,7 @@ pub unsafe extern "C" fn mem_config_get_guest_error_message_size(
 /// The given context `ctx` must be valid and not modified
 /// or deleted at any time while this function is executing.
 #[no_mangle]
-pub unsafe extern "C" fn mem_config_host_function_definition_size(
+pub unsafe extern "C" fn mem_config_get_host_function_definition_size(
     ctx: *const Context,
     hdl: Handle,
 ) -> usize {
@@ -78,7 +80,10 @@ pub unsafe extern "C" fn mem_config_host_function_definition_size(
 /// The given context `ctx` must be valid and not modified
 /// or deleted at any time while this function is executing.
 #[no_mangle]
-pub unsafe extern "C" fn mem_config_host_exception_size(ctx: *const Context, hdl: Handle) -> usize {
+pub unsafe extern "C" fn mem_config_get_host_exception_size(
+    ctx: *const Context,
+    hdl: Handle,
+) -> usize {
     match get_mem_config(&*ctx, hdl) {
         Ok(c) => c.host_exception_size,
         Err(_) => 0,

@@ -83,26 +83,53 @@ struct GuestStack {
 /// to the top of the stack.
 #[derive(Copy, Clone, Debug)]
 pub struct SandboxMemoryLayout {
+    /// The peb offset into this sandbox.
     pub peb_offset: usize,
+    /// The stack size of this sandbox.
     pub stack_size: usize,
+    /// The heap size of this sandbox.
     pub heap_size: usize,
+    /// The offset to the start of host functions within this sandbox.
     pub host_functions_offset: usize,
+    /// The offset to the start of host exceptions within this sandbox.
     pub host_exception_offset: usize,
+    /// The offset to the start of guest errors within this sandbox.
     pub guest_error_message_offset: usize,
+    /// The offset to the start of both code and the outb function
+    /// pointers within this sandbox.
     pub code_and_outb_pointer_offset: usize,
+    /// The offset to the start of input data within this sandbox.
     pub input_data_offset: usize,
+    /// The offset to the start of output data within this sandbox.
     pub output_data_offset: usize,
+    /// The offset to the start of the guest heap within this sandbox.
     pub heap_data_offset: usize,
+    /// The offset to the start of the guest stack within this sandbox.
     pub stack_data_offset: usize,
     sandbox_memory_config: SandboxMemoryConfiguration,
+    /// The size of code inside this sandbox.
     pub code_size: usize,
+    /// The offset to the start of the buffer for host functions inside
+    /// this sandbox.
     pub host_functions_buffer_offset: usize,
+    /// The offset to the start of the buffer for host exceptions inside
+    /// this sandbox.
     pub host_exception_buffer_offset: usize,
+    /// The offset to the start of guest errors inside this sandbox.
     pub guest_error_message_buffer_offset: usize,
+    /// The offset to the start of the input data buffer inside this
+    /// sandbox.
     pub input_data_buffer_offset: usize,
+    /// The offset to the start of the output data buffer inside this
+    /// sandbox.
     pub output_data_buffer_offset: usize,
+    /// The offset to the start of the guest heap buffer inside this
+    /// sandbox.
     pub guest_heap_buffer_offset: usize,
+    /// The offset to the start of the guest stack buffer inside this
+    /// sandbox.
     pub guest_stack_buffer_offset: usize,
+    /// The peb address inside this sandbox.
     pub peb_address: usize,
 }
 
@@ -147,6 +174,8 @@ impl SandboxMemoryLayout {
     /// sandbox memory where code starts.
     pub const GUEST_CODE_ADDRESS: usize = Self::BASE_ADDRESS + Self::CODE_OFFSET;
 
+    /// Create a new `SandboxMemoryLayout` with the given
+    /// `SandboxMemoryConfiguration`, code size and stack/heap size.
     pub fn new(
         cfg: SandboxMemoryConfiguration,
         code_size: usize,
@@ -205,6 +234,9 @@ impl SandboxMemoryLayout {
     fn get_guest_error_message_address(&self, addr: usize) -> usize {
         addr + self.guest_error_message_buffer_offset
     }
+
+    /// Get the memory address for the start of guest errors, given
+    /// `addr` as the base address.
     pub fn get_guest_error_address(&self, addr: usize) -> usize {
         addr + self.guest_error_message_offset
     }
@@ -220,6 +252,8 @@ impl SandboxMemoryLayout {
         self.get_guest_error_message_size_address(addr) + size_of::<usize>()
     }
 
+    /// Get the memory address for the start of host function
+    /// definitions, given `addr` as the base address.
     pub fn get_function_definition_address(&self, addr: usize) -> usize {
         addr + self.host_functions_buffer_offset
     }
@@ -237,6 +271,8 @@ impl SandboxMemoryLayout {
         addr + self.host_exception_offset
     }
 
+    /// Get the memory address for the start of host exceptions, given
+    /// `addr` as the base address.
     pub fn get_host_exception_address(&self, addr: usize) -> usize {
         addr + self.host_exception_buffer_offset
     }
@@ -255,6 +291,8 @@ impl SandboxMemoryLayout {
         self.get_output_data_size_address(addr) + size_of::<usize>()
     }
 
+    /// Get the memory address for the start of output data, given
+    /// `addr` as the base address.
     pub fn get_output_data_address(&self, addr: usize) -> usize {
         addr + self.output_data_buffer_offset
     }
@@ -268,9 +306,14 @@ impl SandboxMemoryLayout {
         self.get_input_data_size_address(addr) + size_of::<usize>()
     }
 
+    /// Get the memory address of the start of the input data buffer
+    /// in guest memory, given `addr` as the base address.
     pub fn get_input_data_address(&self, addr: usize) -> usize {
         addr + self.input_data_buffer_offset
     }
+
+    /// Get the memory address to the start of the code and outb
+    /// pointer in guest memory, given `addr` as the base address.
     pub fn get_code_pointer_address(self, addr: usize) -> usize {
         addr + self.code_and_outb_pointer_offset
     }
@@ -280,6 +323,8 @@ impl SandboxMemoryLayout {
         self.get_function_definition_address(addr) + size_of::<usize>()
     }
 
+    /// Get the address to the peb address in guest memory, given
+    /// `addr` as the base address.
     pub fn get_in_process_peb_address(&self, addr: usize) -> usize {
         addr + self.peb_offset
     }
@@ -300,26 +345,37 @@ impl SandboxMemoryLayout {
         addr + self.stack_data_offset
     }
 
+    /// Get the address to the top of the stack within sandbox memory,
+    /// given `addr` as the base address.
     pub fn get_top_of_stack_address(&self, addr: usize) -> usize {
         addr + self.guest_stack_buffer_offset
     }
 
+    /// Get the address to the pml4 table in guest memory, given
+    /// `addr` as the base address.
     pub fn get_host_pml4_address(addr: usize) -> usize {
         addr
     }
 
+    /// Get the address to the pdpt given `addr` as the base address.
     pub fn get_host_pdpt_address(addr: usize) -> usize {
         addr + Self::PDPT_OFFSET
     }
 
+    /// Get the address of the page descriptor in guest memory, given
+    /// `addr` as the base address.
     pub fn get_host_pd_address(addr: usize) -> usize {
         addr + Self::PD_OFFSET
     }
 
+    /// Get the address to code in guest memory, given `addr` as the
+    /// base address.
     pub fn get_host_code_address(addr: usize) -> usize {
         addr + Self::CODE_OFFSET
     }
 
+    /// Get the total size of guest memory in `self`'s memory
+    /// layout.
     pub fn get_memory_size(&self) -> Result<usize> {
         let total_memory = self.code_size
             + Self::PAGE_TABLE_SIZE
@@ -362,6 +418,11 @@ impl SandboxMemoryLayout {
         }
     }
 
+    /// Write the finished memory layout in `self` to `guest_mem` and
+    /// return `Ok` if successful.
+    ///
+    /// Note: `guest_mem` may have been modified, even if `Err` was returned
+    /// from this function.
     pub fn write_memory_layout(
         &self,
         guest_mem: &mut [u8],

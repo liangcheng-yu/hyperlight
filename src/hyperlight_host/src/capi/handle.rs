@@ -12,10 +12,20 @@ use rand::random;
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Handle(pub u64);
 
+/// The ID of the type of the `Handle`, often used inside
+/// C functions to identify the type of a given `Handle`.
 pub type TypeID = u32;
+/// The key used to store a `Handle` inside a `Context`.
 pub type Key = u32;
 
+/// The `Key` specifically intended to identify an "empty"
+/// handle.
+///
+/// Use this key to indicate that a `Handle` points to no
+/// memory.
 pub const EMPTY_KEY: Key = 0;
+
+/// Create and return a new `Key` from a random number.
 pub fn new_key() -> Key {
     let r = random();
     if r == EMPTY_KEY {
@@ -66,6 +76,11 @@ impl Handle {
         // we lose the leftmost 32 bits, effectively truncating.
         masked as u32
     }
+
+    /// Get the `TypeID` of `self`.
+    ///
+    /// This is often useful for comparing to `TypeID` passed in from
+    /// C code.
     pub fn type_id(&self) -> TypeID {
         // MASK is 32 one bits followed by 32 zero bits:
         //

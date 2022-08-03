@@ -11,16 +11,19 @@ use std::vec::Vec;
 /// functionality attached to it.
 #[derive(Clone)]
 pub struct HostFunc {
+    /// The function to be executed by this host function.
     pub func: Rc<Box<dyn Fn(&Val) -> Box<Val>>>,
 }
 
 impl HostFunc {
+    /// Create a new `HostFunc` with the given function.
     pub fn new(func: Box<dyn Fn(&Val) -> Box<Val>>) -> Self {
         Self {
             func: Rc::new(func),
         }
     }
 
+    /// Convenience for `self.func(val)`.
     pub fn call(&self, val: &Val) -> Box<Val> {
         (*self.func)(val)
     }
@@ -31,7 +34,10 @@ impl HostFunc {
 /// to execute the call.
 #[derive(Debug)]
 pub struct GuestFunc {
+    /// The name with which the host should refer to this guest
+    /// function.
     pub name: String,
+    /// The args that should be passed to the guest function.
     pub args: Vec<ValType>,
 }
 
@@ -47,8 +53,11 @@ impl GuestFunc {
     }
 }
 
+/// The error that can be returned from either a guest or host
+/// function call.
 #[derive(Debug)]
 pub struct FuncCallError {
+    /// The message describing the error.
     pub message: String,
 }
 

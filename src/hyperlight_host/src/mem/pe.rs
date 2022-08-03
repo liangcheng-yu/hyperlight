@@ -11,14 +11,28 @@ use goblin::pe::{
 const IMAGE_REL_BASED_DIR64: u16 = 10;
 const IMAGE_REL_BASED_ABSOLUTE: u16 = 0;
 
+/// A convenience type for a vector of tuples that represents
+/// a relocation that must occur to a symbol.
+///
+/// The first element in each tuple is the index of the symbol,
+/// and the second is the new address of that symbol.
 pub type RelocationPatches = Vec<(usize, u32)>;
 
+/// An owned representation of a PE file.
+///
+/// Does not contain comprehensive information about a given
+/// PE file, but rather just enough to be able to do relocations,
+/// symbol resolution, and actually execute it within a `Sandbox`.
 pub struct PEInfo {
     header: Header,
     sections: Vec<SectionTable>,
 }
 
 impl PEInfo {
+    /// Create a new `PEInfo` from a slice of bytes.
+    ///
+    /// Returns `Ok` with the new `PEInfo` if `pe_bytes` is a valid
+    /// PE file and could properly be parsed as such, and `Err` if not.
     pub fn new(pe_bytes: &[u8]) -> Result<Self> {
         let pe = PE::parse(pe_bytes).map_err(|e| anyhow!(e))?;
         let header = pe.header;
@@ -36,6 +50,9 @@ impl PEInfo {
         try_optional_header(&self.header)
     }
 
+    /// Get the entry point offset from the PE file's optional COFF
+    /// header. Return `Ok` with the offset if the header exists,
+    /// `Err` if not.
     pub fn try_entry_point_offset(&self) -> Result<u64> {
         let opt_header = self.try_optional_header()?;
         Ok(opt_header.standard_fields.address_of_entry_point)
@@ -45,21 +62,33 @@ impl PEInfo {
         Ok(opt_header.windows_fields.image_base)
     }
 
+    /// Return the stack reserve field from the optional COFF header.
+    ///
+    /// Return `Ok` if the header exists, `Err` if not.
     pub fn stack_reserve(&self) -> Result<u64> {
         let opt_hdr = self.try_optional_header()?;
         Ok(opt_hdr.windows_fields.size_of_stack_reserve)
     }
 
+    /// Return the stack commit field from the optional COFF header.
+    ///
+    /// Return `Ok` if the header exists, `Err` if not.
     pub fn stack_commit(&self) -> Result<u64> {
         let opt_hdr = self.try_optional_header()?;
         Ok(opt_hdr.windows_fields.size_of_stack_commit)
     }
 
+    /// Return the heap reserve field from the optional COFF header.
+    ///
+    /// Return `Ok` if the header exists, `Err` if not.
     pub fn heap_reserve(&self) -> Result<u64> {
         let opt_hdr = self.try_optional_header()?;
         Ok(opt_hdr.windows_fields.size_of_heap_reserve)
     }
 
+    /// Return the heap commit field from the optional COFF header.
+    ///
+    /// Return `Ok` if the header exists, `Err` if not.
     pub fn heap_commit(&self) -> Result<u64> {
         let opt_hdr = self.try_optional_header()?;
         Ok(opt_hdr.windows_fields.size_of_heap_commit)
@@ -167,6 +196,10 @@ impl PEInfo {
     }
 }
 
+/// Return the symbol table from the optional COFF header.
+///
+/// If the COFF header exists, return it inside an `Ok`, otherwise
+/// return `Err`.
 pub fn try_symbol_table<'a>(hdr: &Header, payload: &'a [u8]) -> Result<SymbolTable<'a>> {
     hdr.coff_header
         .symbols(payload.as_ref())

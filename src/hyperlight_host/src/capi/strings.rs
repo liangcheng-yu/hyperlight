@@ -5,6 +5,7 @@ use std::ffi::{CStr, CString, NulError};
 use std::os::raw::c_char;
 use std::string::String;
 
+/// A type alias for a common `NUL`-terminated C-style string.
 pub type RawCString = *const c_char;
 
 /// convert a RawCString into a String.
@@ -64,6 +65,8 @@ pub unsafe extern "C" fn handle_get_string(ctx: *const Context, hdl: Handle) -> 
     }
 }
 
+/// Get a read-only reference to a string that is stored in `ctx`
+/// and pointed to by `handle`.
 pub fn get_string(ctx: &Context, handle: Handle) -> ReadResult<String> {
     Context::get(handle, &ctx.strings, |s| matches!(s, Hdl::String(_)))
 }

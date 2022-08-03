@@ -4,15 +4,27 @@ use anyhow::bail;
 /// The type-safe adapter to `Handle`
 #[derive(Eq, Clone, PartialEq, Debug)]
 pub enum Hdl {
+    /// A reference to an `anyhow::Error`
     Err(Key),
+    /// A reference to a `Sandbox`.
     Sandbox(Key),
+    /// A reference to a `Val`.
     Val(Key),
+    /// A reference to a nothing.
+    ///
+    /// Roughly equivalent to `NULL`.
     Empty(),
+    /// A reference to a `HostFunc`.
     HostFunc(Key),
+    /// A reference to a `String`.
     String(Key),
+    /// A reference to a `Vec<u8>`.
     ByteArray(Key),
+    /// A reference to a `PEInfo`.
     PEInfo(Key),
+    /// A reference to a `SandboxMemoryConfiguration`.
     MemConfig(Key),
+    /// A reference to a `SandboxMemoryLayout`.
     MemLayout(Key),
 }
 
@@ -28,6 +40,9 @@ impl Hdl {
     const MEM_CONFIG_TYPE_ID: TypeID = 108;
     const MEM_LAYOUT_TYPE_ID: TypeID = 109;
 
+    /// Get the `TypeID` associated with `self`.
+    ///
+    /// This is often useful for interfacing with C APIs.
     pub fn type_id(&self) -> TypeID {
         match self {
             Hdl::Err(_) => Self::ERROR_TYPE_ID,
@@ -43,6 +58,10 @@ impl Hdl {
         }
     }
 
+    /// Get the `Key` associated with `self`.
+    ///
+    /// This is useful for inserting, retrieving, and removing
+    /// a given `Handle` from a `Context`.
     pub fn key(&self) -> Key {
         match self {
             Hdl::Err(key) => *key,

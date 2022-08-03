@@ -1,60 +1,43 @@
-///! A C-compatible API for the Hyperlight Host's Sandbox and
-///! associated types.
-///!
-///! Because C is an unmanaged language without facilities to
-///! otherwise help in releasing memory (like Rust's ownership
-///! or C++'s destructors), the rules for how to handle memory
-///! are written on most of the functions herein.
-///!
-///! Also, all of the data structures in the header file that are
-///! forward-declared (e.g. `struct`s that are named but not
-///! defined) are intended to be opaque. Do not attempt to
-///! manipulate them directly. Instead, treat them as if they
-///! were a `void` or `void *` type and use only the provided
-///! functions to manipulate them.
-///!
-///! In general, if you call a function that returns a pointer
-///! to something, you must call `free_*` on that pointer when
-///! you're done with the memory, unless otherwise noted.
-///!
-///! # Examples
-///!
-///! You should first create a new `Context` and `Sandbox`:
-///!
-///! ```
-///! Context* ctx = context_new();
-///! Handle sbox_hdl = sandbox_new(ctx, "binary_to_run_inside_VM");
-///! ```
-///!
-///! ... and then you can call functions on it to get the
-///! state of the system:
-///!
-///! ```
-///! Handle path_hdl = guest_binary_path(ctx, sbox_hdl);
-///! ```
-///!
-///! ... and then you must clean up the memory you've created
-///! along the way:
-///!
-///! ```
-///! handle_free(path_hdl);
-///! handle_free(sbox_hdl);
-///! context_free(ctx);
-///! ```
+///! C-compatible API functions for top-level `Sandbox` objects.
 pub mod api;
+///! C-compatible API functions to manipulate guest and host functions.
 pub mod api_funcs;
+///! C-compatible API functions to manage plain byte arrays.
 pub mod byte_array;
+///! C-compatible API functions to create, modify, read and delete
+///! C language function pointers.
+///!
+///! Most often used to create guest functions.
 pub mod callback;
+///! C-compatible API functions to manage `Context` objects, which
+///! are used as a specialized memory store for the Hyperlight C API.
 pub mod context;
+///! C-compatible API functions to manage errors in the Hyperlight
+///! C API.
 pub mod err;
+///! C-compatible APIs to manipulate paths to files.
 pub mod filepath;
+///! C-compatible API functions to manage `Handle` structures,
+///! which are specialized pointers purpose-built for the Hyperlight
+///! C API.
 pub mod handle;
+///! Conversion functions between `Handle` and the `Hdl` type, which
+///! is a more Rust-friendly representation of a `Handle`.
 pub mod hdl;
+///! C-compatible API functions to manage `SandboxMemoryConfiguration`
+///! structures.
 pub mod mem_config;
+///! C-compatible API functions to manage `SandboxMemoryLayout`
+///! structures.
 pub mod mem_layout;
+///! C-compatible API functions to manage `PEInfo` structures.
 pub mod pe;
+///! C-compatible API functions to manage `Sandbox` structures.
 pub mod sandbox;
+///! C-compatible types and functions, and Rust helper functions
+///! for managing both Rust-native `String` types and C-style strings.
 pub mod strings;
+///! C-compatible API functions for managing `Val` structures.
 pub mod val_ref;
 
 /// Create a `Vec<i8>` from all the memory from `arr_ptr` to `arr_ptr + arr_len`

@@ -1,4 +1,8 @@
+///! Data and functionality for representing and manipulating
+///! arguments to guest and host functions.
 pub mod args;
+
+///! Definitions of both host and guest functions.
 pub mod def;
 
 use std::fmt::Debug;
@@ -11,7 +15,12 @@ pub enum SerializationType {
     // TODO: allow users to specify specific type of serialization
     // in this type. For example:
     // Raw(MsgPack)
+    /// The absence of serialization. Payloads with this
+    /// `SerializationType` should be treated as unserialized.
     Raw,
+    /// The payload is serialized as a JSON string.
     Json,
+    /// The payload is serialized with protocol buffers and should
+    /// be deserialized as such.
     Proto,
 }

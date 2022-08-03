@@ -1,3 +1,7 @@
+/// C-compatible functions for dealing with functions that are called
+/// across the VM boundary. For example, the APIs herein are used
+/// to register functions implemented by the host but called by
+/// the guest, or implemented by the guest but called by the host.
 use super::context::{Context, ReadResult};
 use super::handle::Handle;
 use super::hdl::Hdl;
@@ -11,6 +15,15 @@ mod impls {
     use crate::capi::handle::Handle;
     use crate::capi::val_ref::get_val;
     use anyhow::{anyhow, Result};
+
+    /// Call the guest function in `ctx` referenced by `func_name` with
+    /// the parameter in `ctx` referenced by `param_hdl`. The function
+    /// will be called using the sandbox in `ctx` referenced by
+    /// `sbox_hdl`.
+    ///
+    /// If the sandbox, function, and parameter are all valid in `ctx`,
+    /// the return value of the function will be stored in `ctx` and
+    /// referenced by `param_hdl`.
     pub fn call_guest_func(
         ctx: &mut Context,
         sbox_hdl: Handle,
@@ -25,6 +38,8 @@ mod impls {
         Ok(Context::register(ret, &ctx.vals, Hdl::Val))
     }
 
+    /// Register the function in `ctx` referenced by `func_hdl` on the
+    /// sandbox in `ctx` referenced by `sbox_hdl` to the name `func_name`.
     pub fn add_host_func(
         ctx: &mut Context,
         sbox_hdl: Handle,
@@ -38,6 +53,13 @@ mod impls {
         Ok(Handle::from(Hdl::Empty()))
     }
 
+    /// Call the function in `ctx` called `func_name` on the sandbox
+    /// in `ctx` referenced by `sbox_hdl`, passing the parameter in
+    /// `ctx` referenced by `param_hdl`.
+    ///
+    /// If the call was a success, `Ok` will be returned and the
+    /// function's return value will be stored in `ctx` and
+    /// referenced by the returned `Handle`.
     pub fn call_host_func(
         ctx: &mut Context,
         sbox_hdl: Handle,
@@ -56,7 +78,8 @@ mod impls {
     }
 }
 
-pub fn get_host_func(ctx: &Context, handle: Handle) -> ReadResult<HostFunc> {
+/// Get the `HostFunc` stored in `ctx` and referenced by `handle`.
+fn get_host_func(ctx: &Context, handle: Handle) -> ReadResult<HostFunc> {
     Context::get(handle, &ctx.host_funcs, |h| matches!(h, Hdl::HostFunc(_)))
 }
 /// Call a function on the guest.

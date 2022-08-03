@@ -1,33 +1,14 @@
-//! The following structs are not used other than to calculate the size of the memory needed
-//! and also to illustrate the layout of the memory:
-//!
-//! - `HostFunctionDefinitions`
-//! - `HostExceptionData`
-//! - `GuestError`
-//! - `CodeAndOutBPointers`
-//! - `InputData`
-//! - `OutputData`
-//! - `GuestHeap`
-//! - `GuestStack`
-//!
-//! the start of the guest  memory contains the page tables and is always located at the Virtual Address 0x00200000 when
-//! running in a Hypervisor:
-//!
-//! Virtual Address
-//!
-//! 0x200000    PML4
-//! 0x201000    PDPT
-//! 0x202000    PD
-//! 0x203000    The guest PE code (When the code has been loaded using LoadLibrary to debug the guest this will not be
-//! present and code length will be zero;
-//!
-//! The pointer passed to the Entrypoint in the Guest application is the 0x200000 + size of page table + size of code,
-//! at this address structs below are laid out in this order
-
+///! Configuration needed to establish a sandbox's memory layout.
 pub mod config;
+///! A wrapper around unsafe functionality to create and initialize
+///! a memory region for a guest running in a sandbox.
 pub mod guest_mem;
+///! Functionality to establish a sandbox's memory layout.
 pub mod layout;
+///! Functionality taht wraps a `SandboxMemoryLayout` and a
+///! `SandboxMemoryConfig` to mutate a sandbox's memory as necessary.
 pub mod mgr;
+///! Functionality to read and mutate a PE file in a structured manner.
 pub mod pe;
 
 use anyhow::Result;

@@ -5,6 +5,8 @@ use crate::mem::pe::PEInfo;
 use anyhow::Result;
 use goblin::pe::PE;
 
+/// A struct that is responsible for laying out and managing the memory
+/// for a given `Sandbox`.
 pub struct SandboxMemoryManager {
     // entry_point: usize,
     source_address: usize,
@@ -17,6 +19,9 @@ pub struct SandboxMemoryManager {
 }
 
 impl SandboxMemoryManager {
+    /// Create a new `SandboxMemoryManager` for the given guest binary.
+    ///
+    /// Note: not yet implemented.
     pub fn load_binary_using_load_library(
         _guest_binary_path: String,
         _pe: PE,
@@ -25,6 +30,9 @@ impl SandboxMemoryManager {
         todo!("see https://github.com/deislabs/hyperlight/blob/0038b1dd16a27113db8f120cca1b090c9bf0c342/src/Hyperlight/Core/SandboxMemoryManager.cs#L34-L62")
     }
 
+    /// Create a new `SandboxMemoryManager` for the given guest binary.
+    ///
+    /// Note: not yet implemented.
     pub fn load_guest_binary_into_memory(
         pe_payload: &mut [u8],
         pe_info: &PEInfo,
@@ -91,6 +99,8 @@ impl SandboxMemoryManager {
         self.layout.get_memory_size()
     }
 
+    /// Get the peb address of the `Sandbox` whose memory is managed
+    /// by `self`.
     pub fn get_peb_address(&self) -> usize {
         match self.run_from_process_memory {
             true => self.layout.get_in_process_peb_address(self.source_address),

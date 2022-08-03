@@ -13,6 +13,9 @@ pub struct GuestMemory {
 }
 
 impl GuestMemory {
+    /// Create a new region of guest memory with the given minimum size.
+    ///
+    /// Return `Err` if guest memory could not be allocated.
     pub fn new(min_size: usize) -> Result<Self> {
         cfg_if::cfg_if! {
             if #[cfg(unix)] {

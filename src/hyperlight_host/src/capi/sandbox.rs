@@ -20,10 +20,14 @@ pub unsafe extern "C" fn sandbox_new(ctx: *mut Context, bin_path: RawCString) ->
     Context::register(sbox, &(*ctx).sandboxes, Hdl::Sandbox)
 }
 
+/// Get a read-only reference to a `Sandbox` stored in `ctx` and
+/// pointed to by `handle`.
 pub fn get_sandbox(ctx: &Context, handle: Handle) -> ReadResult<Sandbox> {
     Context::get(handle, &ctx.sandboxes, |s| matches!(s, Hdl::Sandbox(_)))
 }
 
+/// Get a read-and-write capable reference to a `Sandbox` stored in
+/// `ctx` and pointed to by `handle`.
 pub fn get_sandbox_mut(ctx: &Context, handle: Handle) -> WriteResult<Sandbox> {
     Context::get_mut(handle, &ctx.sandboxes, |s| matches!(s, Hdl::Sandbox(_)))
 }

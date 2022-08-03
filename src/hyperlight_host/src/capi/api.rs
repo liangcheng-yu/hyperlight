@@ -8,6 +8,10 @@ mod impls {
     use crate::capi::sandbox::{get_sandbox, get_sandbox_mut};
     use anyhow::Result;
 
+    /// Get the guest binary path from the sandbox stored in `ctx`
+    /// and referenced by `sbox_hdl`.
+    ///
+    /// Returns `Ok` if `sbox_hdl` is valid, `Err` otherwise.
     pub fn guest_binary_path(ctx: &Context, sbox_hdl: Handle) -> Result<String> {
         match get_sandbox_mut(ctx, sbox_hdl) {
             Ok(sbox) => Ok(sbox.bin_path.clone()),
@@ -15,6 +19,11 @@ mod impls {
         }
     }
 
+    /// Determine whether the hypervisor is present, as reported by
+    /// the sandbox stored in `ctx` and referenced by `sbox_hdl`.
+    ///
+    /// Returns `Ok` if `sbox_hdl` is valid and it could be determined
+    /// whether the hypervisor was or wasn't present, and `Err` otherwise.
     pub fn is_hypervisor_present(ctx: &Context, sbox_hdl: Handle) -> Result<bool> {
         match get_sandbox(ctx, sbox_hdl) {
             Ok(sbox) => sbox.is_hypervisor_present(),

@@ -8,6 +8,8 @@ mod impls {
     use crate::capi::handle::Handle;
     use crate::capi::hdl::Hdl;
     use anyhow::Error;
+    /// Get the `anyhow::Error` stored in `ctx` referenced by `hdl`, if
+    /// one exists. If it does not, return `Err`.
     pub fn get_err(ctx: &Context, hdl: Handle) -> ReadResult<Error> {
         Context::get(hdl, &ctx.errs, |h| matches!(h, Hdl::Err(_)))
     }
