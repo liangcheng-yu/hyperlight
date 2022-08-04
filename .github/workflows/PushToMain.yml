@@ -95,7 +95,7 @@ jobs:
         prerelease: true
         automatic_release_tag: latest
         title: "Latest Development Build From Main Branch"
-        files: &release_files |
+        files: |
           src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe
           src/tests/Guests/simpleguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/simpleguest.exe
           src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
@@ -113,7 +113,17 @@ jobs:
         prerelease: true
         automatic_release_tag: "${{ steps.vars.outputs.shortened_sha }}"
         title: "Release ${{steps.vars.outputs.shortened_sha}}"
-        files: *release_files
+        files: |
+          src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe
+          src/tests/Guests/simpleguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/simpleguest.exe
+          src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
+          src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz
+          ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib
+          src/HyperlightGuest/include/hyperlight.h
+          src/HyperlightGuest/third_party/printf/printf.h
+          hyperlight_host.h
+          libhyperlight_host.so
+          hyperlight_host.dll
 
   build-rust-ubuntu:
     runs-on: ubuntu-latest
