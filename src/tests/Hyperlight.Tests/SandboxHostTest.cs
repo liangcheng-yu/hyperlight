@@ -1055,12 +1055,13 @@ namespace Hyperlight.Tests
                 Assert.NotNull(propertyInfo);
                 Assert.Contains(propertyInfo!.GetValue(f), methodNames);
                 // Does not verify the complete correctness of the function signature yet
-                var paramsAndreturnType = f.FunctionSignature.Split('(', ')');
-                var paramList = new string[] { paramsAndreturnType[1] };
+                var paramsAndreturnType = f.FunctionSignature!.Split('(', ')');
                 // 1. Checks if return type is either int or long int currently
                 Assert.Contains(paramsAndreturnType[2], new List<string> { "i", "I" });
+
                 // 2. Checks if paramter type is one of valid WASM Function Signature https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/doc/export_native_api.md
-                Assert.True(!paramList.Except(wasmParamTypes).Any());
+                var paramList = string.Join(" ", paramsAndreturnType[1].ToCharArray());
+                Assert.True(!paramList.Split(" ").Except(wasmParamTypes).Any());
             }
         }
 
