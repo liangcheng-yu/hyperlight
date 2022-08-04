@@ -113,12 +113,13 @@ jobs:
           hyperlight_host.dll
     - name: Store Shortened Git SHA for release
       run: echo "::set-output name=shortened_sha::$(git rev-parse --short HEAD)"
+      id: set-output-var
     - name: Create Release (shortened SHA)
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         prerelease: true
-        automatic_release_tag: "${{ steps.vars.outputs.shortened_sha }}"
+        automatic_release_tag: "${{ steps.set-output-var.outputs.shortened_sha }}"
         title: "Release ${{steps.vars.outputs.shortened_sha}}"
         files: |
           src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe
