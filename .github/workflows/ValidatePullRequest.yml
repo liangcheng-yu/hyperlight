@@ -37,6 +37,13 @@ jobs:
       with:
         dotnet-version: | 
           6.0.x 
+    - uses: actions/cache@v2
+      with:
+        path: ~/.nuget/packages
+        # Look to see if there is a cache hit for the corresponding requirements file
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget
     - name: Restore
       run: dotnet restore
       shell: pwsh
@@ -114,6 +121,13 @@ jobs:
       with:
         dotnet-version: |
           6.0.x 
+    - uses: actions/cache@v2
+      with:
+        path: ~/.nuget/packages
+        # Look to see if there is a cache hit for the corresponding requirements file
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget
     - name: Restore
       run: dotnet restore
       shell: bash
