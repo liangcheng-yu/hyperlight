@@ -33,8 +33,6 @@ jobs:
     - name: Set MINVERBUILDMETADATA
       run:  echo "MINVERBUILDMETADATA=$(git rev-parse --short ${{ github.sha }})" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
       shell: pwsh
-    - name: Store Shortened Git SHA for release
-      run: echo "::set-output name=shortened_sha::$(git rev-parse --short HEAD)"
     - name: Add msbuild to PATH
       uses: microsoft/setup-msbuild@v1.1
       with:
@@ -106,6 +104,8 @@ jobs:
           hyperlight_host.h
           libhyperlight_host.so
           hyperlight_host.dll
+    - name: Store Shortened Git SHA for release
+      run: echo "::set-output name=shortened_sha::$(git rev-parse --short HEAD)"
     - name: Create Release (shortened SHA)
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
