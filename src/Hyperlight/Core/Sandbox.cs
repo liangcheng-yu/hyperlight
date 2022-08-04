@@ -361,7 +361,7 @@ namespace Hyperlight
                         throw new ArgumentException("Only int and string parameters are supported");
                 }
 
-                hyperlightPEB.AddFunction(mi.methodInfo.Name, $"({parameterSignature})${returntype}", 0);
+                hyperlightPEB.AddFunction(mi.methodInfo.Name, $"({parameterSignature}){returntype}", 0);
             }
         }
 

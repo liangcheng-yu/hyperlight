@@ -1048,12 +1048,20 @@ namespace Hyperlight.Tests
             var listFunctions = ((HashSet<FunctionDetails>)fieldInfo!.GetValue(hyperlightPEB)!).Where(f => f.FunctionName != "GetTickCount");
             Assert.NotNull(listFunctions);
             Assert.Equal(methodNames.Count, listFunctions!.Count());
-
+            var wasmParamTypes = new List<string> { "", "i", "I", "f", "F", "r", "*", "~", "$" };
             foreach (var f in listFunctions!)
             {
                 var propertyInfo = f.GetType().GetProperty("FunctionName", bindingFlags);
                 Assert.NotNull(propertyInfo);
                 Assert.Contains(propertyInfo!.GetValue(f), methodNames);
+                // Does not verify the complete correctness of the function signature yet
+                var paramsAndreturnType = f.FunctionSignature!.Split('(', ')');
+                // 1. Checks if return type is either int or long int currently
+                Assert.Contains(paramsAndreturnType[2], new List<string> { "i", "I" });
+
+                // 2. Checks if paramter type is one of valid WASM Function Signature https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/doc/export_native_api.md
+                var paramList = string.Join(" ", paramsAndreturnType[1].ToCharArray());
+                Assert.True(!paramList.Split(" ").Except(wasmParamTypes).Any());
             }
         }
 

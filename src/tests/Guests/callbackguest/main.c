@@ -43,7 +43,7 @@ int sendMessagetoHostMethod(char* methodName, char* guestMessage, const char* me
         setError(GUEST_ERROR, message);
     }
 #pragma warning(suppress:6011)
-    if (strcmp(hostFunctionDefinition->FunctionSignature, "($)$i") != 0)
+    if (strcmp(hostFunctionDefinition->FunctionSignature, "($)i") != 0)
     {
         char message[100];
         snprintf(message, 100, "Host Function  %s has unexpected signature %s", methodName, hostFunctionDefinition->FunctionSignature);
