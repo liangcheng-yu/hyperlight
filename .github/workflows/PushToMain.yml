@@ -10,7 +10,6 @@ on:
   push:
     branches: [ main ]
 
-  
 jobs:
   publish:
     runs-on: windows-latest
@@ -75,9 +74,9 @@ jobs:
       shell: bash
       working-directory: src/Hyperlight
     - name: Download header file
-        uses: "actions/download-artifact@v2"
-        with:
-          name: hyperlight_host.h
+      uses: "actions/download-artifact@v2"
+      with:
+        name: hyperlight_host.h
     - name: Download shared object file
       uses: "actions/download-artifact@v2"
       with:
