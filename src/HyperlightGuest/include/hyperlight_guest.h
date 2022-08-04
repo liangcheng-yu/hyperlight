@@ -1,4 +1,5 @@
 #pragma once
+#include "hyperlight_error.h"
 // dlmalloc defines
 
 #define MAX_SIZE_T           (~(size_t)0)
@@ -44,3 +45,4 @@ uint64_t getrsi();
 uint64_t getrdi();
 void setrsi(uint64_t rsi);
 void setrdi(uint64_t rdi);
+void hloutb(uint16_t port, uint8_t value);

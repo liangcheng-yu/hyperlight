@@ -16,17 +16,22 @@ jobs:
         build: [ windows-debug, windows-release]
         include:
           - build: windows-debug
-            os: windows-latest
+            os: [self-hosted, Windows, X64, whp]
             config: Debug
             platform: x64
           - build: windows-release
-            os: windows-latest
+            os: [self-hosted, Windows, X64, whp]
             config: Release
             platform: x64
     steps:
     - uses: actions/checkout@v3
       with:
         fetch-depth: 0
+    # this is a workaround for the issue described at https://github.com/dotnet/sourcelink/issues/675 , it supresses the warning about the sourcelink package not being found.
+    - name: Remove Submodule
+      run: git rm munit
+      shell: pwsh   
+      working-directory: src/hyperlight_host/tests_capi
     - name: Setup dotnet
       uses: actions/setup-dotnet@v2
       with:
@@ -47,33 +52,63 @@ jobs:
       shell: pwsh
     - name: Test
       shell: pwsh
-      run: dotnet test -c ${{ matrix.config }}
+      run: dotnet test -c ${{ matrix.config }} --logger "trx;verbosity=detailed;LogFilePrefix=win-${{ matrix.config }}" --blame
       working-directory: src/tests/Hyperlight.Tests
-    - name: Upload Artifacts
+    - name: Build Example
+      shell: pwsh
+      run: dotnet build -c ${{ matrix.config }}
+      working-directory: src/examples/NativeHost
+    - name: Run Example
+      shell: pwsh
+      run:  dotnet run -c ${{ matrix.config }} -- -nowait
+      working-directory: src/examples/NativeHost
+    - name: Upload Binary Artifacts
       uses: actions/upload-artifact@v3
       with:
         name: guest-binaries-${{ matrix.config }}
         path: src\tests\Guests\*\${{ matrix.platform }}\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results-${{ matrix.config }}
+        path: src\tests\Hyperlight.Tests\TestResults\*.trx
   build-on-linux:
     needs: [ build-on-windows ]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
       matrix:
-        build: [ linux-debug, linux-release]
+        build: [ linux-kvm-debug, linux-kvm-release, linux-hyperv-debug, linux-hyperv-release]
         include:
-          - build: linux-debug
-            os: ubuntu-latest
+          - build: linux-kvm-debug
+            os: [self-hosted, Linux, X64, kvm]
             config: Debug
             platform: x64
-          - build: linux-release
-            os: ubuntu-latest
+            hypervisor: kvm
+          - build: linux-kvm-release
+            os: [self-hosted, Linux, X64, kvm]
             config: Release
             platform: x64
+            hypervisor: kvm
+          - build: linux-hyperv-debug
+            os: [self-hosted, Linux, X64, hyperv]
+            config: Debug
+            platform: x64
+            hypervisor: hyperv
+          - build: linux-hyperv-release
+            os: [self-hosted, Linux, X64, hyperv]
+            config: Release
+            platform: x64
+            hypervisor: hyperv
     steps:
     - uses: actions/checkout@v3
       with:
         fetch-depth: 0
+     # this is a workaround for the issue described at https://github.com/dotnet/sourcelink/issues/675 , it supresses the warning about the sourcelink package not being found.
+    - name: Remove Submodule
+      run: git rm munit
+      shell: bash  
+      working-directory: src/hyperlight_host/tests_capi
     - name: Setup dotnet
       uses: actions/setup-dotnet@v2
       with:
@@ -81,24 +116,33 @@ jobs:
           6.0.x 
     - name: Restore
       run: dotnet restore
-      shell: pwsh
+      shell: bash
     - name: Set MINVERBUILDMETADATA
-      run:  echo "MINVERBUILDMETADATA=$(git rev-parse --short ${{ github.sha }})" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
-      shell: pwsh
+      run:  echo "MINVERBUILDMETADATA=$(git rev-parse --short ${{ github.sha }})" >> $GITHUB_ENV 
+      shell: bash
     - name: Download Artifacts
       uses: actions/download-artifact@v3
       with:
         name: guest-binaries-${{ matrix.config }}
         path: src/tests/Guests/
     - name: Build Hyperlight
-      shell: pwsh
+      shell: bash
       run: dotnet build -c ${{ matrix.config }}
       working-directory: src/Hyperlight
-    - name: Build Examples
-      shell: pwsh
+    - name: Build Example
+      shell: bash
       run: dotnet build -c ${{ matrix.config }}
-      working-directory: src/tests/Hyperlight.Tests
+      working-directory: src/examples/NativeHost
+    - name: Run Example
+      shell: bash
+      run:  dotnet run -c ${{ matrix.config }} -- -nowait
+      working-directory: src/examples/NativeHost
     - name: Test
-      shell: pwsh
-      run: dotnet test -c ${{ matrix.config }}
+      shell: bash
+      run: dotnet test -c ${{ matrix.config }} --logger "trx;verbosity=detailed;LogFilePrefix=linux-${{ matrix.config }}-${{ matrix.hypervisor }}" --blame
       working-directory: src/tests/Hyperlight.Tests
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results-${{ matrix.config }}-${{ matrix.hypervisor }}
+        path: src/tests/Hyperlight.Tests/TestResults/*.trx

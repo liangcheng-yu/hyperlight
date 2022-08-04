@@ -6,6 +6,7 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Hyperlight", "src\Hyperlight\Hyperlight.csproj", "{7645F846-EEE6-42E0-8C59-E84A1C9076EA}"
 	ProjectSection(ProjectDependencies) = postProject
 		{80D5E229-52C8-40DA-B778-5C6CCC181F4D} = {80D5E229-52C8-40DA-B778-5C6CCC181F4D}
+		{ED4A4CD0-DDC9-4A4A-9428-F22C3D07BB00} = {ED4A4CD0-DDC9-4A4A-9428-F22C3D07BB00}
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Hyperlight.Tests", "src\tests\Hyperlight.Tests\Hyperlight.Tests.csproj", "{2E05D691-0742-4B7D-9613-31648B6AB9DD}"

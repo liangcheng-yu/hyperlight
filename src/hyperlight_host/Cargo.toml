@@ -1,0 +1,31 @@
+[package]
+name = "hyperlight_host"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+# https://docs.rust-embedded.org/book/interoperability/rust-with-c.html
+name = "hyperlight_host"
+# crate-type = ["staticlib"]
+crate-type = ["cdylib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cty = { version="0.2.2" }
+goblin = { version = "0.5.3" }
+anyhow = { version = "1.0.60" }
+byteorder = { version = "1.4.3" }
+chashmap = { version = "2.2.2" }
+rand = { version = "0.8.5" }
+cfg-if = { version = "1.0.0" }
+libc = { version = "0.2.126" }
+windows = { version = "0.39.0" }
+
+[dev-dependencies]
+pretty_assertions = { version = "1.0.0" }
+more-asserts = { version = "0.3.0" }
+
+[build-dependencies]
+cbindgen = { version = "0.24.3" }
+anyhow = { version = "1.0.60"}

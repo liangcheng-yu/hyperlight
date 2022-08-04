@@ -9,21 +9,19 @@ namespace Hyperlight.Hypervisors
         protected Action<ushort, byte> handleoutb;
         protected Action handleMemoryAccess;
         protected IntPtr sourceAddress;
-        protected ulong pebAddress;
 
-        internal Hypervisor(IntPtr sourceAddress, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, Action handleMemoryAccess, ulong pebAddress)
+        internal Hypervisor(IntPtr sourceAddress, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, Action handleMemoryAccess)
         {
             this.handleMemoryAccess = handleMemoryAccess;
             this.handleoutb = outb;
             this.EntryPoint = entryPoint;
             this.rsp = rsp;
             this.sourceAddress = sourceAddress;
-            this.pebAddress = pebAddress;
         }
 
         internal abstract void DispatchCallFromHost(ulong pDispatchFunction);
         internal abstract void ExecuteUntilHalt();
-        internal abstract void Initialise();
+        internal abstract void Initialise(IntPtr pebAddress, ulong seed);
         internal void HandleOutb(ushort port, byte value)
         {
             handleoutb(port, value);

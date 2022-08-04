@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include "hyperlight.h"
 
 typedef struct
 {
@@ -69,22 +70,8 @@ typedef struct
 
 typedef struct
 {
-    char* FunctionName;
-    char* FunctionSignature;
-    uint64_t Flags;
-} FunctionDefinition;
-
-typedef struct
-{
     HostFunctionHeader header;
 } HostFunctions;
-
-typedef enum {
-    i32,
-    i64,
-    string,
-    boolean,
-} ParameterKind;
 
 typedef struct
 {
@@ -104,6 +91,6 @@ typedef struct
 typedef struct
 {
     char* FunctionName;
-    uint64_t** argv;
+    uint64_t* argv;
 
 } HostFunctionCall;

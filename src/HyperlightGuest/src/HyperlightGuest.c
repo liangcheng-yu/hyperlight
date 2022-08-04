@@ -1,6 +1,8 @@
 
 #include "hyperlight.h" 
 #include "hyperlight_guest.h"
+#include "hyperlight_error.h"
+#include "hyperlight_peb.h"
 #include <setjmp.h>
 
 extern int _fltused = 0;
@@ -11,6 +13,7 @@ void* unusedHeapBufferPointer = 0;
 FuncTable* funcTable;
 
 bool runningHyperlight = true;
+bool useOutForHalt = false;
 void (*outb_ptr)(uint16_t port, uint8_t value) = NULL;
 
 #pragma optimize("", off)
@@ -28,7 +31,8 @@ void RegisterFunction(const char* FunctionName, guestFunc pFunction, int paramCo
     {
         setError(MALLOC_FAILED, NULL);
     }
-    
+
+#pragma warning(suppress:6011)
     funcEntry->FunctionName = FunctionName;
     funcEntry->pFunction = pFunction;
     funcEntry->paramCount = paramCount;
@@ -47,6 +51,7 @@ void InitialiseFunctionTable(int size)
         setError(MALLOC_FAILED, NULL);
     }
 
+#pragma warning(suppress:6011)
     funcTable->next = 0;
     funcTable->size = size;
     funcTable->funcEntry = (FuncEntry**)(malloc(sizeof(FuncEntry*) * size));
@@ -58,12 +63,9 @@ void InitialiseFunctionTable(int size)
 
 void outb(uint16_t port, uint8_t value)
 {
-    const uint8_t outb[] = { 0x89, 0xd0, 0x89, 0xca, 0xee, 0xc3 };
-
     if (runningHyperlight)
     {
-        ((void (*)(uint16_t, uint8_t))outb)(port, value);
-
+        hloutb(port, value);
     }
     else if (NULL != outb_ptr)
     {
@@ -86,7 +88,17 @@ void halt()
 {
     const uint8_t hlt = 0xF4;
     if (runningHyperlight)
-        ((void (*)()) & hlt)();
+    {
+        // This is a workaround for an issue where HyperV on Linux does not exit after HLT is issued.
+        if (useOutForHalt)
+        {
+            hloutb(999, 0);
+        }
+        else
+        {
+            ((void (*)()) & hlt)();
+        }
+    }
 }
 
 char* strncpy(char* dest, const char* src, size_t len)
@@ -105,7 +117,7 @@ int printOutput(const char* message)
     size_t result = strlen(message);
     if (result >= pPeb->outputdata.outputDataSize)
     {
-        result = (int)pPeb->outputdata.outputDataSize - 1;
+        result = (size_t)pPeb->outputdata.outputDataSize - 1;
     }
 #pragma warning(suppress : 4996)
     strncpy((char*)pPeb->outputdata.outputDataBuffer, (char*)message, result);
@@ -149,17 +161,14 @@ void callHostFunction(char* functionName, va_list ap)
 {
     HostFunctionCall* functionCall = (HostFunctionCall*)pPeb->outputdata.outputDataBuffer;
     functionCall->FunctionName = functionName;
-    uint64_t* ptr = &functionCall->argv;
+    uint64_t** ptr = &functionCall->argv;
 
-    void* arg;
+    uint64_t* arg;
 
-    while (arg = va_arg(ap, void*))
+    while (arg = va_arg(ap, uint64_t*))
     {
         *ptr++ = arg;
     }
-
-    // TODO: Why is the return code getting output via outb?
-    // This only happens if running in Hyperlight and on KVM.
 
     outb(101, 0);
 }
@@ -262,6 +271,8 @@ void DispatchFunction()
         {
             setError(MALLOC_FAILED, NULL);
         }
+
+#pragma warning(suppress:6011)
         guestFunctionDetails->functionName = funcCall->FunctionName;
         guestFunctionDetails->paramc = (int32_t)funcCall->argc;
 
@@ -279,31 +290,60 @@ void DispatchFunction()
             guestFunctionDetails->paramv = paramv;
         }
 
+        bool nextParamIsLength = false;
         for (int32_t i = 0; i < guestFunctionDetails->paramc; i++)
         {
             GuestArgument guestArgument = funcCall->guestArguments[i];
-            switch (guestArgument.argt)
+            if (nextParamIsLength)
             {
-                case (string):
-                    guestFunctionDetails->paramv[i].value.string = (char*)guestArgument.argv;
-                    guestFunctionDetails->paramv[i].kind = string;
-                    break;
-                case (i32):
+                if (guestArgument.argt != i32)
+                {
+                    char message[15];
+                    snprintf(message, 15, "Parameter %d", i);
+                    setError(ARRAY_LENGTH_PARAM_IS_MISSING, message);
+                }
+                else
+                {
                     guestFunctionDetails->paramv[i].value.i32 = (uint32_t)guestArgument.argv;
                     guestFunctionDetails->paramv[i].kind = i32;
-                    break;
-                case (i64):
-                    guestFunctionDetails->paramv[i].value.i64 = (uint64_t)guestArgument.argv;
-                    guestFunctionDetails->paramv[i].kind = i64;
-                    break;
-                case (boolean):
-                    guestFunctionDetails->paramv[i].value.boolean = (bool)guestArgument.argv;
-                    guestFunctionDetails->paramv[i].kind = boolean;
-                    break;
-                default:
-                    setError(MALLOC_FAILED, NULL);
-                    break;
+                    nextParamIsLength = false;
+                }
             }
+            else
+            {
+                switch (guestArgument.argt)
+                {
+                    case (string):
+  #pragma warning(suppress:28182)
+                        guestFunctionDetails->paramv[i].value.string = (char*)guestArgument.argv;
+                        guestFunctionDetails->paramv[i].kind = string;
+                        break;
+                    case (i32):
+                        guestFunctionDetails->paramv[i].value.i32 = (uint32_t)guestArgument.argv;
+                        guestFunctionDetails->paramv[i].kind = i32;
+                        break;
+                    case (i64):
+                        guestFunctionDetails->paramv[i].value.i64 = (uint64_t)guestArgument.argv;
+                        guestFunctionDetails->paramv[i].kind = i64;
+                        break;
+                    case (boolean):
+                        guestFunctionDetails->paramv[i].value.boolean = (bool)guestArgument.argv;
+                        guestFunctionDetails->paramv[i].kind = boolean;
+                        break;
+                    case (bytearray):
+                        guestFunctionDetails->paramv[i].value.bytearray = (void*)guestArgument.argv;
+                        guestFunctionDetails->paramv[i].kind = bytearray;
+                        nextParamIsLength = true;
+                        break;
+                    default:
+                        setError(GUEST_FUNCTION_PARAMETER_TYPE_MISMATCH, NULL);
+                        break;
+                }
+            }
+        }
+        if (nextParamIsLength)
+        {
+            setError(ARRAY_LENGTH_PARAM_IS_MISSING, "Last parameter should be the length of the array");
         }
 
         *(uint32_t*)pPeb->outputdata.outputDataBuffer = CallGuestFunction(guestFunctionDetails);
@@ -319,7 +359,11 @@ void DispatchFunction()
 
 void _putchar(char c)
 {
-    *(char*)pPeb->outputdata.outputDataBuffer = c;
+
+    char* ptr = pPeb->outputdata.outputDataBuffer;
+    *ptr++ = c;
+    *ptr = '\0';
+
     outb(100, 0);
 }
 
@@ -373,7 +417,31 @@ void* hyperlightMoreCore(size_t size)
 
 #pragma optimize("", on)
 
-__declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int functionTableSize)
+HostFunctionDetails* GetHostFunctionDetails()
+{
+
+    HostFunctionHeader* hostFunctionHeader = (HostFunctionHeader*)pPeb->hostFunctionDefinitions.functionDefinitions;
+    size_t functionCount = hostFunctionHeader->CountOfFunctions;
+    if (functionCount == 0)
+    {
+        return NULL;
+    }
+    
+    HostFunctionDetails* hostFunctionDetails = (HostFunctionDetails*)malloc(sizeof(HostFunctionDetails));
+    if (NULL == hostFunctionDetails)
+    {
+        setError(MALLOC_FAILED, NULL);
+    }
+
+#pragma warning(suppress:6011)
+    hostFunctionDetails->CountOfFunctions = functionCount;
+#pragma warning(suppress:6305) 
+    hostFunctionDetails->HostFunctionDefinitions = (HostFunctionDefinition*)(&pPeb->hostFunctionDefinitions.functionDefinitions + sizeof(HostFunctionHeader));
+    
+    return hostFunctionDetails;
+}
+
+__declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, bool useOutInsteadOfHalt, int functionTableSize)
 {
     pPeb = (HyperlightPEB*)pebAddress;
     if (NULL == pPeb)
@@ -381,6 +449,7 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int f
         return -1;
     }
 
+    useOutForHalt = useOutInsteadOfHalt;
     __security_init_cookie();
     resetError();
 
