@@ -10,7 +10,6 @@ on:
   push:
     branches: [ main ]
 
-  
 jobs:
   publish:
     runs-on: windows-latest
@@ -28,6 +27,13 @@ jobs:
       with:
         dotnet-version: | 
           6.0.x 
+    - uses: actions/cache@v2
+      with:
+        path: ~/.nuget/packages
+        # Look to see if there is a cache hit for the corresponding requirements file
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget
     - name: Restore
       run: dotnet restore
       shell: pwsh
@@ -75,9 +81,9 @@ jobs:
       shell: bash
       working-directory: src/Hyperlight
     - name: Download header file
-        uses: "actions/download-artifact@v2"
-        with:
-          name: hyperlight_host.h
+      uses: "actions/download-artifact@v2"
+      with:
+        name: hyperlight_host.h
     - name: Download shared object file
       uses: "actions/download-artifact@v2"
       with:
@@ -87,7 +93,7 @@ jobs:
       with:
         name: hyperlight_host.dll
     # Publish the native guests so that its possible to use Hyperlight without building it.
-    - name: Create Release
+    - name: Create Release (latest)
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -105,10 +111,33 @@ jobs:
           hyperlight_host.h
           libhyperlight_host.so
           hyperlight_host.dll
+    - name: Store Shortened Git SHA for release
+      run: echo "::set-output name=shortened_sha::$(git rev-parse --short HEAD)"
+      id: set-output-var
+    - name: Create Release (shortened SHA)
+      uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        prerelease: true
+        automatic_release_tag: "${{ steps.set-output-var.outputs.shortened_sha }}"
+        title: "Release ${{steps.vars.outputs.shortened_sha}}"
+        files: |
+          src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe
+          src/tests/Guests/simpleguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/simpleguest.exe
+          src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
+          src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz
+          ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib
+          src/HyperlightGuest/include/hyperlight.h
+          src/HyperlightGuest/third_party/printf/printf.h
+          hyperlight_host.h
+          libhyperlight_host.so
+          hyperlight_host.dll
+
   build-rust-ubuntu:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - uses: Swatinem/rust-cache@v2
       - uses: extractions/setup-just@v1
         with:
           just-version: 0.8 # optional semver specification, otherwise latest
@@ -128,6 +157,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
+      - uses: Swatinem/rust-cache@v2
       - name: Build
         run: cargo build --verbose
       - name: Upload DLL file
