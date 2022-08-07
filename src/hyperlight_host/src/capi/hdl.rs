@@ -80,7 +80,7 @@ impl Hdl {
             #[cfg(target_os = "linux")]
             Hdl::VmFd(_) => Self::VM_FD_TYPE_ID,
             #[cfg(target_os = "linux")]
-            Hdl::VcpuFd(_) => Self::VCP_FD_TYPE_ID,
+            Hdl::VcpuFd(_) => Self::VCPU_FD_TYPE_ID,
             #[cfg(target_os = "linux")]
             Hdl::MshvUserMemRegion(_) => Self::MSHV_USER_MEM_REGION_TYPE_ID,
             #[cfg(target_os = "linux")]

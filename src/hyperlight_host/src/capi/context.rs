@@ -1,14 +1,14 @@
 use super::handle::{new_key, Handle, Key};
 use super::hdl::Hdl;
 
+#[cfg(target_os = "linux")]
+use crate::capi::hyperv_linux::mshv_run_message;
 use crate::mem::pe::PEInfo;
 use crate::sandbox::Sandbox;
 use crate::{func::args::Val, mem::config::SandboxMemoryConfiguration};
 use crate::{func::def::HostFunc, mem::layout::SandboxMemoryLayout};
 use anyhow::{bail, Error, Result};
 use chashmap::{CHashMap, ReadGuard, WriteGuard};
-#[cfg(target_os = "linux")]
-use crate::capi::hyperv_linux::mshv_run_message;
 #[cfg(target_os = "linux")]
 use mshv_bindings::mshv_user_mem_region;
 #[cfg(target_os = "linux")]
