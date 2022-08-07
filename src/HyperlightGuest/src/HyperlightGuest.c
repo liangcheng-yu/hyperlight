@@ -157,7 +157,7 @@ void setError(uint64_t errorCode, char* message)
     longjmp(jmpbuf, 1);
 }
 
-void callHostFunction(char* functionName, va_list ap)
+void CallHostFunction(char* functionName, va_list ap)
 {
     HostFunctionCall* functionCall = (HostFunctionCall*)pPeb->outputdata.outputDataBuffer;
     functionCall->FunctionName = functionName;
@@ -180,12 +180,18 @@ int native_symbol_thunk(char* functionName, ...)
 
     va_start(ap, functionName);
 
-    callHostFunction(functionName, ap);
+    CallHostFunction(functionName, ap);
 
     va_end(ap);
 
+    return GetHostReturnValueAsInt();
+}
+
+int GetHostReturnValueAsInt()
+{
     return *((int*)pPeb->inputdata.inputDataBuffer);
 }
+
 // Calls a Host Function that returns an long
 long native_symbol_thunk_returning_long(char* functionName, ...)
 {
@@ -194,12 +200,18 @@ long native_symbol_thunk_returning_long(char* functionName, ...)
 
     va_start(ap, functionName);
 
-    callHostFunction(functionName, ap);
+    CallHostFunction(functionName, ap);
 
     va_end(ap);
 
+    return  GetHostReturnValueAsLong();
+}
+
+long GetHostReturnValueAsLong()
+{
     return *((long*)pPeb->inputdata.inputDataBuffer);
 }
+
 // Exposed by Hyperlight Sandbox , used by dlmalloc
 long GetHyperLightTickCount()
 {
