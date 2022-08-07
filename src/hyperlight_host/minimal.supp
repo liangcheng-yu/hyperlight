@@ -1,0 +1,28 @@
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   statx(file_name)
+   fun:statx
+   fun:_ZN3std3sys4unix2fs9try_statx17hf22bf77baf7c963bE
+   fun:_ZN3std2fs24buffer_capacity_required17ha57aab79a59ba963E
+   fun:_ZN3std2fs4read5inner17h08b5ce834e4dbfccE
+   fun:_ZN3std2fs4read17h64bf07671f821233E
+   fun:_ZN15hyperlight_host4capi10byte_array5impls13new_from_file17ha4200189859dc759E
+   fun:byte_array_new_from_file
+   fun:test_pe_relocate
+   fun:main
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   statx(buf)
+   fun:statx
+   fun:_ZN3std3sys4unix2fs9try_statx17hf22bf77baf7c963bE
+   fun:_ZN3std2fs24buffer_capacity_required17ha57aab79a59ba963E
+   fun:_ZN3std2fs4read5inner17h08b5ce834e4dbfccE
+   fun:_ZN3std2fs4read17h64bf07671f821233E
+   fun:_ZN15hyperlight_host4capi10byte_array5impls13new_from_file17ha4200189859dc759E
+   fun:byte_array_new_from_file
+   fun:test_pe_relocate
+   fun:main
+}

@@ -26,6 +26,11 @@ pub enum Hdl {
     MemConfig(Key),
     /// A reference to a `SandboxMemoryLayout`.
     MemLayout(Key),
+    Mshv(Key),
+    VmFd(Key),
+    VcpuFd(Key),
+    MshvUserMemRegion(Key),
+    MshvRunMessage(Key),
 }
 
 impl Hdl {
@@ -39,6 +44,11 @@ impl Hdl {
     const PE_INFO_TYPE_ID: TypeID = 107;
     const MEM_CONFIG_TYPE_ID: TypeID = 108;
     const MEM_LAYOUT_TYPE_ID: TypeID = 109;
+    const MSHV_TYPE_ID: TypeID = 110;
+    const VM_FD_TYPE_ID: TypeID = 111;
+    const VCPU_FD_TYPE_ID: TypeID = 112;
+    const MSHV_USER_MEM_REGION_TYPE_ID: TypeID = 113;
+    const MSHV_RUN_MESSAGE_TYPE_ID: TypeID = 114;
 
     /// Get the `TypeID` associated with `self`.
     ///
@@ -55,6 +65,11 @@ impl Hdl {
             Hdl::PEInfo(_) => Self::PE_INFO_TYPE_ID,
             Hdl::MemConfig(_) => Self::MEM_CONFIG_TYPE_ID,
             Hdl::MemLayout(_) => Self::MEM_LAYOUT_TYPE_ID,
+            Hdl::Mshv(_) => Self::MSHV_TYPE_ID,
+            Hdl::VmFd(_) => Self::VM_FD_TYPE_ID,
+            Hdl::VcpuFd(_) => Self::VCPU_FD_TYPE_ID,
+            Hdl::MshvUserMemRegion(_) => Self::MSHV_USER_MEM_REGION_TYPE_ID,
+            Hdl::MshvRunMessage(_) => Self::MSHV_RUN_MESSAGE_TYPE_ID,
         }
     }
 
@@ -74,6 +89,11 @@ impl Hdl {
             Hdl::PEInfo(key) => *key,
             Hdl::MemConfig(key) => *key,
             Hdl::MemLayout(key) => *key,
+            Hdl::Mshv(key) => *key,
+            Hdl::VmFd(key) => *key,
+            Hdl::VcpuFd(key) => *key,
+            Hdl::MshvUserMemRegion(key) => *key,
+            Hdl::MshvRunMessage(key) => *key,
         }
     }
 }
@@ -91,6 +111,11 @@ impl std::fmt::Display for Hdl {
             Hdl::PEInfo(key) => write!(f, "PEInfo({})", key),
             Hdl::MemConfig(key) => write!(f, "MemConfig({})", key),
             Hdl::MemLayout(key) => write!(f, "MemLayout({})", key),
+            Hdl::Mshv(key) => write!(f, "Mshv({})", key),
+            Hdl::VmFd(key) => write!(f, "VmFd({})", key),
+            Hdl::VcpuFd(key) => write!(f, "VcpuFd({})", key),
+            Hdl::MshvUserMemRegion(key) => write!(f, "MshvUserMemRegion({})", key),
+            Hdl::MshvRunMessage(key) => write!(f, "MshvRunMessage({})", key),
         }
     }
 }
@@ -113,6 +138,11 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::PE_INFO_TYPE_ID => Ok(Hdl::PEInfo(key)),
             Self::MEM_CONFIG_TYPE_ID => Ok(Hdl::MemConfig(key)),
             Self::MEM_LAYOUT_TYPE_ID => Ok(Hdl::MemLayout(key)),
+            Self::MSHV_TYPE_ID => Ok(Hdl::Mshv(key)),
+            Self::VM_FD_TYPE_ID => Ok(Hdl::VmFd(key)),
+            Self::VCPU_FD_TYPE_ID => Ok(Hdl::VcpuFd(key)),
+            Self::MSHV_USER_MEM_REGION_TYPE_ID => Ok(Hdl::MshvUserMemRegion(key)),
+            Self::MSHV_RUN_MESSAGE_TYPE_ID => Ok(Hdl::MshvRunMessage(key)),
             _ => bail!("invalid handle type {}", hdl.type_id()),
         }
     }

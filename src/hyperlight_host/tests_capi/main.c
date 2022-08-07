@@ -7,6 +7,7 @@
 #include "byte_array_tests.h"
 #include "mem_config.h"
 #include "mem_layout.h"
+#include "hyperv_linux.h"
 
 int main()
 {
@@ -50,5 +51,15 @@ int main()
     {
         // mem layout tests
         munit_assert_int(MUNIT_OK, ==, test_mem_layout_get());
+    }
+    {
+        // hyperv on linux tests
+        set_flags();
+        munit_assert_int(MUNIT_OK, ==,  test_is_hyperv_linux_present());
+        munit_assert_int(MUNIT_OK, ==,  test_open_mshv());
+        munit_assert_int(MUNIT_OK, ==,  test_create_vm());
+        munit_assert_int(MUNIT_OK, ==,  test_create_vcpu());
+        munit_assert_int(MUNIT_OK, ==,  test_map_user_memory_region());
+        munit_assert_int(MUNIT_OK, ==,  test_set_registers());
     }
 }

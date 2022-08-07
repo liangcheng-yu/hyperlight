@@ -1,11 +1,14 @@
 use super::handle::{new_key, Handle, Key};
 use super::hdl::Hdl;
+use crate::capi::hyperv_linux::mshv_run_message;
 use crate::mem::pe::PEInfo;
 use crate::sandbox::Sandbox;
 use crate::{func::args::Val, mem::config::SandboxMemoryConfiguration};
 use crate::{func::def::HostFunc, mem::layout::SandboxMemoryLayout};
 use anyhow::{bail, Error, Result};
 use chashmap::{CHashMap, ReadGuard, WriteGuard};
+use mshv_bindings::mshv_user_mem_region;
+use mshv_ioctls::{Mshv, VcpuFd, VmFd};
 
 /// Context is a memory storage mechanism for the C API functions
 /// provided by this crate.
@@ -37,6 +40,11 @@ pub struct Context {
     pub mem_configs: CHashMap<Key, SandboxMemoryConfiguration>,
     /// All `SandboxMemoryLayout`s stored in this context
     pub mem_layouts: CHashMap<Key, SandboxMemoryLayout>,
+    pub mshvs: CHashMap<Key, Mshv>,
+    pub vmfds: CHashMap<Key, VmFd>,
+    pub vcpufds: CHashMap<Key, VcpuFd>,
+    pub mshv_user_mem_regions: CHashMap<Key, mshv_user_mem_region>,
+    pub mshv_run_messages: CHashMap<Key, mshv_run_message>,
 }
 
 /// A type alias for a `CHashMap` `ReadGuard` type wrapped in a
@@ -135,6 +143,13 @@ impl Context {
                     Hdl::PEInfo(key) => self.pe_infos.remove(&key).is_some(),
                     Hdl::MemConfig(key) => self.mem_configs.remove(&key).is_some(),
                     Hdl::MemLayout(key) => self.mem_layouts.remove(&key).is_some(),
+                    Hdl::Mshv(key) => self.mshvs.remove(&key).is_some(),
+                    Hdl::VmFd(key) => self.vmfds.remove(&key).is_some(),
+                    Hdl::VcpuFd(key) => self.vcpufds.remove(&key).is_some(),
+                    Hdl::MshvUserMemRegion(key) => {
+                        self.mshv_user_mem_regions.remove(&key).is_some()
+                    }
+                    Hdl::MshvRunMessage(key) => self.mshv_run_messages.remove(&key).is_some(),
                 }
             }
             Err(_) => false,
