@@ -1,3 +1,5 @@
+#if defined (__linux__)
+
 #include "hyperv_linux.h"
 #include "hyperlight_host.h"
 #include <stdio.h>
@@ -310,3 +312,4 @@ MunitResult test_run_vpcu()
     
     return MUNIT_OK;
 }
+#endif

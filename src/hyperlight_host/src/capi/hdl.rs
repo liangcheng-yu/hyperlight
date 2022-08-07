@@ -26,10 +26,15 @@ pub enum Hdl {
     MemConfig(Key),
     /// A reference to a `SandboxMemoryLayout`.
     MemLayout(Key),
+    #[cfg(target_os = "linux")]
     Mshv(Key),
+    #[cfg(target_os = "linux")]
     VmFd(Key),
+    #[cfg(target_os = "linux")]
     VcpuFd(Key),
+    #[cfg(target_os = "linux")]
     MshvUserMemRegion(Key),
+    #[cfg(target_os = "linux")]
     MshvRunMessage(Key),
 }
 
@@ -44,10 +49,15 @@ impl Hdl {
     const PE_INFO_TYPE_ID: TypeID = 107;
     const MEM_CONFIG_TYPE_ID: TypeID = 108;
     const MEM_LAYOUT_TYPE_ID: TypeID = 109;
+    #[cfg(target_os = "linux")]
     const MSHV_TYPE_ID: TypeID = 110;
+    #[cfg(target_os = "linux")]
     const VM_FD_TYPE_ID: TypeID = 111;
+    #[cfg(target_os = "linux")]
     const VCPU_FD_TYPE_ID: TypeID = 112;
+    #[cfg(target_os = "linux")]
     const MSHV_USER_MEM_REGION_TYPE_ID: TypeID = 113;
+    #[cfg(target_os = "linux")]
     const MSHV_RUN_MESSAGE_TYPE_ID: TypeID = 114;
 
     /// Get the `TypeID` associated with `self`.
@@ -65,10 +75,15 @@ impl Hdl {
             Hdl::PEInfo(_) => Self::PE_INFO_TYPE_ID,
             Hdl::MemConfig(_) => Self::MEM_CONFIG_TYPE_ID,
             Hdl::MemLayout(_) => Self::MEM_LAYOUT_TYPE_ID,
+            #[cfg(target_os = "linux")]
             Hdl::Mshv(_) => Self::MSHV_TYPE_ID,
+            #[cfg(target_os = "linux")]
             Hdl::VmFd(_) => Self::VM_FD_TYPE_ID,
-            Hdl::VcpuFd(_) => Self::VCPU_FD_TYPE_ID,
+            #[cfg(target_os = "linux")]
+            Hdl::VcpuFd(_) => Self::VCP_FD_TYPE_ID,
+            #[cfg(target_os = "linux")]
             Hdl::MshvUserMemRegion(_) => Self::MSHV_USER_MEM_REGION_TYPE_ID,
+            #[cfg(target_os = "linux")]
             Hdl::MshvRunMessage(_) => Self::MSHV_RUN_MESSAGE_TYPE_ID,
         }
     }
@@ -89,10 +104,15 @@ impl Hdl {
             Hdl::PEInfo(key) => *key,
             Hdl::MemConfig(key) => *key,
             Hdl::MemLayout(key) => *key,
+            #[cfg(target_os = "linux")]
             Hdl::Mshv(key) => *key,
+            #[cfg(target_os = "linux")]
             Hdl::VmFd(key) => *key,
+            #[cfg(target_os = "linux")]
             Hdl::VcpuFd(key) => *key,
+            #[cfg(target_os = "linux")]
             Hdl::MshvUserMemRegion(key) => *key,
+            #[cfg(target_os = "linux")]
             Hdl::MshvRunMessage(key) => *key,
         }
     }
@@ -111,10 +131,15 @@ impl std::fmt::Display for Hdl {
             Hdl::PEInfo(key) => write!(f, "PEInfo({})", key),
             Hdl::MemConfig(key) => write!(f, "MemConfig({})", key),
             Hdl::MemLayout(key) => write!(f, "MemLayout({})", key),
+            #[cfg(target_os = "linux")]
             Hdl::Mshv(key) => write!(f, "Mshv({})", key),
+            #[cfg(target_os = "linux")]
             Hdl::VmFd(key) => write!(f, "VmFd({})", key),
+            #[cfg(target_os = "linux")]
             Hdl::VcpuFd(key) => write!(f, "VcpuFd({})", key),
+            #[cfg(target_os = "linux")]
             Hdl::MshvUserMemRegion(key) => write!(f, "MshvUserMemRegion({})", key),
+            #[cfg(target_os = "linux")]
             Hdl::MshvRunMessage(key) => write!(f, "MshvRunMessage({})", key),
         }
     }
@@ -138,10 +163,15 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::PE_INFO_TYPE_ID => Ok(Hdl::PEInfo(key)),
             Self::MEM_CONFIG_TYPE_ID => Ok(Hdl::MemConfig(key)),
             Self::MEM_LAYOUT_TYPE_ID => Ok(Hdl::MemLayout(key)),
+            #[cfg(target_os = "linux")]
             Self::MSHV_TYPE_ID => Ok(Hdl::Mshv(key)),
+            #[cfg(target_os = "linux")]
             Self::VM_FD_TYPE_ID => Ok(Hdl::VmFd(key)),
+            #[cfg(target_os = "linux")]
             Self::VCPU_FD_TYPE_ID => Ok(Hdl::VcpuFd(key)),
+            #[cfg(target_os = "linux")]
             Self::MSHV_USER_MEM_REGION_TYPE_ID => Ok(Hdl::MshvUserMemRegion(key)),
+            #[cfg(target_os = "linux")]
             Self::MSHV_RUN_MESSAGE_TYPE_ID => Ok(Hdl::MshvRunMessage(key)),
             _ => bail!("invalid handle type {}", hdl.type_id()),
         }
