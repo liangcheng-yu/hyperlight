@@ -340,15 +340,10 @@ pub unsafe extern "C" fn unmap_vm_memory_region(
             Err(e) => return (*ctx).register_err(e),
         };
 
-    let result = match impls::unmap_vm_memory_region(&vmfd, &user_memory_region) {
+    match impls::unmap_vm_memory_region(&vmfd, &user_memory_region) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
-    };
-
-    // handle_free(ctx, mshv_user_mem_regions_handle);
-    //(*ctx).remove(mshv_user_mem_regions_handle, |_| true);
-
-    result
+    }
 }
 
 /// mshv_register represents a register in the VM. It is used to set and get register values in the VM.
@@ -564,7 +559,7 @@ pub unsafe extern "C" fn get_run_result_from_handle(
         Ok(result) => result,
         Err(_) => return std::ptr::null(),
     };
-    //(*ctx).remove(handle, |h| matches!(h, Hdl::MshvRunMessage(_)));
+
     Box::into_raw(Box::new(*result))
 }
 
