@@ -25,7 +25,7 @@ void set_flags()
     munit_logf(MUNIT_LOG_INFO,"env var SHOULD_HAVE_STABLE_API %s\n",env_var);
     if(env_var)
     {
-        EXPECT_PRERELEASE_API = !get_flag_value(env_var);
+        EXPECT_PRERELEASE_API = get_flag_value(env_var) ? false : true;
     }
 
     munit_logf(MUNIT_LOG_INFO,"EXPECT_HYPERVISOR_PRESENT: %s\n",EXPECT_HYPERVISOR_PRESENT ? "true" : "false");
