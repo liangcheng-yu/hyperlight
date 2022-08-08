@@ -64,6 +64,7 @@ int main()
         munit_assert_int(MUNIT_OK, ==,  test_create_vcpu());
         munit_assert_int(MUNIT_OK, ==,  test_map_user_memory_region());
         munit_assert_int(MUNIT_OK, ==,  test_set_registers());
+        munit_assert_int(MUNIT_OK, ==,  test_run_vpcu());
     }
 #endif
 }

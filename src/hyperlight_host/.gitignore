@@ -3,3 +3,4 @@
 /bin/*.out
 /bin/*.exe
 /bin/*.dll
+*.log.core.*

@@ -14,6 +14,7 @@ void set_flags()
 {
     // Set env var HYPERV_SHOULD_BE_PRESENT to require hyperv to be present for this test.
     char* env_var = getenv("HYPERV_SHOULD_BE_PRESENT");
+    printf("env var HYPERV_SHOULD_BE_PRESENT %s\n",env_var);
     if(env_var )
     {
         EXPECT_HYPERVISOR_PRESENT = get_flag_value(env_var);
@@ -21,11 +22,15 @@ void set_flags()
     
     // Set env var SHOULD_HAVE_STABLE_API to require a stable api for this test.
 
-    env_var = getenv(" SHOULD_HAVE_STABLE_API");
-    if(env_var )
+    env_var = getenv("SHOULD_HAVE_STABLE_API");
+    printf("env var SHOULD_HAVE_STABLE_API %s\n",env_var);
+    if(env_var)
     {
-        EXPECT_HYPERVISOR_PRESENT = get_flag_value(env_var);
+        EXPECT_PRERELEASE_API = !get_flag_value(env_var);
     }
+
+    printf("EXPECT_HYPERVISOR_PRESENT: %s\n",EXPECT_HYPERVISOR_PRESENT ? "true" : "false");
+    printf("EXPECT_PRERELEASE_API: %s\n",EXPECT_PRERELEASE_API ? "true" : "false");
 }
 
 bool get_flag_value(char* flag_value)
@@ -158,9 +163,11 @@ MunitResult test_map_user_memory_region()
     handle_assert_no_error(ctx, mshv_user_memory_region);
     Handle should_be_empty = unmap_vm_memory_region(ctx, vm, mshv_user_memory_region);
     handle_assert_no_error(ctx, should_be_empty);
-    munmap(guestMemory, memSize);
     handle_free(ctx, mshv_user_memory_region);
     handle_free(ctx, should_be_empty);
+    
+    munmap(guestMemory, memSize);
+
     handle_free(ctx, vm);
     handle_free(ctx, mshv);
     context_free(ctx);
@@ -201,7 +208,6 @@ MunitResult test_set_registers()
     
     return MUNIT_OK;
 }
-
 
 MunitResult test_run_vpcu()
 {
@@ -300,11 +306,12 @@ MunitResult test_run_vpcu()
     free((void*)run_message);
 
     Handle should_be_empty = unmap_vm_memory_region(ctx, vm, mshv_user_memory_region);
+    handle_free(ctx, mshv_user_memory_region);
     handle_assert_no_error(ctx, should_be_empty);
+    handle_free(ctx, should_be_empty);
+    
     munmap(guestMemory, memSize);
 
-    handle_free(ctx, mshv_user_memory_region);
-    handle_free(ctx, should_be_empty);
     handle_free(ctx, vcpu);
     handle_free(ctx, vm);
     handle_free(ctx, mshv);

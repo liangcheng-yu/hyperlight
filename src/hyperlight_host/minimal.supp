@@ -1,28 +1,36 @@
 {
    <insert_a_suppression_name_here>
    Memcheck:Param
-   statx(file_name)
-   fun:statx
-   fun:_ZN3std3sys4unix2fs9try_statx17hf22bf77baf7c963bE
-   fun:_ZN3std2fs24buffer_capacity_required17ha57aab79a59ba963E
-   fun:_ZN3std2fs4read5inner17h08b5ce834e4dbfccE
-   fun:_ZN3std2fs4read17h64bf07671f821233E
-   fun:_ZN15hyperlight_host4capi10byte_array5impls13new_from_file17ha4200189859dc759E
-   fun:byte_array_new_from_file
-   fun:test_pe_relocate
+   ioctl(generic)
+   fun:ioctl
+   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h6b138c2d33794874E
+   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd15map_user_memory17h29e6cea83495a3dcE
+   fun:_ZN15hyperlight_host4capi12hyperv_linux5impls20map_vm_memory_region17ha7c6f12ae241ea03E
+   fun:map_vm_memory_region
+   fun:test_map_user_memory_region
    fun:main
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Param
-   statx(buf)
-   fun:statx
-   fun:_ZN3std3sys4unix2fs9try_statx17hf22bf77baf7c963bE
-   fun:_ZN3std2fs24buffer_capacity_required17ha57aab79a59ba963E
-   fun:_ZN3std2fs4read5inner17h08b5ce834e4dbfccE
-   fun:_ZN3std2fs4read17h64bf07671f821233E
-   fun:_ZN15hyperlight_host4capi10byte_array5impls13new_from_file17ha4200189859dc759E
-   fun:byte_array_new_from_file
-   fun:test_pe_relocate
+   ioctl(generic)
+   fun:ioctl
+   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h6b138c2d33794874E
+   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd17unmap_user_memory17h6f4100c8e0a8cfd7E
+   fun:_ZN15hyperlight_host4capi12hyperv_linux5impls22unmap_vm_memory_region17h9e99aff2a40e539dE
+   fun:unmap_vm_memory_region
+   fun:test_map_user_memory_region
+   fun:main
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17had8b994622f3a290E
+   fun:_ZN11mshv_ioctls6ioctls4vcpu6VcpuFd7set_reg17hccf30cca74f4fa91E
+   fun:_ZN15hyperlight_host4capi12hyperv_linux5impls13set_registers17h15c15f439671f97dE
+   fun:set_registers
+   fun:test_set_registers
    fun:main
 }

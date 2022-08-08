@@ -345,7 +345,8 @@ pub unsafe extern "C" fn unmap_vm_memory_region(
         Err(e) => (*ctx).register_err(e),
     };
 
-    (*ctx).remove(mshv_user_mem_regions_handle, |_| true);
+    // handle_free(ctx, mshv_user_mem_regions_handle);
+    //(*ctx).remove(mshv_user_mem_regions_handle, |_| true);
 
     result
 }
@@ -563,7 +564,7 @@ pub unsafe extern "C" fn get_run_result_from_handle(
         Ok(result) => result,
         Err(_) => return std::ptr::null(),
     };
-    (*ctx).remove(handle, |h| matches!(h, Hdl::MshvRunMessage(_)));
+    //(*ctx).remove(handle, |h| matches!(h, Hdl::MshvRunMessage(_)));
     Box::into_raw(Box::new(*result))
 }
 
@@ -598,48 +599,70 @@ mod tests {
     use libc::c_void;
     use mshv_bindings::{hv_message, hv_message_type_HVMSG_X64_HALT, hv_register_name};
     use once_cell::sync::Lazy;
+    use serde::Deserialize;
     use std::env;
     use std::io::Write;
+    static TEST_CONFIG: Lazy<TestConfig> = Lazy::new(|| match envy::from_env::<TestConfig>() {
+        Ok(config) => config,
+        Err(err) => panic!("error parsing config from env: {}", err),
+    });
     static SHOULD_RUN_TEST: Lazy<bool> = Lazy::new(is_hyperv_present);
 
     macro_rules! should_run_test {
         () => {{
             if !(*SHOULD_RUN_TEST) {
+                println! {"Not Running Test SHOULD_RUN_TEST is false"}
                 return;
             }
+            println! {"Running Test SHOULD_RUN_TEST is true"}
         }};
+    }
+
+    fn hyperv_should_be_present_default() -> bool {
+        false
+    }
+
+    fn should_have_stable_api_default() -> bool {
+        false
+    }
+
+    #[derive(Deserialize, Debug)]
+    struct TestConfig {
+        #[serde(default = "hyperv_should_be_present_default")]
+        // Set env var HYPERV_SHOULD_BE_PRESENT to require hyperv to be present for the tests.
+        hyperv_should_be_present: bool,
+        #[serde(default = "should_have_stable_api_default")]
+        // Set env var SHOULD_HAVE_STABLE_API to require a stable api for the tests.
+        should_have_stable_api: bool,
     }
 
     #[test]
     fn test_is_hypervisor_present() {
-        // Set env var HYPERV_SHOULD_BE_PRESENT to require hyperv to be present for this test.
-        let hyperv_should_be_present: bool = envy::from_env().unwrap_or(false);
-        // Set env var SHOULD_HAVE_STABLE_API to require a stable api for this test.
-        let should_have_stable_api: bool = envy::from_env().unwrap_or(false);
-
         let result = impls::is_hypervisor_present(true).unwrap_or(false);
-        assert_eq!(result, hyperv_should_be_present && should_have_stable_api);
+        assert_eq!(
+            result,
+            TEST_CONFIG.hyperv_should_be_present && TEST_CONFIG.should_have_stable_api
+        );
         assert!(!result);
         let result = impls::is_hypervisor_present(false).unwrap_or(false);
-        assert_eq!(result, hyperv_should_be_present);
+        assert_eq!(result, TEST_CONFIG.hyperv_should_be_present);
     }
 
     fn is_hyperv_present() -> bool {
-        let should_have_stable_api: bool = envy::from_env().unwrap_or(false);
-        impls::is_hypervisor_present(should_have_stable_api).unwrap_or(false)
+        impls::is_hypervisor_present(TEST_CONFIG.should_have_stable_api).unwrap_or(false)
     }
 
     #[test]
     fn test_open_mshv() {
         should_run_test!();
-        let mshv = impls::open_mshv(true);
+        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api);
         assert!(mshv.is_ok());
     }
 
     #[test]
     fn test_create_vm() {
         should_run_test!();
-        let mshv = impls::open_mshv(true);
+        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api);
         assert!(mshv.is_ok());
         let mshv = mshv.unwrap();
         let vmfd = impls::create_vm(&mshv);
@@ -649,7 +672,7 @@ mod tests {
     #[test]
     fn test_create_vcpu() {
         should_run_test!();
-        let mshv = impls::open_mshv(true);
+        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api);
         assert!(mshv.is_ok());
         let mshv = mshv.unwrap();
         let vmfd = impls::create_vm(&mshv);
@@ -662,7 +685,7 @@ mod tests {
     #[test]
     fn test_map_user_memory_region() {
         should_run_test!();
-        let mshv = impls::open_mshv(true);
+        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api);
         assert!(mshv.is_ok());
         let mshv = mshv.unwrap();
         let vmfd = impls::create_vm(&mshv);
@@ -694,7 +717,7 @@ mod tests {
     #[test]
     fn test_set_registers() {
         should_run_test!();
-        let mshv = impls::open_mshv(true);
+        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api);
         assert!(mshv.is_ok());
         let mshv = mshv.unwrap();
         let vmfd = impls::create_vm(&mshv);
@@ -729,7 +752,7 @@ mod tests {
     #[test]
     fn test_run_vcpu() {
         should_run_test!();
-        let mshv = impls::open_mshv(true);
+        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api);
         assert!(mshv.is_ok());
         let mshv = mshv.unwrap();
         let vmfd = impls::create_vm(&mshv);
@@ -738,16 +761,16 @@ mod tests {
         let vcpu = impls::create_vcpu(&vmfd);
         assert!(vcpu.is_ok());
         let vcpu = vcpu.unwrap();
-
-        let code: [u8; 12] = [
-            0xba, 0xf8, 0x03, /* mov $0x3f8, %dx */
-            0x00, 0xd8, /* add %bl, %al */
-            0x04, b'0', /* add $'0', %al */
-            0xee, /* out %al, (%dx) */
-            /* send a 0 to indicate we're done */
-            0xb0, b'\0', /* mov $'\0', %al */
-            0xee,  /* out %al, (%dx) */
-            0xf4,  /* HLT */
+        #[rustfmt::skip]
+        let code:[u8;12] = [
+           0xba, 0xf8, 0x03,  /* mov $0x3f8, %dx */
+           0x00, 0xd8,         /* add %bl, %al */
+           0x04, b'0',         /* add $'0', %al */
+           0xee,               /* out %al, (%dx) */
+           /* send a 0 to indicate we're done */
+           0xb0, b'\0',        /* mov $'\0', %al */
+           0xee,               /* out %al, (%dx) */
+           0xf4, /* HLT */
         ];
         let guest_pfn = 0x1;
         let mem_size = 0x1000;
@@ -776,6 +799,16 @@ mod tests {
 
         let regs = &[
             hv_register_assoc {
+                name: hv_register_name::HV_X64_REGISTER_CS as u32,
+                value: hv_register_value {
+                    reg128: hv_u128 {
+                        low_part: 0,
+                        high_part: 43628621390217215,
+                    },
+                },
+                ..Default::default()
+            },
+            hv_register_assoc {
                 name: hv_register_name::HV_X64_REGISTER_RAX as u32,
                 value: hv_register_value { reg64: 6 },
                 ..Default::default()
@@ -795,23 +828,13 @@ mod tests {
                 value: hv_register_value { reg64: 0x2 },
                 ..Default::default()
             },
-            hv_register_assoc {
-                name: hv_register_name::HV_X64_REGISTER_CS as u32,
-                value: hv_register_value {
-                    reg128: hv_u128 {
-                        low_part: 0,
-                        high_part: 43628621390217215,
-                    },
-                },
-                ..Default::default()
-            },
         ];
 
         let result = impls::set_registers(&vcpu, regs);
         assert!(result.is_ok());
 
         let run_result = impls::run_vcpu(&vcpu);
-        assert!(result.is_ok());
+        assert!(run_result.is_ok());
         let run_message = run_result.unwrap();
         let message_type = run_message.header.message_type;
 
@@ -833,11 +856,12 @@ mod tests {
         assert!(result.is_ok());
 
         let run_result = impls::run_vcpu(&vcpu);
-        assert!(result.is_ok());
+        assert!(run_result.is_ok());
         let run_message = run_result.unwrap();
 
         let message_type = run_message.header.message_type;
 
+        let io_message = run_message.to_ioport_info().unwrap();
         assert_eq!(message_type, hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT);
         assert!(io_message.rax == b'\0' as u64);
         assert!(io_message.port_number == 0x3f8);
@@ -854,7 +878,7 @@ mod tests {
         assert!(result.is_ok());
 
         let run_result = impls::run_vcpu(&vcpu);
-        assert!(result.is_ok());
+        assert!(run_result.is_ok());
         let run_message = run_result.unwrap();
 
         let message_type = run_message.header.message_type;
