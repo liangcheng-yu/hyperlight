@@ -26,3 +26,39 @@
    fun:test_pe_relocate
    fun:main
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h6b138c2d33794874E
+   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd15map_user_memory17h29e6cea83495a3dcE
+   fun:_ZN15hyperlight_host4capi12hyperv_linux5impls20map_vm_memory_region17h3974c0c073de1adcE
+   fun:map_vm_memory_region
+   fun:test_map_user_memory_region
+   fun:main
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h6b138c2d33794874E
+   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd17unmap_user_memory17h6f4100c8e0a8cfd7E
+   fun:_ZN15hyperlight_host4capi12hyperv_linux5impls22unmap_vm_memory_region17ha358b5fd5aade9b8E
+   fun:unmap_vm_memory_region
+   fun:test_map_user_memory_region
+   fun:main
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17had8b994622f3a290E
+   fun:_ZN11mshv_ioctls6ioctls4vcpu6VcpuFd7set_reg17hccf30cca74f4fa91E
+   fun:_ZN15hyperlight_host4capi12hyperv_linux5impls13set_registers17h5e916d70262b323cE
+   fun:set_registers
+   fun:test_set_registers
+   fun:main
+}
