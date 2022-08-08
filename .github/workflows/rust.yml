@@ -38,7 +38,7 @@ jobs:
       - name: Build
         run: cargo build --verbose
       - name: Set up env vars for tests
-        if: ${{ matrix.hypervisor == "hyperv" && runner.os == 'Linux' }}
+        if: ${{ (matrix.hypervisor == "hyperv") && (runner.os == 'Linux') }}
         run: |
           echo "HYPERV_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
           echo "SHOULD_HAVE_STABLE_API=false" >> $GITHUB_ENV
