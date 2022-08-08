@@ -72,8 +72,9 @@ jobs:
           echo "testdata:"
           ls testdata
           just run-tests-capi
-      - name: Install Valgrind (Linux only)
-        if: runner.os == 'Linux'
+      # Script to install Valgrind does not work on Mariner , valgrind has been installed manually on the runner.
+      - name: Install Valgrind (Linux only - not hyperv)
+        if: ${{ (matrix.hypervisor != 'hyperv') && (runner.os == 'Linux') }}
         run: ./install_valgrind.sh
         working-directory: ./scripts
       - name: Valgrind C tests (Linux only)
