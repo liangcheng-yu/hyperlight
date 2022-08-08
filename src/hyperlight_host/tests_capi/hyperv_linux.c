@@ -9,12 +9,11 @@
 #include "err.h"
 #include "munit/munit.h"
 
-
 void set_flags()
 {
     // Set env var HYPERV_SHOULD_BE_PRESENT to require hyperv to be present for this test.
     char* env_var = getenv("HYPERV_SHOULD_BE_PRESENT");
-    printf("env var HYPERV_SHOULD_BE_PRESENT %s\n",env_var);
+    munit_logf(MUNIT_LOG_INFO,"env var HYPERV_SHOULD_BE_PRESENT %s\n",env_var);
     if(env_var )
     {
         EXPECT_HYPERVISOR_PRESENT = get_flag_value(env_var);
@@ -23,14 +22,14 @@ void set_flags()
     // Set env var SHOULD_HAVE_STABLE_API to require a stable api for this test.
 
     env_var = getenv("SHOULD_HAVE_STABLE_API");
-    printf("env var SHOULD_HAVE_STABLE_API %s\n",env_var);
+    munit_logf(MUNIT_LOG_INFO,"env var SHOULD_HAVE_STABLE_API %s\n",env_var);
     if(env_var)
     {
         EXPECT_PRERELEASE_API = !get_flag_value(env_var);
     }
 
-    printf("EXPECT_HYPERVISOR_PRESENT: %s\n",EXPECT_HYPERVISOR_PRESENT ? "true" : "false");
-    printf("EXPECT_PRERELEASE_API: %s\n",EXPECT_PRERELEASE_API ? "true" : "false");
+    munit_logf(MUNIT_LOG_INFO,"EXPECT_HYPERVISOR_PRESENT: %s\n",EXPECT_HYPERVISOR_PRESENT ? "true" : "false");
+    munit_logf(MUNIT_LOG_INFO,"EXPECT_PRERELEASE_API: %s\n",EXPECT_PRERELEASE_API ? "true" : "false");
 }
 
 bool get_flag_value(char* flag_value)
