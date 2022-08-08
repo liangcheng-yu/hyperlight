@@ -27,7 +27,7 @@ jobs:
       with:
         dotnet-version: | 
           6.0.x 
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       with:
         path: ~/.nuget/packages
         # Look to see if there is a cache hit for the corresponding requirements file
@@ -81,15 +81,15 @@ jobs:
       shell: bash
       working-directory: src/Hyperlight
     - name: Download header file
-      uses: "actions/download-artifact@v2"
+      uses: "actions/download-artifact@v3"
       with:
         name: hyperlight_host.h
     - name: Download shared object file
-      uses: "actions/download-artifact@v2"
+      uses: "actions/download-artifact@v3"
       with:
         name: libhyperlight_host.so
     - name: Download DLL
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v3
       with:
         name: hyperlight_host.dll
     # Publish the native guests so that its possible to use Hyperlight without building it.
