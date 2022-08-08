@@ -644,8 +644,14 @@ mod tests {
     }
 
     fn is_hyperv_present() -> bool {
-        println!("SHOULD_HAVE_STABLE_API is {}", TEST_CONFIG.should_have_stable_api);
-        println!("HYPERV_SHOULD_BE_PRESENT is {}", TEST_CONFIG.hyperv_should_be_present);
+        println!(
+            "SHOULD_HAVE_STABLE_API is {}",
+            TEST_CONFIG.should_have_stable_api
+        );
+        println!(
+            "HYPERV_SHOULD_BE_PRESENT is {}",
+            TEST_CONFIG.hyperv_should_be_present
+        );
         impls::is_hypervisor_present(TEST_CONFIG.should_have_stable_api).unwrap_or(false)
     }
 
