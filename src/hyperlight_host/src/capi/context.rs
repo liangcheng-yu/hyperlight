@@ -44,14 +44,19 @@ pub struct Context {
     pub mem_configs: CHashMap<Key, SandboxMemoryConfiguration>,
     /// All `SandboxMemoryLayout`s stored in this context
     pub mem_layouts: CHashMap<Key, SandboxMemoryLayout>,
+    /// All `Mshv`s stored in this context
     #[cfg(target_os = "linux")]
     pub mshvs: CHashMap<Key, Mshv>,
+    /// All `VmFd`s stored in this context
     #[cfg(target_os = "linux")]
     pub vmfds: CHashMap<Key, VmFd>,
+    /// All `VcpuFd`s stored in this context
     #[cfg(target_os = "linux")]
     pub vcpufds: CHashMap<Key, VcpuFd>,
+    /// All `mshv_user_mem_region`s stored in this context
     #[cfg(target_os = "linux")]
     pub mshv_user_mem_regions: CHashMap<Key, mshv_user_mem_region>,
+    /// All `mshv_run_message`s stored in this context
     #[cfg(target_os = "linux")]
     pub mshv_run_messages: CHashMap<Key, mshv_run_message>,
 }

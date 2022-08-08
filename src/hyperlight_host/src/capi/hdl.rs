@@ -26,14 +26,19 @@ pub enum Hdl {
     MemConfig(Key),
     /// A reference to a `SandboxMemoryLayout`.
     MemLayout(Key),
+    /// A reference to a `Mshv`.
     #[cfg(target_os = "linux")]
     Mshv(Key),
+    /// A reference to a `VmFd`.
     #[cfg(target_os = "linux")]
     VmFd(Key),
+    /// A reference to a `VcpuFd`.
     #[cfg(target_os = "linux")]
     VcpuFd(Key),
+    /// A reference to a `MshvUserMemRegion`.
     #[cfg(target_os = "linux")]
     MshvUserMemRegion(Key),
+    /// A reference to a `MshvRunMessage`.
     #[cfg(target_os = "linux")]
     MshvRunMessage(Key),
 }
