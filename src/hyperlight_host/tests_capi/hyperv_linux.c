@@ -14,19 +14,14 @@ void set_flags()
     // Set env var HYPERV_SHOULD_BE_PRESENT to require hyperv to be present for this test.
     char* env_var = getenv("HYPERV_SHOULD_BE_PRESENT");
     munit_logf(MUNIT_LOG_INFO,"env var HYPERV_SHOULD_BE_PRESENT %s\n",env_var);
-    if(env_var )
-    {
-        EXPECT_HYPERVISOR_PRESENT = get_flag_value(env_var);
-    }
+    EXPECT_HYPERVISOR_PRESENT = get_flag_value(env_var);
     
     // Set env var SHOULD_HAVE_STABLE_API to require a stable api for this test.
 
     env_var = getenv("SHOULD_HAVE_STABLE_API");
     munit_logf(MUNIT_LOG_INFO,"env var SHOULD_HAVE_STABLE_API %s\n",env_var);
-    if(env_var)
-    {
-        EXPECT_PRERELEASE_API = get_flag_value(env_var) ? false : true;
-    }
+    
+    EXPECT_PRERELEASE_API = !get_flag_value(env_var);
 
     munit_logf(MUNIT_LOG_INFO,"EXPECT_HYPERVISOR_PRESENT: %s\n",EXPECT_HYPERVISOR_PRESENT ? "true" : "false");
     munit_logf(MUNIT_LOG_INFO,"EXPECT_PRERELEASE_API: %s\n",EXPECT_PRERELEASE_API ? "true" : "false");
@@ -34,7 +29,12 @@ void set_flags()
 
 bool get_flag_value(char* flag_value)
 {
-    if(strcasecmp(flag_value, "true") == 0 || strcasecmp(flag_value, "1") )
+    if (strlen(flag_value) == 0)
+    {
+        return false;
+    }
+    
+    if(strcasecmp(flag_value, "true") == 0 || strcasecmp(flag_value, "1") == 0 )
     {
         return true;
     }
