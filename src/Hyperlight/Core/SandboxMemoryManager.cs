@@ -21,7 +21,7 @@ namespace Hyperlight.Core
         readonly SandboxMemoryConfiguration sandboxMemoryConfiguration;
         SandboxMemoryLayout? sandboxMemoryLayout;
 
-        internal SandboxMemoryManager(bool runFromProcessMemory = false) : this(new SandboxMemoryConfiguration(), runFromProcessMemory)
+        internal SandboxMemoryManager(ContextWrapper ctx, bool runFromProcessMemory = false) : this(new SandboxMemoryConfiguration(ctx), runFromProcessMemory)
         {
         }
 
@@ -111,7 +111,7 @@ namespace Hyperlight.Core
         {
             sandboxMemoryLayout!.WriteMemoryLayout(SourceAddress, GetGuestAddressFromPointer(SourceAddress), Size);
             var offset = GetAddressOffset();
-            return new HyperlightPEB(sandboxMemoryLayout.GetFunctionDefinitionAddress(SourceAddress), sandboxMemoryConfiguration.HostFunctionDefinitionSize, offset);
+            return new HyperlightPEB(sandboxMemoryLayout.GetFunctionDefinitionAddress(SourceAddress), (int)sandboxMemoryConfiguration.HostFunctionDefinitionSize, offset);
         }
 
         internal ulong SetUpHyperVisorPartition()
@@ -287,7 +287,7 @@ namespace Hyperlight.Core
         SimpleDataTable GetGuestCallDataTable(int headerSize)
         {
             var outputDataAddress = sandboxMemoryLayout!.GetOutputDataAddress(SourceAddress);
-            return new SimpleDataTable(outputDataAddress + headerSize, sandboxMemoryConfiguration.OutputDataSize - headerSize, GetAddressOffset());
+            return new SimpleDataTable(outputDataAddress + headerSize, (int)sandboxMemoryConfiguration.OutputDataSize - headerSize, GetAddressOffset());
         }
 
         internal string GetHostCallMethodName()
@@ -390,7 +390,7 @@ namespace Hyperlight.Core
             var guestErrorMessagePointerAddress = sandboxMemoryLayout.GetGuestErrorMessagePointerAddress(SourceAddress);
             var guestErrorMessageAddress = GetHostAddressFromPointer(Marshal.ReadInt64(guestErrorMessagePointerAddress));
             var data = Encoding.UTF8.GetBytes($"Port:{port}, Message:{ex.Message}\0");
-            if (data.Length <= sandboxMemoryConfiguration.GuestErrorMessageSize)
+            if (data.Length <= (int)sandboxMemoryConfiguration.GuestErrorMessageSize)
             {
                 Marshal.Copy(data, 0, guestErrorMessageAddress, data.Length);
             }
@@ -410,7 +410,7 @@ namespace Hyperlight.Core
             data = Encoding.UTF8.GetBytes(exceptionAsJson);
             var dataLength = data.Length;
 
-            if (dataLength <= sandboxMemoryConfiguration.HostExceptionSize - sizeof(int))
+            if (dataLength <= (int)sandboxMemoryConfiguration.HostExceptionSize - sizeof(int))
             {
                 Marshal.WriteInt32(hostExceptionPointer, dataLength);
                 Marshal.Copy(data, 0, hostExceptionPointer + sizeof(int), data.Length);

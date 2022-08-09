@@ -18,16 +18,41 @@ MunitResult test_mem_config_getters(void)
                                            function_definition_size,
                                            host_exception_size,
                                            guest_error_message_size);
-    // SandboxMemoryConfiguration::MIN_INPUT_SIZE
-    munit_assert_int(0x2000, ==, mem_config_get_input_data_size(ctx, mem_config_ref));
-    // SandboxMemoryConfiguration::MIN_OUTPUT_SIZE
-    munit_assert_int(0x2000, ==, mem_config_get_output_data_size(ctx, mem_config_ref));
-    // SandboxMemoryConfiguration::MIN_GUEST_ERROR_MESSAGE_SIZE
-    munit_assert_int(0x80, ==, mem_config_get_guest_error_message_size(ctx, mem_config_ref));
-    // SandboxMemoryConfiguration::MIN_HOST_FUNCTION_DEFINITION_SIZE
-    munit_assert_int(0x400, ==, mem_config_get_host_function_definition_size(ctx, mem_config_ref));
-    // SandboxMemoryConfiguration::MIN_HOST_EXCEPTION_SIZE
-    munit_assert_int(0x400, ==, mem_config_get_host_exception_size(ctx, mem_config_ref));
+    {
+        // input data size
+        // SandboxMemoryConfiguration::MIN_INPUT_SIZE
+        munit_assert_int(0x2000, ==, mem_config_get_input_data_size(ctx, mem_config_ref));
+        munit_assert_int(0x2000, ==, mem_config_set_input_data_size(ctx, mem_config_ref, 0x1000));
+        munit_assert_int(0x1000, ==, mem_config_get_input_data_size(ctx, mem_config_ref));
+    }
+    {
+        // output data size
+        // SandboxMemoryConfiguration::MIN_OUTPUT_SIZE
+        munit_assert_int(0x2000, ==, mem_config_get_output_data_size(ctx, mem_config_ref));
+        munit_assert_int(0x2000, ==, mem_config_set_output_data_size(ctx, mem_config_ref, 0x1000));
+        munit_assert_int(0x1000, ==, mem_config_get_output_data_size(ctx, mem_config_ref));
+    }
+    {
+        // error message size
+        // SandboxMemoryConfiguration::MIN_GUEST_ERROR_MESSAGE_SIZE
+        munit_assert_int(0x80, ==, mem_config_get_guest_error_message_size(ctx, mem_config_ref));
+        munit_assert_int(0x80, ==, mem_config_set_guest_error_message_size(ctx, mem_config_ref, 0x40));
+        munit_assert_int(0x40, ==, mem_config_get_guest_error_message_size(ctx, mem_config_ref));
+    }
+    {
+        // host function definition size
+        // SandboxMemoryConfiguration::MIN_HOST_FUNCTION_DEFINITION_SIZE
+        munit_assert_int(0x400, ==, mem_config_get_host_function_definition_size(ctx, mem_config_ref));
+        munit_assert_int(0x400, ==, mem_config_set_host_function_definition_size(ctx, mem_config_ref, 0x200));
+        munit_assert_int(0x200, ==, mem_config_get_host_function_definition_size(ctx, mem_config_ref));
+    }
+    {
+        // host exception size
+        // SandboxMemoryConfiguration::MIN_HOST_EXCEPTION_SIZE
+        munit_assert_int(0x400, ==, mem_config_get_host_exception_size(ctx, mem_config_ref));
+        munit_assert_int(0x400, ==, mem_config_set_host_exception_size(ctx, mem_config_ref, 0x200));
+        munit_assert_int(0x200, ==, mem_config_get_host_exception_size(ctx, mem_config_ref));
+    }
     handle_free(ctx, mem_config_ref);
 
     mem_config_ref = mem_config_new(ctx, 0x2001, 0x2001, 0x2001, 0x2001, 0x2001);

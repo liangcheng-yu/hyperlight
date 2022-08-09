@@ -140,7 +140,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: extractions/setup-just@v1
         with:
-          just-version: 0.8 # optional semver specification, otherwise latest
+          just-version: 1.4 # optional semver specification, otherwise latest
       - name: Build
         run: cargo build --verbose
       - name: Upload shared object file

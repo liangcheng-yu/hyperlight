@@ -30,7 +30,7 @@ jobs:
       - name: Install Just
         uses: extractions/setup-just@v1
         with:
-          just-version: 0.8 # optional semver specification, otherwise latest
+          just-version: 1.4 # optional semver specification, otherwise latest
       - name: Cache munit
         uses: actions/cache@v3
         with:
@@ -43,7 +43,7 @@ jobs:
           git submodule init
           git submodule update
       - name: Run C Tests (Windows only)
-        working-directory: src\hyperlight_host
+        working-directory: src/hyperlight_host
         if: runner.os == 'Windows'
         run: |
           echo "testdata:"

@@ -8,8 +8,43 @@ on:
     branches: [ main ]
   
 jobs:
+  build-host-library:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-20.04, windows-latest]
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: Install Just
+      uses: extractions/setup-just@v1
+      with:
+        just-version: 1.4 # optional semver specification, otherwise latest
+    - name: Build hyperlight_host library
+      working-directory: src/hyperlight_host
+      run: just build
+    - name: upload hyperlight_host.h
+      uses: actions/upload-artifact@v3
+      with:
+        name: hyperlight_host.h
+        path: include/hyperlight_host.h
+    - name: upload hyperlight_host.dll (Windows only)
+      uses: actions/upload-artifact@v3
+      if: runner.os == 'Windows'
+      with:
+        name: hyperlight_host.dll
+        path: target/debug/hyperlight_host.dll
+    - name: upload libhyperlight_host.so (Linux only)
+      uses: actions/upload-artifact@v3
+      if: runner.os == 'Linux'
+      with:
+        name: libhyperlight_host.so
+        path: target/debug/libhyperlight_host.so
   build-on-windows:
     runs-on: ${{ matrix.os }}
+    needs: [ build-host-library ]
     strategy:
       fail-fast: true
       matrix:
@@ -54,6 +89,11 @@ jobs:
       uses: microsoft/setup-msbuild@v1.1
       with:
         msbuild-architecture: x64
+    - name: Download hyperlight_host.dll
+      uses: actions/download-artifact@v3
+      with:
+        name: hyperlight_host.dll
+        path: target/debug
     - name: Build Solution
       run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
       shell: pwsh
@@ -80,7 +120,7 @@ jobs:
         name: test-results-${{ matrix.config }}
         path: src\tests\Hyperlight.Tests\TestResults\*.trx
   build-on-linux:
-    needs: [ build-on-windows ]
+    needs: [ build-on-windows, build-host-library ]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
@@ -111,7 +151,7 @@ jobs:
     - uses: actions/checkout@v3
       with:
         fetch-depth: 0
-     # this is a workaround for the issue described at https://github.com/dotnet/sourcelink/issues/675 , it supresses the warning about the sourcelink package not being found.
+    # this is a workaround for the issue described at https://github.com/dotnet/sourcelink/issues/675 , it supresses the warning about the sourcelink package not being found.
     - name: Remove Submodule
       run: git rm munit
       shell: bash  
@@ -139,6 +179,11 @@ jobs:
       with:
         name: guest-binaries-${{ matrix.config }}
         path: src/tests/Guests/
+    - name: Download libhyperlight_host.so
+      uses: actions/download-artifact@v3
+      with:
+        name: libhyperlight_host.so
+        path: target/debug
     - name: Build Hyperlight
       shell: bash
       run: dotnet build -c ${{ matrix.config }}

@@ -184,11 +184,11 @@ namespace Hyperlight.Core
             stackDataOffset = heapDataOffset + Marshal.SizeOf(typeof(GuestHeap));
             PEBAddress = (ulong)(BaseAddress + pebOffset);
             hostFunctionsBufferOffset = stackDataOffset + Marshal.SizeOf(typeof(GuestStack));
-            hostExceptionBufferOffset = hostFunctionsBufferOffset + sandboxMemoryConfiguration.HostFunctionDefinitionSize;
-            guestErrorMessageBufferOffset = hostExceptionBufferOffset + sandboxMemoryConfiguration.HostExceptionSize;
-            inputDataBufferOffset = guestErrorMessageBufferOffset + sandboxMemoryConfiguration.GuestErrorMessageSize;
-            outputDataBufferOffset = inputDataBufferOffset + sandboxMemoryConfiguration.InputDataSize;
-            guestHeapBufferOffset = outputDataBufferOffset + sandboxMemoryConfiguration.OutputDataSize;
+            hostExceptionBufferOffset = hostFunctionsBufferOffset + (int)sandboxMemoryConfiguration.HostFunctionDefinitionSize;
+            guestErrorMessageBufferOffset = hostExceptionBufferOffset + (int)sandboxMemoryConfiguration.HostExceptionSize;
+            inputDataBufferOffset = guestErrorMessageBufferOffset + (int)sandboxMemoryConfiguration.GuestErrorMessageSize;
+            outputDataBufferOffset = inputDataBufferOffset + (int)sandboxMemoryConfiguration.InputDataSize;
+            guestHeapBufferOffset = outputDataBufferOffset + (int)sandboxMemoryConfiguration.OutputDataSize;
             guestStackBufferOffset = guestHeapBufferOffset + heapSize;
         }
 
@@ -196,11 +196,11 @@ namespace Hyperlight.Core
         {
             var totalMemory = codeSize
                               + PageTableSize
-                              + sandboxMemoryConfiguration.HostFunctionDefinitionSize
-                              + sandboxMemoryConfiguration.InputDataSize
-                              + sandboxMemoryConfiguration.OutputDataSize
-                              + sandboxMemoryConfiguration.HostExceptionSize
-                              + sandboxMemoryConfiguration.GuestErrorMessageSize
+                              + (int)sandboxMemoryConfiguration.HostFunctionDefinitionSize
+                              + (int)sandboxMemoryConfiguration.InputDataSize
+                              + (int)sandboxMemoryConfiguration.OutputDataSize
+                              + (int)sandboxMemoryConfiguration.HostExceptionSize
+                              + (int)sandboxMemoryConfiguration.GuestErrorMessageSize
                               + Marshal.SizeOf(typeof(GuestSecurityCookie))
                               + Marshal.SizeOf(typeof(HostFunctionDefinitions))
                               + Marshal.SizeOf(typeof(HostExceptionData))
@@ -244,19 +244,19 @@ namespace Hyperlight.Core
 
             // Set up Guest Error Header
             var errorMessageSizePointer = GetGuestErrorMessageSizeAddress(sourceAddress);
-            Marshal.WriteInt64(errorMessageSizePointer, sandboxMemoryConfiguration.GuestErrorMessageSize);
+            Marshal.WriteInt64(errorMessageSizePointer, (int)sandboxMemoryConfiguration.GuestErrorMessageSize);
             var errorMessagePointerAddress = GetGuestErrorMessagePointerAddress(sourceAddress);
             var errorMessageAddress = GetGuestErrorMessageAddress(guestAddress);
             Marshal.WriteIntPtr(errorMessagePointerAddress, errorMessageAddress);
 
             // Set up Host Exception Header
             var hostExceptionSizePointer = GetHostExceptionSizeAddress(sourceAddress);
-            Marshal.WriteInt64(hostExceptionSizePointer, sandboxMemoryConfiguration.HostExceptionSize);
+            Marshal.WriteInt64(hostExceptionSizePointer, (int)sandboxMemoryConfiguration.HostExceptionSize);
 
             // Set up input buffer pointer
 
             var inputDataSizePointer = GetInputDataSizeAddress(sourceAddress);
-            Marshal.WriteInt64(inputDataSizePointer, sandboxMemoryConfiguration.InputDataSize);
+            Marshal.WriteInt64(inputDataSizePointer, (int)sandboxMemoryConfiguration.InputDataSize);
             var inputDataPointerAddress = GetInputDataPointerAddress(sourceAddress);
             var inputDataAddress = GetInputDataAddress(guestAddress);
             Marshal.WriteIntPtr(inputDataPointerAddress, inputDataAddress);
@@ -264,7 +264,7 @@ namespace Hyperlight.Core
             // Set up output buffer pointer
 
             var outputDataSizePointer = GetOutputDataSizeAddress(sourceAddress);
-            Marshal.WriteInt64(outputDataSizePointer, sandboxMemoryConfiguration.OutputDataSize);
+            Marshal.WriteInt64(outputDataSizePointer, (int)sandboxMemoryConfiguration.OutputDataSize);
             var outputDataPointerAddress = GetOutputDataPointerAddress(sourceAddress);
             var outputDataAddress = GetOutputDataAddress(guestAddress);
             Marshal.WriteIntPtr(outputDataPointerAddress, outputDataAddress);
@@ -279,7 +279,7 @@ namespace Hyperlight.Core
 
             // Set up Function Definition Header
             var functionDefinitionSizePointer = GetFunctionDefinitionSizeAddress(sourceAddress);
-            Marshal.WriteInt64(functionDefinitionSizePointer, sandboxMemoryConfiguration.HostFunctionDefinitionSize);
+            Marshal.WriteInt64(functionDefinitionSizePointer, (int)sandboxMemoryConfiguration.HostFunctionDefinitionSize);
             var functionDefinitionPointerAddress = GetFunctionDefinitionPointerAddress(sourceAddress);
             var functionDefinitionAddress = GetFunctionDefinitionAddress(guestAddress);
             Marshal.WriteIntPtr(functionDefinitionPointerAddress, functionDefinitionAddress);

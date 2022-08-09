@@ -457,3 +457,9 @@ $RECYCLE.BIN/
 
 # Rust build artifacts
 /target
+/src/tests/Hyperlight.Tests/libhyperlight_host
+/src/tests/Hyperlight.Tests/hyperlight_host
+/src/examples/NativeHost/libhyperlight_host
+/src/examples/NativeHost/hyperlight_host
+libhyperlight_host.so
+hyperlight_host.dll
