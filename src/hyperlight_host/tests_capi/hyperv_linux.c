@@ -72,14 +72,9 @@ MunitResult test_is_hyperv_linux_present()
     return MUNIT_OK;
 }
 
-bool check_if_hypervisor_is_present()
-{
-    return is_hyperv_linux_present(!EXPECT_PRERELEASE_API);
-}
-
 MunitResult test_open_mshv()
 {
-    bool hypervisor_is_present = check_if_hypervisor_is_present();
+    bool hypervisor_is_present = is_hyperv_linux_present(!EXPECT_PRERELEASE_API);
 
     Context *ctx = context_new();
     munit_assert_not_null(ctx);

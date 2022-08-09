@@ -2,14 +2,14 @@
 #include "munit/munit.h"
 #include <stdbool.h>
 
+static bool EXPECT_PRERELEASE_API = true;
+static bool EXPECT_HYPERVISOR_PRESENT = false;
+
 #define CHECK_IF_HYPERVISOR_PRESENT \
-if (!check_if_hypervisor_is_present())\
+if (!is_hyperv_linux_present(!EXPECT_PRERELEASE_API))\
 {\
     return MUNIT_OK;\
 };
-
-static bool EXPECT_PRERELEASE_API = true;
-static bool EXPECT_HYPERVISOR_PRESENT = false;
 
 MunitResult test_is_hyperv_linux_present(void);
 MunitResult test_open_mshv(void);

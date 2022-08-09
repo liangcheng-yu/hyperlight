@@ -1,29 +1,18 @@
-#![deny(missing_docs)]
-#![allow(non_snake_case)]
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(unused_macros)]
-#![allow(unused_imports)]
 use super::context::{Context, ReadResult};
-use super::handle::{handle_free, Handle};
+use super::handle::Handle;
 use super::hdl::Hdl;
-use anyhow::{bail, Error, Result};
+
 use mshv_bindings::{
-    __u32, __u64, hv_message, hv_message_type, hv_register_assoc, hv_register_value, hv_u128,
-    mshv_user_mem_region,
+    hv_message_type, hv_register_assoc, hv_register_value, hv_u128, mshv_user_mem_region,
 };
 use mshv_ioctls::{Mshv, VcpuFd, VmFd};
 use std::os::raw::{c_uint, c_ulonglong};
-use std::{panic::catch_unwind, panic::RefUnwindSafe, slice};
+use std::{panic::catch_unwind, slice};
 
 mod impls {
-    use crate::capi::context::Context;
-    use crate::capi::handle::Handle;
-    use crate::capi::hdl::Hdl;
-    use anyhow::{Error, Result};
+    use anyhow::Result;
     use mshv_bindings::*;
     use mshv_ioctls::{Mshv, VcpuFd, VmFd};
-    use std::{panic::catch_unwind, panic::RefUnwindSafe, ptr, slice};
 
     pub const HV_MAP_GPA_READABLE: u32 = 1;
     pub const HV_MAP_GPA_WRITABLE: u32 = 2;
@@ -32,44 +21,38 @@ mod impls {
     pub fn is_hypervisor_present(require_stable_api: bool) -> Result<bool> {
         let mshv = Mshv::new()?;
         match mshv.check_stable() {
-            Ok(stable) => match stable {
-                true => Ok(true),
-                false => match require_stable_api {
-                    true => Ok(false),
-                    false => Ok(true),
-                },
-            },
-            Err(e) => Err(anyhow::Error::from(e)),
+            Ok(stable) => {
+                if stable {
+                    Ok(true)
+                } else if require_stable_api {
+                    Ok(false)
+                } else {
+                    Ok(true)
+                }
+            }
+            Err(e) => anyhow::bail!(e),
         }
     }
 
     pub fn open_mshv(require_stable_api: bool) -> Result<Mshv> {
         match is_hypervisor_present(require_stable_api) {
-            Ok(true) => match Mshv::new() {
-                Ok(mshv) => Ok(mshv),
-                Err(e) => Err(anyhow::Error::from(e)),
-            },
-            Ok(false) => Err(anyhow::anyhow!(
+            Ok(true) => Mshv::new().map_err(|e| anyhow::anyhow!(e)),
+            Ok(false) => anyhow::bail!(
                 "Hypervisor not present (stable api was {:?})",
                 require_stable_api
-            )),
+            ),
             Err(e) => Err(e),
         }
     }
 
     pub fn create_vm(mshv: &Mshv) -> Result<VmFd> {
         let pr = Default::default();
-        match mshv.create_vm_with_config(&pr) {
-            Ok(vmfd) => Ok(vmfd),
-            Err(e) => Err(anyhow::Error::from(e)),
-        }
+        mshv.create_vm_with_config(&pr)
+            .map_err(|e| anyhow::anyhow!(e))
     }
 
     pub fn create_vcpu(vmfd: &VmFd) -> Result<VcpuFd> {
-        match vmfd.create_vcpu(0) {
-            Ok(vcpuFd) => Ok(vcpuFd),
-            Err(e) => Err(anyhow::Error::from(e)),
-        }
+        vmfd.create_vcpu(0).map_err(|e| anyhow::anyhow!(e))
     }
 
     pub fn map_vm_memory_region(
@@ -87,7 +70,7 @@ mod impls {
 
         match vmfd.map_user_memory(user_memory_region) {
             Ok(_) => Ok(user_memory_region),
-            Err(e) => Err(anyhow::Error::from(e)),
+            Err(e) => anyhow::bail!(e),
         }
     }
 
@@ -95,25 +78,17 @@ mod impls {
         vmfd: &VmFd,
         user_memory_region: &mshv_user_mem_region,
     ) -> Result<()> {
-        match vmfd.unmap_user_memory(*user_memory_region) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(anyhow::Error::from(e)),
-        }
+        vmfd.unmap_user_memory(*user_memory_region)
+            .map_err(|e| anyhow::anyhow!(e))
     }
 
     pub fn set_registers(vcpuFd: &VcpuFd, registers: &[hv_register_assoc]) -> Result<()> {
-        match vcpuFd.set_reg(registers) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(anyhow::Error::from(e)),
-        }
+        vcpuFd.set_reg(registers).map_err(|e| anyhow::anyhow!(e))
     }
 
     pub fn run_vcpu(vcpuFd: &VcpuFd) -> Result<hv_message> {
         let hv_message: hv_message = Default::default();
-        match vcpuFd.run(hv_message) {
-            Ok(result) => Ok(result),
-            Err(e) => Err(anyhow::Error::from(e)),
-        }
+        vcpuFd.run(hv_message).map_err(|e| anyhow::anyhow!(e))
     }
 }
 
@@ -140,10 +115,19 @@ pub const HV_X64_REGISTER_RSP: u32 = 131076;
 /// RCX Register
 pub const HV_X64_REGISTER_RCX: u32 = 131073;
 
-/// Returns a bool indicating if hyperv is present on the machine
-/// Takes an argument to indicate if the hypervisor api must be stable
-/// If the hypervisor api is not stable, the function will return false even if the hypervisor is present
-
+/**
+Returns a bool indicating if hyperv is present on the machine
+Takes an argument to indicate if the hypervisor api must be stable
+If the hypervisor api is not stable, the function will return false even if the hypervisor is present
+*/
+///
+/// # Examples
+///
+/// ```
+/// use hyperlight_host::capi::hyperv_linux::is_hyperv_linux_present;
+///
+/// assert_eq!(is_hyperv_linux_present(require_stable_api), true );
+/// ```
 #[no_mangle]
 pub extern "C" fn is_hyperv_linux_present(require_stable_api: bool) -> bool {
     // At this point we dont have any way to report the error if one occurs.
@@ -163,7 +147,6 @@ pub extern "C" fn is_hyperv_linux_present(require_stable_api: bool) -> bool {
 /// - Created with `context_new`
 /// - Not yet freed with `context_free
 /// - Not modified, except by calling functions in the Hyperlight C API
-
 #[no_mangle]
 pub unsafe extern "C" fn open_mshv(ctx: *mut Context, require_stable_api: bool) -> Handle {
     match impls::open_mshv(require_stable_api) {
@@ -193,7 +176,6 @@ pub unsafe extern "C" fn open_mshv(ctx: *mut Context, require_stable_api: bool) 
 /// - Created with `open_mshv`
 /// - Not yet freed with `handle_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
-
 #[no_mangle]
 pub unsafe extern "C" fn create_vm(ctx: *mut Context, mshv_handle: Handle) -> Handle {
     let mshv = match get_mshv(&mut (*ctx), mshv_handle) {
@@ -229,7 +211,6 @@ pub unsafe extern "C" fn create_vm(ctx: *mut Context, mshv_handle: Handle) -> Ha
 /// - Created with `create_vm`
 /// - Not yet freed with `handle_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
-
 #[no_mangle]
 pub unsafe extern "C" fn create_vcpu(ctx: *mut Context, vmfd_handle: Handle) -> Handle {
     let vmfd = match get_vmfd(&mut (*ctx), vmfd_handle) {
@@ -271,7 +252,6 @@ pub unsafe extern "C" fn create_vcpu(ctx: *mut Context, vmfd_handle: Handle) -> 
 /// 4. The load address of the memory region being mapped (this is the address of the memory in the host process)
 ///
 /// 5. The size of the memory region being mapped (this is the size of the memory allocated at load_address)
-
 #[no_mangle]
 pub unsafe extern "C" fn map_vm_memory_region(
     ctx: *mut Context,
@@ -300,7 +280,8 @@ pub unsafe extern "C" fn map_vm_memory_region(
 ///
 /// # Safety
 ///
-/// If the handle is a Handle to an error then it should be freed by calling `handle_free` .The empty handle does not need to be freed but calling `handle_free` is will not cause an error.
+/// If the retruned handle is a Handle to an error then it should be freed by calling `handle_free` .The empty handle does not need to be freed but calling `handle_free` is will not cause an error.
+/// The `mshv_user_mem_regions_handle` handle passed to this function should be freed after the call using `free_handle`.
 ///
 /// You must call this function with
 ///
@@ -322,7 +303,6 @@ pub unsafe extern "C" fn map_vm_memory_region(
 /// - Not unmapped and freed by calling this function
 /// - Not modified, except by calling functions in the Hyperlight C API
 ///
-
 #[no_mangle]
 pub unsafe extern "C" fn unmap_vm_memory_region(
     ctx: *mut Context,
@@ -347,7 +327,6 @@ pub unsafe extern "C" fn unmap_vm_memory_region(
 }
 
 /// mshv_register represents a register in the VM. It is used to set and get register values in the VM.
-
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct mshv_register {
@@ -362,7 +341,6 @@ pub struct mshv_register {
 }
 
 /// mshv_u128 represents the value of a register.
-
 #[repr(C)]
 #[derive(Default, Copy, Clone)]
 pub struct mshv_u128 {
@@ -398,7 +376,6 @@ pub struct mshv_u128 {
 /// 3. An array of `mshv_register`s
 /// 4. The number of `mshv_register`s in the array
 ///
-
 #[no_mangle]
 pub unsafe extern "C" fn set_registers(
     ctx: *mut Context,
@@ -465,11 +442,11 @@ pub struct mshv_run_message {
 }
 
 /// Unmapped Memory Access
-pub const hv_message_type_HVMSG_UNMAPPED_GPA: hv_message_type = 2147483648;
+pub const HV_MESSAGE_TYPE_HVMSG_UNMAPPED_GPA: hv_message_type = 2147483648;
 /// Port IO (out called in the guest)
-pub const hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT: hv_message_type = 2147549184;
+pub const HV_MESSAGE_TYPE_HVMSG_X64_IO_PORT_INTERCEPT: hv_message_type = 2147549184;
 /// HALT  (hlt called in the guest)
-pub const hv_message_type_HVMSG_X64_HALT: hv_message_type = 2147549191;
+pub const HV_MESSAGE_TYPE_HVMSG_X64_HALT: hv_message_type = 2147549191;
 
 /// Runs a vCPU. Returns an handle to an `mshv_run_message` or a `Handle` to an error
 /// if there was an issue.
@@ -497,7 +474,6 @@ pub const hv_message_type_HVMSG_X64_HALT: hv_message_type = 2147549191;
 /// - Not modified, except by calling functions in the Hyperlight C API
 ///
 ///
-
 #[no_mangle]
 pub unsafe extern "C" fn run_vcpu(ctx: *mut Context, vcpufd_handle: Handle) -> Handle {
     let vcpufd = match get_vcpufd(&mut (*ctx), vcpufd_handle) {
@@ -511,7 +487,7 @@ pub unsafe extern "C" fn run_vcpu(ctx: *mut Context, vcpufd_handle: Handle) -> H
                 message_type: run_result.header.message_type,
                 ..Default::default()
             };
-            if result.message_type == hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT {
+            if result.message_type == HV_MESSAGE_TYPE_HVMSG_X64_IO_PORT_INTERCEPT {
                 let io_message = run_result.to_ioport_info().unwrap();
                 result.port_number = io_message.port_number;
                 result.rax = io_message.rax;
@@ -528,7 +504,7 @@ pub unsafe extern "C" fn run_vcpu(ctx: *mut Context, vcpufd_handle: Handle) -> H
 ///
 /// # Safety
 ///
-/// The returned `mshv_run_message` should be freed by the caller when it is no longer needed.
+/// The returned `mshv_run_message` should be freed by the caller when it is no longer needed along with the handle used to retrieve it (using `free_handle`).
 ///
 /// You must call this function with
 ///
@@ -549,7 +525,6 @@ pub unsafe extern "C" fn run_vcpu(ctx: *mut Context, vcpufd_handle: Handle) -> H
 /// - Not modified, except by calling functions in the Hyperlight C API
 ///
 ///
-
 #[no_mangle]
 pub unsafe extern "C" fn get_run_result_from_handle(
     ctx: *mut Context,
@@ -563,7 +538,6 @@ pub unsafe extern "C" fn get_run_result_from_handle(
     Box::into_raw(Box::new(*result))
 }
 
-// TODO: should these be moved context?
 fn get_mshv(ctx: &mut Context, handle: Handle) -> ReadResult<Mshv> {
     Context::get(handle, &ctx.mshvs, |b| matches!(b, Hdl::Mshv(_)))
 }
@@ -592,10 +566,9 @@ fn get_mshv_run_message(ctx: &mut Context, handle: Handle) -> ReadResult<mshv_ru
 mod tests {
     use super::*;
     use libc::c_void;
-    use mshv_bindings::{hv_message, hv_message_type_HVMSG_X64_HALT, hv_register_name};
+    use mshv_bindings::{hv_message_type_HVMSG_X64_HALT, hv_register_name};
     use once_cell::sync::Lazy;
     use serde::Deserialize;
-    use std::env;
     use std::io::Write;
     static TEST_CONFIG: Lazy<TestConfig> = Lazy::new(|| match envy::from_env::<TestConfig>() {
         Ok(config) => config,
@@ -607,7 +580,7 @@ mod tests {
         () => {{
             if !(*SHOULD_RUN_TEST) {
                 println! {"Not Running Test SHOULD_RUN_TEST is false"}
-                return;
+                return Ok(());
             }
             println! {"Running Test SHOULD_RUN_TEST is true"}
         }};
@@ -656,46 +629,31 @@ mod tests {
     }
 
     #[test]
-    fn test_open_mshv() {
+    fn test_open_mshv() -> anyhow::Result<()> {
         should_run_test!();
-        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api);
-        assert!(mshv.is_ok());
+        impls::open_mshv(TEST_CONFIG.should_have_stable_api).map(|_| ())
     }
 
     #[test]
-    fn test_create_vm() {
+    fn test_create_vm() -> anyhow::Result<()> {
         should_run_test!();
-        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api);
-        assert!(mshv.is_ok());
-        let mshv = mshv.unwrap();
-        let vmfd = impls::create_vm(&mshv);
-        assert!(vmfd.is_ok());
+        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api)?;
+        impls::create_vm(&mshv).map(|_| ())
     }
 
     #[test]
-    fn test_create_vcpu() {
+    fn test_create_vcpu() -> anyhow::Result<()> {
         should_run_test!();
-        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api);
-        assert!(mshv.is_ok());
-        let mshv = mshv.unwrap();
-        let vmfd = impls::create_vm(&mshv);
-        assert!(vmfd.is_ok());
-        let vmfd = vmfd.unwrap();
-        let vcpu = impls::create_vcpu(&vmfd);
-        assert!(vcpu.is_ok());
+        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api)?;
+        let vmfd = impls::create_vm(&mshv)?;
+        impls::create_vcpu(&vmfd).map(|_| ())
     }
 
     #[test]
-    fn test_map_user_memory_region() {
+    fn test_map_user_memory_region() -> anyhow::Result<()> {
         should_run_test!();
-        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api);
-        assert!(mshv.is_ok());
-        let mshv = mshv.unwrap();
-        let vmfd = impls::create_vm(&mshv);
-        assert!(vmfd.is_ok());
-        let vmfd = vmfd.unwrap();
-        let vcpu = impls::create_vcpu(&vmfd);
-        assert!(vcpu.is_ok());
+        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api)?;
+        let vmfd = impls::create_vm(&mshv)?;
         let guest_pfn = 0x1;
         let mem_size = 0x1000;
         let load_addr = unsafe {
@@ -709,26 +667,18 @@ mod tests {
             )
         } as *mut u8;
         let user_memory_region =
-            impls::map_vm_memory_region(&vmfd, guest_pfn, load_addr as u64, mem_size as u64);
-        assert!(user_memory_region.is_ok());
-        let user_memory_region = user_memory_region.unwrap();
-        let result = impls::unmap_vm_memory_region(&vmfd, &user_memory_region);
-        assert!(result.is_ok());
+            impls::map_vm_memory_region(&vmfd, guest_pfn, load_addr as u64, mem_size as u64)?;
+        impls::unmap_vm_memory_region(&vmfd, &user_memory_region)?;
         unsafe { libc::munmap(load_addr as *mut c_void, mem_size) };
+        Ok(())
     }
 
     #[test]
-    fn test_set_registers() {
+    fn test_set_registers() -> anyhow::Result<()> {
         should_run_test!();
-        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api);
-        assert!(mshv.is_ok());
-        let mshv = mshv.unwrap();
-        let vmfd = impls::create_vm(&mshv);
-        assert!(vmfd.is_ok());
-        let vmfd = vmfd.unwrap();
-        let vcpu = impls::create_vcpu(&vmfd);
-        assert!(vcpu.is_ok());
-        let vcpu = vcpu.unwrap();
+        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api)?;
+        let vmfd = impls::create_vm(&mshv)?;
+        let vcpu = impls::create_vcpu(&vmfd)?;
 
         let regs = &[
             hv_register_assoc {
@@ -748,22 +698,15 @@ mod tests {
             },
         ];
 
-        let result = impls::set_registers(&vcpu, regs);
-        assert!(result.is_ok());
+        impls::set_registers(&vcpu, regs).map(|_| ())
     }
 
     #[test]
-    fn test_run_vcpu() {
+    fn test_run_vcpu() -> anyhow::Result<()> {
         should_run_test!();
-        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api);
-        assert!(mshv.is_ok());
-        let mshv = mshv.unwrap();
-        let vmfd = impls::create_vm(&mshv);
-        assert!(vmfd.is_ok());
-        let vmfd = vmfd.unwrap();
-        let vcpu = impls::create_vcpu(&vmfd);
-        assert!(vcpu.is_ok());
-        let vcpu = vcpu.unwrap();
+        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api)?;
+        let vmfd = impls::create_vm(&mshv)?;
+        let vcpu = impls::create_vcpu(&vmfd)?;
         #[rustfmt::skip]
         let code:[u8;12] = [
            0xba, 0xf8, 0x03,  /* mov $0x3f8, %dx */
@@ -788,9 +731,7 @@ mod tests {
             )
         } as *mut u8;
         let user_memory_region =
-            impls::map_vm_memory_region(&vmfd, guest_pfn, load_addr as u64, mem_size as u64);
-        assert!(user_memory_region.is_ok());
-        let user_memory_region = user_memory_region.unwrap();
+            impls::map_vm_memory_region(&vmfd, guest_pfn, load_addr as u64, mem_size as u64)?;
 
         unsafe {
             let mut mslice = ::std::slice::from_raw_parts_mut(
@@ -833,17 +774,14 @@ mod tests {
             },
         ];
 
-        let result = impls::set_registers(&vcpu, regs);
-        assert!(result.is_ok());
+        impls::set_registers(&vcpu, regs).map(|_| ())?;
 
-        let run_result = impls::run_vcpu(&vcpu);
-        assert!(run_result.is_ok());
-        let run_message = run_result.unwrap();
-        let message_type = run_message.header.message_type;
+        let run_result = impls::run_vcpu(&vcpu)?;
+        let message_type = run_result.header.message_type;
 
-        assert_eq!(message_type, hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT);
+        assert_eq!(message_type, HV_MESSAGE_TYPE_HVMSG_X64_IO_PORT_INTERCEPT);
 
-        let io_message = run_message.to_ioport_info().unwrap();
+        let io_message = run_result.to_ioport_info().unwrap();
         assert!(io_message.rax == b'8' as u64);
         assert!(io_message.port_number == 0x3f8);
 
@@ -855,17 +793,13 @@ mod tests {
             ..Default::default()
         }];
 
-        let result = impls::set_registers(&vcpu, regs);
-        assert!(result.is_ok());
+        impls::set_registers(&vcpu, regs).map(|_| ())?;
 
-        let run_result = impls::run_vcpu(&vcpu);
-        assert!(run_result.is_ok());
-        let run_message = run_result.unwrap();
+        let run_result = impls::run_vcpu(&vcpu)?;
+        let message_type = run_result.header.message_type;
 
-        let message_type = run_message.header.message_type;
-
-        let io_message = run_message.to_ioport_info().unwrap();
-        assert_eq!(message_type, hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT);
+        let io_message = run_result.to_ioport_info().unwrap();
+        assert_eq!(message_type, HV_MESSAGE_TYPE_HVMSG_X64_IO_PORT_INTERCEPT);
         assert!(io_message.rax == b'\0' as u64);
         assert!(io_message.port_number == 0x3f8);
 
@@ -877,19 +811,15 @@ mod tests {
             ..Default::default()
         }];
 
-        let result = impls::set_registers(&vcpu, regs);
-        assert!(result.is_ok());
+        impls::set_registers(&vcpu, regs).map(|_| ())?;
 
-        let run_result = impls::run_vcpu(&vcpu);
-        assert!(run_result.is_ok());
-        let run_message = run_result.unwrap();
-
-        let message_type = run_message.header.message_type;
+        let run_result = impls::run_vcpu(&vcpu)?;
+        let message_type = run_result.header.message_type;
 
         assert_eq!(message_type, hv_message_type_HVMSG_X64_HALT);
 
-        let result = impls::unmap_vm_memory_region(&vmfd, &user_memory_region);
-        assert!(result.is_ok());
+        impls::unmap_vm_memory_region(&vmfd, &user_memory_region)?;
         unsafe { libc::munmap(load_addr as *mut c_void, mem_size) };
+        Ok(())
     }
 }

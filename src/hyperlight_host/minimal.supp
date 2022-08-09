@@ -29,6 +29,42 @@
 {
    <insert_a_suppression_name_here>
    Memcheck:Param
+   statx(buf)
+   fun:statx
+   fun:statx
+   fun:*std*sys*unix*try_statx*
+   fun:file_attr 
+   fun:metadata
+   fun:*std*buffer_capacity_required*
+   fun:*read_to_end*
+   fun:*std*read*inner*
+   fun:*std*read*
+   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
+   fun:byte_array_new_from_file
+   fun:test_pe_relocate
+   fun:main
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   statx(file_name)
+   fun:statx
+   fun:statx
+   fun:*unix*fs*try_statx*
+   fun:file_attr
+   fun:metadata
+   fun:*buffer_capacity_required*
+   fun:read_to_end
+   fun:*fs*read*inner*
+   fun:*std*fs*read*
+   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
+   fun:byte_array_new_from_file
+   fun:test_pe_relocate
+   fun:main
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
    ioctl(generic)
    fun:ioctl
    fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*

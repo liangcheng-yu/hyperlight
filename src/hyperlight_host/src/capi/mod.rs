@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+#![allow(non_camel_case_types)]
 ///! C-compatible API functions for top-level `Sandbox` objects.
 pub mod api;
 ///! C-compatible API functions to manipulate guest and host functions.
