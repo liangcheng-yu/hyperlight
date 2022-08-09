@@ -144,12 +144,12 @@ jobs:
       - name: Build
         run: cargo build --verbose
       - name: Upload shared object file
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: libhyperlight_host.so
           path: target/debug/libhyperlight_host.so
       - name: Upload header file
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: hyperlight_host.h
           path: src/hyperlight_host/include/hyperlight_host.h
@@ -161,7 +161,7 @@ jobs:
       - name: Build
         run: cargo build --verbose
       - name: Upload DLL file
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: hyperlight_host.dll
           path: target/debug/hyperlight_host.dll
