@@ -262,7 +262,7 @@ MunitResult test_run_vpcu()
     munit_assert_not_null(run_message);
     handle_free(ctx, result);
 
-    munit_assert_uint32(run_message->message_type, ==, hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT);
+    munit_assert_uint32(run_message->message_type, ==, HV_MESSAGE_TYPE_HVMSG_X64_IO_PORT_INTERCEPT);
     munit_assert_uint64(run_message->rax, ==, (uint64_t)'4');
     munit_assert_uint16(run_message->port_number, ==, 0x3f8);
   
@@ -282,7 +282,7 @@ MunitResult test_run_vpcu()
     munit_assert_not_null(run_message);
     handle_free(ctx, result);
 
-    munit_assert_uint32(run_message->message_type, ==, hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT);
+    munit_assert_uint32(run_message->message_type, ==, HV_MESSAGE_TYPE_HVMSG_X64_IO_PORT_INTERCEPT);
     munit_assert_uint64(run_message->rax, ==, 0);
     munit_assert_uint16(run_message->port_number, ==, 0x3f8);
 
@@ -301,7 +301,7 @@ MunitResult test_run_vpcu()
     munit_assert_not_null(run_message);
     handle_free(ctx, result);
 
-    munit_assert_uint32(run_message->message_type, ==, hv_message_type_HVMSG_X64_HALT);
+    munit_assert_uint32(run_message->message_type, ==, HV_MESSAGE_TYPE_HVMSG_X64_HALT);
 
     free((void*)run_message);
 
