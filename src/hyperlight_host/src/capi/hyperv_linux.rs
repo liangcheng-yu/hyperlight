@@ -115,11 +115,9 @@ pub const HV_X64_REGISTER_RSP: u32 = 131076;
 /// RCX Register
 pub const HV_X64_REGISTER_RCX: u32 = 131073;
 
-/**
-Returns a bool indicating if hyperv is present on the machine
-Takes an argument to indicate if the hypervisor api must be stable
-If the hypervisor api is not stable, the function will return false even if the hypervisor is present
-*/
+/// Returns a bool indicating if hyperv is present on the machine
+/// Takes an argument to indicate if the hypervisor api must be stable
+/// If the hypervisor api is not stable, the function will return false even if the hypervisor is present
 ///
 /// # Examples
 ///
@@ -453,8 +451,8 @@ pub const HV_MESSAGE_TYPE_HVMSG_X64_HALT: hv_message_type = 2147549191;
 ///
 /// # Safety
 ///
-/// If the handle is a Handle to an error then it should be freed by calling `handle_free`. If the handle is a valid handle to an `mshv_run_message` the corresponding `mshv_run_message`
-/// should be retrieved using .
+/// The returned handle is a handle to an `mshv_run_message` the corresponding `mshv_run_message`
+/// should be retrieved using `get_run_result_from_handle` . The handle should be freed by calling `handle_free` once the message has been retrieved.
 ///
 /// You must call this function with
 ///
