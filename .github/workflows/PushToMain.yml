@@ -44,6 +44,14 @@ jobs:
       uses: microsoft/setup-msbuild@v1.1
       with:
         msbuild-architecture: x64
+    - name: Ensure path exists
+      run: mkdir - p target/debug
+      shell: pwsh
+    - name: Download DLL
+      uses: actions/download-artifact@v3
+      with:
+        name: hyperlight_host.dll
+        path: target/debug/hyperlight_host.dll
     - name: Build Solution
       run: msbuild hyperlight.sln /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /p:ContinuousIntegrationBuild=true
       shell: pwsh
