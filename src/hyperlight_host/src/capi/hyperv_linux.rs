@@ -498,7 +498,7 @@ pub unsafe extern "C" fn run_vcpu(ctx: *mut Context, vcpufd_handle: Handle) -> H
     }
 }
 
-/// Gets the `mshv_run_message` associated with the given handle and frees the handle.
+/// Gets the `mshv_run_message` associated with the given handle.
 ///
 /// # Safety
 ///
