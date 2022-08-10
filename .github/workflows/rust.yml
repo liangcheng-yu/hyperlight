@@ -12,12 +12,30 @@ env:
 jobs:
   build:
     strategy:
-      matrix:
-        platform: [ubuntu-20.04, windows-latest]
-    runs-on: ${{ matrix.platform }}
-
+     matrix:
+        build: [ubuntu-20.04, windows-latest, linux-kvm, linux-hyperv]
+        include:
+          - build: ubuntu-20.04
+            os: ubuntu-20.04
+            hypervisor: none
+          - build: windows-latest
+            os: windows-latest
+            hypervisor: none
+          - build: linux-kvm
+            os: [self-hosted, Linux, X64, kvm]
+            hypervisor: kvm
+          - build: linux-hyperv
+            os: [self-hosted, Linux, X64, hyperv]
+            hypervisor: hyperv
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          default: true
+          profile: default
       - uses: Swatinem/rust-cache@v2
       - name: fmt
         run: cargo fmt --all -- --check
@@ -25,6 +43,11 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Build
         run: cargo build --verbose
+      - name: Set up env vars for tests
+        if: ${{ (matrix.hypervisor == 'hyperv') && (runner.os == 'Linux') }}
+        run: |
+          echo "HYPERV_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
+          echo "SHOULD_HAVE_STABLE_API=false" >> $GITHUB_ENV
       - name: Run Rust tests
         run: cargo test --verbose
       - name: Install Just
@@ -49,8 +72,9 @@ jobs:
           echo "testdata:"
           ls testdata
           just run-tests-capi
-      - name: Install Valgrind (Linux only)
-        if: runner.os == 'Linux'
+      # Script to install Valgrind does not work on Mariner , or on the kvm runner valgrind has been installed manually on the runners.
+      - name: Install Valgrind (Linux only - not hyperv)
+        if: ${{ (matrix.hypervisor != 'hyperv') && (matrix.hypervisor != 'kvm') && (runner.os == 'Linux') }}
         run: ./install_valgrind.sh
         working-directory: ./scripts
       - name: Valgrind C tests (Linux only)

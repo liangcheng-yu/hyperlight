@@ -45,7 +45,7 @@ jobs:
       with:
         msbuild-architecture: x64
     - name: Ensure path exists
-      run: mkdir - p target/debug
+      run: mkdir -p target\debug
       shell: pwsh
     - name: Download DLL
       uses: actions/download-artifact@v3

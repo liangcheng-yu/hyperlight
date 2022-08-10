@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+#![allow(non_camel_case_types)]
 ///! C-compatible API functions for top-level `Sandbox` objects.
 pub mod api;
 ///! C-compatible API functions to manipulate guest and host functions.
@@ -24,6 +26,9 @@ pub mod handle;
 ///! Conversion functions between `Handle` and the `Hdl` type, which
 ///! is a more Rust-friendly representation of a `Handle`.
 pub mod hdl;
+#[cfg(target_os = "linux")]
+/// Provides a C API for creating and running guests on HyperV on Linux.
+pub mod hyperv_linux;
 ///! C-compatible API functions to manage `SandboxMemoryConfiguration`
 ///! structures.
 pub mod mem_config;

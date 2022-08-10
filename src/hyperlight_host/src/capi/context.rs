@@ -1,11 +1,18 @@
 use super::handle::{new_key, Handle, Key};
 use super::hdl::Hdl;
+
+#[cfg(target_os = "linux")]
+use crate::capi::hyperv_linux::mshv_run_message;
 use crate::mem::pe::PEInfo;
 use crate::sandbox::Sandbox;
 use crate::{func::args::Val, mem::config::SandboxMemoryConfiguration};
 use crate::{func::def::HostFunc, mem::layout::SandboxMemoryLayout};
 use anyhow::{bail, Error, Result};
 use chashmap::{CHashMap, ReadGuard, WriteGuard};
+#[cfg(target_os = "linux")]
+use mshv_bindings::mshv_user_mem_region;
+#[cfg(target_os = "linux")]
+use mshv_ioctls::{Mshv, VcpuFd, VmFd};
 
 /// Context is a memory storage mechanism for the C API functions
 /// provided by this crate.
@@ -37,6 +44,21 @@ pub struct Context {
     pub mem_configs: CHashMap<Key, SandboxMemoryConfiguration>,
     /// All `SandboxMemoryLayout`s stored in this context
     pub mem_layouts: CHashMap<Key, SandboxMemoryLayout>,
+    /// All `Mshv`s stored in this context
+    #[cfg(target_os = "linux")]
+    pub mshvs: CHashMap<Key, Mshv>,
+    /// All `VmFd`s stored in this context
+    #[cfg(target_os = "linux")]
+    pub vmfds: CHashMap<Key, VmFd>,
+    /// All `VcpuFd`s stored in this context
+    #[cfg(target_os = "linux")]
+    pub vcpufds: CHashMap<Key, VcpuFd>,
+    /// All `mshv_user_mem_region`s stored in this context
+    #[cfg(target_os = "linux")]
+    pub mshv_user_mem_regions: CHashMap<Key, mshv_user_mem_region>,
+    /// All `mshv_run_message`s stored in this context
+    #[cfg(target_os = "linux")]
+    pub mshv_run_messages: CHashMap<Key, mshv_run_message>,
 }
 
 /// A type alias for a `CHashMap` `ReadGuard` type wrapped in a
@@ -135,6 +157,18 @@ impl Context {
                     Hdl::PEInfo(key) => self.pe_infos.remove(&key).is_some(),
                     Hdl::MemConfig(key) => self.mem_configs.remove(&key).is_some(),
                     Hdl::MemLayout(key) => self.mem_layouts.remove(&key).is_some(),
+                    #[cfg(target_os = "linux")]
+                    Hdl::Mshv(key) => self.mshvs.remove(&key).is_some(),
+                    #[cfg(target_os = "linux")]
+                    Hdl::VmFd(key) => self.vmfds.remove(&key).is_some(),
+                    #[cfg(target_os = "linux")]
+                    Hdl::VcpuFd(key) => self.vcpufds.remove(&key).is_some(),
+                    #[cfg(target_os = "linux")]
+                    Hdl::MshvUserMemRegion(key) => {
+                        self.mshv_user_mem_regions.remove(&key).is_some()
+                    }
+                    #[cfg(target_os = "linux")]
+                    Hdl::MshvRunMessage(key) => self.mshv_run_messages.remove(&key).is_some(),
                 }
             }
             Err(_) => false,

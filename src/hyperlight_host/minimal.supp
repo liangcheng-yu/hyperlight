@@ -1,0 +1,100 @@
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   statx(file_name)
+   fun:statx
+   fun:*std*sys*unix*try_statx*
+   fun:*std*buffer_capacity_required*
+   fun:*std*read*inner*
+   fun:*std*read*
+   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
+   fun:byte_array_new_from_file
+   fun:test_pe_relocate
+   fun:main
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   statx(buf)
+   fun:statx
+   fun:*std*sys*unix*try_statx*
+   fun:*std*buffer_capacity_required*
+   fun:*std*read*inner*
+   fun:*std*read*
+   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
+   fun:byte_array_new_from_file
+   fun:test_pe_relocate
+   fun:main
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   statx(buf)
+   fun:statx
+   fun:statx
+   fun:*std*sys*unix*try_statx*
+   fun:file_attr 
+   fun:metadata
+   fun:*std*buffer_capacity_required*
+   fun:*read_to_end*
+   fun:*std*read*inner*
+   fun:*std*read*
+   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
+   fun:byte_array_new_from_file
+   fun:test_pe_relocate
+   fun:main
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   statx(file_name)
+   fun:statx
+   fun:statx
+   fun:*unix*fs*try_statx*
+   fun:file_attr
+   fun:metadata
+   fun:*buffer_capacity_required*
+   fun:read_to_end
+   fun:*fs*read*inner*
+   fun:*std*fs*read*
+   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
+   fun:byte_array_new_from_file
+   fun:test_pe_relocate
+   fun:main
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*VmFd*map_user_memory*
+   fun:*hyperlight_host*capi*hyperv_linux*impls*map_vm_memory_region*
+   fun:map_vm_memory_region
+   fun:test_map_user_memory_region
+   fun:main
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*VmFd*unmap_user_memory*
+   fun:*hyperlight_host*capi*hyperv_linux*impls*unmap_vm_memory_region*
+   fun:unmap_vm_memory_region
+   fun:test_map_user_memory_region
+   fun:main
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
+   fun:*hyperlight_host*capi*hyperv_linux*impls*set_registers*
+   fun:set_registers
+   fun:test_set_registers
+   fun:main
+}
