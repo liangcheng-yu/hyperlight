@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Hyperlight.Core;
 using Hyperlight.Native;
@@ -15,7 +16,6 @@ namespace Hyperlight.Hypervisors
         readonly IntPtr vmfd_handle = IntPtr.Zero;
         readonly IntPtr user_memory_region_handle = IntPtr.Zero;
         readonly List<LinuxHyperV.MSHV_REGISTER> registerList = new();
-        LinuxHyperV.MSHV_USER_MEM_REGION mshvUserMemRegion;
         LinuxHyperV.MSHV_REGISTER[]? registers;
         readonly LinuxHyperV.MSHV_REGISTER[] ripRegister = new LinuxHyperV.MSHV_REGISTER[1] { new() { Name = LinuxHyperV.HV_X64_REGISTER_RIP, Value = new LinuxHyperV.MSHV_U128 { HighPart = 0, LowPart = 0 } } };
 
@@ -48,15 +48,7 @@ namespace Hyperlight.Hypervisors
                 throw new HyperVOnLinuxException("Unable to create HyperV VCPU");
             }
 
-            mshvUserMemRegion = new LinuxHyperV.MSHV_USER_MEM_REGION
-            {
-                Flags = LinuxHyperV.HV_MAP_GPA_READABLE | LinuxHyperV.HV_MAP_GPA_WRITABLE | LinuxHyperV.HV_MAP_GPA_EXECUTABLE,
-                GuestPFN = (ulong)SandboxMemoryLayout.BaseAddress >> 12,
-                Size = size,
-                UserspaceAddr = (ulong)sourceAddress
-            };
-
-            if (LinuxHyperV.handle_is_error(user_memory_region_handle = LinuxHyperV.map_vm_memory_region(context, vcpufd_handle, mshvUserMemRegion)))
+            if (LinuxHyperV.handle_is_error(user_memory_region_handle = LinuxHyperV.map_vm_memory_region(context, vmfd_handle, (ulong)SandboxMemoryLayout.BaseAddress >> 12, (ulong)sourceAddress, size)))
             {
                 throw new HyperVOnLinuxException("Failed to map User Memory Region");
             }
@@ -103,13 +95,15 @@ namespace Hyperlight.Hypervisors
             {
                 do
                 {
+                    if (runResultPtr != IntPtr.Zero)
+                    {
+                        LinuxHyperV.free_run_result(runResultPtr);
+                        runResultPtr = IntPtr.Zero;
+                    }
                     if (runResultHandle != IntPtr.Zero)
                     {
                         LinuxHyperV.handle_free(context, runResultHandle);
-                    }
-                    if (runResultPtr != IntPtr.Zero)
-                    {
-                        OS.Free(runResultPtr, (ulong)Marshal.SizeOf<LinuxHyperV.MSHV_RUN_MESSAGE>());
+                        runResultHandle = IntPtr.Zero;
                     }
                     runResultHandle = LinuxHyperV.run_vcpu(context, vcpufd_handle);
                     if (LinuxHyperV.handle_is_error(runResultHandle))
@@ -147,6 +141,11 @@ namespace Hyperlight.Hypervisors
             }
             finally
             {
+
+                if (runResultPtr != IntPtr.Zero)
+                {
+                    LinuxHyperV.free_run_result(runResultPtr);
+                }
                 if (runResultHandle != IntPtr.Zero)
                 {
                     LinuxHyperV.handle_free(context, runResultHandle);
@@ -179,14 +178,14 @@ namespace Hyperlight.Hypervisors
             {
                 if (disposing)
                 {
-                    // ToDo: dispose managed state (managed objects)
+                    // TODO: dispose managed state (managed objects)
                 }
 
                 if (user_memory_region_handle != IntPtr.Zero)
                 {
-                    if (LinuxHyperV.handle_is_error(LinuxHyperV.unmap_vm_memory_region(context, vcpufd_handle, user_memory_region_handle)))
+                    if (LinuxHyperV.handle_is_error(LinuxHyperV.unmap_vm_memory_region(context, vmfd_handle, user_memory_region_handle)))
                     {
-                        throw new HyperVOnLinuxException("Failed to unmap User Memory Region");
+                        // TODO: log the error
                     }
 
                     LinuxHyperV.handle_free(context, user_memory_region_handle);

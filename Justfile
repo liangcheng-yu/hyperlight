@@ -9,7 +9,7 @@ build: build-dotnet build-rust
     echo "built all .Net and Rust projects"
 
 test-rust:
-    cargo test
+    cargo test -- --nocapture
 
 test-dotnet:
     cd src/tests/Hyperlight.Tests && dotnet test && cd ../../../

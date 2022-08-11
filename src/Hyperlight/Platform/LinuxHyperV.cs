@@ -51,15 +51,6 @@ namespace Hyperlight.Native
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        public struct MSHV_USER_MEM_REGION
-        {
-            public ulong Size;
-            public ulong GuestPFN;
-            public ulong UserspaceAddr;
-            public uint Flags;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
         public struct MSHV_RUN_MESSAGE
         {
             public uint MessageType;
@@ -68,7 +59,7 @@ namespace Hyperlight.Native
             public ushort PortNumber;
             public uint InstructionLength;
         }
-//TODO investigate why we cannot use SafeDirectory here
+        //TODO: investigate why we cannot use SafeDirectory here
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
@@ -109,7 +100,7 @@ namespace Hyperlight.Native
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        public static extern IntPtr map_vm_memory_region(IntPtr context, IntPtr vcpufd_handle, [In] MSHV_USER_MEM_REGION user_memory_region);
+        public static extern IntPtr map_vm_memory_region(IntPtr context, IntPtr vcpufd_handle, ulong guestPfn, ulong hostAddress, ulong size);
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
@@ -122,6 +113,10 @@ namespace Hyperlight.Native
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         public static extern IntPtr get_run_result_from_handle(IntPtr context, IntPtr mshv_run_message_handle);
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        public static extern void free_run_result(IntPtr mshv_run_message);
 
 #pragma warning restore CA5393
 

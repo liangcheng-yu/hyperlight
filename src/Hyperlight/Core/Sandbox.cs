@@ -680,7 +680,7 @@ namespace Hyperlight
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                return LinuxKVM.IsHypervisorPresent();
+                return LinuxHyperV.IsHypervisorPresent() || LinuxKVM.IsHypervisorPresent();
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
