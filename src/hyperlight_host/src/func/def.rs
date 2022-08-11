@@ -5,6 +5,12 @@ use std::rc::Rc;
 use std::string::ToString;
 use std::vec::Vec;
 
+/// A type alias for a `Fn` that takes in a `&Val` and returns
+/// a new `Val` on the heap (i.e. a `Box<Val>`).
+pub type ValFn = dyn Fn(&Val) -> Box<Val>;
+/// A type alias for a `ValFn` on the heap (i.e. inside a `Box`).
+pub type ValFnBox = Box<ValFn>;
+
 /// HostFunc is the definition of a function implemented
 /// by the host but callable by the guest. Internally it
 /// is essentially a function closure, but it has additional
@@ -12,12 +18,12 @@ use std::vec::Vec;
 #[derive(Clone)]
 pub struct HostFunc {
     /// The function to be executed by this host function.
-    pub func: Rc<Box<dyn Fn(&Val) -> Box<Val>>>,
+    pub func: Rc<ValFnBox>,
 }
 
 impl HostFunc {
     /// Create a new `HostFunc` with the given function.
-    pub fn new(func: Box<dyn Fn(&Val) -> Box<Val>>) -> Self {
+    pub fn new(func: ValFnBox) -> Self {
         Self {
             func: Rc::new(func),
         }
