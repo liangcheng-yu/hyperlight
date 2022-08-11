@@ -374,7 +374,19 @@ namespace Hyperlight
 
             if (IsLinux)
             {
-                hyperVisor = new KVM(sandboxMemoryManager.SourceAddress, SandboxMemoryLayout.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, HandleMMIOExit);
+                if (LinuxHyperV.IsHypervisorPresent())
+                {
+                    hyperVisor = new HyperVOnLinux(sandboxMemoryManager.SourceAddress, SandboxMemoryLayout.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, HandleMMIOExit);
+                }
+                else if (LinuxKVM.IsHypervisorPresent())
+                {
+                    hyperVisor = new KVM(sandboxMemoryManager.SourceAddress, SandboxMemoryLayout.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, HandleMMIOExit);
+                }
+                else
+                {
+                    // Should never get here
+                    throw new NotSupportedException();
+                }
             }
             else if (IsWindows)
             {
@@ -668,7 +680,7 @@ namespace Hyperlight
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                return LinuxKVM.IsHypervisorPresent();
+                return LinuxHyperV.IsHypervisorPresent() || LinuxKVM.IsHypervisorPresent();
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {

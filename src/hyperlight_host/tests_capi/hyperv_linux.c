@@ -269,7 +269,7 @@ MunitResult test_run_vpcu()
     mshv_register RIPReg[] = {
         {.name = HV_X64_REGISTER_RIP, .value = {.low_part = run_message->rip + run_message->instruction_length, .high_part = 0}}};
 
-    free((void*)run_message);
+    free_run_result((mshv_run_message *)run_message);
 
     result = set_registers(ctx, vcpu, RIPReg, 1);
     handle_assert_no_error(ctx, result);
@@ -288,7 +288,7 @@ MunitResult test_run_vpcu()
 
     mshv_register rip = {.name = HV_X64_REGISTER_RIP, .value = {.low_part = run_message->rip + run_message->instruction_length, .high_part = 0}};
     RIPReg[0] = rip;
-    free((void*)run_message);
+    free_run_result((mshv_run_message *)run_message);
 
     result = set_registers(ctx, vcpu, RIPReg, 1);
     handle_assert_no_error(ctx, result);
@@ -303,7 +303,7 @@ MunitResult test_run_vpcu()
 
     munit_assert_uint32(run_message->message_type, ==, HV_MESSAGE_TYPE_HVMSG_X64_HALT);
 
-    free((void*)run_message);
+    free_run_result((mshv_run_message *)run_message);
 
     Handle should_be_empty = unmap_vm_memory_region(ctx, vm, mshv_user_memory_region);
     handle_free(ctx, mshv_user_memory_region);

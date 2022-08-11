@@ -498,7 +498,7 @@ pub unsafe extern "C" fn run_vcpu(ctx: *mut Context, vcpufd_handle: Handle) -> H
     }
 }
 
-/// Gets the `mshv_run_message` associated with the given handle and frees the handle.
+/// Gets the `mshv_run_message` associated with the given handle.
 ///
 /// # Safety
 ///
@@ -532,9 +532,25 @@ pub unsafe extern "C" fn get_run_result_from_handle(
         Ok(result) => result,
         Err(_) => return std::ptr::null(),
     };
-
+    // TODO: Investigate why calling (*ctx).remove(hdl, |_| true) hangs here.
     Box::into_raw(Box::new(*result))
 }
+
+// see https://doc.rust-lang.org/std/boxed/index.html#memory-layout
+/// Frees a `mshv_run_message` previously returned by `get_run_result_from_handle`.
+///
+/// # Safety
+///
+/// You must call this function with
+///
+///
+/// 1. A Pointer to a previously returned  `mshv_run_message` from `get_run_result_from_handle`.
+/// - Created with `get_run_result_from_handle`
+/// - Not yet used to call this function
+/// - Not modified, except by calling functions in the Hyperlight C API
+///
+#[no_mangle]
+pub extern "C" fn free_run_result(_: Option<Box<mshv_run_message>>) {}
 
 fn get_mshv(ctx: &mut Context, handle: Handle) -> ReadResult<Mshv> {
     Context::get(handle, &ctx.mshvs, |b| matches!(b, Hdl::Mshv(_)))
