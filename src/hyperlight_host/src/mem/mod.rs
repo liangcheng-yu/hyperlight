@@ -13,29 +13,12 @@ pub mod pe;
 
 use anyhow::Result;
 use byteorder::{LittleEndian, WriteBytesExt};
-
-/// Write `val` to `slc` as little-endian at `offset`.
-///
-/// If `Ok` is returned, `slc` will have been modified
-/// in-place. Otherwise, no modifications will have been
-/// made.
-fn write_usize(slc: &mut [u8], offset: usize, val: usize) -> Result<()> {
-    let mut target: Vec<u8> = Vec::new();
-    // PE files are always little-endian
-    // https://reverseengineering.stackexchange.com/questions/17922/determining-endianness-of-pe-files-windows-on-arm
-    target.write_u64::<LittleEndian>(val as u64)?;
-    for (idx, elt) in target.iter().enumerate() {
-        slc[offset + idx] = *elt;
-    }
-    Ok(())
-}
-
 /// Write `val` to `slc` as little-endian at `offset.
 ///
 /// If `Ok` is returned, `slc` will have been modified
 /// in-place. Otherwise, no modifications will have been
 /// made.
-fn write_u32(slc: &mut [u8], offset: usize, val: u32) -> Result<()> {
+pub fn write_u32(slc: &mut [u8], offset: usize, val: u32) -> Result<()> {
     let mut target: Vec<u8> = Vec::new();
     // PE files are always little-endian
     // https://reverseengineering.stackexchange.com/questions/17922/determining-endianness-of-pe-files-windows-on-arm

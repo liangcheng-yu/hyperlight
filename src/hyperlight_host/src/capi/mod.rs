@@ -1,5 +1,8 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
+
+use anyhow::{bail, Result};
+
 ///! C-compatible API functions for top-level `Sandbox` objects.
 pub mod api;
 ///! C-compatible API functions to manipulate guest and host functions.
@@ -19,6 +22,8 @@ pub mod context;
 pub mod err;
 ///! C-compatible APIs to manipulate paths to files.
 pub mod filepath;
+///! C-compatible API functions to manage guest / shared memory.
+pub mod guest_mem;
 ///! C-compatible API functions to manage `Handle` structures,
 ///! which are specialized pointers purpose-built for the Hyperlight
 ///! C API.
@@ -29,6 +34,9 @@ pub mod hdl;
 #[cfg(target_os = "linux")]
 ///! Provides a C API for creating and running guests on HyperV on Linux.
 pub mod hyperv_linux;
+///! C-compatible API functions for converting `Handle`s to various
+/// integer types.
+pub mod int;
 ///! C-compatible API functions to manage `SandboxMemoryConfiguration`
 ///! structures.
 pub mod mem_config;
@@ -62,4 +70,84 @@ unsafe fn fill_vec<T>(arr_ptr: *const T, arr_len: usize) -> Vec<T> {
     std::ptr::copy(arr_ptr, vec.as_mut_ptr(), arr_len);
     vec.set_len(arr_len);
     vec
+}
+
+/// A safe wrapper around an address in memory.
+pub struct Addr {
+    base: u64,
+}
+
+impl From<u64> for Addr {
+    fn from(base: u64) -> Self {
+        Addr { base }
+    }
+}
+
+impl From<usize> for Addr {
+    fn from(base: usize) -> Self {
+        Self { base: base as u64 }
+    }
+}
+
+impl Addr {
+    /// Try to convert an `i64` to an instance of `Self`, or
+    /// return `Err` if the conversion would be impossible.
+    ///
+    /// TODO: implement `TryFrom` for `i64` and use that instead of this
+    pub fn from_i64(i: i64) -> Result<Self> {
+        if i < 0 {
+            bail!("i64 address is negative and can't be converted to an Addr");
+        } else {
+            Ok(Self { base: i as u64 })
+        }
+    }
+    /// Convert `u` to an instance of `Self`.
+    ///
+    /// TODO: implement `TryFrom` for `usize` and use that
+    /// instead of this.
+    pub fn from_usize(u: usize) -> Self {
+        Self { base: u as u64 }
+    }
+
+    /// Add a `usize` to `self` and return a new `Addr`
+    /// instance representing the resulting addition.
+    pub fn add_usize(&self, offset: usize) -> Addr {
+        let new_u64 = self.base + offset as u64;
+        Addr::from(new_u64)
+    }
+
+    /// Add `offset` to `self` and return a new `Addr` representing
+    /// the new address after the addition.
+    pub fn add_u64(&self, offset: u64) -> Addr {
+        Addr::from(self.base + offset)
+    }
+
+    /// Convert `self` into a `u64`
+    pub fn as_u64(&self) -> u64 {
+        self.base
+    }
+
+    /// Convert `self` into an `i64`, or return `Err` if the
+    /// conversion would overflow.
+    ///
+    /// TODO: figure out how to do this with a `TryFrom`.
+    pub fn as_i64(&self) -> anyhow::Result<i64> {
+        if self.base > (i64::MAX as u64) {
+            bail!("Address is too large to convert to i64")
+        } else {
+            Ok(self.base as i64)
+        }
+    }
+
+    /// Convert `self` into a `usize`, or return `Err` if the
+    /// conversion would overflow.
+    ///
+    /// TODO: figure out how to do this with a `TryFrom`
+    pub fn as_usize(&self) -> anyhow::Result<usize> {
+        if self.base > usize::MAX as u64 {
+            bail!("Address is too large to convert to usize")
+        } else {
+            Ok(self.base as usize)
+        }
+    }
 }

@@ -1,5 +1,4 @@
-use super::config::SandboxMemoryConfiguration;
-use super::write_usize;
+use super::{config::SandboxMemoryConfiguration, guest_mem::GuestMemory};
 use anyhow::{anyhow, Result};
 use std::mem::size_of;
 
@@ -131,6 +130,8 @@ pub struct SandboxMemoryLayout {
     pub guest_stack_buffer_offset: usize,
     /// The peb address inside this sandbox.
     pub peb_address: usize,
+    /// The offset to the guest security cookie
+    pub guest_security_cookie_seed_offset: usize,
 }
 
 impl SandboxMemoryLayout {
@@ -143,14 +144,14 @@ impl SandboxMemoryLayout {
 
     /// The offset into the sandbox's memory where the Page Directory starts.
     /// See https://www.pagetable.com/?p=14 for more information.
-    const PD_OFFSET: usize = 0x2000;
+    pub const PD_OFFSET: usize = 0x2000;
 
     /// The offset into the sandbox's memory where the Page Directory Pointer
     /// Table is located.
-    const PDPT_OFFSET: usize = 0x1000;
+    pub const PDPT_OFFSET: usize = 0x1000;
 
     /// The offset into the sandbox's memory where code starts.
-    const CODE_OFFSET: usize = Self::PAGE_TABLE_SIZE;
+    pub const CODE_OFFSET: usize = Self::PAGE_TABLE_SIZE;
 
     /// The maximum amount of memory a single sandbox will be allowed.
     const MAX_MEMORY_SIZE: usize = 0x3FEF0000;
@@ -207,6 +208,7 @@ impl SandboxMemoryLayout {
         let output_data_buffer_offset = input_data_buffer_offset + cfg.input_data_size;
         let guest_heap_buffer_offset = output_data_buffer_offset + cfg.output_data_size;
         let guest_stack_buffer_offset = guest_heap_buffer_offset + heap_size;
+        let guest_security_cookie_seed_offset = Self::PAGE_TABLE_SIZE + code_size;
         Self {
             peb_offset,
             stack_size,
@@ -229,149 +231,167 @@ impl SandboxMemoryLayout {
             guest_heap_buffer_offset,
             guest_stack_buffer_offset,
             peb_address,
+            guest_security_cookie_seed_offset,
         }
     }
-    fn get_guest_error_message_address(&self, addr: usize) -> usize {
-        addr + self.guest_error_message_buffer_offset
+    fn get_guest_error_message_offset(&self) -> usize {
+        self.guest_error_message_buffer_offset
     }
 
-    /// Get the memory address for the start of guest errors, given
-    /// `addr` as the base address.
-    pub fn get_guest_error_address(&self, addr: usize) -> usize {
-        addr + self.guest_error_message_offset
+    /// Get the offset in guest memory to the start of guest errors.
+    pub fn get_guest_error_offset(&self) -> usize {
+        self.guest_error_message_offset
     }
 
-    /// get the address of the size field in the guest error message buffer.
-    /// this is the field after the `GuestErrorMessage` field, which is a `usize`
-    fn get_guest_error_message_size_address(&self, addr: usize) -> usize {
-        self.get_guest_error_address(addr) + size_of::<usize>()
+    /// Get the offset in guest memory to the size field in the
+    /// guest error message buffer.
+    ///
+    /// This is the field after the `GuestErrorMessage` field,
+    /// which is a `usize`
+    pub fn get_guest_error_message_size_offset(&self) -> usize {
+        self.get_guest_error_offset() + size_of::<u64>()
     }
 
-    /// pointer to the error message is after the Size field which is a ulong.
-    pub fn get_guest_error_message_pointer_address(&self, addr: usize) -> usize {
-        self.get_guest_error_message_size_address(addr) + size_of::<usize>()
+    /// Get the offset in guest memory to the error message pointer.
+    ///
+    /// This offset is after the message size, which is a `usize`.
+    pub fn get_guest_error_message_pointer_offset(&self) -> usize {
+        self.get_guest_error_message_size_offset() + size_of::<u64>()
     }
 
-    /// Get the memory address for the start of host function
-    /// definitions, given `addr` as the base address.
-    pub fn get_function_definition_address(&self, addr: usize) -> usize {
-        addr + self.host_functions_buffer_offset
+    /// Get the offset in guest memory to the start of function
+    /// definitions.
+    pub fn get_function_definition_offset(&self) -> usize {
+        self.host_functions_buffer_offset
     }
 
-    fn get_function_definition_size_address(&self, addr: usize) -> usize {
-        addr + self.host_functions_offset
+    /// Get the offset in guest memory to the output data size
+    pub fn get_output_data_size_offset(&self) -> usize {
+        self.output_data_offset
     }
 
-    /// Pointer to functions data is after the size field which is a ulong.
-    fn get_function_definition_pointer_address(&self, addr: usize) -> usize {
-        self.get_function_definition_size_address(addr) + size_of::<usize>()
+    /// Get the offset in guest memory to the function definition
+    /// size
+    fn get_function_definition_size_offset(&self) -> usize {
+        self.host_functions_offset
     }
 
-    fn get_host_exception_size_address(&self, addr: usize) -> usize {
-        addr + self.host_exception_offset
+    /// Get the offset in guest memory to the function definition
+    /// pointer.
+    pub fn get_function_definition_pointer_offset(&self) -> usize {
+        self.get_function_definition_size_offset() + size_of::<u64>()
     }
 
-    /// Get the memory address for the start of host exceptions, given
-    /// `addr` as the base address.
-    pub fn get_host_exception_address(&self, addr: usize) -> usize {
-        addr + self.host_exception_buffer_offset
+    /// Get the offset in guest memory to the minimum guest stack
+    /// address pointer.
+    pub fn get_min_guest_stack_address_offset(&self) -> usize {
+        self.stack_data_offset
     }
 
-    /// OutB pointer is after the Code Pointer field which is a ulong..
-    pub fn get_out_b_pointer_address(&self, addr: usize) -> usize {
-        addr + size_of::<usize>()
+    fn get_host_exception_size_offset(&self) -> usize {
+        self.host_exception_offset
     }
 
-    fn get_output_data_size_address(&self, addr: usize) -> usize {
-        addr + self.output_data_offset
+    /// Get the offset in guest memory to the start of host exceptions
+    pub fn get_host_exception_offset(&self) -> usize {
+        self.host_exception_buffer_offset
     }
 
-    /// Pointer to input data is after the size field which is a ulong.
-    fn get_output_data_pointer_address(&self, addr: usize) -> usize {
-        self.get_output_data_size_address(addr) + size_of::<usize>()
+    /// Get the offset in guest memory to the OutB pointer.
+    ///
+    /// The outb pointer is immediately after the code pointer,
+    /// which is a u64
+    pub fn get_out_b_pointer_offset(&self) -> usize {
+        self.code_and_outb_pointer_offset + size_of::<u64>()
     }
 
-    /// Get the memory address for the start of output data, given
-    /// `addr` as the base address.
-    pub fn get_output_data_address(&self, addr: usize) -> usize {
-        addr + self.output_data_buffer_offset
+    /// Get the offset in guest memory to the output data pointer.
+    ///
+    /// This field is immedaitely after the output data size field,
+    /// which is a `u64`.
+    pub fn get_output_data_pointer_offset(&self) -> usize {
+        self.get_output_data_size_offset() + size_of::<u64>()
     }
 
-    fn get_input_data_size_address(&self, addr: usize) -> usize {
-        addr + self.input_data_offset
+    /// Get the offset in guest memory to the start of output data.
+    pub fn get_output_data_offset(&self) -> usize {
+        self.output_data_buffer_offset
     }
 
-    /// Pointer to input data is after the size field which is a ulong.
-    fn get_input_data_pointer_address(&self, addr: usize) -> usize {
-        self.get_input_data_size_address(addr) + size_of::<usize>()
+    /// Get the offset in guest memory to the input data size.
+    pub fn get_input_data_size_offset(&self) -> usize {
+        self.input_data_offset
     }
 
-    /// Get the memory address of the start of the input data buffer
-    /// in guest memory, given `addr` as the base address.
-    pub fn get_input_data_address(&self, addr: usize) -> usize {
-        addr + self.input_data_buffer_offset
+    /// Get the offset in guest memory to the input data pointer.
+    ///
+    /// This input data pointer is immediately after the input
+    /// data size field, which is a `u64`.
+    pub fn get_input_data_pointer_offset(&self) -> usize {
+        self.get_input_data_size_offset() + size_of::<u64>()
     }
 
-    /// Get the memory address to the start of the code and outb
-    /// pointer in guest memory, given `addr` as the base address.
-    pub fn get_code_pointer_address(self, addr: usize) -> usize {
-        addr + self.code_and_outb_pointer_offset
+    /// Get the offset in guest memory to the start of the input data
+    /// buffer.
+    pub fn get_input_data_offset(&self) -> usize {
+        self.input_data_offset
     }
 
-    /// Pointer to Dispatch Function is offset eight bytes into the FunctionDefinition.
-    pub fn get_dispatch_function_pointer_address(&self, addr: usize) -> usize {
-        self.get_function_definition_address(addr) + size_of::<usize>()
+    /// Get the offset in guest memory to the code pointer
+    pub fn get_code_pointer_offset(&self) -> usize {
+        self.code_and_outb_pointer_offset
     }
 
-    /// Get the address to the peb address in guest memory, given
-    /// `addr` as the base address.
-    pub fn get_in_process_peb_address(&self, addr: usize) -> usize {
-        addr + self.peb_offset
+    /// Get the offset in guest memory to the dispatch function
+    /// pointer.
+    pub fn get_dispatch_function_pointer_offset(&self) -> usize {
+        self.get_function_definition_offset() + size_of::<u64>()
     }
 
-    fn get_heap_size_address(&self, addr: usize) -> usize {
-        addr + self.heap_data_offset
+    /// Get the offset in guest memory to the PEB address
+    pub fn get_in_process_peb_offset(&self) -> usize {
+        self.peb_offset
     }
 
-    fn get_heap_pointer_address(&self, addr: usize) -> usize {
-        self.get_heap_size_address(addr) + size_of::<usize>()
+    /// Get the offset in guest memory to the heap size
+    pub fn get_heap_size_offset(&self) -> usize {
+        self.heap_data_offset
     }
 
-    fn get_heap_address(&self, addr: usize) -> usize {
-        addr + self.guest_heap_buffer_offset
-    }
-
-    fn get_min_guest_stack_address_pointer(&self, addr: usize) -> usize {
-        addr + self.stack_data_offset
-    }
-
-    /// Get the address to the top of the stack within sandbox memory,
+    /// Get the offset in  of the heap pointer in guest memory,
     /// given `addr` as the base address.
-    pub fn get_top_of_stack_address(&self, addr: usize) -> usize {
-        addr + self.guest_stack_buffer_offset
+    pub fn get_heap_pointer_offset(&self) -> usize {
+        self.get_heap_size_offset() + size_of::<u64>()
     }
 
-    /// Get the address to the pml4 table in guest memory, given
-    /// `addr` as the base address.
-    pub fn get_host_pml4_address(addr: usize) -> usize {
-        addr
+    /// Get the offset to the heap in guest memory
+    pub fn get_heap_offset(&self) -> usize {
+        self.guest_heap_buffer_offset
     }
 
-    /// Get the address to the pdpt given `addr` as the base address.
-    pub fn get_host_pdpt_address(addr: usize) -> usize {
-        addr + Self::PDPT_OFFSET
+    /// Get the offset to the top of the stack in guest memory
+    pub fn get_top_of_stack_offset(&self) -> usize {
+        self.guest_stack_buffer_offset
     }
 
-    /// Get the address of the page descriptor in guest memory, given
-    /// `addr` as the base address.
-    pub fn get_host_pd_address(addr: usize) -> usize {
-        addr + Self::PD_OFFSET
+    /// Get the offset in guest memory to the pml4 table.
+    pub fn get_host_pml4_offset() -> usize {
+        0
     }
 
-    /// Get the address to code in guest memory, given `addr` as the
-    /// base address.
-    pub fn get_host_code_address(addr: usize) -> usize {
-        addr + Self::CODE_OFFSET
+    /// Get the offset in guest memory to the PDPT address
+    pub fn get_host_pdpt_offset() -> usize {
+        Self::PDPT_OFFSET
+    }
+
+    /// Get the offset to the page descriptor in guest memory
+    pub fn get_host_pd_offset() -> usize {
+        Self::PD_OFFSET
+    }
+
+    /// Get the offset to code in guest memory
+    pub fn get_host_code_offset() -> usize {
+        Self::CODE_OFFSET
     }
 
     /// Get the total size of guest memory in `self`'s memory
@@ -418,92 +438,76 @@ impl SandboxMemoryLayout {
         }
     }
 
-    /// Write the finished memory layout in `self` to `guest_mem` and
-    /// return `Ok` if successful.
+    /// Write the finished memory layout to `guest_mem` and return
+    /// `Ok` if successful.
     ///
     /// Note: `guest_mem` may have been modified, even if `Err` was returned
     /// from this function.
-    pub fn write_memory_layout(
+    pub fn write(
         &self,
-        guest_mem: &mut [u8],
-        source_address: usize,
+        mut guest_mem: GuestMemory,
         guest_address: usize,
         size: usize,
     ) -> Result<()> {
         // Set up Guest Error Header
-        write_usize(
-            guest_mem,
-            self.get_guest_error_address(source_address),
-            self.guest_error_message_offset,
+        guest_mem.write_usize(
+            self.get_guest_error_offset(),
+            self.guest_error_message_offset as u64,
         )?;
 
-        write_usize(
-            guest_mem,
-            self.get_guest_error_message_pointer_address(source_address),
-            self.get_guest_error_message_address(guest_address),
+        guest_mem.write_usize(
+            self.get_guest_error_message_pointer_offset(),
+            self.get_guest_error_message_offset() as u64,
         )?;
 
         // Set up Host Exception Header
-        write_usize(
-            guest_mem,
-            self.get_host_exception_size_address(source_address),
-            self.sandbox_memory_config.host_exception_size,
+        guest_mem.write_usize(
+            self.get_host_exception_size_offset(),
+            self.sandbox_memory_config.host_exception_size as u64,
         )?;
 
         // Set up input buffer pointer
-        write_usize(
-            guest_mem,
-            self.get_input_data_size_address(source_address),
-            self.sandbox_memory_config.input_data_size,
+        guest_mem.write_usize(
+            self.get_input_data_size_offset(),
+            self.sandbox_memory_config.input_data_size as u64,
         )?;
 
-        write_usize(
-            guest_mem,
-            self.get_input_data_pointer_address(source_address),
-            self.get_input_data_address(guest_address),
+        guest_mem.write_usize(
+            self.get_input_data_pointer_offset(),
+            self.get_input_data_offset() as u64,
         )?;
 
         // Set up output buffer pointer
-        write_usize(
-            guest_mem,
-            self.get_output_data_size_address(source_address),
-            self.sandbox_memory_config.output_data_size,
+        guest_mem.write_usize(
+            self.get_output_data_size_offset(),
+            self.sandbox_memory_config.output_data_size as u64,
         )?;
-        write_usize(
-            guest_mem,
-            self.get_output_data_pointer_address(source_address),
-            self.get_output_data_address(guest_address),
+        guest_mem.write_usize(
+            self.get_output_data_pointer_offset(),
+            self.get_output_data_offset() as u64,
         )?;
 
         // Set up heap buffer pointer
-        write_usize(
-            guest_mem,
-            self.get_heap_size_address(source_address),
-            self.heap_size,
-        )?;
-        write_usize(
-            guest_mem,
-            self.get_heap_pointer_address(source_address),
-            self.get_heap_address(guest_address),
+        guest_mem.write_usize(self.get_heap_size_offset(), self.heap_size as u64)?;
+        guest_mem.write_usize(
+            self.get_heap_pointer_offset(),
+            self.get_heap_offset() as u64,
         )?;
 
         // Set up Function Definition Header
-        write_usize(
-            guest_mem,
-            self.get_function_definition_size_address(source_address),
-            self.sandbox_memory_config.host_function_definition_size,
+        guest_mem.write_usize(
+            self.get_function_definition_size_offset(),
+            self.sandbox_memory_config.host_function_definition_size as u64,
         )?;
-        write_usize(
-            guest_mem,
-            self.get_function_definition_pointer_address(source_address),
-            self.get_function_definition_address(guest_address),
+        guest_mem.write_usize(
+            self.get_function_definition_pointer_offset(),
+            self.get_function_definition_offset() as u64,
         )?;
 
         // Set up Max Guest Stack Address
-        write_usize(
-            guest_mem,
-            self.get_min_guest_stack_address_pointer(source_address),
-            guest_address - (size - self.stack_size),
+        guest_mem.write_usize(
+            self.get_min_guest_stack_address_offset(),
+            (guest_address - (size - self.stack_size)) as u64,
         )?;
         Ok(())
     }

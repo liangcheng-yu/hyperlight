@@ -3,7 +3,7 @@ use super::hdl::Hdl;
 
 #[cfg(target_os = "linux")]
 use crate::capi::hyperv_linux::mshv_run_message;
-use crate::mem::pe::PEInfo;
+use crate::mem::{guest_mem::GuestMemory, pe::PEInfo};
 use crate::sandbox::Sandbox;
 use crate::{func::args::Val, mem::config::SandboxMemoryConfiguration};
 use crate::{func::def::HostFunc, mem::layout::SandboxMemoryLayout};
@@ -59,6 +59,12 @@ pub struct Context {
     /// All `mshv_run_message`s stored in this context
     #[cfg(target_os = "linux")]
     pub mshv_run_messages: CHashMap<Key, mshv_run_message>,
+    /// All the `GuestMemory`s stored in this context
+    pub guest_mems: CHashMap<Key, GuestMemory>,
+    /// All the `i64`s stored in this context
+    pub int64s: CHashMap<Key, i64>,
+    /// All the `i32`s stored in this context
+    pub int32s: CHashMap<Key, i32>,
 }
 
 /// A type alias for a `CHashMap` `ReadGuard` type wrapped in a
@@ -169,6 +175,9 @@ impl Context {
                     }
                     #[cfg(target_os = "linux")]
                     Hdl::MshvRunMessage(key) => self.mshv_run_messages.remove(&key).is_some(),
+                    Hdl::GuestMemory(key) => self.guest_mems.remove(&key).is_some(),
+                    Hdl::Int64(key) => self.int64s.remove(&key).is_some(),
+                    Hdl::Int32(key) => self.int32s.remove(&key).is_some(),
                 }
             }
             Err(_) => false,

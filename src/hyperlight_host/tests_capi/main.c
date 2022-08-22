@@ -10,6 +10,8 @@
 #if defined(__linux__)
 #include "hyperv_linux.h"
 #endif
+#include "int.h"
+#include "guest_mem.h"
 
 int main()
 {
@@ -52,19 +54,30 @@ int main()
     }
     {
         // mem layout tests
-        munit_assert_int(MUNIT_OK, ==, test_mem_layout_get());
+        munit_assert_int(MUNIT_OK, ==, test_mem_layout_getters());
     }
 #if defined(__linux__)
     {
         // hyperv on linux tests
         set_flags();
-        munit_assert_int(MUNIT_OK, ==,  test_is_hyperv_linux_present());
-        munit_assert_int(MUNIT_OK, ==,  test_open_mshv());
-        munit_assert_int(MUNIT_OK, ==,  test_create_vm());
-        munit_assert_int(MUNIT_OK, ==,  test_create_vcpu());
-        munit_assert_int(MUNIT_OK, ==,  test_map_user_memory_region());
-        munit_assert_int(MUNIT_OK, ==,  test_set_registers());
-        munit_assert_int(MUNIT_OK, ==,  test_run_vpcu());
+        munit_assert_int(MUNIT_OK, ==, test_is_hyperv_linux_present());
+        munit_assert_int(MUNIT_OK, ==, test_open_mshv());
+        munit_assert_int(MUNIT_OK, ==, test_create_vm());
+        munit_assert_int(MUNIT_OK, ==, test_create_vcpu());
+        munit_assert_int(MUNIT_OK, ==, test_map_user_memory_region());
+        munit_assert_int(MUNIT_OK, ==, test_set_registers());
+        munit_assert_int(MUNIT_OK, ==, test_run_vpcu());
     }
 #endif
+    {
+        // int handle tests
+        munit_assert_int(MUNIT_OK, ==, test_int_64());
+        munit_assert_int(MUNIT_OK, ==, test_int_32());
+    }
+    {
+        // guest memory tests
+        munit_assert_int(MUNIT_OK, ==, test_guest_mem_create_delete());
+        munit_assert_int(MUNIT_OK, ==, test_guest_mem_read_write());
+        munit_assert_int(MUNIT_OK, ==, test_guest_mem_copy_byte_array());
+    }
 }

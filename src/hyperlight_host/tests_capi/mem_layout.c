@@ -2,7 +2,10 @@
 #include "hyperlight_host.h"
 #include "munit/munit.h"
 
-MunitResult test_mem_layout_get(void)
+#define RUN_TEST_USIZE(actual, expected) \
+    munit_assert_int(actual, ==, expected);
+
+MunitResult test_mem_layout_getters(void)
 {
     static const size_t code_size = 0x100;
     static const size_t stack_size = 0x1000;
@@ -12,12 +15,10 @@ MunitResult test_mem_layout_get(void)
     struct Handle mem_cfg_ref = mem_config_new(ctx, 1, 2, 3, 4, 5);
     struct Handle mem_layout_ref = mem_layout_new(ctx, mem_cfg_ref, code_size, stack_size, heap_size);
 
-    const struct SandboxMemoryLayoutView *view = mem_layout_get(ctx, mem_layout_ref);
-    munit_assert_int(view->code_size, ==, code_size);
-    munit_assert_int(view->stack_size, ==, stack_size);
-    munit_assert_int(view->heap_size, ==, heap_size);
+    RUN_TEST_USIZE(mem_layout_get_stack_size(ctx, mem_layout_ref), stack_size);
+    RUN_TEST_USIZE(mem_layout_get_heap_size(ctx, mem_layout_ref), heap_size);
+    RUN_TEST_USIZE(mem_layout_get_code_size(ctx, mem_layout_ref), code_size);
 
-    free((struct SandboxMemoryLayoutView *)view);
     handle_free(ctx, mem_layout_ref);
     handle_free(ctx, mem_cfg_ref);
     context_free(ctx);

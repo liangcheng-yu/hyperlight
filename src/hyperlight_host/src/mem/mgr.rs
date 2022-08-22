@@ -9,7 +9,6 @@ use goblin::pe::PE;
 /// for a given `Sandbox`.
 pub struct SandboxMemoryManager {
     // entry_point: usize,
-    source_address: usize,
 
     // disposed_value: bool,
     // load_address: usize,
@@ -31,8 +30,6 @@ impl SandboxMemoryManager {
     }
 
     /// Create a new `SandboxMemoryManager` for the given guest binary.
-    ///
-    /// Note: not yet implemented.
     pub fn load_guest_binary_into_memory(
         pe_payload: &mut [u8],
         pe_info: &PEInfo,
@@ -48,32 +45,29 @@ impl SandboxMemoryManager {
             pe_info.heap_reserve()? as usize,
         ));
         let mut guest_mem = GuestMemory::new(layout.get_memory_size()?)?;
-        let source_address = guest_mem.source_address();
+        let base_address = guest_mem.base_addr();
 
-        let host_code_address = SandboxMemoryLayout::get_host_code_address(source_address);
+        let host_code_offset = SandboxMemoryLayout::get_host_code_offset();
+        let host_code_address = base_address + host_code_offset;
         pe_info.relocate_payload(pe_payload, host_code_address)?;
 
         // If we are running in memory the entry point will
-        // be relative to the source_address.
+        // be relative to the base_address.
         // If we are running in a Hypervisor it will be
         // relative to 0x230000, which is where the code is
         // loaded in the GPA space.
         if run_from_process_memory {
             let _entry_point = host_code_address + entry_point_offset;
-            guest_mem.copy_into(pe_payload)?;
-            guest_mem.write_u64(
-                layout.get_code_pointer_address(source_address),
-                host_code_address as u64,
-            )?;
+            guest_mem.copy_into(pe_payload, 0)?;
+            guest_mem.write_u64(layout.get_code_pointer_offset(), host_code_address as u64)?;
             Ok(Self {
                 // entry_point,
-                source_address,
                 layout,
                 run_from_process_memory,
             })
         } else {
             let _entry_point = SandboxMemoryLayout::GUEST_CODE_ADDRESS + entry_point_offset;
-            guest_mem.copy_into(pe_payload)?;
+            guest_mem.copy_into(pe_payload, 0)?;
             // TODO:
             // Marshal.Copy(peInfo.HyperVisorPayload, 0, (IntPtr)hostCodeAddress, peInfo.Payload.Length);
             // there is a difference in the C# implementation between
@@ -82,12 +76,11 @@ impl SandboxMemoryManager {
             // need to replicate that here.
 
             guest_mem.write_u64(
-                layout.get_code_pointer_address(source_address),
+                layout.get_code_pointer_offset(),
                 SandboxMemoryLayout::GUEST_CODE_ADDRESS as u64,
             )?;
             Ok(Self {
                 // entry_point,
-                source_address,
                 layout,
                 run_from_process_memory,
             })
@@ -103,7 +96,7 @@ impl SandboxMemoryManager {
     /// by `self`.
     pub fn get_peb_address(&self) -> usize {
         match self.run_from_process_memory {
-            true => self.layout.get_in_process_peb_address(self.source_address),
+            true => self.layout.get_in_process_peb_offset(),
             false => self.layout.peb_address,
         }
     }

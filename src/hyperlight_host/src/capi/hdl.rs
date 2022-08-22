@@ -41,6 +41,12 @@ pub enum Hdl {
     /// A reference to a `MshvRunMessage`.
     #[cfg(target_os = "linux")]
     MshvRunMessage(Key),
+    /// A reference to a `GuestMemory`.
+    GuestMemory(Key),
+    /// A reference to an `i64`
+    Int64(Key),
+    /// A reference to an `i32`
+    Int32(Key),
 }
 
 impl Hdl {
@@ -64,6 +70,9 @@ impl Hdl {
     const MSHV_USER_MEM_REGION_TYPE_ID: TypeID = 113;
     #[cfg(target_os = "linux")]
     const MSHV_RUN_MESSAGE_TYPE_ID: TypeID = 114;
+    const GUEST_MEMORY_TYPE_ID: TypeID = 115;
+    const INT_64_TYPE_ID: TypeID = 116;
+    const INT_32_TYPE_ID: TypeID = 117;
 
     /// Get the `TypeID` associated with `self`.
     ///
@@ -90,6 +99,9 @@ impl Hdl {
             Hdl::MshvUserMemRegion(_) => Self::MSHV_USER_MEM_REGION_TYPE_ID,
             #[cfg(target_os = "linux")]
             Hdl::MshvRunMessage(_) => Self::MSHV_RUN_MESSAGE_TYPE_ID,
+            Hdl::GuestMemory(_) => Self::GUEST_MEMORY_TYPE_ID,
+            Hdl::Int64(_) => Self::INT_64_TYPE_ID,
+            Hdl::Int32(_) => Self::INT_32_TYPE_ID,
         }
     }
 
@@ -119,6 +131,9 @@ impl Hdl {
             Hdl::MshvUserMemRegion(key) => *key,
             #[cfg(target_os = "linux")]
             Hdl::MshvRunMessage(key) => *key,
+            Hdl::GuestMemory(key) => *key,
+            Hdl::Int64(key) => *key,
+            Hdl::Int32(key) => *key,
         }
     }
 }
@@ -146,6 +161,9 @@ impl std::fmt::Display for Hdl {
             Hdl::MshvUserMemRegion(key) => write!(f, "MshvUserMemRegion({})", key),
             #[cfg(target_os = "linux")]
             Hdl::MshvRunMessage(key) => write!(f, "MshvRunMessage({})", key),
+            Hdl::GuestMemory(key) => write!(f, "GuestMemory({})", key),
+            Hdl::Int64(key) => write!(f, "Int64({})", key),
+            Hdl::Int32(key) => write!(f, "Int32({})", key),
         }
     }
 }
@@ -178,6 +196,9 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::MSHV_USER_MEM_REGION_TYPE_ID => Ok(Hdl::MshvUserMemRegion(key)),
             #[cfg(target_os = "linux")]
             Self::MSHV_RUN_MESSAGE_TYPE_ID => Ok(Hdl::MshvRunMessage(key)),
+            Self::GUEST_MEMORY_TYPE_ID => Ok(Hdl::GuestMemory(key)),
+            Self::INT_64_TYPE_ID => Ok(Hdl::Int64(key)),
+            Self::INT_32_TYPE_ID => Ok(Hdl::Int32(key)),
             _ => bail!("invalid handle type {}", hdl.type_id()),
         }
     }
