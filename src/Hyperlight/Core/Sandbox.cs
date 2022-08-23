@@ -7,6 +7,7 @@ using System.Threading;
 using Hyperlight.Core;
 using Hyperlight.Hypervisors;
 using Hyperlight.Native;
+using Hyperlight.Wrapper;
 
 namespace Hyperlight
 {
@@ -79,15 +80,15 @@ namespace Hyperlight
         {
         }
 
-        public Sandbox(string guestBinaryPath, Action<ISandboxRegistration> initFunction, StringWriter? writer = null) : this(new SandboxMemoryConfiguration(new ContextWrapper()), guestBinaryPath, SandboxRunOptions.None, initFunction, writer)
+        public Sandbox(string guestBinaryPath, Action<ISandboxRegistration> initFunction, StringWriter? writer = null) : this(new SandboxMemoryConfiguration(new Wrapper.Context()), guestBinaryPath, SandboxRunOptions.None, initFunction, writer)
         {
         }
 
-        public Sandbox(string guestBinaryPath, Action<ISandboxRegistration>? initFunction = null) : this(new SandboxMemoryConfiguration(new ContextWrapper()), guestBinaryPath, SandboxRunOptions.None, initFunction, null)
+        public Sandbox(string guestBinaryPath, Action<ISandboxRegistration>? initFunction = null) : this(new SandboxMemoryConfiguration(new Wrapper.Context()), guestBinaryPath, SandboxRunOptions.None, initFunction, null)
         {
         }
 
-        public Sandbox(string guestBinaryPath, StringWriter? writer = null) : this(new SandboxMemoryConfiguration(new ContextWrapper()), guestBinaryPath, SandboxRunOptions.None, null, writer)
+        public Sandbox(string guestBinaryPath, StringWriter? writer = null) : this(new SandboxMemoryConfiguration(new Wrapper.Context()), guestBinaryPath, SandboxRunOptions.None, null, writer)
         {
         }
 
@@ -95,7 +96,7 @@ namespace Hyperlight
         {
         }
 
-        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction) : this(new SandboxMemoryConfiguration(new ContextWrapper()), guestBinaryPath, runOptions, initFunction, null)
+        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction) : this(new SandboxMemoryConfiguration(new Context()), guestBinaryPath, runOptions, initFunction, null)
         {
         }
 
@@ -103,14 +104,14 @@ namespace Hyperlight
         {
         }
 
-        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, StringWriter? writer = null) : this(new SandboxMemoryConfiguration(new ContextWrapper()), guestBinaryPath, runOptions, null, writer)
+        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, StringWriter? writer = null) : this(new SandboxMemoryConfiguration(new Wrapper.Context()), guestBinaryPath, runOptions, null, writer)
         {
         }
 
         public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, SandboxRunOptions runOptions, StringWriter writer) : this(sandboxMemoryConfiguaration, guestBinaryPath, runOptions, null, writer)
         {
         }
-        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction, StringWriter writer) : this(new SandboxMemoryConfiguration(new ContextWrapper()), guestBinaryPath, runOptions, initFunction, writer)
+        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction, StringWriter writer) : this(new SandboxMemoryConfiguration(new Wrapper.Context()), guestBinaryPath, runOptions, initFunction, writer)
         {
         }
 

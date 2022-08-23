@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using Hyperlight;
 using Hyperlight.Core;
 
-
 namespace NativeHost
 {
     class Program
@@ -21,7 +20,7 @@ namespace NativeHost
         const int DEFAULT_NUMBER_OF_ITERATIONS = 50;
         static void Main()
         {
-            var ctx = new ContextWrapper();
+            using var ctx = new Hyperlight.Wrapper.Context();
             var sandboxMemoryConfig = new SandboxMemoryConfiguration(ctx);
             foreach (var arg in Environment.GetCommandLineArgs())
             {
@@ -32,7 +31,6 @@ namespace NativeHost
             }
 
             // check this is a supported platform.
-
             if (!Sandbox.IsSupportedPlatform)
             {
                 Console.WriteLine($"{RuntimeInformation.OSDescription} is an unsupported platform!");

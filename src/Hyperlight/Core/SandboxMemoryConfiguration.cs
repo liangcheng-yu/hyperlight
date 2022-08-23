@@ -1,4 +1,6 @@
 using System;
+using System.Runtime.InteropServices;
+using Hyperlight.Wrapper;
 namespace Hyperlight.Core
 {
     public class SandboxMemoryConfiguration : IDisposable
@@ -9,12 +11,12 @@ namespace Hyperlight.Core
         const ulong DefaultHostExceptionSize = 0x1000;
         const ulong DefaultGuestErrorMessageSize = 0x100;
 
-        private ContextWrapper ctxWrapper;
-        private HandleWrapper hdlWrapper;
+        private Wrapper.Context ctxWrapper;
+        private Wrapper.Handle hdlWrapper;
         private bool disposed;
 
         public SandboxMemoryConfiguration(
-            ContextWrapper ctx,
+            Wrapper.Context ctx,
             ulong inputDataSize = DefaultInputSize,
             ulong outputDataSize = DefaultOutputSize,
             ulong functionDefinitionSize = DefaultHostFunctionDefinitionSize,
@@ -26,7 +28,7 @@ namespace Hyperlight.Core
             {
                 throw new ArgumentNullException(nameof(ctx));
             }
-            var rawHandle = NativeWrapper.mem_config_new(
+            var rawHandle = mem_config_new(
                 ctx.ctx,
                 inputDataSize,
                 outputDataSize,
@@ -35,7 +37,7 @@ namespace Hyperlight.Core
                 guestErrorMessageSize
             );
             this.ctxWrapper = ctx;
-            this.hdlWrapper = new HandleWrapper(ctx, rawHandle);
+            this.hdlWrapper = new Wrapper.Handle(ctx, rawHandle);
         }
 
         public void Dispose()
@@ -63,14 +65,14 @@ namespace Hyperlight.Core
         {
             get
             {
-                return NativeWrapper.mem_config_get_guest_error_message_size(
+                return mem_config_get_guest_error_message_size(
                     this.ctxWrapper.ctx,
                     this.hdlWrapper.handle
                 );
             }
             set
             {
-                NativeWrapper.mem_config_set_guest_error_message_size(
+                mem_config_set_guest_error_message_size(
                     this.ctxWrapper.ctx,
                     this.hdlWrapper.handle,
                     value
@@ -84,14 +86,14 @@ namespace Hyperlight.Core
         {
             get
             {
-                return NativeWrapper.mem_config_get_host_function_definition_size(
+                return mem_config_get_host_function_definition_size(
                     this.ctxWrapper.ctx,
                     this.hdlWrapper.handle
                 );
             }
             set
             {
-                NativeWrapper.mem_config_set_host_function_definition_size(
+                mem_config_set_host_function_definition_size(
                     this.ctxWrapper.ctx,
                     this.hdlWrapper.handle,
                     value
@@ -105,14 +107,14 @@ namespace Hyperlight.Core
         {
             get
             {
-                return NativeWrapper.mem_config_get_host_exception_size(
+                return mem_config_get_host_exception_size(
                     this.ctxWrapper.ctx,
                     this.hdlWrapper.handle
                 );
             }
             set
             {
-                NativeWrapper.mem_config_set_host_exception_size(
+                mem_config_set_host_exception_size(
                     this.ctxWrapper.ctx,
                     this.hdlWrapper.handle,
                     value
@@ -127,14 +129,14 @@ namespace Hyperlight.Core
         {
             get
             {
-                return NativeWrapper.mem_config_get_input_data_size(
+                return mem_config_get_input_data_size(
                     this.ctxWrapper.ctx,
                     this.hdlWrapper.handle
                 );
             }
             set
             {
-                NativeWrapper.mem_config_set_input_data_size(
+                mem_config_set_input_data_size(
                     this.ctxWrapper.ctx,
                     this.hdlWrapper.handle,
                     value
@@ -149,20 +151,113 @@ namespace Hyperlight.Core
         {
             get
             {
-                return NativeWrapper.mem_config_get_output_data_size(
+                return mem_config_get_output_data_size(
                     this.ctxWrapper.ctx,
                     this.hdlWrapper.handle
                 );
             }
             set
             {
-                NativeWrapper.mem_config_set_output_data_size(
+                mem_config_set_output_data_size(
                     this.ctxWrapper.ctx,
                     this.hdlWrapper.handle,
                     value
                 );
             }
         }
+
+#pragma warning disable CA1707 // Remove the underscores from member name
+#pragma warning disable CA1401 // P/Invoke method should not be visible
+#pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
+
+        /////
+        // start memory configuration
+        /////
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_config_new(
+            NativeContext context,
+            ulong input_data_size,
+            ulong output_data_size,
+            ulong function_definition_size,
+            ulong host_exception_size,
+            ulong guest_error_message_size
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_config_get_guest_error_message_size(
+            NativeContext context,
+            NativeHandle mem_config_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern void mem_config_set_guest_error_message_size(
+            NativeContext context,
+            NativeHandle handle,
+            ulong size
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_config_get_host_function_definition_size(
+            NativeContext context,
+            NativeHandle mem_config_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern void mem_config_set_host_function_definition_size(
+            NativeContext context,
+            NativeHandle handle,
+            ulong size
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_config_get_host_exception_size(
+            NativeContext context,
+            NativeHandle mem_config_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_config_set_host_exception_size(
+            NativeContext context,
+            NativeHandle mem_config_handle,
+            ulong size
+        );
+
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_config_get_input_data_size(
+            NativeContext context,
+            NativeHandle mem_config_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_config_set_input_data_size(
+            NativeContext context,
+            NativeHandle mem_config_handle,
+            ulong size
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_config_get_output_data_size(
+            NativeContext context,
+            NativeHandle mem_config_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_config_set_output_data_size(
+            NativeContext context,
+            NativeHandle mem_config_handle,
+            ulong size
+        );
+
+#pragma warning restore CA5393
+#pragma warning restore CA1401
+#pragma warning restore CA1707
 
 
 

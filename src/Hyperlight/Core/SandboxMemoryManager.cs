@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using Hyperlight.Native;
+using Hyperlight.Wrapper;
 using Newtonsoft.Json;
 
 namespace Hyperlight.Core
@@ -21,7 +22,7 @@ namespace Hyperlight.Core
         readonly SandboxMemoryConfiguration sandboxMemoryConfiguration;
         SandboxMemoryLayout? sandboxMemoryLayout;
 
-        internal SandboxMemoryManager(ContextWrapper ctx, bool runFromProcessMemory = false) : this(new SandboxMemoryConfiguration(ctx), runFromProcessMemory)
+        internal SandboxMemoryManager(Wrapper.Context ctx, bool runFromProcessMemory = false) : this(new SandboxMemoryConfiguration(ctx), runFromProcessMemory)
         {
         }
 

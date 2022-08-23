@@ -290,5 +290,361 @@ namespace Hyperlight.Core
             var minGuestStackAddress = (long)guestAddress + (long)minGuestStackAddressOffset;
             Marshal.WriteInt64(minGuestStackAddressPointer, minGuestStackAddress);
         }
+
+#pragma warning disable CA1707 // Remove the underscores from member name
+#pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_layout_new(
+            NativeContext ctx,
+            NativeHandle mem_config_handle,
+            ulong code_size,
+            ulong stack_size,
+            ulong heap_size
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_stack_size(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_heap_size(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_host_functions_offset(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_host_exception_offset(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_guest_error_message_offset(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_code_and_outb_pointer_offset(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_input_data_offset(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_output_data_offset(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_heap_data_offset(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_stack_data_offset(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_code_size(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_host_functions_buffer_offset(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_host_exception_buffer_offset(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_guest_security_cookie_seed_offset(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_guest_error_message_buffer_offset(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_input_data_buffer_offset(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_output_data_buffer_offset(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_guest_heap_buffer_offset(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_guest_stack_buffer_offset(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_peb_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_security_cookie_seed_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_guest_error_message_address
+        (
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_guest_error_address
+        (
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_guest_error_message_size_address(
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_guest_error_message_pointer_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_function_definition_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_function_definition_size_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_function_definition_pointer_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_host_exception_size_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_host_exception_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_out_b_pointer_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_output_data_size_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_output_data_pointer_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_output_data_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_input_data_size_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_input_data_pointer_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_input_data_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_code_pointer_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_dispatch_function_pointer_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_in_process_peb_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_heap_size_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_heap_pointer_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_heap_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_min_guest_stack_address_pointer(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_top_of_stack_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_host_pml4_address(
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_host_pdpt_address(
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_host_pd_address(
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_host_code_address(
+            long address
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern void mem_layout_write_memory_layout(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            NativeHandle guest_memory_handle,
+            long address,
+            long guestAddress,
+            ulong size
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong mem_layout_get_memory_size(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle
+        );
+
+#pragma warning restore CA5393
+#pragma warning restore CA1707
     }
 }
