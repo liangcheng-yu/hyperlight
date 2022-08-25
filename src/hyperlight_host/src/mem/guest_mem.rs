@@ -1,12 +1,14 @@
 use anyhow::{anyhow, bail, Result};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 #[cfg(target_os = "linux")]
-use libc::mmap;
+use libc::{mmap, munmap};
 use std::ffi::c_void;
 use std::io::Cursor;
 use std::ptr::null_mut;
 #[cfg(target_os = "windows")]
-use windows::Win32::System::Memory::{VirtualAlloc, MEM_COMMIT, PAGE_EXECUTE_READWRITE};
+use windows::Win32::System::Memory::{
+    VirtualAlloc, VirtualFree, MEM_COMMIT, MEM_DECOMMIT, PAGE_EXECUTE_READWRITE,
+};
 
 macro_rules! bounds_check {
     ($offset:expr, $size:expr) => {
@@ -23,10 +25,29 @@ macro_rules! bounds_check {
 /// physical memory, often referred to as Guest Physical
 /// Memory or Guest Physical Addresses (GPA) in Windows
 /// Hypervisor Platform
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct GuestMemory {
     ptr: *mut c_void,
     size: usize,
+}
+
+impl Drop for GuestMemory {
+    fn drop(&mut self) {
+        #[cfg(target_os = "linux")]
+        {
+            unsafe {
+                munmap(self.ptr, self.size);
+            }
+        }
+        #[cfg(target_os = "windows")]
+        {
+            unsafe {
+                VirtualFree(self.ptr, self.size, MEM_DECOMMIT);
+            }
+        }
+        self.ptr = std::ptr::null_mut();
+        self.size = 0;
+    }
 }
 
 impl GuestMemory {
@@ -48,10 +69,9 @@ impl GuestMemory {
                         0,
                     )
                 };
-
                 Ok(Self{ptr: mmap_addr, size: min_size_bytes})
             } else {
-                let mmap_addr = unsafe {
+                let valloc_addr = unsafe {
                     VirtualAlloc(
                         null_mut(),
                         min_size_bytes,
@@ -60,8 +80,7 @@ impl GuestMemory {
                     )
                 };
                 // https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/System/Memory/fn.VirtualAlloc.html
-                // windows::Win32::System::Memory::VirtualAlloc
-                Ok(Self{ptr: mmap_addr, size: min_size_bytes})
+                Ok(Self{ptr: valloc_addr, size: min_size_bytes})
             }
         }
     }
@@ -201,6 +220,64 @@ impl GuestMemory {
         for (idx, elt) in target.iter().enumerate() {
             slc[offset + idx] = *elt;
         }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GuestMemory;
+    use anyhow::Result;
+    #[cfg(target_os = "linux")]
+    use libc::{mmap, munmap};
+    use std::ffi::c_void;
+    #[cfg(target_os = "windows")]
+    use windows::Win32::System::Memory::{
+        VirtualAlloc, VirtualFree, MEM_COMMIT, MEM_DECOMMIT, PAGE_EXECUTE_READWRITE,
+    };
+
+    const MIN_SIZE: usize = 123;
+    #[test]
+    pub fn drop() -> Result<()> {
+        let addr: *mut c_void;
+        let size: usize;
+        {
+            let gm = GuestMemory::new(MIN_SIZE)?;
+            addr = gm.ptr;
+            size = gm.size;
+        };
+
+        // guest memory should be dropped at this point,
+        // another attempt to memory-map the same address
+        // at which it was allocated should succeed, because
+        // that address should have previously been freed.
+        cfg_if::cfg_if! {
+            if #[cfg(unix)] {
+                let mmap_addr = unsafe {mmap(
+                    addr,
+                    size,
+                    libc::PROT_READ | libc::PROT_WRITE,
+                    libc::MAP_ANONYMOUS | libc::MAP_SHARED | libc::MAP_NORESERVE,
+                    -1,
+                    0,
+                )};
+                assert_eq!(addr, mmap_addr);
+                assert_eq!(0, unsafe{munmap(addr, size)});
+            } else if #[cfg(windows)] {
+                let valloc_addr = unsafe {
+                    VirtualAlloc(
+                        addr,
+                        size,
+                        MEM_COMMIT,
+                        PAGE_EXECUTE_READWRITE,
+                    )
+                };
+                assert_eq!(addr, valloc_addr);
+                assert_eq!(true, unsafe{
+                    VirtualFree(addr, 0, MEM_DECOMMIT)
+                });
+            }
+        };
         Ok(())
     }
 }

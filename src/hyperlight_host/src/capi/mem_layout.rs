@@ -57,7 +57,7 @@ mod impls {
     ) -> Result<()> {
         let layout = super::get_mem_layout(ctx, mem_layout_ref)?;
         let guest_mem = get_guest_memory(ctx, guest_mem_ref)?;
-        layout.write(*guest_mem, guest_address, size)
+        layout.write((*guest_mem).clone(), guest_address, size)
     }
 }
 
