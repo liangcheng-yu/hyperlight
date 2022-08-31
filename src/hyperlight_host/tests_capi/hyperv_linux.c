@@ -9,7 +9,7 @@
 #include "err.h"
 #include "munit/munit.h"
 
-void set_flags()
+void* set_flags(const MunitParameter params[], void* user_data)
 {
     // Set env var HYPERV_SHOULD_BE_PRESENT to require hyperv to be present for this test.
     char* env_var = NULL;
@@ -31,6 +31,8 @@ void set_flags()
 
     munit_logf(MUNIT_LOG_INFO,"EXPECT_HYPERVISOR_PRESENT: %s\n",EXPECT_HYPERVISOR_PRESENT ? "true" : "false");
     munit_logf(MUNIT_LOG_INFO,"EXPECT_PRERELEASE_API: %s\n",EXPECT_PRERELEASE_API ? "true" : "false");
+
+    return NULL;
 }
 
 bool get_flag_value(char* flag_value)
@@ -47,7 +49,7 @@ bool get_flag_value(char* flag_value)
     return false;
 }
 
-MunitResult test_is_hyperv_linux_present()
+MunitResult test_is_hyperv_linux_present(const MunitParameter params[], void* fixture)
 {
     bool status = is_hyperv_linux_present(false);
     if (EXPECT_HYPERVISOR_PRESENT && EXPECT_PRERELEASE_API)
@@ -72,7 +74,7 @@ MunitResult test_is_hyperv_linux_present()
     return MUNIT_OK;
 }
 
-MunitResult test_open_mshv()
+MunitResult test_open_mshv(const MunitParameter params[], void* fixture)
 {
     bool hypervisor_is_present = is_hyperv_linux_present(!EXPECT_PRERELEASE_API);
 
@@ -108,7 +110,7 @@ MunitResult test_open_mshv()
 
 }
 
-MunitResult test_create_vm()
+MunitResult test_create_vm(const MunitParameter params[], void* fixture)
 {
     CHECK_IF_HYPERVISOR_PRESENT;
 
@@ -125,7 +127,7 @@ MunitResult test_create_vm()
     return MUNIT_OK;
 }
 
-MunitResult test_create_vcpu()
+MunitResult test_create_vcpu(const MunitParameter params[], void* fixture)
 {
     CHECK_IF_HYPERVISOR_PRESENT;
 
@@ -145,7 +147,7 @@ MunitResult test_create_vcpu()
     return MUNIT_OK;
 }
 
-MunitResult test_map_user_memory_region()
+MunitResult test_map_user_memory_region(const MunitParameter params[], void* fixture)
 {
     CHECK_IF_HYPERVISOR_PRESENT;
 
@@ -175,7 +177,7 @@ MunitResult test_map_user_memory_region()
     return MUNIT_OK;
 }
 
-MunitResult test_set_registers()
+MunitResult test_set_registers(const MunitParameter params[], void* fixture)
 {
     CHECK_IF_HYPERVISOR_PRESENT;
 
@@ -209,7 +211,7 @@ MunitResult test_set_registers()
     return MUNIT_OK;
 }
 
-MunitResult test_run_vpcu()
+MunitResult test_run_vpcu(const MunitParameter params[], void* fixture)
 {
 
     CHECK_IF_HYPERVISOR_PRESENT;

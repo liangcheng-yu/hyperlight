@@ -1,33 +1,5 @@
 {
-   <insert_a_suppression_name_here>
-   Memcheck:Param
-   statx(file_name)
-   fun:statx
-   fun:*std*sys*unix*try_statx*
-   fun:*std*buffer_capacity_required*
-   fun:*std*read*inner*
-   fun:*std*read*
-   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
-   fun:byte_array_new_from_file
-   fun:test_pe_relocate
-   fun:main
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Param
-   statx(buf)
-   fun:statx
-   fun:*std*sys*unix*try_statx*
-   fun:*std*buffer_capacity_required*
-   fun:*std*read*inner*
-   fun:*std*read*
-   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
-   fun:byte_array_new_from_file
-   fun:test_pe_relocate
-   fun:main
-}
-{
-   <insert_a_suppression_name_here>
+   suppress_test_pe_relocate_1 
    Memcheck:Param
    statx(buf)
    fun:statx
@@ -45,7 +17,7 @@
    fun:main
 }
 {
-   <insert_a_suppression_name_here>
+   suppress_test_pe_relocate_2
    Memcheck:Param
    statx(file_name)
    fun:statx
@@ -63,31 +35,132 @@
    fun:main
 }
 {
-   <insert_a_suppression_name_here>
+   suppress_byte_array_new_from_file_1 
+   Memcheck:Param
+   statx(file_name)
+   fun:statx
+   fun:statx
+   fun:*try_statx*
+   fun:file_attr
+   fun:metadata
+   fun:*buffer_capacity_required*
+   fun:read_to_end
+   fun:*read*inner*
+   fun:*read*
+   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
+   fun:byte_array_new_from_file
+   fun:test_byte_array_new_from_file
+   fun:main
+}
+{
+   suppress_byte_array_new_from_file_2 
+   Memcheck:Param
+   statx(buf)
+   fun:statx
+   fun:statx
+   fun:*try_statx*
+   fun:file_attr
+   fun:metadata
+   fun:*buffer_capacity_required*
+   fun:read_to_end
+   fun:*read*inner*
+   fun:*read*
+   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
+   fun:byte_array_new_from_file
+   fun:test_byte_array_new_from_file
+   fun:main
+}
+{
+   suppress_test_pe_getters_1
+   Memcheck:Param
+   statx(buf)
+   fun:statx
+   fun:statx
+   fun:*try_statx*
+   fun:file_attr
+   fun:metadata
+   fun:*buffer_capacity_required*
+   fun:read_to_end
+   fun:*read*inner*
+   fun:*read*
+   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
+   fun:byte_array_new_from_file
+   fun:test_pe_getters
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+}
+{
+   suppress_test_pe_getters_2
+   Memcheck:Param
+   statx(file_name)
+   fun:statx
+   fun:statx
+   fun:*std*sys*unix*try_statx*
+   fun:file_attr
+   fun:metadata
+   fun:*buffer_capacity_required*
+   fun:read_to_end
+   fun:*read*inner*
+   fun:*read*
+   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
+   fun:byte_array_new_from_file
+   fun:test_pe_getters
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+}
+{
+   munit_reachable
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:munit_maybe_concat
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+   fun:munit_suite_main_custom
+   fun:munit_suite_main
+   fun:main
+}
+{
+   suppress_test_map_user_memory_region_1
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
    fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
-   fun:*mshv_ioctls*ioctls*VmFd*map_user_memory*
+   fun:*mshv_ioctls*ioctls*vm*map_user_memory*
    fun:*hyperlight_host*capi*hyperv_linux*impls*map_vm_memory_region*
    fun:map_vm_memory_region
    fun:test_map_user_memory_region
-   fun:main
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
 }
 {
-   <insert_a_suppression_name_here>
+   suppress_test_map_user_memory_region_2
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
    fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
-   fun:*mshv_ioctls*ioctls*VmFd*unmap_user_memory*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
    fun:*hyperlight_host*capi*hyperv_linux*impls*unmap_vm_memory_region*
    fun:unmap_vm_memory_region
    fun:test_map_user_memory_region
-   fun:main
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
 }
 {
-   <insert_a_suppression_name_here>
+   suppress_test_set_registers
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
@@ -96,5 +169,61 @@
    fun:*hyperlight_host*capi*hyperv_linux*impls*set_registers*
    fun:set_registers
    fun:test_set_registers
-   fun:main
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   suppress_test_run_vpcu_1
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*map_user_memory*
+   fun:*hyperlight_host*capi*hyperv_linux*impls*map_vm_memory_region*
+   fun:map_vm_memory_region
+   fun:test_run_vpcu
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   suppress_test_run_vpcu_2
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
+   fun:*hyperlight_host*capi*hyperv_linux*impls*set_registers*
+   fun:set_registers
+   fun:test_run_vpcu
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   suppress_test_unmap_vm_memory_region
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*unmap_user_memory*
+   fun:*hyperlight_host*capi*hyperv_linux*impls*unmap_vm_memory_region*
+   fun:unmap_vm_memory_region
+   fun:test_run_vpcu
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
 }

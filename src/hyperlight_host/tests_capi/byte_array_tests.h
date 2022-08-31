@@ -5,6 +5,6 @@
 
 #include "munit/munit.h"
 
-MunitResult test_byte_array_lifecycle(void);
-MunitResult test_byte_array_new_from_file(void);
+MunitResult test_byte_array_lifecycle();
+MunitResult test_byte_array_new_from_file();
 long file_size(const char *fname);

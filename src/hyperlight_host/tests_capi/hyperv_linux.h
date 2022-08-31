@@ -11,12 +11,12 @@ if (!is_hyperv_linux_present(!EXPECT_PRERELEASE_API))\
     return MUNIT_OK;\
 };
 
-MunitResult test_is_hyperv_linux_present(void);
-MunitResult test_open_mshv(void);
-MunitResult test_create_vm(void);
-MunitResult test_create_vcpu(void);
-MunitResult test_map_user_memory_region(void);
-MunitResult test_set_registers(void);
-MunitResult test_run_vpcu(void);
-void set_flags(void);
+MunitResult test_is_hyperv_linux_present(const MunitParameter *, void *);
+MunitResult test_open_mshv(const MunitParameter *, void *);
+MunitResult test_create_vm(const MunitParameter *, void *);
+MunitResult test_create_vcpu(const MunitParameter *, void *);
+MunitResult test_map_user_memory_region(const MunitParameter *, void *);
+MunitResult test_set_registers(const MunitParameter *, void *);
+MunitResult test_run_vpcu(const MunitParameter *, void *);
+void* set_flags(const MunitParameter params[], void* user_data);
 bool get_flag_value(char* flag_value);
