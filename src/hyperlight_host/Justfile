@@ -3,8 +3,8 @@ bin-suffix := if os() == "windows" { ".exe" } else { ".out" }
 test-command := if os() == "windows" { "./scripts/test-command.bat" } else { "LD_LIBRARY_PATH=../../target/debug ./bin/test_c.out" }
 # TODO: use UMDH here for windows?
 # https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/umdh
-valgrind-command := if os() == "windows" { "echo 'valgrind not supported on windows'" } else { "LD_LIBRARY_PATH=../../target/debug valgrind -s --leak-check=full --error-exitcode=1 --show-leak-kinds=all  --suppressions=./minimal.supp ./bin/test_c.out" }
-valgrind-command-gen-suppressions := if os() == "windows" { "echo 'valgrind not supported on windows'" } else { "LD_LIBRARY_PATH=../../target/debug valgrind --leak-check=full --error-exitcode=1 --show-leak-kinds=all --gen-suppressions=all --suppressions=./minimal.supp --log-file=minimalraw.log ./bin/test_c.out" }
+valgrind-command := if os() == "windows" { "echo 'valgrind not supported on windows'" } else { "LD_LIBRARY_PATH=../../target/debug valgrind --leak-check=full --error-exitcode=1 -s --suppressions=./minimal.supp ./bin/test_c.out --log-visible info --show-stderr" }
+valgrind-command-gen-suppressions := if os() == "windows" { "echo 'valgrind not supported on windows'" } else { "LD_LIBRARY_PATH=../../target/debug valgrind --leak-check=full -s --error-exitcode=1 --show-leak-kinds=all --gen-suppressions=all --suppressions=./minimal.supp --log-file=minimalraw.log ./bin/test_c.out" }
 
 clang-checks := if os() == "windows" { "-Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" } else { "-Wall -Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" }
 

@@ -12,7 +12,7 @@ MunitResult test_pe_getters(void)
     for (size_t i = 0; i < NUM_PE_FILES; i++)
     {
         const char *filename = pe_filenames[i];
-        printf("reading PE file %s\n", filename);
+        munit_logf(MUNIT_LOG_INFO,"reading PE file %s\n", filename);
 
         Context *ctx = context_new();
         Handle barr_ref = byte_array_new_from_file(ctx, filename);
@@ -58,7 +58,7 @@ MunitResult test_pe_relocate()
         for (size_t file_num = 0; file_num < NUM_PE_FILES; file_num++)
         {
             const char *pe_filename = pe_filenames[file_num];
-            printf("PE file: %s\n", pe_filename);
+            munit_logf(MUNIT_LOG_INFO,"PE file: %s\n", pe_filename);
 
             Context *ctx = context_new();
             Handle mem_ref = byte_array_new_from_file(ctx, pe_filename);
