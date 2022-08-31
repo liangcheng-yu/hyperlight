@@ -92,19 +92,6 @@
    fun:munit_test_runner_run_suite
 }
 {
-   munit_reachable
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:munit_maybe_concat
-   fun:munit_test_runner_run_suite
-   fun:munit_test_runner_run_suite
-   fun:munit_test_runner_run
-   fun:munit_suite_main_custom
-   fun:munit_suite_main
-   fun:main
-}
-{
    suppress_test_pe_getters_2
    Memcheck:Param
    statx(file_name)
@@ -124,4 +111,53 @@
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
    fun:munit_test_runner_run_suite
+}
+{
+   munit_reachable
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:munit_maybe_concat
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+   fun:munit_suite_main_custom
+   fun:munit_suite_main
+   fun:main
+}
+{
+   suppress_test_map_user_memory_region_1
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*VmFd*map_user_memory*
+   fun:*hyperlight_host*capi*hyperv_linux*impls*map_vm_memory_region*
+   fun:map_vm_memory_region
+   fun:test_map_user_memory_region
+   fun:main
+}
+{
+   suppress_test_map_user_memory_region_2
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*VmFd*unmap_user_memory*
+   fun:*hyperlight_host*capi*hyperv_linux*impls*unmap_vm_memory_region*
+   fun:unmap_vm_memory_region
+   fun:test_map_user_memory_region
+   fun:main
+}
+{
+   suppress_test_set_registers
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
+   fun:*hyperlight_host*capi*hyperv_linux*impls*set_registers*
+   fun:set_registers
+   fun:test_set_registers
+   fun:main
 }
