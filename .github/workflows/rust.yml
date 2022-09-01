@@ -12,7 +12,8 @@ env:
 jobs:
   build:
     strategy:
-     matrix:
+      fail-fast: true
+      matrix:
         build: [ubuntu-20.04-debug, windows-latest-debug, linux-kvm-debug, linux-hyperv-debug, ubuntu-20.04-release, windows-latest-release, linux-kvm-release, linux-hyperv-release]
         include:
           - build: ubuntu-20.04-debug
