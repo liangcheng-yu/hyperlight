@@ -66,6 +66,7 @@ jobs:
         with:
           just-version: 1.4 # optional semver specification, otherwise latest
       - name: Build
+        working-directory: src/hyperlight_host
         run:  just build ${{ matrix.config }}
       - name: Set up env vars for tests
         if: ${{ (matrix.hypervisor == 'hyperv') && (runner.os == 'Linux') }}
@@ -73,8 +74,8 @@ jobs:
           echo "HYPERV_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
           echo "SHOULD_HAVE_STABLE_API=false" >> $GITHUB_ENV
       - name: Run Rust tests
+        working-directory: src/hyperlight_host
         run: just build-test-rust ${{ matrix.config }}
-
       - name: Cache munit
         uses: actions/cache@v3
         with:
