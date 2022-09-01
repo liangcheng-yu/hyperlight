@@ -112,6 +112,20 @@ impl GuestMemory {
         unsafe { self.write_slice(from_bytes, from_bytes.len(), address) }
     }
 
+    /// Get the raw pointer to the memory region.
+    ///
+    /// # Safety
+    ///
+    /// The pointer will point to a shared memory region
+    /// of size `self.size`. The caller must ensure that any
+    /// writes they do directly to this pointer fall completely
+    /// within this region, and that they do not attempt to
+    /// free any of this memory, since it is owned and will
+    /// be cleaned up by `self`.
+    pub fn raw_ptr(&self) -> *mut c_void {
+        self.ptr
+    }
+
     /// Read an `i64` from guest memory starting at `offset`
     ///
     /// Return `Ok` with the `i64` value starting at `offset`

@@ -502,7 +502,7 @@ pub unsafe extern "C" fn run_vcpu(ctx: *mut Context, vcpufd_handle: Handle) -> H
 ///
 /// # Safety
 ///
-/// The returned `mshv_run_message` should be freed by the caller when it is no longer needed along with the handle used to retrieve it (using `free_handle`).
+/// The returned `mshv_run_message` should be freed by the caller when it is no longer needed along with the handle used to retrieve it (using `handle_free`).
 ///
 /// You must call this function with
 ///
@@ -521,8 +521,6 @@ pub unsafe extern "C" fn run_vcpu(ctx: *mut Context, vcpufd_handle: Handle) -> H
 /// - Created with `run_vcpu`
 /// - Not yet used to call this function
 /// - Not modified, except by calling functions in the Hyperlight C API
-///
-///
 #[no_mangle]
 pub unsafe extern "C" fn get_run_result_from_handle(
     ctx: *mut Context,

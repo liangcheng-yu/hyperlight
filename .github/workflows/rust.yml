@@ -12,7 +12,7 @@ env:
 jobs:
   build:
     strategy:
-     matrix:
+      matrix:
         build: [ubuntu-20.04, windows-latest, linux-kvm, linux-hyperv]
         include:
           - build: ubuntu-20.04
@@ -22,7 +22,7 @@ jobs:
             os: windows-latest
             hypervisor: none
           - build: linux-kvm
-            os: [self-hosted, Linux, X64, kvm]
+            os: [self-hosted, Linux, X64, kvm2]
             hypervisor: kvm
           - build: linux-hyperv
             os: [self-hosted, Linux, X64, hyperv]
@@ -43,11 +43,15 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Build
         run: cargo build --verbose
-      - name: Set up env vars for tests
+      - name: Set up env vars for hyperv-linux tests
         if: ${{ (matrix.hypervisor == 'hyperv') && (runner.os == 'Linux') }}
         run: |
           echo "HYPERV_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
           echo "SHOULD_HAVE_STABLE_API=false" >> $GITHUB_ENV
+      - name: Set up env vars for kvm-linux tests
+        if: ${{ (matrix.hypervisor == 'kvm') && (runner.os == 'Linux') }}
+        run: |
+          echo "KVM_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
       - name: Run Rust tests
         run: cargo test --verbose
       - name: Install Just
@@ -72,7 +76,8 @@ jobs:
           echo "testdata:"
           ls testdata
           just run-tests-capi
-      # Script to install Valgrind does not work on Mariner , or on the kvm runner valgrind has been installed manually on the runners.
+      # Script to install Valgrind does not work on Mariner or on the kvm 
+      # runner. Valgrind has been installed manually on the runners.
       - name: Install Valgrind (Linux only - not hyperv)
         if: ${{ (matrix.hypervisor != 'hyperv') && (matrix.hypervisor != 'kvm') && (runner.os == 'Linux') }}
         run: ./install_valgrind.sh

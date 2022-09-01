@@ -53,6 +53,10 @@ pub mod capi;
 #[deny(dead_code, missing_docs, unused_mut)]
 pub mod func;
 
+///! Wrappers for hypervisor implementations
+#[deny(dead_code, missing_docs, unused_mut)]
+pub mod hypervisor;
+
 ///! Functionality to establish and manage an individual sandbox's
 ///! memory.
 ///!
