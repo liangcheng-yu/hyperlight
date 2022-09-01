@@ -7,11 +7,15 @@ valgrind-command := if os() == "windows" { "echo 'valgrind not supported on wind
 valgrind-command-gen-suppressions := if os() == "windows" { "echo 'valgrind not supported on windows'" } else { "LD_LIBRARY_PATH=../../target/debug valgrind --leak-check=full -s --error-exitcode=1 --show-leak-kinds=all --gen-suppressions=all --suppressions=./minimal.supp --log-file=minimalraw.log ./bin/test_c.out" }
 
 clang-checks := if os() == "windows" { "-Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" } else { "-Wall -Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" }
+default-target:= "debug"
 
-build:
-    cargo build
+build target=default-target:
+    cargo build --verbose --profile={{ if target == "debug" {"dev"} else { target } }}
 
-build-tests-capi: build
+build-test-rust target=default-target:  (build target)
+    cargo test --verbose --profile={{ if target == "debug" {"dev"} else { target } }}
+
+build-tests-capi target=default-target: (build target)
     clang \
     {{ clang-checks }} \
     tests_capi/*.c \
@@ -19,13 +23,13 @@ build-tests-capi: build
     -Iinclude \
     -o bin/test_c{{bin-suffix}} \
     -l hyperlight_host{{lib-suffix}} \
-    -L../../target/debug
+    -L../../target/{{target}}
 
-run-tests-capi: build-tests-capi
+run-tests-capi target=default-target: (build-tests-capi target)
     {{test-command}}
 
-valgrind-tests-capi: build-tests-capi
+valgrind-tests-capi target=default-target: (build-tests-capi target)
     {{valgrind-command}}
 
-valgrind-tests-capi-gen-suppressions: build-tests-capi
+valgrind-tests-capi-gen-suppressions target=default-target: (build-tests-capi target)
     {{valgrind-command-gen-suppressions}}
