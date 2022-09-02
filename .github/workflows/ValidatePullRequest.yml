@@ -8,7 +8,7 @@ on:
     branches: [ main ]
   
 jobs:
-  build-host-library:
+  build-host-library-debug:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
@@ -34,17 +34,51 @@ jobs:
       uses: actions/upload-artifact@v3
       if: runner.os == 'Windows'
       with:
-        name: hyperlight_host.dll
+        name: Debug_assets
         path: target/debug/hyperlight_host.dll
     - name: upload libhyperlight_host.so (Linux only)
       uses: actions/upload-artifact@v3
       if: runner.os == 'Linux'
       with:
-        name: libhyperlight_host.so
+        name: Debug_assets
         path: target/debug/libhyperlight_host.so
+  build-host-library-release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-20.04, windows-latest]
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: Install Just
+      uses: extractions/setup-just@v1
+      with:
+        just-version: '0.10' # optional semver specification, otherwise latest
+    - name: Build hyperlight_host library
+      working-directory: src/hyperlight_host
+      run: just build-release
+    - name: upload hyperlight_host.h
+      uses: actions/upload-artifact@v3
+      with:
+        name: hyperlight_host_.h
+        path: src/hyperlight_host/include/hyperlight_host.h
+    - name: upload hyperlight_host.dll (Windows only)
+      uses: actions/upload-artifact@v3
+      if: runner.os == 'Windows'
+      with:
+        name: Release_assets
+        path: target/release/hyperlight_host.dll
+    - name: upload libhyperlight_host.so (Linux only)
+      uses: actions/upload-artifact@v3
+      if: runner.os == 'Linux'
+      with:
+        name: Release_assets
+        path: target/release/libhyperlight_host.so
   build-on-windows:
     runs-on: ${{ matrix.os }}
-    needs: [ build-host-library ]
+    needs: [ build-host-library-release, build-host-library-debug ]
     strategy:
       fail-fast: true
       matrix:
@@ -54,10 +88,12 @@ jobs:
             os: [self-hosted, Windows, X64, whp]
             config: Debug
             platform: x64
+            path: target/debug
           - build: windows-release
             os: [self-hosted, Windows, X64, whp]
             config: Release
             platform: x64
+            path: target/release
     steps:
     - uses: actions/checkout@v3
       with:
@@ -92,8 +128,8 @@ jobs:
     - name: Download hyperlight_host.dll
       uses: actions/download-artifact@v3
       with:
-        name: hyperlight_host.dll
-        path: target/debug
+        name: ${{ matrix.config}}_assets 
+        path: ${{ matrix.path }}
     - name: Build Solution
       run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
       shell: pwsh
@@ -120,7 +156,7 @@ jobs:
         name: test-results-${{ matrix.config }}
         path: src\tests\Hyperlight.Tests\TestResults\*.trx
   build-on-linux:
-    needs: [ build-on-windows, build-host-library ]
+    needs: [ build-on-windows, build-host-library-release, build-host-library-debug ]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
@@ -182,8 +218,11 @@ jobs:
     - name: Download libhyperlight_host.so
       uses: actions/download-artifact@v3
       with:
-        name: libhyperlight_host.so
-        path: target/debug
+        name: ${{ matrix.config}}_assets
+        path: target/${{ matrix.config }}
+    - name: List downloaded artificats
+      run: ls -lR target/
+      shell: bash
     - name: Build Hyperlight
       shell: bash
       run: dotnet build -c ${{ matrix.config }}

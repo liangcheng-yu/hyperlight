@@ -44,14 +44,26 @@ jobs:
       uses: microsoft/setup-msbuild@v1.1
       with:
         msbuild-architecture: x64
-    - name: Ensure path exists
+    - name: Ensure path exists for debug build
+      if: ${{ env:CONFIG }} == "Debug"
       run: mkdir -p target\debug
       shell: pwsh
-    - name: Download DLL
+    - name: Ensure path exists for release build
+      if: ${{ env.CONFIG }} == "Release"
+      run: mkdir -p target\release
+      shell: pwsh
+    - name: Download Debug DLL
       uses: actions/download-artifact@v3
+      if: ${{ env.CONFIG }} == "Debug"
       with:
-        name: hyperlight_host.dll
-        path: target/debug
+        name: ${{ env.CONFIG }}_assets
+        path: target/debug/
+    - name: Download Release DLL
+      uses: actions/download-artifact@v3
+      if: ${{ env:CONFIG }} == "Release"
+      with:
+        name: ${{ env.CONFIG }}_assets
+        path: target/release/
     - name: Build Solution
       run: msbuild hyperlight.sln /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /p:ContinuousIntegrationBuild=true
       shell: pwsh
@@ -92,14 +104,12 @@ jobs:
       uses: "actions/download-artifact@v3"
       with:
         name: hyperlight_host.h
-    - name: Download shared object file
+    - name: Download artifacts
       uses: "actions/download-artifact@v3"
       with:
-        name: libhyperlight_host.so
-    - name: Download DLL
-      uses: actions/download-artifact@v3
-      with:
-        name: hyperlight_host.dll
+        name: ${{ env.CONFIG }}_assets
+    - name: List downloaded artifacts
+      run: ls -lR target/
     # Publish the native guests so that its possible to use Hyperlight without building it.
     - name: Create Release (latest)
       uses: "marvinpinto/action-automatic-releases@latest"
@@ -149,13 +159,20 @@ jobs:
       - uses: extractions/setup-just@v1
         with:
           just-version: 1.4 # optional semver specification, otherwise latest
-      - name: Build
+      - name: Build Debug
         run: cargo build --verbose
-      - name: Upload shared object file
+      - name: Build Release 
+        run: cargo build --verbose --release
+      - name: Upload shared object file for debug
         uses: actions/upload-artifact@v3
         with:
-          name: libhyperlight_host.so
+          name: Debug_assets
           path: target/debug/libhyperlight_host.so
+      - name: Upload shared object file for release
+        uses: actions/upload-artifact@v3
+        with:
+          name: Release_assets
+          path: target/release/libhyperlight_host.so
       - name: Upload header file
         uses: actions/upload-artifact@v3
         with:
@@ -166,10 +183,17 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: Swatinem/rust-cache@v2
-      - name: Build
+      - name: Build Debug
         run: cargo build --verbose
-      - name: Upload DLL file
+      - name: Build Release
+        run: cargo build --verbose --release
+      - name: Upload debug DLL file
         uses: actions/upload-artifact@v3
         with:
-          name: hyperlight_host.dll
+          name: Debug_assets
+          path: target/debug/hyperlight_host.dll
+      - name: Upload release DLL file
+        uses: actions/upload-artifact@v3
+        with:
+          name: Release_assets
           path: target/debug/hyperlight_host.dll

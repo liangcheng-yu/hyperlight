@@ -11,6 +11,9 @@ clang-checks := if os() == "windows" { "-Werror -Wunused-variable -Werror=sign-c
 build:
     cargo build
 
+build-release:
+    cargo build --release
+
 build-tests-capi: build
     clang \
     {{ clang-checks }} \
