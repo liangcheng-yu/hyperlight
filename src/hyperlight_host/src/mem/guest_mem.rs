@@ -267,6 +267,9 @@ mod tests {
         // that address should have previously been freed.
         cfg_if::cfg_if! {
             if #[cfg(unix)] {
+                // on Linux, mmap only takes the address (first param)
+                // as a hint, but only guarantees that it'll not
+                // return NULL if the call succeeded.
                 let mmap_addr = unsafe {mmap(
                     addr,
                     size,
@@ -275,7 +278,7 @@ mod tests {
                     -1,
                     0,
                 )};
-                assert_eq!(addr, mmap_addr);
+                assert_ne!(std::ptr::null_mut(), mmap_addr);
                 assert_eq!(0, unsafe{munmap(addr, size)});
             } else if #[cfg(windows)] {
                 let valloc_addr = unsafe {
@@ -286,7 +289,7 @@ mod tests {
                         PAGE_EXECUTE_READWRITE,
                     )
                 };
-                assert_eq!(addr, valloc_addr);
+                assert_ne!(std::ptr::null_mut(), valloc_addr);
                 assert_eq!(true, unsafe{
                     VirtualFree(addr, 0, MEM_DECOMMIT)
                 });
