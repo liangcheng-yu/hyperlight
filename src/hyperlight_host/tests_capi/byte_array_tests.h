@@ -5,11 +5,20 @@
 
 #include "munit/munit.h"
 
+MunitResult test_byte_array_null_ptr();
 MunitResult test_byte_array_lifecycle();
 MunitResult test_byte_array_new_from_file();
 long file_size(const char *fname);
 
 static MunitTest byte_array_tests[] = {
+    {
+        "/test_byte_array_null_ptr", /* name */
+        test_byte_array_null_ptr,    /* test */
+        NULL,                        /* setup */
+        NULL,                        /* tear_down */
+        MUNIT_TEST_OPTION_NONE,      /* options */
+        NULL                         /* parameters */
+    },
     {
         "/test_byte_array_lifecycle", /* name */
         test_byte_array_lifecycle,    /* test */
