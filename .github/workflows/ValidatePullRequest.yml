@@ -135,7 +135,7 @@ jobs:
         name: test-results-${{ matrix.config }}
         path: src\tests\Hyperlight.Tests\TestResults\*.trx
   build-on-linux:
-    needs: [ build-on-windows, build-host-library-release, build-host-library-debug ]
+    needs: [ build-on-windows ]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
