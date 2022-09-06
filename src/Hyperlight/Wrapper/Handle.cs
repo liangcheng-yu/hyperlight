@@ -1,4 +1,4 @@
-global using NativeHandle = System.IntPtr;
+global using NativeHandle = System.UInt64;
 using System;
 using System.Runtime.InteropServices;
 using Hyperlight.Core;
