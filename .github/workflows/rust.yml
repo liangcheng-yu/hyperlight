@@ -25,7 +25,7 @@ jobs:
             hypervisor: none
             config: debug
           - build: linux-kvm-debug
-            os: [self-hosted, Linux, X64, kvm]
+            os: [self-hosted, Linux, X64, kvm2]
             hypervisor: kvm
             config: debug
           - build: linux-hyperv-debug
@@ -41,7 +41,7 @@ jobs:
             hypervisor: none
             config: release
           - build: linux-kvm-release
-            os: [self-hosted, Linux, X64, kvm]
+            os: [self-hosted, Linux, X64, kvm2]
             hypervisor: kvm
             config: release
           - build: linux-hyperv-release
