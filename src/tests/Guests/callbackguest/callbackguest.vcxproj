@@ -43,11 +43,11 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <GenerateManifest>false</GenerateManifest>
-    <OutDir>$(SolutionDir)src\tests\Guests\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir>$(SolutionDir)src\tests\Guests\$(ProjectName)\$(Platform)\$(Configuration.toLower())\</OutDir>
     <IncludePath>$(ProjectDir)..\..\..\HyperlightGuest\third_party\printf;$(ProjectDir)..\..\..\HyperlightGuest\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(SolutionDir)src\tests\Guests\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir>$(SolutionDir)src\tests\Guests\$(ProjectName)\$(Platform)\$(Configuration.toLower())\</OutDir>
     <IncludePath>$(ProjectDir)..\..\..\HyperlightGuest\third_party\printf;$(ProjectDir)..\..\..\HyperlightGuest\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
