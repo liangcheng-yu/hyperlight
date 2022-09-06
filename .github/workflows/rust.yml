@@ -65,7 +65,7 @@ jobs:
       - name: Install Just
         uses: extractions/setup-just@v1
         with:
-          just-version: 1.4 # optional semver specification, otherwise latest
+          just-version: '0.10' # optional semver specification, otherwise latest
       - name: Build
         working-directory: src/hyperlight_host
         run:  just build ${{ matrix.config }}
