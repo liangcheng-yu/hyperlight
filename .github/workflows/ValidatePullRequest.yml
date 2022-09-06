@@ -144,22 +144,22 @@ jobs:
         include:
           - build: linux-kvm-debug
             os: [self-hosted, Linux, X64, kvm]
-            config: Debug
+            config: debug
             platform: x64
             hypervisor: kvm
           - build: linux-kvm-release
             os: [self-hosted, Linux, X64, kvm]
-            config: Release
+            config: release
             platform: x64
             hypervisor: kvm
           - build: linux-hyperv-debug
             os: [self-hosted, Linux, X64, hyperv]
-            config: Debug
+            config: debug
             platform: x64
             hypervisor: hyperv
           - build: linux-hyperv-release
             os: [self-hosted, Linux, X64, hyperv]
-            config: Release
+            config: release
             platform: x64
             hypervisor: hyperv
     steps:
