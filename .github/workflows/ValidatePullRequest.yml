@@ -65,12 +65,12 @@ jobs:
         include:
           - build: windows-debug
             os: [self-hosted, Windows, X64, whp]
-            config: Debug
+            config: debug
             platform: x64
             path: target/debug
           - build: windows-release
             os: [self-hosted, Windows, X64, whp]
-            config: Release
+            config: release
             platform: x64
             path: target/release
     steps:
