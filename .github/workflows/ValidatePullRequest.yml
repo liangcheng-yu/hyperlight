@@ -37,7 +37,7 @@ jobs:
         just-version: 1.4 # optional semver specification, otherwise latest
     - name: Build
       working-directory: src/hyperlight_host
-      run:  just build ${{ matrix.config }}
+      run: just build ${{ matrix.config }}
     - name: upload hyperlight_host.h
       uses: actions/upload-artifact@v3
       with:
@@ -67,12 +67,10 @@ jobs:
             os: [self-hosted, Windows, X64, whp]
             config: debug
             platform: x64
-            path: target/debug
           - build: windows-release
             os: [self-hosted, Windows, X64, whp]
             config: release
             platform: x64
-            path: target/release
     steps:
     - uses: actions/checkout@v3
       with:
@@ -108,7 +106,7 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: ${{ matrix.config}}_assets 
-        path: ${{ matrix.path }}
+        path: target/${{ matrix.config }}
     - name: Build Solution
       run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
       shell: pwsh
@@ -145,26 +143,22 @@ jobs:
           - build: linux-kvm-debug
             os: [self-hosted, Linux, X64, kvm]
             # TODO: get rid of this horrible hack
-            config: Debug
-            prefix: debug
+            config: debug
             platform: x64
             hypervisor: kvm
           - build: linux-kvm-release
             os: [self-hosted, Linux, X64, kvm]
-            config: Release
-            prefix: release
+            config: release
             platform: x64
             hypervisor: kvm
           - build: linux-hyperv-debug
             os: [self-hosted, Linux, X64, hyperv]
-            config: Debug
-            prefix: debug
+            config: debug
             platform: x64
             hypervisor: hyperv
           - build: linux-hyperv-release
             os: [self-hosted, Linux, X64, hyperv]
-            config: Release
-            prefix: release
+            config: release
             platform: x64
             hypervisor: hyperv
     steps:
@@ -197,13 +191,13 @@ jobs:
     - name: Download Artifacts
       uses: actions/download-artifact@v3
       with:
-        name: guest-binaries-${{ matrix.prefix }}
+        name: guest-binaries-${{ matrix.config }}
         path: src/tests/Guests/
     - name: Download libhyperlight_host.so
       uses: actions/download-artifact@v3
       with:
-        name: ${{ matrix.prefix}}_assets
-        path: target/${{ matrix.prefix }}
+        name: ${{ matrix.config}}_assets
+        path: target/${{ matrix.config }}
     - name: List downloaded artificats
       run: ls -lR target/
       shell: bash
