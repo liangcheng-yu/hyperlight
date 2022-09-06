@@ -5,6 +5,21 @@
 #include "stdint.h"
 #include "stdio.h"
 
+MunitResult test_byte_array_null_ptr()
+{
+    struct Context *ctx = context_new();
+    Handle barr_ref = byte_array_new(ctx, NULL, 123);
+    munit_assert_true(handle_is_error(barr_ref));
+    const char *err_msg = handle_get_error_message(ctx, barr_ref);
+    munit_assert_not_null(err_msg);
+    free((char *)err_msg);
+
+    handle_free(ctx, barr_ref);
+    context_free(ctx);
+
+    return MUNIT_OK;
+}
+
 MunitResult test_byte_array_lifecycle()
 {
     struct Context *ctx = context_new();

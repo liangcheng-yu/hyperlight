@@ -3,7 +3,7 @@ use super::fill_vec;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::strings::{to_string, RawCString};
-use anyhow::anyhow;
+use anyhow::{anyhow, Error};
 
 mod impls {
     use super::super::context::Context;
@@ -77,6 +77,10 @@ pub unsafe extern "C" fn byte_array_new(
     arr_ptr: *const u8,
     arr_len: usize,
 ) -> Handle {
+    if arr_ptr.is_null() {
+        let err = Error::msg("array pointer passed to byte_array_new is NULL");
+        return (*ctx).register_err(err);
+    }
     let vec = fill_vec(arr_ptr, arr_len);
     Context::register(vec, &(*ctx).byte_arrays, Hdl::ByteArray)
 }

@@ -112,6 +112,20 @@ impl GuestMemory {
         unsafe { self.write_slice(from_bytes, from_bytes.len(), address) }
     }
 
+    /// Get the raw pointer to the memory region.
+    ///
+    /// # Safety
+    ///
+    /// The pointer will point to a shared memory region
+    /// of size `self.size`. The caller must ensure that any
+    /// writes they do directly to this pointer fall completely
+    /// within this region, and that they do not attempt to
+    /// free any of this memory, since it is owned and will
+    /// be cleaned up by `self`.
+    pub fn raw_ptr(&self) -> *mut c_void {
+        self.ptr
+    }
+
     /// Read an `i64` from guest memory starting at `offset`
     ///
     /// Return `Ok` with the `i64` value starting at `offset`
@@ -253,6 +267,9 @@ mod tests {
         // that address should have previously been freed.
         cfg_if::cfg_if! {
             if #[cfg(unix)] {
+                // on Linux, mmap only takes the address (first param)
+                // as a hint, but only guarantees that it'll not
+                // return NULL if the call succeeded.
                 let mmap_addr = unsafe {mmap(
                     addr,
                     size,
@@ -261,7 +278,7 @@ mod tests {
                     -1,
                     0,
                 )};
-                assert_eq!(addr, mmap_addr);
+                assert_ne!(std::ptr::null_mut(), mmap_addr);
                 assert_eq!(0, unsafe{munmap(addr, size)});
             } else if #[cfg(windows)] {
                 let valloc_addr = unsafe {
@@ -272,7 +289,7 @@ mod tests {
                         PAGE_EXECUTE_READWRITE,
                     )
                 };
-                assert_eq!(addr, valloc_addr);
+                assert_ne!(std::ptr::null_mut(), valloc_addr);
                 assert_eq!(true, unsafe{
                     VirtualFree(addr, 0, MEM_DECOMMIT)
                 });

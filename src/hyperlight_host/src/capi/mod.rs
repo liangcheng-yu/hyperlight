@@ -37,6 +37,10 @@ pub mod hyperv_linux;
 ///! C-compatible API functions for converting `Handle`s to various
 /// integer types.
 pub mod int;
+#[cfg(target_os = "linux")]
+///! C-compatible API functions for creating and running guests on KVM
+///! on Linux.
+pub mod kvm;
 ///! C-compatible API functions to manage `SandboxMemoryConfiguration`
 ///! structures.
 pub mod mem_config;

@@ -3,12 +3,18 @@ use super::hdl::Hdl;
 
 #[cfg(target_os = "linux")]
 use crate::capi::hyperv_linux::mshv_run_message;
+#[cfg(target_os = "linux")]
+use crate::hypervisor::kvm;
+#[cfg(target_os = "linux")]
+use crate::hypervisor::kvm_regs;
 use crate::mem::{guest_mem::GuestMemory, pe::PEInfo};
 use crate::sandbox::Sandbox;
 use crate::{func::args::Val, mem::config::SandboxMemoryConfiguration};
 use crate::{func::def::HostFunc, mem::layout::SandboxMemoryLayout};
 use anyhow::{bail, Error, Result};
 use chashmap::{CHashMap, ReadGuard, WriteGuard};
+#[cfg(target_os = "linux")]
+use kvm_ioctls::Kvm;
 #[cfg(target_os = "linux")]
 use mshv_bindings::mshv_user_mem_region;
 #[cfg(target_os = "linux")]
@@ -65,6 +71,27 @@ pub struct Context {
     pub int64s: CHashMap<Key, i64>,
     /// All the `i32`s stored in this context
     pub int32s: CHashMap<Key, i32>,
+    #[cfg(target_os = "linux")]
+    /// All the `kvm`s stored in this context
+    pub kvms: CHashMap<Key, Kvm>,
+    #[cfg(target_os = "linux")]
+    /// All the KVM `VmFd`s stored in this context
+    pub kvm_vmfds: CHashMap<Key, kvm_ioctls::VmFd>,
+    #[cfg(target_os = "linux")]
+    /// All the KVM `VcpuFd`s stored in this context
+    pub kvm_vcpufds: CHashMap<Key, kvm_ioctls::VcpuFd>,
+    #[cfg(target_os = "linux")]
+    /// All the KVM `kvm_userspace_memory_region`s stored in this context
+    pub kvm_user_mem_regions: CHashMap<Key, kvm_bindings::kvm_userspace_memory_region>,
+    #[cfg(target_os = "linux")]
+    /// All the KVM run results stored in this context
+    pub kvm_run_messages: CHashMap<Key, kvm::KvmRunMessage>,
+    #[cfg(target_os = "linux")]
+    /// All the KVM registers stored in this context
+    pub kvm_regs: CHashMap<Key, kvm_regs::Regs>,
+    #[cfg(target_os = "linux")]
+    /// All the KVM segment registers stored in this context
+    pub kvm_sregs: CHashMap<Key, kvm_regs::SRegs>,
 }
 
 /// A type alias for a `CHashMap` `ReadGuard` type wrapped in a
@@ -178,6 +205,20 @@ impl Context {
                     Hdl::GuestMemory(key) => self.guest_mems.remove(&key).is_some(),
                     Hdl::Int64(key) => self.int64s.remove(&key).is_some(),
                     Hdl::Int32(key) => self.int32s.remove(&key).is_some(),
+                    #[cfg(target_os = "linux")]
+                    Hdl::Kvm(key) => self.kvms.remove(&key).is_some(),
+                    #[cfg(target_os = "linux")]
+                    Hdl::KvmVmFd(key) => self.kvm_vmfds.remove(&key).is_some(),
+                    #[cfg(target_os = "linux")]
+                    Hdl::KvmVcpuFd(key) => self.kvm_vcpufds.remove(&key).is_some(),
+                    #[cfg(target_os = "linux")]
+                    Hdl::KvmUserMemRegion(key) => self.kvm_user_mem_regions.remove(&key).is_some(),
+                    #[cfg(target_os = "linux")]
+                    Hdl::KvmRunMessage(key) => self.kvm_run_messages.remove(&key).is_some(),
+                    #[cfg(target_os = "linux")]
+                    Hdl::KvmRegisters(key) => self.kvm_regs.remove(&key).is_some(),
+                    #[cfg(target_os = "linux")]
+                    Hdl::KvmSRegisters(key) => self.kvm_sregs.remove(&key).is_some(),
                 }
             }
             Err(_) => false,

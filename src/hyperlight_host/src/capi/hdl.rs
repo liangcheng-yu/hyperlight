@@ -47,6 +47,27 @@ pub enum Hdl {
     Int64(Key),
     /// A reference to an `i32`
     Int32(Key),
+    #[cfg(target_os = "linux")]
+    /// A reference to a KVM instance
+    Kvm(Key),
+    #[cfg(target_os = "linux")]
+    /// A reference to a KVM VmFd instance
+    KvmVmFd(Key),
+    #[cfg(target_os = "linux")]
+    /// A reference to a KVM VcpuFd instance
+    KvmVcpuFd(Key),
+    #[cfg(target_os = "linux")]
+    /// A reference to a KVM `kvm_userspace_memory_region` instance
+    KvmUserMemRegion(Key),
+    #[cfg(target_os = "linux")]
+    /// A reference to a KVM run message instance
+    KvmRunMessage(Key),
+    #[cfg(target_os = "linux")]
+    /// A reference to the KVM registers
+    KvmRegisters(Key),
+    #[cfg(target_os = "linux")]
+    /// A reference to the KVM segment registers
+    KvmSRegisters(Key),
 }
 
 impl Hdl {
@@ -73,6 +94,20 @@ impl Hdl {
     const GUEST_MEMORY_TYPE_ID: TypeID = 115;
     const INT_64_TYPE_ID: TypeID = 116;
     const INT_32_TYPE_ID: TypeID = 117;
+    #[cfg(target_os = "linux")]
+    const KVM_TYPE_ID: TypeID = 118;
+    #[cfg(target_os = "linux")]
+    const KVM_VMFD_TYPE_ID: TypeID = 119;
+    #[cfg(target_os = "linux")]
+    const KVM_VCPUFD_TYPE_ID: TypeID = 120;
+    #[cfg(target_os = "linux")]
+    const KVM_USER_MEM_REGION_TYPE_ID: TypeID = 121;
+    #[cfg(target_os = "linux")]
+    const KVM_RUN_MESSAGE_TYPE_ID: TypeID = 122;
+    #[cfg(target_os = "linux")]
+    const KVM_REGISTERS_TYPE_ID: TypeID = 123;
+    #[cfg(target_os = "linux")]
+    const KVM_SREGISTERS_TYPE_ID: TypeID = 124;
 
     /// Get the `TypeID` associated with `self`.
     ///
@@ -102,6 +137,20 @@ impl Hdl {
             Hdl::GuestMemory(_) => Self::GUEST_MEMORY_TYPE_ID,
             Hdl::Int64(_) => Self::INT_64_TYPE_ID,
             Hdl::Int32(_) => Self::INT_32_TYPE_ID,
+            #[cfg(target_os = "linux")]
+            Hdl::Kvm(_) => Self::KVM_TYPE_ID,
+            #[cfg(target_os = "linux")]
+            Hdl::KvmVmFd(_) => Self::KVM_VMFD_TYPE_ID,
+            #[cfg(target_os = "linux")]
+            Hdl::KvmVcpuFd(_) => Self::KVM_VCPUFD_TYPE_ID,
+            #[cfg(target_os = "linux")]
+            Hdl::KvmUserMemRegion(_) => Self::KVM_USER_MEM_REGION_TYPE_ID,
+            #[cfg(target_os = "linux")]
+            Hdl::KvmRunMessage(_) => Self::KVM_RUN_MESSAGE_TYPE_ID,
+            #[cfg(target_os = "linux")]
+            Hdl::KvmRegisters(_) => Self::KVM_REGISTERS_TYPE_ID,
+            #[cfg(target_os = "linux")]
+            Hdl::KvmSRegisters(_) => Self::KVM_SREGISTERS_TYPE_ID,
         }
     }
 
@@ -134,6 +183,20 @@ impl Hdl {
             Hdl::GuestMemory(key) => *key,
             Hdl::Int64(key) => *key,
             Hdl::Int32(key) => *key,
+            #[cfg(target_os = "linux")]
+            Hdl::Kvm(key) => *key,
+            #[cfg(target_os = "linux")]
+            Hdl::KvmVmFd(key) => *key,
+            #[cfg(target_os = "linux")]
+            Hdl::KvmVcpuFd(key) => *key,
+            #[cfg(target_os = "linux")]
+            Hdl::KvmUserMemRegion(key) => *key,
+            #[cfg(target_os = "linux")]
+            Hdl::KvmRunMessage(key) => *key,
+            #[cfg(target_os = "linux")]
+            Hdl::KvmRegisters(key) => *key,
+            #[cfg(target_os = "linux")]
+            Hdl::KvmSRegisters(key) => *key,
         }
     }
 }
@@ -164,6 +227,20 @@ impl std::fmt::Display for Hdl {
             Hdl::GuestMemory(key) => write!(f, "GuestMemory({})", key),
             Hdl::Int64(key) => write!(f, "Int64({})", key),
             Hdl::Int32(key) => write!(f, "Int32({})", key),
+            #[cfg(target_os = "linux")]
+            Hdl::Kvm(key) => write!(f, "Kvm({})", key),
+            #[cfg(target_os = "linux")]
+            Hdl::KvmVmFd(key) => write!(f, "KvmVmFd({})", key),
+            #[cfg(target_os = "linux")]
+            Hdl::KvmVcpuFd(key) => write!(f, "KvmVcpuFd({})", key),
+            #[cfg(target_os = "linux")]
+            Hdl::KvmUserMemRegion(key) => write!(f, "KvmUserMemRegion({})", key),
+            #[cfg(target_os = "linux")]
+            Hdl::KvmRunMessage(key) => write!(f, "KvmRunMessage({})", key),
+            #[cfg(target_os = "linux")]
+            Hdl::KvmRegisters(key) => write!(f, "KvmRegisters({})", key),
+            #[cfg(target_os = "linux")]
+            Hdl::KvmSRegisters(key) => write!(f, "KvmSRegisters({})", key),
         }
     }
 }
@@ -199,6 +276,20 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::GUEST_MEMORY_TYPE_ID => Ok(Hdl::GuestMemory(key)),
             Self::INT_64_TYPE_ID => Ok(Hdl::Int64(key)),
             Self::INT_32_TYPE_ID => Ok(Hdl::Int32(key)),
+            #[cfg(target_os = "linux")]
+            Self::KVM_TYPE_ID => Ok(Hdl::Kvm(key)),
+            #[cfg(target_os = "linux")]
+            Self::KVM_VMFD_TYPE_ID => Ok(Hdl::KvmVmFd(key)),
+            #[cfg(target_os = "linux")]
+            Self::KVM_VCPUFD_TYPE_ID => Ok(Hdl::KvmVcpuFd(key)),
+            #[cfg(target_os = "linux")]
+            Self::KVM_USER_MEM_REGION_TYPE_ID => Ok(Hdl::KvmUserMemRegion(key)),
+            #[cfg(target_os = "linux")]
+            Self::KVM_RUN_MESSAGE_TYPE_ID => Ok(Hdl::KvmRunMessage(key)),
+            #[cfg(target_os = "linux")]
+            Self::KVM_REGISTERS_TYPE_ID => Ok(Hdl::KvmRegisters(key)),
+            #[cfg(target_os = "linux")]
+            Self::KVM_SREGISTERS_TYPE_ID => Ok(Hdl::KvmSRegisters(key)),
             _ => bail!("invalid handle type {}", hdl.type_id()),
         }
     }

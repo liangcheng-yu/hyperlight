@@ -33,6 +33,11 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </Content>
+    <Content Condition="'$(RuntimeIdentifier)'=='win-x64' or ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And  '$(RuntimeIdentifier)'=='')" Include="..\..\target\$(Configuration)\hyperlight_host.dll" Pack="true" PackagePath="native">
+      <Link>hyperlight_host.dll</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </Content>
     <Content Include="Deislabs.HyperLight.targets" PackagePath="buildTransitive/Deislabs.HyperLight.targets" />
   </ItemGroup>
 

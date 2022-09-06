@@ -5,6 +5,9 @@ build-dotnet:
 build-rust:
     cargo build
 
+build-rust-release:
+    cargo build --release
+
 build: build-dotnet build-rust
     echo "built all .Net and Rust projects"
 

@@ -4,6 +4,9 @@
         "strings.h": "c",
         "stdbool.h": "c",
         "stdio.h": "c",
-        "typeinfo": "c"
+        "typeinfo": "c",
+        "flag.h": "c",
+        "munit.h": "c",
+        "functional": "c"
     }
 }

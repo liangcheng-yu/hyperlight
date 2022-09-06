@@ -9,6 +9,7 @@
 #include "mem_layout.h"
 #if defined(__linux__)
 #include "hyperv_linux.h"
+#include "kvm.h"
 #endif
 #include "int.h"
 #include "guest_mem.h"
@@ -26,6 +27,7 @@ static MunitSuite test_suites[] = {
     {"/mem_layout_tests", mem_layout_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
 #if defined(__linux__)
     {"/hyperv_linux_tests", hyperv_linux_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
+    {"/kvm_tests", kvm_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
 #endif
     {"/int_handle_tests", int_handle_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/guest_memory_tests", guest_memory_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
