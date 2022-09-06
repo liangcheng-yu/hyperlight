@@ -8,7 +8,7 @@ namespace Hyperlight.Wrapper
     {
         public static void ThrowIfError(this Handle hdl)
         {
-            Handle.ThrowIfNull(hdl);
+            ArgumentNullException.ThrowIfNull(hdl);
             if (handle_is_error(hdl.handle))
             {
                 var errorMessage = handle_get_error_message(hdl.ctx.ctx, hdl.handle);

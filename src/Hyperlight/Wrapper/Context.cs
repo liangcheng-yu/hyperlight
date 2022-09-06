@@ -16,7 +16,7 @@ namespace Hyperlight.Wrapper
 
         public NativeContext ctx { get; private set; }
         private bool disposed;
-        public Context(NativeContext ctx)
+        private Context(NativeContext ctx)
         {
             this.ctx = ctx;
         }
@@ -36,14 +36,6 @@ namespace Hyperlight.Wrapper
                     context_free(this.ctx);
                 }
                 this.disposed = true;
-            }
-        }
-
-        public static void ThrowIfNull(Context ctx)
-        {
-            if (null == ctx)
-            {
-                throw new ArgumentNullException(nameof(ctx));
             }
         }
 

@@ -16,7 +16,7 @@ namespace Hyperlight.Wrapper
         }
         public static long GetInt64(this Handle hdl)
         {
-            Handle.ThrowIfNull(hdl);
+            ArgumentNullException.ThrowIfNull(hdl);
             if (!hdl.IsInt64())
             {
                 throw new HyperlightException("Handle is not an int64");
@@ -26,12 +26,12 @@ namespace Hyperlight.Wrapper
 
         public static bool IsInt32(this Handle hdl)
         {
-            Handle.ThrowIfNull(hdl);
+            ArgumentNullException.ThrowIfNull(hdl);
             return handle_is_int_32(hdl.ctx.ctx, hdl.handle);
         }
         public static int GetInt32(this Handle hdl)
         {
-            Handle.ThrowIfNull(hdl);
+            ArgumentNullException.ThrowIfNull(hdl);
             if (!hdl.IsInt32())
             {
                 throw new HyperlightException("Handle is not an int32");
@@ -57,7 +57,6 @@ namespace Hyperlight.Wrapper
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern long handle_get_int_64(NativeContext ctx, NativeHandle hdl);
-
 
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
 #pragma warning restore CA1707
