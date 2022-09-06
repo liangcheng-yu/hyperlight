@@ -3,6 +3,7 @@ use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::func::args::Val;
 use crate::func::def::HostFunc;
+use anyhow::Error;
 
 /// Callback is a wrapper around a standard C
 /// function pointer.
@@ -37,6 +38,7 @@ use crate::func::def::HostFunc;
 /// it owns. It must free that memory with `val_ref_free` before it returns,
 /// or there will be a leak.
 #[repr(C)]
+#[derive(Debug)]
 pub struct Callback {
     /// The function pointer to the callback.
     ///
@@ -53,7 +55,9 @@ pub struct Callback {
 ///
 /// # Safety
 ///
-/// The memory pointed to by `cb` must live at least as long as
+/// `callback` must:
+/// - not be `NULL`
+/// - point to memory that lives at least until immediately after
 /// you intend to call the `HostFunc` (e.g. via `call_host_func`).
 ///
 /// Most often, you'll create a `Callback`, a `HostFunc` immediately
@@ -92,6 +96,29 @@ pub unsafe extern "C" fn host_func_create(
     ctx: *mut Context,
     callback: &'static Callback,
 ) -> Handle {
+    // Note about the callback parameter:
+    //
+    // It's not a good idea to accept a reference in an extern "C"
+    // function. It would be better to use a pointer instead.
+    // But, we're using the reference here because we need a static
+    // reference and I (arschles) don't know a good way to do something
+    // similar to static references with pointers.
+    //
+    // This function's parameter list in C is:
+    //
+    // (Context* ctx, Callback* callback)
+    //
+    // So, what happens if someone passes NULL for callback?
+    //
+    // If that happens, std::ptr::addr_of!((*callback).func)
+    // happens to return std::ptr::null() in Rust, so we can
+    // do the check here.
+    if std::ptr::addr_of!(callback).is_null() {
+        return (*ctx).register_err(Error::msg("NULL callback"));
+    } else if std::ptr::addr_of!((*callback).func).is_null() {
+        return (*ctx).register_err(Error::msg("NULL callback func"));
+    }
+
     let func = |val: &Val| -> Box<Val> {
         let func = callback.func;
         let bx_param = Box::new(val.clone());
