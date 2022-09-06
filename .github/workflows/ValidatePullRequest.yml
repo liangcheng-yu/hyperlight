@@ -8,12 +8,25 @@ on:
     branches: [ main ]
   
 jobs:
-  build-host-library-debug:
+  build-host-library:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
       matrix:
-        os: [ubuntu-20.04, windows-latest]
+        build: [ubuntu-20.04-debug, windows-latest-debug, ubuntu-20.04-release, windows-latest-release]
+        include:
+          - build: ubuntu-20.04-debug
+            os: ubuntu-20.04
+            config: debug
+          - build: windows-latest-debug
+            os: windows-latest
+            config: debug
+          - build: ubuntu-20.04-release
+            os: ubuntu-20.04
+            config: release
+          - build: windows-latest-release
+            os: windows-latest
+            config: release
     steps:
     - uses: actions/checkout@v3
       with:
@@ -22,9 +35,9 @@ jobs:
       uses: extractions/setup-just@v1
       with:
         just-version: 1.4 # optional semver specification, otherwise latest
-    - name: Build hyperlight_host library
+    - name: Build
       working-directory: src/hyperlight_host
-      run: just build
+      run:  just build ${{ matrix.config }}
     - name: upload hyperlight_host.h
       uses: actions/upload-artifact@v3
       with:
@@ -34,51 +47,17 @@ jobs:
       uses: actions/upload-artifact@v3
       if: runner.os == 'Windows'
       with:
-        name: Debug_assets
-        path: target/debug/hyperlight_host.dll
+        name: ${{ matrix.config }}_assets
+        path: target/${{ matrix.config }}/hyperlight_host.dll
     - name: upload libhyperlight_host.so (Linux only)
       uses: actions/upload-artifact@v3
       if: runner.os == 'Linux'
       with:
-        name: Debug_assets
-        path: target/debug/libhyperlight_host.so
-  build-host-library-release:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: true
-      matrix:
-        os: [ubuntu-20.04, windows-latest]
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-    - name: Install Just
-      uses: extractions/setup-just@v1
-      with:
-        just-version: '0.10' # optional semver specification, otherwise latest
-    - name: Build hyperlight_host library
-      working-directory: src/hyperlight_host
-      run: just build-release
-    - name: upload hyperlight_host.h
-      uses: actions/upload-artifact@v3
-      with:
-        name: hyperlight_host_.h
-        path: src/hyperlight_host/include/hyperlight_host.h
-    - name: upload hyperlight_host.dll (Windows only)
-      uses: actions/upload-artifact@v3
-      if: runner.os == 'Windows'
-      with:
-        name: Release_assets
-        path: target/release/hyperlight_host.dll
-    - name: upload libhyperlight_host.so (Linux only)
-      uses: actions/upload-artifact@v3
-      if: runner.os == 'Linux'
-      with:
-        name: Release_assets
-        path: target/release/libhyperlight_host.so
+        name: ${{ matrix.config }}_assets
+        path: target/${{ matrix.config }}/libhyperlight_host.so
   build-on-windows:
     runs-on: ${{ matrix.os }}
-    needs: [ build-host-library-release, build-host-library-debug ]
+    needs: [build-host-library]
     strategy:
       fail-fast: true
       matrix:
