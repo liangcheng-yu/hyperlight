@@ -144,22 +144,27 @@ jobs:
         include:
           - build: linux-kvm-debug
             os: [self-hosted, Linux, X64, kvm]
-            config: debug
+            # TODO: get rid of this horrible hack
+            config: Debug
+            prefix: debug
             platform: x64
             hypervisor: kvm
           - build: linux-kvm-release
             os: [self-hosted, Linux, X64, kvm]
-            config: release
+            config: Release
+            prefix: release
             platform: x64
             hypervisor: kvm
           - build: linux-hyperv-debug
             os: [self-hosted, Linux, X64, hyperv]
-            config: debug
+            config: Debug
+            prefix: debug
             platform: x64
             hypervisor: hyperv
           - build: linux-hyperv-release
             os: [self-hosted, Linux, X64, hyperv]
-            config: release
+            config: Release
+            prefix: release
             platform: x64
             hypervisor: hyperv
     steps:
@@ -192,13 +197,13 @@ jobs:
     - name: Download Artifacts
       uses: actions/download-artifact@v3
       with:
-        name: guest-binaries-${{ matrix.config }}
+        name: guest-binaries-${{ matrix.prefix }}
         path: src/tests/Guests/
     - name: Download libhyperlight_host.so
       uses: actions/download-artifact@v3
       with:
-        name: ${{ matrix.config}}_assets
-        path: target/${{ matrix.config }}
+        name: ${{ matrix.prefix}}_assets
+        path: target/${{ matrix.prefix }}
     - name: List downloaded artificats
       run: ls -lR target/
       shell: bash
