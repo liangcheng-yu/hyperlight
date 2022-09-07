@@ -47,7 +47,7 @@ pub extern "C" fn handle_is_error(hdl: Handle) -> bool {
 
     match Hdl::try_from(hdl) {
         Ok(Hdl::Err(_)) => true,
-        Err(_) => true,  
+        Err(_) => true,
         _default => false,
     }
 
@@ -56,10 +56,9 @@ pub extern "C" fn handle_is_error(hdl: Handle) -> bool {
     //
     // match Hdl::try_from(hdl) {
     //     Ok(Hdl::Err(_)) => true,
-    //     Err(_) => true,  
+    //     Err(_) => true,
     //     _ => false,
     // }
-   
 }
 
 /// Get the error message out of the given `Handle` or `NULL` if
