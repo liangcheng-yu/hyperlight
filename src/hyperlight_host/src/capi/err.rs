@@ -2,6 +2,8 @@ use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::strings::{to_c_string, RawCString};
+use crate::capi::strings::to_string;
+use anyhow::Error;
 
 mod impls {
     use crate::capi::context::{Context, ReadResult};
@@ -16,6 +18,25 @@ mod impls {
 }
 
 pub use impls::get_err;
+
+/// Create a new `Handle` that references an error with the given message.
+///
+/// This function is unlikely to be useful in production code and is provided
+/// for debug purposes.
+///
+/// # Safety
+///
+/// You must call this function with a `Context *` that was:
+///
+/// - Created by `context_new`
+/// - Not modified in any way besides via Hyperlight C API functions
+/// - Not freed with `context_free`
+#[no_mangle]
+pub unsafe extern "C" fn handle_new_err(ctx: *mut Context, err_msg: RawCString) -> Handle {
+    let msg_str = to_string(err_msg);
+    let err = Error::msg(msg_str);
+    (*ctx).register_err(err)
+}
 
 /// Return true if `hdl` is an error type, false otherwise.
 #[no_mangle]

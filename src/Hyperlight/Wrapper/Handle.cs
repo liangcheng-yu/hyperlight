@@ -6,14 +6,63 @@ namespace Hyperlight.Wrapper
 {
     public class Handle : IDisposable
     {
+        public static readonly NativeHandle Zero = 0;
+
         public Context ctx { get; private set; }
         public NativeHandle handle { get; private set; }
         private bool disposed;
 
         public Handle(Context ctx, NativeHandle hdl)
         {
+            ArgumentNullException.ThrowIfNull(ctx);
+            if (Zero == hdl)
+            {
+                throw new HyperlightException(
+                    "Handle wrapper created with empty handle"
+                );
+            }
+
             this.ctx = ctx;
             this.handle = hdl;
+        }
+
+        /// <summary>
+        /// Create a new handle wrapper that references an error
+        /// </summary>
+        /// <param name="ctx">
+        /// the context in which to create the error
+        /// </param>
+        /// <param name="errMsg">
+        /// the message that the error should have
+        /// </param>
+        /// <returns>
+        /// a new wrapper for a new handle that references the new error
+        /// </returns>
+        public static Handle NewError(Context ctx, String errMsg)
+        {
+            ArgumentNullException.ThrowIfNull(ctx);
+            unsafe
+            {
+                fixed (char* charPtr = errMsg)
+                {
+                    var raw = handle_new_err(ctx.ctx, new IntPtr(charPtr));
+                    return new Handle(ctx, raw);
+                }
+            }
+        }
+
+        public static Handle NewInt32(Context ctx, int val)
+        {
+            ArgumentNullException.ThrowIfNull(ctx);
+            var rawHdl = int_32_new(ctx.ctx, val);
+            return new Handle(ctx, rawHdl);
+        }
+
+        public static Handle NewInt64(Context ctx, long val)
+        {
+            ArgumentNullException.ThrowIfNull(ctx);
+            var rawHdl = int_64_new(ctx.ctx, val);
+            return new Handle(ctx, rawHdl);
         }
 
         public void Dispose()
@@ -29,16 +78,9 @@ namespace Hyperlight.Wrapper
                 if (disposing)
                 {
                     handle_free(this.ctx.ctx, this.handle);
+                    this.handle = Zero;
                 }
                 disposed = true;
-            }
-        }
-
-        public static void ThrowIfNull(Handle hdl)
-        {
-            if (null == hdl)
-            {
-                throw new ArgumentNullException(nameof(hdl));
             }
         }
 
@@ -52,6 +94,27 @@ namespace Hyperlight.Wrapper
             NativeContext context,
             NativeHandle handle
         );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle handle_new_err(
+            NativeContext ctx,
+            IntPtr errMsg
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle int_32_new(
+                    NativeContext ctx,
+                    int val
+                );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle int_64_new(
+                    NativeContext ctx,
+                    long val
+                );
 
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
 #pragma warning restore CA1401 // P/Invoke method should not be visible

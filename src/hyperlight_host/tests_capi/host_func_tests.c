@@ -4,6 +4,18 @@
 #include "callback.h"
 #include "host_func_tests.h"
 #include "err.h"
+#include "stdio.h"
+
+MunitResult test_create_host_func_null()
+{
+    Context *ctx = context_new();
+    Callback *cb = NULL;
+    Handle host_func_hdl = host_func_create(ctx, cb);
+    handle_assert_error(ctx, host_func_hdl);
+    handle_free(ctx, host_func_hdl);
+    context_free(ctx);
+    return MUNIT_OK;
+}
 
 MunitResult test_create_host_func()
 {

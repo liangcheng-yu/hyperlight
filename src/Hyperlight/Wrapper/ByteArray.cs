@@ -15,7 +15,7 @@ namespace Hyperlight.Wrapper
             byte[] arr
         )
         {
-            Context.ThrowIfNull(ctxWrapper);
+            ArgumentNullException.ThrowIfNull(ctxWrapper);
             ThrowIfNull(arr);
             this.ctxWrapper = ctxWrapper;
             unsafe
