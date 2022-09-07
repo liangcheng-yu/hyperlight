@@ -54,7 +54,9 @@ jobs:
       if: runner.os == 'Linux'
       with:
         name: ${{ matrix.config }}_assets
-        path: target/${{ matrix.config }}/libhyperlight_host.so
+        path: |
+          target/${{ matrix.config }}/libhyperlight_host.so
+          target/${{ matrix.config }}/libhyperlight_host.d
   build-on-windows:
     runs-on: ${{ matrix.os }}
     needs: [build-host-library]
