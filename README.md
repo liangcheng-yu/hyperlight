@@ -129,6 +129,7 @@ Prerequisites:
 
 ```shell
 cd src/hyperlight_host
+cd tests_capi/ && git submodule init && git submodule update && cd ..
 just build-tests-capi
 ```
 
