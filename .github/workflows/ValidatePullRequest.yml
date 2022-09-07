@@ -142,7 +142,6 @@ jobs:
         include:
           - build: linux-kvm-debug
             os: [self-hosted, Linux, X64, kvm]
-            # TODO: get rid of this horrible hack
             config: debug
             platform: x64
             hypervisor: kvm
