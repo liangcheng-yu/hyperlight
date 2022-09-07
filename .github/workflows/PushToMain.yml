@@ -45,7 +45,7 @@ jobs:
       with:
         msbuild-architecture: x64
     - name: Ensure path exists for debug build
-      if: ${{ env:CONFIG }} == "Debug"
+      if: ${{ env.CONFIG }} == "Debug"
       run: mkdir -p target\debug
       shell: pwsh
     - name: Ensure path exists for release build
@@ -60,7 +60,7 @@ jobs:
         path: target/debug/
     - name: Download Release DLL
       uses: actions/download-artifact@v3
-      if: ${{ env:CONFIG }} == "Release"
+      if: ${{ env.CONFIG }} == "Release"
       with:
         name: ${{ env.CONFIG }}_assets
         path: target/release/
