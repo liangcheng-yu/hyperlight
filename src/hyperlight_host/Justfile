@@ -2,9 +2,9 @@ lib-suffix := if os() == "windows" { ".dll" } else { "" }
 bin-suffix := if os() == "windows" { ".exe" } else { ".out" }
 # TODO: use UMDH here for windows?
 # https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/umdh
-valgrind-command := if os() == "windows" { "echo 'valgrind not supported on windows'" } else { "LD_LIBRARY_PATH=../../target/debug valgrind --leak-check=full --error-exitcode=1 -s --suppressions=./minimal.supp ./bin/test_c.out --log-visible info --show-stderr" }
+valgrind-command := if os() == "windows" { "echo 'valgrind not supported on windows'" } else { "./scripts/valgrind-command.sh" }
 valgrind-command-gen-suppressions := if os() == "windows" { "echo 'valgrind not supported on windows'" } else { "LD_LIBRARY_PATH=../../target/debug valgrind --leak-check=full -s --error-exitcode=1 --show-leak-kinds=all --gen-suppressions=all --suppressions=./minimal.supp --log-file=minimalraw.log ./bin/test_c.out" }
-
+test-command := if os() == "windows" { "./scripts/test-command.bat" } else { "./scripts/test-command.sh" }
 clang-checks := if os() == "windows" { "-Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" } else { "-Wall -Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" }
 default-target:= "debug"
 
@@ -25,10 +25,8 @@ build-tests-capi target=default-target: (build target)
     -L../../target/{{target}}
 
 run-tests-capi target=default-target: (build-tests-capi target)
-    if os() == "windows" { "./scripts/test-command.bat {{target}}" } else { "LD_LIBRARY_PATH=../../target/{{target}} ./bin/test_c.out" }
-
+    {{test-command}} {{target}}
 valgrind-tests-capi target=default-target: (build-tests-capi target)
-    if os() == "windows" { "echo 'valgrind not supported on windows'" } else { "LD_LIBRARY_PATH=../../target/{{target}} valgrind --leak-check=full --error-exitcode=1 -s --suppressions=./minimal.supp ./bin/test_c.out --log-visible info --show-stderr" }
-
+    {{valgrind-command}} {{target}}
 valgrind-tests-capi-gen-suppressions target=default-target: (build-tests-capi target)
     {{valgrind-command-gen-suppressions}}
