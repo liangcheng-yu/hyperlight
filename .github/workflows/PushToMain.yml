@@ -110,6 +110,7 @@ jobs:
         name: ${{ env.CONFIG }}_assets
     - name: List downloaded artifacts
       run: ls -lR target/
+      shell: bash
     # Publish the native guests so that its possible to use Hyperlight without building it.
     - name: Create Release (latest)
       uses: "marvinpinto/action-automatic-releases@latest"
