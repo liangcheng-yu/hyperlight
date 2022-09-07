@@ -1,31 +1,47 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": ".NET Core Launch Native Host Example",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "Build NativeHost Example",
-            "program": "${workspaceFolder}/src/examples/NativeHost/bin/Debug/net6.0/NativeHost",
-            "args": [],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "console": "internalConsole"
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+      {
+          "name": ".NET Core Launch Native Host Example",
+          "type": "coreclr",
+          "request": "launch",
+          "preLaunchTask": "Build NativeHost Example",
+          "program": "${workspaceFolder}/src/examples/NativeHost/bin/debug/net6.0/NativeHost",
+          "windows": {
+            "program": "${workspaceFolder}/src/examples/NativeHost/bin/debug/net6.0/NativeHost.exe"
+          },
+          "args": [],
+          "cwd": "${workspaceFolder}",
+          "stopAtEntry": true,
+          "console": "internalConsole"
+      },
+      {
+          "name": "Debug Native Guest",
+          "type": "cppvsdbg",
+          "request": "launch",
+          "program": "${workspaceFolder}/src/examples/NativeHost/bin/debug/net6.0/NativeHost.exe",
+          "args": [],
+          "stopAtEntry": false,
+          "cwd": "${workspaceFolder}/src/examples/NativeHost/bin/debug/net6.0",
+          "environment": [],
+          "externalConsole": false,
+          "preLaunchTask": "Build Example Host"
+      },
+      {
+          "type": "lldb",
+          "request": "launch",
+          "name": "Debug Rust",
+          "args": [],
+          "program": "${workspaceFolder}/src/examples/NativeHost/bin/debug/net6.0/NativeHost",
+          "windows": {
+            "program": "${workspaceFolder}/src/examples/NativeHost/bin/debug/net6.0/NativeHost.exe"
+          },
+          "cwd": "${workspaceFolder}",
+          "stopOnEntry": true,
+          "sourceLanguages": ["rust"]
         },
-        {
-            "name": "Debug Native Guest",
-            "type": "cppvsdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/src/examples/NativeHost/bin/Debug/net6.0/NativeHost.exe",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/src/examples/NativeHost/bin/Debug/net6.0",
-            "environment": [],
-            "externalConsole": false,
-            "preLaunchTask": "Build Example Host"
-        }
-    ]
+  ]
 }
