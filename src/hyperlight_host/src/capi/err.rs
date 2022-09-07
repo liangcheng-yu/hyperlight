@@ -41,7 +41,25 @@ pub unsafe extern "C" fn handle_new_err(ctx: *mut Context, err_msg: RawCString) 
 /// Return true if `hdl` is an error type, false otherwise.
 #[no_mangle]
 pub extern "C" fn handle_is_error(hdl: Handle) -> bool {
-    matches!(Hdl::try_from(hdl), Ok(Hdl::Err(_)))
+    // NOTE: Do not change this code it will fail when compiled under the default release profile
+    // setting opt level to a value other than 0 will cause the error
+    // it seems like this might be a bug in rust optimizer
+
+    match Hdl::try_from(hdl) {
+        Ok(Hdl::Err(_)) => true,
+        Err(_) => true,  
+        _default => false,
+    }
+
+    // i.e. This does not work when opt > 0
+    // and neither do lots of other variants.
+    //
+    // match Hdl::try_from(hdl) {
+    //     Ok(Hdl::Err(_)) => true,
+    //     Err(_) => true,  
+    //     _ => false,
+    // }
+   
 }
 
 /// Get the error message out of the given `Handle` or `NULL` if
