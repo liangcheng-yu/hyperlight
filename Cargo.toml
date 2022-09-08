@@ -2,5 +2,3 @@
 members = [
     "src/hyperlight_host",
 ]
-[profile.release]
-opt-level = 0 # TODO: release build with optimization fails tests
