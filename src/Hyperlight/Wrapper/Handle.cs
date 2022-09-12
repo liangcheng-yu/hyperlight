@@ -83,7 +83,6 @@ namespace Hyperlight.Wrapper
                 disposed = true;
             }
         }
-
 #pragma warning disable CA1707 // Remove the underscores from member name
 #pragma warning disable CA1401 // P/Invoke method should not be visible
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
