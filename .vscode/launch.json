@@ -54,6 +54,19 @@
       "request": "attach",
       "name": "Attach LLDB",
       "pid": "${command:pickMyProcess}" // use ${command:pickProcess} to pick other users' processes
-    }
+    },
+    {
+        "type": "lldb",
+        "request": "launch",
+        "name": "Debug Native code in NativeHost",
+        "args": [],
+        "program": "${workspaceFolder}/src/examples/NativeHost/bin/debug/net6.0/NativeHost",
+        "windows": {
+          "program": "${workspaceFolder}/src/examples/NativeHost/bin/debug/net6.0/NativeHost.exe"
+        },
+        "cwd": "${workspaceFolder}",
+        "stopOnEntry": true,
+        "sourceLanguages": ["rust"]
+      }
   ]
 }

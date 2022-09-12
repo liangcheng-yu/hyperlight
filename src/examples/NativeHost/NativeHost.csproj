@@ -12,13 +12,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\..\..\target\$(Configuration.toLower())\hyperlight_host.dll" Condition=" '$(OS)' == 'Windows_NT' ">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    <Content Include="../../../target/$(Configuration.toLower())/hyperlight_host.dll" Condition="'$(RuntimeIdentifier)'=='win-x64' or ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And  '$(RuntimeIdentifier)'=='')">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\..\..\target/$(Configuration.toLower())/libhyperlight_host.so" Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' ">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    <Content Include="../../../target/$(Configuration.toLower())/libhyperlight_host.so" Condition=" ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'  == 'true' And  '$(RuntimeIdentifier)'=='') or '$(RuntimeIdentifier)'=='linux-x64'  ">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-
+    <Content Include="../../../target/$(Configuration.toLower())/libhyperlight_host.d"  Condition=" ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'  == 'true' And  '$(RuntimeIdentifier)'=='') or '$(RuntimeIdentifier)'=='linux-x64'  ">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="../../tests/Guests/callbackguest/x64/$(Configuration.toLower())/callbackguest.exe">
       <Link>callbackguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

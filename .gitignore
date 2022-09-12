@@ -462,5 +462,6 @@ $RECYCLE.BIN/
 /src/examples/NativeHost/libhyperlight_host
 /src/examples/NativeHost/hyperlight_host
 libhyperlight_host.so
+libhyperlight_host.d
 hyperlight_host.dll
 .envrc
