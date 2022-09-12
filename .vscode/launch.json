@@ -1,31 +1,59 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": ".NET Core Launch Native Host Example",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "Build NativeHost Example",
-            "program": "${workspaceFolder}/src/examples/NativeHost/bin/Debug/net6.0/NativeHost",
-            "args": [],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": true,
-            "console": "internalConsole"
-        },
-        {
-            "name": "Debug Native Guest",
-            "type": "cppvsdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/src/examples/NativeHost/bin/Debug/net6.0/NativeHost.exe",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/src/examples/NativeHost/bin/Debug/net6.0",
-            "environment": [],
-            "externalConsole": false,
-            "preLaunchTask": "Build Example Host"
-        }
-    ]
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": ".NET Core Launch Native Host Example",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "Build NativeHost Example",
+      "program": "${workspaceFolder}/src/examples/NativeHost/bin/Debug/net6.0/NativeHost",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": true,
+      "console": "internalConsole",
+      "justMyCode": false
+    },
+    {
+      "name": "Attach dotnet debugger",
+      "type": "coreclr",
+      "request": "attach",
+      "processId": "${command:pickProcess}"
+    },
+    {
+      "name": "Debug Native Guest",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/examples/NativeHost/bin/Debug/net6.0/NativeHost.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/src/examples/NativeHost/bin/Debug/net6.0",
+      "environment": [],
+      "externalConsole": false,
+      "preLaunchTask": "Build Example Host"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug Tests",
+      "args": ["--no-fork"],
+      "env": {
+        "LD_LIBRARY_PATH": "${workspaceFolder}/target/release",
+        "HYPERV_SHOULD_BE_PRESENT": "true"
+      },
+      "program": "${workspaceFolder}/src/hyperlight_host/bin/test_c.out",
+      "cwd": "${workspaceFolder}/src/hyperlight_host",
+      "stopOnEntry": true,
+      "sourceLanguages": ["rust", "c"],
+      "console": "internalConsole"
+    },
+    {
+      "type": "lldb",
+      "request": "attach",
+      "name": "Attach LLDB",
+      "pid": "${command:pickMyProcess}" // use ${command:pickProcess} to pick other users' processes
+    }
+  ]
 }
