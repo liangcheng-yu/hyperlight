@@ -129,6 +129,7 @@ jobs:
           src/HyperlightGuest/third_party/printf/printf.h
           hyperlight_host.h
           libhyperlight_host.so
+          libhyperlight_host.d
           hyperlight_host.dll
     - name: Store Shortened Git SHA for release
       run: echo "::set-output name=shortened_sha::$(git rev-parse --short HEAD)"
@@ -150,6 +151,7 @@ jobs:
           src/HyperlightGuest/third_party/printf/printf.h
           hyperlight_host.h
           libhyperlight_host.so
+          libhyperlight_host.d
           hyperlight_host.dll
 
   build-rust-ubuntu:
@@ -168,12 +170,16 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Debug_assets
-          path: target/debug/libhyperlight_host.so
+          path: | 
+            target/debug/libhyperlight_host.so
+            target/debug/libhyperlight_host.d
       - name: Upload shared object file for release
         uses: actions/upload-artifact@v3
         with:
           name: Release_assets
-          path: target/release/libhyperlight_host.so
+          path: | 
+            target/debug/libhyperlight_host.so
+            target/debug/libhyperlight_host.d
       - name: Upload header file
         uses: actions/upload-artifact@v3
         with:
