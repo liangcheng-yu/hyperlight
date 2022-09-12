@@ -132,73 +132,40 @@ pub unsafe extern "C" fn mem_layout_get_heap_size(
         .unwrap_or(0)
 }
 
-/// Get the host functions offset from the memory layout in `ctx`
-/// referenced by `mem_layout_ref`, or `0` if no such memory layout
-/// exists.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn mem_layout_get_host_functions_address(
-    ctx: *const Context,
-    mem_layout_ref: Handle,
-    base_addr: i64,
-) -> i64 {
-    impls::calculate_address(&*ctx, mem_layout_ref, base_addr, |l| {
-        Ok(l.host_functions_offset)
-    })
-    .unwrap_or(0)
+/// Convenience macro to create mem_layout_get_$something_address functions.
+#[macro_export]
+macro_rules! mem_layout_get_address {
+    ($something:ident) => {
+        paste::item! {
+            /// Get the offset for a requested resource from the memory layout in `ctx`
+            /// referenced by `mem_layout_ref`, or `0` if no such memory layout
+            /// exists.
+            ///
+            /// # Safety
+            ///
+            /// You must call this function with a `Context*` that has been:
+            ///
+            /// - Created with `context_new`
+            /// - Not yet freed with `context_free
+            /// - Not modified, except by calling functions in the Hyperlight C API
+            #[no_mangle]
+            pub unsafe extern "C" fn [< mem_layout_get_ $something _address >](
+                ctx: *const Context,
+                mem_layout_ref: Handle,
+                base_addr: i64,
+            ) -> i64 {
+                impls::calculate_address(&*ctx, mem_layout_ref, base_addr, |l| {
+                    Ok(l.[< $something _offset >])
+                })
+                .unwrap_or(0)
+            }
+        }
+    };
 }
 
-/// Get the guest error message offset from the memory layout in `ctx`
-/// referenced by `mem_layout_ref`, or `0` if no such memory layout
-/// exists.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn mem_layout_get_guest_error_message_address(
-    ctx: *const Context,
-    mem_layout_ref: Handle,
-    base_addr: i64,
-) -> i64 {
-    impls::calculate_address(&*ctx, mem_layout_ref, base_addr, |l| {
-        Ok(l.guest_error_message_offset)
-    })
-    .unwrap_or(0)
-}
-/// Get the code and outb pointer offset from the memory layout in `ctx`
-/// referenced by `mem_layout_ref`, or `0` if no such memory layout
-/// exists.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn mem_layout_get_code_and_outb_pointer_address(
-    ctx: *const Context,
-    mem_layout_ref: Handle,
-    base_addr: i64,
-) -> i64 {
-    impls::calculate_address(&*ctx, mem_layout_ref, base_addr, |l| {
-        Ok(l.code_and_outb_pointer_offset)
-    })
-    .unwrap_or(0)
-}
+mem_layout_get_address!(host_functions);
+mem_layout_get_address!(guest_error_message);
+mem_layout_get_address!(code_and_outb_pointer);
 
 /// Get the output data offset from the memory layout in `ctx`
 /// referenced by `mem_layout_ref`, or `0` if no such memory layout
@@ -222,51 +189,9 @@ pub unsafe extern "C" fn mem_layout_get_output_data_offset(
     })
     .unwrap_or(0)
 }
-/// Get the heap data offset from the memory layout in `ctx`
-/// referenced by `mem_layout_ref`, or `0` if no such memory layout
-/// exists.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn mem_layout_get_heap_data_address(
-    ctx: *const Context,
-    mem_layout_ref: Handle,
-    base_addr: i64,
-) -> i64 {
-    impls::calculate_address(&*ctx, mem_layout_ref, base_addr, |l| Ok(l.heap_data_offset))
-        .unwrap_or(0)
-}
-/// Get the stack data offset from the memory layout in `ctx`
-/// referenced by `mem_layout_ref`, or `0` if no such memory layout
-/// exists.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn mem_layout_get_stack_data_address(
-    ctx: *const Context,
-    mem_layout_ref: Handle,
-    base_addr: i64,
-) -> i64 {
-    impls::calculate_address(
-        &*ctx,
-        mem_layout_ref,
-        base_addr,
-        |l| Ok(l.stack_data_offset),
-    )
-    .unwrap_or(0)
-}
+
+mem_layout_get_address!(heap_data);
+mem_layout_get_address!(stack_data);
 
 /// Get the code size from the memory layout in `ctx`
 /// referenced by `mem_layout_ref`, or `0` if no such memory layout
@@ -290,189 +215,15 @@ pub unsafe extern "C" fn mem_layout_get_code_size(
     }
 }
 
-/// Using the memory layout `mem_layout_ref` in `ctx`, get the
-/// address to the host functions buffer, given `base_addr` as the
-/// base address, or `0` if no such memory layout exists.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn mem_layout_get_host_functions_buffer_address(
-    ctx: *const Context,
-    mem_layout_ref: Handle,
-    base_addr: i64,
-) -> i64 {
-    impls::calculate_address(&*ctx, mem_layout_ref, base_addr, |l| {
-        Ok(l.host_functions_buffer_offset)
-    })
-    .unwrap_or(0)
-}
+mem_layout_get_address!(host_functions_buffer);
+mem_layout_get_address!(host_exception_buffer);
+mem_layout_get_address!(guest_security_cookie_seed);
+mem_layout_get_address!(guest_error_message_buffer);
+mem_layout_get_address!(input_data_buffer);
+mem_layout_get_address!(output_data_buffer);
+mem_layout_get_address!(guest_heap_buffer);
+mem_layout_get_address!(guest_stack_buffer);
 
-/// Get the host exception buffer offset from the memory layout in `ctx`
-/// referenced by `mem_layout_ref`, or `0` if no such memory layout
-/// exists.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn mem_layout_get_host_exception_buffer_address(
-    ctx: *const Context,
-    mem_layout_ref: Handle,
-    base_addr: i64,
-) -> i64 {
-    impls::calculate_address(&*ctx, mem_layout_ref, base_addr, |l| {
-        Ok(l.host_exception_buffer_offset)
-    })
-    .unwrap_or(0)
-}
-
-/// Get the guest security seed offset from the memory layout in `ctx`
-/// referenced by `mem_layout_ref`, or `0` if no such memory layout
-/// exists.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn mem_layout_get_guest_security_cookie_seed_address(
-    ctx: *const Context,
-    mem_layout_ref: Handle,
-    base_addr: i64,
-) -> i64 {
-    impls::calculate_address(&*ctx, mem_layout_ref, base_addr, |l| {
-        Ok(l.guest_security_cookie_seed_offset)
-    })
-    .unwrap_or(0)
-}
-
-/// Get the guest error message buffer offset from the memory layout in
-/// `ctx` referenced by `mem_layout_ref`, or `0` if no such memory layout
-/// exists.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn mem_layout_get_guest_error_message_buffer_address(
-    ctx: *const Context,
-    mem_layout_ref: Handle,
-    base_addr: i64,
-) -> i64 {
-    impls::calculate_address(&*ctx, mem_layout_ref, base_addr, |l| {
-        Ok(l.guest_error_message_buffer_offset)
-    })
-    .unwrap_or(0)
-}
-
-/// Get the input data buffer offset from the memory layout in `ctx`
-/// referenced by `mem_layout_ref`, or `0` if no such memory layout
-/// exists.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn mem_layout_get_input_data_buffer_address(
-    ctx: *const Context,
-    mem_layout_ref: Handle,
-    base_addr: i64,
-) -> i64 {
-    impls::calculate_address(&*ctx, mem_layout_ref, base_addr, |l| {
-        Ok(l.input_data_buffer_offset)
-    })
-    .unwrap_or(0)
-}
-
-/// Get the output data buffer offset from the memory layout in `ctx`
-/// referenced by `mem_layout_ref`, or `0` if no such memory layout
-/// exists.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn mem_layout_get_output_data_buffer_address(
-    ctx: *const Context,
-    mem_layout_ref: Handle,
-    base_addr: i64,
-) -> i64 {
-    impls::calculate_address(&*ctx, mem_layout_ref, base_addr, |l| {
-        Ok(l.output_data_buffer_offset)
-    })
-    .unwrap_or(0)
-}
-
-/// Get the heap buffer offset from the memory layout in `ctx`
-/// referenced by `mem_layout_ref`, or `0` if no such memory layout
-/// exists.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn mem_layout_get_guest_heap_buffer_address(
-    ctx: *const Context,
-    mem_layout_ref: Handle,
-    base_addr: i64,
-) -> i64 {
-    impls::calculate_address(&*ctx, mem_layout_ref, base_addr, |l| {
-        Ok(l.guest_heap_buffer_offset)
-    })
-    .unwrap_or(0)
-}
-
-/// Get the guest stack buffer offset from the memory layout in `ctx`
-/// referenced by `mem_layout_ref`, or `0` if no such memory layout
-/// exists.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn mem_layout_get_guest_stack_buffer_address(
-    ctx: *const Context,
-    mem_layout_ref: Handle,
-    base_addr: i64,
-) -> i64 {
-    impls::calculate_address(&*ctx, mem_layout_ref, base_addr, |l| {
-        Ok(l.guest_stack_buffer_offset)
-    })
-    .unwrap_or(0)
-}
 /// Get the peb address from the memory layout in `ctx`
 /// referenced by `mem_layout_ref`, or `0` if no such memory layout
 /// exists.
