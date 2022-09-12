@@ -19,7 +19,6 @@ build-tests-capi target=default-target: (build target)
     {{ clang-checks }} \
     tests_capi/*.c \
     tests_capi/munit/munit.c \
-    -g \
     -Iinclude \
     -o bin/test_c{{bin-suffix}} \
     -l hyperlight_host{{lib-suffix}} \
