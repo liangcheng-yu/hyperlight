@@ -43,7 +43,11 @@ pub struct Callback {
     /// The function pointer to the callback.
     ///
     /// This field must be a C-compatible function pointer.
-    pub func: extern "C" fn(*mut Val) -> *mut Val,
+    /// This is an Option as it is possible the pointer could be null
+    /// 
+    /// From https://rust-lang.github.io/unsafe-code-guidelines/layout/function-pointers.html
+    /// However, null values are not supported by the Rust function pointer types -- just like references, the expectation is that you use Option to create nullable pointers. `Option<fn(Args...) -> Ret> ` will have the exact same ABI as `fn(Args...) -> Ret`,but additionally allows null pointer values.
+    pub func: Option<extern "C" fn(*mut Val) -> *mut Val>,
 }
 
 /// Create a new `HostFunc` from a `Callback`.
@@ -94,7 +98,7 @@ pub struct Callback {
 #[no_mangle]
 pub unsafe extern "C" fn host_func_create(
     ctx: *mut Context,
-    callback: &'static Callback,
+    callback: Option<&'static Callback>,
 ) -> Handle {
     // Note about the callback parameter:
     //
@@ -110,17 +114,21 @@ pub unsafe extern "C" fn host_func_create(
     //
     // So, what happens if someone passes NULL for callback?
     //
-    // If that happens, std::ptr::addr_of!((*callback).func)
-    // happens to return std::ptr::null() in Rust, so we can
-    // do the check here.
-    if std::ptr::addr_of!(callback).is_null() {
-        return (*ctx).register_err(Error::msg("NULL callback"));
-    } else if std::ptr::addr_of!((*callback).func).is_null() {
-        return (*ctx).register_err(Error::msg("NULL callback func"));
-    }
+    // According to https://rust-lang.github.io/unsafe-code-guidelines/layout/function-pointers.html:
+    // null values are not supported by the Rust function pointer types -- just like references, the expectation is that you use Option to create nullable pointers. `Option<fn(Args...) -> Ret> ` will have the exact same ABI as `fn(Args...) -> Ret`,but additionally allows null pointer values.
+    // then we can test for None to check for null pointer.
+    let cb = match callback {
+        Some(c) => c,
+        None => return (*ctx).register_err(Error::msg("NULL callback")),
+    };
 
-    let func = |val: &Val| -> Box<Val> {
-        let func = callback.func;
+    let cbfunc = match cb.func {
+        Some(c) => c,
+        None => return (*ctx).register_err(Error::msg("NULL callback func")),
+    };
+
+    let func  = move |val: &Val| -> Box<Val> {
+        let func = cbfunc;
         let bx_param = Box::new(val.clone());
         Box::from_raw(func(Box::into_raw(bx_param)))
     };
