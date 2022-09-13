@@ -70,8 +70,6 @@ namespace Hyperlight.Wrapper
                 return hdl.GetInt64();
             }
         }
-
-        // TODO: implement
         public void WriteInt32(
             IntPtr addr,
             int val
@@ -111,7 +109,7 @@ namespace Hyperlight.Wrapper
             IntPtr addr
         )
         {
-            ByteArray.ThrowIfNull(arr);
+            ArgumentNullException.ThrowIfNull(arr);
 
             using var barr = new ByteArray(ctxWrapper, arr);
             this.CopyByteArray(
@@ -129,7 +127,7 @@ namespace Hyperlight.Wrapper
             ulong arrLength
         )
         {
-            ByteArray.ThrowIfNull(arr);
+            ArgumentNullException.ThrowIfNull(arr);
 
             var rawHdl = guest_memory_copy_byte_array(
                 this.ctxWrapper.ctx,

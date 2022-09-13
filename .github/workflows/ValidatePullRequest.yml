@@ -206,6 +206,15 @@ jobs:
       shell: bash
       run: dotnet build -c ${{ matrix.config }}
       working-directory: src/Hyperlight
+
+      # Only clean the example if we're on a self-hosted
+      # runner. GitHub hosted runners are automatically
+      # cleaned.
+    - name: Clean example
+      shell: bash
+      run: dotnet clean -c ${{ matrix.config }}
+      working-directory: src/examples/NativeHost
+      if: ${{ matrix.os }} == 'self-hosted'
     - name: Build Example
       shell: bash
       run: dotnet build -c ${{ matrix.config }}

@@ -6,7 +6,15 @@ namespace Hyperlight.Wrapper
 {
     public class Handle : IDisposable
     {
-        public static readonly NativeHandle Zero = 0;
+        /// <summary>
+        /// The NativeHandle that represents nothing. This is 
+        /// different than a NativeHandle that represents
+        /// an empty value, and is different from a NativeHandle
+        /// that represents an error. It is indicative of a 
+        /// NativeHandle that has not yet been assigned and thus,
+        /// does not exist.
+        /// </summary>
+        public static readonly NativeHandle Zero; // default value is 0
 
         public Context ctx { get; private set; }
         public NativeHandle handle { get; private set; }
@@ -83,7 +91,6 @@ namespace Hyperlight.Wrapper
                 disposed = true;
             }
         }
-
 #pragma warning disable CA1707 // Remove the underscores from member name
 #pragma warning disable CA1401 // P/Invoke method should not be visible
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

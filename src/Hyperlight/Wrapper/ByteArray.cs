@@ -16,7 +16,8 @@ namespace Hyperlight.Wrapper
         )
         {
             ArgumentNullException.ThrowIfNull(ctxWrapper);
-            ThrowIfNull(arr);
+            ArgumentNullException.ThrowIfNull(arr);
+
             this.ctxWrapper = ctxWrapper;
             unsafe
             {
@@ -48,22 +49,6 @@ namespace Hyperlight.Wrapper
                     this.handleWrapper.Dispose();
                 }
                 this.disposed = true;
-            }
-        }
-
-        public static void ThrowIfNull(byte[] arr)
-        {
-            if (null == arr)
-            {
-                throw new ArgumentNullException(nameof(arr));
-            }
-        }
-
-        public static void ThrowIfNull(ByteArray wr)
-        {
-            if (null == wr)
-            {
-                throw new ArgumentNullException(nameof(wr));
             }
         }
 
