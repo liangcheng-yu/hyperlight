@@ -42,15 +42,14 @@ pub unsafe extern "C" fn int_64_new(ctx: *mut Context, val: i64) -> Handle {
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn handle_is_int_64(ctx: *const Context, hdl: Handle) -> bool {
-
     // Do not alter this code - it is done like this as there is an issue when calling optimised code
     // from dotnet on Linux that causes misintepretation of the results
-    // For example altering this code to 
+    // For example altering this code to
     // get_i64(&*ctx, hdl).is_ok()
     // will cause the the client to interpret the result as true when it is false.
 
     match get_i64(&*ctx, hdl) {
-        Err(_e) => false,  
+        Err(_e) => false,
         _default => true,
     }
 }
@@ -88,15 +87,14 @@ pub unsafe extern "C" fn int_32_new(ctx: *mut Context, val: i32) -> Handle {
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn handle_is_int_32(ctx: *const Context, hdl: Handle) -> bool {
-    
     // Do not alter this code - it is done like this as there is an issue when calling optimised code
     // from dotnet on Linux that causes misintepretation of the results
-    // For example altering this code to 
+    // For example altering this code to
     // get_i32(&*ctx, hdl).is_ok()
     // will cause the the client to interpret the result as true when it is false.
 
     match get_i32(&*ctx, hdl) {
-        Err(_e) => false,  
+        Err(_e) => false,
         _default => true,
     }
 }
