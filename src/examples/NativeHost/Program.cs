@@ -7,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hyperlight;
 using Hyperlight.Core;
-using Hyperlight.Wrapper;
 
 namespace NativeHost
 {
