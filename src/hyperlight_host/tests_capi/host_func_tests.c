@@ -12,6 +12,16 @@ MunitResult test_create_host_func_null()
     Callback *cb = NULL;
     Handle host_func_hdl = host_func_create(ctx, cb);
     handle_assert_error(ctx, host_func_hdl);
+    const char* err_msg = handle_get_error_message(ctx,host_func_hdl);
+    munit_assert_string_equal("NULL callback",err_msg);
+    free((void *)err_msg);
+    handle_free(ctx, host_func_hdl);
+    Callback cb1 = {.func = NULL};
+    host_func_hdl = host_func_create(ctx, &cb1);
+    handle_assert_error(ctx, host_func_hdl);
+    err_msg = handle_get_error_message(ctx,host_func_hdl);
+    munit_assert_string_equal("NULL callback func",err_msg);
+    free((void *)err_msg);
     handle_free(ctx, host_func_hdl);
     context_free(ctx);
     return MUNIT_OK;
