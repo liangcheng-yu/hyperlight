@@ -42,7 +42,7 @@ pub unsafe extern "C" fn handle_new_err(ctx: *mut Context, err_msg: RawCString) 
 #[no_mangle]
 pub extern "C" fn handle_is_error(hdl: Handle) -> bool {
     match Hdl::try_from(hdl) {
-        Ok(hdl) => matches!(Hdl::try_from(hdl), Ok(Hdl::Err(_))),
+        Ok(hdl) => matches!(hdl, Hdl::Err(_)),
         // Technically the handle is not an error handle however this means that the handle was invalid.
         Err(_) => true,
     }
