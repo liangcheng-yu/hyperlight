@@ -44,7 +44,7 @@ pub struct Callback {
     ///
     /// This field must be a C-compatible function pointer.
     /// This is an Option as it is possible the pointer could be null
-    /// 
+    ///
     /// From https://rust-lang.github.io/unsafe-code-guidelines/layout/function-pointers.html
     /// However, null values are not supported by the Rust function pointer types -- just like references, the expectation is that you use Option to create nullable pointers. `Option<fn(Args...) -> Ret> ` will have the exact same ABI as `fn(Args...) -> Ret`,but additionally allows null pointer values.
     pub func: Option<extern "C" fn(*mut Val) -> *mut Val>,
@@ -127,7 +127,7 @@ pub unsafe extern "C" fn host_func_create(
         None => return (*ctx).register_err(Error::msg("NULL callback func")),
     };
 
-    let func  = move |val: &Val| -> Box<Val> {
+    let func = move |val: &Val| -> Box<Val> {
         let func = cbfunc;
         let bx_param = Box::new(val.clone());
         Box::from_raw(func(Box::into_raw(bx_param)))

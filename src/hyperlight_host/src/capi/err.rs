@@ -57,7 +57,7 @@ pub extern "C" fn handle_is_error(hdl: Handle) -> bool {
 /// `ctx` must be a valid `Context*` created from `context_new` and owned
 /// by the caller. It must not be modified or deleted while this
 /// function is executing.
-/// 
+///
 /// The returned C string should be freed by the caller.
 #[no_mangle]
 pub unsafe extern "C" fn handle_get_error_message(ctx: *const Context, hdl: Handle) -> RawCString {
