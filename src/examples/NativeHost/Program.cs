@@ -21,25 +21,8 @@ namespace NativeHost
         const int DEFAULT_NUMBER_OF_ITERATIONS = 50;
         static void Main()
         {
-            const int val = 23456;
-            using var ctx = new Context();
-            Console.WriteLine("Creating new int32");
-            using var hdl = Handle.NewInt32(ctx, val);
-            Console.WriteLine($"hdl.IsInt64() should be False is: {hdl.IsInt64()}");
-            Console.WriteLine($"hdl.IsInt32() should be True is: {hdl.IsInt32()}");
-            Console.WriteLine($"Should be equal:{val == hdl.GetInt32()}");
-            Console.WriteLine($"Value: {hdl.GetInt32()}");
 
-
-            const long val1 = 12345;
-            Console.WriteLine("Creating new int64");
-            using var hdl1 = Handle.NewInt64(ctx, val1);
-            Console.WriteLine($"hdl1.IsInt32() should be False is: {hdl1.IsInt32()}");
-            Console.WriteLine($"hdl1.IsInt64() should be True is: {hdl1.IsInt64()}");
-            Console.WriteLine($"Should be equal:{val1 == hdl1.GetInt64()}");
-            Console.WriteLine($"Value: {hdl1.GetInt64()}");
-
-            //using var ctx = new Hyperlight.Wrapper.Context();
+            using var ctx = new Hyperlight.Wrapper.Context();
             var sandboxMemoryConfig = new SandboxMemoryConfiguration(ctx);
             foreach (var arg in Environment.GetCommandLineArgs())
             {
