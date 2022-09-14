@@ -41,7 +41,11 @@ pub unsafe extern "C" fn handle_new_err(ctx: *mut Context, err_msg: RawCString) 
 /// Return true if `hdl` is an error type, false otherwise.
 #[no_mangle]
 pub extern "C" fn handle_is_error(hdl: Handle) -> bool {
-    matches!(Hdl::try_from(hdl), Ok(Hdl::Err(_)))
+    match Hdl::try_from(hdl) {
+        Ok(hdl) => matches!(hdl, Hdl::Err(_)),
+        // Technically the handle is not an error handle however this means that the handle was invalid.
+        Err(_) => true,
+    }
 }
 
 /// Get the error message out of the given `Handle` or `NULL` if

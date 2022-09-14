@@ -2,15 +2,3 @@
 members = [
     "src/hyperlight_host",
 ]
-
-[profile.release]
-opt-level = 0 # TODO: release build with optimization fails tests
-debug = false
-split-debuginfo = '...'  # Platform-specific.
-debug-assertions = false
-overflow-checks = false
-lto = false
-panic = 'unwind'
-incremental = false
-codegen-units = 16
-rpath = false

@@ -28,7 +28,7 @@ namespace Hyperlight.Hypervisors
                 throw new HyperVOnLinuxException("HyperV Not Present");
             }
 
-            if (LinuxHyperV.handle_is_error(context = LinuxHyperV.context_new()))
+            if ((context = LinuxHyperV.context_new()) == IntPtr.Zero)
             {
                 throw new HyperVOnLinuxException("Gettting context failed");
             }
