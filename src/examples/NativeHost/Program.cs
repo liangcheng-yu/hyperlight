@@ -20,7 +20,6 @@ namespace NativeHost
         const int DEFAULT_NUMBER_OF_ITERATIONS = 50;
         static void Main()
         {
-
             using var ctx = new Hyperlight.Wrapper.Context();
             var sandboxMemoryConfig = new SandboxMemoryConfiguration(ctx);
             foreach (var arg in Environment.GetCommandLineArgs())
