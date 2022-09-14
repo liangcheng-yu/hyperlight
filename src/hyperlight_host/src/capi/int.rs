@@ -43,7 +43,6 @@ pub unsafe extern "C" fn int_64_new(ctx: *mut Context, val: i64) -> Handle {
 #[no_mangle]
 pub unsafe extern "C" fn handle_is_int_64(ctx: *const Context, hdl: Handle) -> bool {
     get_i64(&*ctx, hdl).is_ok()
-    
 }
 
 /// Create a new `Handle` that contains the given `val`
