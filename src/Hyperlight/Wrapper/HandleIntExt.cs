@@ -44,6 +44,7 @@ namespace Hyperlight.Wrapper
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        [return: MarshalAs(UnmanagedType.U1)]
         private static extern bool handle_is_int_32(NativeContext ctx, NativeHandle hdl);
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
@@ -52,6 +53,7 @@ namespace Hyperlight.Wrapper
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        [return: MarshalAs(UnmanagedType.U1)]
         private static extern bool handle_is_int_64(NativeContext ctx, NativeHandle hdl);
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]

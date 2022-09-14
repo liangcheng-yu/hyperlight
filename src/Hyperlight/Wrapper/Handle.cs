@@ -97,6 +97,7 @@ namespace Hyperlight.Wrapper
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        [return: MarshalAs(UnmanagedType.U1)]
         public static extern bool handle_free(
             NativeContext context,
             NativeHandle handle

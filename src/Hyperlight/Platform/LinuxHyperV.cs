@@ -68,6 +68,7 @@ namespace Hyperlight.Native
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        [return: MarshalAs(UnmanagedType.U1)]
         public static extern bool handle_free(IntPtr context, IntPtr handle);
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
@@ -76,10 +77,12 @@ namespace Hyperlight.Native
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        [return: MarshalAs(UnmanagedType.U1)]
         public static extern bool handle_is_error(IntPtr handle);
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        [return: MarshalAs(UnmanagedType.U1)]
         public static extern bool is_hyperv_linux_present(bool require_stable_api);
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
