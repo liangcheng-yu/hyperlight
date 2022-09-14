@@ -13,6 +13,7 @@
 #endif
 #include "int.h"
 #include "guest_mem.h"
+#include "err.h"
 #include "munit/munit.h"
 
 static MunitSuite test_suites[] = {
@@ -33,6 +34,7 @@ static MunitSuite test_suites[] = {
     {"/guest_memory_tests", guest_memory_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/int_handle_tests", int_handle_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/guest_memory_tests", guest_memory_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
+    {"/err_tests", err_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
 
     {NULL, NULL, NULL, 0, MUNIT_SUITE_OPTION_NONE}};
 

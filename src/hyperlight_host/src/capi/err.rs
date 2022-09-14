@@ -1,8 +1,7 @@
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
-use super::strings::{to_c_string, RawCString};
-use crate::capi::strings::to_string;
+use super::strings::{to_c_string, to_string, RawCString};
 use anyhow::Error;
 
 mod impls {
@@ -21,8 +20,12 @@ pub use impls::get_err;
 
 /// Create a new `Handle` that references an error with the given message.
 ///
-/// This function is unlikely to be useful in production code and is provided
-/// for debug purposes.
+/// This function is unlikely to be useful in production code and is
+/// provided for debug purposes.
+///
+/// If you pass `NULL` as `err_msg` or you pass a valid C-style string,
+/// you will get back a `Handle` that is invalid and will not be usable
+/// in any functions that expect a `Handle` as one of their arguments.
 ///
 /// # Safety
 ///
@@ -33,12 +36,17 @@ pub use impls::get_err;
 /// - Not freed with `context_free`
 #[no_mangle]
 pub unsafe extern "C" fn handle_new_err(ctx: *mut Context, err_msg: RawCString) -> Handle {
+    if err_msg.is_null() || libc::strlen(err_msg) == 0 {
+        return Handle::new_invalid();
+    }
+
     let msg_str = to_string(err_msg);
     let err = Error::msg(msg_str);
     (*ctx).register_err(err)
 }
 
-/// Return true if `hdl` is an error type, false otherwise.
+/// Return `true` if `hdl` is either an error type or an invalid
+/// handle, and `false` otherwise.
 #[no_mangle]
 pub extern "C" fn handle_is_error(hdl: Handle) -> bool {
     match Hdl::try_from(hdl) {
@@ -46,6 +54,14 @@ pub extern "C" fn handle_is_error(hdl: Handle) -> bool {
         // Technically the handle is not an error handle however this means that the handle was invalid.
         Err(_) => true,
     }
+}
+
+/// Return `true` if `hdl` is an invalid `Handle`, such as one
+/// that would be returned from `handle_new_err` if you
+/// pass an empty C-style string or `NULL`.
+#[no_mangle]
+pub extern "C" fn handle_is_invalid(hdl: Handle) -> bool {
+    hdl == Handle::new_invalid()
 }
 
 /// Get the error message out of the given `Handle` or `NULL` if
@@ -58,7 +74,11 @@ pub extern "C" fn handle_is_error(hdl: Handle) -> bool {
 /// by the caller. It must not be modified or deleted while this
 /// function is executing.
 ///
-/// The returned C string should be freed by the caller.
+/// Additionally, this function creates new memory and transfers
+/// ownership of it to the caller. Therefore, it is the caller's
+/// responsibility to free the memory referenced by the returned
+/// pointer by calling `error_message_free` exactly once after they're done
+/// using it.
 #[no_mangle]
 pub unsafe extern "C" fn handle_get_error_message(ctx: *const Context, hdl: Handle) -> RawCString {
     match Context::get(hdl, &(*ctx).errs, |hdl| matches!(hdl, Hdl::Err(_))) {
@@ -66,3 +86,7 @@ pub unsafe extern "C" fn handle_get_error_message(ctx: *const Context, hdl: Hand
         Err(_) => std::ptr::null(),
     }
 }
+
+/// Free the memory created by a handle_get_error_message call
+#[no_mangle]
+pub extern "C" fn error_message_free(_: Option<Box<RawCString>>) {}

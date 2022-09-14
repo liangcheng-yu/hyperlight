@@ -7,6 +7,7 @@
         "typeinfo": "c",
         "flag.h": "c",
         "munit.h": "c",
-        "functional": "c"
+        "functional": "c",
+        "hyperv_linux.h": "c"
     }
 }

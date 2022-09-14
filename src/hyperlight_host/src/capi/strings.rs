@@ -20,6 +20,7 @@ pub type RawCString = *const c_char;
 /// do or don't need to do that depends on how you created
 /// that memory.
 pub unsafe fn to_string(c_string: RawCString) -> String {
+    assert!(!c_string.is_null());
     CStr::from_ptr(c_string).to_string_lossy().into_owned()
 }
 
@@ -69,4 +70,17 @@ pub unsafe extern "C" fn handle_get_string(ctx: *const Context, hdl: Handle) -> 
 /// and pointed to by `handle`.
 pub fn get_string(ctx: &Context, handle: Handle) -> ReadResult<String> {
     Context::get(handle, &ctx.strings, |s| matches!(s, Hdl::String(_)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{to_c_string, to_string};
+
+    #[test]
+    fn string_roundtrip() {
+        let orig = "STRING_ROUNDTRIP";
+        let cstr = to_c_string(orig).unwrap();
+        let str = unsafe { to_string(cstr) };
+        assert_eq!(orig, str);
+    }
 }

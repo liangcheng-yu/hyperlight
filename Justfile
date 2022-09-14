@@ -14,13 +14,13 @@ build: build-dotnet build-rust
 test-rust:
     cargo test -- --nocapture
 
-test-dotnet-hl-tests:
+test-dotnet-hl:
     cd src/tests/Hyperlight.Tests && dotnet test || cd ../../../
 
 test-dotnet-nativehost:
     cd src/examples/NativeHost && dotnet test || cd ../../../
 
-test-dotnet: test-dotnet-hl-tests test-dotnet-nativehost
+test-dotnet: test-dotnet-hl test-dotnet-nativehost
 
 test-capi:
     cd src/hyperlight_host && just run-tests-capi || cd ../../

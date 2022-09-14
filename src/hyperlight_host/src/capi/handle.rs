@@ -52,6 +52,12 @@ impl Handle {
         Handle::from(Hdl::Empty())
     }
 
+    /// Return a new `Handle` that is invalid and guaranteed
+    /// not to reference any memory inside any `Context`.
+    pub fn new_invalid() -> Handle {
+        Handle(1)
+    }
+
     /// Get the key portion of `self`.
     pub fn key(&self) -> Key {
         // MASK is 32 zero bits followed by 32 one bits:
@@ -125,6 +131,15 @@ pub extern "C" fn handle_is_empty(handle: Handle) -> bool {
     matches!(hdl_res, Ok(Hdl::Empty()))
 }
 
+/// Return a new `Handle` that is empty.
+///
+/// This function is unlikely to be useful in production code and is provided
+/// for debug purposes.
+#[no_mangle]
+pub extern "C" fn handle_new_empty() -> Handle {
+    Handle::new_empty()
+}
+
 /// Free the memory associated with `hdl`.
 ///
 /// # Safety
@@ -152,6 +167,13 @@ mod tests {
     use super::Handle;
     use super::{new_key, Key};
     use anyhow::Result;
+
+    #[test]
+    fn new_invalid() -> Result<()> {
+        let inv = Handle::new_invalid();
+        assert!(Hdl::try_from(inv).is_err());
+        Ok(())
+    }
 
     #[test]
     fn handle_key() -> Result<()> {

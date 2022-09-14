@@ -37,6 +37,29 @@ namespace Hyperlight.Tests
         }
 
         [Fact]
+        public void Test_Handle_Error()
+        {
+            var errStr = "TEST_HANDLE_ERROR";
+            using var ctx = new Wrapper.Context();
+            using var errHdl = Wrapper.Handle.NewError(ctx, errStr);
+            Assert.True(errHdl.IsError());
+            var retErrStr = errHdl.GetErrorMessage();
+            Assert.Equal(errStr, retErrStr);
+        }
+
+        [Fact]
+        public void Test_NewError_Empty_String()
+        {
+            using var ctx = new Wrapper.Context();
+            using var errHdl = Wrapper.Handle.NewError(ctx, "");
+            // errHdl should be an invalid handle because we
+            // passed an empty string. Both IsError and IsInvalid
+            // should return true for invalid handles.
+            Assert.True(errHdl.IsError());
+            Assert.True(errHdl.IsInvalid());
+        }
+
+        [Fact]
         public void Test_NewError_ThrowIfError()
         {
             const String errMsg = "TEST ERR MSG";
