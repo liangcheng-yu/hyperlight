@@ -103,7 +103,7 @@ jobs:
             dotnet nuget push $nupkg --api-key ${{ secrets.GHPACKAGES_PAT }} --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json --skip-duplicate
           done
       shell: bash
-      working-directory: src/Hyperlight
+      working-directory: src/
     - name: Download header file
       uses: "actions/download-artifact@v3"
       with:
