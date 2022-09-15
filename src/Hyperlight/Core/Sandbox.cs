@@ -8,6 +8,7 @@ using Hyperlight.Core;
 using Hyperlight.Hypervisors;
 using Hyperlight.Native;
 using Hyperlight.Wrapper;
+using HyperlightDependencies;
 
 namespace Hyperlight
 {

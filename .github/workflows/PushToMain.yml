@@ -87,9 +87,13 @@ jobs:
       shell: pwsh
       run: tar -zcvf ../linux-x64.tar.gz .
       working-directory: src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/publish
-    - name: Package solution
+    - name: Package Hyperlight
       run: dotnet pack -c $env:CONFIG --include-symbols -p:RepositoryUrl=https://github.com/${{ github.repository }}.git 
       working-directory: src/Hyperlight
+      shell: pwsh
+    - name: Package Hyperlight Dependencies
+      run: dotnet pack -c $env:CONFIG --include-symbols
+      working-directory: src/HyperlightDependencies
       shell: pwsh
     - name: Publish Github Packages
       run: |

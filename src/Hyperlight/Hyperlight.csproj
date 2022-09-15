@@ -52,4 +52,8 @@
     
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\HyperlightDependencies\HyperlightDependencies.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Hyperlight.Core;
 using Hyperlight.Wrapper;
+using HyperlightDependencies;
 using Xunit;
 using Xunit.Abstractions;
 

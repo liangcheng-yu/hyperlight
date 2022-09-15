@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../Hyperlight/Hyperlight.csproj" />
+    <ProjectReference Include="..\..\HyperlightDependencies\HyperlightDependencies.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -18,7 +19,7 @@
     <Content Include="../../../target/$(Configuration.toLower())/libhyperlight_host.so" Condition=" ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'  == 'true' And  '$(RuntimeIdentifier)'=='') or '$(RuntimeIdentifier)'=='linux-x64'  ">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="../../../target/$(Configuration.toLower())/libhyperlight_host.d"  Condition=" ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'  == 'true' And  '$(RuntimeIdentifier)'=='') or '$(RuntimeIdentifier)'=='linux-x64'  ">
+    <Content Include="../../../target/$(Configuration.toLower())/libhyperlight_host.d" Condition=" ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'  == 'true' And  '$(RuntimeIdentifier)'=='') or '$(RuntimeIdentifier)'=='linux-x64'  ">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="../../tests/Guests/callbackguest/x64/$(Configuration.toLower())/callbackguest.exe">

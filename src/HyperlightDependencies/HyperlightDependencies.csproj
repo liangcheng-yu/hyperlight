@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <Platforms>AnyCPU</Platforms>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <Authors>Jeffrey Cooperstein, Simon Davies</Authors>
+    <Company>Microsoft</Company>
+    <Description>Provides depdendencies for Hyperlight</Description>
+    <PackageId>Deislabs.$(AssemblyName)</PackageId>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/deislabs/hyperlight</PackageProjectUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReleaseNotes>https://github.com/deislabs/hyperlight/releases</PackageReleaseNotes>
+    <PackageTags>Hyperlight;HyperV;KVM;WebAssembly;</PackageTags>
+    <RepositoryType>git</RepositoryType>
+    <RootNamespace>HyperlightDependencies</RootNamespace>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <IncludeSymbols>true</IncludeSymbols>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RepositoryUrl>https://github.com/deislabs/hyperlight</RepositoryUrl>
+  </PropertyGroup>
+
+</Project>

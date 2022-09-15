@@ -1,4 +1,5 @@
 using System;
+using HyperlightDependencies;
 
 namespace Hyperlight.Core
 {

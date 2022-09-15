@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\HyperlightDependencies\HyperlightDependencies.csproj" />
     <ProjectReference Include="..\..\Hyperlight\Hyperlight.csproj" />
   </ItemGroup>
 
@@ -17,7 +18,7 @@
     <Content Include="../../../target/$(Configuration.toLower())/libhyperlight_host.so" Condition=" ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'  == 'true' And  '$(RuntimeIdentifier)'=='') or '$(RuntimeIdentifier)'=='linux-x64'  ">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="../../../target/$(Configuration.toLower())/libhyperlight_host.d"  Condition=" ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'  == 'true' And  '$(RuntimeIdentifier)'=='') or '$(RuntimeIdentifier)'=='linux-x64'  ">
+    <Content Include="../../../target/$(Configuration.toLower())/libhyperlight_host.d" Condition=" ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'  == 'true' And  '$(RuntimeIdentifier)'=='') or '$(RuntimeIdentifier)'=='linux-x64'  ">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="..\..\tests\Guests\simpleguest\x64\$(Configuration)\simpleguest.exe">

@@ -1,5 +1,6 @@
 using System;
-namespace Hyperlight
+
+namespace HyperlightDependencies
 {
     [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class | AttributeTargets.Delegate | AttributeTargets.Field | AttributeTargets.Property, Inherited = true)]
 #pragma warning disable CA1813 // Avoid unserializable object exceptions
@@ -14,4 +15,19 @@ namespace Hyperlight
             this.expose = expose;
         }
     }
+
+
+    public interface ISandboxRegistration
+    {
+        public void ExposeHostMethods(Type type);
+
+        public void ExposeAndBindMembers(object instance);
+
+        public void BindGuestFunction(string delegateName, object instance);
+
+        public void ExposeHostMethod(string methodName, object instance);
+
+        public void ExposeHostMethod(string methodName, Type type);
+    }
 }
+

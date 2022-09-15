@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using System.Reflection.Emit;
 using Hyperlight.Core;
+using HyperlightDependencies;
 
 namespace Hyperlight
 {

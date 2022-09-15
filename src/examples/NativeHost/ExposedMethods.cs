@@ -1,5 +1,6 @@
 using System;
 using Hyperlight;
+using HyperlightDependencies;
 
 namespace NativeHost
 {
