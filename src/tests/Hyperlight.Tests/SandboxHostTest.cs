@@ -936,8 +936,7 @@ namespace Hyperlight.Tests
             }
         }
 
-        // TODO: Investigate this test
-        [Fact(Skip = "This test is flaky")]
+        [Fact()]
         public void Test_Guest_Malloc()
         {
             using var ctx = new Wrapper.Context();
@@ -945,15 +944,21 @@ namespace Hyperlight.Tests
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
-
+            var heapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
+            // dlmalloc minimum allocation is 64K
+            // simpleguest.exe will do a memory allocation prior to CallMalloc being called;
+            // however it will only use a small amount 
+            // Therefore an alloction of half the heapsize should always succeed if the heap is at least 128K
+            // And heapsize + 64K should always fail.
+            Assert.True(heapSize >= 131072);
             foreach (var option in options)
             {
+                var mallocSize = heapSize + 65536;
                 using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(ctx), guestBinaryPath, option))
                 {
                     var functions = new MallocTests();
-                    var heapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
                     sandbox.BindGuestFunction("CallMalloc", functions);
-                    var mallocSize = heapSize * 2;
+
                     output.WriteLine($"Testing CallMalloc with GuestHeapSize:{heapSize} MallocSize:{mallocSize} option: {option}");
                     var ex = Record.Exception(() =>
                     {
@@ -966,11 +971,11 @@ namespace Hyperlight.Tests
             }
             foreach (var option in options)
             {
+                var mallocSize = heapSize / 2;
                 using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(ctx), guestBinaryPath, option))
                 {
                     var functions = new MallocTests();
-                    var heapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
-                    var mallocSize = heapSize / 2;
+
                     output.WriteLine($"Testing CallMalloc with GuestHeapSize:{heapSize} MallocSize:{mallocSize} option: {option}");
                     sandbox.BindGuestFunction("CallMalloc", functions);
                     var result = functions.CallMalloc!(mallocSize);
@@ -979,11 +984,11 @@ namespace Hyperlight.Tests
             }
             foreach (var option in options)
             {
+                var mallocSize = heapSize / 2;
                 using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(ctx), guestBinaryPath, option))
                 {
                     var functions = new MallocTests();
-                    var heapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
-                    var mallocSize = heapSize / 2;
+
                     output.WriteLine($"Testing MallocAndFree with GuestHeapSize:{heapSize} MallocSize:{mallocSize} option: {option}");
                     sandbox.BindGuestFunction("MallocAndFree", functions);
                     var result = functions.MallocAndFree!(mallocSize);
@@ -991,8 +996,6 @@ namespace Hyperlight.Tests
                 }
             }
         }
-
-
 
         private SandboxRunOptions[] GetSandboxRunOptions()
         {
