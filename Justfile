@@ -32,7 +32,7 @@ test-capi:
 valgrind-capi:
     cd src/hyperlight_host && just valgrind-tests-capi || cd ../../
 
-test: test-rust test-dotnet valgrind-capi just test-capi
+test: test-rust test-dotnet valgrind-capi test-capi
 
 check:
     cargo check
