@@ -16,13 +16,13 @@ using Xunit.Abstractions;
 namespace Hyperlight.Tests
 {
 
-
     public class SandboxHostTest
     {
         private readonly ITestOutputHelper output;
         public const int NUMBER_OF_ITERATIONS = 10;
         public const int NUMBER_OF_PARALLEL_TESTS = 10;
-        private readonly string[] internalFunctions = { "GetTickCount", "GetStackBoundary" };
+        // These are the host functions that are exposed automatically by Hyperlight
+        private readonly string[] internalFunctions = { "GetTickCount", "GetStackBoundary", "GetOSPageSize", "GetTimeSinceBootMicrosecond" };
 
         public SandboxHostTest(ITestOutputHelper output)
         {
