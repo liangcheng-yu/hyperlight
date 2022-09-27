@@ -338,7 +338,7 @@ namespace Hyperlight
 
                 string returntype = string.Empty;
                 // TODO: Add support for void return types
-                if (mi.methodInfo.ReturnType == typeof(int))
+                if (mi.methodInfo.ReturnType == typeof(int)  || mi.methodInfo.ReturnType == typeof(uint))
                 {
                     returntype = "i";
                 }

@@ -333,6 +333,11 @@ namespace Hyperlight.Core
             {
                 Marshal.WriteInt32(inputDataAddress, returnValue is null ? 0 : (int)returnValue);
             }
+            else if (type == typeof(uint))
+            {
+                var ui32 = BitConverter.GetBytes((uint)(returnValue is null ? 0 : returnValue));
+                Marshal.Copy(ui32, 0, inputDataAddress, ui32.Length);
+            }
             else if (type == typeof(long))
             {
                 Marshal.WriteInt64(inputDataAddress, returnValue is null ? 0 : (long)returnValue);
@@ -450,7 +455,6 @@ namespace Hyperlight.Core
 
                 if (IntPtr.Zero != SourceAddress)
                 {
-                    // TODO: check if this should take account of space used by loadlibrary.
                     OS.Free(SourceAddress, Size);
                 }
 

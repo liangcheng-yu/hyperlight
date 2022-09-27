@@ -51,7 +51,7 @@ int sendMessagetoHostMethod(char* methodName, char* guestMessage, const char* me
     }
 
     free(hostfunctionDetails);
-    return native_symbol_thunk(methodName, messageToHost);
+    return native_symbol_thunk_returning_int(methodName, messageToHost);
 }
 
 int guestFunction(const char *message)

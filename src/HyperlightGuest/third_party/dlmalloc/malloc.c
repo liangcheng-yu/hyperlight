@@ -24,6 +24,7 @@ When we move away from MSVC to either CLang or GCC these changes will need to be
 extern void* hyperlightMoreCore(size_t);
 extern void dlmalloc_abort();
 extern long  GetHyperLightTickCount();
+extern unsigned int GetOSPageSize();
 #endif /* HYPERLIGHT */
 
 /*
@@ -3145,7 +3146,8 @@ static int init_mparams(void) {
         gsize = ((DEFAULT_GRANULARITY != 0) ? DEFAULT_GRANULARITY : psize);
 #else /* WIN32 */
         {
-            // Modified for Hyperlight - call to GetSystemInfo is removed as its not provided by Hyperlight and values for psize and gsie are provided through preprocessor definitions
+            // Modified for Hyperlight - call to GetSystemInfo to get psize is replaced by call to host function GetOSPageSize()
+            // gsize will be set to psize as DEFAULT_GRANULARITY is set to 0 as MORECORE_CONTIGUOUS is set.
 #ifndef HYPERLIGHT     
              SYSTEM_INFO system_info;
             GetSystemInfo(&system_info);
@@ -3153,8 +3155,9 @@ static int init_mparams(void) {
             gsize = ((DEFAULT_GRANULARITY != 0) ?
                 DEFAULT_GRANULARITY : system_info.dwAllocationGranularity);
 #else
-            psize = HYPERLIGHT_PAGESIZE;
-            gsize = HYPERLIGHT_GRANULARITYSIZE;
+            psize = GetOSPageSize();
+            gsize = gsize = ((DEFAULT_GRANULARITY != 0) ?
+                DEFAULT_GRANULARITY : psize);
 #endif /* HYPERLIGHT */
         }
 #endif /* WIN32 */

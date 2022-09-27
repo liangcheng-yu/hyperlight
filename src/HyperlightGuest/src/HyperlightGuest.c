@@ -100,30 +100,6 @@ void halt()
     }
 }
 
-char* strncpy(char* dest, const char* src, size_t len)
-{
-    char* result = dest;
-    while (len--)
-    {
-        *dest++ = *src++;
-    }
-    *dest = 0;
-    return result;
-}
-
-int printOutput(const char* message)
-{
-    size_t result = strlen(message);
-    if (result >= pPeb->outputdata.outputDataSize)
-    {
-        result = (size_t)pPeb->outputdata.outputDataSize - 1;
-    }
-#pragma warning(suppress : 4996)
-    strncpy((char*)pPeb->outputdata.outputDataBuffer, (char*)message, result);
-    outb(100, 0);
-    return (int)result;
-}
-
 void resetError()
 {
     pPeb->guestError.errorNo = 0;
@@ -171,8 +147,11 @@ void CallHostFunction(char* functionName, va_list ap)
 
     outb(101, 0);
 }
+
+// TODO: Make these functions generic.
+
 // Calls a Host Function that returns an int
-int native_symbol_thunk(char* functionName, ...)
+int native_symbol_thunk_returning_int(char* functionName, ...)
 {
 
     va_list ap = NULL;
@@ -189,6 +168,26 @@ int native_symbol_thunk(char* functionName, ...)
 int GetHostReturnValueAsInt()
 {
     return *((int*)pPeb->inputdata.inputDataBuffer);
+}
+
+// Calls a Host Function that returns an int
+unsigned int native_symbol_thunk_returning_uint(char* functionName, ...)
+{
+
+    va_list ap = NULL;
+
+    va_start(ap, functionName);
+
+    CallHostFunction(functionName, ap);
+
+    va_end(ap);
+
+    return GetHostReturnValueAsUInt();
+}
+
+unsigned int GetHostReturnValueAsUInt()
+{
+    return *((unsigned int*)pPeb->inputdata.inputDataBuffer);
 }
 
 // Calls a Host Function that returns an long
@@ -231,17 +230,7 @@ unsigned long GetHostReturnValueAsULong()
     return *((unsigned long*)pPeb->inputdata.inputDataBuffer);
 }
 
-// Exposed by Hyperlight Sandbox , used by dlmalloc
-long GetHyperLightTickCount()
-{
-    return native_symbol_thunk_returning_long("GetTickCount");
-}
 
-// Exposed by Hyperlight Sandbox, used by GetStackBoundary
-unsigned long GetHyperLightStackBoundary()
-{
-    return native_symbol_thunk_returning_ulong("GetStackBoundary");
-}
 
 int CallGuestFunction(GuestFunctionDetails* guestfunctionDetails)
 {
@@ -532,22 +521,89 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, bool 
     return 0;
 }
 
+//
+// The following functions expose functionality provided by the Host.
+//
 
-// This function returns the stack boundary
-// It is required/called by WAMR function os_thread_get_stack_boundary() 
-// which is needed for AOT WASM Module execution
 
+/// <summary>
+/// strncpy is required by printOutput
+/// TODO: replace this with a libc version (e.g. MUSL Libc)
+/// </summary>
+
+char* strncpy(char* dest, const char* src, size_t len)
+{
+    char* result = dest;
+    while (len--)
+    {
+        *dest++ = *src++;
+    }
+    *dest = 0;
+    return result;
+}
+
+/// <summary>
+/// printOutput exposes functionaility to print a message to the console or a stringwriter via the host
+/// the function is handled in the host via a specific outb message rather than a host function call.
+/// </summary>
+/// <param name="message">The message to be printed.</param>
+/// <returns>The length of the message printed.</returns>
+
+int printOutput(const char* message)
+{
+    size_t result = strlen(message);
+    if (result >= pPeb->outputdata.outputDataSize)
+    {
+        result = (size_t)pPeb->outputdata.outputDataSize - 1;
+    }
+#pragma warning(suppress : 4996)
+    strncpy((char*)pPeb->outputdata.outputDataBuffer, (char*)message, result);
+    outb(100, 0);
+    return (int)result;
+}
+
+
+// The following host functions are defined in the Sandnox Host in Core/HyperLightExports.cs
+
+/// <summary>
+/// This function is required by dlmalloc
+/// </summary>
+long GetHyperLightTickCount()
+{
+    return native_symbol_thunk_returning_long("GetTickCount");
+}
+
+/// <summary>
+/// This function is required/called by WAMR function os_thread_get_stack_boundary() 
+/// which is needed for AOT WASM Module execution
+/// </summary>
 uint8_t * GetStackBoundary()
 {
     unsigned __int64 thread_stack_boundary;
     // If we are not running in Hyperlight then we need to get this information in the host
     if (!runningInHyperlight)
     {
-        thread_stack_boundary = GetHyperLightStackBoundary();
+        thread_stack_boundary = native_symbol_thunk_returning_ulong("GetStackBoundary");
     }
     else
     {
         thread_stack_boundary = pPeb->gueststackData.minStackAddress;
     }
     return (uint8_t *)(uintptr_t)thread_stack_boundary;
+}
+
+/// <summary>
+/// This function is required by dlmalloc
+/// </summary>
+unsigned int GetOSPageSize()
+{
+    return native_symbol_thunk_returning_uint("GetOSPageSize");
+}
+
+/// <summary>
+/// This is required by os_time_get_boot_microsecond() in WAMR 
+/// </summary>
+long GetTimeSinceBootMicrosecond()
+{
+    return native_symbol_thunk_returning_long("GetTimeSinceBootMicrosecond");
 }

@@ -292,6 +292,9 @@ namespace Hyperlight.Native
             public ushort wProcessorLevel;
             public ushort wProcessorRevision;
         };
+        [DllImport("libc", SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+        public static extern uint getpagesize();
 
         [DllImport("kernel32.dll", SetLastError = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
@@ -299,17 +302,36 @@ namespace Hyperlight.Native
 
         public static uint GetPageSize()
         {
-            var sysInfo = new SYSTEM_INFO();
+            uint pageSize = 0;
 
-            GetNativeSystemInfo(ref sysInfo);
-
-            int error;
-            if ((error = Marshal.GetLastPInvokeError()) != 0)
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                throw new HyperlightException($"GetNativeSystemInfo:Pinvoke Last Error:{error}");
+                var sysInfo = new SYSTEM_INFO();
+
+                GetNativeSystemInfo(ref sysInfo);
+
+                int error;
+                if ((error = Marshal.GetLastPInvokeError()) != 0)
+                {
+                    throw new HyperlightException($"GetNativeSystemInfo:Pinvoke Last Error:{error}");
+                }
+
+                pageSize = sysInfo.dwPageSize;
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                pageSize = Syscall.CheckReturnVal(
+                    "Get PageSize",
+                    () => getpagesize(),
+                    (uint retVal) => retVal != 0
+                );
+            }
+            else
+            {
+                throw new NotSupportedException();
             }
 
-            return sysInfo.dwPageSize;
+            return pageSize;
         }
 
         [DllImport("kernel32.dll")]

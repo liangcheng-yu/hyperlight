@@ -92,7 +92,7 @@
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <ShowIncludes>true</ShowIncludes>
-      <PreprocessorDefinitions>HAVE_MMAP=0;HAVE_MORECORE=1;MORECORE=hyperlightMoreCore;MORECORE_CANNOT_TRIM=1;MORECORE_CONTIGUOUS=1;USE_DL_PREFIX;NO_MALLOC_STATS;ABORT=dlmalloc_abort();HYPERLIGHT_PAGESIZE=4096;HYPERLIGHT_GRANULARITYSIZE=65536;HYPERLIGHT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>HAVE_MMAP=0;HAVE_MORECORE=1;MORECORE=hyperlightMoreCore;MORECORE_CANNOT_TRIM=1;MORECORE_CONTIGUOUS=1;USE_DL_PREFIX;NO_MALLOC_STATS;ABORT=dlmalloc_abort();HYPERLIGHT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UseStandardPreprocessor>true</UseStandardPreprocessor>
     </ClCompile>
     <Link>

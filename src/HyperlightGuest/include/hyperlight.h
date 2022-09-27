@@ -157,10 +157,12 @@ HostFunctionDetails* GetHostFunctionDetails();
 
 int GuestDispatchFunction(GuestFunctionDetails*);
 
-int native_symbol_thunk(char*, ...);
+int native_symbol_thunk_returning_int(char*, ...);
 
 void CallHostFunction(char* functionName, va_list ap);
 
 long GetHostReturnValueAsLong();
 
 int GetHostReturnValueAsInt();
+
+unsigned long GetHostReturnValueAsULong();

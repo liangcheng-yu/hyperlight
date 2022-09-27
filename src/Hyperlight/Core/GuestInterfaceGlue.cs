@@ -18,7 +18,7 @@ namespace Hyperlight
 
         // Currently we will support int, Int64, bool, byte[] and string for parameters and return types of long and int 
         // for the methods between guest and host
-        static readonly HashSet<Type> supportedParameterAndReturnTypes = new() { typeof(int), typeof(long), typeof(ulong), typeof(bool), typeof(string), typeof(byte[]), typeof(IntPtr) };
+        static readonly HashSet<Type> supportedParameterAndReturnTypes = new() { typeof(int), typeof(long), typeof(ulong), typeof(bool), typeof(string), typeof(byte[]), typeof(IntPtr), typeof(UInt32) };
         static readonly ConcurrentDictionary<string, Lazy<DynamicMethod>> dynamicMethods = new();
         public Dictionary<string, HostMethodInfo> MapHostFunctionNamesToMethodInfo = new();
 
@@ -144,11 +144,6 @@ namespace Hyperlight
 
             return dynamicMethods.GetOrAdd(fieldInfo.Name, _ => new Lazy<DynamicMethod>(() =>
             {
-                // TODO: check if it possible to call CreateDelegate multiple times on a DynamicMethod.
-                // As a DynamicMethod is Module scoped then if this is possible we only need to
-                // generate the IL once for each field and can cache a reference to it
-                // and just call CreateDelegate for second and subsequent instances.
-
                 // Get the Invoke method
                 var invokeMethod = fieldInfo.FieldType.GetMethod("Invoke");
 
