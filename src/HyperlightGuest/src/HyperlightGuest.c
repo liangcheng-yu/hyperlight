@@ -9,7 +9,6 @@ extern int _fltused = 0;
 uintptr_t __security_cookie;
 jmp_buf jmpbuf;
 HyperlightPEB* pPeb;
-void* unusedHeapBufferPointer = 0;
 FuncTable* funcTable;
 
 bool runningHyperlight = true;
@@ -397,34 +396,43 @@ void dlmalloc_abort()
 
 void* hyperlightMoreCore(size_t size)
 {
+    void* ptr = NULL;
+    static void* unusedHeapBufferPointer = 0;
+    static size_t allocated = 0;
     if (size > 0)
     {
-        uint64_t newUnusedHeapBufferPointer;
-        if (0 == unusedHeapBufferPointer)
-        {
-            newUnusedHeapBufferPointer = (uint64_t)pPeb->guestheapData.guestHeapBuffer + size;
-        }
-        else
-        {
-            newUnusedHeapBufferPointer = (uint64_t)unusedHeapBufferPointer + size;
-        }
-
+        // Trying to use more memory than is available.
         // This should not happen if dlmalloc_set_footprint_limit was called with pPeb->guestheapData.guestHeapSize. 
 
-        if (newUnusedHeapBufferPointer - (uint64_t)pPeb->guestheapData.guestHeapBuffer > pPeb->guestheapData.guestHeapSize)
+        if (allocated + size > pPeb->guestheapData.guestHeapSize)
         {
+            // TODO: Set an error message
             return (void*)MFAIL;
         }
 
-        unusedHeapBufferPointer = (void*)newUnusedHeapBufferPointer;
+        if (0 == unusedHeapBufferPointer)
+        {
+            ptr = (char *)pPeb->guestheapData.guestHeapBuffer;
+        }
+        else
+        {
+            ptr = (char*)unusedHeapBufferPointer;
+        }
+
+        allocated += size;
+        unusedHeapBufferPointer = (char *) ptr + size;
+        return ptr;
     }
     else if (size < 0)
     {
         // This should not happen according to dlmalloc docs as MORECORE_CANNOT_TRIM is set. 
-
+        // TODO: Set an error message
         return (void*)MFAIL;
     }
-    return unusedHeapBufferPointer;
+    else
+    {
+        return unusedHeapBufferPointer;
+    }
 }
 
 #pragma optimize("", on)

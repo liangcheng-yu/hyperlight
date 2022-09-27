@@ -1,3 +1,7 @@
+
+alias build-rust-debug := build-rust
+set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
+
 build-dotnet:
     cd src/Hyperlight && dotnet build || cd ../../
     cd src/examples/NativeHost && dotnet build || cd ../../../
@@ -28,7 +32,7 @@ test-capi:
 valgrind-capi:
     cd src/hyperlight_host && just valgrind-tests-capi || cd ../../
 
-test: test-rust test-dotnet valgrind-capi
+test: test-rust test-dotnet valgrind-capi test-capi
 
 check:
     cargo check

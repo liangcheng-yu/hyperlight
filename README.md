@@ -20,13 +20,14 @@ One primary scenerio is to run WebAssembly (WASM) modules. A sibling project cal
 
 This repo contains Hyperlight along with a couple of sample guest applications that can be used to either test or try it out:
 
-- [src/Hyperlight](./src/HyperLight) - This is the "host", which launches binaries within a Hypervisor partition.
+- [src/Hyperlight](./src/Hyperlight) - This is the "host", which launches binaries within a Hypervisor partition.
 - [src/HyperlightGuest](./src/HyperLightGuest) - This is a library to make it easy to write Hyperlight Guest programs.
-- [src/NativeHost](./src/examples/NativeHost) - This is a "driver" program used for testing. It knows how to run the two "guest" applications that live within the `test/` directory (see below) within sandboxes. If you are developing Hyperlight itself, you'll need this program, but if you're using the library to build your own applications, you won't need this project.
+- [src/NativeHost](./src/examples/NativeHost) - This is a "driver" program used for testing. It knows how to run the Hyperlight Guest programs applications that live within the `src/test/Guests` directory (see below) within sandboxes. If you are developing Hyperlight itself, you'll need this program, but if you're using the library to build your own applications, you won't need this project.
 - [src/HyperlightSurrogate](./src/HyperlightSurrogate) - This is a tiny application that is simply used as a sub-process for the host. When the host runs on Windows with the Windows Hypervisor Platform (WHP, e.g. Hyper-V), it launches several of these surrogates, assigns memory to them, and then launches partitions from there.
   - The use of surrogates is a temporary workaround on Windows until WHP allows us to create more than one partition per running process.
 - [src/tests](./src/tests) - Tests for the host
-  - This directory contains two applications written in C, which are intended to be launched within partitions as "guests".
+  - [`src/test/Guests](./src/tests/Guests) This directory contains two Hyperlight Guest programs written in C, which are intended to be launched within partitions as "guests".
+- [src/HyperlightDependencies](./src/HyperlightDependencies) - This directory contains a dotnet assmebly which can be used to build a wrapper around Hyperlight such as  [Hyperlight WASM](https://github.com/deislabs/hyperlight-wasm).
 - [src/hyperlight-host](./src/hyperlight_host) - This is the in-progress rewrite of the Hyperlight host into rust. See [the design document](https://hackmd.io/@arschles/hl-rust-port) for more information about this work, and see below for details on how to use this code.
 
 ## Quickstart
@@ -42,81 +43,125 @@ Note: You can also run the linux version using WSL2 on Windows. At present their
 
 The code for the NativeHost application is available [here](https://github.com/deislabs/hyperlight/blob/main/src/examples/NativeHost/Program.cs).
 
-If you dont have Windows Hypervisor Platform enabled or KVM installed then the example application will only run in 'in process' mode, this mode is provided for development purposes and is not intended to be used in production. If you want to see the example running code in a Hypervisor partition then you will need to either install [Windows Hypervisor Platform](https://devblogs.microsoft.com/visualstudio/hyper-v-android-emulator-support/#1-enable-hyper-v-and-the-windows-hypervisor-platform) or [KVM](https://help.ubuntu.com/community/KVM/Installation). NOTE - To enable WHP on Windows Server you need to enable the Windows Hypervisor Platform feature using PowerShell `Enable-WindowsOptionalFeature -Online -FeatureName HyperVisorPlatform`.
+On Windows if you dont have Windows Hypervisor Platform enabled then the example application will only run in 'in process' mode, this mode is provided for development purposes and is not intended to be used in production. If you want to see the example running code in a Hypervisor partition then you will need to either install [Windows Hypervisor Platform](https://devblogs.microsoft.com/visualstudio/hyper-v-android-emulator-support/#1-enable-hyper-v-and-the-windows-hypervisor-platform). NOTE - To enable WHP on Windows Server you need to enable the Windows Hypervisor Platform feature using PowerShell `Enable-WindowsOptionalFeature -Online -FeatureName HyperVisorPlatform`.
 
-## Building and testing Hyperlight
+On Linux (including WSL2) you must install [KVM](https://help.ubuntu.com/community/KVM/Installation) (see [here](https://boxofcables.dev/kvm-optimized-custom-kernel-wsl2-2022/) for instrucitons how to build an accerlerted custom kernel for WSL2). If you have access to CBL-Mariner with HyperV this will also work.
 
-Currently the complete solution including tests and examples will only build on Windows with Visual Studio 2019 (or later) or the Visual Studio 2022 Build Tools along with dotnet 5.0 and dotnet 6.0, this is becasue the test and example projects are dependent upon a couple of projects that currently need to be compiled with the Microsoft Visual C compiler.
+## Building and testing the Hyperlight Solution on Windows
 
-If you do not have these tools and wish to install them you can find Visual Studio 2019 (https://visualstudio.microsoft.com/downloads/) and the build tools [here](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022).
+Currently the complete solution including tests and examples will only build on Windows with Visual Studio 2022 or the Visual Studio 2022 Build Tools along with dotnet 6.0, this is because the `HyperlightGuest` project must be compiled with Microsoft Visual C compiler at present, in additon the test and example projects are dependent upon the test Hyperlight Guest applications that also require MSVC. In addition you will need the [prerequisites](prerequisites) installed.
 
-To use Visual Studio clone the repo and run the following command and open the Hyperlight.sln file. 
+### Visual Studio 2022
+
+If you do not have Visual Studio 2022  ou can find it [here](https://visualstudio.microsoft.com/downloads/).
+
+Clone the repo, launch Visual Studio open the `Hyperlight.sln` file and build.
+
+Run the tests from Test Explorer.
+
+Run additional tests, open a command prompt and run the following commands:
+
+``` console
+cd src/hyperlight_host
+cd tests_capi/ && git submodule init && git submodule update && cd ..
+just build-tests-capi
+cd ../..
+just test-rust
+just test-capi
+just test-dotnet-hl
+```
+
+### Visual Studio Build tools
+
+Install the build tools from [here](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022).
+
+Clone the repo.
+
+Open a [Visual Studio Command Prompt](https://docs.microsoft.com/en-us/visualstudio/ide/reference/command-prompt-powershell?view=vs-2022), cd to the hyperlight repo root directory and run `msbuild hyperlight.sln /p:BuildHyperLightHost=true`.
+
+Test by running:
+
+``` console
+cd src/hyperlight_host
+cd tests_capi/ && git submodule init && git submodule update && cd ..
+just build-tests-capi
+cd ../..
+just test-rust
+just test-capi
+just test-dotnet
+```
+
+### Visual Studio Code
 
 You can also use Visual Studio code, to do this make sure that you start Visual Studio Code from a [Visual Studio Command Prompt](https://docs.microsoft.com/en-us/visualstudio/ide/reference/command-prompt-powershell?view=vs-2022) and then open the folder that you cloned the repo to.
 
-If you want to build/test Hyperlight without installing Visual Studio or the Visual Studio buld tools or on Linux then you can do this by following the instructions below.
+## Building and Testing Hyperlight using Linux or Windows without Visual Studio or the Visual Studio Build Tools
 
-### Building and Hyperlight using only dotnet on Linux or Windows
-
-Hyperlight will build using the `dotnet build` command on any machine that has the  [dotnet 6.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/6.0) installed:
+Hyperlight will build on any Windows or Linux machine that has the [prerequisites](prerequisites) installed:
 
 ```console
 git clone git@github.com:deislabs/hyperlight.git
-cd src/Hyperlight
-dotnet build
+cd hyperlight
+just build
+cd src/hyperlight_host
+cd tests_capi/ && git submodule init && git submodule update && cd ..
+just build-tests-capi
+cd ../..
+just test-rust
+just test-capi
 ```
 
-To run the tests and examples you will need to download the simpleguest.exe and callbackguest.exe applications from [here] (https://github.com/deislabs/hyperlight/releases).
+To run the  dotnet tests and examples you will need to download the simpleguest.exe and callbackguest.exe applications from [here] (https://github.com/deislabs/hyperlight/releases) and copy them to `src/tests/Guests/simpleguest/x64/debug/simpleguest.exe` and  `src/tests/Guests/callbackguest/x64/debug/callbackguest.exe` respectively.
 
-### Running tests
+### Running dotnet tests
 
 ```console
 cd src/tests/Hyperlight.Test
 dotnet test
 ```
 
-### Running examples
+### Running dotnet example
 
 ```console
 cd src/examples/NativeHost
 dotnet run
 ```
 
-## Debugging Guest Applications
+## Debugging The Hyperlight Guest Applications or GuestLibrary
 
-To debug guest applications the Sandbox needs to be created with the option flag `SandboxRunOptions.RunFromGuestBinary`.
+To debug the guest applications or library the Sandbox instance needs to be created with the option flag `SandboxRunOptions.RunFromGuestBinary`.
 
 ### Debugging in Visual Studio
 
-Mixed mode debugging in Visual Studio is enabled in the solution, this means that you can set breakpoints in managed and/or native code, step into native code from managed code etc. during debugging. 
+Mixed mode debugging in Visual Studio is enabled in the solution, this means that you can set breakpoints in managed and/or native code, step into native code from managed code etc. during debugging.
 
 ### Debugging in Visual Studio Code
 
-Visual Studio Code does not currently support mixed mode debugging, to debug guest applications in Visual Studio Code you need to choose the `Debug Native Host` debuggin task when starting a debug session.
+Visual Studio Code does not currently support mixed mode debugging, to debug guest applications in Visual Studio Code you need to choose the `Debug Native Host` debugging task when starting a debug session.
 
 ## The Rust Host Rewrite (`hyperlight_host`)
 
-## Running on Windows
+## Prerequisites
 
-Prerequisites:
+### Windows
 
 1. [Rust](https://www.rust-lang.org/tools/install)
 1. [Clang](https://clang.llvm.org/get_started.html).  If you have Visual Studio instructions are [here](https://docs.microsoft.com/en-us/cpp/build/clang-support-msbuild?view=msvc-170).
 1. [just](https://github.com/casey/just).  `cargo install just` or with chocolatey `choco install just`.
 1. [cbindgen](https://github.com/eqrion/cbindgen) `cargo install cbindgen`
+1. [pwsh](https://github.com/PowerShell/PowerShell)
 
- Create powershell function to use pwsh as shell:
+ Create powershell function to use developer shell as shell:
 
  1. Edit $PROFILE
  1. Add the following to the profile, this assumes that you have installed clang via Visual Studio and are happy to add the developer shell to your default pwsh profile.
 
  ```PowerShell
 Import-Module "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
-function just { C:\ProgramData\chocolatey\bin\just.exe --shell pwsh.exe --shell-arg -c @args}
 Enter-VsDevShell 001cb2cc -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64" 
  ```
 
-## Using WSL2
+### WSL2 or Linux
 
 Prerequisites:
 
@@ -124,15 +169,6 @@ Prerequisites:
 1. [Clang](https://clang.llvm.org/get_started.html). `sudo apt install clang`.
 1. [just](https://github.com/casey/just).  `cargo install just` .
 1. [cbindgen](https://github.com/eqrion/cbindgen) `cargo install cbindgen`
-
-## Test it works
-
-```shell
-cd src/hyperlight_host
-cd tests_capi/ && git submodule init && git submodule update && cd ..
-just build-tests-capi
-```
-
 
 ## Code of Conduct
 
