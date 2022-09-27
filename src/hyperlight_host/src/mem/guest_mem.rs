@@ -73,7 +73,7 @@ impl GuestMemory {
             } else {
                 let valloc_addr = unsafe {
                     VirtualAlloc(
-                        null_mut(),
+                        Some(null_mut() as *mut c_void),
                         min_size_bytes,
                         MEM_COMMIT,
                         PAGE_EXECUTE_READWRITE,
@@ -283,7 +283,7 @@ mod tests {
             } else if #[cfg(windows)] {
                 let valloc_addr = unsafe {
                     VirtualAlloc(
-                        addr,
+                        Some(addr),
                         size,
                         MEM_COMMIT,
                         PAGE_EXECUTE_READWRITE,
