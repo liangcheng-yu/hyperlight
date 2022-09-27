@@ -56,4 +56,8 @@
     <ProjectReference Include="..\HyperlightDependencies\HyperlightDependencies.csproj" />
   </ItemGroup>
 
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent" Condition="'$(BuildingInsideVisualStudio)' == true  or '$(BuildHyperLightHost)' == true"> 
+    <Exec Command="just fmt&#xD;&#xA;just clippy&#xD;&#xA;just build-rust-$(configuration.ToLower())" />
+  </Target>
+
 </Project>

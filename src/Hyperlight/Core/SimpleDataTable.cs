@@ -29,11 +29,17 @@ namespace Hyperlight
 
         public ulong AddBytes(byte[] data)
         {
-            return writeData(data);
+            return writeData(data, true);
         }
 
-        private ulong writeData(byte[] data)
+        private ulong writeData(byte[] data, bool align = false)
         {
+            if (align)
+            {
+                ptrCurrent = IntPtr.Add(ptrCurrent, 7);
+                ptrCurrent = new IntPtr(ptrCurrent.ToInt64() & ~7);
+            }
+
             var ptrNew = IntPtr.Add(ptrCurrent, data.Length);
             if ((long)ptrNew > (long)ptrEnd)
             {

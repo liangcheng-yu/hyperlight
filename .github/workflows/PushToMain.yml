@@ -165,7 +165,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: extractions/setup-just@v1
         with:
-          just-version: '0.10' # optional semver specification, otherwise latest
+          just-version: '1.5.0' # optional semver specification, otherwise latest
       - name: Build Debug
         run: cargo build --verbose
       - name: Build Release 
