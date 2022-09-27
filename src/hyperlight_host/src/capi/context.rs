@@ -243,7 +243,7 @@ pub extern "C" fn context_new() -> *mut Context {
 /// - With `Context`s created by `context_new`
 #[no_mangle]
 pub unsafe extern "C" fn context_free(ctx: *mut Context) {
-    Box::from_raw(ctx);
+    drop(Box::from_raw(ctx))
 }
 
 #[cfg(test)]

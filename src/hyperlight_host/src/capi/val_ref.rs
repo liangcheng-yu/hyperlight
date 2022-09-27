@@ -86,7 +86,7 @@ pub unsafe extern "C" fn val_refs_compare(val1: *const Val, val2: *const Val) ->
 /// is no longer valid and must not be used for any purpose.
 #[no_mangle]
 pub unsafe extern "C" fn val_ref_free(v: *mut Val) {
-    Box::from_raw(v);
+    drop(Box::from_raw(v));
 }
 
 /// Return the `Val` associated with `val_hdl`, if one exists, and
