@@ -14,14 +14,14 @@ _TEXT  SEGMENT
 
 extern setError : proc
 extern pPeb: qword
-extern runningHyperlight: byte
+extern runningInHyperlight: byte
 
 __chkstk PROC
     sub         rsp,10h                             ; make space on the stack to save r10,r11
     mov         qword ptr [rsp],r10
     mov         qword ptr [rsp+8],r11
     xor         r11,r11
-    movzx       r11,byte ptr [runningHyperlight]    ; check if we are running in Hyperlight , do the inproc check
+    movzx       r11,byte ptr [runningInHyperlight]    ; check if we are running in Hyperlight , do the inproc check
     test        r11,r11
     je          call_chk_inproc
     lea         r10,[rsp+18h]                       ; get the current stack address

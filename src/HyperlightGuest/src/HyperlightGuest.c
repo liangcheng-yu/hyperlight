@@ -11,7 +11,7 @@ jmp_buf jmpbuf;
 HyperlightPEB* pPeb;
 FuncTable* funcTable;
 
-bool runningHyperlight = true;
+bool runningInHyperlight = true;
 bool useOutForHalt = false;
 void (*outb_ptr)(uint16_t port, uint8_t value) = NULL;
 
@@ -62,7 +62,7 @@ void InitialiseFunctionTable(int size)
 
 void outb(uint16_t port, uint8_t value)
 {
-    if (runningHyperlight)
+    if (runningInHyperlight)
     {
         hloutb(port, value);
     }
@@ -86,7 +86,7 @@ void outb(uint16_t port, uint8_t value)
 void halt()
 {
     const uint8_t hlt = 0xF4;
-    if (runningHyperlight)
+    if (runningInHyperlight)
     {
         // This is a workaround for an issue where HyperV on Linux does not exit after HLT is issued.
         if (useOutForHalt)
@@ -211,10 +211,36 @@ long GetHostReturnValueAsLong()
     return *((long*)pPeb->inputdata.inputDataBuffer);
 }
 
+// Calls a Host Function that returns an ulong
+unsigned long native_symbol_thunk_returning_ulong(char* functionName, ...)
+{
+
+    va_list ap = NULL;
+
+    va_start(ap, functionName);
+
+    CallHostFunction(functionName, ap);
+
+    va_end(ap);
+
+    return  GetHostReturnValueAsULong();
+}
+
+unsigned long GetHostReturnValueAsULong()
+{
+    return *((unsigned long*)pPeb->inputdata.inputDataBuffer);
+}
+
 // Exposed by Hyperlight Sandbox , used by dlmalloc
 long GetHyperLightTickCount()
 {
     return native_symbol_thunk_returning_long("GetTickCount");
+}
+
+// Exposed by Hyperlight Sandbox, used by GetStackBoundary
+unsigned long GetHyperLightStackBoundary()
+{
+    return native_symbol_thunk_returning_ulong("GetStackBoundary");
 }
 
 int CallGuestFunction(GuestFunctionDetails* guestfunctionDetails)
@@ -484,7 +510,7 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, bool 
         // Either in WHP partition (hyperlight) or in memory.  If in memory, outb_ptr will be non-NULL
         outb_ptr = (void(*)(uint16_t, uint8_t))pPeb->pOutb;
         if (outb_ptr)
-            runningHyperlight = false;
+            runningInHyperlight = false;
         HostFunctions* pFuncs = (HostFunctions*)pPeb->hostFunctionDefinitions.functionDefinitions;
         pFuncs->header.DispatchFunction = (uint64_t)DispatchFunction;
 
@@ -504,4 +530,24 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, bool 
 
     halt(); // This is a nop if we were just loaded into memory
     return 0;
+}
+
+
+// This function returns the stack boundary
+// It is required/called by WAMR function os_thread_get_stack_boundary() 
+// which is needed for AOT WASM Module execution
+
+uint8_t * GetStackBoundary()
+{
+    unsigned __int64 thread_stack_boundary;
+    // If we are not running in Hyperlight then we need to get this information in the host
+    if (!runningInHyperlight)
+    {
+        thread_stack_boundary = GetHyperLightStackBoundary();
+    }
+    else
+    {
+        thread_stack_boundary = pPeb->gueststackData.minStackAddress;
+    }
+    return (uint8_t *)(uintptr_t)thread_stack_boundary;
 }

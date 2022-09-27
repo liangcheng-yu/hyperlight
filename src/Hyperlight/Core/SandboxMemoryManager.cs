@@ -337,6 +337,10 @@ namespace Hyperlight.Core
             {
                 Marshal.WriteInt64(inputDataAddress, returnValue is null ? 0 : (long)returnValue);
             }
+            else if (type == typeof(IntPtr))
+            {
+                Marshal.WriteIntPtr(inputDataAddress, returnValue is null ? IntPtr.Zero : (IntPtr)returnValue);
+            }
             else
             {
                 throw new ArgumentException("Unsupported Host Method Return Type", nameof(type));

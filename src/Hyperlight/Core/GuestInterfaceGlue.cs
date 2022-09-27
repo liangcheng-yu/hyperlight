@@ -18,7 +18,7 @@ namespace Hyperlight
 
         // Currently we will support int, Int64, bool, byte[] and string for parameters and return types of long and int 
         // for the methods between guest and host
-        static readonly HashSet<Type> supportedParameterAndReturnTypes = new() { typeof(int), typeof(long), typeof(ulong), typeof(bool), typeof(string), typeof(byte[]) };
+        static readonly HashSet<Type> supportedParameterAndReturnTypes = new() { typeof(int), typeof(long), typeof(ulong), typeof(bool), typeof(string), typeof(byte[]), typeof(IntPtr) };
         static readonly ConcurrentDictionary<string, Lazy<DynamicMethod>> dynamicMethods = new();
         public Dictionary<string, HostMethodInfo> MapHostFunctionNamesToMethodInfo = new();
 
