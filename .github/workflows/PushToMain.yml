@@ -12,7 +12,7 @@ on:
 
 jobs:
   publish:
-    runs-on: windows-latest
+    runs-on: windows-2022
     needs: [build-rust-ubuntu, build-rust-windows]
     env:
       PLATFORM: x64
@@ -190,7 +190,7 @@ jobs:
           name: hyperlight_host.h
           path: src/hyperlight_host/include/hyperlight_host.h
   build-rust-windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v3
       - uses: Swatinem/rust-cache@v2
