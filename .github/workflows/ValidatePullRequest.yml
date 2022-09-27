@@ -13,19 +13,19 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        build: [ubuntu-20.04-debug, windows-latest-debug, ubuntu-20.04-release, windows-latest-release]
+        build: [ubuntu-20.04-debug, windows-2022-debug, ubuntu-20.04-release, windows-2022-release]
         include:
           - build: ubuntu-20.04-debug
             os: ubuntu-20.04
             config: debug
-          - build: windows-latest-debug
-            os: windows-latest
+          - build: windows-2022-debug
+            os: windows-2022
             config: debug
           - build: ubuntu-20.04-release
             os: ubuntu-20.04
             config: release
-          - build: windows-latest-release
-            os: windows-latest
+          - build: windows-2022-release
+            os: windows-2022
             config: release
     steps:
     - uses: actions/checkout@v3
