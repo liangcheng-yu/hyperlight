@@ -1,8 +1,6 @@
 use super::kvm_regs::{Regs, SRegs};
 use anyhow::{anyhow, bail, Result};
-use kvm_bindings::{__u64, kvm_userspace_memory_region};
 use kvm_ioctls::{Cap::UserMemory, Kvm, VcpuExit, VcpuFd, VmFd};
-use std::os::raw::c_void;
 use std::os::unix::io::FromRawFd;
 
 /// The type of the output from a KVM vCPU
@@ -158,61 +156,18 @@ pub fn set_sregisters(vcpu_fd: &VcpuFd, sregs: &SRegs) -> Result<()> {
     vcpu_fd.set_sregs(&native_regs).map_err(|e| anyhow!(e))
 }
 
-/// Map a VM memory region on the VM referenced by `vmfd` using the
-/// `guest_phys_addr` parameter as the guest physical address, the
-/// `userspace_addr` as the pointer to shared memory, and `memory_size`
-/// as the size of that memory.
-///
-/// # Safety
-///
-/// `userspace_addr` must be a valid pointer to a region of memory
-/// of `memory_size`. This memory must have been created with `mmap`
-/// and should be freed with `munmap` after `unmap_vm_memory_region`
-/// is called.
-///
-/// TODO: https://github.com/deislabs/hyperlight/issues/199
-pub fn map_vm_memory_region(
-    vmfd: &VmFd,
-    guest_phys_addr: u64,
-    userspace_addr: *const c_void,
-    memory_size: u64,
-) -> Result<kvm_userspace_memory_region> {
-    let mem_region = kvm_userspace_memory_region {
-        slot: 0,
-        flags: 0,
-        guest_phys_addr,
-        memory_size,
-        userspace_addr: userspace_addr as __u64,
-    };
-    let set_res = unsafe { (*vmfd).set_user_memory_region(mem_region) };
-    match set_res {
-        Ok(_) => Ok(mem_region),
-        Err(e) => Err(anyhow!(e)),
-    }
-}
-
-/// Unmap the memory region referenced by `region` on the VM referenced
-/// by `vmfd`.
-///
-/// This function sets the `memory_size` field on `mem_region` to
-/// `0`.
-pub fn unmap_vm_memory_region(
-    vmfd: &VmFd,
-    mem_region: &mut kvm_userspace_memory_region,
-) -> Result<()> {
-    mem_region.memory_size = 0;
-    let res = unsafe {
-        (*vmfd)
-            .set_user_memory_region(*mem_region)
-            .map_err(|e| anyhow!(e))
-    };
-    res.map_err(|e| anyhow!(e))
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::{hypervisor::kvm_regs, mem::guest_mem::GuestMemory};
+    use crate::{
+        hypervisor::kvm_mem::{
+            map_vm_memory_region, map_vm_memory_region_raw, unmap_vm_memory_region_raw,
+        },
+        hypervisor::kvm_regs,
+        mem::guest_mem::GuestMemory,
+    };
     use anyhow::{bail, Result};
+    use kvm_ioctls::VmFd;
+
     const SHOULD_BE_PRESENT_VAR: &str = "KVM_SHOULD_BE_PRESENT";
 
     macro_rules! presence_check {
@@ -258,8 +213,14 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn run_vcpu() -> Result<()> {
+    fn run_vcpu_test<
+        T,
+        MemSetupFn: FnOnce(&VmFd, u64, &GuestMemory) -> Result<T>,
+        MemTeardownFn: FnOnce(&VmFd, &mut T) -> Result<()>,
+    >(
+        setup_mem: MemSetupFn,
+        teardown_mem: MemTeardownFn,
+    ) -> Result<()> {
         presence_check!();
 
         const GUEST_PHYS_ADDR: u64 = 0x1000;
@@ -286,9 +247,8 @@ mod tests {
         let mem_size = super::get_mmap_size(&kvm)?;
         let mut mem = GuestMemory::new(mem_size).unwrap();
         mem.copy_into(&CODE, 0).unwrap();
-        let mut mem_region =
-            super::map_vm_memory_region(&vm, GUEST_PHYS_ADDR, mem.raw_ptr(), mem_size as u64)?;
-
+        let mut mem_setup_res = setup_mem(&vm, GUEST_PHYS_ADDR, &mem)?;
+        let _mem_region = map_vm_memory_region(&vm, GUEST_PHYS_ADDR, &mem)?;
         let regs = kvm_regs::Regs {
             rip: 0x1000,
             rax: 2,
@@ -325,7 +285,33 @@ mod tests {
             assert_eq!(run_res.message_type, super::KvmRunMessageType::Halt);
         }
 
-        super::unmap_vm_memory_region(&vm, &mut mem_region)?;
-        Ok(())
+        teardown_mem(&vm, &mut mem_setup_res)
+    }
+
+    #[test]
+    fn run_vcpu_raw() -> Result<()> {
+        presence_check!();
+        run_vcpu_test(
+            |vmfd, guest_phys_addr, guest_mem| {
+                map_vm_memory_region_raw(
+                    vmfd,
+                    guest_phys_addr,
+                    guest_mem.raw_ptr(),
+                    guest_mem.mem_size() as u64,
+                )
+            },
+            unmap_vm_memory_region_raw,
+        )
+    }
+
+    #[test]
+    fn run_vcpu() -> Result<()> {
+        presence_check!();
+        run_vcpu_test(
+            |vmfd, guest_phys_addr, guest_mem| {
+                map_vm_memory_region(vmfd, guest_phys_addr, guest_mem).map(|_| ())
+            },
+            |_, _| Ok(()),
+        )
     }
 }

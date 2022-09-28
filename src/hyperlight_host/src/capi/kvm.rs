@@ -2,6 +2,7 @@ use super::context::{Context, ReadResult, WriteResult};
 use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::hypervisor::kvm;
+use crate::hypervisor::kvm_mem::{map_vm_memory_region_raw, unmap_vm_memory_region_raw};
 use crate::hypervisor::kvm_regs::{Regs, SRegs};
 use kvm_bindings::kvm_userspace_memory_region;
 use kvm_ioctls::{Kvm, VcpuFd, VmFd};
@@ -209,7 +210,7 @@ pub unsafe extern "C" fn kvm_map_vm_memory_region(
         Ok(r) => r,
         Err(e) => return (*ctx).register_err(e),
     };
-    match kvm::map_vm_memory_region(&vmfd, guest_phys_addr, userspace_addr, mem_size) {
+    match map_vm_memory_region_raw(&vmfd, guest_phys_addr, userspace_addr, mem_size) {
         Ok(mem_region) => Context::register(
             mem_region,
             &(*ctx).kvm_user_mem_regions,
@@ -260,7 +261,7 @@ pub unsafe extern "C" fn kvm_unmap_vm_memory_region(
         Ok(r) => r,
         Err(e) => return (*ctx).register_err(e),
     };
-    match kvm::unmap_vm_memory_region(&*vmfd, &mut *mem_region) {
+    match unmap_vm_memory_region_raw(&*vmfd, &mut *mem_region) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }

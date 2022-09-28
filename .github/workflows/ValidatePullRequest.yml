@@ -215,10 +215,6 @@ jobs:
       run: dotnet clean -c ${{ matrix.config }}
       working-directory: src/examples/NativeHost
       if: ${{ matrix.os }} == 'self-hosted'
-    - name: Build Example
-      shell: bash
-      run: dotnet build -c ${{ matrix.config }}
-      working-directory: src/examples/NativeHost
     - name: Run Example
       shell: bash
       run:  dotnet run -c ${{ matrix.config }} -- -nowait

@@ -2,5 +2,8 @@
 ///! Functionality to manipulate KVM-based virtual machines.
 pub mod kvm;
 #[cfg(target_os = "linux")]
+///! Memory management functions for KVM
+pub mod kvm_mem;
+#[cfg(target_os = "linux")]
 ///! KVM register definitions
 pub mod kvm_regs;
