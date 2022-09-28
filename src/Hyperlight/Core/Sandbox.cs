@@ -338,17 +338,17 @@ namespace Hyperlight
 
                 string returntype = string.Empty;
                 // TODO: Add support for void return types
-                if (mi.methodInfo.ReturnType == typeof(int))
+                if (mi.methodInfo.ReturnType == typeof(int)  || mi.methodInfo.ReturnType == typeof(uint))
                 {
                     returntype = "i";
                 }
-                else if (mi.methodInfo.ReturnType == typeof(long))
+                else if (mi.methodInfo.ReturnType == typeof(long) || mi.methodInfo.ReturnType == typeof(IntPtr))
                 {
                     returntype = "I";
                 }
                 else
                 {
-                    throw new ArgumentException("Only int or long return types are supported");
+                    throw new ArgumentException("Only int long or IntPtr return types are supported");
                 }
 
 

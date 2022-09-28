@@ -16,12 +16,14 @@ using Xunit.Abstractions;
 namespace Hyperlight.Tests
 {
 
-
     public class SandboxHostTest
     {
         private readonly ITestOutputHelper output;
         public const int NUMBER_OF_ITERATIONS = 10;
         public const int NUMBER_OF_PARALLEL_TESTS = 10;
+        // These are the host functions that are exposed automatically by Hyperlight
+        private readonly string[] internalFunctions = { "GetTickCount", "GetStackBoundary", "GetOSPageSize", "GetTimeSinceBootMicrosecond" };
+
         public SandboxHostTest(ITestOutputHelper output)
         {
             //TODO: implment skip for this
@@ -1106,8 +1108,8 @@ namespace Hyperlight.Tests
             Assert.NotNull(hyperlightPEB);
             fieldInfo = hyperlightPEB!.GetType().GetField("listFunctions", bindingFlags);
             Assert.NotNull(fieldInfo);
-            // Ignore GetTickCount exposed by Sandbox
-            var listFunctions = ((HashSet<FunctionDetails>)fieldInfo!.GetValue(hyperlightPEB)!).Where(f => f.FunctionName != "GetTickCount");
+            // Ignore Internal Functions exposed by Sandbox.
+            var listFunctions = ((HashSet<FunctionDetails>)fieldInfo!.GetValue(hyperlightPEB)!).Where(f => !internalFunctions.Contains(f.FunctionName));
             Assert.NotNull(listFunctions);
             Assert.Equal(methodNames.Count, listFunctions!.Count());
             var wasmParamTypes = new List<string> { "", "i", "I", "f", "F", "r", "*", "~", "$" };

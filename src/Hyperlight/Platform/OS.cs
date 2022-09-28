@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Xml.Linq;
 using Hyperlight.Core;
 
 namespace Hyperlight.Native
@@ -275,5 +276,67 @@ namespace Hyperlight.Native
         [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool CloseHandle(IntPtr hObject);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct SYSTEM_INFO
+        {
+            public ushort wProcessorArchitecture;
+            public ushort wReserved;
+            public uint dwPageSize;
+            public IntPtr lpMinimumApplicationAddress;
+            public IntPtr lpMaximumApplicationAddress;
+            public UIntPtr dwActiveProcessorMask;
+            public uint dwNumberOfProcessors;
+            public uint dwProcessorType;
+            public uint dwAllocationGranularity;
+            public ushort wProcessorLevel;
+            public ushort wProcessorRevision;
+        };
+        [DllImport("libc", SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+        public static extern uint getpagesize();
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+        private static extern void GetNativeSystemInfo(ref SYSTEM_INFO lpSystemInfo);
+
+        public static uint GetPageSize()
+        {
+            uint pageSize = 0;
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                var sysInfo = new SYSTEM_INFO();
+
+                GetNativeSystemInfo(ref sysInfo);
+
+                int error;
+                if ((error = Marshal.GetLastPInvokeError()) != 0)
+                {
+                    throw new HyperlightException($"GetNativeSystemInfo:Pinvoke Last Error:{error}");
+                }
+
+                pageSize = sysInfo.dwPageSize;
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                pageSize = Syscall.CheckReturnVal(
+                    "Get PageSize",
+                    () => getpagesize(),
+                    (uint retVal) => retVal != 0
+                );
+            }
+            else
+            {
+                throw new NotSupportedException();
+            }
+
+            return pageSize;
+        }
+
+        [DllImport("kernel32.dll")]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+        public static extern void GetCurrentThreadStackLimits(out IntPtr lowLimit, out IntPtr highLimit);
+
     }
 }
