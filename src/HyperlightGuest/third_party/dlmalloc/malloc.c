@@ -10,10 +10,10 @@ And they are enabled using the preprocessor symbol HYPERLIGHT
 
 The changes are as follows:
 
-Added function definitions at line 20
-#define for MORECORE and HAVE_MMAP are excluded at line 562
-Call to Windows API GetSystemInfo to determine Page and Alignment Size  are commented out and replaced with value provided preprocessor definitions at line 3135
-Call to GetHyperLightTickCount at line 3207
+Added function definitions at line 23
+#define for MORECORE and HAVE_MMAP are excluded at line 576
+Call to Windows API GetSystemInfo to determine Page Size is replaced with call to Hyperlight function GetOSPageSize, granularity is set to page size if DEFAULT_GRANULARITY is not set  at line 3151
+Call to GetTickCount replaced with call to GetHyperLightTickCount at line 3213
 
 When we move away from MSVC to either CLang or GCC these changes will need to be reviewed
 

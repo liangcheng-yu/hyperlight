@@ -10,9 +10,7 @@ uintptr_t __security_cookie;
 jmp_buf jmpbuf;
 HyperlightPEB* pPeb;
 FuncTable* funcTable;
-
 bool runningInHyperlight = true;
-
 void (*outb_ptr)(uint16_t port, uint8_t value) = NULL;
 
 #pragma optimize("", off)

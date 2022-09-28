@@ -62,10 +62,8 @@ Run the tests from Test Explorer.
 Run additional tests, open a command prompt and run the following commands:
 
 ``` console
-cd src/hyperlight_host
-cd tests_capi/ && git submodule init && git submodule update && cd ..
+just init
 just build-tests-capi
-cd ../..
 just test-rust
 just test-capi
 just test-dotnet-hl
@@ -82,10 +80,8 @@ Open a [Visual Studio Command Prompt](https://docs.microsoft.com/en-us/visualstu
 Test by running:
 
 ``` console
-cd src/hyperlight_host
-cd tests_capi/ && git submodule init && git submodule update && cd ..
+just init
 just build-tests-capi
-cd ../..
 just test-rust
 just test-capi
 just test-dotnet
@@ -102,11 +98,8 @@ Hyperlight will build on any Windows or Linux machine that has the [prerequisite
 ```console
 git clone git@github.com:deislabs/hyperlight.git
 cd hyperlight
+just init
 just build
-cd src/hyperlight_host
-cd tests_capi/ && git submodule init && git submodule update && cd ..
-just build-tests-capi
-cd ../..
 just test-rust
 just test-capi
 ```
