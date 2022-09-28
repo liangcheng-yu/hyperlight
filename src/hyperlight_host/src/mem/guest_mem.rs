@@ -126,6 +126,14 @@ impl GuestMemory {
         self.ptr
     }
 
+    /// Return the length of the memory contained in `self`.
+    ///
+    /// The return value is guaranteed to be the size of memory
+    /// of which `self.raw_ptr()` points to the beginning.
+    pub fn mem_size(&self) -> usize {
+        self.size
+    }
+
     /// Read an `i64` from guest memory starting at `offset`
     ///
     /// Return `Ok` with the `i64` value starting at `offset`
