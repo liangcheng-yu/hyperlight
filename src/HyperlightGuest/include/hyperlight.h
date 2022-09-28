@@ -166,3 +166,5 @@ long GetHostReturnValueAsLong();
 int GetHostReturnValueAsInt();
 
 unsigned long GetHostReturnValueAsULong();
+
+unsigned int GetHostReturnValueAsUInt();
