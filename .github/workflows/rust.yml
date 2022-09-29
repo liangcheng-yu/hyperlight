@@ -92,13 +92,12 @@ jobs:
         run: |
           git submodule init
           git submodule update
-      - name: Run C Tests (Windows only)
+      - name: Run C Tests 
         working-directory: src/hyperlight_host
-        if: runner.os == 'Windows'
         run: |
           echo "testdata:"
           ls testdata
-          just run-tests-capi
+          just run-tests-capi  ${{ matrix.config }}
       # Script to install Valgrind does not work on Mariner or on the kvm 
       # runner. Valgrind has been installed manually on the runners.
       - name: Install Valgrind (Linux only - not hyperv)
@@ -108,4 +107,4 @@ jobs:
       - name: Valgrind C tests (Linux only)
         working-directory: src/hyperlight_host
         if: runner.os == 'Linux'
-        run: just valgrind-tests-capi
+        run: just valgrind-tests-capi  ${{ matrix.config }}

@@ -227,3 +227,38 @@
    fun:munit_test_runner_run_suite
    fun:munit_test_runner_run
 }
+{
+   set_reg_release_1
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*vcpu*set_reg*
+   fun:set_registers
+   fun:test_set_registers
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+   fun:munit_suite_main_custom
+   fun:munit_suite_main
+}
+{
+   set_reg_release_2
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:_*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
+   fun:set_registers
+   fun:test_run_vpcu
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+   fun:munit_suite_main_custom
+   fun:munit_suite_main
+}
+
