@@ -52,10 +52,10 @@ namespace Hyperlight.Tests
         {
             using var ctx = new Wrapper.Context();
             using var errHdl = Wrapper.Handle.NewError(ctx, "");
-            // errHdl should be an invalid handle because we
-            // passed an empty string. Both IsError and IsInvalid
-            // should return true for invalid handles.
-            Assert.True(errHdl.IsError());
+            // errHdl should be an invalid handle rather than a valid error
+            // because empty error strings should return invalid
+            Assert.False(errHdl.IsError());
+            Assert.False(errHdl.IsEmpty());
             Assert.True(errHdl.IsInvalid());
         }
 

@@ -157,7 +157,7 @@ pub unsafe extern "C" fn byte_array_remove(ctx: *mut Context, handle: Handle) ->
 #[cfg(test)]
 mod tests {
     use super::super::context::Context;
-    use super::super::err::handle_is_error;
+    use super::super::handle_status::{handle_get_status, HandleStatus};
     use super::super::hdl::Hdl;
     use super::impls;
     use anyhow::Result;
@@ -178,7 +178,7 @@ mod tests {
         let barr = vec![1, 2, 3];
         let barr_len = barr.len();
         let barr_hdl = Context::register(barr, &ctx.byte_arrays, Hdl::ByteArray);
-        assert!(!handle_is_error(barr_hdl));
+        assert_eq!(handle_get_status(barr_hdl), HandleStatus::ValidOther);
         assert_eq!(impls::len(&ctx, barr_hdl)?, barr_len);
 
         Ok(())
@@ -190,7 +190,7 @@ mod tests {
         let barr = vec![1, 2, 3];
         let barr_copy = barr.clone();
         let barr_hdl = Context::register(barr, &ctx.byte_arrays, Hdl::ByteArray);
-        assert!(!handle_is_error(barr_hdl));
+        assert_eq!(handle_get_status(barr_hdl), HandleStatus::ValidOther);
 
         {
             let ret_barr = impls::remove(&mut ctx, barr_hdl)?;

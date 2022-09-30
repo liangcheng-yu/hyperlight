@@ -28,6 +28,8 @@ pub mod guest_mem;
 ///! which are specialized pointers purpose-built for the Hyperlight
 ///! C API.
 pub mod handle;
+///! C-compatible API functions to introspect the status of a `Handle`
+pub mod handle_status;
 ///! Conversion functions between `Handle` and the `Hdl` type, which
 ///! is a more Rust-friendly representation of a `Handle`.
 pub mod hdl;

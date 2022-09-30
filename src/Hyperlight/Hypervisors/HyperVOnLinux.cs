@@ -33,22 +33,22 @@ namespace Hyperlight.Hypervisors
                 throw new HyperVOnLinuxException("Gettting context failed");
             }
 
-            if (LinuxHyperV.handle_is_error(mshv_handle = LinuxHyperV.open_mshv(context, LinuxHyperV.REQUIRE_STABLE_API)))
+            if (Wrapper.Handle.Err(mshv_handle = LinuxHyperV.open_mshv(context, LinuxHyperV.REQUIRE_STABLE_API)))
             {
                 throw new HyperVOnLinuxException("Unable to open mshv");
             }
 
-            if (LinuxHyperV.handle_is_error(vmfd_handle = LinuxHyperV.create_vm(context, mshv_handle)))
+            if (Wrapper.Handle.Err(vmfd_handle = LinuxHyperV.create_vm(context, mshv_handle)))
             {
                 throw new HyperVOnLinuxException("Unable to create HyperV VM");
             }
 
-            if (LinuxHyperV.handle_is_error(vcpufd_handle = LinuxHyperV.create_vcpu(context, vmfd_handle)))
+            if (Wrapper.Handle.Err(vcpufd_handle = LinuxHyperV.create_vcpu(context, vmfd_handle)))
             {
                 throw new HyperVOnLinuxException("Unable to create HyperV VCPU");
             }
 
-            if (LinuxHyperV.handle_is_error(user_memory_region_handle = LinuxHyperV.map_vm_memory_region(context, vmfd_handle, (ulong)SandboxMemoryLayout.BaseAddress >> 12, (ulong)sourceAddress, size)))
+            if (Wrapper.Handle.Err(user_memory_region_handle = LinuxHyperV.map_vm_memory_region(context, vmfd_handle, (ulong)SandboxMemoryLayout.BaseAddress >> 12, (ulong)sourceAddress, size)))
             {
                 throw new HyperVOnLinuxException("Failed to map User Memory Region");
             }
@@ -79,7 +79,7 @@ namespace Hyperlight.Hypervisors
         internal override void DispatchCallFromHost(ulong pDispatchFunction)
         {
             ripRegister[0].Value.LowPart = pDispatchFunction;
-            if (LinuxHyperV.handle_is_error(LinuxHyperV.set_registers(context, vcpufd_handle, ripRegister, (UIntPtr)ripRegister.Length)))
+            if (Wrapper.Handle.Err(LinuxHyperV.set_registers(context, vcpufd_handle, ripRegister, (UIntPtr)ripRegister.Length)))
             {
                 throw new HyperVOnLinuxException("Failed setting RIP");
             }
@@ -106,7 +106,7 @@ namespace Hyperlight.Hypervisors
                         runResultHandle = IntPtr.Zero;
                     }
                     runResultHandle = LinuxHyperV.run_vcpu(context, vcpufd_handle);
-                    if (LinuxHyperV.handle_is_error(runResultHandle))
+                    if (Wrapper.Handle.Err(runResultHandle))
                     {
                         throw new HyperVOnLinuxException("Failed to run VCPU");
                     }
@@ -123,7 +123,7 @@ namespace Hyperlight.Hypervisors
                         case LinuxHyperV.HV_MESSAGE_TYPE_HVMSG_X64_IO_PORT_INTERCEPT:
                             HandleOutb(runResult.PortNumber, Convert.ToByte(runResult.RAX));
                             ripRegister[0].Value.LowPart = runResult.RIP + runResult.InstructionLength;
-                            if (LinuxHyperV.handle_is_error(LinuxHyperV.set_registers(context, vcpufd_handle, ripRegister, (UIntPtr)ripRegister.Length)))
+                            if (Wrapper.Handle.Err(LinuxHyperV.set_registers(context, vcpufd_handle, ripRegister, (UIntPtr)ripRegister.Length)))
                             {
                                 throw new HyperVOnLinuxException("Failed setting RIP");
                             }
@@ -165,7 +165,7 @@ namespace Hyperlight.Hypervisors
             AddRegister(LinuxHyperV.HV_X64_REGISTER_RDX, seed, 0);
             registers = registerList.ToArray();
 
-            if (LinuxHyperV.handle_is_error(LinuxHyperV.set_registers(context, vcpufd_handle, registers, (UIntPtr)registers.Length)))
+            if (Wrapper.Handle.Err(LinuxHyperV.set_registers(context, vcpufd_handle, registers, (UIntPtr)registers.Length)))
             {
                 throw new HyperVOnLinuxException("Failed setting registers");
             }
@@ -183,7 +183,7 @@ namespace Hyperlight.Hypervisors
 
                 if (user_memory_region_handle != IntPtr.Zero)
                 {
-                    if (LinuxHyperV.handle_is_error(LinuxHyperV.unmap_vm_memory_region(context, vmfd_handle, user_memory_region_handle)))
+                    if (Wrapper.Handle.Err(LinuxHyperV.unmap_vm_memory_region(context, vmfd_handle, user_memory_region_handle)))
                     {
                         // TODO: log the error
                     }

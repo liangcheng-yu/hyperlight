@@ -124,13 +124,6 @@ impl Handle {
     }
 }
 
-/// Return `true` if `handle` is an empty handle, `false` otherwise.
-#[no_mangle]
-pub extern "C" fn handle_is_empty(handle: Handle) -> bool {
-    let hdl_res = Hdl::try_from(handle);
-    matches!(hdl_res, Ok(Hdl::Empty()))
-}
-
 /// Return a new `Handle` that is empty.
 ///
 /// This function is unlikely to be useful in production code and is provided

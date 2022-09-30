@@ -5,6 +5,14 @@ using System.Runtime.InteropServices;
 using Hyperlight.Core;
 namespace Hyperlight.Wrapper
 {
+    public enum HandleStatus
+    {
+        ValidOther,
+        ValidEmpty,
+        ValidError,
+        Invalid
+    }
+
     public class Handle : IDisposable
     {
         /// <summary>
@@ -141,7 +149,7 @@ namespace Hyperlight.Wrapper
         }
 
         /// <summary>
-        /// Determine whether this is an empty handle.
+        /// Determine whether this is a valid, empty handle.
         /// 
         /// Note that this is not the same thing as Handle.Zero.
         /// See the documentation for Handle.Zero (above) for more
@@ -150,17 +158,38 @@ namespace Hyperlight.Wrapper
         /// <returns>true if this handle is empty, false otherwise</returns>
         public bool IsEmpty()
         {
-            return handle_is_empty(this.handle);
+            return handle_get_status(this.handle) == HandleStatus.ValidEmpty;
         }
 
+        /// <summary>
+        /// Determine whether this handle is invalid
+        /// </summary>
+        /// <returns>true if the handle is invalid, false otherwise</returns>
         public bool IsInvalid()
         {
-            return handle_is_invalid(this.handle);
+            return handle_get_status(this.handle) == HandleStatus.Invalid;
+        }
+
+        /// <summary>
+        /// Determine whether this handle is a valid error
+        /// </summary>
+        /// <returns>true if the handle is a valid error, false otherwise</returns>
+        public bool IsError()
+        {
+            return handle_get_status(this.handle) == HandleStatus.ValidError;
+        }
+
+        public static bool Err(IntPtr hdl)
+        {
+            return handle_get_status((System.UInt64)hdl.ToInt64()) == HandleStatus.ValidError;
         }
 
 #pragma warning disable CA1707 // Remove the underscores from member name
 #pragma warning disable CA1401 // P/Invoke method should not be visible
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        public static extern HandleStatus handle_get_status(NativeHandle hdl);
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
@@ -169,16 +198,6 @@ namespace Hyperlight.Wrapper
             NativeContext context,
             NativeHandle handle
         );
-
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        [return: MarshalAs(UnmanagedType.U1)]
-        private static extern bool handle_is_empty(NativeHandle handle);
-
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        [return: MarshalAs(UnmanagedType.U1)]
-        private static extern bool handle_is_invalid(NativeHandle handle);
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]

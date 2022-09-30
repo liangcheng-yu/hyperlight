@@ -153,7 +153,7 @@ pub unsafe extern "C" fn pe_relocate(
 #[cfg(test)]
 mod tests {
     use crate::capi::context::Context;
-    use crate::capi::err::handle_is_error;
+    use crate::capi::handle_status::{handle_get_status, HandleStatus};
     use crate::capi::hdl::Hdl;
     use crate::mem::pe::PEInfo;
     use anyhow::Result;
@@ -183,15 +183,15 @@ mod tests {
             let pe_file_bytes = fs::read(pe_file_name)?;
             let mut ctx = Context::default();
             let payload_hdl = Context::register(pe_file_bytes, &ctx.byte_arrays, Hdl::ByteArray);
-            assert!(!handle_is_error(payload_hdl));
+            assert_eq!(handle_get_status(payload_hdl), HandleStatus::ValidOther);
             let addr = 123;
             let pe_info_hdl = {
                 let pe_info = super::impls::pe_parse(&ctx, payload_hdl)?;
                 Context::register(pe_info, &ctx.pe_infos, Hdl::PEInfo)
             };
-            assert!(!handle_is_error(pe_info_hdl));
+            assert_eq!(handle_get_status(pe_info_hdl), HandleStatus::ValidOther);
             let res_hdl = super::impls::pe_relocate(&mut ctx, pe_info_hdl, payload_hdl, addr)?;
-            assert!(!handle_is_error(res_hdl));
+            assert_eq!(handle_get_status(res_hdl), HandleStatus::ValidOther);
 
             assert_eq!(payload_hdl, res_hdl);
             // TODO: assert that the payload is changed.

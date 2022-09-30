@@ -6,11 +6,6 @@ namespace Hyperlight.Wrapper
 {
     public static class NativeHandleWrapperErrorExtensions
     {
-        public static bool IsError(this Handle hdl)
-        {
-            ArgumentNullException.ThrowIfNull(hdl);
-            return handle_is_error(hdl.handle);
-        }
         public static void ThrowIfError(this Handle hdl)
         {
             ArgumentNullException.ThrowIfNull(hdl);
@@ -38,10 +33,6 @@ namespace Hyperlight.Wrapper
 #pragma warning disable CA1707 // Remove the underscores from member name
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
 
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        [return: MarshalAs(UnmanagedType.U1)]
-        private static extern bool handle_is_error(NativeHandle handle);
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true, CharSet = CharSet.Unicode)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         [return: MarshalAs(UnmanagedType.LPUTF8Str)]

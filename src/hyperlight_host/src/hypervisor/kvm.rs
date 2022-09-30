@@ -165,15 +165,15 @@ mod tests {
         hypervisor::kvm_regs,
         mem::guest_mem::GuestMemory,
     };
-    use anyhow::{bail, Result};
-    use kvm_ioctls::VmFd;
+    use anyhow::Result;
+    use kvm_ioctls::{Kvm, VcpuFd, VmFd};
 
     const SHOULD_BE_PRESENT_VAR: &str = "KVM_SHOULD_BE_PRESENT";
 
     macro_rules! presence_check {
         () => {{
             if !should_be_present() {
-                return Ok(());
+                return;
             }
         }};
     }
@@ -183,47 +183,36 @@ mod tests {
     }
 
     #[test]
-    fn is_present() -> Result<()> {
+    fn is_present() {
         let pres = super::is_present().is_ok();
         match (should_be_present(), pres) {
-            (true, true) => Ok(()),
-            (false, true) => bail!("KVM was present but should not be"),
-            (true, false) => bail!("KVM was not present but should be"),
-            (false, false) => Ok(()),
+            (true, true) => (),
+            (false, true) => panic!("KVM was present but should not be"),
+            (true, false) => panic!("KVM was not present but should be"),
+            (false, false) => (),
         }
     }
 
     #[test]
-    fn open_mmap_size() -> Result<()> {
+    fn open_mmap_size() {
         presence_check!();
-        let kvm = super::open()?;
-        let mmap_size = super::get_mmap_size(&kvm)?;
+        let kvm = super::open().unwrap();
+        let mmap_size = super::get_mmap_size(&kvm).unwrap();
         assert!(mmap_size > 0);
-        Ok(())
     }
 
     #[test]
-    fn create_vm_vcpu() -> Result<()> {
+    fn create_vm_vcpu() {
         presence_check!();
-        let kvm = super::open()?;
-        let vm = super::create_vm(&kvm)?;
-        let vcpu = super::create_vcpu(&vm)?;
-        super::get_registers(&vcpu)?;
-        super::get_sregisters(&vcpu)?;
-        Ok(())
+        let kvm = super::open().unwrap();
+        let vm = super::create_vm(&kvm).unwrap();
+        let vcpu = super::create_vcpu(&vm).unwrap();
+        super::get_registers(&vcpu).unwrap();
+        super::get_sregisters(&vcpu).unwrap();
     }
 
-    fn run_vcpu_test<
-        T,
-        MemSetupFn: FnOnce(&VmFd, u64, &GuestMemory) -> Result<T>,
-        MemTeardownFn: FnOnce(&VmFd, &mut T) -> Result<()>,
-    >(
-        setup_mem: MemSetupFn,
-        teardown_mem: MemTeardownFn,
-    ) -> Result<()> {
-        presence_check!();
-
-        const GUEST_PHYS_ADDR: u64 = 0x1000;
+    const GUEST_PHYS_ADDR: u64 = 0x1000;
+    fn setup_run_vcpu_test() -> Result<(Kvm, VmFd, VcpuFd, GuestMemory)> {
         #[rustfmt::skip]
         const CODE: [u8; 12] = [
             // mov $0x3f8, %dx
@@ -247,71 +236,72 @@ mod tests {
         let mem_size = super::get_mmap_size(&kvm)?;
         let mut mem = GuestMemory::new(mem_size).unwrap();
         mem.copy_into(&CODE, 0).unwrap();
-        let mut mem_setup_res = setup_mem(&vm, GUEST_PHYS_ADDR, &mem)?;
-        let _mem_region = map_vm_memory_region(&vm, GUEST_PHYS_ADDR, &mem)?;
+        Ok((kvm, vm, vcpu, mem))
+    }
+
+    fn set_vcpu_registers(vcpu_fd: &VcpuFd) -> Result<()> {
         let regs = kvm_regs::Regs {
-            rip: 0x1000,
+            rip: GUEST_PHYS_ADDR,
             rax: 2,
             rbx: 2,
             rflags: 0x2,
             rsp: 0,
             rcx: 0,
         };
-        super::set_registers(&vcpu, &regs)?;
-        let mut sregs = super::get_sregisters(&vcpu)?;
+        super::set_registers(vcpu_fd, &regs)?;
+        let mut sregs = super::get_sregisters(vcpu_fd)?;
         sregs.cs.base = 0;
         sregs.cs.selector = 0;
-        super::set_sregisters(&vcpu, &sregs)?;
+        super::set_sregisters(vcpu_fd, &sregs)
+    }
 
+    fn run_code(vcpu_fd: &VcpuFd) -> Result<()> {
         {
             // first run should be the first IO_OUT
-            let run_res = super::run_vcpu(&vcpu)?;
-            assert_eq!(run_res.message_type, super::KvmRunMessageType::IOOut);
+            let run_res = super::run_vcpu(vcpu_fd)?;
+            assert_eq!(super::KvmRunMessageType::IOOut, run_res.message_type);
             assert_eq!('4' as u64, run_res.rax);
             assert_eq!(0x3f8, run_res.port_number);
-            let regs_after = super::get_registers(&vcpu)?;
+            let regs_after = super::get_registers(vcpu_fd)?;
             assert_eq!(run_res.rip, regs_after.rip);
         }
         {
             // second run should be the second IO_OUT
-            let run_res = super::run_vcpu(&vcpu)?;
-            assert_eq!(run_res.message_type, super::KvmRunMessageType::IOOut);
-            assert_eq!(run_res.rax, 0);
-            assert_eq!(run_res.port_number, 0x3f8);
+            let run_res = super::run_vcpu(vcpu_fd)?;
+            assert_eq!(super::KvmRunMessageType::IOOut, run_res.message_type);
+            assert_eq!(0, run_res.rax);
+            assert_eq!(0x3f8, run_res.port_number);
         }
         {
             // third run should be the HLT
-            let run_res = super::run_vcpu(&vcpu)?;
-            assert_eq!(run_res.message_type, super::KvmRunMessageType::Halt);
+            let run_res = super::run_vcpu(vcpu_fd)?;
+            assert_eq!(super::KvmRunMessageType::Halt, run_res.message_type);
         }
-
-        teardown_mem(&vm, &mut mem_setup_res)
+        Ok(())
     }
 
     #[test]
-    fn run_vcpu_raw() -> Result<()> {
+    fn run_vcpu_raw() {
         presence_check!();
-        run_vcpu_test(
-            |vmfd, guest_phys_addr, guest_mem| {
-                map_vm_memory_region_raw(
-                    vmfd,
-                    guest_phys_addr,
-                    guest_mem.raw_ptr(),
-                    guest_mem.mem_size() as u64,
-                )
-            },
-            unmap_vm_memory_region_raw,
+        let (_kvm, vm_fd, vcpu_fd, mem) = setup_run_vcpu_test().unwrap();
+        let mut mem_region = map_vm_memory_region_raw(
+            &vm_fd,
+            GUEST_PHYS_ADDR,
+            mem.raw_ptr(),
+            mem.mem_size() as u64,
         )
+        .unwrap();
+        set_vcpu_registers(&vcpu_fd).unwrap();
+        run_code(&vcpu_fd).unwrap();
+        unmap_vm_memory_region_raw(&vm_fd, &mut mem_region).unwrap();
     }
 
     #[test]
-    fn run_vcpu() -> Result<()> {
+    fn run_vcpu() {
         presence_check!();
-        run_vcpu_test(
-            |vmfd, guest_phys_addr, guest_mem| {
-                map_vm_memory_region(vmfd, guest_phys_addr, guest_mem).map(|_| ())
-            },
-            |_, _| Ok(()),
-        )
+        let (_kvm, vm_fd, vcpu_fd, mem) = setup_run_vcpu_test().unwrap();
+        let _mem_region = map_vm_memory_region(&vm_fd, GUEST_PHYS_ADDR, &mem).unwrap();
+        set_vcpu_registers(&vcpu_fd).unwrap();
+        run_code(&vcpu_fd).unwrap();
     }
 }
