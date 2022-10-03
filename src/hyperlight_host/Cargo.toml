@@ -27,8 +27,8 @@ windows = { version = "0.42.0", features = [
 paste = "1"
 
 [target.'cfg(unix)'.dependencies]
-mshv-bindings = {git = "https://github.com/rust-vmm/mshv", rev="a4c9916" }
-mshv-ioctls  = {git = "https://github.com/rust-vmm/mshv", rev="a4c9916"}
+mshv-bindings = {git = "https://github.com/rust-vmm/mshv", rev="6b0cf3b" }
+mshv-ioctls  = {git = "https://github.com/rust-vmm/mshv", rev="6b0cf3b"}
 kvm-bindings = { version = "0.5.0", features = ["fam-wrappers"] }
 kvm-ioctls = { version = "0.11.0" }
 
