@@ -109,14 +109,8 @@ jobs:
       with:
         name: ${{ matrix.config}}_assets 
         path: target/${{ matrix.config }}
-    - name: Cache printf
-      uses: actions/cache@v3
-      with:
-        path: src/HyperlightGuest/third_party/printf
-        key: printf
     - name: Fetch printf
       working-directory: src/HyperlightGuest/third_party/printf
-      if: steps.cache-printf.outputs.cache-hit != true
       run: git submodule update --init
     - name: Build Solution
       run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true

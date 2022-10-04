@@ -81,14 +81,8 @@ jobs:
       - name: Run Rust tests
         working-directory: src/hyperlight_host
         run: just build-test-rust ${{ matrix.config }}
-      - name: Cache munit
-        uses: actions/cache@v3
-        with:
-          path: src/hyperlight_hosts/tests_capi/munit
-          key: munit
       - name: Set up munit
         working-directory: src/hyperlight_host/tests_capi
-        if: steps.cache-munit.outputs.cache-hit != true
         run: |
           git submodule init
           git submodule update

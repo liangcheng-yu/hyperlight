@@ -34,14 +34,8 @@ jobs:
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
         restore-keys: |
           ${{ runner.os }}-nuget
-    - name: Cache printf
-      uses: actions/cache@v3
-      with:
-        path: src/HyperlightGuest/third_party/printf
-        key: printf
     - name: Fetch printf
       working-directory: src/HyperlightGuest/third_party/printf
-      if: steps.cache-printf.outputs.cache-hit != true
       run: git submodule update --init
     - name: Restore
       run: dotnet restore
