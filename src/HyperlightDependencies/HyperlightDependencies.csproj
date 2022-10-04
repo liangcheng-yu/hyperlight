@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
@@ -24,4 +24,13 @@
     <RepositoryUrl>https://github.com/deislabs/hyperlight</RepositoryUrl>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Content Include="..\HyperlightGuest\include\*.h" Pack="true" PackagePath="include">
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </Content>
+    <Content Include="..\HyperlightGuest\third_party\printf\printf.h" Pack="true" PackagePath="include">
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </Content>
+    <Content Include="Deislabs.HyperlightDependencies.targets" PackagePath="buildTransitive/Deislabs.HyperlightDependencies.targets" />
+  </ItemGroup>
 </Project>
