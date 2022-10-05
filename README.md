@@ -104,12 +104,12 @@ just test-rust
 just test-capi
 ```
 
-To run the  dotnet tests and examples you will need to download the simpleguest.exe and callbackguest.exe applications from [here] (https://github.com/deislabs/hyperlight/releases) and copy them to `src/tests/Guests/simpleguest/x64/debug/simpleguest.exe` and  `src/tests/Guests/callbackguest/x64/debug/callbackguest.exe` respectively.
+To run the  dotnet tests and examples you will need to download the simpleguest.exe and callbackguest.exe applications from [here] (https://github.com/deislabs/hyperlight/releases) and copy them to `src/tests/Guests/simpleguest/x64/Debug/simpleguest.exe` and  `src/tests/Guests/callbackguest/x64/Debug/callbackguest.exe` respectively. The directories do not exist, so you will need to create them first (note that they are case-sensitive).
 
 ### Running dotnet tests
 
 ```console
-cd src/tests/Hyperlight.Test
+cd src/tests/Hyperlight.Tests
 dotnet test
 ```
 
@@ -143,6 +143,8 @@ Visual Studio Code does not currently support mixed mode debugging, to debug gue
 1. [just](https://github.com/casey/just).  `cargo install just` or with chocolatey `choco install just`.
 1. [cbindgen](https://github.com/eqrion/cbindgen) `cargo install cbindgen`
 1. [pwsh](https://github.com/PowerShell/PowerShell)
+1. [dotnet](https://learn.microsoft.com/en-us/dotnet/core/install/windows)
+
 
  Create powershell function to use developer shell as shell:
 
@@ -162,6 +164,7 @@ Prerequisites:
 1. [Clang](https://clang.llvm.org/get_started.html). `sudo apt install clang`.
 1. [just](https://github.com/casey/just).  `cargo install just` .
 1. [cbindgen](https://github.com/eqrion/cbindgen) `cargo install cbindgen`
+1. [dotnet](https://learn.microsoft.com/en-us/dotnet/core/install/linux)
 
 ## Code of Conduct
 
