@@ -49,7 +49,7 @@ On Linux (including WSL2) you must install [KVM](https://help.ubuntu.com/communi
 
 ## Building and testing the Hyperlight Solution on Windows
 
-Currently the complete solution including tests and examples will only build on Windows with Visual Studio 2022 or the Visual Studio 2022 Build Tools along with dotnet 6.0, this is because the `HyperlightGuest` project must be compiled with Microsoft Visual C compiler at present, in additon the test and example projects are dependent upon the test Hyperlight Guest applications that also require MSVC. In addition you will need the [prerequisites](prerequisites) installed.
+Currently the complete solution including tests and examples will only build on Windows with Visual Studio 2022 or the Visual Studio 2022 Build Tools along with dotnet 6.0, this is because the `HyperlightGuest` project must be compiled with Microsoft Visual C compiler at present, in additon the test and example projects are dependent upon the test Hyperlight Guest applications that also require MSVC. In addition you will need the [prerequisites](#prerequisites) installed.
 
 ### Visual Studio 2022
 
@@ -93,7 +93,7 @@ You can also use Visual Studio code, to do this make sure that you start Visual 
 
 ## Building and Testing Hyperlight using Linux or Windows without Visual Studio or the Visual Studio Build Tools
 
-Hyperlight will build on any Windows or Linux machine that has the [prerequisites](prerequisites) installed:
+Hyperlight will build on any Windows or Linux machine that has the [prerequisites](#prerequisites) installed:
 
 ```console
 git clone git@github.com:deislabs/hyperlight.git
