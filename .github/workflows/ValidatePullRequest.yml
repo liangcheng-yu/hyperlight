@@ -38,6 +38,8 @@ jobs:
     - name: Build hyperlight_host library
       working-directory: src/hyperlight_host
       run: just build ${{ matrix.config }}
+      env:
+        RUST_BACKTRACE: 1
     - name: upload hyperlight_host.h
       uses: actions/upload-artifact@v3
       with:
