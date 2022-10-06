@@ -73,54 +73,44 @@ namespace Hyperlight
 
         public static int MaxPartitionsPerProcess => IsWindows ? HyperVSurrogateProcessManager.NumberOfProcesses : -1;
 
-        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguration, string guestBinaryPath) : this(sandboxMemoryConfiguration, guestBinaryPath, SandboxRunOptions.None, null, null)
-        {
-        }
-
-        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, Action<ISandboxRegistration> initFunction, StringWriter? writer = null) : this(sandboxMemoryConfiguaration, guestBinaryPath, SandboxRunOptions.None, initFunction, writer)
-        {
-        }
-
-        public Sandbox(string guestBinaryPath, Action<ISandboxRegistration> initFunction, StringWriter? writer = null) : this(new SandboxMemoryConfiguration(new Wrapper.Context()), guestBinaryPath, SandboxRunOptions.None, initFunction, writer)
-        {
-        }
-
-        public Sandbox(string guestBinaryPath, Action<ISandboxRegistration>? initFunction = null) : this(new SandboxMemoryConfiguration(new Wrapper.Context()), guestBinaryPath, SandboxRunOptions.None, initFunction, null)
-        {
-        }
-
-        public Sandbox(string guestBinaryPath, StringWriter? writer = null) : this(new SandboxMemoryConfiguration(new Wrapper.Context()), guestBinaryPath, SandboxRunOptions.None, null, writer)
-        {
-        }
-
-        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, StringWriter? writer = null) : this(sandboxMemoryConfiguaration, guestBinaryPath, SandboxRunOptions.None, null, writer)
-        {
-        }
-
-        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction) : this(new SandboxMemoryConfiguration(new Context()), guestBinaryPath, runOptions, initFunction, null)
-        {
-        }
-
-        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration>? initFunction = null) : this(sandboxMemoryConfiguaration, guestBinaryPath, runOptions, initFunction, null)
-        {
-        }
-
-        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, StringWriter? writer = null) : this(new SandboxMemoryConfiguration(new Wrapper.Context()), guestBinaryPath, runOptions, null, writer)
-        {
-        }
-
-        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, SandboxRunOptions runOptions, StringWriter writer) : this(sandboxMemoryConfiguaration, guestBinaryPath, runOptions, null, writer)
-        {
-        }
-        public Sandbox(string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration> initFunction, StringWriter writer) : this(new SandboxMemoryConfiguration(new Wrapper.Context()), guestBinaryPath, runOptions, initFunction, writer)
-        {
-        }
-
-        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguaration, string guestBinaryPath, SandboxRunOptions runOptions) : this(sandboxMemoryConfiguaration, guestBinaryPath, runOptions, null, null)
-        {
-        }
-
-        public Sandbox(SandboxMemoryConfiguration sandboxMemoryConfiguration, string guestBinaryPath, SandboxRunOptions runOptions, Action<ISandboxRegistration>? initFunction = null, StringWriter? writer = null)
+        /// <summary>
+        /// Create a new Sandbox. Note that you may also use the
+        /// SandboxBuilder class to construct Sandboxes
+        /// to this constructor.
+        /// </summary>
+        /// <param name="sandboxMemoryConfiguration">
+        /// The memory configuration with which to create this sandbox
+        /// </param>
+        /// <param name="guestBinaryPath">
+        /// The path location of the binary to run inside the sandbox
+        /// </param>
+        /// <param name="runOptions">
+        /// Options with which to configure the runtime
+        /// </param>
+        /// <param name="initFunction">
+        /// Optional function to execute on init
+        /// </param>
+        /// <param name="writer">
+        /// Optional writer with which to write outb data
+        /// </param>
+        /// <exception cref="PlatformNotSupportedException">
+        /// If a sandbox is constructed on a platform on which it 
+        /// can't currently run
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// If any one or more of the following conditions are true:
+        /// * guestBinaryPath is a reference to a non-existent file
+        /// * runOptions.RunFromGuestBinary and runOptions.RecycleAfterRun
+        /// are both set 
+        /// * a suitable Hypervisor is not found
+        /// </exception>
+        public Sandbox(
+            SandboxMemoryConfiguration sandboxMemoryConfiguration,
+            string guestBinaryPath,
+            SandboxRunOptions runOptions,
+            Action<ISandboxRegistration>? initFunction = null,
+            StringWriter? writer = null
+        )
         {
             if (!IsSupportedPlatform)
             {
@@ -338,7 +328,7 @@ namespace Hyperlight
 
                 string returntype = string.Empty;
                 // TODO: Add support for void return types
-                if (mi.methodInfo.ReturnType == typeof(int)  || mi.methodInfo.ReturnType == typeof(uint))
+                if (mi.methodInfo.ReturnType == typeof(int) || mi.methodInfo.ReturnType == typeof(uint))
                 {
                     returntype = "i";
                 }

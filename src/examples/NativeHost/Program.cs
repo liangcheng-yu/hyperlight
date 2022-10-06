@@ -167,12 +167,12 @@ namespace NativeHost
                 {
                     using (var writer = new StringWriter())
                     {
-                        using (var sandbox = new Sandbox(
-                            sandboxMemoryConfig,
-                            guestBinaryPath,
-                            options,
-                            writer
-                        ))
+                        var sboxBuilder = new SandboxBuilder()
+                            .WithConfig(sandboxMemoryConfig)
+                            .WithGuestBinaryPath(guestBinaryPath)
+                            .WithRunOptions(options)
+                            .WithWriter(writer);
+                        using (var sandbox = sboxBuilder.Build())
                         {
                             var guestMethods = new ExposedMethods();
                             sandbox.BindGuestFunction("PrintOutput", guestMethods);
@@ -206,12 +206,12 @@ namespace NativeHost
                     {
                         OutputBuffer.Add($"Created Writer Instance {i}:");
                         var exposedMethods = new ExposedMethods();
-                        using (var sandbox = new Sandbox(
-                            sandboxMemoryConfig,
-                            guestBinaryPath,
-                            options,
-                            writer
-                        ))
+                        var sboxBuilder = new SandboxBuilder()
+                            .WithConfig(sandboxMemoryConfig)
+                            .WithGuestBinaryPath(guestBinaryPath)
+                            .WithRunOptions(options)
+                            .WithWriter(writer);
+                        using (var sandbox = sboxBuilder.Build())
                         {
                             sandbox.ExposeAndBindMembers(exposedMethods);
                             OutputBuffer.Add($"Created Sandbox Instance {i}:");
@@ -247,11 +247,11 @@ namespace NativeHost
                 {
                     using (var writer = new StringWriter())
                     {
-                        using (var sandbox = new Sandbox(
-                            sandboxMemoryConfig,
-                            guestBinaryPath,
-                            writer
-                        ))
+                        var sboxBuilder = new SandboxBuilder()
+                            .WithConfig(sandboxMemoryConfig)
+                            .WithGuestBinaryPath(guestBinaryPath)
+                            .WithWriter(writer);
+                        using (var sandbox = sboxBuilder.Build())
                         {
                             var guestMethods = new ExposedMethods();
                             sandbox.BindGuestFunction("PrintOutput", guestMethods);
@@ -284,11 +284,11 @@ namespace NativeHost
                     using (var writer = new StringWriter())
                     {
                         var exposedMethods = new ExposedMethods();
-                        using (var sandbox = new Sandbox(
-                            sandboxMemoryConfig,
-                            guestBinaryPath,
-                            writer
-                        ))
+                        var sboxBuilder = new SandboxBuilder()
+                            .WithConfig(sandboxMemoryConfig)
+                            .WithGuestBinaryPath(guestBinaryPath)
+                            .WithWriter(writer);
+                        using (var sandbox = sboxBuilder.Build())
                         {
                             sandbox.ExposeAndBindMembers(exposedMethods);
                             OutputBuffer.Add($"Created Sandbox Instance {i}:");
@@ -370,12 +370,12 @@ namespace NativeHost
                     using (var writer = new StringWriter())
                     {
                         var exposedMethods = new ExposedMethods();
-                        using (var hypervisorSandbox = new Sandbox(
-                            sandboxMemoryConfig,
-                            guestBinaryPath,
-                            options,
-                            writer
-                        ))
+                        var sboxBuilder = new SandboxBuilder()
+                            .WithConfig(sandboxMemoryConfig)
+                            .WithGuestBinaryPath(guestBinaryPath)
+                            .WithRunOptions(options)
+                            .WithWriter(writer);
+                        using (var hypervisorSandbox = sboxBuilder.Build())
                         {
                             hypervisorSandbox.ExposeAndBindMembers(exposedMethods);
                             var builder = writer.GetStringBuilder();

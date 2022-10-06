@@ -21,6 +21,7 @@ namespace Hyperlight.Wrapper
             String defaultErrMsg = "Handle was an error but failed to get error message"
         )
         {
+            ArgumentNullException.ThrowIfNull(hdl);
             if (!hdl.IsError())
             {
                 throw new HyperlightException(

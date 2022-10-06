@@ -876,7 +876,12 @@ namespace Hyperlight.Tests
                 {
                     int notused = 0;
                     var testoutput = new StringWriter();
-                    using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(ctx), guestBinaryPath, option, testoutput))
+                    var sboxBuilder = new SandboxBuilder()
+                        .WithConfig(GetSandboxMemoryConfiguration(ctx))
+                        .WithGuestBinaryPath(guestBinaryPath)
+                        .WithRunOptions(option)
+                        .WithWriter(testoutput);
+                    using (var sandbox = sboxBuilder.Build())
                     {
                         var functions = new MultipleGuestFunctionParameters();
                         sandbox.BindGuestFunction(method, functions);
@@ -1298,12 +1303,22 @@ namespace Hyperlight.Tests
             foreach (var option in options)
             {
                 var output1 = new StringWriter();
-                var sandbox1 = new Sandbox(GetSandboxMemoryConfiguration(ctx), testData.GuestBinaryPath, option, output1);
+                var sboxBuilder1 = new SandboxBuilder()
+                    .WithConfig(GetSandboxMemoryConfiguration(ctx))
+                    .WithGuestBinaryPath(testData.GuestBinaryPath)
+                    .WithRunOptions(option)
+                    .WithWriter(output1);
+                var sandbox1 = sboxBuilder1.Build();
                 var builder = output1.GetStringBuilder();
                 SimpleTest(sandbox1, testData, output1, builder);
                 var output2 = new StringWriter();
                 Sandbox? sandbox2 = null;
-                var ex = Record.Exception(() => sandbox2 = new Sandbox(GetSandboxMemoryConfiguration(ctx), testData.GuestBinaryPath, option, output2));
+                var sboxBuilder2 = new SandboxBuilder()
+                    .WithConfig(GetSandboxMemoryConfiguration(ctx))
+                    .WithGuestBinaryPath(testData.GuestBinaryPath)
+                    .WithRunOptions(option)
+                    .WithWriter(output2);
+                var ex = Record.Exception(() => sandbox2 = sboxBuilder2.Build());
                 Assert.NotNull(ex);
                 Assert.IsType<HyperlightException>(ex);
                 Assert.Equal("Only one instance of Sandbox is allowed when running from guest binary", ex.Message);
@@ -1313,7 +1328,12 @@ namespace Hyperlight.Tests
                 output2.Dispose();
                 using (var output = new StringWriter())
                 {
-                    using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(ctx), testData.GuestBinaryPath, option, output))
+                    var sboxBuilder = new SandboxBuilder()
+                        .WithConfig(GetSandboxMemoryConfiguration(ctx))
+                        .WithGuestBinaryPath(testData.GuestBinaryPath)
+                        .WithRunOptions(option)
+                        .WithWriter(output);
+                    using (var sandbox = sboxBuilder.Build())
                     {
                         builder = output.GetStringBuilder();
                         SimpleTest(sandbox, testData, output, builder);
@@ -1605,7 +1625,12 @@ namespace Hyperlight.Tests
         {
             using (var output = new StringWriter())
             {
-                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(ctx), testData.GuestBinaryPath, sandboxRunOptions, output))
+                var sboxBuilder = new SandboxBuilder()
+                    .WithConfig(GetSandboxMemoryConfiguration(ctx))
+                    .WithGuestBinaryPath(testData.GuestBinaryPath)
+                    .WithRunOptions(sandboxRunOptions)
+                    .WithWriter(output);
+                using (var sandbox = sboxBuilder.Build())
                 {
                     var numberOfIterations = sandboxRunOptions.HasFlag(SandboxRunOptions.RecycleAfterRun) ? testData.NumberOfIterations : 1;
                     var builder = output.GetStringBuilder();
@@ -1622,7 +1647,11 @@ namespace Hyperlight.Tests
         {
             using (var output = new StringWriter())
             {
-                using (var sandbox = new Sandbox(GetSandboxMemoryConfiguration(ctx), testData.GuestBinaryPath, output))
+                var sboxBuilder = new SandboxBuilder()
+                    .WithConfig(GetSandboxMemoryConfiguration(ctx))
+                    .WithGuestBinaryPath(testData.GuestBinaryPath)
+                    .WithWriter(output);
+                using (var sandbox = sboxBuilder.Build())
                 {
                     if (instanceOrType is not null)
                     {
