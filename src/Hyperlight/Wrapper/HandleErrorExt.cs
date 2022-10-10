@@ -28,7 +28,10 @@ namespace Hyperlight.Wrapper
                     "attempted to get error string of a non-error Handle"
                 );
             }
-            return handle_get_error_message(hdl.ctx.ctx, hdl.handle);
+            var msgPtr = handle_get_error_message(hdl.ctx.ctx, hdl.handle);
+            var result = Marshal.PtrToStringAnsi(msgPtr) ?? string.Empty;
+            error_message_free(msgPtr);
+            return result;
         }
 
 #pragma warning disable CA1707 // Remove the underscores from member name
@@ -36,8 +39,7 @@ namespace Hyperlight.Wrapper
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true, CharSet = CharSet.Unicode)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        [return: MarshalAs(UnmanagedType.LPUTF8Str)]
-        private static extern String handle_get_error_message(
+        private static extern IntPtr handle_get_error_message(
             NativeContext ctx,
             NativeHandle handle
         );
