@@ -1,7 +1,6 @@
 use super::kvm_regs::{Regs, SRegs};
 use anyhow::{anyhow, bail, Result};
 use kvm_ioctls::{Cap::UserMemory, Kvm, VcpuExit, VcpuFd, VmFd};
-use std::os::unix::io::FromRawFd;
 
 /// The type of the output from a KVM vCPU
 #[repr(C)]
@@ -62,17 +61,9 @@ pub fn is_present() -> Result<()> {
 /// were any issues during this process.
 pub fn open() -> Result<Kvm> {
     match is_present() {
-        Ok(_) => {
-            let raw_fd = Kvm::open_with_cloexec(false)?;
-            Ok(unsafe { Kvm::from_raw_fd(raw_fd) })
-        }
+        Ok(_) => Kvm::new().map_err(|e| anyhow!("Failed to open KVM: {}", e)),
         Err(_) => bail!("KVM is not present"),
     }
-}
-
-/// Get size of memory map required to pass to kvm_run
-pub fn get_mmap_size(kvm: &Kvm) -> Result<usize> {
-    kvm.get_vcpu_mmap_size().map_err(|e| anyhow!(e))
 }
 
 /// Create a new VM using the given `kvm` handle.
@@ -194,14 +185,6 @@ mod tests {
     }
 
     #[test]
-    fn open_mmap_size() {
-        presence_check!();
-        let kvm = super::open().unwrap();
-        let mmap_size = super::get_mmap_size(&kvm).unwrap();
-        assert!(mmap_size > 0);
-    }
-
-    #[test]
     fn create_vm_vcpu() {
         presence_check!();
         let kvm = super::open().unwrap();
@@ -212,6 +195,7 @@ mod tests {
     }
 
     const GUEST_PHYS_ADDR: u64 = 0x1000;
+    const SIZE: usize = 0x4000;
     fn setup_run_vcpu_test() -> Result<(Kvm, VmFd, VcpuFd, GuestMemory)> {
         #[rustfmt::skip]
         const CODE: [u8; 12] = [
@@ -233,8 +217,7 @@ mod tests {
         let kvm = super::open()?;
         let vm = super::create_vm(&kvm)?;
         let vcpu = super::create_vcpu(&vm)?;
-        let mem_size = super::get_mmap_size(&kvm)?;
-        let mut mem = GuestMemory::new(mem_size).unwrap();
+        let mut mem = GuestMemory::new(SIZE).unwrap();
         mem.copy_into(&CODE, 0).unwrap();
         Ok((kvm, vm, vcpu, mem))
     }

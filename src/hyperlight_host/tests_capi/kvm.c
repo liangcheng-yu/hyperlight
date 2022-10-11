@@ -235,13 +235,13 @@ MunitResult test_kvm_run_vpcu(const MunitParameter params[], void *fixture)
 
     Handle sregs_ref = kvm_get_sregisters(ctx, vcpu);
     handle_assert_no_error(ctx, sregs_ref);
-    SRegs *sregs = kvm_get_sregisters_from_handle(ctx, sregs_ref);
-    munit_assert_not_null(sregs);
-    sregs->cs.base = 0;
-    sregs->cs.selector = 0;
-    Handle set_sreg_res = kvm_set_sregisters(ctx, vcpu, *sregs);
+    CSRegs *csregs = kvm_get_sregisters_from_handle(ctx, sregs_ref);
+    munit_assert_not_null(csregs);
+    csregs->cs.base = 0;
+    csregs->cs.selector = 0;
+    Handle set_sreg_res = kvm_set_sregisters(ctx, vcpu, sregs_ref, *csregs);
     handle_assert_no_error(ctx, set_sreg_res);
-    free(sregs);
+    free(csregs);
     handle_free(ctx, sregs_ref);
     handle_free(ctx, set_sreg_res);
 

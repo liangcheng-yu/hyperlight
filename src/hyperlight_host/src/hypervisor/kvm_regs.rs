@@ -1,4 +1,4 @@
-use kvm_bindings::{bindings::kvm_segment, kvm_dtable, kvm_regs, kvm_sregs};
+use kvm_bindings::{bindings::kvm_segment, kvm_regs, kvm_sregs};
 
 /// The hyperlight-specific subset of registers that can be set
 /// on sandboxes
@@ -57,14 +57,60 @@ impl From<&Regs> for kvm_regs {
     }
 }
 
-/// The hyperlight-specific subset of segment registers that can be set
-/// on sandboxes
+/// The hyperlight-specific C API subset of segment registers that can be set
+/// on sandboxes. This is intended to be used with C APIs  via handles, where it is converted into a
+/// Sregs struct.
 ///
 /// For more information on segment registers, see:
 /// https://wiki.osdev.org/CPU_Registers_x86-64#Segment_Registers
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
+pub struct CSRegs {
+    /// The code segment
+    ///
+    /// See https://wiki.osdev.org/CPU_Registers_x86-64#Segment_Registers
+    pub cs: Segment,
+    /// Control register 0
+    ///
+    /// See https://wiki.osdev.org/CPU_Registers_x86-64#CR0
+    pub cr0: u64,
+    /// Control register 3
+    ///
+    /// See https://wiki.osdev.org/CPU_Registers_x86-64#CR3
+    pub cr3: u64,
+    /// Control register 4
+    ///
+    /// See https://wiki.osdev.org/CPU_Registers_x86-64#CR4
+    pub cr4: u64,
+    /// Enable feature register
+    ///
+    /// See https://wiki.osdev.org/CPU_Registers_x86-64#IA32_EFER
+    pub efer: u64,
+}
+
+impl From<&SRegs> for CSRegs {
+    fn from(sregs: &SRegs) -> Self {
+        CSRegs {
+            cs: Segment::from(&sregs.kvm_sregs.cs),
+            cr0: sregs.kvm_sregs.cr0,
+            cr3: sregs.kvm_sregs.cr3,
+            cr4: sregs.kvm_sregs.cr4,
+            efer: sregs.kvm_sregs.efer,
+        }
+    }
+}
+
+/// The hyperlight Rust specific subset of segment registers that can be set
+/// on sandboxes. This can be used directly from rust via the From trait
+///
+/// For more information on segment registers, see:
+/// https://wiki.osdev.org/CPU_Registers_x86-64#Segment_Registers
+
+#[derive(Copy, Clone, Debug)]
 pub struct SRegs {
+    /// sregs from kvm_bindings, these are either set when the instance is created via from SRegs or
+    ///
+    kvm_sregs: kvm_sregs,
     /// The code segment
     ///
     /// See https://wiki.osdev.org/CPU_Registers_x86-64#Segment_Registers
@@ -90,6 +136,7 @@ pub struct SRegs {
 impl From<&kvm_sregs> for SRegs {
     fn from(sregs: &kvm_sregs) -> Self {
         SRegs {
+            kvm_sregs: *sregs,
             cs: Segment::from(&sregs.cs),
             cr0: sregs.cr0,
             cr3: sregs.cr3,
@@ -103,23 +150,23 @@ impl From<&SRegs> for kvm_sregs {
     fn from(sregs: &SRegs) -> Self {
         kvm_sregs {
             cs: kvm_segment::from(&sregs.cs),
-            ds: kvm_segment::default(),
-            es: kvm_segment::default(),
-            fs: kvm_segment::default(),
-            gs: kvm_segment::default(),
-            ss: kvm_segment::default(),
-            tr: kvm_segment::default(),
-            ldt: kvm_segment::default(),
-            gdt: kvm_dtable::default(),
-            idt: kvm_dtable::default(),
+            ds: sregs.kvm_sregs.ds,
+            es: sregs.kvm_sregs.es,
+            fs: sregs.kvm_sregs.fs,
+            gs: sregs.kvm_sregs.gs,
+            ss: sregs.kvm_sregs.ss,
+            tr: sregs.kvm_sregs.tr,
+            ldt: sregs.kvm_sregs.ldt,
+            gdt: sregs.kvm_sregs.gdt,
+            idt: sregs.kvm_sregs.idt,
             cr0: sregs.cr0,
-            cr2: 0,
+            cr2: sregs.kvm_sregs.cr2,
             cr3: sregs.cr3,
             cr4: sregs.cr4,
-            cr8: 0,
+            cr8: sregs.kvm_sregs.cr8,
             efer: sregs.efer,
-            apic_base: 0,
-            interrupt_bitmap: [0; 4],
+            apic_base: sregs.kvm_sregs.apic_base,
+            interrupt_bitmap: sregs.kvm_sregs.interrupt_bitmap,
         }
     }
 }

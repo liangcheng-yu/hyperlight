@@ -3,7 +3,7 @@ use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::hypervisor::kvm;
 use crate::hypervisor::kvm_mem::{map_vm_memory_region_raw, unmap_vm_memory_region_raw};
-use crate::hypervisor::kvm_regs::{Regs, SRegs};
+use crate::hypervisor::kvm_regs::{CSRegs, Regs, SRegs};
 use kvm_bindings::kvm_userspace_memory_region;
 use kvm_ioctls::{Kvm, VcpuFd, VmFd};
 use std::os::raw::c_void;
@@ -35,16 +35,20 @@ fn get_kvm_run_message(ctx: &Context, handle: Handle) -> ReadResult<kvm::KvmRunM
     })
 }
 
-/// Returns a bool indicating if hyperv is present on the machine
-/// Takes an argument to indicate if the hypervisor api must be stable
-/// If the hypervisor api is not stable, the function will return false even if the hypervisor is present
+fn get_sregisters_from_handle(ctx: &Context, handle: Handle) -> ReadResult<SRegs> {
+    Context::get(handle, &((*ctx).kvm_sregs), |h| {
+        matches!(h, Hdl::KvmSRegisters(_))
+    })
+}
+
+/// Returns a bool indicating if kvm is present on the machine
 ///
 /// # Examples
 ///
 /// ```
-/// use hyperlight_host::capi::hyperv_linux::is_hyperv_linux_present;
+/// use hyperlight_host::capi::kvm::kvm_is_present;
 ///
-/// assert_eq!(is_hyperv_linux_present(require_stable_api), true );
+/// assert_eq!(kvm::kvm_is_present(), true );
 /// ```
 #[no_mangle]
 pub extern "C" fn kvm_is_present() -> bool {
@@ -81,27 +85,6 @@ pub unsafe extern "C" fn kvm_open(ctx: *mut Context) -> Handle {
     }
 }
 
-/// Get size of memory map required to pass to kvm_run
-///
-/// # Safety
-///
-/// You must call this function with
-///
-/// 1. `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free
-/// - Not modified, except by calling functions in the Hyperlight C API
-/// - Used to call `open_mshv`
-#[no_mangle]
-pub unsafe extern "C" fn kvm_get_mmap_size(ctx: *const Context, kvm_fd_hdl: Handle) -> usize {
-    let kvm = match get_kvm(&*ctx, kvm_fd_hdl) {
-        Ok(k) => k,
-        Err(_) => return 0,
-    };
-    kvm::get_mmap_size(&*kvm).unwrap_or(0)
-}
-
 /// Create a VM and return a Handle to it. Returns a handle to a VM or a `Handle` to an error
 /// if there was an issue.
 ///
@@ -117,10 +100,10 @@ pub unsafe extern "C" fn kvm_get_mmap_size(ctx: *const Context, kvm_fd_hdl: Hand
 /// - Created with `context_new`
 /// - Not yet freed with `context_free
 /// - Not modified, except by calling functions in the Hyperlight C API
-/// - Used to call `open_mshv`
+/// - Used to call `kvm_open`
 ///
-/// 2. `Handle` to a `Mshv` that has been:
-/// - Created with `open_mshv`
+/// 2. `Handle` to `kvm` that has been:
+/// - Created with `kvm_open`
 /// - Not yet freed with `handle_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
@@ -151,8 +134,8 @@ pub unsafe extern "C" fn kvm_create_vm(ctx: *mut Context, kvm_handle: Handle) ->
 /// - Created with `context_new`
 /// - Not yet freed with `context_free
 /// - Not modified, except by calling functions in the Hyperlight C API
-/// - Used to call `open_mshv`
-/// - Used to call `create_vm`
+/// - Used to call `kvm_open`
+/// - Used to call `kvm_create_vm`
 ///
 /// 2. `Handle` to a `VmFd` that has been:
 /// - Created with `create_vm`
@@ -185,15 +168,15 @@ pub unsafe extern "C" fn kvm_create_vcpu(ctx: *mut Context, vmfd_hdl: Handle) ->
 /// - Created with `context_new`
 /// - Not yet freed with `context_free
 /// - Not modified, except by calling functions in the Hyperlight C API
-/// - Used to call `open_mshv`
-/// - Used to call `create_vm`
+/// - Used to call `kvm_open`
+/// - Used to call `kvm_create_vm`
 ///
 /// 2. `Handle` to a `VmFd` that has been:
-/// - Created with `create_vm`
+/// - Created with `kvm_create_vm`
 /// - Not yet freed with `handle_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 ///
-/// 3. The guest Page Frame Number (this can be calculated by right bit shifting the guest base address by 12 e.g. BaseAddress >> 12)
+/// 3. The guest physical address of the memory region
 ///
 /// 4. The load address of the memory region being mapped (this is the address of the memory in the host process)
 ///
@@ -235,16 +218,16 @@ pub unsafe extern "C" fn kvm_map_vm_memory_region(
 /// - Created with `context_new`
 /// - Not yet freed with `context_free
 /// - Not modified, except by calling functions in the Hyperlight C API
-/// - Used to call `open_mshv`
-/// - Used to call `create_vm`
+/// - Used to call `kvm_open`
+/// - Used to call `kvm_create_vm`
 ///
 /// 2. `Handle` to a `VmFd` that has been:
-/// - Created with `create_vm`
+/// - Created with `kvm_create_vm`
 /// - Not yet freed with `handle_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 ///
-/// 3. `Handle` to a `mshv_user_mem_region` that has been:
-/// - Created with `map_vm_memory_region`
+/// 3. `Handle` to a `kvm_userspace_memory_region` that has been:
+/// - Created with `kvm_map_vm_memory_region`
 /// - Not unmapped and freed by calling this function
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
@@ -291,7 +274,7 @@ pub unsafe extern "C" fn kvm_unmap_vm_memory_region(
 /// - Used to call `kvm_create_vcpu`
 ///
 /// 2. `Handle` to a `VcpuFd` that has been:
-/// - Created with `create_vcpu`
+/// - Created with `kvm_create_vcpu`
 /// - Not yet freed with `handle_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 ///
@@ -367,11 +350,10 @@ pub unsafe extern "C" fn kvm_get_registers_from_handle(
 /// - Used to call `kvm_create_vcpu`
 ///
 /// 2. `Handle` to a `VcpuFd` that has been:
-/// - Created with `create_vcpu`
+/// - Created with `kvm_create_vcpu`
 /// - Not yet freed with `handle_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
-///
-/// 3. A valid `kvm_regs` instance
+
 #[no_mangle]
 pub unsafe extern "C" fn kvm_get_sregisters(ctx: *mut Context, vcpufd_hdl: Handle) -> Handle {
     let vcpufd = match get_vcpufd(&*ctx, vcpufd_hdl) {
@@ -384,9 +366,12 @@ pub unsafe extern "C" fn kvm_get_sregisters(ctx: *mut Context, vcpufd_hdl: Handl
     }
 }
 
-/// Get registers from a handle created by `kvm_get_registers`.
+/// Get sregisters from a handle created by `kvm_get_sregisters`.
 ///
 /// Returns either a pointer to the registers or `NULL`.
+///
+/// The pointer returned is to a CSRegs struct. This is identical to the
+/// Sregs struct except that private kvm_sregs field is removed.
 ///
 /// # Safety
 ///
@@ -401,8 +386,8 @@ pub unsafe extern "C" fn kvm_get_sregisters(ctx: *mut Context, vcpufd_hdl: Handl
 /// - Used to call `kvm_create_vm`
 /// - Used to call `kvm_create_vcpu`
 ///
-/// 2. `Handle` to a registers struct that has been created by
-/// a call to `kvm_get_registers`
+/// 2. `Handle` to a sregisters struct that has been created by
+/// a call to `kvm_get_sregisters`
 ///
 /// If this function returns a non-`NULL` pointer, the caller is responsible
 /// for calling `free` on that pointer when they're done with the memory.
@@ -410,11 +395,9 @@ pub unsafe extern "C" fn kvm_get_sregisters(ctx: *mut Context, vcpufd_hdl: Handl
 pub unsafe extern "C" fn kvm_get_sregisters_from_handle(
     ctx: *const Context,
     sregs_hdl: Handle,
-) -> *mut SRegs {
-    match Context::get(sregs_hdl, &((*ctx).kvm_sregs), |h| {
-        matches!(h, Hdl::KvmSRegisters(_))
-    }) {
-        Ok(r) => Box::into_raw(Box::new(*r)),
+) -> *mut CSRegs {
+    match get_sregisters_from_handle(&*ctx, sregs_hdl) {
+        Ok(r) => Box::into_raw(Box::new(CSRegs::from(&*r))),
         Err(_) => std::ptr::null_mut(),
     }
 }
@@ -441,11 +424,11 @@ pub unsafe extern "C" fn kvm_get_sregisters_from_handle(
 /// - Used to call `kvm_create_vcpu`
 ///
 /// 2. `Handle` to a `VcpuFd` that has been:
-/// - Created with `create_vcpu`
+/// - Created with `kvm_create_vcpu`
 /// - Not yet freed with `handle_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 ///
-/// 3. A valid `kvm_regs` instance
+/// 3. A valid `Regs` instance
 #[no_mangle]
 pub unsafe extern "C" fn kvm_set_registers(
     ctx: *mut Context,
@@ -487,21 +470,39 @@ pub unsafe extern "C" fn kvm_set_registers(
 /// - Used to call `kvm_create_vcpu`
 ///
 /// 2. `Handle` to a `VcpuFd` that has been:
-/// - Created with `create_vcpu`
+/// - Created with `kvm_create_vcpu`
 /// - Not yet freed with `handle_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 ///
-/// 3. A valid `kvm_regs` instance
+/// 3. `Handle` to a sregisters struct that has been:
+/// - created by a call to `kvm_get_sregisters`
+/// - Not yet freed with `handle_free`
+/// - Not modified, except by calling functions in the Hyperlight C API
+///
+/// 4. A valid `CSRegs` instance
 #[no_mangle]
 pub unsafe extern "C" fn kvm_set_sregisters(
     ctx: *mut Context,
     vcpufd_hdl: Handle,
-    sregs: SRegs,
+    sregs_hdl: Handle,
+    csregs: CSRegs,
 ) -> Handle {
     let vcpu_fd = match get_vcpufd(&*ctx, vcpufd_hdl) {
         Ok(r) => r,
         Err(e) => return (*ctx).register_err(e),
     };
+
+    let mut sregs = match get_sregisters_from_handle(&*ctx, sregs_hdl) {
+        Ok(r) => *r,
+        Err(e) => return (*ctx).register_err(e),
+    };
+
+    sregs.cs = csregs.cs;
+    sregs.cr0 = csregs.cr0;
+    sregs.cr3 = csregs.cr3;
+    sregs.cr4 = csregs.cr4;
+    sregs.efer = csregs.efer;
+
     match kvm::set_sregisters(&*vcpu_fd, &sregs) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
