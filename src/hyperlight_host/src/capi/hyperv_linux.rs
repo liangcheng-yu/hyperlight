@@ -18,21 +18,7 @@ mod impls {
     pub const HV_MAP_GPA_WRITABLE: u32 = 2;
     pub const HV_MAP_GPA_EXECUTABLE: u32 = 12;
 
-    pub fn is_hypervisor_present(require_stable_api: bool) -> Result<bool> {
-        let mshv = Mshv::new()?;
-        match mshv.check_stable() {
-            Ok(stable) => {
-                if stable {
-                    Ok(true)
-                } else if require_stable_api {
-                    Ok(false)
-                } else {
-                    Ok(true)
-                }
-            }
-            Err(e) => anyhow::bail!(e),
-        }
-    }
+    pub use crate::hypervisor::hyperv_linux::is_hypervisor_present;
 
     pub fn open_mshv(require_stable_api: bool) -> Result<Mshv> {
         match is_hypervisor_present(require_stable_api) {
@@ -577,85 +563,28 @@ fn get_mshv_run_message(ctx: &mut Context, handle: Handle) -> ReadResult<mshv_ru
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hypervisor::hyperv_linux::test_cfg::{SHOULD_RUN_TEST, TEST_CONFIG};
+    use crate::should_run_hyperv_linux_test;
     use libc::c_void;
     use mshv_bindings::{hv_message_type_HVMSG_X64_HALT, hv_register_name};
-    use once_cell::sync::Lazy;
-    use serde::Deserialize;
     use std::io::Write;
-    static TEST_CONFIG: Lazy<TestConfig> = Lazy::new(|| match envy::from_env::<TestConfig>() {
-        Ok(config) => config,
-        Err(err) => panic!("error parsing config from env: {}", err),
-    });
-    static SHOULD_RUN_TEST: Lazy<bool> = Lazy::new(is_hyperv_present);
-
-    macro_rules! should_run_test {
-        () => {{
-            if !(*SHOULD_RUN_TEST) {
-                println! {"Not Running Test SHOULD_RUN_TEST is false"}
-                return Ok(());
-            }
-            println! {"Running Test SHOULD_RUN_TEST is true"}
-        }};
-    }
-
-    fn hyperv_should_be_present_default() -> bool {
-        false
-    }
-
-    fn should_have_stable_api_default() -> bool {
-        false
-    }
-
-    #[derive(Deserialize, Debug)]
-    struct TestConfig {
-        #[serde(default = "hyperv_should_be_present_default")]
-        // Set env var HYPERV_SHOULD_BE_PRESENT to require hyperv to be present for the tests.
-        hyperv_should_be_present: bool,
-        #[serde(default = "should_have_stable_api_default")]
-        // Set env var SHOULD_HAVE_STABLE_API to require a stable api for the tests.
-        should_have_stable_api: bool,
-    }
-
-    #[test]
-    fn test_is_hypervisor_present() {
-        let result = impls::is_hypervisor_present(true).unwrap_or(false);
-        assert_eq!(
-            result,
-            TEST_CONFIG.hyperv_should_be_present && TEST_CONFIG.should_have_stable_api
-        );
-        assert!(!result);
-        let result = impls::is_hypervisor_present(false).unwrap_or(false);
-        assert_eq!(result, TEST_CONFIG.hyperv_should_be_present);
-    }
-
-    fn is_hyperv_present() -> bool {
-        println!(
-            "SHOULD_HAVE_STABLE_API is {}",
-            TEST_CONFIG.should_have_stable_api
-        );
-        println!(
-            "HYPERV_SHOULD_BE_PRESENT is {}",
-            TEST_CONFIG.hyperv_should_be_present
-        );
-        impls::is_hypervisor_present(TEST_CONFIG.should_have_stable_api).unwrap_or(false)
-    }
 
     #[test]
     fn test_open_mshv() -> anyhow::Result<()> {
-        should_run_test!();
+        crate::should_run_hyperv_linux_test!();
         impls::open_mshv(TEST_CONFIG.should_have_stable_api).map(|_| ())
     }
 
     #[test]
     fn test_create_vm() -> anyhow::Result<()> {
-        should_run_test!();
+        should_run_hyperv_linux_test!();
         let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api)?;
         impls::create_vm(&mshv).map(|_| ())
     }
 
     #[test]
     fn test_create_vcpu() -> anyhow::Result<()> {
-        should_run_test!();
+        should_run_hyperv_linux_test!();
         let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api)?;
         let vmfd = impls::create_vm(&mshv)?;
         impls::create_vcpu(&vmfd).map(|_| ())
@@ -663,7 +592,7 @@ mod tests {
 
     #[test]
     fn test_map_user_memory_region() -> anyhow::Result<()> {
-        should_run_test!();
+        should_run_hyperv_linux_test!();
         let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api)?;
         let vmfd = impls::create_vm(&mshv)?;
         let guest_pfn = 0x1;
@@ -687,7 +616,7 @@ mod tests {
 
     #[test]
     fn test_set_registers() -> anyhow::Result<()> {
-        should_run_test!();
+        should_run_hyperv_linux_test!();
         let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api)?;
         let vmfd = impls::create_vm(&mshv)?;
         let vcpu = impls::create_vcpu(&vmfd)?;
@@ -715,7 +644,7 @@ mod tests {
 
     #[test]
     fn test_run_vcpu() -> anyhow::Result<()> {
-        should_run_test!();
+        should_run_hyperv_linux_test!();
         let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api)?;
         let vmfd = impls::create_vm(&mshv)?;
         let vcpu = impls::create_vcpu(&vmfd)?;
