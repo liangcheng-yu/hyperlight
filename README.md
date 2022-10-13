@@ -2,9 +2,9 @@
 
 _Hyperlight_ is a lightweight Hypervisor Sandbox. Its purpose is to enable applications to safely run untrusted or third party code within a HyperVisor Partition with very low latency/overhead.
 
-This initial release is designed to be used in a dotnet application, future versions will be made available for other languages and frameworks.
+This initial release is designed to be used in a dotnet application, future versions will be made available for other languages and frameworks, we are currently porting the majority of Hyperlight to Rust with the aim of creating a Rust API and a C API that can be used for other languages/frameworks, the existing dotnet version will be retargetted to use this API.
 
-Hyperlight currently supports running applications using either the [Windows Hypervisor Platform](https://docs.microsoft.com/en-us/virtualization/api/#windows-hypervisor-platform) on Windows or [KVM](https://www.linux-kvm.org/page/Main_Page) on Linux.
+Hyperlight currently supports running applications using either the [Windows Hypervisor Platform](https://docs.microsoft.com/en-us/virtualization/api/#windows-hypervisor-platform) on Windows and either [KVM](https://www.linux-kvm.org/page/Main_Page) or mshv on Linux.
 
 >WARNING: This is experimental code. It is not considered production-grade by its developers, neither is it "supported" software.
 
@@ -40,6 +40,8 @@ Here is the quickest way to try out Hyperlight:
 3. Run the NativeHost.exe or NativeHost in the extracted directory.
 
 Note: You can also run the linux version using WSL2 on Windows. At present their is no version available for macOS.
+
+To use mshv on Linux follow the instructions [here.](./docs/mariner-mshv.md)
 
 The code for the NativeHost application is available [here](https://github.com/deislabs/hyperlight/blob/main/src/examples/NativeHost/Program.cs).
 
