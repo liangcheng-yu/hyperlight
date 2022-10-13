@@ -25,7 +25,7 @@
     <MinVerMinimumMajorMinor>0.1</MinVerMinimumMajorMinor>
   </PropertyGroup>
 
-  <PropertyGroup Condition=" '$(Configuration)' != 'Release'">
+  <PropertyGroup Condition=" '$(Configuration.toLower())' != 'release'">
     <WarningsNotAsErrors>IDE0055</WarningsNotAsErrors>
   </PropertyGroup>
   <PropertyGroup>

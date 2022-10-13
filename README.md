@@ -104,7 +104,7 @@ just test-rust
 just test-capi
 ```
 
-To run the  dotnet tests and examples you will need to download the simpleguest.exe and callbackguest.exe applications from [here] (https://github.com/deislabs/hyperlight/releases) and copy them to `src/tests/Guests/simpleguest/x64/Debug/simpleguest.exe` and  `src/tests/Guests/callbackguest/x64/Debug/callbackguest.exe` respectively. The directories do not exist, so you will need to create them first (note that they are case-sensitive).
+To run the  dotnet tests and examples you will need to download the simpleguest.exe and callbackguest.exe applications from [here] (https://github.com/deislabs/hyperlight/releases) and copy them to `src/tests/Guests/simpleguest/x64/debug/simpleguest.exe` and  `src/tests/Guests/callbackguest/x64/debug/callbackguest.exe` respectively. The directories do not exist, so you will need to create them first (note that they are case-sensitive).
 
 ### Running dotnet tests
 

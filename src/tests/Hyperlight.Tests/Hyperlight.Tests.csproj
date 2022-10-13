@@ -21,11 +21,11 @@
     <Content Include="../../../target/$(Configuration.toLower())/libhyperlight_host.d" Condition=" ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'  == 'true' And  '$(RuntimeIdentifier)'=='') or '$(RuntimeIdentifier)'=='linux-x64'  ">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\..\tests\Guests\simpleguest\x64\$(Configuration)\simpleguest.exe">
+    <Content Include="..\..\tests\Guests\simpleguest\x64\$(Configuration.toLower())\simpleguest.exe">
       <Link>simpleguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\..\tests\Guests\callbackguest\x64\$(Configuration)\callbackguest.exe">
+    <Content Include="..\..\tests\Guests\callbackguest\x64\$(Configuration.toLower())\callbackguest.exe">
       <Link>callbackguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
