@@ -87,6 +87,7 @@ typedef enum {
     string,
     boolean,
     bytearray,
+    none,
 } ParameterKind;
 
 typedef struct

@@ -206,6 +206,9 @@ namespace Hyperlight.Core
         {
             // The number of parameters to a guest function is fixed as serialisation of an array to memory
             // requires a fixed size 
+
+            // TODO: Fix this by exlcuding the the array from the serilalised structure and then add the array at the end of the memory block see
+            //  https://social.msdn.microsoft.com/Forums/vstudio/en-US/68a95a5f-07cd-424d-bf22-7cda2816b7bc/marshalstructuretoptr-where-struct-contains-a-byte-array-of-unknown-size?forum=clr
             var guestFunctionCall = new GuestFunctionCall();
             var guestArguments = new GuestArgument[Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS];
             guestFunctionCall.guestArguments = guestArguments;
@@ -216,64 +219,71 @@ namespace Hyperlight.Core
             guestFunctionCall.argc = (ulong)args.Length;
             var nextArgShouldBeArrayLength = false;
             var nextArgLength = 0;
-            for (var i = 0; i < args.Length; i++)
+            for (var i = 0; i < Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS; i++)
             {
-                if (nextArgShouldBeArrayLength)
+                if (i >= args.Length)
                 {
-                    if (args[i].GetType() == typeof(int))
-                    {
-                        var val = (int)args[i];
-                        if (nextArgLength != val)
-                        {
-                            HyperlightException.LogAndThrowException<ArgumentException>($"Array length {val} does not match expected length {nextArgLength}.", Sandbox.CorrelationId.Value!, GetType().Name);
-                        }
-                        guestArguments[i].argv = (ulong)val;
-                        guestArguments[i].argt = ParameterKind.i32;
-                        nextArgShouldBeArrayLength = false;
-                        nextArgLength = 0;
-                    }
-                    else
-                    {
-                        HyperlightException.LogAndThrowException<ArgumentException>($"Argument {i} is not an int, the length of the array must follow the array itself", Sandbox.CorrelationId.Value!, GetType().Name);
-                    }
+                    guestArguments[i].argv = 0;
+                    guestArguments[i].argt = ParameterKind.none;
                 }
                 else
                 {
-
-                    if (args[i].GetType() == typeof(int))
+                    if (nextArgShouldBeArrayLength)
                     {
-                        var val = (int)args[i];
-                        guestArguments[i].argv = (ulong)val;
-                        guestArguments[i].argt = ParameterKind.i32;
-                    }
-                    else if (args[i].GetType() == typeof(long))
-                    {
-                        var val = (long)args[i];
-                        guestArguments[i].argv = (ulong)val;
-                        guestArguments[i].argt = ParameterKind.i64;
-                    }
-                    else if (args[i].GetType() == typeof(string))
-                    {
-                        guestArguments[i].argv = dataTable.AddString((string)args[i]);
-                        guestArguments[i].argt = ParameterKind.str;
-                    }
-                    else if (args[i].GetType() == typeof(bool))
-                    {
-                        var val = (bool)args[i];
-                        guestArguments[i].argv = Convert.ToUInt64(val);
-                        guestArguments[i].argt = ParameterKind.boolean;
-                    }
-                    else if (args[i].GetType() == typeof(byte[]))
-                    {
-                        var val = (byte[])args[i];
-                        guestArguments[i].argv = dataTable.AddBytes(val);
-                        guestArguments[i].argt = ParameterKind.bytearray;
-                        nextArgShouldBeArrayLength = true;
-                        nextArgLength = val.Length;
+                        if (args[i].GetType() == typeof(int))
+                        {
+                            var val = (int)args[i];
+                            if (nextArgLength != val)
+                            {
+                                HyperlightException.LogAndThrowException<ArgumentException>($"Array length {val} does not match expected length {nextArgLength}.", Sandbox.CorrelationId.Value!, GetType().Name);
+                            }
+                            guestArguments[i].argv = (ulong)val;
+                            guestArguments[i].argt = ParameterKind.i32;
+                            nextArgShouldBeArrayLength = false;
+                            nextArgLength = 0;
+                        }
+                        else
+                        {
+                            HyperlightException.LogAndThrowException<ArgumentException>($"Argument {i} is not an int, the length of the array must follow the array itself", Sandbox.CorrelationId.Value!, GetType().Name);
+                        }
                     }
                     else
                     {
-                        HyperlightException.LogAndThrowException<ArgumentException>("Unsupported parameter type", Sandbox.CorrelationId.Value!, GetType().Name);
+                        if (args[i].GetType() == typeof(int))
+                        {
+                            var val = (int)args[i];
+                            guestArguments[i].argv = (ulong)val;
+                            guestArguments[i].argt = ParameterKind.i32;
+                        }
+                        else if (args[i].GetType() == typeof(long))
+                        {
+                            var val = (long)args[i];
+                            guestArguments[i].argv = (ulong)val;
+                            guestArguments[i].argt = ParameterKind.i64;
+                        }
+                        else if (args[i].GetType() == typeof(string))
+                        {
+                            guestArguments[i].argv = dataTable.AddString((string)args[i]);
+                            guestArguments[i].argt = ParameterKind.str;
+                        }
+                        else if (args[i].GetType() == typeof(bool))
+                        {
+                            var val = (bool)args[i];
+                            guestArguments[i].argv = Convert.ToUInt64(val);
+                            guestArguments[i].argt = ParameterKind.boolean;
+                        }
+                        else if (args[i].GetType() == typeof(byte[]))
+                        {
+                            var val = (byte[])args[i];
+                            guestArguments[i].argv = dataTable.AddBytes(val);
+                            guestArguments[i].argt = ParameterKind.bytearray;
+                            nextArgShouldBeArrayLength = true;
+                            nextArgLength = val.Length;
+                        }
+                        else
+                        {
+                            HyperlightException.LogAndThrowException<ArgumentException>("Unsupported parameter type", Sandbox.CorrelationId.Value!, GetType().Name);
+                        }
                     }
                 }
             }
