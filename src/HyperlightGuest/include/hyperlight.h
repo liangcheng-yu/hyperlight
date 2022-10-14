@@ -130,8 +130,29 @@ typedef struct
 {
     uint64_t CountOfFunctions;
     HostFunctionDefinition* HostFunctionDefinitions;
-    
+
 } HostFunctionDetails;
+
+typedef enum
+{
+    TRACE = 0,
+    DEBUG = 1,
+    INFORMATION = 2,
+    WARNING = 3,
+    ERROR = 4,
+    CRTICAL = 5,
+    NONE = 6
+} LogLevel;
+
+typedef struct LogData
+{
+    char* Message;
+    char* Source;
+    LogLevel Level;
+    char* Caller;
+    char* SourceFile;
+    int32_t Line;
+} LogData;
 
 int printOutput(const char*);
 
@@ -168,3 +189,7 @@ int GetHostReturnValueAsInt();
 unsigned long GetHostReturnValueAsULong();
 
 unsigned int GetHostReturnValueAsUInt();
+
+void Log(LogLevel logLevel, const char* message, const char* source, const char* caller, const char* sourceFile, int32_t line);
+
+#define LOG(loglevel, message, source) Log(loglevel,message,source, __func__,__FILE__,__LINE__)

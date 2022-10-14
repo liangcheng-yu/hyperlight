@@ -62,6 +62,11 @@ int printFiveArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, co
     return printOutput(message);
 }
 
+void LogToHost(char* message, LogLevel level)
+{
+    LOG(level, message, "SimpleGuest");
+}
+
 int printSixArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6)
 {
     size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + 79;

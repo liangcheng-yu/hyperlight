@@ -82,7 +82,7 @@ namespace Hyperlight.Hypervisors
                     int error = Marshal.GetLastWin32Error();
                     if (error != 0)
                     {
-                        throw new HyperlightException($"WriteProcessMemory Error: {error}");
+                        HyperlightException.LogAndThrowException($"WriteProcessMemory Error: {error}", Sandbox.CorrelationId.Value!, GetType().Name);
                     }
                 }
                 WindowsHypervisorPlatform.WHvRunVirtualProcessor(hPartition, 0, out exitContext, (uint)Marshal.SizeOf<WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_CONTEXT>());
@@ -91,7 +91,7 @@ namespace Hyperlight.Hypervisors
                     int error = Marshal.GetLastWin32Error();
                     if (error != 0)
                     {
-                        throw new HyperlightException($"ReadProcessMemory Error: {error}");
+                        HyperlightException.LogAndThrowException($"ReadProcessMemory Error: {error}", Sandbox.CorrelationId.Value!, GetType().Name);
                     }
                 }
 
@@ -138,7 +138,7 @@ namespace Hyperlight.Hypervisors
                 context.AppendLine($"{registerNames[i]} - {v2[i].low:X16}");
 #pragma warning restore CA1305 // Specify IFormatProvider
             }
-            throw new HyperlightException(context.ToString());
+            HyperlightException.LogAndThrowException(context.ToString(), Sandbox.CorrelationId.Value!, GetType().Name);
         }
 
         internal override void Initialise(IntPtr pebAddress, ulong seed)

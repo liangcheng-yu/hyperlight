@@ -7,11 +7,17 @@ using System.Threading;
 using Hyperlight.Core;
 using Hyperlight.Hypervisors;
 using Hyperlight.Native;
-using Hyperlight.Wrapper;
 using HyperlightDependencies;
+using Microsoft.Extensions.Logging;
 
 namespace Hyperlight
 {
+    enum OutBAction
+    {
+        Log = 99,
+        WriteOutput = 100,
+        CallFunction = 101,
+    }
 
     [Flags]
     public enum SandboxRunOptions
@@ -23,6 +29,7 @@ namespace Hyperlight
     }
     public class Sandbox : IDisposable, ISandboxRegistration
     {
+        public static AsyncLocal<string> CorrelationId { get; } = new AsyncLocal<string>();
         static readonly object peInfoLock = new();
         static readonly ConcurrentDictionary<string, PEInfo> guestPEInfo = new(StringComparer.InvariantCultureIgnoreCase);
         static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
@@ -85,13 +92,19 @@ namespace Hyperlight
         /// The path location of the binary to run inside the sandbox
         /// </param>
         /// <param name="runOptions">
-        /// Options with which to configure the runtime
+        /// Optional Options with which to configure the runtime. Default is to run in HyperVisor.
         /// </param>
         /// <param name="initFunction">
         /// Optional function to execute on init
         /// </param>
         /// <param name="writer">
         /// Optional writer with which to write outb data
+        /// </param>
+        /// <param name="correlationId">
+        /// Optional correlationId to use for logging
+        /// </param>
+        /// <param name="errorMessageLogger">
+        /// Optional ILogger to use for logging
         /// </param>
         /// <exception cref="PlatformNotSupportedException">
         /// If a sandbox is constructed on a platform on which it 
@@ -107,19 +120,29 @@ namespace Hyperlight
         public Sandbox(
             SandboxMemoryConfiguration sandboxMemoryConfiguration,
             string guestBinaryPath,
-            SandboxRunOptions runOptions,
+            SandboxRunOptions? runOptions,
             Action<ISandboxRegistration>? initFunction = null,
-            StringWriter? writer = null
+            StringWriter? writer = null,
+            string? correlationId = null,
+            ILogger? errorMessageLogger = null
         )
         {
+            if (string.IsNullOrEmpty(correlationId))
+            {
+                correlationId = Guid.NewGuid().ToString("N");
+            }
+            CorrelationId.Value = correlationId;
+
             if (!IsSupportedPlatform)
             {
-                throw new PlatformNotSupportedException("Hyperlight is not supported on this platform");
+                HyperlightException.LogAndThrowException<PlatformNotSupportedException>("Hyperlight is not supported on this platform", CorrelationId.Value!, GetType().Name);
             }
+
+            runOptions ??= SandboxRunOptions.None;
 
             if (!File.Exists(guestBinaryPath))
             {
-                throw new ArgumentException($"Cannot find file {guestBinaryPath} to load into hyperlight");
+                HyperlightException.LogAndThrowException<ArgumentException>($"Cannot find file {guestBinaryPath} to load into hyperlight", CorrelationId.Value!, GetType().Name);
             }
             this.writer = writer;
             this.guestBinaryPath = guestBinaryPath;
@@ -132,13 +155,13 @@ namespace Hyperlight
             // TODO: should we make this work?
             if (recycleAfterRun && runFromGuestBinary)
             {
-                throw new ArgumentException("Cannot run from guest binary and recycle after run at the same time");
+                HyperlightException.LogAndThrowException<ArgumentException>("Cannot run from guest binary and recycle after run at the same time", CorrelationId.Value!, GetType().Name);
             }
 
             this.guestInterfaceGlue = new HyperlightGuestInterfaceGlue(this);
-
             this.sandboxMemoryManager = new SandboxMemoryManager(sandboxMemoryConfiguration, runFromProcessMemory);
 
+            HyperlightLogger.SetLogger(errorMessageLogger);
             LoadGuestBinary();
             SetUpHyperLightPEB();
             SetUpStackGuard();
@@ -146,14 +169,11 @@ namespace Hyperlight
             // If we are NOT running from process memory, we have to setup a Hypervisor partition
             if (!runFromProcessMemory)
             {
-                if (IsHypervisorPresent())
+                if (!IsHypervisorPresent())
                 {
-                    SetUpHyperVisorPartition();
+                    HyperlightException.LogAndThrowException<ArgumentException>("Hypervisor not found", CorrelationId.Value!, GetType().Name);
                 }
-                else
-                {
-                    throw new ArgumentException("Hypervisor not found");
-                }
+                SetUpHyperVisorPartition();
             }
 
             hyperLightExports = new HyperLightExports();
@@ -178,7 +198,7 @@ namespace Hyperlight
 
             if (pDispatchFunction == 0)
             {
-                throw new ArgumentException($"{nameof(pDispatchFunction)} is null");
+                HyperlightException.LogAndThrowException<ArgumentException>($"{nameof(pDispatchFunction)} is null", CorrelationId.Value!, GetType().Name);
             }
 
             sandboxMemoryManager.WriteGuestFunctionCallDetails(functionName, args);
@@ -195,9 +215,7 @@ namespace Hyperlight
 
             if (!CheckStackGuard())
             {
-#pragma warning disable CA2201 // Do not raise reserved exception types
-                throw new StackOverflowException($"Calling {functionName}");
-#pragma warning restore CA2201 // Do not raise reserved exception types
+                HyperlightException.LogAndThrowException<StackOverflowException>($"Calling {functionName}", CorrelationId.Value!, GetType().Name);
             }
 
             CheckForGuestError();
@@ -209,9 +227,7 @@ namespace Hyperlight
         {
             if (!CheckStackGuard())
             {
-#pragma warning disable CA2201 // Do not raise reserved exception types
-                throw new StackOverflowException();
-#pragma warning restore CA2201 // Do not raise reserved exception types
+                HyperlightException.LogAndThrowException<StackOverflowException>($"Calling HandleMMIOExit", CorrelationId.Value!, GetType().Name);
             }
 
         }
@@ -231,22 +247,25 @@ namespace Hyperlight
                         {
                             if (exception.InnerException != null)
                             {
+                                HyperlightLogger.LogError($"Rethrowing exception from Host {exception.InnerException.GetType().Name} {exception.InnerException.Message}", CorrelationId.Value!, GetType().Name);
                                 throw exception.InnerException;
                             }
+                            HyperlightLogger.LogError($"Rethrowing exception from Host {exception.GetType().Name} {exception.Message}", CorrelationId.Value!, GetType().Name);
                             throw exception;
                         }
-                        throw new HyperlightException("OutB Error");
+                        HyperlightException.LogAndThrowException("OutB Error", CorrelationId.Value!, GetType().Name);
+                        break;
                     }
                 case GuestErrorCode.STACK_OVERFLOW:
                     {
-#pragma warning disable CA2201 // Do not raise reserved exception types
-                        throw new StackOverflowException();
-#pragma warning restore CA2201 // Do not raise reserved exception types
+                        HyperlightException.LogAndThrowException<StackOverflowException>($"Guest Error", CorrelationId.Value!, GetType().Name);
+                        break;
                     }
                 default:
                     {
                         var message = $"{guestError.ErrorCode}:{guestError.Message}";
-                        throw new HyperlightException(message);
+                        HyperlightException.LogAndThrowException(message, Sandbox.CorrelationId.Value!, GetType().Name);
+                        break;
                     }
             }
         }
@@ -260,7 +279,7 @@ namespace Hyperlight
                 if (!IsWindows)
                 {
                     // If not on Windows runFromBinary doesn't mean anything because we cannot use LoadLibrary.
-                    throw new NotImplementedException("RunFromBinary is only supported on Windows");
+                    HyperlightException.LogAndThrowException<NotSupportedException>("RunFromBinary is only supported on Windows", CorrelationId.Value!, GetType().Name);
                 }
 
                 // LoadLibrary does not support multple independent instances of a binary beng loaded 
@@ -272,7 +291,7 @@ namespace Hyperlight
                 }
                 else
                 {
-                    throw new HyperlightException("Only one instance of Sandbox is allowed when running from guest binary");
+                    HyperlightException.LogAndThrowException("Only one instance of Sandbox is allowed when running from guest binary", CorrelationId.Value!, GetType().Name);
                 }
 
                 sandboxMemoryManager.LoadGuestBinaryUsingLoadLibrary(guestBinaryPath, peInfo);
@@ -280,7 +299,6 @@ namespace Hyperlight
             else
             {
                 sandboxMemoryManager.LoadGuestBinaryIntoMemory(peInfo);
-
             }
         }
 
@@ -338,9 +356,8 @@ namespace Hyperlight
                 }
                 else
                 {
-                    throw new ArgumentException("Only int long or IntPtr return types are supported");
+                    HyperlightException.LogAndThrowException<ArgumentException>("Only int long or IntPtr return types are supported", CorrelationId.Value!, GetType().Name);
                 }
-
 
                 var parameterSignature = "";
                 foreach (var pi in mi.methodInfo.GetParameters())
@@ -350,14 +367,12 @@ namespace Hyperlight
                     else if (pi.ParameterType == typeof(string))
                         parameterSignature += "$";
                     else
-                        throw new ArgumentException("Only int and string parameters are supported");
+                        HyperlightException.LogAndThrowException<ArgumentException>("Only int and string parameters are supported", CorrelationId.Value!, GetType().Name);
                 }
 
                 hyperlightPEB.AddFunction(mi.methodInfo.Name, $"({parameterSignature}){returntype}", 0);
             }
         }
-
-
 
         public void SetUpHyperVisorPartition()
         {
@@ -377,7 +392,7 @@ namespace Hyperlight
                 else
                 {
                     // Should never get here
-                    throw new NotSupportedException();
+                    HyperlightException.LogAndThrowException<NotSupportedException>("Only KVM and HyperV are supported on Linux", CorrelationId.Value!, GetType().Name);
                 }
             }
             else if (IsWindows)
@@ -387,7 +402,7 @@ namespace Hyperlight
             else
             {
                 // Should never get here
-                throw new NotSupportedException();
+                HyperlightException.LogAndThrowException<NotSupportedException>("Only supported on Linux and Windows", CorrelationId.Value!, GetType().Name);
             }
         }
 
@@ -422,8 +437,8 @@ namespace Hyperlight
                     // also see https://www.agner.org/optimize/calling_conventions.pdf
                     // and https://eli.thegreenplace.net/2011/09/06/stack-frame-layout-on-x86-64/
                     // 
+                    HyperlightException.LogAndThrowException<NotSupportedException>("Cannot run in process on Linux", CorrelationId.Value!, GetType().Name);
 
-                    throw new NotSupportedException("Cannot run in process on Linux");
 #pragma warning disable CS0162 // Unreachable code detected - this is temporary until the issue above is fixed.
                     var callOutB = new CallOutb_Linux((_, _, value, port) => HandleOutb(port, value));
                     gCHandle = GCHandle.Alloc(callOutB);
@@ -443,7 +458,7 @@ namespace Hyperlight
                 else
                 {
                     // Should never get here
-                    throw new NotSupportedException();
+                    HyperlightException.LogAndThrowException<NotSupportedException>("Can only run in process on Linux and Windows", CorrelationId.Value!, GetType().Name);
                 }
             }
             else
@@ -453,9 +468,7 @@ namespace Hyperlight
 
             if (!CheckStackGuard())
             {
-#pragma warning disable CA2201 // Do not raise reserved exception types - this is intentional
-                throw new StackOverflowException($"Init Function Failed");
-#pragma warning restore CA2201 // Do not raise reserved exception types
+                HyperlightException.LogAndThrowException<StackOverflowException>("Init Function Failed", CorrelationId.Value!, GetType().Name);
             }
 
             returnValue = sandboxMemoryManager.GetReturnValue();
@@ -463,7 +476,7 @@ namespace Hyperlight
             if (returnValue != 0)
             {
                 CheckForGuestError();
-                throw new HyperlightException($"Init Function Failed with error code:{returnValue}");
+                HyperlightException.LogAndThrowException($"Init Function Failed with error code:{returnValue}", CorrelationId.Value!, GetType().Name);
             }
         }
 
@@ -482,16 +495,15 @@ namespace Hyperlight
         /// <returns>T</returns>
         /// <exception cref="ArgumentNullException">func is null</exception>
         /// <exception cref="HyperlightException">a call to the guest is already in progress</exception>
-
         public T CallGuest<T>(Func<T> func)
         {
-            ArgumentNullException.ThrowIfNull(func, nameof(func));
+            HyperlightException.ThrowIfNull(func, nameof(func), CorrelationId.Value!, GetType().Name);
             var shouldRelease = false;
             try
             {
                 if (Interlocked.CompareExchange(ref executingGuestCall, 1, 0) != 0)
                 {
-                    throw new HyperlightException("Guest call already in progress");
+                    HyperlightException.LogAndThrowException("Guest call already in progress", Sandbox.CorrelationId.Value!, GetType().Name);
                 }
                 shouldRelease = true;
                 ResetState();
@@ -524,7 +536,7 @@ namespace Hyperlight
 
             if ((Interlocked.CompareExchange(ref executingGuestCall, 2, 0)) != 0)
             {
-                throw new HyperlightException("Guest call already in progress");
+                HyperlightException.LogAndThrowException("Guest call already in progress", CorrelationId.Value!, GetType().Name);
             }
             return true;
         }
@@ -542,7 +554,7 @@ namespace Hyperlight
 
             if (countRunCalls > 0 && !recycleAfterRun)
             {
-                throw new ArgumentException("You must set option RecycleAfterRun when creating the Sandbox if you need to call a function in the guest more than once");
+                HyperlightException.LogAndThrowException<ArgumentException>("You must set option RecycleAfterRun when creating the Sandbox if you need to call a function in the guest more than once", CorrelationId.Value!, GetType().Name);
             }
 
             if (recycleAfterRun)
@@ -558,18 +570,17 @@ namespace Hyperlight
         {
             try
             {
-                switch (port)
+                switch ((OutBAction)port)
                 {
-
-                    case 101: // call Function
+                    case OutBAction.CallFunction:
                         {
 
                             var methodName = sandboxMemoryManager.GetHostCallMethodName();
-                            ArgumentNullException.ThrowIfNull(methodName);
+                            HyperlightException.ThrowIfNull(methodName, CorrelationId.Value!, GetType().Name);
 
                             if (!guestInterfaceGlue.MapHostFunctionNamesToMethodInfo.ContainsKey(methodName))
                             {
-                                throw new ArgumentException($"{methodName}, Could not find host method name.");
+                                HyperlightException.LogAndThrowException<ArgumentException>($"{methodName}, Could not find host method name.", CorrelationId.Value!, GetType().Name);
                             }
 
                             var mi = guestInterfaceGlue.MapHostFunctionNamesToMethodInfo[methodName];
@@ -580,7 +591,7 @@ namespace Hyperlight
                             break;
 
                         }
-                    case 100: // Write with no carriage return
+                    case OutBAction.WriteOutput:
                         {
                             var str = sandboxMemoryManager.ReadStringOutput();
                             if (this.writer != null)
@@ -596,6 +607,12 @@ namespace Hyperlight
                             }
                             break;
                         }
+                    case OutBAction.Log:
+                        {
+                            var guestLogData = sandboxMemoryManager.ReadGuestLogData();
+                            HyperlightLogger.Log(guestLogData.LogLevel, guestLogData.Message, CorrelationId.Value!, guestLogData.Source, null, guestLogData.Caller, guestLogData.SourceFile, guestLogData.Line);
+                            break;
+                        }
                 }
             }
 #pragma warning disable CA1031 // Intentional to catch alll exceptions here as they are serilaised across the managed/unmanaged boundary and we don't want to lose the exception information
@@ -608,49 +625,34 @@ namespace Hyperlight
 
         public void ExposeHostMethods(Type type)
         {
-            if (type == null)
-            {
-                throw new ArgumentNullException(nameof(type));
-            }
+            HyperlightException.ThrowIfNull(type, nameof(type), CorrelationId.Value!, GetType().Name);
             guestInterfaceGlue.ExposeAndBindMembers(type);
             UpdateHyperLightPEB();
         }
 
         public void ExposeAndBindMembers(object instance)
         {
-            if (instance == null)
-            {
-                throw new ArgumentNullException(nameof(instance));
-            }
+            HyperlightException.ThrowIfNull(instance, nameof(instance), CorrelationId.Value!, GetType().Name);
             guestInterfaceGlue.ExposeAndBindMembers(instance);
             UpdateHyperLightPEB();
         }
 
         public void BindGuestFunction(string delegateName, object instance)
         {
-            if (instance == null)
-            {
-                throw new ArgumentNullException(nameof(instance));
-            }
+            HyperlightException.ThrowIfNull(instance, nameof(instance), CorrelationId.Value!, GetType().Name);
             guestInterfaceGlue.BindGuestFunctionToDelegate(delegateName, instance);
         }
 
         public void ExposeHostMethod(string methodName, object instance)
         {
-            if (instance == null)
-            {
-                throw new ArgumentNullException(nameof(instance));
-            }
+            HyperlightException.ThrowIfNull(instance, nameof(instance), CorrelationId.Value!, GetType().Name);
             guestInterfaceGlue.ExposeHostMethod(methodName, instance);
             UpdateHyperLightPEB();
         }
 
         public void ExposeHostMethod(string methodName, Type type)
         {
-            if (type == null)
-            {
-                throw new ArgumentNullException(nameof(type));
-            }
+            HyperlightException.ThrowIfNull(type, nameof(type), CorrelationId.Value!, GetType().Name);
             guestInterfaceGlue.ExposeHostMethod(methodName, type);
             UpdateHyperLightPEB();
         }

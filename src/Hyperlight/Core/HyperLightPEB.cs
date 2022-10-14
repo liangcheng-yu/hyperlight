@@ -52,7 +52,7 @@ namespace Hyperlight
             // TODO: Allow virtual function names so a function a name can point to a fully qualified name. 
             if (listFunctions.Where(f => f.FunctionName == functionName).Any())
             {
-                throw new ArgumentException($"functionName already exists");
+                HyperlightException.LogAndThrowException<ArgumentException>($"functionName already exists", Sandbox.CorrelationId.Value!, GetType().Name);
             }
             listFunctions.Add(new FunctionDetails() { FunctionName = functionName, FunctionSignature = functionSignature, Flags = flags });
         }
@@ -78,7 +78,7 @@ namespace Hyperlight
             var totalHeaderSize = headerSize + (int)header.CountFunctions * functionDefinitionSize;
             if (totalHeaderSize > length)
             {
-                throw new HyperlightException("Not enough memory for header structures");
+                HyperlightException.LogAndThrowException("Not enough memory for header structures", Sandbox.CorrelationId.Value!, GetType().Name);
             }
 
             var dataTable = new SimpleDataTable(IntPtr.Add(ptr, totalHeaderSize), length - totalHeaderSize, offset);

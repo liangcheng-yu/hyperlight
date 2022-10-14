@@ -1,56 +1,59 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Hyperlight.Core;
 using Hyperlight.Native;
+using Hyperlight.Wrapper;
 
 namespace Hyperlight.Hypervisors
 {
     internal class HyperVOnLinux : Hypervisor, IDisposable
     {
         private bool disposedValue;
-        readonly IntPtr context = IntPtr.Zero;
-        readonly IntPtr mshv_handle = IntPtr.Zero;
-        readonly IntPtr vcpufd_handle = IntPtr.Zero;
-        readonly IntPtr vmfd_handle = IntPtr.Zero;
-        readonly IntPtr user_memory_region_handle = IntPtr.Zero;
+        readonly Context context;
+        readonly Handle mshvHandle;
+        readonly Handle vmHandle;
+        readonly Handle vcpuHandle;
+        readonly Handle memoryHandle;
         readonly List<LinuxHyperV.MSHV_REGISTER> registerList = new();
         LinuxHyperV.MSHV_REGISTER[]? registers;
         readonly LinuxHyperV.MSHV_REGISTER[] ripRegister = new LinuxHyperV.MSHV_REGISTER[1] { new() { Name = LinuxHyperV.HV_X64_REGISTER_RIP, Value = new LinuxHyperV.MSHV_U128 { HighPart = 0, LowPart = 0 } } };
 
         internal HyperVOnLinux(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, Action handleMemoryAccess) : base(sourceAddress, entryPoint, rsp, outb, handleMemoryAccess)
-
         {
 
             if (!LinuxHyperV.IsHypervisorPresent())
             {
-                throw new HyperVOnLinuxException("HyperV Not Present");
+                HyperlightException.LogAndThrowException<HyperVOnLinuxException>("HyperV Not Present", Sandbox.CorrelationId.Value!, GetType().Name);
             }
 
-            if ((context = LinuxHyperV.context_new()) == IntPtr.Zero)
+            context = new Context();
+            var mshv = LinuxHyperV.open_mshv(context.ctx, LinuxHyperV.REQUIRE_STABLE_API);
+            mshvHandle = new Handle(context, mshv);
+            if (mshvHandle.IsError())
             {
-                throw new HyperVOnLinuxException("Gettting context failed");
+                HyperlightException.LogAndThrowException<HyperVOnLinuxException>($"Unable to open mshv  Error: {mshvHandle.GetErrorMessage()}", Sandbox.CorrelationId.Value!, GetType().Name);
             }
 
-            if (Wrapper.Handle.Err(mshv_handle = LinuxHyperV.open_mshv(context, LinuxHyperV.REQUIRE_STABLE_API)))
+            var vmfd = LinuxHyperV.create_vm(context.ctx, mshvHandle.handle);
+            vmHandle = new Handle(context, vmfd);
+            if (vmHandle.IsError())
             {
-                throw new HyperVOnLinuxException("Unable to open mshv");
+                HyperlightException.LogAndThrowException<HyperVOnLinuxException>($"Unable to create HyperV VM Error: {vmHandle.GetErrorMessage()}", Sandbox.CorrelationId.Value!, GetType().Name);
             }
 
-            if (Wrapper.Handle.Err(vmfd_handle = LinuxHyperV.create_vm(context, mshv_handle)))
+            var vcpu = LinuxHyperV.create_vcpu(context.ctx, vmHandle.handle);
+            vcpuHandle = new Handle(context, vcpu);
+            if (vcpuHandle.IsError())
             {
-                throw new HyperVOnLinuxException("Unable to create HyperV VM");
+                HyperlightException.LogAndThrowException<HyperVOnLinuxException>($"Unable to create HyperV VCPU Error:  {vcpuHandle.GetErrorMessage()}", Sandbox.CorrelationId.Value!, GetType().Name);
             }
-
-            if (Wrapper.Handle.Err(vcpufd_handle = LinuxHyperV.create_vcpu(context, vmfd_handle)))
+            var userMemoryRegion = LinuxHyperV.map_vm_memory_region(context.ctx, vmHandle.handle, (ulong)SandboxMemoryLayout.BaseAddress >> 12, (ulong)sourceAddress, size);
+            memoryHandle = new Handle(context, userMemoryRegion);
+            if (memoryHandle.IsError())
             {
-                throw new HyperVOnLinuxException("Unable to create HyperV VCPU");
-            }
-
-            if (Wrapper.Handle.Err(user_memory_region_handle = LinuxHyperV.map_vm_memory_region(context, vmfd_handle, (ulong)SandboxMemoryLayout.BaseAddress >> 12, (ulong)sourceAddress, size)))
-            {
-                throw new HyperVOnLinuxException("Failed to map User Memory Region");
+                HyperlightException.LogAndThrowException<HyperVOnLinuxException>($"Failed to map User Memory Region Error: {memoryHandle.GetErrorMessage()}", Sandbox.CorrelationId.Value!, GetType().Name);
             }
 
             AddRegister(LinuxHyperV.HV_X64_REGISTER_CR3, (ulong)pml4_addr, 0);
@@ -79,16 +82,19 @@ namespace Hyperlight.Hypervisors
         internal override void DispatchCallFromHost(ulong pDispatchFunction)
         {
             ripRegister[0].Value.LowPart = pDispatchFunction;
-            if (Wrapper.Handle.Err(LinuxHyperV.set_registers(context, vcpufd_handle, ripRegister, (UIntPtr)ripRegister.Length)))
+            var setRegister = LinuxHyperV.set_registers(context.ctx, vcpuHandle.handle, ripRegister, (UIntPtr)ripRegister.Length);
+            using (var registerHandle = new Handle(context, setRegister))
             {
-                throw new HyperVOnLinuxException("Failed setting RIP");
+                if (registerHandle.IsError())
+                {
+                    HyperlightException.LogAndThrowException<HyperVOnLinuxException>($"Failed setting RIP Error: {registerHandle.GetErrorMessage()}", Sandbox.CorrelationId.Value!, GetType().Name);
+                }
             }
             ExecuteUntilHalt();
         }
 
         internal override void ExecuteUntilHalt()
         {
-            var runResultHandle = IntPtr.Zero;
             var runResultPtr = IntPtr.Zero;
             LinuxHyperV.MSHV_RUN_MESSAGE runResult;
             try
@@ -100,55 +106,57 @@ namespace Hyperlight.Hypervisors
                         LinuxHyperV.free_run_result(runResultPtr);
                         runResultPtr = IntPtr.Zero;
                     }
-                    if (runResultHandle != IntPtr.Zero)
+
+                    var runResultHdl = LinuxHyperV.run_vcpu(context.ctx, vcpuHandle.handle);
+                    using (var runResultHandle = new Handle(context, runResultHdl))
                     {
-                        LinuxHyperV.handle_free(context, runResultHandle);
-                        runResultHandle = IntPtr.Zero;
-                    }
-                    runResultHandle = LinuxHyperV.run_vcpu(context, vcpufd_handle);
-                    if (Wrapper.Handle.Err(runResultHandle))
-                    {
-                        throw new HyperVOnLinuxException("Failed to run VCPU");
-                    }
-                    runResultPtr = LinuxHyperV.get_run_result_from_handle(context, runResultHandle);
-                    if (runResultPtr == IntPtr.Zero)
-                    {
-                        throw new HyperVOnLinuxException("Failed to get run result");
-                    }
-                    runResult = Marshal.PtrToStructure<LinuxHyperV.MSHV_RUN_MESSAGE>(runResultPtr);
-                    switch (runResult.MessageType)
-                    {
-                        case LinuxHyperV.HV_MESSAGE_TYPE_HVMSG_X64_HALT:
-                            break;
-                        case LinuxHyperV.HV_MESSAGE_TYPE_HVMSG_X64_IO_PORT_INTERCEPT:
-                            HandleOutb(runResult.PortNumber, Convert.ToByte(runResult.RAX));
-                            ripRegister[0].Value.LowPart = runResult.RIP + runResult.InstructionLength;
-                            if (Wrapper.Handle.Err(LinuxHyperV.set_registers(context, vcpufd_handle, ripRegister, (UIntPtr)ripRegister.Length)))
-                            {
-                                throw new HyperVOnLinuxException("Failed setting RIP");
-                            }
-                            break;
-                        case LinuxHyperV.HV_MESSAGE_TYPE_HVMSG_UNMAPPED_GPA:
-                            HandleMemoryAccess();
-                            ThrowExitException(runResult.MessageType);
-                            break;
-                        default:
-                            ThrowExitException(runResult.MessageType);
-                            break;
+                        if (runResultHandle.IsError())
+                        {
+                            HyperlightException.LogAndThrowException<HyperVOnLinuxException>($"Failed to run VCPU Error: {runResultHandle.GetErrorMessage()}", Sandbox.CorrelationId.Value!, GetType().Name);
+                        }
+
+                        runResultPtr = LinuxHyperV.get_run_result_from_handle(context.ctx, runResultHandle.handle);
+                        if (runResultPtr == IntPtr.Zero)
+                        {
+                            HyperlightException.LogAndThrowException<HyperVOnLinuxException>($"Failed to get run result", Sandbox.CorrelationId.Value!, GetType().Name);
+
+                        }
+
+                        runResult = Marshal.PtrToStructure<LinuxHyperV.MSHV_RUN_MESSAGE>(runResultPtr);
+                        switch (runResult.MessageType)
+                        {
+                            case LinuxHyperV.HV_MESSAGE_TYPE_HVMSG_X64_HALT:
+                                break;
+                            case LinuxHyperV.HV_MESSAGE_TYPE_HVMSG_X64_IO_PORT_INTERCEPT:
+                                HandleOutb(runResult.PortNumber, Convert.ToByte(runResult.RAX));
+                                ripRegister[0].Value.LowPart = runResult.RIP + runResult.InstructionLength;
+                                var setRegister = LinuxHyperV.set_registers(context.ctx, vcpuHandle.handle, ripRegister, (UIntPtr)ripRegister.Length);
+                                using (var registerHandle = new Handle(context, setRegister))
+                                {
+                                    if (registerHandle.IsError())
+                                    {
+                                        HyperlightException.LogAndThrowException<HyperVOnLinuxException>($"Failed setting RIP Error: {registerHandle.GetErrorMessage()}", Sandbox.CorrelationId.Value!, GetType().Name);
+                                    }
+                                }
+                                break;
+                            case LinuxHyperV.HV_MESSAGE_TYPE_HVMSG_UNMAPPED_GPA:
+                                HandleMemoryAccess();
+                                ThrowExitException(runResult.MessageType);
+                                break;
+                            default:
+                                ThrowExitException(runResult.MessageType);
+                                break;
+                        }
+
                     }
                 }
                 while (runResult.MessageType != LinuxHyperV.HV_MESSAGE_TYPE_HVMSG_X64_HALT);
             }
             finally
             {
-
                 if (runResultPtr != IntPtr.Zero)
                 {
                     LinuxHyperV.free_run_result(runResultPtr);
-                }
-                if (runResultHandle != IntPtr.Zero)
-                {
-                    LinuxHyperV.handle_free(context, runResultHandle);
                 }
             }
         }
@@ -156,7 +164,7 @@ namespace Hyperlight.Hypervisors
         private static void ThrowExitException(uint exitReason)
         {
             //TODO: Improve exception data;
-            throw new HyperVOnLinuxException($"Unexpected HyperV exit_reason = {exitReason}");
+            HyperlightException.LogAndThrowException<HyperVOnLinuxException>($"Unexpected HyperV exit_reason = {exitReason}", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
         }
 
         internal override void Initialise(IntPtr pebAddress, ulong seed)
@@ -165,10 +173,15 @@ namespace Hyperlight.Hypervisors
             AddRegister(LinuxHyperV.HV_X64_REGISTER_RDX, seed, 0);
             registers = registerList.ToArray();
 
-            if (Wrapper.Handle.Err(LinuxHyperV.set_registers(context, vcpufd_handle, registers, (UIntPtr)registers.Length)))
+            var setRegister = LinuxHyperV.set_registers(context.ctx, vcpuHandle.handle, registers, (UIntPtr)registers.Length);
+            using (var registerHandle = new Handle(context, setRegister))
             {
-                throw new HyperVOnLinuxException("Failed setting registers");
+                if (registerHandle.IsError())
+                {
+                    HyperlightException.LogAndThrowException<HyperVOnLinuxException>($"Failed setting registers Error: {registerHandle.GetErrorMessage()}", Sandbox.CorrelationId.Value!, GetType().Name);
+                }
             }
+
             ExecuteUntilHalt();
         }
 
@@ -178,37 +191,15 @@ namespace Hyperlight.Hypervisors
             {
                 if (disposing)
                 {
-                    // TODO: dispose managed state (managed objects)
-                }
-
-                if (user_memory_region_handle != IntPtr.Zero)
-                {
-                    if (Wrapper.Handle.Err(LinuxHyperV.unmap_vm_memory_region(context, vmfd_handle, user_memory_region_handle)))
+                    if (Handle.Err((IntPtr)LinuxHyperV.unmap_vm_memory_region(context.ctx, vmHandle.handle, memoryHandle.handle)))
                     {
-                        // TODO: log the error
+                        HyperlightLogger.LogError($"Error unmap VM memmory region. Error: {memoryHandle.GetErrorMessage()}", Sandbox.CorrelationId.Value!, GetType().Name);
                     }
-
-                    LinuxHyperV.handle_free(context, user_memory_region_handle);
-                }
-
-                if (vcpufd_handle != IntPtr.Zero)
-                {
-                    LinuxHyperV.handle_free(context, vcpufd_handle);
-                }
-
-                if (vmfd_handle != IntPtr.Zero)
-                {
-                    LinuxHyperV.handle_free(context, vmfd_handle);
-                }
-
-                if (mshv_handle != IntPtr.Zero)
-                {
-                    LinuxHyperV.handle_free(context, mshv_handle);
-                }
-
-                if (context != IntPtr.Zero)
-                {
-                    LinuxHyperV.context_free(context);
+                    memoryHandle.Dispose();
+                    vcpuHandle.Dispose();
+                    vmHandle.Dispose();
+                    mshvHandle.Dispose();
+                    context.Dispose();
                 }
 
                 disposedValue = true;

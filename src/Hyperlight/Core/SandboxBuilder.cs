@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Hyperlight.Core;
 using HyperlightDependencies;
+using Microsoft.Extensions.Logging;
 
 namespace Hyperlight
 {
@@ -12,6 +13,8 @@ namespace Hyperlight
         private SandboxRunOptions? runOptions;
         private Action<ISandboxRegistration>? initFunction;
         private StringWriter? writer;
+        private string? correlationId;
+        private ILogger? errorMessageLogger;
         public SandboxBuilder() { }
 
         public SandboxBuilder WithGuestBinaryPath(string path)
@@ -44,6 +47,18 @@ namespace Hyperlight
             return this;
         }
 
+        public SandboxBuilder WithCorrelationId(string correlationId)
+        {
+            this.correlationId = correlationId;
+            return this;
+        }
+
+        public SandboxBuilder WithErrorMessageLogger(ILogger errorMessageLogger)
+        {
+            this.errorMessageLogger = errorMessageLogger;
+            return this;
+        }
+
         public Sandbox Build()
         {
             if (null == this.config)
@@ -65,7 +80,9 @@ namespace Hyperlight
                 this.guestBinaryPath,
                 runOpts,
                 this.initFunction,
-                this.writer
+                this.writer,
+                this.correlationId,
+                this.errorMessageLogger
             );
         }
 

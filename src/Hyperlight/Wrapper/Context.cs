@@ -18,6 +18,11 @@ namespace Hyperlight.Wrapper
         private bool disposed;
         private Context(NativeContext ctx)
         {
+            if (ctx == IntPtr.Zero)
+            {
+                HyperlightException.LogAndThrowException<HyperlightException>("Invalid, empty context passed to Context constructor", Sandbox.CorrelationId.Value!, GetType().Name);
+            }
+
             this.ctx = ctx;
         }
 

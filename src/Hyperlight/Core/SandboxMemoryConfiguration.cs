@@ -24,10 +24,7 @@ namespace Hyperlight.Core
             ulong guestErrorMessageSize = DefaultGuestErrorMessageSize
         )
         {
-            if (ctx == null)
-            {
-                throw new ArgumentNullException(nameof(ctx));
-            }
+            HyperlightException.ThrowIfNull(ctx, Sandbox.CorrelationId.Value!, GetType().Name);
             var rawHandle = mem_config_new(
                 ctx.ctx,
                 inputDataSize,
@@ -55,6 +52,7 @@ namespace Hyperlight.Core
                     this.hdlWrapper.Dispose();
                 }
                 this.disposed = true;
+                HyperlightLogger.LogError("Disposed", Sandbox.CorrelationId.Value!, GetType().Name);
             }
         }
 

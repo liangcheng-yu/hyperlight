@@ -109,7 +109,7 @@ namespace Hyperlight.Wrapper
             IntPtr addr
         )
         {
-            ArgumentNullException.ThrowIfNull(arr);
+            HyperlightException.ThrowIfNull(arr, Sandbox.CorrelationId.Value!, GetType().Name);
 
             using var barr = new ByteArray(ctxWrapper, arr);
             this.CopyByteArray(
@@ -127,7 +127,7 @@ namespace Hyperlight.Wrapper
             ulong arrLength
         )
         {
-            ArgumentNullException.ThrowIfNull(arr);
+            HyperlightException.ThrowIfNull(arr, Sandbox.CorrelationId.Value!, GetType().Name);
 
             var rawHdl = guest_memory_copy_byte_array(
                 this.ctxWrapper.ctx,

@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
@@ -226,7 +227,7 @@ namespace Hyperlight.Core
 
             if (size > maxMemorySize)
             {
-                throw new ArgumentException($"Total memory size {size} exceeds limit of {maxMemorySize}");
+                HyperlightException.LogAndThrowException<ArgumentException>($"Total memory size {size} exceeds limit of {maxMemorySize}", Sandbox.CorrelationId.Value!, GetType().Name);
             }
 
             return size;

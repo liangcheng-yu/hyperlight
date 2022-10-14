@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Hyperlight.Core;
 
@@ -8,11 +9,14 @@ namespace Hyperlight.Wrapper
     {
         public static void ThrowIfError(this Handle hdl)
         {
-            ArgumentNullException.ThrowIfNull(hdl);
+            HyperlightException.ThrowIfNull(hdl, Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             if (hdl.IsError())
             {
                 var errMsg = GetErrorMessage(hdl);
-                throw new HyperlightException(errMsg);
+                HyperlightException.LogAndThrowException(
+                    errMsg,
+                    Sandbox.CorrelationId.Value!,
+                    MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             }
         }
 
@@ -24,9 +28,10 @@ namespace Hyperlight.Wrapper
             ArgumentNullException.ThrowIfNull(hdl);
             if (!hdl.IsError())
             {
-                throw new HyperlightException(
-                    "attempted to get error string of a non-error Handle"
-                );
+                HyperlightException.LogAndThrowException(
+                    "attempted to get error string of a non-error Handle",
+                    Sandbox.CorrelationId.Value!,
+                   MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             }
             var msgPtr = handle_get_error_message(hdl.ctx.ctx, hdl.handle);
             var result = Marshal.PtrToStringAnsi(msgPtr) ?? string.Empty;

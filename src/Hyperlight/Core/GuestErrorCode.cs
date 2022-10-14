@@ -1,4 +1,6 @@
 using System;
+using System.ComponentModel.DataAnnotations;
+using Microsoft.Extensions.Logging;
 
 namespace Hyperlight.Core
 {
@@ -20,25 +22,5 @@ namespace Hyperlight.Core
         MALLOC_FAILED = 13,  // this error is set when malloc returns 0 bytes.
         GUEST_FUNCTION_PARAMETER_TYPE_MISMATCH = 14,  // The function call parameter type was not the expected type.  
         GUEST_ERROR = 15, // An error occurred in the guest Guest implementation should use this along with a message when calling setError. 
-    }
-
-    [Serializable]
-    public class HyperlightException : Exception
-    {
-        public HyperlightException(string message) : base(message)
-        {
-        }
-
-        public HyperlightException(string message, Exception innerException) : base(message, innerException)
-        {
-        }
-
-        protected HyperlightException(System.Runtime.Serialization.SerializationInfo serializationInfo, System.Runtime.Serialization.StreamingContext streamingContext) : base(serializationInfo, streamingContext)
-        {
-        }
-
-        public HyperlightException()
-        {
-        }
     }
 }

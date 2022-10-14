@@ -4,7 +4,6 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using Hyperlight.Native;
-using Hyperlight.Wrapper;
 using Newtonsoft.Json;
 
 namespace Hyperlight.Core
@@ -36,8 +35,8 @@ namespace Hyperlight.Core
         {
             sandboxMemoryLayout = new SandboxMemoryLayout(sandboxMemoryConfiguration, 0, peInfo.StackReserve, peInfo.HeapReserve);
             Size = sandboxMemoryLayout.GetMemorySize();
-            ArgumentNullException.ThrowIfNull(guestBinaryPath, nameof(guestBinaryPath));
-            ArgumentNullException.ThrowIfNull(peInfo, nameof(peInfo));
+            HyperlightException.ThrowIfNull(guestBinaryPath, nameof(guestBinaryPath), Sandbox.CorrelationId.Value!, GetType().Name);
+            HyperlightException.ThrowIfNull(peInfo, nameof(peInfo), Sandbox.CorrelationId.Value!, GetType().Name);
 
             loadAddress = OS.LoadLibrary(guestBinaryPath);
 
@@ -50,7 +49,7 @@ namespace Hyperlight.Core
 
             if (IntPtr.Zero == SourceAddress)
             {
-                throw new HyperlightException("VirtualAlloc failed");
+                HyperlightException.LogAndThrowException("VirtualAlloc failed", Sandbox.CorrelationId.Value!, GetType().Name);
             }
 
             // Write a pointer to code so that guest exe can check that it is running in Hyperlight
@@ -64,7 +63,7 @@ namespace Hyperlight.Core
             SourceAddress = OS.Allocate((IntPtr)0, Size);
             if (IntPtr.Zero == SourceAddress)
             {
-                throw new HyperlightException("VirtualAlloc failed");
+                HyperlightException.LogAndThrowException("VirtualAlloc failed", Sandbox.CorrelationId.Value!, GetType().Name);
             }
 
             var hostCodeAddress = (ulong)SandboxMemoryLayout.GetHostCodeAddress(SourceAddress);
@@ -101,7 +100,7 @@ namespace Hyperlight.Core
 
         internal bool CheckStackGuard(byte[]? cookie)
         {
-            ArgumentNullException.ThrowIfNull(cookie, nameof(cookie));
+            HyperlightException.ThrowIfNull(cookie, nameof(cookie), Sandbox.CorrelationId.Value!, GetType().Name);
             var guestCookie = new byte[cookie.Length];
             var stackAddress = sandboxMemoryLayout!.GetTopOfStackAddress(SourceAddress);
             Marshal.Copy(stackAddress, guestCookie, 0, guestCookie.Length);
@@ -226,7 +225,7 @@ namespace Hyperlight.Core
                         var val = (int)args[i];
                         if (nextArgLength != val)
                         {
-                            throw new ArgumentException($"Array length {val} does not match expected length {nextArgLength}.");
+                            HyperlightException.LogAndThrowException<ArgumentException>($"Array length {val} does not match expected length {nextArgLength}.", Sandbox.CorrelationId.Value!, GetType().Name);
                         }
                         guestArguments[i].argv = (ulong)val;
                         guestArguments[i].argt = ParameterKind.i32;
@@ -235,7 +234,7 @@ namespace Hyperlight.Core
                     }
                     else
                     {
-                        throw new ArgumentException($"Argument {i} is not an int, the length of the array must follow the array itself");
+                        HyperlightException.LogAndThrowException<ArgumentException>($"Argument {i} is not an int, the length of the array must follow the array itself", Sandbox.CorrelationId.Value!, GetType().Name);
                     }
                 }
                 else
@@ -274,13 +273,13 @@ namespace Hyperlight.Core
                     }
                     else
                     {
-                        throw new ArgumentException("Unsupported parameter type");
+                        HyperlightException.LogAndThrowException<ArgumentException>("Unsupported parameter type", Sandbox.CorrelationId.Value!, GetType().Name);
                     }
                 }
             }
             if (nextArgShouldBeArrayLength)
             {
-                throw new ArgumentException("Array length must be specified");
+                HyperlightException.LogAndThrowException<ArgumentException>("Array length must be specified", Sandbox.CorrelationId.Value!, GetType().Name);
             }
             Marshal.StructureToPtr(guestFunctionCall, outputDataAddress, false);
         }
@@ -296,7 +295,7 @@ namespace Hyperlight.Core
             var outputDataAddress = sandboxMemoryLayout!.GetOutputDataAddress(SourceAddress);
             var strPtr = Marshal.ReadInt64((IntPtr)outputDataAddress);
             var methodName = Marshal.PtrToStringAnsi(GetHostAddressFromPointer(strPtr));
-            ArgumentNullException.ThrowIfNull(methodName);
+            HyperlightException.ThrowIfNull(methodName, Sandbox.CorrelationId.Value!, GetType().Name);
             return methodName;
         }
 
@@ -315,12 +314,12 @@ namespace Hyperlight.Core
                 {
                     strPtr = Marshal.ReadInt64(outputDataAddress + 8 * (i + 1));
                     var arg = Marshal.PtrToStringAnsi(GetHostAddressFromPointer(strPtr));
-                    ArgumentNullException.ThrowIfNull(arg, nameof(arg));
+                    HyperlightException.ThrowIfNull(arg, nameof(arg), Sandbox.CorrelationId.Value!, GetType().Name);
                     args[i] = arg;
                 }
                 else
                 {
-                    throw new ArgumentException($"Unsupported parameter type: {parameters[i].ParameterType}");
+                    HyperlightException.LogAndThrowException<ArgumentException>($"Unsupported parameter type: {parameters[i].ParameterType}", Sandbox.CorrelationId.Value!, GetType().Name);
                 }
             }
             return args;
@@ -348,7 +347,7 @@ namespace Hyperlight.Core
             }
             else
             {
-                throw new ArgumentException("Unsupported Host Method Return Type", nameof(type));
+                HyperlightException.LogAndThrowException<ArgumentException>($"Unsupported Host Method Return Type {nameof(type)}", Sandbox.CorrelationId.Value!, GetType().Name);
             }
         }
 
@@ -426,7 +425,8 @@ namespace Hyperlight.Core
                 Marshal.Copy(data, 0, hostExceptionPointer + sizeof(int), data.Length);
             }
 
-            // TODO: log that exception occurred.
+            HyperlightLogger.LogError($"Exception occurred in outb", Sandbox.CorrelationId.Value!, GetType().Name, ex);
+
         }
         internal ulong GetPebAddress()
         {
@@ -442,6 +442,13 @@ namespace Hyperlight.Core
         {
             var outputDataAddress = sandboxMemoryLayout!.GetOutputDataAddress(SourceAddress);
             return Marshal.PtrToStringAnsi(outputDataAddress);
+        }
+
+        internal GuestLogData ReadGuestLogData()
+        {
+            var offset = GetAddressOffset();
+            var outputDataAddress = sandboxMemoryLayout!.GetOutputDataAddress(SourceAddress);
+            return GuestLogData.Create(outputDataAddress, offset);
         }
 
         protected virtual void Dispose(bool disposing)

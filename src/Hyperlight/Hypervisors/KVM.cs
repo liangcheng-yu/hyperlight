@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Hyperlight.Core;
 using Hyperlight.Native;
@@ -15,18 +16,18 @@ namespace Hyperlight.Hypervisors
         {
             if (!LinuxKVM.IsHypervisorPresent())
             {
-                throw new HyperlightException("KVM Not Present");
+                HyperlightException.LogAndThrowException("KVM Not Present", Sandbox.CorrelationId.Value!, GetType().Name);
             }
 
             if (-1 == (kvm = LinuxKVM.open("/dev/kvm", LinuxKVM.O_RDWR | LinuxKVM.O_CLOEXEC)))
             {
-                throw new HyperlightException("Unable to open '/dev/kvm'");
+                HyperlightException.LogAndThrowException("Unable to open '/dev/kvm'", Sandbox.CorrelationId.Value!, GetType().Name);
             }
 
             vmfd = LinuxKVM.ioctl(kvm, LinuxKVM.KVM_CREATE_VM, 0);
             if (-1 == vmfd)
             {
-                throw new HyperlightException("KVM_CREATE_VM returned -1");
+                HyperlightException.LogAndThrowException("KVM_CREATE_VM returned -1", Sandbox.CorrelationId.Value!, GetType().Name);
             }
 
             var region = new LinuxKVM.KVM_USERSPACE_MEMORY_REGION() { slot = 0, guest_phys_addr = (ulong)SandboxMemoryLayout.BaseAddress, memory_size = size, userspace_addr = (ulong)sourceAddress };
@@ -39,13 +40,13 @@ namespace Hyperlight.Hypervisors
             vcpufd = LinuxKVM.ioctl(vmfd, LinuxKVM.KVM_CREATE_VCPU, 0);
             if (-1 == vcpufd)
             {
-                throw new HyperlightException("KVM_CREATE_VCPU returned -1");
+                HyperlightException.LogAndThrowException("KVM_CREATE_VCPU returned -1", Sandbox.CorrelationId.Value!, GetType().Name);
             }
 
             var mmap_size = LinuxKVM.ioctl(kvm, LinuxKVM.KVM_GET_VCPU_MMAP_SIZE, 0);
             if (-1 == mmap_size)
             {
-                throw new HyperlightException("KVM_GET_VCPU_MMAP_SIZE returned -1");
+                HyperlightException.LogAndThrowException("KVM_GET_VCPU_MMAP_SIZE returned -1", Sandbox.CorrelationId.Value!, GetType().Name);
             }
 
             // TODO: According to https://www.kernel.org/doc/html/latest/virt/kvm/api.html#general-description ioctls on a vcpu should occur on the same thread that created the vcpu. 
@@ -171,7 +172,7 @@ namespace Hyperlight.Hypervisors
         private static void ThrowExitException(LinuxKVM.KVM_RUN run)
         {
             //TODO: Improve exception data;
-            throw new HyperlightException($"Unknown KVM exit_reason = {run.exit_reason}");
+            HyperlightException.LogAndThrowException($"Unknown KVM exit_reason = {run.exit_reason}", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
         }
 
         internal override void Initialise(IntPtr pebAddress, ulong seed)

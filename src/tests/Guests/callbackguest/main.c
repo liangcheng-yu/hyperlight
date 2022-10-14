@@ -77,12 +77,23 @@ int guestFunction3(const char* message)
     char guestMessage[256] = "Hello from GuestFunction3, ";
     return sendMessagetoHostMethod("HostMethod1", guestMessage, message);
 }
+// TODO: support void return 
+int logMessage(const char* message, const char* source, int logLevel)
+{
+    if (logLevel < 0 || logLevel > 6)
+    {
+        logLevel = 0;
+    }
+    LOG((LogLevel)logLevel, message, source);
+    return (int)strlen(message);
+}
 
 GENERATE_FUNCTION(printOutput, 1, string);
 GENERATE_FUNCTION(guestFunction, 1, string);
 GENERATE_FUNCTION(guestFunction1, 1, string);
 GENERATE_FUNCTION(guestFunction2, 1, string); 
 GENERATE_FUNCTION(guestFunction3, 1, string);
+GENERATE_FUNCTION(logMessage, 3, string, string, i32);
 
 void HyperlightMain()
 {
@@ -91,4 +102,5 @@ void HyperlightMain()
     RegisterFunction("GuestMethod1", FUNCTIONDETAILS(guestFunction1));    
     RegisterFunction("GuestMethod2", FUNCTIONDETAILS(guestFunction2));
     RegisterFunction("GuestMethod3", FUNCTIONDETAILS(guestFunction3));
+    RegisterFunction("LogMessage", FUNCTIONDETAILS(logMessage));
 }

@@ -23,7 +23,7 @@ void RegisterFunction(const char* FunctionName, guestFunc pFunction, int paramCo
         snprintf(message, 100, "Function Table Limit is %d.", funcTable->size);
         setError(TOO_MANY_GUEST_FUNCTIONS, message);
     }
-    FuncEntry* funcEntry = (FuncEntry*) malloc(sizeof(FuncEntry));
+    FuncEntry* funcEntry = (FuncEntry*)malloc(sizeof(FuncEntry));
     if (NULL == funcEntry)
     {
         setError(MALLOC_FAILED, NULL);
@@ -135,7 +135,7 @@ void CallHostFunction(char* functionName, va_list ap)
         *ptr++ = arg;
     }
 
-    outb(101, 0);
+    outb(OUTB_CALL_FUNCTION, 0);
 }
 
 // TODO: Make these functions generic.
@@ -270,11 +270,12 @@ void DispatchFunction()
 {
     GuestFunctionDetails* guestFunctionDetails = NULL;
     Parameter* paramv = NULL;
+    uint64_t* parg_to_free = NULL;
     // setjmp is used to capture state so that if an error occurs then lngjmp is called in setError and control returns to this point , the if returns false and the program exits/halts
     if (!setjmp(jmpbuf))
     {
         resetError();
-        GuestFunctionCall*  funcCall = (GuestFunctionCall*)pPeb->outputdata.outputDataBuffer;
+        GuestFunctionCall* funcCall = (GuestFunctionCall*)pPeb->outputdata.outputDataBuffer;
 
         if (NULL == funcCall->FunctionName)
         {
@@ -306,9 +307,17 @@ void DispatchFunction()
             guestFunctionDetails->paramv = paramv;
         }
 
+        parg_to_free = malloc(sizeof(uint64_t) * guestFunctionDetails->paramc);
+        if (NULL == parg_to_free)
+        {
+            setError(MALLOC_FAILED, NULL);
+        }
+
         bool nextParamIsLength = false;
         for (int32_t i = 0; i < guestFunctionDetails->paramc; i++)
         {
+#pragma warning(suppress:6011)
+            parg_to_free[i] = 0;
             GuestArgument guestArgument = funcCall->guestArguments[i];
             if (nextParamIsLength)
             {
@@ -320,7 +329,18 @@ void DispatchFunction()
                 }
                 else
                 {
-                    guestFunctionDetails->paramv[i].value.i32 = (uint32_t)guestArgument.argv;
+                    uint32_t len = (uint32_t)guestArgument.argv;
+                    void* ptr = malloc(len);
+                    if (NULL == ptr)
+                    {
+                        setError(MALLOC_FAILED, NULL);
+                    }
+                    int32_t byteArrayIndex = i - 1;
+                    GuestArgument  byteArrayArgument = funcCall->guestArguments[byteArrayIndex];
+                    parg_to_free[i] = (uint64_t)ptr;
+                    memcpy(ptr, (void*)byteArrayArgument.argv, (size_t)len);
+                    guestFunctionDetails->paramv[byteArrayIndex].value.bytearray = (void*)ptr;
+                    guestFunctionDetails->paramv[i].value.i32 = len;
                     guestFunctionDetails->paramv[i].kind = i32;
                     nextParamIsLength = false;
                 }
@@ -329,31 +349,38 @@ void DispatchFunction()
             {
                 switch (guestArgument.argt)
                 {
-                    case (string):
-  #pragma warning(suppress:28182)
-                        guestFunctionDetails->paramv[i].value.string = (char*)guestArgument.argv;
-                        guestFunctionDetails->paramv[i].kind = string;
-                        break;
-                    case (i32):
-                        guestFunctionDetails->paramv[i].value.i32 = (uint32_t)guestArgument.argv;
-                        guestFunctionDetails->paramv[i].kind = i32;
-                        break;
-                    case (i64):
-                        guestFunctionDetails->paramv[i].value.i64 = (uint64_t)guestArgument.argv;
-                        guestFunctionDetails->paramv[i].kind = i64;
-                        break;
-                    case (boolean):
-                        guestFunctionDetails->paramv[i].value.boolean = (bool)guestArgument.argv;
-                        guestFunctionDetails->paramv[i].kind = boolean;
-                        break;
-                    case (bytearray):
-                        guestFunctionDetails->paramv[i].value.bytearray = (void*)guestArgument.argv;
-                        guestFunctionDetails->paramv[i].kind = bytearray;
-                        nextParamIsLength = true;
-                        break;
-                    default:
-                        setError(GUEST_FUNCTION_PARAMETER_TYPE_MISMATCH, NULL);
-                        break;
+                case (string):
+                    size_t length = strlen((char*)guestArgument.argv);
+                    void* ptr = malloc(length+1);
+                    if (NULL == ptr)
+                    {
+                        setError(MALLOC_FAILED, NULL);
+                    }
+                    parg_to_free[i] = (uint64_t)ptr;
+                    strncpy((char*)ptr, (char*)guestArgument.argv, length);
+#pragma warning(suppress:28182)
+                    guestFunctionDetails->paramv[i].value.string = (char*)ptr;
+                    guestFunctionDetails->paramv[i].kind = string;
+                    break;
+                case (i32):
+                    guestFunctionDetails->paramv[i].value.i32 = (uint32_t)guestArgument.argv;
+                    guestFunctionDetails->paramv[i].kind = i32;
+                    break;
+                case (i64):
+                    guestFunctionDetails->paramv[i].value.i64 = (uint64_t)guestArgument.argv;
+                    guestFunctionDetails->paramv[i].kind = i64;
+                    break;
+                case (boolean):
+                    guestFunctionDetails->paramv[i].value.boolean = (bool)guestArgument.argv;
+                    guestFunctionDetails->paramv[i].kind = boolean;
+                    break;
+                case (bytearray):
+                    guestFunctionDetails->paramv[i].kind = bytearray;
+                    nextParamIsLength = true;
+                    break;
+                default:
+                    setError(GUEST_FUNCTION_PARAMETER_TYPE_MISMATCH, NULL);
+                    break;
                 }
             }
         }
@@ -363,11 +390,19 @@ void DispatchFunction()
         }
 
         *(uint32_t*)pPeb->outputdata.outputDataBuffer = CallGuestFunction(guestFunctionDetails);
+        for (int32_t i = 0; i < guestFunctionDetails->paramc; i++)
+        {
+            if (parg_to_free[i])
+            {
+                free((void*)parg_to_free[i]);
+            }
+        }
+        free(parg_to_free);
     }
 
     free(guestFunctionDetails);
     free(paramv);
-    
+
     halt();  // This is a nop if we were just loaded into memory
 }
 
@@ -375,12 +410,62 @@ void DispatchFunction()
 
 void _putchar(char c)
 {
-
     char* ptr = pPeb->outputdata.outputDataBuffer;
     *ptr++ = c;
     *ptr = '\0';
 
-    outb(100, 0);
+    outb(OUTB_WRITE_OUTPUT, 0);
+}
+
+bool CheckOutputBufferSize(size_t used, size_t size)
+{
+    return used + size > pPeb->outputdata.outputDataSize;
+}
+
+size_t CheckAndCopyString(const char* source, char* dest, size_t used)
+{
+    size_t length = NULL == source ? 0 : strlen(source);
+
+    if (0 == length)
+    {
+        setError(GUEST_ERROR, "Length was zero");
+    }
+
+    if (CheckOutputBufferSize(used, length))
+    {
+        setError(GUEST_ERROR, "Output buffer is full");
+    }
+
+    if (NULL == source)
+    {
+        dest = '\0';
+        used++;
+        return 1;
+    }
+
+#pragma warning(suppress : 4996)
+    strncpy(dest, (char*)source, length);
+    used += ++length;
+    return length;
+}
+
+void Log(LogLevel logLevel, const char* message, const char* source, const char* caller, const char* sourceFile, int32_t line)
+{
+    LogData* logData = (LogData*)pPeb->outputdata.outputDataBuffer;
+    size_t used = sizeof(LogData);
+    char* ptr = (char*)pPeb->outputdata.outputDataBuffer + used;
+    logData->Message = ptr;
+    ptr += CheckAndCopyString(message, ptr, used);
+    logData->Level = logLevel;
+    logData->Source = ptr;
+    ptr += CheckAndCopyString(source, ptr, used);
+    logData->Caller = ptr;
+    ptr += CheckAndCopyString(caller, ptr, used);
+    logData->SourceFile = ptr;
+    CheckAndCopyString(sourceFile, ptr, used);
+    logData->Line = line;
+
+    outb(OUTB_LOG, 0);
 }
 
 // this is called when /Gs check fails
@@ -417,7 +502,7 @@ void* hyperlightMoreCore(size_t size)
 
         if (0 == unusedHeapBufferPointer)
         {
-            ptr = (char *)pPeb->guestheapData.guestHeapBuffer;
+            ptr = (char*)pPeb->guestheapData.guestHeapBuffer;
         }
         else
         {
@@ -425,7 +510,7 @@ void* hyperlightMoreCore(size_t size)
         }
 
         allocated += size;
-        unusedHeapBufferPointer = (char *) ptr + size;
+        unusedHeapBufferPointer = (char*)ptr + size;
         return ptr;
     }
     else if (size < 0)
@@ -451,7 +536,7 @@ HostFunctionDetails* GetHostFunctionDetails()
     {
         return NULL;
     }
-    
+
     HostFunctionDetails* hostFunctionDetails = (HostFunctionDetails*)malloc(sizeof(HostFunctionDetails));
     if (NULL == hostFunctionDetails)
     {
@@ -462,7 +547,7 @@ HostFunctionDetails* GetHostFunctionDetails()
     hostFunctionDetails->CountOfFunctions = functionCount;
 #pragma warning(suppress:6305) 
     hostFunctionDetails->HostFunctionDefinitions = (HostFunctionDefinition*)(&pPeb->hostFunctionDefinitions.functionDefinitions + sizeof(HostFunctionHeader));
-    
+
     return hostFunctionDetails;
 }
 
@@ -547,7 +632,7 @@ int printOutput(const char* message)
     }
 #pragma warning(suppress : 4996)
     strncpy((char*)pPeb->outputdata.outputDataBuffer, (char*)message, result);
-    outb(100, 0);
+    outb(OUTB_WRITE_OUTPUT, 0);
     return (int)result;
 }
 
@@ -566,7 +651,7 @@ long GetHyperLightTickCount()
 /// This function is required/called by WAMR function os_thread_get_stack_boundary() 
 /// which is needed for AOT WASM Module execution
 /// </summary>
-uint8_t * GetStackBoundary()
+uint8_t* GetStackBoundary()
 {
     unsigned __int64 thread_stack_boundary;
     // If we are not running in Hyperlight then we need to get this information in the host
@@ -578,7 +663,7 @@ uint8_t * GetStackBoundary()
     {
         thread_stack_boundary = pPeb->gueststackData.minStackAddress;
     }
-    return (uint8_t *)(uintptr_t)thread_stack_boundary;
+    return (uint8_t*)(uintptr_t)thread_stack_boundary;
 }
 
 /// <summary>

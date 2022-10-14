@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Hyperlight.Core;
 
@@ -8,33 +9,30 @@ namespace Hyperlight.Wrapper
     {
         public static bool IsInt64(this Handle hdl)
         {
-            if (hdl == null)
-            {
-                throw new ArgumentNullException(nameof(hdl));
-            }
+            HyperlightException.ThrowIfNull(hdl, Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             return handle_is_int_64(hdl.ctx.ctx, hdl.handle);
         }
         public static long GetInt64(this Handle hdl)
         {
-            ArgumentNullException.ThrowIfNull(hdl);
+            HyperlightException.ThrowIfNull(hdl, Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             if (!hdl.IsInt64())
             {
-                throw new HyperlightException("Handle is not an int64");
+                HyperlightException.LogAndThrowException("Handle is not an int64", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             }
             return handle_get_int_64(hdl.ctx.ctx, hdl.handle);
         }
 
         public static bool IsInt32(this Handle hdl)
         {
-            ArgumentNullException.ThrowIfNull(hdl);
+            HyperlightException.ThrowIfNull(hdl, Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             return handle_is_int_32(hdl.ctx.ctx, hdl.handle);
         }
         public static int GetInt32(this Handle hdl)
         {
-            ArgumentNullException.ThrowIfNull(hdl);
+            HyperlightException.ThrowIfNull(hdl, Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             if (!hdl.IsInt32())
             {
-                throw new HyperlightException("Handle is not an int32");
+                HyperlightException.LogAndThrowException("Handle is not an int32", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             }
             return handle_get_int_32(hdl.ctx.ctx, hdl.handle);
         }

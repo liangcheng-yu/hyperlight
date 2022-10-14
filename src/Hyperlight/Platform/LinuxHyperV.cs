@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using Hyperlight.Core;
 
 namespace Hyperlight.Native
 {
@@ -82,42 +83,41 @@ namespace Hyperlight.Native
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        public static extern IntPtr open_mshv(IntPtr context, bool require_stable_api);
+        public static extern NativeHandle open_mshv(IntPtr context, bool require_stable_api);
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        public static extern IntPtr create_vm(IntPtr context, IntPtr mshv_handle);
+        public static extern NativeHandle create_vm(IntPtr context, NativeHandle mshv_handle);
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        public static extern IntPtr create_vcpu(IntPtr context, IntPtr vmfd_handle);
+        public static extern NativeHandle create_vcpu(IntPtr context, NativeHandle vmfd_handle);
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        public static extern IntPtr set_registers(IntPtr context, IntPtr vcpufd_handle, [In] MSHV_REGISTER[] reg_ptr, UIntPtr reg_length);
+        public static extern NativeHandle set_registers(IntPtr context, NativeHandle vcpufd_handle, [In] MSHV_REGISTER[] reg_ptr, UIntPtr reg_length);
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        public static extern IntPtr map_vm_memory_region(IntPtr context, IntPtr vcpufd_handle, ulong guestPfn, ulong hostAddress, ulong size);
+        public static extern NativeHandle map_vm_memory_region(IntPtr context, NativeHandle vcpufd_handle, ulong guestPfn, ulong hostAddress, ulong size);
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        public static extern IntPtr unmap_vm_memory_region(IntPtr context, IntPtr vcpufd_handle, IntPtr user_memory_region_handle);
+        public static extern NativeHandle unmap_vm_memory_region(IntPtr context, NativeHandle vcpufd_handle, NativeHandle user_memory_region_handle);
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        public static extern IntPtr run_vcpu(IntPtr context, IntPtr vcpufd_handle);
+        public static extern NativeHandle run_vcpu(IntPtr context, NativeHandle vcpufd_handle);
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        public static extern IntPtr get_run_result_from_handle(IntPtr context, IntPtr mshv_run_message_handle);
+        public static extern IntPtr get_run_result_from_handle(IntPtr context, NativeHandle mshv_run_message_handle);
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         public static extern void free_run_result(IntPtr mshv_run_message);
 
 #pragma warning restore CA5393
-
         public static bool IsHypervisorPresent()
         {
             return is_hyperv_linux_present(LinuxHyperV.REQUIRE_STABLE_API);

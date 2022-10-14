@@ -1,5 +1,7 @@
 using System;
+using System.Reflection;
 using System.Runtime.InteropServices;
+using Hyperlight.Core;
 
 namespace Hyperlight.Native
 {
@@ -152,35 +154,34 @@ namespace Hyperlight.Native
             var kvm = -1;
             try
             {
-                //TODO: Create exceptions for errors.
-
                 if (-1 == (kvm = open("/dev/kvm", O_RDWR | O_CLOEXEC)))
                 {
-                    Console.Error.WriteLine("Unable to open '/dev/kvm'");
+                    HyperlightLogger.LogInformation("Unable to open '/dev/kvm'. Either KVM is not installed or permission is denied.", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
                     return false;
                 }
 
                 var kvmApiVersion = ioctl(kvm, KVM_GET_API_VERSION, 0);
                 if (-1 == kvmApiVersion)
                 {
-                    Console.Error.WriteLine("KVM_GET_API_VERSION returned -1");
+                    HyperlightLogger.LogError("KVM_GET_API_VERSION returned -1", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
                     return false;
                 }
+
                 if (12 != kvmApiVersion)
                 {
-                    Console.Error.WriteLine("KVM API Version was not 12 as expected");
+                    HyperlightLogger.LogError("KVM API Version was not 12 as expected", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
                     return false;
                 }
 
                 var capUserMemory = ioctl(kvm, KVM_CHECK_EXTENSION, KVM_CAP_USER_MEMORY);
                 if (-1 == capUserMemory)
                 {
-                    Console.Error.WriteLine("KVM_CHECK_EXTENSION/KVM_CAP_USER_MEMORY returned -1");
+                    HyperlightLogger.LogError("KVM_CHECK_EXTENSION/KVM_CAP_USER_MEMORY returned -1", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
                     return false;
                 }
                 if (0 == capUserMemory)
                 {
-                    Console.Error.WriteLine("KVM_CAP_USER_MEMORY not available");
+                    HyperlightLogger.LogError("KVM_CHECK_EXTENSION/KVM_CAP_USER_MEMORY returned -1", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
                     return false;
                 }
             }
