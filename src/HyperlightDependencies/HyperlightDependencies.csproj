@@ -31,6 +31,9 @@
     <Content Include="..\HyperlightGuest\third_party\printf\printf.h" Pack="true" PackagePath="include">
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </Content>
+    <Content Include="..\..\x64\$(Configuration.toLower())\HyperlightGuest.lib" Pack="true" PackagePath="native">
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </Content>
     <Content Include="Deislabs.HyperlightDependencies.targets" PackagePath="buildTransitive/Deislabs.HyperlightDependencies.targets" />
   </ItemGroup>
 </Project>

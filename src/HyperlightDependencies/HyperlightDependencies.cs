@@ -28,6 +28,8 @@ namespace HyperlightDependencies
         public void ExposeHostMethod(string methodName, object instance);
 
         public void ExposeHostMethod(string methodName, Type type);
+
+        public T CallGuest<T>(Func<T> func);
     }
 }
 

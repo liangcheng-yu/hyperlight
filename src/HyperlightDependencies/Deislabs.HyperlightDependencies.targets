@@ -3,10 +3,16 @@
   <ItemGroup>
     <HeaderFiles Include="$(MSBuildThisFileDirectory)\..\include\*.h" />
   </ItemGroup>
+  <ItemGroup>
+    <LibraryFiles Include="$(MSBuildThisFileDirectory)\..\native\HyperlightGuest.lib" />
+  </ItemGroup>
 
     <Target Name="include" BeforeTargets="Build">
-        <MakeDir Condition="!Exists('include')" Directories="include"></MakeDir>
-        <Copy SourceFiles="@(HeaderFiles)" DestinationFolder="include" SkipUnchangedFiles="true">
-        </Copy>
+      <MakeDir Condition="!Exists('include')" Directories="include"/>
+      <Copy SourceFiles="@(HeaderFiles)" DestinationFolder="include" SkipUnchangedFiles="true"/>
     </Target>
+    <Target Name="native" BeforeTargets="Build">
+      <MakeDir Condition="!Exists('native')" Directories="native"/>
+      <Copy SourceFiles="@(LibraryFiles)" DestinationFolder="native" SkipUnchangedFiles="true"/>
+  </Target>
 </Project>
