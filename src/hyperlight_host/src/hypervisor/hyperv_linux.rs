@@ -14,10 +14,8 @@ pub fn is_hypervisor_present(require_stable_api: bool) -> Result<bool> {
         Ok(stable) => {
             if stable {
                 Ok(true)
-            } else if require_stable_api {
-                Ok(false)
             } else {
-                Ok(true)
+                Ok(!require_stable_api)
             }
         }
         Err(e) => bail!(e),
@@ -275,7 +273,17 @@ pub mod test_cfg {
             "HYPERV_SHOULD_BE_PRESENT is {}",
             TEST_CONFIG.hyperv_should_be_present
         );
-        super::is_hypervisor_present(TEST_CONFIG.should_have_stable_api).unwrap_or(false)
+        let is_present =
+            super::is_hypervisor_present(TEST_CONFIG.should_have_stable_api).unwrap_or(false);
+        if (is_present && !TEST_CONFIG.hyperv_should_be_present)
+            || (!is_present && TEST_CONFIG.hyperv_should_be_present)
+        {
+            panic!(
+                "WARNING Hyper-V is present returned  {}, should be present is: {} SHOULD_HAVE_STABLE_API is {}",
+                is_present, TEST_CONFIG.hyperv_should_be_present, TEST_CONFIG.should_have_stable_api
+            );
+        }
+        is_present
     }
     fn hyperv_should_be_present_default() -> bool {
         false
