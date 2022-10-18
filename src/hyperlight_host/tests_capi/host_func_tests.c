@@ -9,20 +9,15 @@
 MunitResult test_create_host_func_null()
 {
     Context *ctx = context_new();
-    Callback *cb = NULL;
-    Handle host_func_hdl = host_func_create(ctx, cb);
-    handle_assert_error(ctx, host_func_hdl);
-    const char* err_msg = handle_get_error_message(ctx,host_func_hdl);
-    munit_assert_string_equal("NULL callback",err_msg);
-    free((void *)err_msg);
-    handle_free(ctx, host_func_hdl);
-    Callback cb1 = {.func = NULL};
-    host_func_hdl = host_func_create(ctx, &cb1);
-    handle_assert_error(ctx, host_func_hdl);
-    err_msg = handle_get_error_message(ctx,host_func_hdl);
-    munit_assert_string_equal("NULL callback func",err_msg);
-    free((void *)err_msg);
-    handle_free(ctx, host_func_hdl);
+    {
+        Handle host_func_hdl = host_func_create(ctx, NULL);
+        handle_assert_error(ctx, host_func_hdl);
+        const char *err_msg = handle_get_error_message(ctx, host_func_hdl);
+        munit_assert_string_equal("NULL callback func", err_msg);
+        free((void *)err_msg);
+        handle_free(ctx, host_func_hdl);
+    }
+
     context_free(ctx);
     return MUNIT_OK;
 }
@@ -30,8 +25,7 @@ MunitResult test_create_host_func_null()
 MunitResult test_create_host_func()
 {
     Context *ctx = context_new();
-    Callback cb = {.func = test_callback};
-    Handle host_func_ref = host_func_create(ctx, &cb);
+    Handle host_func_ref = host_func_create(ctx, test_callback);
     handle_assert_no_error(ctx, host_func_ref);
     handle_free(ctx, host_func_ref);
     context_free(ctx);
@@ -44,10 +38,9 @@ MunitResult test_call_host_func()
     Handle sbox = sandbox_new(ctx, "some_bin");
     const char *host_func_name_1 = "test_func1";
     const char *host_func_name_2 = "test_func2";
-    const Callback cb = {.func = test_callback};
-    Handle host_func_ref_1 = host_func_create(ctx, &cb);
+    Handle host_func_ref_1 = host_func_create(ctx, test_callback);
     handle_assert_no_error(ctx, host_func_ref_1);
-    Handle host_func_ref_2 = host_func_create(ctx, &cb);
+    Handle host_func_ref_2 = host_func_create(ctx, test_callback);
     handle_assert_no_error(ctx, host_func_ref_2);
     Handle host_func_1_hdl = host_func_register(
         ctx,

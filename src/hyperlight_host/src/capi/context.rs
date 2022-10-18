@@ -125,6 +125,14 @@ impl Context {
         Self::register(err, &self.errs, Hdl::Err)
     }
 
+    /// Convenience method for:
+    /// ```
+    /// self.register_err(anyhow::Error::msg(err_msg))
+    /// ```
+    pub fn register_err_msg(&mut self, err_msg: &str) -> Handle {
+        self.register_err(anyhow::Error::msg(err_msg.to_string()))
+    }
+
     /// Get a type `T` from the given collection `coll` using
     /// `handle.key()` as the index to `coll`.
     ///
