@@ -4,43 +4,87 @@ This document describes how to set up a Mariner VM with MSHV.
 
 ## Prerequisites
 
-Follow the instructions [here](https://www.osgwiki.com/wiki/LSG/Distro/Linux_in_Dom0/Nested#Obtaining_Dom0_images) to obtain a Mariner image with mshv and set up in HyperV. 
+Follow the instructions [here](https://www.osgwiki.com/wiki/LSG/Distro/Linux_in_Dom0/Nested#Obtaining_Dom0_images) to obtain a Mariner image with mshv and set up in HyperV.
 
-Find a run where both the stages have succeeded, select the run, under the summary select the "Artifacts" summary, select don0 out->images->dom0 and download either the `vhdx` or `vhdx.xz` file, if you download the `.xz` file, you will need to extract it with ` xz -d -v <filename>` before using it.
+Find a run where both the stages have succeeded, select the run, under the summary select the "Artifacts" summary, select `dom0 out->images->dom0` and download either the `vhdx` or `vhdx.xz` file. If you download the `.xz` file, you will need to extract it with the below command before using it:
 
-If you dont have access contact @simongdavies. 
+```shell
+xz -d -v <filename>
+```
+
+If you dont have access contact `@simongdavies`. 
 
 # Set up the VM.
 
-Before starting the VM expand the disk to 20GB, the default VHDX is too small for all the Hyperlight prequisites. See [here](https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/user-guide/expand-virtual-hard-disk) for instructions on how to expand the VHDX.
+Before starting the VM, ensure the disk is 20GB or larger in size. Some VHDX disk images are too small for all the Hyperlight prequisites. See [here](https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/user-guide/expand-virtual-hard-disk) for instructions on how to expand the VHDX. Many of the latest (as of this writing) Mariner disk images are of sufficient size, so this step will be unneccesary in that case.
 
-Start the VM and login with the default credentials from the wiki above.
+Start the VM and login with the default credentials from the wiki above. As of this writing, they will be:
+
+```shell
+user: cloud
+pass: Cloud123
+```
+
+## If you're launching on Azure
+
+There are several steps necessary to set up a Mariner VM on Azure. There is a script described [here](https://www.osgwiki.com/wiki/LSG/Distro/Linux_in_Dom0/Nested#Setting_up_an_Azure_Dom0_VM) that you should use to do almost all of them.
+
+To get the script, you'll need access to the `https://microsoft.visualstudio.com/DefaultCollection/LSG/_git/lsg-tools` repository. If you need access, contact `@arschles` or `@simongdavies`.
+
+Then, when you have the script, you should upload the VHD image you got in the previous section to an Azure Blob Store container. It's recommended to do the upload from Azure Cloud Shell or another VM in Azure because network speeds will be faster. The blob and container can be set to private access, but be sure to copy the URL to the VHD and set it to the environment variable `BLOB_STORE_IMAGE_LOCATION`, as it will be used in the subsequent step:
+
+```shell
+export BLOB_STORE_IMAGE_LOCATION=<full URL>
+```
+
+Finally, the command to launch the VM is slightly different than what's listed on the wiki:
+
+```shell
+./scripts/create_vm.sh -t linux-dom0 -n ${NAME_OF_NEW_VM} -s ${BLOB_STORE_IMAGE_LOCATION} --vm-nsg-rule NONE
+```
+
+# VM Configuration Steps
+
+Finally, you'll need to log into your VM. If you launched it on Azure with the steps in the previous section, you'll need to use Azure Bastion for this. Once you're logged in, follow these steps:
 
 1. Add a new user.
-1. Install dnf `sudo yum install dnf`
-1. Install vim `sudo dnf install vim`
-1. Give the new user sudoer access. Edit `edit /etc/sudoers.d/90-dom0-users`
-1. Add the new user to the mshv group `sudo usermod -G mshv -a <username>`
-1. Disable cloud user `sudo usermod -L cloud`
+1. Install dnf `sudo yum install -y dnf`
 1. Install Tailscale
-    ```
-    dnf install 'dnf-command(config-manager)'
+
+    ```shell
+    dnf install -y 'dnf-command(config-manager)'
     sudo dnf config-manager --add-repo https://pkgs.tailscale.com/stable/fedora/tailscale.repo
-    sudo dnf install tailscale
+    sudo dnf install -y tailscale
     sudo systemctl enable --now tailscale
     sudo tailscale up --ssh
     ```
+
 1. Authenticate with Tailscale
 1. Authorize the new machine in Tailscale admin portal.
-1. ssh to new machine using tailscale IP address
-1. Install git `sudo dnf install git`
-1. Install clang `sudo dnf install clang`
-1. Install dotnet 6 sdk `sudo dnf install dotnet-sdk-6.0`
+
+>If you're logged in via Azure Bastion, you can log out, SSH into the new machine using the Tailscale IP address, and continue the steps with the new SSH session.
+
+1. Install vim `sudo dnf install -y vim`
+1. Give the new user sudoer access. Edit `edit /etc/sudoers.d/90-dom0-users`
+1. Add the new user to the mshv group `sudo usermod -G mshv -a $(whoami)`
+1. Disable cloud user `sudo usermod -L cloud`
+
+1. Install tools needed for development
+
+```shell
+sudo dnf install -y \
+git \
+clang \
+lldb \
+dotnet-sdk-6.0 \
+binutils \
+valgrind \
+glibc-devel \
+kernel-headers \
+nano
+```
+
 1. Install rust `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-1. Install binutils `sudo dnf install binutils`
-1. Install valgrind `sudo dnf install valgrind`
-1. Install glibc-devel `sudo dnf install glibc-devel`
-1. Install kernel-headers `sudo dnf install kernel-headers`
 1. Install just `cargo install just`
 1. Clone Hyperlight `git clone git@github.com:deislabs/hyperlight.git`
 1. Install direnv `curl -sfL https://direnv.net/install.sh | bash`
