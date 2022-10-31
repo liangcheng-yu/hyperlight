@@ -51,7 +51,11 @@ namespace Hyperlight.Wrapper
         /// <exception cref="HyperlightException">
         /// If hdl is equal to Handle.Zero
         /// </exception>
-        public Handle(Context ctx, NativeHandle hdl)
+        public Handle(
+            Context ctx,
+            NativeHandle hdl,
+            bool checkErr = false
+        )
         {
             HyperlightException.ThrowIfNull(ctx, Sandbox.CorrelationId.Value!, GetType().Name);
             if (Zero == hdl)
@@ -61,9 +65,13 @@ namespace Hyperlight.Wrapper
                     Sandbox.CorrelationId.Value!,
                     this.GetType().Name);
             }
-
             this.ctx = ctx;
             this.handle = hdl;
+            if (checkErr)
+            {
+                this.ThrowIfError();
+            }
+
         }
 
         /// <summary>
