@@ -50,12 +50,11 @@ Finally, you'll need to log into your VM. If you launched it on Azure with the s
 1. Add a new user.
 1. Install dnf `sudo yum install -y dnf`
 1. Install Tailscale
-
     ```shell
-    dnf install -y 'dnf-command(config-manager)'
+    sudo dnf install -y 'dnf-command(config-manager)'
     sudo dnf config-manager --add-repo https://pkgs.tailscale.com/stable/fedora/tailscale.repo
     sudo dnf install -y tailscale
-    sudo systemctl enable --now tailscale
+    sudo systemctl enable --now tailscaled
     sudo tailscale up --ssh
     ```
 
