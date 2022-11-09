@@ -5,7 +5,7 @@ name: Validate Pull Request
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, dev ]
   
 jobs:
   build-host-library:
@@ -158,12 +158,12 @@ jobs:
             platform: x64
             hypervisor: kvm
           - build: linux-hyperv-debug
-            os: [self-hosted, Linux, X64, hyperv]
+            os: [self-hosted, Linux, X64, hyperv-nov82022]
             config: debug
             platform: x64
             hypervisor: hyperv
           - build: linux-hyperv-release
-            os: [self-hosted, Linux, X64, hyperv]
+            os: [self-hosted, Linux, X64, hyperv-nov82022]
             config: release
             platform: x64
             hypervisor: hyperv

@@ -92,3 +92,26 @@ nano
 1. cd to the Hyperlight directory and run `direnv allow`
 
 Now follow the instructions in the [Hyperlight README](../README.md).
+## Configuring a GitHub Actions self-hosted runner
+
+- Go to [the self-hosted runner create page](https://github.com/organizations/deislabs/settings/actions/runners/new) and click the "Linux" radio button.
+- Follow all steps up to but not including the `./run.sh` command
+- Go to the [configure the runner as a service](https://docs.github.com/en/actions/hosting-your-own-runners/configuring-the-self-hosted-runner-application-as-a-service) documentation page and follow steps through the `sudo ./svc.sh status` command.
+  - Make sure you're on the "Linux" tab
+
+The total list of commands should look similar to:
+
+```shell
+mkdir actions-runner && cd actions-runner
+curl -o actions-runner-linux-x64-2.298.2.tar.gz -L https://github.com/actions/runner/releases/download/v2.298.2/actions-runner-linux-x64-2.298.2.tar.gz
+# optional: validate the hash
+echo "SOME HASH  actions-runner-linux-x64-2.298.2.tar.gz" | shasum -a 256 -c
+tar xzf ./actions-runner-linux-x64-2.298.2.tar.gz
+./config.sh --url https://github.com/deislabs --token AAARJUJJFCJTBIMGC6PECA3DNQYRA
+# Reminder: do not execute ./run.sh here
+sudo ./svc.sh install
+sudo ./svc.sh start
+sudo ./svc.sh status
+```
+
+There is also a `.github/setup_runners.sh` script that automates the above steps.
