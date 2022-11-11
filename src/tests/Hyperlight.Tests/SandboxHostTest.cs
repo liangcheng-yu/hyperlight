@@ -10,9 +10,9 @@ using System.Threading.Tasks;
 using Hyperlight.Core;
 using HyperlightDependencies;
 using Microsoft.Extensions.Logging;
+using Moq;
 using Xunit;
 using Xunit.Abstractions;
-using Moq;
 
 namespace Hyperlight.Tests
 {
@@ -29,6 +29,17 @@ namespace Hyperlight.Tests
         {
             //TODO: implment skip for this
             Assert.True(Sandbox.IsSupportedPlatform, "Hyperlight Sandbox is not supported on this platform.");
+
+            // This is to ensure that the tests fail if they are run on a runner where we expect a Hypervisor but one is not present.
+            var expectHyperV = bool.TryParse(Environment.GetEnvironmentVariable("HYPERV_SHOULD_BE_PRESENT"), out var result) && result;
+            var expectKVM = bool.TryParse(Environment.GetEnvironmentVariable("KVM_SHOULD_BE_PRESENT"), out result) && result;
+            var expectWHP = bool.TryParse(Environment.GetEnvironmentVariable("WHP_SHOULD_BE_PRESENT"), out result) && result;
+
+            if (expectHyperV || expectKVM || expectWHP)
+            {
+                Assert.True(Sandbox.IsHypervisorPresent(), "HyperVisor not present but expected.");
+            }
+
             this.output = output;
         }
 

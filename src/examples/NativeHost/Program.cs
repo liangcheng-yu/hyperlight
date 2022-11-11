@@ -35,6 +35,7 @@ namespace NativeHost
             if (!Sandbox.IsSupportedPlatform)
             {
                 Console.WriteLine($"{RuntimeInformation.OSDescription} is an unsupported platform!");
+                Environment.Exit(1);
             }
 
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && !Sandbox.IsHypervisorPresent())
