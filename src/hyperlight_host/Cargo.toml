@@ -29,7 +29,7 @@ paste = "1"
 [target.'cfg(unix)'.dependencies]
 mshv-bindings = {git = "https://github.com/rust-vmm/mshv", rev="6b0cf3b" }
 mshv-ioctls  = {git = "https://github.com/rust-vmm/mshv", rev="6b0cf3b"}
-kvm-bindings = { version = "0.5.0", features = ["fam-wrappers"] }
+kvm-bindings = { version = "0.6.0", features = ["fam-wrappers"] }
 kvm-ioctls = { version = "0.11.0" }
 
 [dev-dependencies]
