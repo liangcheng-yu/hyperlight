@@ -1,0 +1,34 @@
+# This job cleans up old pre-releases and pre-releases packages retaining the last 40 versions
+
+name: Clean up old pre-releases and packages
+on:
+  schedule:
+    - cron: '0 8 * * 1' # run at 8am every Monday
+  workflow_dispatch: # allow manual triggering
+jobs:
+  cleanup:
+    name: CLean up old pre-releases and packages
+    runs-on: ubuntu-latest
+    steps:
+      # https://github.com/marketplace/actions/delete-package-versions
+      - name: Delete old 'DeisLabs.Hyperlight' package versions
+        uses: actions/delete-package-versions@v3
+        with: 
+          package-name: 'DeisLabs.Hyperlight'
+          min-versions-to-keep:  40
+          delete-only-pre-release-versions: "true" 
+      - name: Delete old 'DeisLabs.HyperlightDependencies' package versions
+        uses: actions/delete-package-versions@v3
+        with: 
+          package-name: 'DeisLabs.HyperlightDependencies'
+          min-versions-to-keep:  40
+          delete-only-pre-release-versions: "true" 
+      # https://github.com/marketplace/actions/delete-releases
+      - name: Delete old 'Hyperlight' releases
+        uses: sgpublic/delete-release-action@v1.0
+        with:
+          pre-release-drop: true
+          pre-release-keep-count: 40
+          pre-release-drop-tag: false
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
