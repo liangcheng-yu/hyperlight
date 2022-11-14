@@ -18,12 +18,13 @@ jobs:
       PLATFORM: x64
       CONFIG: Debug
       FRAMEWORK: net6.0
+      DOTNET_INSTALL_DIR: "./.dotnet"
     steps:
     - uses: actions/checkout@v3
       with:
         fetch-depth: 0
     - name: Setup dotnet
-      uses: actions/setup-dotnet@v2
+      uses: actions/setup-dotnet@v3.0.3
       with:
         dotnet-version: | 
           6.0.x 
