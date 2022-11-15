@@ -1,5 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  
+
   <PropertyGroup>
     <TargetFrameworks>net6.0</TargetFrameworks>
     <Nullable>enable</Nullable>
@@ -23,18 +23,23 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Condition="'$(RuntimeIdentifier)'=='win-x64' or ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And  '$(RuntimeIdentifier)'=='')" Include="..\HyperlightSurrogate\x64\$(Configuration.toLower())\HyperlightSurrogate.exe" Pack="true" PackagePath="native">
+    <Content Condition="'$(RuntimeIdentifier)'=='win-x64' or ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$(RuntimeIdentifier)'=='')" Include="..\HyperlightSurrogate\x64\$(Configuration.toLower())\HyperlightSurrogate.exe" Pack="true" PackagePath="native">
       <Link>HyperlightSurrogate.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </Content>
-    <Content Condition="'$(RuntimeIdentifier)'=='win-x64' or ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And  '$(RuntimeIdentifier)'=='')" Include="..\..\x64\$(Configuration.toLower())\HyperlightGuest.lib" Pack="true" PackagePath="native">
+    <Content Condition="'$(RuntimeIdentifier)'=='win-x64' or ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$(RuntimeIdentifier)'=='')" Include="..\..\x64\$(Configuration.toLower())\HyperlightGuest.lib" Pack="true" PackagePath="native">
       <Link>HyperlightGuest.lib</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </Content>
-    <Content Condition="'$(RuntimeIdentifier)'=='win-x64' or ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And  '$(RuntimeIdentifier)'=='')" Include="..\..\target\$(Configuration.toLower())\hyperlight_host.dll" Pack="true" PackagePath="native">
+    <Content Condition="'$(RuntimeIdentifier)'=='win-x64' or ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$(RuntimeIdentifier)'=='')" Include="..\..\target\$(Configuration.toLower())\hyperlight_host.dll" Pack="true" PackagePath="native">
       <Link>hyperlight_host.dll</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </Content>
+    <Content Condition="Exists('..\..\target\$(Configuration.toLower())\libhyperlight_host.so')" Include="..\..\target\$(Configuration.toLower())\libhyperlight_host.so" Pack="true" PackagePath="native">
+      <Link>libhyperlight_host.so</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </Content>
@@ -53,14 +58,14 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="System.Reflection.Emit.Lightweight" Version="4.7.0" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
-    
+
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\HyperlightDependencies\HyperlightDependencies.csproj" />
   </ItemGroup>
 
-  <Target Name="PreBuild" BeforeTargets="PreBuildEvent" Condition="'$(BuildingInsideVisualStudio)' == true  or '$(BuildHyperLightHost)' == true"> 
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent" Condition="'$(BuildingInsideVisualStudio)' == true  or '$(BuildHyperLightHost)' == true">
     <Exec Command="just fmt&#xD;&#xA;just clippy&#xD;&#xA;just build-rust-$(configuration.ToLower())" />
   </Target>
 
