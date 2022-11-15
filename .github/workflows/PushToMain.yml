@@ -139,6 +139,7 @@ jobs:
           libhyperlight_host.so
           libhyperlight_host.d
           hyperlight_host.dll
+          hyperlight_host.pdb
     - name: Store Shortened Git SHA for release
       run: echo "::set-output name=shortened_sha::$(git rev-parse --short HEAD)"
       id: set-output-var
@@ -161,6 +162,7 @@ jobs:
           libhyperlight_host.so
           libhyperlight_host.d
           hyperlight_host.dll
+          hyperlight_host.pdb
 
   build-rust-ubuntu:
     runs-on: ubuntu-latest
@@ -186,8 +188,8 @@ jobs:
         with:
           name: Release_assets
           path: | 
-            target/debug/libhyperlight_host.so
-            target/debug/libhyperlight_host.d
+            target/release/libhyperlight_host.so
+            target/release/libhyperlight_host.d
       - name: Upload header file
         uses: actions/upload-artifact@v3
         with:
@@ -206,9 +208,11 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Debug_assets
-          path: target/debug/hyperlight_host.dll
+          path: |
+            target/debug/hyperlight_host.dll
+            target/debug/hyperlight_host.pdb
       - name: Upload release DLL file
         uses: actions/upload-artifact@v3
         with:
           name: Release_assets
-          path: target/debug/hyperlight_host.dll
+          path: target/release/hyperlight_host.dll
