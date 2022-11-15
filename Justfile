@@ -21,7 +21,7 @@ build-rust:
 build-rust-release:
     cargo build --release
 
-build: build-dotnet build-rust
+build: build-rust build-dotnet
     echo "built all .Net and Rust projects"
 
 test-rust:
@@ -31,7 +31,7 @@ test-dotnet-hl:
     cd src/tests/Hyperlight.Tests && dotnet test || cd ../../../
 
 test-dotnet-nativehost:
-    cd src/examples/NativeHost && dotnet test || cd ../../../
+    cd src/examples/NativeHost && dotnet run -- -nowait || cd ../../../
 
 test-dotnet: test-dotnet-hl test-dotnet-nativehost
 

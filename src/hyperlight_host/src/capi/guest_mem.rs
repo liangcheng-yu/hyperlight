@@ -2,7 +2,8 @@ use super::context::{Context, ReadResult, WriteResult};
 use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::mem::guest_mem::GuestMemory;
-
+use anyhow::anyhow;
+use std::panic::catch_unwind;
 mod impls {
     use crate::capi::handle::Handle;
     use crate::capi::{byte_array::get_byte_array, context::Context};
@@ -33,7 +34,7 @@ mod impls {
         Ok(())
     }
 
-    pub fn copy_byte_array(
+    pub fn copy_from_byte_array(
         ctx: &Context,
         guest_mem_hdl: Handle,
         byte_array_hdl: Handle,
@@ -53,6 +54,16 @@ mod impls {
         }
         let data = &(*byte_arr)[arr_start..arr_start + arr_length];
         (*guest_mem).copy_into(data, address)
+    }
+
+    pub fn copy_to_byte_array(
+        ctx: &Context,
+        guest_mem_hdl: Handle,
+        byte_array: &mut [u8],
+        offset: usize,
+    ) -> Result<()> {
+        let mut guest_mem = super::get_guest_memory_mut(ctx, guest_mem_hdl)?;
+        (*guest_mem).copy_from(byte_array, offset)
     }
 }
 
@@ -84,7 +95,7 @@ pub fn get_guest_memory_mut(ctx: &Context, hdl: Handle) -> WriteResult<GuestMemo
 /// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn guest_memory_new(ctx: *mut Context, min_size: u64) -> Handle {
@@ -102,7 +113,7 @@ pub unsafe extern "C" fn guest_memory_new(ctx: *mut Context, min_size: u64) -> H
 /// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn guest_memory_get_address(ctx: *const Context, hdl: Handle) -> usize {
@@ -124,10 +135,10 @@ pub unsafe extern "C" fn guest_memory_get_address(ctx: *const Context, hdl: Hand
 /// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
-pub unsafe extern "C" fn guest_memory_copy_byte_array(
+pub unsafe extern "C" fn guest_memory_copy_from_byte_array(
     ctx: *mut Context,
     guest_mem_hdl: Handle,
     byte_array_hdl: Handle,
@@ -135,7 +146,7 @@ pub unsafe extern "C" fn guest_memory_copy_byte_array(
     arr_start: usize,
     arr_length: usize,
 ) -> Handle {
-    match impls::copy_byte_array(
+    match impls::copy_from_byte_array(
         &*ctx,
         guest_mem_hdl,
         byte_array_hdl,
@@ -143,6 +154,64 @@ pub unsafe extern "C" fn guest_memory_copy_byte_array(
         arr_start,
         arr_length,
     ) {
+        Ok(_) => Handle::new_empty(),
+        Err(e) => (*ctx).register_err(e),
+    }
+}
+
+/// Fetch the guest memory in `ctx` referenced by `guest_mem_hdl`,
+/// then copy the data from guest memory starting at address `offset`
+/// into the byte array the length of the byte array (specified by length parameter).
+///
+/// Return an empty `Handle` if the guest memory and byte array were valid
+/// and the copy succeeded, and an error handle otherwise.
+///
+/// # Safety
+///
+/// You must call this function with a `Context*` that has been:
+///
+/// - Created with `context_new`
+/// - Not yet freed with `context_free`
+/// - Not modified, except by calling functions in the Hyperlight C API
+/// - A valid handle to guest memory
+/// - A valid offset into the guest memory
+/// - A pointer to a byte array
+/// - A valid length for the byte array
+///
+/// The byte array is owned by the caller and must be valid for the lifetime of the call.
+#[no_mangle]
+pub unsafe extern "C" fn guest_memory_copy_to_byte_array(
+    ctx: *mut Context,
+    guest_mem_hdl: Handle,
+    offset: usize,
+    byte_array: *mut u8,
+    length: usize,
+) -> Handle {
+    if byte_array.is_null() {
+        return (*ctx).register_err(anyhow!("Invalid byte array"));
+    };
+
+    if length < 1 {
+        return (*ctx).register_err(anyhow!("Invalid length"));
+    };
+
+    let did_it_panic = catch_unwind(|| {
+        let buffer: &mut [u8] = std::slice::from_raw_parts_mut(byte_array, length);
+        buffer
+    });
+
+    let buffer = match did_it_panic {
+        Ok(result) => result,
+        Err(_) => {
+            return (*ctx).register_err(anyhow::anyhow!(
+                "failed to get slice from pointer and length in file {} line number {} ",
+                file!(),
+                line!()
+            ))
+        }
+    };
+
+    match impls::copy_to_byte_array(&*ctx, guest_mem_hdl, buffer, offset) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
@@ -159,7 +228,7 @@ pub unsafe extern "C" fn guest_memory_copy_byte_array(
 /// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn guest_memory_read_int_64(
@@ -184,7 +253,7 @@ pub unsafe extern "C" fn guest_memory_read_int_64(
 /// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn guest_memory_write_int_64(
@@ -210,7 +279,7 @@ pub unsafe extern "C" fn guest_memory_write_int_64(
 /// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn guest_memory_read_int_32(
@@ -235,7 +304,7 @@ pub unsafe extern "C" fn guest_memory_read_int_32(
 /// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn guest_memory_write_int_32(

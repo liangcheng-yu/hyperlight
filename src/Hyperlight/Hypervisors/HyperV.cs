@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Hyperlight.Core;
 using Hyperlight.Native;
+using Hyperlight.Wrapper;
 
 
 namespace Hyperlight.Hypervisors
@@ -21,7 +22,7 @@ namespace Hyperlight.Hypervisors
         readonly bool virtualProcessorCreated;
         readonly ulong size;
 
-        internal HyperV(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, Action handleMemoryAccess) : base(sourceAddress, entryPoint, rsp, outb, handleMemoryAccess)
+        internal HyperV(IntPtr sourceAddress, ulong pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, Action handleMemoryAccess) : base(sourceAddress, entryPoint, rsp, outb, handleMemoryAccess)
         {
             this.size = size;
             WindowsHypervisorPlatform.WHvCreatePartition(out hPartition);
@@ -41,7 +42,7 @@ namespace Hyperlight.Hypervisors
                 registerValuesList.Add(new WindowsHypervisorPlatform.MyUInt128() { low = registerValueLow, high = registerValueHigh });
             }
 
-            AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterCr3, (ulong)pml4_addr, 0);
+            AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterCr3, pml4_addr, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterCr4, X64.CR4_PAE | X64.CR4_OSFXSR | X64.CR4_OSXMMEXCPT, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterCr0, X64.CR0_PE | X64.CR0_MP | X64.CR0_ET | X64.CR0_NE | X64.CR0_WP | X64.CR0_AM | X64.CR0_PG, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterEfer, X64.EFER_LME | X64.EFER_LMA, 0);

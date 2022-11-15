@@ -1,22 +1,23 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Threading;
 using Hyperlight.Wrapper;
 namespace Hyperlight.Core
 {
     public class SandboxMemoryConfiguration : IDisposable
     {
+        public static AsyncLocal<Context> Context { get; } = new AsyncLocal<Context>();
         const ulong DefaultInputSize = 0x4000;
         const ulong DefaultOutputSize = 0x4000;
         const ulong DefaultHostFunctionDefinitionSize = 0x1000;
         const ulong DefaultHostExceptionSize = 0x1000;
         const ulong DefaultGuestErrorMessageSize = 0x100;
 
-        private Wrapper.Context ctxWrapper;
-        private Wrapper.Handle hdlWrapper;
+        private readonly Wrapper.Handle hdlWrapper;
+        public Handle Handle => this.hdlWrapper;
         private bool disposed;
 
         public SandboxMemoryConfiguration(
-            Wrapper.Context ctx,
             ulong inputDataSize = DefaultInputSize,
             ulong outputDataSize = DefaultOutputSize,
             ulong functionDefinitionSize = DefaultHostFunctionDefinitionSize,
@@ -24,17 +25,18 @@ namespace Hyperlight.Core
             ulong guestErrorMessageSize = DefaultGuestErrorMessageSize
         )
         {
-            HyperlightException.ThrowIfNull(ctx, Sandbox.CorrelationId.Value!, GetType().Name);
+            Context.Value = new Context();
             var rawHandle = mem_config_new(
-                ctx.ctx,
+                Context.Value.ctx,
                 inputDataSize,
                 outputDataSize,
                 functionDefinitionSize,
                 hostExceptionSize,
                 guestErrorMessageSize
             );
-            this.ctxWrapper = ctx;
-            this.hdlWrapper = new Wrapper.Handle(ctx, rawHandle);
+
+            this.hdlWrapper = new Wrapper.Handle(Context.Value, rawHandle);
+            this.hdlWrapper.ThrowIfError();
         }
 
         public void Dispose()
@@ -52,7 +54,7 @@ namespace Hyperlight.Core
                     this.hdlWrapper.Dispose();
                 }
                 this.disposed = true;
-                HyperlightLogger.LogError("Disposed", Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightLogger.LogTrace("Disposed", Sandbox.CorrelationId.Value!, GetType().Name);
             }
         }
 
@@ -64,14 +66,14 @@ namespace Hyperlight.Core
             get
             {
                 return mem_config_get_guest_error_message_size(
-                    this.ctxWrapper.ctx,
+                    Context.Value!.ctx,
                     this.hdlWrapper.handle
                 );
             }
             set
             {
                 mem_config_set_guest_error_message_size(
-                    this.ctxWrapper.ctx,
+                    Context.Value!.ctx,
                     this.hdlWrapper.handle,
                     value
                 );
@@ -85,14 +87,14 @@ namespace Hyperlight.Core
             get
             {
                 return mem_config_get_host_function_definition_size(
-                    this.ctxWrapper.ctx,
+                    Context.Value!.ctx,
                     this.hdlWrapper.handle
                 );
             }
             set
             {
                 mem_config_set_host_function_definition_size(
-                    this.ctxWrapper.ctx,
+                    Context.Value!.ctx,
                     this.hdlWrapper.handle,
                     value
                 );
@@ -106,14 +108,14 @@ namespace Hyperlight.Core
             get
             {
                 return mem_config_get_host_exception_size(
-                    this.ctxWrapper.ctx,
+                    Context.Value!.ctx,
                     this.hdlWrapper.handle
                 );
             }
             set
             {
                 mem_config_set_host_exception_size(
-                    this.ctxWrapper.ctx,
+                    Context.Value!.ctx,
                     this.hdlWrapper.handle,
                     value
                 );
@@ -128,14 +130,14 @@ namespace Hyperlight.Core
             get
             {
                 return mem_config_get_input_data_size(
-                    this.ctxWrapper.ctx,
+                    Context.Value!.ctx,
                     this.hdlWrapper.handle
                 );
             }
             set
             {
                 mem_config_set_input_data_size(
-                    this.ctxWrapper.ctx,
+                   Context.Value!.ctx,
                     this.hdlWrapper.handle,
                     value
                 );
@@ -150,14 +152,14 @@ namespace Hyperlight.Core
             get
             {
                 return mem_config_get_output_data_size(
-                    this.ctxWrapper.ctx,
+                    Context.Value!.ctx,
                     this.hdlWrapper.handle
                 );
             }
             set
             {
                 mem_config_set_output_data_size(
-                    this.ctxWrapper.ctx,
+                   Context.Value!.ctx,
                     this.hdlWrapper.handle,
                     value
                 );

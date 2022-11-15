@@ -129,7 +129,7 @@ pub extern "C" fn is_hyperv_linux_present(require_stable_api: bool) -> bool {
 /// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn open_mshv(ctx: *mut Context, require_stable_api: bool) -> Handle {
@@ -152,7 +152,7 @@ pub unsafe extern "C" fn open_mshv(ctx: *mut Context, require_stable_api: bool) 
 /// 1. `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `open_mshv`
 ///
@@ -186,7 +186,7 @@ pub unsafe extern "C" fn create_vm(ctx: *mut Context, mshv_handle: Handle) -> Ha
 /// 1. `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `open_mshv`
 /// - Used to call `create_vm`
@@ -221,7 +221,7 @@ pub unsafe extern "C" fn create_vcpu(ctx: *mut Context, vmfd_handle: Handle) -> 
 /// 1. `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `open_mshv`
 /// - Used to call `create_vm`
@@ -272,7 +272,7 @@ pub unsafe extern "C" fn map_vm_memory_region(
 /// 1. `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `open_mshv`
 /// - Used to call `create_vm`
@@ -346,7 +346,7 @@ pub struct mshv_u128 {
 /// 1. `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `open_mshv`
 /// - Used to call `create_vm`
@@ -445,7 +445,7 @@ pub const HV_MESSAGE_TYPE_HVMSG_X64_HALT: hv_message_type = 2147549191;
 /// 1. `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `open_mshv`
 /// - Used to call `create_vm`
@@ -495,7 +495,7 @@ pub unsafe extern "C" fn run_vcpu(ctx: *mut Context, vcpufd_handle: Handle) -> H
 /// 1. `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `open_mshv`
 /// - Used to call `create_vm`

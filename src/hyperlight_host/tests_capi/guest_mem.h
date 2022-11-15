@@ -1,7 +1,8 @@
 #pragma once
 #include "munit/munit.h"
 
-MunitResult test_guest_mem_copy_byte_array();
+MunitResult test_guest_mem_copy_from_byte_array();
+MunitResult test_guest_mem_copy_to_byte_array();
 MunitResult test_guest_mem_create_delete();
 MunitResult test_guest_mem_read_write();
 
@@ -23,8 +24,16 @@ static MunitTest guest_memory_tests[] = {
         NULL                          /* parameters */
     },
     {
-        "/test_guest_mem_copy_byte_array", /* name */
-        test_guest_mem_copy_byte_array,    /* test */
+        "/test_guest_mem_copy_from_byte_array", /* name */
+        test_guest_mem_copy_from_byte_array,    /* test */
+        NULL,                              /* setup */
+        NULL,                              /* tear_down */
+        MUNIT_TEST_OPTION_NONE,            /* options */
+        NULL                               /* parameters */
+    },
+    {
+        "/test_guest_mem_copy_to_byte_array", /* name */
+        test_guest_mem_copy_to_byte_array,    /* test */
         NULL,                              /* setup */
         NULL,                              /* tear_down */
         MUNIT_TEST_OPTION_NONE,            /* options */

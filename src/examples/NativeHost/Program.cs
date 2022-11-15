@@ -3,7 +3,6 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Threading;
 using System.Threading.Tasks;
 using Hyperlight;
 using Hyperlight.Core;
@@ -13,16 +12,12 @@ namespace NativeHost
 {
     class Program
     {
-        private static readonly CancellationTokenSource cancellationTokenSource = new();
-        private static readonly BlockingCollection<string> OutputBuffer = new();
-
+        private static readonly BlockingCollection<string> outputBuffer = new();
         private static bool waitforuserinput = true;
         const int DEFAULT_NUMBER_OF_PARALLEL_INSTANCES = 100;
         const int DEFAULT_NUMBER_OF_ITERATIONS = 50;
         static void Main()
         {
-            using var ctx = new Hyperlight.Wrapper.Context();
-            var sandboxMemoryConfig = new SandboxMemoryConfiguration(ctx);
             foreach (var arg in Environment.GetCommandLineArgs())
             {
                 if (arg.ToLowerInvariant().Contains("nowait"))
@@ -45,10 +40,9 @@ namespace NativeHost
 
             Console.WriteLine();
 
-            var task = Task.Run(WriteToConsole);
+            var writeToConsoleTask = Task.Run(WriteToConsole);
 
-            var numberofparallelInstances = 1;
-            numberofparallelInstances = GetNumberOfParallelInstances();
+            var numberofparallelInstances = GetNumberOfParallelInstances();
 
             var numberofIterations = GetNumberOfIterations();
 
@@ -82,11 +76,11 @@ namespace NativeHost
                 Console.WriteLine($"Running guest binary {guestBinary} by loading exe into memory");
                 Console.WriteLine();
 
-                using (var sandbox = new Sandbox(
-                    sandboxMemoryConfig,
-                    guestBinaryPath,
-                    options
-                ))
+                SandboxBuilder builder = new SandboxBuilder()
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithRunOptions(options);
+
+                using (var sandbox = builder.Build())
                 {
                     var guestMethods = new ExposedMethods();
                     sandbox.BindGuestFunction("PrintOutput", guestMethods);
@@ -103,11 +97,11 @@ namespace NativeHost
                 Console.WriteLine($"Running guest binary {guestBinary} by loading exe into memory with host and guest method execution");
                 Console.WriteLine();
                 var exposedMethods = new ExposedMethods();
-                using (var sandbox = new Sandbox(
-                    sandboxMemoryConfig,
-                    guestBinaryPath,
-                    options
-                ))
+                builder = new SandboxBuilder()
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithRunOptions(options);
+
+                using (var sandbox = builder.Build())
                 {
                     sandbox.ExposeAndBindMembers(exposedMethods);
 
@@ -141,12 +135,12 @@ namespace NativeHost
                     Console.WriteLine();
                 };
 
-                using (var sandbox = new Sandbox(
-                    sandboxMemoryConfig,
-                    guestBinaryPath,
-                    options,
-                    func
-                ))
+                builder = new SandboxBuilder()
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithRunOptions(options)
+                    .WithInitFunction(func);
+
+                using (var sandbox = builder.Build())
                 {
                     var returnValue = exposedMethods.PrintOutput!("Hello World!!!!!");
                     Console.WriteLine();
@@ -169,7 +163,6 @@ namespace NativeHost
                     using (var writer = new StringWriter())
                     {
                         var sboxBuilder = new SandboxBuilder()
-                            .WithConfig(sandboxMemoryConfig)
                             .WithGuestBinaryPath(guestBinaryPath)
                             .WithRunOptions(options)
                             .WithWriter(writer);
@@ -178,8 +171,8 @@ namespace NativeHost
                             var guestMethods = new ExposedMethods();
                             sandbox.BindGuestFunction("PrintOutput", guestMethods);
                             var returnValue = guestMethods.PrintOutput!($"Hello World!! from Instance {i}");
-                            OutputBuffer.Add($"Instance {i}:{writer}");
-                            OutputBuffer.Add($"Instance {i}:Guest returned {returnValue}");
+                            outputBuffer.Add($"Instance {i}:{writer}");
+                            outputBuffer.Add($"Instance {i}:Guest returned {returnValue}");
                         }
                     }
                 });
@@ -202,23 +195,22 @@ namespace NativeHost
                 stopWatch = Stopwatch.StartNew();
                 Parallel.For(0, numberofparallelInstances, i =>
                 {
-                    OutputBuffer.Add($"Instance {i}:");
+                    outputBuffer.Add($"Instance {i}:");
                     using (var writer = new StringWriter())
                     {
-                        OutputBuffer.Add($"Created Writer Instance {i}:");
+                        outputBuffer.Add($"Created Writer Instance {i}:");
                         var exposedMethods = new ExposedMethods();
                         var sboxBuilder = new SandboxBuilder()
-                            .WithConfig(sandboxMemoryConfig)
                             .WithGuestBinaryPath(guestBinaryPath)
                             .WithRunOptions(options)
                             .WithWriter(writer);
                         using (var sandbox = sboxBuilder.Build())
                         {
                             sandbox.ExposeAndBindMembers(exposedMethods);
-                            OutputBuffer.Add($"Created Sandbox Instance {i}:");
+                            outputBuffer.Add($"Created Sandbox Instance {i}:");
                             var returnValue = sandbox.CallGuest<int>(() => { return exposedMethods.GuestMethod!($"Hello from Hyperlight Host: Instance{i}"); });
-                            OutputBuffer.Add($"Instance {i}:{writer}");
-                            OutputBuffer.Add($"Instance {i}:Guest returned {returnValue}");
+                            outputBuffer.Add($"Instance {i}:{writer}");
+                            outputBuffer.Add($"Instance {i}:Guest returned {returnValue}");
                         }
                     }
                 });
@@ -249,7 +241,6 @@ namespace NativeHost
                     using (var writer = new StringWriter())
                     {
                         var sboxBuilder = new SandboxBuilder()
-                            .WithConfig(sandboxMemoryConfig)
                             .WithGuestBinaryPath(guestBinaryPath)
                             .WithWriter(writer);
                         using (var sandbox = sboxBuilder.Build())
@@ -257,8 +248,8 @@ namespace NativeHost
                             var guestMethods = new ExposedMethods();
                             sandbox.BindGuestFunction("PrintOutput", guestMethods);
                             var returnValue = guestMethods.PrintOutput!($"Hello World from instance {i}!!!!!");
-                            OutputBuffer.Add($"Instance {i}:{writer}");
-                            OutputBuffer.Add($"Instance {i}:Guest returned {returnValue}");
+                            outputBuffer.Add($"Instance {i}:{writer}");
+                            outputBuffer.Add($"Instance {i}:Guest returned {returnValue}");
                         }
                     }
                 });
@@ -286,16 +277,15 @@ namespace NativeHost
                     {
                         var exposedMethods = new ExposedMethods();
                         var sboxBuilder = new SandboxBuilder()
-                            .WithConfig(sandboxMemoryConfig)
                             .WithGuestBinaryPath(guestBinaryPath)
                             .WithWriter(writer);
                         using (var sandbox = sboxBuilder.Build())
                         {
                             sandbox.ExposeAndBindMembers(exposedMethods);
-                            OutputBuffer.Add($"Created Sandbox Instance {i}:");
+                            outputBuffer.Add($"Created Sandbox Instance {i}:");
                             var returnValue = sandbox.CallGuest<int>(() => { return exposedMethods.GuestMethod!($"Hello Guest in Hypervisor from Hyperlight Host: Instance{i}"); });
-                            OutputBuffer.Add($"Instance {i}:{writer}");
-                            OutputBuffer.Add($"Instance {i}:Guest returned {returnValue}");
+                            outputBuffer.Add($"Instance {i}:{writer}");
+                            outputBuffer.Add($"Instance {i}:Guest returned {returnValue}");
                         }
                     }
                 });
@@ -331,20 +321,20 @@ namespace NativeHost
                         };
 
                         var builder = writer.GetStringBuilder();
-                        using (var hypervisorSandbox = new Sandbox(
-                            sandboxMemoryConfig,
-                            guestBinaryPath,
-                            options,
-                            func,
-                            writer
-                        ))
+                        var sandboxBuilder = new SandboxBuilder()
+                            .WithGuestBinaryPath(guestBinaryPath)
+                            .WithRunOptions(options)
+                            .WithInitFunction(func)
+                            .WithWriter(writer);
+
+                        using (var sandbox = sandboxBuilder.Build())
                         {
-                            OutputBuffer.Add($"Instance {p} Initialisation:{builder.ToString()}");
+                            outputBuffer.Add($"Instance {p} Initialisation:{builder.ToString()}");
                             builder.Remove(0, builder.Length);
                             for (var i = 0; i < numberofIterations; i++)
                             {
                                 var returnValue = exposedMethods.PrintOutput!("Hello World!!!!!");
-                                OutputBuffer.Add($"Instance {p} Iteration {i}:{builder.ToString()}");
+                                outputBuffer.Add($"Instance {p} Iteration {i}:{builder.ToString()}");
                                 builder.Remove(0, builder.Length);
                             }
                         }
@@ -372,7 +362,6 @@ namespace NativeHost
                     {
                         var exposedMethods = new ExposedMethods();
                         var sboxBuilder = new SandboxBuilder()
-                            .WithConfig(sandboxMemoryConfig)
                             .WithGuestBinaryPath(guestBinaryPath)
                             .WithRunOptions(options)
                             .WithWriter(writer);
@@ -383,9 +372,9 @@ namespace NativeHost
                             for (var i = 0; i < numberofIterations; i++)
                             {
                                 var returnValue = hypervisorSandbox.CallGuest<int>(() => { return exposedMethods.GuestMethod!($"Hello Guest in Hypervisor from Hyperlight Host: Instance{p} Iteration {i}"); });
-                                OutputBuffer.Add($"Instance {p} Iteration {i}:{builder.ToString()}");
+                                outputBuffer.Add($"Instance {p} Iteration {i}:{builder.ToString()}");
                                 builder.Remove(0, builder.Length);
-                                OutputBuffer.Add($"Instance {p} Iteration {i}:Guest returned {returnValue}");
+                                outputBuffer.Add($"Instance {p} Iteration {i}:Guest returned {returnValue}");
                             }
                         }
                     }
@@ -398,8 +387,10 @@ namespace NativeHost
                 Console.WriteLine($"Created and run {numberofparallelInstances} parallel instances with {numberofIterations} iterations in {elapsed.TotalSeconds:00}.{elapsed.Milliseconds:000}{elapsed.Ticks / 10 % 1000:000} seconds");
 
             }
+
+            outputBuffer.CompleteAdding();
+            writeToConsoleTask.Wait();
             Console.WriteLine("Done");
-            cancellationTokenSource.Cancel();
         }
 
         static void WaitForUserInput()
@@ -451,10 +442,12 @@ namespace NativeHost
 
         static void WriteToConsole()
         {
-            while (true)
+            while (!outputBuffer.IsCompleted)
             {
-                var message = OutputBuffer.Take(cancellationTokenSource.Token);
-                Console.WriteLine(message);
+                if (outputBuffer.TryTake(out var message, 100))
+                {
+                    Console.WriteLine(message);
+                }
             }
         }
     }

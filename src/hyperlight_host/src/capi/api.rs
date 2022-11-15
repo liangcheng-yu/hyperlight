@@ -64,7 +64,7 @@ pub unsafe extern "C" fn guest_binary_path(ctx: *mut Context, sbox_hdl: Handle) 
 /// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C
 /// API
 #[no_mangle]

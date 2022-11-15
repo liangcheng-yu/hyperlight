@@ -59,5 +59,12 @@ documentation = true
 # default: "auto"
 documentation_style = "doxy"
 
-
 no_includes = true
+
+# The following is commented out as there is an issue with cbindgen and generating headers for macro
+# generated functions.
+ 
+# [parse]
+# clean = true
+# [parse.expand]
+# crates = ["hyperlight_host"]

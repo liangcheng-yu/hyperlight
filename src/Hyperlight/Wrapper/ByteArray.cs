@@ -6,22 +6,21 @@ namespace Hyperlight.Wrapper
 {
     public class ByteArray : IDisposable
     {
-        private Context ctxWrapper;
+        private readonly Context ctxWrapper;
         public Handle handleWrapper { get; private set; }
         private bool disposed;
 
         public ByteArray(
-            Context ctxWrapper,
             byte[] arr
         )
         {
-            HyperlightException.ThrowIfNull(ctxWrapper, Sandbox.CorrelationId.Value!, GetType().Name);
+            HyperlightException.ThrowIfNull(Sandbox.Context.Value, Sandbox.CorrelationId.Value!, GetType().Name);
             HyperlightException.ThrowIfNull(arr, Sandbox.CorrelationId.Value!, GetType().Name);
 
-            this.ctxWrapper = ctxWrapper;
+            this.ctxWrapper = Sandbox.Context.Value;
             unsafe
             {
-                fixed (byte* arr_ptr = &arr[0])
+                fixed (byte* arr_ptr = arr)
                 {
                     var rawHdl = byte_array_new(
                         ctxWrapper.ctx,
@@ -29,6 +28,7 @@ namespace Hyperlight.Wrapper
                         (ulong)arr.Length
                     );
                     this.handleWrapper = new Handle(ctxWrapper, rawHdl);
+                    this.handleWrapper.ThrowIfError();
                 }
             }
 
@@ -58,7 +58,7 @@ namespace Hyperlight.Wrapper
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        unsafe private static extern NativeHandle byte_array_new(
+        private static extern unsafe NativeHandle byte_array_new(
             NativeContext ctx,
             byte* arr_ptr,
             ulong arr_len

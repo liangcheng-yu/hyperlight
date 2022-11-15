@@ -47,7 +47,7 @@ impl SandboxMemoryManager {
         let mut guest_mem = GuestMemory::new(layout.get_memory_size()?)?;
         let base_address = guest_mem.base_addr();
 
-        let host_code_offset = SandboxMemoryLayout::get_host_code_offset();
+        let host_code_offset = SandboxMemoryLayout::CODE_OFFSET;
         let host_code_address = base_address + host_code_offset;
         pe_info.relocate_payload(pe_payload, host_code_address)?;
 

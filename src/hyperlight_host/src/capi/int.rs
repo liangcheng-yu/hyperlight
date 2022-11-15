@@ -23,7 +23,7 @@ fn get_i32(ctx: &Context, hdl: Handle) -> ReadResult<i32> {
 /// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn int_64_new(ctx: *mut Context, val: i64) -> Handle {
@@ -38,7 +38,7 @@ pub unsafe extern "C" fn int_64_new(ctx: *mut Context, val: i64) -> Handle {
 /// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn handle_is_int_64(ctx: *const Context, hdl: Handle) -> bool {
@@ -59,7 +59,7 @@ pub unsafe extern "C" fn handle_is_int_64(ctx: *const Context, hdl: Handle) -> b
 /// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn int_32_new(ctx: *mut Context, val: i32) -> Handle {
@@ -74,7 +74,7 @@ pub unsafe extern "C" fn int_32_new(ctx: *mut Context, val: i32) -> Handle {
 /// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn handle_is_int_32(ctx: *const Context, hdl: Handle) -> bool {
@@ -92,7 +92,7 @@ pub unsafe extern "C" fn handle_is_int_32(ctx: *const Context, hdl: Handle) -> b
 /// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn handle_get_int_64(ctx: *const Context, hdl: Handle) -> i64 {
@@ -113,7 +113,7 @@ pub unsafe extern "C" fn handle_get_int_64(ctx: *const Context, hdl: Handle) -> 
 /// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn handle_get_int_32(ctx: *const Context, hdl: Handle) -> i32 {

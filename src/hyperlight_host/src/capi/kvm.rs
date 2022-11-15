@@ -75,7 +75,7 @@ pub extern "C" fn kvm_is_present() -> bool {
 /// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn kvm_open(ctx: *mut Context) -> Handle {
@@ -98,7 +98,7 @@ pub unsafe extern "C" fn kvm_open(ctx: *mut Context) -> Handle {
 /// 1. `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `kvm_open`
 ///
@@ -132,7 +132,7 @@ pub unsafe extern "C" fn kvm_create_vm(ctx: *mut Context, kvm_handle: Handle) ->
 /// 1. `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `kvm_open`
 /// - Used to call `kvm_create_vm`
@@ -166,7 +166,7 @@ pub unsafe extern "C" fn kvm_create_vcpu(ctx: *mut Context, vmfd_hdl: Handle) ->
 /// 1. `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `kvm_open`
 /// - Used to call `kvm_create_vm`
@@ -216,7 +216,7 @@ pub unsafe extern "C" fn kvm_map_vm_memory_region(
 /// 1. `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `kvm_open`
 /// - Used to call `kvm_create_vm`
@@ -267,7 +267,7 @@ pub unsafe extern "C" fn kvm_unmap_vm_memory_region(
 /// 1. `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `kvm_open`
 /// - Used to call `kvm_create_vm`
@@ -302,7 +302,7 @@ pub unsafe extern "C" fn kvm_get_registers(ctx: *mut Context, vcpufd_hdl: Handle
 /// 1. `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `kvm_open`
 /// - Used to call `kvm_create_vm`
@@ -343,7 +343,7 @@ pub unsafe extern "C" fn kvm_get_registers_from_handle(
 /// 1. `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `kvm_open`
 /// - Used to call `kvm_create_vm`
@@ -380,7 +380,7 @@ pub unsafe extern "C" fn kvm_get_sregisters(ctx: *mut Context, vcpufd_hdl: Handl
 /// 1. `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `kvm_open`
 /// - Used to call `kvm_create_vm`
@@ -417,7 +417,7 @@ pub unsafe extern "C" fn kvm_get_sregisters_from_handle(
 /// 1. `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `kvm_open`
 /// - Used to call `kvm_create_vm`
@@ -463,7 +463,7 @@ pub unsafe extern "C" fn kvm_set_registers(
 /// 1. `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `kvm_open`
 /// - Used to call `kvm_create_vm`
@@ -525,7 +525,7 @@ pub unsafe extern "C" fn kvm_set_sregisters(
 /// 1. A `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `kvm_open`
 /// - Used to call `kvm_create_vm`
@@ -563,7 +563,7 @@ pub unsafe extern "C" fn kvm_run_vcpu(ctx: *mut Context, vcpufd_hdl: Handle) -> 
 /// 1. `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free
+/// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 /// - Used to call `kvm_open`
 /// - Used to call `kvm_create_vm`
