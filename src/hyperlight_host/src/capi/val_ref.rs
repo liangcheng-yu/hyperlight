@@ -1,9 +1,10 @@
-use super::context::{Context, ReadResult};
+use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::func::args::Val;
 use crate::func::SerializationType;
 use anyhow::bail;
+use anyhow::Result;
 use std::boxed::Box;
 
 mod impls {
@@ -32,7 +33,7 @@ mod impls {
 
 /// Get a read-only reference to a value from `ctx` that is
 /// referenced by `val_hdl`.
-pub fn get_val(ctx: &Context, val_hdl: Handle) -> ReadResult<Val> {
+pub fn get_val(ctx: &Context, val_hdl: Handle) -> Result<&Val> {
     match Hdl::try_from(val_hdl) {
         Ok(Hdl::Val(_)) => {}
         _ => bail!("Handle is not a Val"),
@@ -121,7 +122,7 @@ pub unsafe extern "C" fn val_ref_get(ctx: *const Context, val_hdl: Handle) -> *m
 /// and no earlier than when this function returns.
 #[no_mangle]
 pub unsafe extern "C" fn val_ref_register(ctx: *mut Context, val: *const Val) -> Handle {
-    let ctx_ref = &*ctx;
+    let ctx_ref = &mut *ctx;
     let val_ref = &*val;
-    Context::register(val_ref.clone(), &ctx_ref.vals, Hdl::Val)
+    Context::register(val_ref.clone(), &mut ctx_ref.vals, Hdl::Val)
 }

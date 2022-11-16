@@ -1,6 +1,7 @@
-use super::context::{Context, ReadResult};
+use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
+use anyhow::Result;
 use std::ffi::{CStr, CString, NulError};
 use std::os::raw::c_char;
 use std::string::String;
@@ -68,7 +69,7 @@ pub unsafe extern "C" fn handle_get_string(ctx: *const Context, hdl: Handle) -> 
 
 /// Get a read-only reference to a string that is stored in `ctx`
 /// and pointed to by `handle`.
-pub fn get_string(ctx: &Context, handle: Handle) -> ReadResult<String> {
+pub fn get_string(ctx: &Context, handle: Handle) -> Result<&String> {
     Context::get(handle, &ctx.strings, |s| matches!(s, Hdl::String(_)))
 }
 

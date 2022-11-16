@@ -1,7 +1,7 @@
-use super::context::{Context, ReadResult};
+use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
-
+use anyhow::Result;
 use mshv_bindings::{
     hv_message_type, hv_register_assoc, hv_register_value, hv_u128, mshv_user_mem_region,
 };
@@ -134,7 +134,7 @@ pub extern "C" fn is_hyperv_linux_present(require_stable_api: bool) -> bool {
 #[no_mangle]
 pub unsafe extern "C" fn open_mshv(ctx: *mut Context, require_stable_api: bool) -> Handle {
     match impls::open_mshv(require_stable_api) {
-        Ok(mshv) => Context::register(mshv, &(*ctx).mshvs, Hdl::Mshv),
+        Ok(mshv) => Context::register(mshv, &mut (*ctx).mshvs, Hdl::Mshv),
         Err(e) => (*ctx).register_err(e),
     }
 }
@@ -167,8 +167,8 @@ pub unsafe extern "C" fn create_vm(ctx: *mut Context, mshv_handle: Handle) -> Ha
         Err(e) => return (*ctx).register_err(e),
     };
 
-    match impls::create_vm(&mshv) {
-        Ok(vmfd) => Context::register(vmfd, &(*ctx).vmfds, Hdl::VmFd),
+    match impls::create_vm(mshv) {
+        Ok(vmfd) => Context::register(vmfd, &mut (*ctx).vmfds, Hdl::VmFd),
         Err(e) => (*ctx).register_err(e),
     }
 }
@@ -202,8 +202,8 @@ pub unsafe extern "C" fn create_vcpu(ctx: *mut Context, vmfd_handle: Handle) -> 
         Err(e) => return (*ctx).register_err(e),
     };
 
-    match impls::create_vcpu(&vmfd) {
-        Ok(vcpu) => Context::register(vcpu, &(*ctx).vcpufds, Hdl::VcpuFd),
+    match impls::create_vcpu(vmfd) {
+        Ok(vcpu) => Context::register(vcpu, &mut (*ctx).vcpufds, Hdl::VcpuFd),
         Err(e) => (*ctx).register_err(e),
     }
 }
@@ -249,10 +249,10 @@ pub unsafe extern "C" fn map_vm_memory_region(
         Err(e) => return (*ctx).register_err(e),
     };
 
-    match impls::map_vm_memory_region(&vmfd, guest_pfn, load_address, size) {
+    match impls::map_vm_memory_region(vmfd, guest_pfn, load_address, size) {
         Ok(user_mem_region) => Context::register(
             user_mem_region,
-            &(*ctx).mshv_user_mem_regions,
+            &mut (*ctx).mshv_user_mem_regions,
             Hdl::MshvUserMemRegion,
         ),
         Err(e) => (*ctx).register_err(e),
@@ -304,7 +304,7 @@ pub unsafe extern "C" fn unmap_vm_memory_region(
             Err(e) => return (*ctx).register_err(e),
         };
 
-    match impls::unmap_vm_memory_region(&vmfd, &user_memory_region) {
+    match impls::unmap_vm_memory_region(vmfd, user_memory_region) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
@@ -403,7 +403,7 @@ pub unsafe extern "C" fn set_registers(
         regs.push(hv_reg);
     }
 
-    match impls::set_registers(&vcpufd, &regs) {
+    match impls::set_registers(vcpufd, &regs) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
@@ -465,7 +465,7 @@ pub unsafe extern "C" fn run_vcpu(ctx: *mut Context, vcpufd_handle: Handle) -> H
         Err(e) => return (*ctx).register_err(e),
     };
 
-    match impls::run_vcpu(&vcpufd) {
+    match impls::run_vcpu(vcpufd) {
         Ok(run_result) => {
             let mut result = mshv_run_message {
                 message_type: run_result.header.message_type,
@@ -478,7 +478,7 @@ pub unsafe extern "C" fn run_vcpu(ctx: *mut Context, vcpufd_handle: Handle) -> H
                 result.rip = io_message.header.rip;
                 result.instruction_length = io_message.header.instruction_length() as u32;
             };
-            Context::register(result, &(*ctx).mshv_run_messages, Hdl::MshvRunMessage)
+            Context::register(result, &mut (*ctx).mshv_run_messages, Hdl::MshvRunMessage)
         }
         Err(e) => (*ctx).register_err(e),
     }
@@ -536,25 +536,25 @@ pub unsafe extern "C" fn get_run_result_from_handle(
 #[no_mangle]
 pub extern "C" fn free_run_result(_: Option<Box<mshv_run_message>>) {}
 
-fn get_mshv(ctx: &mut Context, handle: Handle) -> ReadResult<Mshv> {
+fn get_mshv(ctx: &mut Context, handle: Handle) -> Result<&Mshv> {
     Context::get(handle, &ctx.mshvs, |b| matches!(b, Hdl::Mshv(_)))
 }
 
-fn get_vmfd(ctx: &mut Context, handle: Handle) -> ReadResult<VmFd> {
+fn get_vmfd(ctx: &mut Context, handle: Handle) -> Result<&VmFd> {
     Context::get(handle, &ctx.vmfds, |b| matches!(b, Hdl::VmFd(_)))
 }
 
-fn get_vcpufd(ctx: &mut Context, handle: Handle) -> ReadResult<VcpuFd> {
+fn get_vcpufd(ctx: &mut Context, handle: Handle) -> Result<&VcpuFd> {
     Context::get(handle, &ctx.vcpufds, |b| matches!(b, Hdl::VcpuFd(_)))
 }
 
-fn get_mshv_user_mem_region(ctx: &mut Context, handle: Handle) -> ReadResult<mshv_user_mem_region> {
+fn get_mshv_user_mem_region(ctx: &mut Context, handle: Handle) -> Result<&mshv_user_mem_region> {
     Context::get(handle, &ctx.mshv_user_mem_regions, |b| {
         matches!(b, Hdl::MshvUserMemRegion(_))
     })
 }
 
-fn get_mshv_run_message(ctx: &mut Context, handle: Handle) -> ReadResult<mshv_run_message> {
+fn get_mshv_run_message(ctx: &mut Context, handle: Handle) -> Result<&mshv_run_message> {
     Context::get(handle, &ctx.mshv_run_messages, |b| {
         matches!(b, Hdl::MshvRunMessage(_))
     })

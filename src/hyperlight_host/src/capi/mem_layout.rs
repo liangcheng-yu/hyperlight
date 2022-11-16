@@ -49,14 +49,14 @@ mod impls {
     }
 
     pub fn write_memory_layout(
-        ctx: &Context,
+        ctx: &mut Context,
         mem_layout_ref: Handle,
         guest_mem_ref: Handle,
         guest_offset: usize,
         size: usize,
     ) -> Result<()> {
         let layout = get_mem_layout(ctx, mem_layout_ref)?;
-        let mut guest_mem = get_guest_memory_mut(ctx, guest_mem_ref)?;
+        let guest_mem = get_guest_memory_mut(ctx, guest_mem_ref)?;
         layout.write(&mut (*guest_mem), guest_offset, size)
     }
 
@@ -87,7 +87,7 @@ pub unsafe extern "C" fn mem_layout_new(
     heap_size: usize,
 ) -> Handle {
     match impls::new(&mut *ctx, mem_cfg_ref, code_size, stack_size, heap_size) {
-        Ok(layout) => Context::register(layout, &(*ctx).mem_layouts, Hdl::MemLayout),
+        Ok(layout) => Context::register(layout, &mut (*ctx).mem_layouts, Hdl::MemLayout),
         Err(e) => (*ctx).register_err(e),
     }
 }
@@ -323,7 +323,13 @@ pub unsafe extern "C" fn mem_layout_write_memory_layout(
     guest_address: usize,
     size: usize,
 ) -> Handle {
-    match impls::write_memory_layout(&*ctx, mem_layout_ref, guest_mem_ref, guest_address, size) {
+    match impls::write_memory_layout(
+        &mut *ctx,
+        mem_layout_ref,
+        guest_mem_ref,
+        guest_address,
+        size,
+    ) {
         Ok(_) => Handle::from(Hdl::Empty()),
         Err(e) => (*ctx).register_err(e),
     }

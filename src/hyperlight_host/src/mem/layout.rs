@@ -512,7 +512,7 @@ impl SandboxMemoryLayout {
         let mut security_cookie_seed = [0u8; 8];
         OsRng.fill_bytes(&mut security_cookie_seed);
 
-        guest_mem.copy_into(
+        guest_mem.copy_from_slice(
             &security_cookie_seed,
             self.guest_security_cookie_seed_offset,
         )?;

@@ -77,7 +77,7 @@ pub unsafe extern "C" fn host_func_create(
     };
 
     let hf = HostFunc::new(Box::new(closure));
-    Context::register(hf, &(*ctx).host_funcs, Hdl::HostFunc)
+    Context::register(hf, &mut (*ctx).host_funcs, Hdl::HostFunc)
 }
 
 #[cfg(test)]

@@ -2,6 +2,7 @@
 alias build-rust-debug := build-rust
 set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 
+default-target:= "debug"
 
 init:
     git submodule update --init --recursive
@@ -35,11 +36,11 @@ test-dotnet-nativehost:
 
 test-dotnet: test-dotnet-hl test-dotnet-nativehost
 
-test-capi:
-    cd src/hyperlight_host && just run-tests-capi || cd ../../
+test-capi target=default-target:
+    cd src/hyperlight_host && just run-tests-capi {{ target }} || cd ../../
 
-valgrind-capi:
-    cd src/hyperlight_host && just valgrind-tests-capi || cd ../../
+valgrind-capi target=default-target:
+    cd src/hyperlight_host && just valgrind-tests-capi {{ target }} || cd ../../
 
 test: test-rust test-dotnet valgrind-capi test-capi
 

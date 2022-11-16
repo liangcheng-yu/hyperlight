@@ -128,79 +128,92 @@ MunitResult test_guest_mem_copy_from_byte_array()
     Context *ctx = context_new();
     Handle ref = guest_memory_new(ctx, GUEST_MEM_SIZE);
     {
+        // create a very small byte array, which we'll
+        // use as a target into which to copy portions
+        // of the guest memory
         const int len = 1;
-
-        // copy a very small byte array to the very beginning
-        // of guest memory
         uint8_t *mem = create_u8_mem(len, true);
         Handle barr_ref = byte_array_new(ctx, mem, len);
-        Handle copy_ref_start = guest_memory_copy_from_byte_array(
-            ctx,
-            ref,
-            barr_ref,
-            0,
-            0,
-            len);
-        handle_assert_no_error(ctx, copy_ref_start);
-        handle_free(ctx, copy_ref_start);
 
-        // copy the same small byte array to the very end of
-        // guest memory
-        Handle copy_ref_end = guest_memory_copy_from_byte_array(
-            ctx,
-            ref,
-            barr_ref,
-            GUEST_MEM_SIZE - 2,
-            0,
-            len);
-        handle_assert_no_error(ctx, copy_ref_end);
-        handle_free(ctx, copy_ref_end);
+        {
+            // just create new guest memory and immediately free it
+            Handle copy_ref_start = guest_memory_copy_from_byte_array(
+                ctx,
+                ref,
+                barr_ref,
+                0,
+                0,
+                len);
+            handle_assert_no_error(ctx, copy_ref_start);
+            handle_free(ctx, copy_ref_start);
+        }
+        {
+            // copy the same small byte array to the very end of
+            // guest memory
+            Handle copy_ref_end = guest_memory_copy_from_byte_array(
+                ctx,
+                ref,
+                barr_ref,
+                GUEST_MEM_SIZE - 2,
+                0,
+                len);
+            handle_assert_no_error(ctx, copy_ref_end);
+            handle_free(ctx, copy_ref_end);
+        }
+        {
+            // copy the same small byte array to an invalid address.
+            Handle copy_ref_invalid_addr = guest_memory_copy_from_byte_array(
+                ctx,
+                ref,
+                barr_ref,
+                GUEST_MEM_SIZE + 2,
+                0,
+                1);
+            handle_assert_error(ctx, copy_ref_invalid_addr);
+            handle_free(ctx, copy_ref_invalid_addr);
+        }
+        {
 
-        // copy the same small byte array to an invalid address.
-        Handle copy_ref_invalid_addr = guest_memory_copy_from_byte_array(
-            ctx,
-            ref,
-            barr_ref,
-            GUEST_MEM_SIZE + 2,
-            0,
-            1);
-        handle_assert_error(ctx, copy_ref_invalid_addr);
-        handle_free(ctx, copy_ref_invalid_addr);
+            // copy the same small byte array to an address starting at the
+            // end of the memory.
+            Handle copy_ref_invalid_addr = guest_memory_copy_from_byte_array(
+                ctx,
+                ref,
+                barr_ref,
+                GUEST_MEM_SIZE,
+                0,
+                1);
+            handle_assert_error(ctx, copy_ref_invalid_addr);
+            handle_free(ctx, copy_ref_invalid_addr);
+        }
+        {
 
-        // copy the same small byte array to an address starting at the end of the memory.
-        copy_ref_invalid_addr = guest_memory_copy_from_byte_array(
-            ctx,
-            ref,
-            barr_ref,
-            GUEST_MEM_SIZE,
-            0,
-            1);
-        handle_assert_error(ctx, copy_ref_invalid_addr);
-        handle_free(ctx, copy_ref_invalid_addr);
+            // copy too much of the small byte array
+            Handle copy_ref_arr_too_long = guest_memory_copy_from_byte_array(
+                ctx,
+                ref,
+                barr_ref,
+                5,
+                0,
+                len * 10);
+            handle_assert_error(ctx, copy_ref_arr_too_long);
+            handle_free(ctx, copy_ref_arr_too_long);
+        }
+        {
+            // copy the small byte array starting at an invalid
+            // array index
+            Handle copy_ref_arr_invalid_idx = guest_memory_copy_from_byte_array(
+                ctx,
+                ref,
+                barr_ref,
+                10,
+                len * 10,
+                1);
+            handle_assert_error(ctx, copy_ref_arr_invalid_idx);
+            handle_free(ctx, copy_ref_arr_invalid_idx);
+        }
 
-        // copy too much of the small byte array
-        Handle copy_ref_arr_too_long = guest_memory_copy_from_byte_array(
-            ctx,
-            ref,
-            barr_ref,
-            5,
-            0,
-            len * 10);
-        handle_assert_error(ctx, copy_ref_arr_too_long);
-        handle_free(ctx, copy_ref_arr_too_long);
-
-        // copy the small byte array starting at an invalid
-        // array index
-        Handle copy_ref_arr_invalid_idx = guest_memory_copy_from_byte_array(
-            ctx,
-            ref,
-            barr_ref,
-            10,
-            len * 10,
-            1);
-        handle_assert_error(ctx, copy_ref_arr_invalid_idx);
-        handle_free(ctx, copy_ref_arr_invalid_idx);
-
+        // clean up
         handle_free(ctx, barr_ref);
         free(mem);
     }
@@ -213,10 +226,10 @@ MunitResult test_guest_mem_copy_to_byte_array()
 {
     Context *ctx = context_new();
     Handle ref = guest_memory_new(ctx, GUEST_MEM_SIZE);
-    
+
     // Test copying a small byte array from the start of the memory.
 
-    const char* mem ="0123456789abcdefghijklmnopqrstuvwxyz";
+    const char *mem = "0123456789abcdefghijklmnopqrstuvwxyz";
     size_t len = strlen(mem);
     Handle barr_ref = byte_array_new(ctx, (const uint8_t *)mem, len);
     Handle copy_handle = guest_memory_copy_from_byte_array(
@@ -229,7 +242,7 @@ MunitResult test_guest_mem_copy_to_byte_array()
     handle_assert_no_error(ctx, copy_handle);
     handle_free(ctx, copy_handle);
     handle_free(ctx, barr_ref);
-  
+
     uint8_t *buffer = (uint8_t *)malloc(len);
     copy_handle = guest_memory_copy_to_byte_array(
         ctx,
@@ -238,7 +251,7 @@ MunitResult test_guest_mem_copy_to_byte_array()
         buffer,
         len);
     handle_assert_no_error(ctx, copy_handle);
-    munit_assert_memory_equal(len,buffer, mem);
+    munit_assert_memory_equal(len, buffer, mem);
     handle_free(ctx, copy_handle);
 
     // Test length parameter = 0 causes an error.
@@ -275,13 +288,13 @@ MunitResult test_guest_mem_copy_to_byte_array()
         buffer,
         len2);
     handle_assert_no_error(ctx, copy_handle);
-    munit_assert_memory_equal(len2,buffer, mem);
+    munit_assert_memory_equal(len2, buffer, mem);
     handle_free(ctx, copy_handle);
     free(buffer);
 
     // Test copying a small byte array from the end of the memory.
 
-    const char* mem2 ="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const char *mem2 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     uintptr_t offset = GUEST_MEM_SIZE - len;
     barr_ref = byte_array_new(ctx, (const uint8_t *)mem2, len);
     copy_handle = guest_memory_copy_from_byte_array(
@@ -294,7 +307,7 @@ MunitResult test_guest_mem_copy_to_byte_array()
     handle_assert_no_error(ctx, copy_handle);
     handle_free(ctx, copy_handle);
     handle_free(ctx, barr_ref);
-  
+
     buffer = (uint8_t *)malloc(len);
     copy_handle = guest_memory_copy_to_byte_array(
         ctx,
@@ -303,15 +316,15 @@ MunitResult test_guest_mem_copy_to_byte_array()
         buffer,
         len);
     handle_assert_no_error(ctx, copy_handle);
-    munit_assert_memory_equal(len,buffer, mem2);
+    munit_assert_memory_equal(len, buffer, mem2);
     handle_free(ctx, copy_handle);
-   
+
     // Test copying from beyond the end of the memory.
 
     copy_handle = guest_memory_copy_to_byte_array(
         ctx,
         ref,
-        offset+1,
+        offset + 1,
         buffer,
         len);
     handle_assert_error(ctx, copy_handle);
@@ -322,7 +335,7 @@ MunitResult test_guest_mem_copy_to_byte_array()
         ref,
         offset,
         buffer,
-        len+1);
+        len + 1);
     handle_assert_error(ctx, copy_handle);
     handle_free(ctx, copy_handle);
 

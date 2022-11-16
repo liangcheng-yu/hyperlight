@@ -2,21 +2,13 @@ use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::strings::{to_c_string, to_string, RawCString};
-use anyhow::Error;
+use anyhow::{Error, Result};
 
-mod impls {
-    use crate::capi::context::{Context, ReadResult};
-    use crate::capi::handle::Handle;
-    use crate::capi::hdl::Hdl;
-    use anyhow::Error;
-    /// Get the `anyhow::Error` stored in `ctx` referenced by `hdl`, if
-    /// one exists. If it does not, return `Err`.
-    pub fn get_err(ctx: &Context, hdl: Handle) -> ReadResult<Error> {
-        Context::get(hdl, &ctx.errs, |h| matches!(h, Hdl::Err(_)))
-    }
+/// Get the `anyhow::Error` stored in `ctx` referenced by `hdl`, if
+/// one exists. If it does not, return `Err`.
+pub fn get_err(ctx: &Context, hdl: Handle) -> Result<&Error> {
+    Context::get(hdl, &ctx.errs, |h| matches!(h, Hdl::Err(_)))
 }
-
-pub use impls::get_err;
 
 /// Create a new `Handle` that references an error with the given message.
 ///

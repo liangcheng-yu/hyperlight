@@ -1,11 +1,12 @@
-use super::context::{Context, ReadResult, WriteResult};
+use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::mem::config::SandboxMemoryConfiguration;
+use anyhow::Result;
 
 /// Get a read-only reference to a `SandboxMemoryConfiguration` within
 /// `ctx` that is referenced by `handle`.
-pub fn get_mem_config(ctx: &Context, handle: Handle) -> ReadResult<SandboxMemoryConfiguration> {
+pub fn get_mem_config(ctx: &Context, handle: Handle) -> Result<&SandboxMemoryConfiguration> {
     Context::get(handle, &ctx.mem_configs, |m| matches!(m, Hdl::MemConfig(_)))
 }
 
@@ -13,10 +14,12 @@ pub fn get_mem_config(ctx: &Context, handle: Handle) -> ReadResult<SandboxMemory
 /// which makes it suitable for overwriting in a concurrency-safe
 /// manner.
 pub fn get_mem_config_mut(
-    ctx: &Context,
+    ctx: &mut Context,
     handle: Handle,
-) -> WriteResult<SandboxMemoryConfiguration> {
-    Context::get_mut(handle, &ctx.mem_configs, |m| matches!(m, Hdl::MemConfig(_)))
+) -> Result<&mut SandboxMemoryConfiguration> {
+    Context::get_mut(handle, &mut ctx.mem_configs, |m| {
+        matches!(m, Hdl::MemConfig(_))
+    })
 }
 
 /// Create a new sandbox memory configuration within `ctx`
@@ -43,7 +46,7 @@ pub unsafe extern "C" fn mem_config_new(
         guest_error_message_size,
     );
 
-    Context::register(config, &(*ctx).mem_configs, Hdl::MemConfig)
+    Context::register(config, &mut (*ctx).mem_configs, Hdl::MemConfig)
 }
 
 /// Get the guest error message size from the memory configuration
@@ -77,11 +80,11 @@ pub unsafe extern "C" fn mem_config_get_guest_error_message_size(
 /// or deleted at any time while this function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn mem_config_set_guest_error_message_size(
-    ctx: *const Context,
+    ctx: *mut Context,
     hdl: Handle,
     val: usize,
 ) -> usize {
-    match get_mem_config_mut(&*ctx, hdl) {
+    match get_mem_config_mut(&mut *ctx, hdl) {
         Ok(mut c) => {
             let old = c.guest_error_message_size;
             c.guest_error_message_size = val;
@@ -122,11 +125,11 @@ pub unsafe extern "C" fn mem_config_get_host_function_definition_size(
 /// or deleted at any time while this function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn mem_config_set_host_function_definition_size(
-    ctx: *const Context,
+    ctx: *mut Context,
     hdl: Handle,
     val: usize,
 ) -> usize {
-    match get_mem_config_mut(&*ctx, hdl) {
+    match get_mem_config_mut(&mut *ctx, hdl) {
         Ok(mut c) => {
             let old = c.host_function_definition_size;
             c.host_function_definition_size = val;
@@ -167,11 +170,11 @@ pub unsafe extern "C" fn mem_config_get_host_exception_size(
 /// or deleted at any time while this function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn mem_config_set_host_exception_size(
-    ctx: *const Context,
+    ctx: *mut Context,
     hdl: Handle,
     val: usize,
 ) -> usize {
-    match get_mem_config_mut(&*ctx, hdl) {
+    match get_mem_config_mut(&mut *ctx, hdl) {
         Ok(mut c) => {
             let old = c.host_exception_size;
             c.host_exception_size = val;
@@ -209,11 +212,11 @@ pub unsafe extern "C" fn mem_config_get_input_data_size(ctx: *const Context, hdl
 /// or deleted at any time while this function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn mem_config_set_input_data_size(
-    ctx: *const Context,
+    ctx: *mut Context,
     hdl: Handle,
     val: usize,
 ) -> usize {
-    match get_mem_config_mut(&*ctx, hdl) {
+    match get_mem_config_mut(&mut *ctx, hdl) {
         Ok(mut c) => {
             let old = c.input_data_size;
             c.input_data_size = val;
@@ -254,11 +257,11 @@ pub unsafe extern "C" fn mem_config_get_output_data_size(
 /// or deleted at any time while this function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn mem_config_set_output_data_size(
-    ctx: *const Context,
+    ctx: *mut Context,
     hdl: Handle,
     val: usize,
 ) -> usize {
-    match get_mem_config_mut(&*ctx, hdl) {
+    match get_mem_config_mut(&mut *ctx, hdl) {
         Ok(mut c) => {
             let old = c.output_data_size;
             c.output_data_size = val;

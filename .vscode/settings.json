@@ -9,6 +9,7 @@
         "munit.h": "c",
         "functional": "c",
         "hyperv_linux.h": "c",
-        "stdint.h": "c"
+        "stdint.h": "c",
+        "guest_mem.h": "c"
     }
 }

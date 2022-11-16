@@ -218,7 +218,7 @@ mod tests {
         let vm = super::create_vm(&kvm)?;
         let vcpu = super::create_vcpu(&vm)?;
         let mut mem = GuestMemory::new(SIZE).unwrap();
-        mem.copy_into(&CODE, 0).unwrap();
+        mem.copy_from_slice(&CODE, 0).unwrap();
         Ok((kvm, vm, vcpu, mem))
     }
 

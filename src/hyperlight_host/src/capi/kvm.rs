@@ -1,41 +1,42 @@
-use super::context::{Context, ReadResult, WriteResult};
+use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::hypervisor::kvm;
 use crate::hypervisor::kvm_mem::{map_vm_memory_region_raw, unmap_vm_memory_region_raw};
 use crate::hypervisor::kvm_regs::{CSRegs, Regs, SRegs};
+use anyhow::Result;
 use kvm_bindings::kvm_userspace_memory_region;
 use kvm_ioctls::{Kvm, VcpuFd, VmFd};
 use std::os::raw::c_void;
 
-fn get_kvm(ctx: &Context, handle: Handle) -> ReadResult<Kvm> {
+fn get_kvm(ctx: &Context, handle: Handle) -> Result<&Kvm> {
     Context::get(handle, &ctx.kvms, |b| matches!(b, Hdl::Kvm(_)))
 }
 
-fn get_vmfd(ctx: &Context, handle: Handle) -> ReadResult<VmFd> {
+fn get_vmfd(ctx: &Context, handle: Handle) -> Result<&VmFd> {
     Context::get(handle, &ctx.kvm_vmfds, |b| matches!(b, Hdl::KvmVmFd(_)))
 }
 
-fn get_vcpufd(ctx: &Context, handle: Handle) -> ReadResult<VcpuFd> {
+fn get_vcpufd(ctx: &Context, handle: Handle) -> Result<&VcpuFd> {
     Context::get(handle, &ctx.kvm_vcpufds, |b| matches!(b, Hdl::KvmVcpuFd(_)))
 }
 
 fn get_user_mem_region_mut(
-    ctx: &Context,
+    ctx: &mut Context,
     handle: Handle,
-) -> WriteResult<kvm_userspace_memory_region> {
-    Context::get_mut(handle, &ctx.kvm_user_mem_regions, |b| {
+) -> Result<&mut kvm_userspace_memory_region> {
+    Context::get_mut(handle, &mut ctx.kvm_user_mem_regions, |b| {
         matches!(b, Hdl::KvmUserMemRegion(_))
     })
 }
 
-fn get_kvm_run_message(ctx: &Context, handle: Handle) -> ReadResult<kvm::KvmRunMessage> {
+fn get_kvm_run_message(ctx: &Context, handle: Handle) -> Result<&kvm::KvmRunMessage> {
     Context::get(handle, &ctx.kvm_run_messages, |b| {
         matches!(b, Hdl::KvmRunMessage(_))
     })
 }
 
-fn get_sregisters_from_handle(ctx: &Context, handle: Handle) -> ReadResult<SRegs> {
+fn get_sregisters_from_handle(ctx: &Context, handle: Handle) -> Result<&SRegs> {
     Context::get(handle, &((*ctx).kvm_sregs), |h| {
         matches!(h, Hdl::KvmSRegisters(_))
     })
@@ -80,7 +81,7 @@ pub extern "C" fn kvm_is_present() -> bool {
 #[no_mangle]
 pub unsafe extern "C" fn kvm_open(ctx: *mut Context) -> Handle {
     match kvm::open() {
-        Ok(k) => Context::register(k, &(*ctx).kvms, Hdl::Kvm),
+        Ok(k) => Context::register(k, &mut (*ctx).kvms, Hdl::Kvm),
         Err(e) => (*ctx).register_err(e),
     }
 }
@@ -112,8 +113,8 @@ pub unsafe extern "C" fn kvm_create_vm(ctx: *mut Context, kvm_handle: Handle) ->
         Ok(kvm) => kvm,
         Err(e) => return (*ctx).register_err(e),
     };
-    match kvm::create_vm(&*kvm) {
-        Ok(vm_fd) => Context::register(vm_fd, &(*ctx).kvm_vmfds, Hdl::KvmVmFd),
+    match kvm::create_vm(kvm) {
+        Ok(vm_fd) => Context::register(vm_fd, &mut (*ctx).kvm_vmfds, Hdl::KvmVmFd),
         Err(e) => (*ctx).register_err(e),
     }
 }
@@ -147,8 +148,8 @@ pub unsafe extern "C" fn kvm_create_vcpu(ctx: *mut Context, vmfd_hdl: Handle) ->
         Ok(vmfd) => vmfd,
         Err(e) => return (*ctx).register_err(e),
     };
-    match kvm::create_vcpu(&vmfd) {
-        Ok(res) => Context::register(res, &(*ctx).kvm_vcpufds, Hdl::KvmVcpuFd),
+    match kvm::create_vcpu(vmfd) {
+        Ok(res) => Context::register(res, &mut (*ctx).kvm_vcpufds, Hdl::KvmVcpuFd),
         Err(e) => (*ctx).register_err(e),
     }
 }
@@ -193,10 +194,10 @@ pub unsafe extern "C" fn kvm_map_vm_memory_region(
         Ok(r) => r,
         Err(e) => return (*ctx).register_err(e),
     };
-    match map_vm_memory_region_raw(&vmfd, guest_phys_addr, userspace_addr, mem_size) {
+    match map_vm_memory_region_raw(vmfd, guest_phys_addr, userspace_addr, mem_size) {
         Ok(mem_region) => Context::register(
             mem_region,
-            &(*ctx).kvm_user_mem_regions,
+            &mut (*ctx).kvm_user_mem_regions,
             Hdl::KvmUserMemRegion,
         ),
         Err(e) => (*ctx).register_err(e),
@@ -240,11 +241,11 @@ pub unsafe extern "C" fn kvm_unmap_vm_memory_region(
         Ok(r) => r,
         Err(e) => return (*ctx).register_err(e),
     };
-    let mut mem_region = match get_user_mem_region_mut(&*ctx, user_mem_region_hdl) {
+    let mem_region = match get_user_mem_region_mut(&mut *ctx, user_mem_region_hdl) {
         Ok(r) => r,
         Err(e) => return (*ctx).register_err(e),
     };
-    match unmap_vm_memory_region_raw(&*vmfd, &mut *mem_region) {
+    match unmap_vm_memory_region_raw(vmfd, &mut *mem_region) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
@@ -285,8 +286,8 @@ pub unsafe extern "C" fn kvm_get_registers(ctx: *mut Context, vcpufd_hdl: Handle
         Ok(r) => r,
         Err(e) => return (*ctx).register_err(e),
     };
-    match kvm::get_registers(&*vcpufd) {
-        Ok(regs) => Context::register(regs, &(*ctx).kvm_regs, Hdl::KvmRegisters),
+    match kvm::get_registers(vcpufd) {
+        Ok(regs) => Context::register(regs, &mut (*ctx).kvm_regs, Hdl::KvmRegisters),
         Err(e) => (*ctx).register_err(e),
     }
 }
@@ -360,8 +361,8 @@ pub unsafe extern "C" fn kvm_get_sregisters(ctx: *mut Context, vcpufd_hdl: Handl
         Ok(r) => r,
         Err(e) => return (*ctx).register_err(e),
     };
-    match kvm::get_sregisters(&*vcpufd) {
-        Ok(regs) => Context::register(regs, &(*ctx).kvm_sregs, Hdl::KvmSRegisters),
+    match kvm::get_sregisters(vcpufd) {
+        Ok(regs) => Context::register(regs, &mut (*ctx).kvm_sregs, Hdl::KvmSRegisters),
         Err(e) => (*ctx).register_err(e),
     }
 }
@@ -397,7 +398,7 @@ pub unsafe extern "C" fn kvm_get_sregisters_from_handle(
     sregs_hdl: Handle,
 ) -> *mut CSRegs {
     match get_sregisters_from_handle(&*ctx, sregs_hdl) {
-        Ok(r) => Box::into_raw(Box::new(CSRegs::from(&*r))),
+        Ok(r) => Box::into_raw(Box::new(CSRegs::from(r))),
         Err(_) => std::ptr::null_mut(),
     }
 }
@@ -442,7 +443,7 @@ pub unsafe extern "C" fn kvm_set_registers(
         Err(e) => return (*ctx).register_err(e),
     };
     // TODO: create a RegisterArray similar to ByteArray here?
-    match kvm::set_registers(&*vcpu_fd, &regs) {
+    match kvm::set_registers(vcpu_fd, &regs) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
@@ -503,7 +504,7 @@ pub unsafe extern "C" fn kvm_set_sregisters(
     sregs.cr4 = csregs.cr4;
     sregs.efer = csregs.efer;
 
-    match kvm::set_sregisters(&*vcpu_fd, &sregs) {
+    match kvm::set_sregisters(vcpu_fd, &sregs) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
@@ -542,9 +543,9 @@ pub unsafe extern "C" fn kvm_run_vcpu(ctx: *mut Context, vcpufd_hdl: Handle) -> 
         Ok(r) => r,
         Err(e) => return (*ctx).register_err(e),
     };
-    match kvm::run_vcpu(&*vcpu_fd) {
+    match kvm::run_vcpu(vcpu_fd) {
         Ok(run_result) => {
-            Context::register(run_result, &(*ctx).kvm_run_messages, Hdl::KvmRunMessage)
+            Context::register(run_result, &mut (*ctx).kvm_run_messages, Hdl::KvmRunMessage)
         }
         Err(e) => (*ctx).register_err(e),
     }

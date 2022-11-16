@@ -1,12 +1,13 @@
-use super::context::{Context, ReadResult};
+use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
+use anyhow::Result;
 
-fn get_i64(ctx: &Context, hdl: Handle) -> ReadResult<i64> {
+fn get_i64(ctx: &Context, hdl: Handle) -> Result<&i64> {
     Context::get(hdl, &ctx.int64s, |h| matches!(h, Hdl::Int64(_)))
 }
 
-fn get_i32(ctx: &Context, hdl: Handle) -> ReadResult<i32> {
+fn get_i32(ctx: &Context, hdl: Handle) -> Result<&i32> {
     Context::get(hdl, &ctx.int32s, |h| matches!(h, Hdl::Int32(_)))
 }
 
@@ -27,7 +28,7 @@ fn get_i32(ctx: &Context, hdl: Handle) -> ReadResult<i32> {
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn int_64_new(ctx: *mut Context, val: i64) -> Handle {
-    Context::register(val, &(*ctx).int64s, Hdl::Int64)
+    Context::register(val, &mut (*ctx).int64s, Hdl::Int64)
 }
 
 /// Return `true` if `hdl` references an `i64` inside `ctx`, false
@@ -63,7 +64,7 @@ pub unsafe extern "C" fn handle_is_int_64(ctx: *const Context, hdl: Handle) -> b
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn int_32_new(ctx: *mut Context, val: i32) -> Handle {
-    Context::register(val, &(*ctx).int32s, Hdl::Int32)
+    Context::register(val, &mut (*ctx).int32s, Hdl::Int32)
 }
 
 /// Return `true` if `hdl` references an `i32` inside `ctx`, false

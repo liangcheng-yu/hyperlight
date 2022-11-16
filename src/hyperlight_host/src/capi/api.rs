@@ -5,7 +5,7 @@ use super::hdl::Hdl;
 mod impls {
     use crate::capi::context::Context;
     use crate::capi::handle::Handle;
-    use crate::capi::sandbox::{get_sandbox, get_sandbox_mut};
+    use crate::capi::sandbox::get_sandbox;
     use anyhow::Result;
 
     /// Get the guest binary path from the sandbox stored in `ctx`
@@ -13,7 +13,7 @@ mod impls {
     ///
     /// Returns `Ok` if `sbox_hdl` is valid, `Err` otherwise.
     pub fn guest_binary_path(ctx: &Context, sbox_hdl: Handle) -> Result<String> {
-        match get_sandbox_mut(ctx, sbox_hdl) {
+        match get_sandbox(ctx, sbox_hdl) {
             Ok(sbox) => Ok(sbox.bin_path.clone()),
             Err(err) => Err(err),
         }
@@ -44,7 +44,7 @@ mod impls {
 #[no_mangle]
 pub unsafe extern "C" fn guest_binary_path(ctx: *mut Context, sbox_hdl: Handle) -> Handle {
     match impls::guest_binary_path(&(*ctx), sbox_hdl) {
-        Ok(path) => Context::register(path, &(*ctx).strings, Hdl::String),
+        Ok(path) => Context::register(path, &mut (*ctx).strings, Hdl::String),
         Err(e) => (*ctx).register_err(e),
     }
 }
