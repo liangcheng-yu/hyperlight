@@ -22,6 +22,7 @@ namespace Hyperlight.Hypervisors
         internal abstract void DispatchCallFromHost(ulong pDispatchFunction);
         internal abstract void ExecuteUntilHalt();
         internal abstract void Initialise(IntPtr pebAddress, ulong seed);
+        internal abstract void ResetRSP(ulong rsp);
         internal void HandleOutb(ushort port, byte value)
         {
             handleoutb(port, value);

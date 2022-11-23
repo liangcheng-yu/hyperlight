@@ -93,6 +93,19 @@ namespace Hyperlight.Hypervisors
             ExecuteUntilHalt();
         }
 
+        internal override void ResetRSP(ulong rsp)
+        {
+            var reg = new LinuxHyperV.MSHV_REGISTER[1] { new() { Name = LinuxHyperV.HV_X64_REGISTER_RIP, Value = new LinuxHyperV.MSHV_U128 { HighPart = rsp, LowPart = 0 } } };
+            var setRegister = LinuxHyperV.set_registers(context.ctx, vcpuHandle.handle, reg, (UIntPtr)reg.Length);
+            using (var registerHandle = new Handle(context, setRegister))
+            {
+                if (registerHandle.IsError())
+                {
+                    HyperlightException.LogAndThrowException<HyperVOnLinuxException>($"Failed setting RSP Error: {registerHandle.GetErrorMessage()}", Sandbox.CorrelationId.Value!, GetType().Name);
+                }
+            }
+        }
+
         internal override void ExecuteUntilHalt()
         {
             var runResultPtr = IntPtr.Zero;

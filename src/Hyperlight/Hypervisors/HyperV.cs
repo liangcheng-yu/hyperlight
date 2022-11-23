@@ -141,6 +141,14 @@ namespace Hyperlight.Hypervisors
             HyperlightException.LogAndThrowException(context.ToString(), Sandbox.CorrelationId.Value!, GetType().Name);
         }
 
+        internal override void ResetRSP(ulong rsp)
+        {
+            var rspValue = new WindowsHypervisorPlatform.MyUInt128[1];
+            var rspName = new WindowsHypervisorPlatform.WHV_REGISTER_NAME[] { WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRsp };
+            rspValue[0].low = rsp;
+            WindowsHypervisorPlatform.WHvSetVirtualProcessorRegisters(hPartition, 0, rspName, 1, rspValue);
+        }
+
         internal override void Initialise(IntPtr pebAddress, ulong seed)
         {
             Debug.Assert(registerNames[^1] == WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRcx);
