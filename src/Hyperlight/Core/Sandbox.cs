@@ -74,6 +74,8 @@ namespace Hyperlight
         // 2 Dynamic Method is executing standalone
         int executingGuestCall;
 
+        readonly ulong rsp;
+
         int countRunCalls;
 
         /// <summary>
@@ -170,7 +172,7 @@ namespace Hyperlight
             LoadGuestBinary();
             SetUpHyperLightPEB();
             SetUpStackGuard();
-
+            rsp = 0;
             // If we are NOT running from process memory, we have to setup a Hypervisor partition
             if (!runFromProcessMemory)
             {
@@ -178,7 +180,7 @@ namespace Hyperlight
                 {
                     HyperlightException.LogAndThrowException<ArgumentException>("Hypervisor not found", CorrelationId.Value!, GetType().Name);
                 }
-                SetUpHyperVisorPartition();
+                rsp = SetUpHyperVisorPartition();
             }
 
             hyperLightExports = new HyperLightExports();
@@ -191,6 +193,11 @@ namespace Hyperlight
             if (recycleAfterRun)
             {
                 sandboxMemoryManager.SnapshotState();
+            }
+
+            if (!runFromProcessMemory)
+            {
+                hyperVisor!.ResetRSP(rsp);
             }
 
             initialised = true;
@@ -379,9 +386,8 @@ namespace Hyperlight
             }
         }
 
-        public void SetUpHyperVisorPartition()
+        public ulong SetUpHyperVisorPartition()
         {
-
             var rsp = sandboxMemoryManager.SetUpHyperVisorPartition();
 
             if (IsLinux)
@@ -409,6 +415,8 @@ namespace Hyperlight
                 // Should never get here
                 HyperlightException.LogAndThrowException<NotSupportedException>("Only supported on Linux and Windows", CorrelationId.Value!, GetType().Name);
             }
+
+            return rsp;
         }
 
         private void Initialise()
@@ -565,6 +573,10 @@ namespace Hyperlight
             if (recycleAfterRun)
             {
                 sandboxMemoryManager.RestoreState();
+                if (!runFromProcessMemory)
+                {
+                    hyperVisor!.ResetRSP(rsp);
+                }
             }
 
             countRunCalls++;

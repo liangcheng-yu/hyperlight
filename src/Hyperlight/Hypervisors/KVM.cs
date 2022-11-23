@@ -175,6 +175,26 @@ namespace Hyperlight.Hypervisors
             //TODO: Improve exception data;
             HyperlightException.LogAndThrowException($"Unknown KVM exit_reason = {run.exit_reason}", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
         }
+        internal override void ResetRSP(ulong rsp)
+        {
+            // Move rip to the DispatchFunction pointer
+            var regs = new LinuxKVM.KVM_REGS();
+            Syscall.CheckReturnVal(
+                "ioctl KVM_GET_REGS",
+                () => LinuxKVM.ioctl(
+                    vcpufd,
+                    LinuxKVM.KVM_GET_REGS,
+                    ref regs
+                ),
+                0
+            );
+            regs.rsp = rsp;
+            Syscall.CheckReturnVal(
+                "ioctl KVM_SET_REGS",
+                () => LinuxKVM.ioctl(vcpufd, LinuxKVM.KVM_SET_REGS, ref regs),
+                0
+            );
+        }
 
         internal override void Initialise(IntPtr pebAddress, ulong seed)
         {
