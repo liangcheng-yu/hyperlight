@@ -143,7 +143,7 @@
    fun:munit_test_runner_run
 }
 {
-   suppress_test_map_user_memory_region_1
+   suppress_test_map_user_memory_region_2
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
@@ -159,13 +159,43 @@
    fun:munit_test_runner_run
 }
 {
-   suppress_test_map_user_memory_region_2
+   suppress_test_map_user_memory_region_3
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
    fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
    fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
    fun:*hyperlight_host*capi*hyperv_linux*impls*unmap_vm_memory_region*
+   fun:unmap_vm_memory_region
+   fun:test_map_user_memory_region
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   suppress_test_map_user_memory_region_4
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vm*map_user_memory*
+   fun:map_vm_memory_region
+   fun:test_map_user_memory_region
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   suppress_test_map_user_memory_region_5
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
    fun:unmap_vm_memory_region
    fun:test_map_user_memory_region
    fun:munit_test_runner_exec
@@ -218,6 +248,36 @@
    fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
    fun:*hyperlight_host*capi*hyperv_linux*impls*set_registers*
    fun:set_registers
+   fun:test_run_vpcu
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   suppress_test_run_vpcu_3
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vm*map_user_memory*
+   fun:unmap_vm_memory_region
+   fun:test_run_vpcu
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   suppress_test_run_vpcu_4
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vm*map_user_memory*
+   fun:map_vm_memory_region
    fun:test_run_vpcu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
