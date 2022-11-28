@@ -1,7 +1,9 @@
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
+use crate::capi::context::ERR_NULL_CONTEXT;
 use crate::mem::pe::PEInfo;
+use crate::{validate_context, validate_context_or_panic};
 
 mod impls {
     use crate::capi::context::Context;
@@ -50,6 +52,8 @@ mod impls {
 /// and not modified or deleted while this function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn pe_parse(ctx: *mut Context, byte_array_handle: Handle) -> Handle {
+    validate_context!(ctx);
+
     match impls::pe_parse(&*ctx, byte_array_handle) {
         Ok(pe_info) => Context::register(pe_info, &mut (*ctx).pe_infos, Hdl::PEInfo),
         Err(e) => (*ctx).register_err(e),
@@ -66,6 +70,8 @@ pub unsafe extern "C" fn pe_parse(ctx: *mut Context, byte_array_handle: Handle) 
 /// and not modified or deleted while this function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn pe_stack_reserve(ctx: *mut Context, pe_handle: Handle) -> u64 {
+    validate_context_or_panic!(ctx);
+
     impls::get_pe_and(&*ctx, pe_handle, PEInfo::stack_reserve).unwrap_or(0)
 }
 
@@ -79,6 +85,8 @@ pub unsafe extern "C" fn pe_stack_reserve(ctx: *mut Context, pe_handle: Handle) 
 /// and not modified or deleted while this function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn pe_stack_commit(ctx: *mut Context, pe_handle: Handle) -> u64 {
+    validate_context_or_panic!(ctx);
+
     impls::get_pe_and(&*ctx, pe_handle, PEInfo::stack_commit).unwrap_or(0)
 }
 
@@ -92,6 +100,8 @@ pub unsafe extern "C" fn pe_stack_commit(ctx: *mut Context, pe_handle: Handle) -
 /// and not modified or deleted while this function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn pe_heap_reserve(ctx: *mut Context, pe_handle: Handle) -> u64 {
+    validate_context_or_panic!(ctx);
+
     impls::get_pe_and(&*ctx, pe_handle, PEInfo::heap_reserve).unwrap_or(0)
 }
 
@@ -105,6 +115,8 @@ pub unsafe extern "C" fn pe_heap_reserve(ctx: *mut Context, pe_handle: Handle) -
 /// and not modified or deleted while this function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn pe_heap_commit(ctx: *mut Context, pe_handle: Handle) -> u64 {
+    validate_context_or_panic!(ctx);
+
     impls::get_pe_and(&*ctx, pe_handle, PEInfo::heap_commit).unwrap_or(0)
 }
 
@@ -118,6 +130,8 @@ pub unsafe extern "C" fn pe_heap_commit(ctx: *mut Context, pe_handle: Handle) ->
 /// and not modified or deleted while this function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn pe_entry_point_offset(ctx: *mut Context, pe_handle: Handle) -> u64 {
+    validate_context_or_panic!(ctx);
+
     impls::get_pe_and(&*ctx, pe_handle, PEInfo::try_entry_point_offset).unwrap_or(0)
 }
 
@@ -144,6 +158,8 @@ pub unsafe extern "C" fn pe_relocate(
     byte_array_handle: Handle,
     addr_to_load_at: usize,
 ) -> Handle {
+    validate_context!(ctx);
+
     match impls::pe_relocate(&mut (*ctx), pe_handle, byte_array_handle, addr_to_load_at) {
         Ok(hdl) => hdl,
         Err(e) => (*ctx).register_err(e),

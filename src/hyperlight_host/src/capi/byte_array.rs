@@ -1,8 +1,9 @@
-use super::context::Context;
+use super::context::{Context, ERR_NULL_CONTEXT};
 use super::fill_vec;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::strings::{to_string, RawCString};
+use crate::{validate_context, validate_context_or_panic};
 use anyhow::Result;
 use anyhow::{anyhow, Error};
 
@@ -80,6 +81,8 @@ pub unsafe extern "C" fn byte_array_new(
     arr_ptr: *const u8,
     arr_len: usize,
 ) -> Handle {
+    validate_context!(ctx);
+
     if arr_ptr.is_null() {
         let err = Error::msg("array pointer passed to byte_array_new is NULL");
         return (*ctx).register_err(err);
@@ -104,6 +107,8 @@ pub unsafe extern "C" fn byte_array_new_from_file(
     ctx: *mut Context,
     file_name: RawCString,
 ) -> Handle {
+    validate_context!(ctx);
+
     let file_name_str = to_string(file_name);
     let vec_res = impls::new_from_file(&file_name_str);
     match vec_res {
@@ -123,6 +128,8 @@ pub unsafe extern "C" fn byte_array_new_from_file(
 /// the execution of this function.
 #[no_mangle]
 pub unsafe extern "C" fn byte_array_len(ctx: *const Context, handle: Handle) -> i64 {
+    validate_context_or_panic!(ctx);
+
     match impls::len(&(*ctx), handle) {
         Ok(l) => l as i64,
         Err(_) => -1,
@@ -147,6 +154,8 @@ pub unsafe extern "C" fn byte_array_len(ctx: *const Context, handle: Handle) -> 
 /// in `ctx`.
 #[no_mangle]
 pub unsafe extern "C" fn byte_array_remove(ctx: *mut Context, handle: Handle) -> *const u8 {
+    validate_context_or_panic!(ctx);
+
     match impls::remove(&mut *ctx, handle) {
         Ok(vec) => {
             let ptr = vec.as_ptr();

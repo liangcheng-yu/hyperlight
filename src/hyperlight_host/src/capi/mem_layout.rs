@@ -1,8 +1,9 @@
-use super::context::Context;
+use super::context::{Context, ERR_NULL_CONTEXT};
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::Addr;
 use crate::mem::layout::SandboxMemoryLayout;
+use crate::{validate_context, validate_context_or_panic};
 
 mod impls {
     use crate::capi::context::Context;
@@ -86,6 +87,8 @@ pub unsafe extern "C" fn mem_layout_new(
     stack_size: usize,
     heap_size: usize,
 ) -> Handle {
+    validate_context!(ctx);
+
     match impls::new(&mut *ctx, mem_cfg_ref, code_size, stack_size, heap_size) {
         Ok(layout) => Context::register(layout, &mut (*ctx).mem_layouts, Hdl::MemLayout),
         Err(e) => (*ctx).register_err(e),
@@ -116,6 +119,8 @@ macro_rules! mem_layout_get_address_using_field {
                 mem_layout_ref: Handle,
                 base_addr: i64,
             ) -> i64 {
+                validate_context_or_panic!(ctx);
+
                 impls::calculate_address(&*ctx, mem_layout_ref, base_addr, |l| {
                     Ok(l.[< $something _offset >])
                 })
@@ -156,6 +161,8 @@ macro_rules! mem_layout_get_address_using_method {
                 mem_layout_ref: Handle,
                 base_addr: i64,
             ) -> i64 {
+                validate_context_or_panic!(ctx);
+
                 impls::calculate_address(&*ctx, mem_layout_ref, base_addr, |l| {
                     Ok(l.[< get_ $something _offset >] ())
                 })
@@ -197,6 +204,8 @@ pub unsafe extern "C" fn mem_layout_get_stack_size(
     ctx: *const Context,
     mem_layout_ref: Handle,
 ) -> usize {
+    validate_context_or_panic!(ctx);
+
     match impls::get_mem_layout(&*ctx, mem_layout_ref) {
         Ok(l) => l.stack_size,
         Err(_) => 0,
@@ -222,6 +231,8 @@ pub unsafe extern "C" fn mem_layout_get_peb_address(
     ctx: *const Context,
     mem_layout_ref: Handle,
 ) -> i64 {
+    validate_context_or_panic!(ctx);
+
     // NOTE: using calculate_address here for the safe conversions
     // from usize -> i64, but not for calculating offsets, as we
     // do in most of the other functions herein.
@@ -292,6 +303,8 @@ pub unsafe extern "C" fn mem_layout_get_memory_size(
     ctx: *const Context,
     mem_layout_ref: Handle,
 ) -> usize {
+    validate_context_or_panic!(ctx);
+
     // At present this is masking the error from get_memory_size so the client doesnt get to know what the failure was
     // The only time this call fails is if the memory requested exceeds the limit (which is hardcoded at the moment)
     // TODO: convert this to a handle so that a detailed error can be returned
@@ -323,6 +336,8 @@ pub unsafe extern "C" fn mem_layout_write_memory_layout(
     guest_address: usize,
     size: usize,
 ) -> Handle {
+    validate_context!(ctx);
+
     match impls::write_memory_layout(
         &mut *ctx,
         mem_layout_ref,

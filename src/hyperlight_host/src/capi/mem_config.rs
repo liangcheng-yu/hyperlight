@@ -1,7 +1,8 @@
-use super::context::Context;
+use super::context::{Context, ERR_NULL_CONTEXT};
 use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::mem::config::SandboxMemoryConfiguration;
+use crate::{validate_context, validate_context_or_panic};
 use anyhow::Result;
 
 /// Get a read-only reference to a `SandboxMemoryConfiguration` within
@@ -38,6 +39,8 @@ pub unsafe extern "C" fn mem_config_new(
     host_exception_size: usize,
     guest_error_message_size: usize,
 ) -> Handle {
+    validate_context!(ctx);
+
     let config = SandboxMemoryConfiguration::new(
         input_data_size,
         output_data_size,
@@ -61,6 +64,8 @@ pub unsafe extern "C" fn mem_config_get_guest_error_message_size(
     ctx: *const Context,
     hdl: Handle,
 ) -> usize {
+    validate_context_or_panic!(ctx);
+
     match get_mem_config(&*ctx, hdl) {
         Ok(c) => c.guest_error_message_size,
         Err(_) => 0,
@@ -84,6 +89,8 @@ pub unsafe extern "C" fn mem_config_set_guest_error_message_size(
     hdl: Handle,
     val: usize,
 ) -> usize {
+    validate_context_or_panic!(ctx);
+
     match get_mem_config_mut(&mut *ctx, hdl) {
         Ok(mut c) => {
             let old = c.guest_error_message_size;
@@ -106,6 +113,8 @@ pub unsafe extern "C" fn mem_config_get_host_function_definition_size(
     ctx: *const Context,
     hdl: Handle,
 ) -> usize {
+    validate_context_or_panic!(ctx);
+
     match get_mem_config(&*ctx, hdl) {
         Ok(c) => c.host_function_definition_size,
         Err(_) => 0,
@@ -129,6 +138,8 @@ pub unsafe extern "C" fn mem_config_set_host_function_definition_size(
     hdl: Handle,
     val: usize,
 ) -> usize {
+    validate_context_or_panic!(ctx);
+
     match get_mem_config_mut(&mut *ctx, hdl) {
         Ok(mut c) => {
             let old = c.host_function_definition_size;
@@ -151,6 +162,8 @@ pub unsafe extern "C" fn mem_config_get_host_exception_size(
     ctx: *const Context,
     hdl: Handle,
 ) -> usize {
+    validate_context_or_panic!(ctx);
+
     match get_mem_config(&*ctx, hdl) {
         Ok(c) => c.host_exception_size,
         Err(_) => 0,
@@ -174,6 +187,8 @@ pub unsafe extern "C" fn mem_config_set_host_exception_size(
     hdl: Handle,
     val: usize,
 ) -> usize {
+    validate_context_or_panic!(ctx);
+
     match get_mem_config_mut(&mut *ctx, hdl) {
         Ok(mut c) => {
             let old = c.host_exception_size;
@@ -193,6 +208,8 @@ pub unsafe extern "C" fn mem_config_set_host_exception_size(
 /// or deleted at any time while this function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn mem_config_get_input_data_size(ctx: *const Context, hdl: Handle) -> usize {
+    validate_context_or_panic!(ctx);
+
     match get_mem_config(&*ctx, hdl) {
         Ok(c) => c.input_data_size,
         Err(_) => 0,
@@ -216,6 +233,8 @@ pub unsafe extern "C" fn mem_config_set_input_data_size(
     hdl: Handle,
     val: usize,
 ) -> usize {
+    validate_context_or_panic!(ctx);
+
     match get_mem_config_mut(&mut *ctx, hdl) {
         Ok(mut c) => {
             let old = c.input_data_size;
@@ -238,6 +257,8 @@ pub unsafe extern "C" fn mem_config_get_output_data_size(
     ctx: *const Context,
     hdl: Handle,
 ) -> usize {
+    validate_context_or_panic!(ctx);
+
     match get_mem_config(&*ctx, hdl) {
         Ok(c) => c.output_data_size,
         Err(_) => 0,
@@ -261,6 +282,8 @@ pub unsafe extern "C" fn mem_config_set_output_data_size(
     hdl: Handle,
     val: usize,
 ) -> usize {
+    validate_context_or_panic!(ctx);
+
     match get_mem_config_mut(&mut *ctx, hdl) {
         Ok(mut c) => {
             let old = c.output_data_size;

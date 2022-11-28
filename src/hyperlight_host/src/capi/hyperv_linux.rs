@@ -1,3 +1,6 @@
+use crate::capi::context::ERR_NULL_CONTEXT;
+use crate::{validate_context, validate_context_or_panic};
+
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
@@ -133,6 +136,8 @@ pub extern "C" fn is_hyperv_linux_present(require_stable_api: bool) -> bool {
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn open_mshv(ctx: *mut Context, require_stable_api: bool) -> Handle {
+    validate_context!(ctx);
+
     match impls::open_mshv(require_stable_api) {
         Ok(mshv) => Context::register(mshv, &mut (*ctx).mshvs, Hdl::Mshv),
         Err(e) => (*ctx).register_err(e),
@@ -162,6 +167,8 @@ pub unsafe extern "C" fn open_mshv(ctx: *mut Context, require_stable_api: bool) 
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn create_vm(ctx: *mut Context, mshv_handle: Handle) -> Handle {
+    validate_context!(ctx);
+
     let mshv = match get_mshv(&mut (*ctx), mshv_handle) {
         Ok(result) => result,
         Err(e) => return (*ctx).register_err(e),
@@ -197,6 +204,8 @@ pub unsafe extern "C" fn create_vm(ctx: *mut Context, mshv_handle: Handle) -> Ha
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn create_vcpu(ctx: *mut Context, vmfd_handle: Handle) -> Handle {
+    validate_context!(ctx);
+
     let vmfd = match get_vmfd(&mut (*ctx), vmfd_handle) {
         Ok(result) => result,
         Err(e) => return (*ctx).register_err(e),
@@ -244,6 +253,8 @@ pub unsafe extern "C" fn map_vm_memory_region(
     load_address: u64,
     size: u64,
 ) -> Handle {
+    validate_context!(ctx);
+
     let vmfd = match get_vmfd(&mut (*ctx), vmfd_handle) {
         Ok(result) => result,
         Err(e) => return (*ctx).register_err(e),
@@ -293,6 +304,8 @@ pub unsafe extern "C" fn unmap_vm_memory_region(
     vmfd_handle: Handle,
     mshv_user_mem_regions_handle: Handle,
 ) -> Handle {
+    validate_context!(ctx);
+
     let vmfd = match get_vmfd(&mut (*ctx), vmfd_handle) {
         Ok(result) => result,
         Err(e) => return (*ctx).register_err(e),
@@ -367,6 +380,8 @@ pub unsafe extern "C" fn set_registers(
     reg_ptr: *const mshv_register,
     reg_length: usize,
 ) -> Handle {
+    validate_context!(ctx);
+
     let vcpufd = match get_vcpufd(&mut (*ctx), vcpufd_handle) {
         Ok(result) => result,
         Err(e) => return (*ctx).register_err(e),
@@ -460,6 +475,8 @@ pub const HV_MESSAGE_TYPE_HVMSG_X64_HALT: hv_message_type = 2147549191;
 ///
 #[no_mangle]
 pub unsafe extern "C" fn run_vcpu(ctx: *mut Context, vcpufd_handle: Handle) -> Handle {
+    validate_context!(ctx);
+
     let vcpufd = match get_vcpufd(&mut (*ctx), vcpufd_handle) {
         Ok(result) => result,
         Err(e) => return (*ctx).register_err(e),
@@ -512,6 +529,8 @@ pub unsafe extern "C" fn get_run_result_from_handle(
     ctx: *mut Context,
     handle: Handle,
 ) -> *const mshv_run_message {
+    validate_context_or_panic!(ctx);
+
     let result = match get_mshv_run_message(&mut (*ctx), handle) {
         Ok(result) => result,
         Err(_) => return std::ptr::null(),

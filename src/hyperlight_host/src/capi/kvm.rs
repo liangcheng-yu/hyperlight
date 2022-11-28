@@ -1,9 +1,10 @@
-use super::context::Context;
+use super::context::{Context, ERR_NULL_CONTEXT};
 use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::hypervisor::kvm;
 use crate::hypervisor::kvm_mem::{map_vm_memory_region_raw, unmap_vm_memory_region_raw};
 use crate::hypervisor::kvm_regs::{CSRegs, Regs, SRegs};
+use crate::{validate_context, validate_context_or_panic};
 use anyhow::Result;
 use kvm_bindings::kvm_userspace_memory_region;
 use kvm_ioctls::{Kvm, VcpuFd, VmFd};
@@ -109,6 +110,8 @@ pub unsafe extern "C" fn kvm_open(ctx: *mut Context) -> Handle {
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn kvm_create_vm(ctx: *mut Context, kvm_handle: Handle) -> Handle {
+    validate_context!(ctx);
+
     let kvm = match get_kvm(&*ctx, kvm_handle) {
         Ok(kvm) => kvm,
         Err(e) => return (*ctx).register_err(e),
@@ -144,6 +147,8 @@ pub unsafe extern "C" fn kvm_create_vm(ctx: *mut Context, kvm_handle: Handle) ->
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn kvm_create_vcpu(ctx: *mut Context, vmfd_hdl: Handle) -> Handle {
+    validate_context!(ctx);
+
     let vmfd = match get_vmfd(&*ctx, vmfd_hdl) {
         Ok(vmfd) => vmfd,
         Err(e) => return (*ctx).register_err(e),
@@ -190,6 +195,8 @@ pub unsafe extern "C" fn kvm_map_vm_memory_region(
     userspace_addr: *const c_void,
     mem_size: u64,
 ) -> Handle {
+    validate_context!(ctx);
+
     let vmfd = match get_vmfd(&*ctx, vmfd_hdl) {
         Ok(r) => r,
         Err(e) => return (*ctx).register_err(e),
@@ -237,6 +244,8 @@ pub unsafe extern "C" fn kvm_unmap_vm_memory_region(
     vmfd_hdl: Handle,
     user_mem_region_hdl: Handle,
 ) -> Handle {
+    validate_context!(ctx);
+
     let vmfd = match get_vmfd(&*ctx, vmfd_hdl) {
         Ok(r) => r,
         Err(e) => return (*ctx).register_err(e),
@@ -282,6 +291,8 @@ pub unsafe extern "C" fn kvm_unmap_vm_memory_region(
 /// 3. A valid `kvm_regs` instance
 #[no_mangle]
 pub unsafe extern "C" fn kvm_get_registers(ctx: *mut Context, vcpufd_hdl: Handle) -> Handle {
+    validate_context!(ctx);
+
     let vcpufd = match get_vcpufd(&*ctx, vcpufd_hdl) {
         Ok(r) => r,
         Err(e) => return (*ctx).register_err(e),
@@ -319,6 +330,8 @@ pub unsafe extern "C" fn kvm_get_registers_from_handle(
     ctx: *const Context,
     regs_hdl: Handle,
 ) -> *mut Regs {
+    validate_context_or_panic!(ctx);
+
     match Context::get(regs_hdl, &((*ctx).kvm_regs), |h| {
         matches!(h, Hdl::KvmRegisters(_))
     }) {
@@ -357,6 +370,8 @@ pub unsafe extern "C" fn kvm_get_registers_from_handle(
 
 #[no_mangle]
 pub unsafe extern "C" fn kvm_get_sregisters(ctx: *mut Context, vcpufd_hdl: Handle) -> Handle {
+    validate_context!(ctx);
+
     let vcpufd = match get_vcpufd(&*ctx, vcpufd_hdl) {
         Ok(r) => r,
         Err(e) => return (*ctx).register_err(e),
@@ -397,6 +412,8 @@ pub unsafe extern "C" fn kvm_get_sregisters_from_handle(
     ctx: *const Context,
     sregs_hdl: Handle,
 ) -> *mut CSRegs {
+    validate_context_or_panic!(ctx);
+
     match get_sregisters_from_handle(&*ctx, sregs_hdl) {
         Ok(r) => Box::into_raw(Box::new(CSRegs::from(r))),
         Err(_) => std::ptr::null_mut(),
@@ -438,6 +455,8 @@ pub unsafe extern "C" fn kvm_set_registers(
     // Handle type for registers and passing a handle here.
     regs: Regs,
 ) -> Handle {
+    validate_context!(ctx);
+
     let vcpu_fd = match get_vcpufd(&*ctx, vcpufd_hdl) {
         Ok(r) => r,
         Err(e) => return (*ctx).register_err(e),
@@ -488,6 +507,8 @@ pub unsafe extern "C" fn kvm_set_sregisters(
     sregs_hdl: Handle,
     csregs: CSRegs,
 ) -> Handle {
+    validate_context!(ctx);
+
     let vcpu_fd = match get_vcpufd(&*ctx, vcpufd_hdl) {
         Ok(r) => r,
         Err(e) => return (*ctx).register_err(e),
@@ -539,6 +560,8 @@ pub unsafe extern "C" fn kvm_set_sregisters(
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn kvm_run_vcpu(ctx: *mut Context, vcpufd_hdl: Handle) -> Handle {
+    validate_context!(ctx);
+
     let vcpu_fd = match get_vcpufd(&*ctx, vcpufd_hdl) {
         Ok(r) => r,
         Err(e) => return (*ctx).register_err(e),
@@ -581,6 +604,8 @@ pub unsafe extern "C" fn kvm_get_run_result_from_handle(
     ctx: *mut Context,
     handle: Handle,
 ) -> *const kvm::KvmRunMessage {
+    validate_context_or_panic!(ctx);
+
     let result = match get_kvm_run_message(&*ctx, handle) {
         Ok(res) => res,
         Err(_) => return std::ptr::null(),

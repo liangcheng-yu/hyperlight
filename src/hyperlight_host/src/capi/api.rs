@@ -1,4 +1,6 @@
-use super::context::Context;
+use crate::{validate_context, validate_context_or_panic};
+
+use super::context::{Context, ERR_NULL_CONTEXT};
 use super::handle::Handle;
 use super::hdl::Hdl;
 
@@ -43,6 +45,8 @@ mod impls {
 /// after you're done using it.
 #[no_mangle]
 pub unsafe extern "C" fn guest_binary_path(ctx: *mut Context, sbox_hdl: Handle) -> Handle {
+    validate_context!(ctx);
+
     match impls::guest_binary_path(&(*ctx), sbox_hdl) {
         Ok(path) => Context::register(path, &mut (*ctx).strings, Hdl::String),
         Err(e) => (*ctx).register_err(e),
@@ -69,5 +73,7 @@ pub unsafe extern "C" fn guest_binary_path(ctx: *mut Context, sbox_hdl: Handle) 
 /// API
 #[no_mangle]
 pub unsafe extern "C" fn is_hypervisor_present(ctx: *const Context, sbox_hdl: Handle) -> bool {
+    validate_context_or_panic!(ctx);
+
     impls::is_hypervisor_present(&(*ctx), sbox_hdl).unwrap_or(false)
 }

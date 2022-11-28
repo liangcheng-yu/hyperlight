@@ -192,6 +192,8 @@ impl Context {
                     Hdl::Err(key) => self.errs.remove(&key).is_some(),
                     Hdl::Sandbox(key) => self.sandboxes.remove(&key).is_some(),
                     Hdl::Empty() => true,
+                    Hdl::Invalid() => true,
+                    Hdl::NullContext() => true,
                     Hdl::Val(key) => self.vals.remove(&key).is_some(),
                     Hdl::HostFunc(key) => self.host_funcs.remove(&key).is_some(),
                     Hdl::String(key) => self.strings.remove(&key).is_some(),
@@ -255,15 +257,41 @@ pub unsafe extern "C" fn context_free(ctx: *mut Context) {
     drop(Box::from_raw(ctx))
 }
 
+/// The error message returned when a null reference check on a Context raw pointer fails in the C api.
+pub const ERR_NULL_CONTEXT: &str = "NULL context was passed";
+
+/// Return a null context error handle when Context is null.
+#[macro_export]
+macro_rules! validate_context {
+    ($cob:ident) => {
+        if $cob.is_null() {
+            return Handle::new_null_context();
+        }
+    };
+}
+
+/// Panic when the Context is null.
+#[macro_export]
+macro_rules! validate_context_or_panic {
+    ($cob:ident) => {
+        if $cob.is_null() {
+            panic!("{}", ERR_NULL_CONTEXT);
+        }
+    };
+}
+
 #[cfg(test)]
 mod tests {
-    use super::Context;
+    use super::Handle;
+    use super::{Context, ERR_NULL_CONTEXT};
     use crate::capi::byte_array::get_byte_array_mut;
+    use crate::capi::handle::NULL_CONTEXT_KEY;
     use crate::capi::hdl::Hdl;
     use crate::capi::strings::get_string;
     use crate::capi::val_ref::get_val;
     use crate::func::args::Val;
     use crate::func::SerializationType;
+    use crate::{validate_context, validate_context_or_panic};
     use anyhow::Result;
 
     #[test]
@@ -300,5 +328,29 @@ mod tests {
         ctx.remove(hdl, |h| matches!(h, Hdl::String(_)));
         assert!(get_string(&ctx, hdl).is_err());
         Ok(())
+    }
+
+    #[test]
+    fn test_validate_context() -> Result<()> {
+        let hdl = validate_context_test_helper();
+        if hdl.key() != NULL_CONTEXT_KEY {
+            assert_eq!(NULL_CONTEXT_KEY, hdl.key());
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    #[should_panic(expected = "NULL context was passed")]
+    fn test_validate_context_or_panic() {
+        let ctx: *mut Context = core::ptr::null_mut();
+        validate_context_or_panic!(ctx);
+    }
+
+    fn validate_context_test_helper() -> Handle {
+        let ctx: *mut Context = core::ptr::null_mut();
+        validate_context!(ctx);
+
+        Handle::new_empty()
     }
 }

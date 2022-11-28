@@ -1,9 +1,13 @@
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
-use crate::mem::guest_mem::GuestMemory;
+use crate::{
+    capi::context::ERR_NULL_CONTEXT, mem::guest_mem::GuestMemory, validate_context,
+    validate_context_or_panic,
+};
 use anyhow::{anyhow, Result};
 use std::panic::catch_unwind;
+
 mod impls {
     use crate::capi::{byte_array::get_byte_array, context::Context};
     use crate::{capi::handle::Handle, mem::guest_mem::GuestMemory};
@@ -276,6 +280,8 @@ pub fn get_guest_memory_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut Guest
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn guest_memory_new(ctx: *mut Context, min_size: u64) -> Handle {
+    validate_context!(ctx);
+
     match GuestMemory::new(min_size as usize) {
         Ok(guest_mem) => Context::register(guest_mem, &mut (*ctx).guest_mems, Hdl::GuestMemory),
         Err(e) => (*ctx).register_err(e),
@@ -294,6 +300,8 @@ pub unsafe extern "C" fn guest_memory_new(ctx: *mut Context, min_size: u64) -> H
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn guest_memory_get_address(ctx: *const Context, hdl: Handle) -> usize {
+    validate_context_or_panic!(ctx);
+
     impls::get_address(&*ctx, hdl).unwrap_or(0)
 }
 
@@ -325,6 +333,8 @@ pub unsafe extern "C" fn guest_memory_copy_from_byte_array(
     arr_start: usize,
     arr_length: usize,
 ) -> Handle {
+    validate_context!(ctx);
+
     match impls::copy_byte_array(
         &mut *ctx,
         guest_mem_hdl,
@@ -366,6 +376,8 @@ pub unsafe extern "C" fn guest_memory_copy_to_byte_array(
     byte_array: *mut u8,
     length: usize,
 ) -> Handle {
+    validate_context!(ctx);
+
     if byte_array.is_null() {
         return (*ctx).register_err(anyhow!("Invalid byte array"));
     };
@@ -415,6 +427,8 @@ pub unsafe extern "C" fn guest_memory_read_int_64(
     hdl: Handle,
     addr: u64,
 ) -> Handle {
+    validate_context!(ctx);
+
     match impls::read_int_64(&*ctx, hdl, addr) {
         Ok(val) => Context::register(val, &mut (*ctx).int64s, Hdl::Int64),
         Err(e) => (*ctx).register_err(e),
@@ -441,6 +455,8 @@ pub unsafe extern "C" fn guest_memory_write_int_64(
     addr: usize,
     val: usize,
 ) -> Handle {
+    validate_context!(ctx);
+
     match impls::write_int_64(&mut *ctx, hdl, addr, val) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
@@ -466,6 +482,8 @@ pub unsafe extern "C" fn guest_memory_read_int_32(
     hdl: Handle,
     addr: u64,
 ) -> Handle {
+    validate_context!(ctx);
+
     match impls::read_int_32(&*ctx, hdl, addr) {
         Ok(val) => Context::register(val, &mut (*ctx).int32s, Hdl::Int32),
         Err(e) => (*ctx).register_err(e),
@@ -492,6 +510,8 @@ pub unsafe extern "C" fn guest_memory_write_int_32(
     addr: usize,
     val: i32,
 ) -> Handle {
+    validate_context!(ctx);
+
     match impls::write_int_32(&mut *ctx, hdl, addr, val) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),

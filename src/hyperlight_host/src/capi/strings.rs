@@ -1,3 +1,6 @@
+use crate::capi::context::ERR_NULL_CONTEXT;
+use crate::validate_context_or_panic;
+
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
@@ -58,6 +61,8 @@ pub fn to_c_string<T: Into<Vec<u8>>>(string: T) -> Result<RawCString, NulError> 
 /// value to `free()` after you're done using it.
 #[no_mangle]
 pub unsafe extern "C" fn handle_get_string(ctx: *const Context, hdl: Handle) -> RawCString {
+    validate_context_or_panic!(ctx);
+
     match Context::get(hdl, &(*ctx).strings, |s| matches!(s, Hdl::String(_))) {
         Ok(str) => match to_c_string((*str).clone()) {
             Ok(s) => s,

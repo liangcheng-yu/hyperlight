@@ -1,3 +1,6 @@
+use crate::capi::context::ERR_NULL_CONTEXT;
+use crate::{validate_context, validate_context_or_panic};
+
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
@@ -28,6 +31,8 @@ fn get_i32(ctx: &Context, hdl: Handle) -> Result<&i32> {
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn int_64_new(ctx: *mut Context, val: i64) -> Handle {
+    validate_context!(ctx);
+
     Context::register(val, &mut (*ctx).int64s, Hdl::Int64)
 }
 
@@ -43,6 +48,8 @@ pub unsafe extern "C" fn int_64_new(ctx: *mut Context, val: i64) -> Handle {
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn handle_is_int_64(ctx: *const Context, hdl: Handle) -> bool {
+    validate_context_or_panic!(ctx);
+
     get_i64(&*ctx, hdl).is_ok()
 }
 
@@ -64,6 +71,8 @@ pub unsafe extern "C" fn handle_is_int_64(ctx: *const Context, hdl: Handle) -> b
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn int_32_new(ctx: *mut Context, val: i32) -> Handle {
+    validate_context!(ctx);
+
     Context::register(val, &mut (*ctx).int32s, Hdl::Int32)
 }
 
@@ -79,6 +88,8 @@ pub unsafe extern "C" fn int_32_new(ctx: *mut Context, val: i32) -> Handle {
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn handle_is_int_32(ctx: *const Context, hdl: Handle) -> bool {
+    validate_context_or_panic!(ctx);
+
     get_i32(&*ctx, hdl).is_ok()
 }
 
@@ -97,6 +108,8 @@ pub unsafe extern "C" fn handle_is_int_32(ctx: *const Context, hdl: Handle) -> b
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn handle_get_int_64(ctx: *const Context, hdl: Handle) -> i64 {
+    validate_context_or_panic!(ctx);
+
     match get_i64(&*ctx, hdl) {
         Ok(i) => *i,
         Err(_) => 0,
@@ -118,6 +131,8 @@ pub unsafe extern "C" fn handle_get_int_64(ctx: *const Context, hdl: Handle) -> 
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
 pub unsafe extern "C" fn handle_get_int_32(ctx: *const Context, hdl: Handle) -> i32 {
+    validate_context_or_panic!(ctx);
+
     match get_i32(&*ctx, hdl) {
         Ok(i) => *i,
         Err(_) => 0,

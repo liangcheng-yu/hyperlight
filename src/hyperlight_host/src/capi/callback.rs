@@ -3,6 +3,7 @@ use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::func::args::Val;
 use crate::func::def::HostFunc;
+use crate::validate_context;
 
 /// Create a new `HostFunc` from a C function pointer
 ///
@@ -54,6 +55,8 @@ pub unsafe extern "C" fn host_func_create(
     ctx: *mut Context,
     cb_opt: Option<extern "C" fn(*mut Val) -> *mut Val>,
 ) -> Handle {
+    validate_context!(ctx);
+
     let cb = match cb_opt {
         Some(cb) => cb,
         None => return (*ctx).register_err_msg("NULL callback func"),

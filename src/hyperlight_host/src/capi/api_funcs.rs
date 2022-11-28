@@ -7,6 +7,7 @@ use super::handle::Handle;
 use super::hdl::Hdl;
 use super::strings::{to_string, RawCString};
 use crate::func::def::HostFunc;
+use crate::validate_context;
 use anyhow::Result;
 
 mod impls {
@@ -98,6 +99,8 @@ pub unsafe extern "C" fn guest_func_call(
     name: RawCString,
     param_hdl: Handle,
 ) -> Handle {
+    validate_context!(ctx);
+
     let func_name = to_string(name);
     match impls::call_guest_func(&mut (*ctx), sbox_hdl, &func_name, param_hdl) {
         Ok(hdl) => hdl,
@@ -131,6 +134,8 @@ pub unsafe extern "C" fn host_func_register(
     func_name: RawCString,
     func_hdl: Handle,
 ) -> Handle {
+    validate_context!(ctx);
+
     let func_name_str = to_string(func_name);
     match impls::add_host_func(&mut (*ctx), sbox_hdl, func_name_str, func_hdl) {
         Ok(hdl) => hdl,
@@ -161,6 +166,8 @@ pub unsafe extern "C" fn host_func_call(
     name: RawCString,
     arg_hdl: Handle,
 ) -> Handle {
+    validate_context!(ctx);
+
     let func_name = to_string(name);
     match impls::call_host_func(&mut (*ctx), sbox_hdl, &func_name, arg_hdl) {
         Ok(hdl) => hdl,

@@ -1,4 +1,6 @@
-use super::context::Context;
+use crate::validate_context_or_panic;
+
+use super::context::{Context, ERR_NULL_CONTEXT};
 use super::hdl::Hdl;
 use rand::random;
 
@@ -24,6 +26,20 @@ pub type Key = u32;
 /// Use this key to indicate that a `Handle` points to no
 /// memory.
 pub const EMPTY_KEY: Key = 0;
+
+/// The `Key` specifically intended to identify an "invalid"
+/// handle.
+///
+/// Use this key to indicate that a `Handle` points to invalid
+/// memory.
+pub const INVALID_KEY: Key = 1;
+
+/// The `Key` specifically intended to identify an "null context"
+/// handle.
+///
+/// Use this key to indicate that a `Handle` points to an error
+/// indicating a null context was passed to the c api.
+pub const NULL_CONTEXT_KEY: Key = 2;
 
 /// Create and return a new `Key` from a random number.
 pub fn new_key() -> Key {
@@ -55,7 +71,12 @@ impl Handle {
     /// Return a new `Handle` that is invalid and guaranteed
     /// not to reference any memory inside any `Context`.
     pub fn new_invalid() -> Handle {
-        Handle(1)
+        Handle::from(Hdl::Invalid())
+    }
+
+    /// Return a new NullContext error `Handle`.
+    pub fn new_null_context() -> Handle {
+        Handle::from(Hdl::NullContext())
     }
 
     /// Get the key portion of `self`.
@@ -145,6 +166,8 @@ pub extern "C" fn handle_new_empty() -> Handle {
 /// function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn handle_free(ctx: *mut Context, hdl: Handle) -> bool {
+    validate_context_or_panic!(ctx);
+
     (*ctx).remove(hdl, |_| true)
 }
 
@@ -162,9 +185,26 @@ mod tests {
     use anyhow::Result;
 
     #[test]
+    fn new_empty() -> Result<()> {
+        let inv = Handle::new_empty();
+        let hdl = Hdl::try_from(inv).expect("expected new_empty to return a handle");
+        assert_eq!(crate::capi::handle::EMPTY_KEY, hdl.key());
+        Ok(())
+    }
+
+    #[test]
     fn new_invalid() -> Result<()> {
         let inv = Handle::new_invalid();
-        assert!(Hdl::try_from(inv).is_err());
+        let hdl = Hdl::try_from(inv).expect("expected new_invalid to return a handle");
+        assert_eq!(crate::capi::handle::INVALID_KEY, hdl.key());
+        Ok(())
+    }
+
+    #[test]
+    fn new_null_context() -> Result<()> {
+        let inv = Handle::new_null_context();
+        let hdl = Hdl::try_from(inv).expect("expected new_null_context to return a handle");
+        assert_eq!(crate::capi::handle::NULL_CONTEXT_KEY, hdl.key());
         Ok(())
     }
 

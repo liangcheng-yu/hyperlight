@@ -3,6 +3,7 @@ use super::handle::Handle;
 use super::hdl::Hdl;
 use super::strings::{to_string, RawCString};
 use crate::sandbox::Sandbox;
+use crate::validate_context;
 use anyhow::Result;
 
 /// Create a new `Sandbox` with the given guest binary to execute
@@ -16,6 +17,8 @@ use anyhow::Result;
 /// to do so.
 #[no_mangle]
 pub unsafe extern "C" fn sandbox_new(ctx: *mut Context, bin_path: RawCString) -> Handle {
+    validate_context!(ctx);
+
     let bin_path = to_string(bin_path);
     let sbox = Sandbox::new(bin_path);
     Context::register(sbox, &mut (*ctx).sandboxes, Hdl::Sandbox)

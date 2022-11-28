@@ -1,3 +1,6 @@
+use crate::capi::context::ERR_NULL_CONTEXT;
+use crate::{validate_context, validate_context_or_panic};
+
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
@@ -28,6 +31,8 @@ pub fn get_err(ctx: &Context, hdl: Handle) -> Result<&Error> {
 /// - Not freed with `context_free`
 #[no_mangle]
 pub unsafe extern "C" fn handle_new_err(ctx: *mut Context, err_msg: RawCString) -> Handle {
+    validate_context!(ctx);
+
     if err_msg.is_null() || libc::strlen(err_msg) == 0 {
         return Handle::new_invalid();
     }
@@ -54,6 +59,8 @@ pub unsafe extern "C" fn handle_new_err(ctx: *mut Context, err_msg: RawCString) 
 /// using it.
 #[no_mangle]
 pub unsafe extern "C" fn handle_get_error_message(ctx: *const Context, hdl: Handle) -> RawCString {
+    validate_context_or_panic!(ctx);
+
     match Context::get(hdl, &(*ctx).errs, |hdl| matches!(hdl, Hdl::Err(_))) {
         Ok(err) => to_c_string(err.to_string()).expect("error message couldn't be returned"),
         Err(_) => std::ptr::null(),
