@@ -10,7 +10,7 @@ namespace Hyperlight.Core
 
         static ILogger logger = GetDefaultLogger();
 
-        static readonly Func<string, string, LogLevel, bool> filter = (_, _, level) => level > LogLevel.Information;
+        static readonly Func<string?, string?, LogLevel, bool> filter = (_, _, level) => level > LogLevel.Information;
 
         /// <summary>
         /// Set the ILogger to be used by Hyperlight .Defaults to the debug logger.
