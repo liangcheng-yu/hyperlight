@@ -5,7 +5,6 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Hyperlight;
-using Hyperlight.Core;
 using HyperlightDependencies;
 
 namespace NativeHost
@@ -179,9 +178,10 @@ namespace NativeHost
 
                 stopWatch.Stop();
                 elapsed = stopWatch.Elapsed;
+                var microseconds = 1000000000L / Stopwatch.Frequency * elapsed.Ticks % 1000000;
 
                 Console.WriteLine();
-                Console.WriteLine($"Created and run {numberofparallelInstances} parallel instances in {elapsed.TotalSeconds:00}.{elapsed.Milliseconds:000}{elapsed.Ticks / 10 % 1000:000} seconds");
+                Console.WriteLine($"Created and run {numberofparallelInstances} parallel instances in {elapsed.TotalSeconds:00}.{elapsed.Milliseconds:000}{microseconds:000} seconds");
 
                 WaitForUserInput();
 
@@ -217,9 +217,10 @@ namespace NativeHost
 
                 stopWatch.Stop();
                 elapsed = stopWatch.Elapsed;
+                microseconds = 1000000000L / Stopwatch.Frequency * elapsed.Ticks % 1000000;
 
                 Console.WriteLine();
-                Console.WriteLine($"Created and run {numberofparallelInstances} parallel instances in {elapsed.TotalSeconds:00}.{elapsed.Milliseconds:000}{elapsed.Ticks / 10 % 1000:000} seconds");
+                Console.WriteLine($"Created and run {numberofparallelInstances} parallel instances in {elapsed.TotalSeconds:00}.{elapsed.Milliseconds:000}{microseconds:000} seconds");
 
                 WaitForUserInput();
             }
@@ -256,9 +257,10 @@ namespace NativeHost
 
                 stopWatch.Stop();
                 elapsed = stopWatch.Elapsed;
+                var microseconds = 1000000000L / Stopwatch.Frequency * elapsed.Ticks % 1000000;
 
                 Console.WriteLine();
-                Console.WriteLine($"Created and run {numberofparallelInstances} parallel instances in {elapsed.TotalSeconds:00}.{elapsed.Milliseconds:000}{elapsed.Ticks / 10 % 1000:000} seconds");
+                Console.WriteLine($"Created and run {numberofparallelInstances} parallel instances in {elapsed.TotalSeconds:00}.{elapsed.Milliseconds:000}{microseconds:000} seconds");
 
                 WaitForUserInput();
 
@@ -292,9 +294,10 @@ namespace NativeHost
 
                 stopWatch.Stop();
                 elapsed = stopWatch.Elapsed;
+                microseconds = 1000000000L / Stopwatch.Frequency * elapsed.Ticks % 1000000;
 
                 Console.WriteLine();
-                Console.WriteLine($"Created and run {numberofparallelInstances} parallel instances in {elapsed.TotalSeconds:00}.{elapsed.Milliseconds:000}{elapsed.Ticks / 10 % 1000:000} seconds");
+                Console.WriteLine($"Created and run {numberofparallelInstances} parallel instances in {elapsed.TotalSeconds:00}.{elapsed.Milliseconds:000}{microseconds:000} seconds");
 
                 guestBinary = "simpleguest.exe";
                 guestBinaryPath = Path.Combine(path, guestBinary);
@@ -343,9 +346,10 @@ namespace NativeHost
 
                 stopWatch.Stop();
                 elapsed = stopWatch.Elapsed;
+                microseconds = 1000000000L / Stopwatch.Frequency * elapsed.Ticks % 1000000;
 
                 Console.WriteLine();
-                Console.WriteLine($"Created and run {numberofparallelInstances} parallel instances with {numberofIterations} iterations and custom Sandbox initialisation in {elapsed.TotalSeconds:00}.{elapsed.Milliseconds:000}{elapsed.Ticks / 10 % 1000:000} seconds");
+                Console.WriteLine($"Created and run {numberofparallelInstances} parallel instances with {numberofIterations} iterations and custom Sandbox initialisation in {elapsed.TotalSeconds:00}.{elapsed.Milliseconds:000}{microseconds:000} seconds");
 
                 WaitForUserInput();
 
@@ -382,9 +386,10 @@ namespace NativeHost
 
                 stopWatch.Stop();
                 elapsed = stopWatch.Elapsed;
+                microseconds = 1000000000L / Stopwatch.Frequency * elapsed.Ticks % 1000000;
 
                 Console.WriteLine();
-                Console.WriteLine($"Created and run {numberofparallelInstances} parallel instances with {numberofIterations} iterations in {elapsed.TotalSeconds:00}.{elapsed.Milliseconds:000}{elapsed.Ticks / 10 % 1000:000} seconds");
+                Console.WriteLine($"Created and run {numberofparallelInstances} parallel instances with {numberofIterations} iterations in {elapsed.TotalSeconds:00}.{elapsed.Milliseconds:000}{microseconds:000} seconds");
 
             }
 
