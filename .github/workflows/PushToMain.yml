@@ -141,7 +141,7 @@ jobs:
           hyperlight_host.dll
           hyperlight_host.pdb
     - name: Store Shortened Git SHA for release
-      run: echo "::set-output name=shortened_sha::$(git rev-parse --short HEAD)"
+      run: echo "shortened_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       id: set-output-var
     - name: Create Release (shortened SHA)
       uses: "marvinpinto/action-automatic-releases@latest"
