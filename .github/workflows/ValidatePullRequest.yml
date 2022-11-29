@@ -5,7 +5,7 @@ name: Validate Pull Request
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, dev ]
   
 jobs:
   build-host-library:
@@ -116,6 +116,9 @@ jobs:
     - name: Fetch printf
       working-directory: src/HyperlightGuest/third_party/printf
       run: git submodule update --init
+    - name: Set up WHP_SHOULD_BE_PRESENT Env Var
+      run: |
+        echo "WHP_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
     - name: Build Solution
       run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
       shell: pwsh
@@ -160,12 +163,12 @@ jobs:
             platform: x64
             hypervisor: kvm
           - build: linux-hyperv-debug
-            os: [self-hosted, Linux, X64, hyperv]
+            os: [self-hosted, Linux, X64, hyperv-nov82022]
             config: debug
             platform: x64
             hypervisor: hyperv
           - build: linux-hyperv-release
-            os: [self-hosted, Linux, X64, hyperv]
+            os: [self-hosted, Linux, X64, hyperv-nov82022]
             config: release
             platform: x64
             hypervisor: hyperv
@@ -217,6 +220,14 @@ jobs:
       # Only clean the example if we're on a self-hosted
       # runner. GitHub hosted runners are automatically
       # cleaned.
+    - name: Set up env vars for hyperv-linux tests
+      if: ${{ (matrix.hypervisor == 'hyperv') && (runner.os == 'Linux') }}
+      run: |
+        echo "HYPERV_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
+    - name: Set up env vars for kvm-linux tests
+      if: ${{ (matrix.hypervisor == 'kvm') && (runner.os == 'Linux') }}
+      run: |
+        echo "KVM_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
     - name: Clean example
       shell: bash
       run: dotnet clean -c ${{ matrix.config }}

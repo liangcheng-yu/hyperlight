@@ -47,7 +47,7 @@ impl SandboxMemoryManager {
         let mut guest_mem = GuestMemory::new(layout.get_memory_size()?)?;
         let base_address = guest_mem.base_addr();
 
-        let host_code_offset = SandboxMemoryLayout::get_host_code_offset();
+        let host_code_offset = SandboxMemoryLayout::CODE_OFFSET;
         let host_code_address = base_address + host_code_offset;
         pe_info.relocate_payload(pe_payload, host_code_address)?;
 
@@ -58,7 +58,7 @@ impl SandboxMemoryManager {
         // loaded in the GPA space.
         if run_from_process_memory {
             let _entry_point = host_code_address + entry_point_offset;
-            guest_mem.copy_into(pe_payload, 0)?;
+            guest_mem.copy_from_slice(pe_payload, 0)?;
             guest_mem.write_u64(layout.get_code_pointer_offset(), host_code_address as u64)?;
             Ok(Self {
                 // entry_point,
@@ -67,7 +67,7 @@ impl SandboxMemoryManager {
             })
         } else {
             let _entry_point = SandboxMemoryLayout::GUEST_CODE_ADDRESS + entry_point_offset;
-            guest_mem.copy_into(pe_payload, 0)?;
+            guest_mem.copy_from_slice(pe_payload, 0)?;
             // TODO:
             // Marshal.Copy(peInfo.HyperVisorPayload, 0, (IntPtr)hostCodeAddress, peInfo.Payload.Length);
             // there is a difference in the C# implementation between

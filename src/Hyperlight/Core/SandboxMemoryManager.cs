@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using Hyperlight.Native;
+using Hyperlight.Wrapper;
 using Newtonsoft.Json;
 
 namespace Hyperlight.Core
@@ -13,6 +14,10 @@ namespace Hyperlight.Core
         public ulong EntryPoint { get; private set; }
         public ulong Size { get; private set; }
         public IntPtr SourceAddress { get; private set; }
+        public Wrapper.GuestMemory? guestMemWrapper
+        {
+            get; private set;
+        }
 
         bool disposedValue;
         IntPtr loadAddress = IntPtr.Zero;
@@ -21,7 +26,7 @@ namespace Hyperlight.Core
         readonly SandboxMemoryConfiguration sandboxMemoryConfiguration;
         SandboxMemoryLayout? sandboxMemoryLayout;
 
-        internal SandboxMemoryManager(Wrapper.Context ctx, bool runFromProcessMemory = false) : this(new SandboxMemoryConfiguration(ctx), runFromProcessMemory)
+        internal SandboxMemoryManager(bool runFromProcessMemory = false) : this(new SandboxMemoryConfiguration(), runFromProcessMemory)
         {
         }
 
@@ -29,14 +34,18 @@ namespace Hyperlight.Core
         {
             this.sandboxMemoryConfiguration = sandboxMemoryConfiguration;
             this.runFromProcessMemory = runFromProcessMemory;
+            HyperlightException.ThrowIfNull(Sandbox.Context.Value, nameof(Sandbox.Context.Value), Sandbox.CorrelationId.Value!, GetType().Name);
         }
 
         internal void LoadGuestBinaryUsingLoadLibrary(string guestBinaryPath, PEInfo peInfo)
         {
-            sandboxMemoryLayout = new SandboxMemoryLayout(sandboxMemoryConfiguration, 0, peInfo.StackReserve, peInfo.HeapReserve);
-            Size = sandboxMemoryLayout.GetMemorySize();
             HyperlightException.ThrowIfNull(guestBinaryPath, nameof(guestBinaryPath), Sandbox.CorrelationId.Value!, GetType().Name);
             HyperlightException.ThrowIfNull(peInfo, nameof(peInfo), Sandbox.CorrelationId.Value!, GetType().Name);
+
+            sandboxMemoryLayout = new SandboxMemoryLayout(sandboxMemoryConfiguration, 0, (ulong)peInfo.StackReserve, (ulong)peInfo.HeapReserve);
+            Size = sandboxMemoryLayout.GetMemorySize();
+
+            guestMemWrapper = new GuestMemory(this.Size);
 
             loadAddress = OS.LoadLibrary(guestBinaryPath);
 
@@ -45,71 +54,91 @@ namespace Hyperlight.Core
 
             EntryPoint = (ulong)loadAddress + peInfo.EntryPointOffset;
 
-            SourceAddress = OS.Allocate((IntPtr)0, Size);
+            SourceAddress = this.guestMemWrapper.Address;
 
             if (IntPtr.Zero == SourceAddress)
             {
-                HyperlightException.LogAndThrowException("VirtualAlloc failed", Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.LogAndThrowException("Memory allocation failed", Sandbox.CorrelationId.Value!, GetType().Name);
             }
 
             // Write a pointer to code so that guest exe can check that it is running in Hyperlight
 
-            Marshal.WriteInt64(sandboxMemoryLayout.GetCodePointerAddress(SourceAddress), (long)loadAddress);
+            this.guestMemWrapper.WriteInt64(
+                (IntPtr)sandboxMemoryLayout.codePointerAddressOffset,
+                (ulong)loadAddress
+            );
         }
         internal void LoadGuestBinaryIntoMemory(PEInfo peInfo)
         {
-            sandboxMemoryLayout = new SandboxMemoryLayout(sandboxMemoryConfiguration, peInfo.Payload.Length, peInfo.StackReserve, peInfo.HeapReserve);
+            HyperlightException.ThrowIfNull(peInfo, nameof(peInfo), Sandbox.CorrelationId.Value!, GetType().Name);
+            sandboxMemoryLayout = new SandboxMemoryLayout(sandboxMemoryConfiguration, (ulong)peInfo.Payload.Length, (ulong)peInfo.StackReserve, (ulong)peInfo.HeapReserve);
             Size = sandboxMemoryLayout.GetMemorySize();
-            SourceAddress = OS.Allocate((IntPtr)0, Size);
-            if (IntPtr.Zero == SourceAddress)
-            {
-                HyperlightException.LogAndThrowException("VirtualAlloc failed", Sandbox.CorrelationId.Value!, GetType().Name);
-            }
-
+            this.guestMemWrapper = new GuestMemory(this.Size);
+            SourceAddress = this.guestMemWrapper.Address;
             var hostCodeAddress = (ulong)SandboxMemoryLayout.GetHostCodeAddress(SourceAddress);
             // If we are running in memory the entry point will be relative to the sourceAddress if we are running in a Hypervisor it will be relative to 0x230000 which is where the code is loaded in the GP
             if (runFromProcessMemory)
             {
                 EntryPoint = hostCodeAddress + peInfo.EntryPointOffset;
-                Marshal.Copy(peInfo.Payload, 0, (IntPtr)hostCodeAddress, peInfo.Payload.Length);
+                this.guestMemWrapper.CopyFromByteArray(
+                    peInfo.Payload,
+                    (IntPtr)SandboxMemoryLayout.CodeOffSet
+                );
 
                 // When loading in memory we need to fix up the relocations in the exe to reflect the address the exe was loaded at.
                 peInfo.PatchExeRelocations(hostCodeAddress);
 
                 // Write a pointer to code so that guest exe can check that it is running in Hyperlight
 
-                Marshal.WriteInt64(sandboxMemoryLayout.GetCodePointerAddress(SourceAddress), (long)hostCodeAddress);
+                this.guestMemWrapper.WriteInt64(
+                    (IntPtr)sandboxMemoryLayout.codePointerAddressOffset,
+                    hostCodeAddress
+                );
             }
             else
             {
                 EntryPoint = SandboxMemoryLayout.GuestCodeAddress + peInfo.EntryPointOffset;
-                Marshal.Copy(peInfo.HyperVisorPayload, 0, (IntPtr)hostCodeAddress, peInfo.Payload.Length);
+                this.guestMemWrapper.CopyFromByteArray(
+                   peInfo.HyperVisorPayload,
+                    (IntPtr)SandboxMemoryLayout.CodeOffSet
+               );
 
                 // Write a pointer to code so that guest exe can check that it is running in Hyperlight
 
-                Marshal.WriteInt64(sandboxMemoryLayout.GetCodePointerAddress(SourceAddress), (long)SandboxMemoryLayout.GuestCodeAddress);
+                this.guestMemWrapper.WriteInt64(
+                    (IntPtr)sandboxMemoryLayout.codePointerAddressOffset,
+                    (ulong)SandboxMemoryLayout.GuestCodeAddress
+                );
             }
 
         }
 
         internal void SetStackGuard(byte[] cookie)
         {
-            var stackAddress = sandboxMemoryLayout!.GetTopOfStackAddress(SourceAddress);
-            Marshal.Copy(cookie, 0, stackAddress, cookie.Length);
+            HyperlightException.ThrowIfNull(cookie, nameof(cookie), Sandbox.CorrelationId.Value!, GetType().Name);
+            var stackOffset = sandboxMemoryLayout!.topOfStackOffset;
+            this.guestMemWrapper!.CopyFromByteArray(
+                cookie,
+                (IntPtr)stackOffset
+            );
+
         }
 
         internal bool CheckStackGuard(byte[]? cookie)
         {
             HyperlightException.ThrowIfNull(cookie, nameof(cookie), Sandbox.CorrelationId.Value!, GetType().Name);
             var guestCookie = new byte[cookie.Length];
-            var stackAddress = sandboxMemoryLayout!.GetTopOfStackAddress(SourceAddress);
-            Marshal.Copy(stackAddress, guestCookie, 0, guestCookie.Length);
+            var stackOffset = sandboxMemoryLayout!.topOfStackOffset;
+            this.guestMemWrapper!.CopyToByteArray(
+               guestCookie,
+               (ulong)stackOffset
+            );
             return guestCookie.SequenceEqual(cookie);
         }
 
         internal HyperlightPEB SetUpHyperLightPEB()
         {
-            sandboxMemoryLayout!.WriteMemoryLayout(SourceAddress, GetGuestAddressFromPointer(SourceAddress), Size);
+            sandboxMemoryLayout!.WriteMemoryLayout(this.guestMemWrapper!, GetGuestAddressFromPointer(SourceAddress), Size);
             var offset = GetAddressOffset();
             return new HyperlightPEB(sandboxMemoryLayout.GetFunctionDefinitionAddress(SourceAddress), (int)sandboxMemoryConfiguration.HostFunctionDefinitionSize, offset);
         }
@@ -129,16 +158,22 @@ namespace Hyperlight.Core
 
             // Create pagetable
 
-            var pml4 = SandboxMemoryLayout.GetHostPML4Address(SourceAddress);
-            var pdpt = SandboxMemoryLayout.GetHostPDPTAddress(SourceAddress);
-            var pd = SandboxMemoryLayout.GetHostPDAddress(SourceAddress);
-
-            Marshal.WriteInt64(pml4, 0, (long)(X64.PDE64_PRESENT | X64.PDE64_RW | X64.PDE64_USER | SandboxMemoryLayout.PDPTGuestAddress));
-            Marshal.WriteInt64(pdpt, 0, (long)(X64.PDE64_PRESENT | X64.PDE64_RW | X64.PDE64_USER | (ulong)SandboxMemoryLayout.PDGuestAddress));
+            this.guestMemWrapper!.WriteInt64((IntPtr)SandboxMemoryLayout.PML4Offset, X64.PDE64_PRESENT | X64.PDE64_RW | X64.PDE64_USER | SandboxMemoryLayout.PDPTGuestAddress);
+            this.guestMemWrapper!.WriteInt64((IntPtr)SandboxMemoryLayout.PDPTOffset, X64.PDE64_PRESENT | X64.PDE64_RW | X64.PDE64_USER | SandboxMemoryLayout.PDGuestAddress);
 
             for (var i = 0/*We do not map first 2 megs*/; i < 512; i++)
             {
-                Marshal.WriteInt64(IntPtr.Add(pd, i * 8), ((i /*We map each VA to physical memory 2 megs lower*/) << 21) + (long)(X64.PDE64_PRESENT | X64.PDE64_RW | X64.PDE64_USER | X64.PDE64_PS));
+                // map each VA to physical memory 2 megs lower
+                var valToWrite = (
+                    (i << 21) +
+                    (long)(
+                        X64.PDE64_PRESENT |
+                        X64.PDE64_RW |
+                        X64.PDE64_USER |
+                        X64.PDE64_PS
+                    )
+                );
+                this.guestMemWrapper.WriteInt64(IntPtr.Add((IntPtr)SandboxMemoryLayout.PDOffset, i * 8), (ulong)valToWrite);
             }
 
             return rsp;
@@ -151,29 +186,33 @@ namespace Hyperlight.Core
             {
                 memorySnapShot = new byte[Size];
             }
-            Marshal.Copy(SourceAddress, memorySnapShot, 0, (int)Size);
+            this.guestMemWrapper!.CopyToByteArray(memorySnapShot, 0);
         }
 
         internal void RestoreState()
         {
-            Marshal.Copy(memorySnapShot!, 0, SourceAddress, (int)Size);
+            this.guestMemWrapper!.CopyFromByteArray(memorySnapShot!, IntPtr.Zero);
         }
 
         internal int GetReturnValue()
         {
-            return Marshal.ReadInt32(sandboxMemoryLayout!.GetOutputDataAddress(SourceAddress));
+            return this.guestMemWrapper!.ReadInt32(
+                (UIntPtr)this.sandboxMemoryLayout!.outputDataOffset
+            );
         }
 
         internal void SetOutBAddress(long pOutB)
         {
-            var outBPointerAddress = sandboxMemoryLayout!.GetOutBPointerAddress(SourceAddress);
-            Marshal.WriteInt64(outBPointerAddress, pOutB);
+            var outBPointerOffset = sandboxMemoryLayout!.outbPointerOffset;
+            this.guestMemWrapper!.WriteInt64((IntPtr)outBPointerOffset, (ulong)pOutB);
         }
 
         internal (GuestErrorCode ErrorCode, string? Message) GetGuestError()
         {
-            var guestErrorAddress = sandboxMemoryLayout!.GetGuestErrorAddress(SourceAddress);
-            var error = Marshal.ReadInt64((IntPtr)guestErrorAddress);
+            var guestErrorOffset = sandboxMemoryLayout!.guestErrorOffset;
+            var error = this.guestMemWrapper!.ReadInt64(
+                (UIntPtr)guestErrorOffset
+            );
             var guestErrorCode = error switch
             {
                 var e when Enum.IsDefined(typeof(GuestErrorCode), e) => (GuestErrorCode)error,
@@ -199,7 +238,7 @@ namespace Hyperlight.Core
 
         internal ulong GetPointerToDispatchFunction()
         {
-            return (ulong)Marshal.ReadInt64(sandboxMemoryLayout!.GetDispatchFunctionPointerAddress(SourceAddress));
+            return (ulong)this.guestMemWrapper!.ReadInt64((UIntPtr)sandboxMemoryLayout!.dispatchFunctionPointerOffSet);
         }
 
         internal void WriteGuestFunctionCallDetails(string functionName, object[] args)
@@ -302,8 +341,8 @@ namespace Hyperlight.Core
 
         internal string GetHostCallMethodName()
         {
-            var outputDataAddress = sandboxMemoryLayout!.GetOutputDataAddress(SourceAddress);
-            var strPtr = Marshal.ReadInt64((IntPtr)outputDataAddress);
+            var outputDataAddress = sandboxMemoryLayout!.outputDataBufferOffset;
+            var strPtr = this.guestMemWrapper!.ReadInt64((UIntPtr)outputDataAddress);
             var methodName = Marshal.PtrToStringAnsi(GetHostAddressFromPointer(strPtr));
             HyperlightException.ThrowIfNull(methodName, Sandbox.CorrelationId.Value!, GetType().Name);
             return methodName;
@@ -313,16 +352,16 @@ namespace Hyperlight.Core
         {
             long strPtr;
             var args = new object[parameters.Length];
-            var outputDataAddress = sandboxMemoryLayout!.GetOutputDataAddress(SourceAddress);
+            var outputDataAddress = (UIntPtr)sandboxMemoryLayout!.outputDataBufferOffset;
             for (var i = 0; i < parameters.Length; i++)
             {
                 if (parameters[i].ParameterType == typeof(int))
                 {
-                    args[i] = Marshal.ReadInt32(outputDataAddress + 8 * (i + 1));
+                    args[i] = this.guestMemWrapper!.ReadInt32(outputDataAddress + 8 * (i + 1));
                 }
                 else if (parameters[i].ParameterType == typeof(string))
                 {
-                    strPtr = Marshal.ReadInt64(outputDataAddress + 8 * (i + 1));
+                    strPtr = this.guestMemWrapper!.ReadInt64(outputDataAddress + 8 * (i + 1));
                     var arg = Marshal.PtrToStringAnsi(GetHostAddressFromPointer(strPtr));
                     HyperlightException.ThrowIfNull(arg, nameof(arg), Sandbox.CorrelationId.Value!, GetType().Name);
                     args[i] = arg;
@@ -337,23 +376,26 @@ namespace Hyperlight.Core
 
         internal void WriteResponseFromHostMethodCall(Type type, object? returnValue)
         {
-            var inputDataAddress = sandboxMemoryLayout!.GetInputDataAddress(SourceAddress);
+            var inputDataAddress = (IntPtr)sandboxMemoryLayout!.inputDataBufferOffset;
             if (type == typeof(int))
             {
-                Marshal.WriteInt32(inputDataAddress, returnValue is null ? 0 : (int)returnValue);
+                this.guestMemWrapper!.WriteInt32(inputDataAddress, returnValue is null ? 0 : (int)returnValue);
             }
             else if (type == typeof(uint))
             {
-                var ui32 = BitConverter.GetBytes((uint)(returnValue is null ? 0 : returnValue));
-                Marshal.Copy(ui32, 0, inputDataAddress, ui32.Length);
+                // TODO fix this
+                int result = (int)(returnValue is null ? 0 : (uint)returnValue);
+                this.guestMemWrapper!.WriteInt32(inputDataAddress, result);
             }
             else if (type == typeof(long))
             {
-                Marshal.WriteInt64(inputDataAddress, returnValue is null ? 0 : (long)returnValue);
+                // TODO fix this
+                ulong result = (ulong)(returnValue is null ? 0 : (long)returnValue);
+                this.guestMemWrapper!.WriteInt64(inputDataAddress, result);
             }
             else if (type == typeof(IntPtr))
             {
-                Marshal.WriteIntPtr(inputDataAddress, returnValue is null ? IntPtr.Zero : (IntPtr)returnValue);
+                this.guestMemWrapper!.WriteInt64(inputDataAddress, returnValue is null ? 0 : (ulong)returnValue);
             }
             else
             {
@@ -363,13 +405,13 @@ namespace Hyperlight.Core
 
         internal HyperlightException? GetHostException()
         {
-            var hostExceptionAddress = sandboxMemoryLayout!.GetHostExceptionAddress(SourceAddress);
+            var hostExceptionOffset = sandboxMemoryLayout!.hostExceptionOffset;
             HyperlightException? hyperlightException = null;
-            var dataLength = Marshal.ReadInt32(hostExceptionAddress);
+            var dataLength = this.guestMemWrapper!.ReadInt32((UIntPtr)hostExceptionOffset);
             if (dataLength > 0)
             {
                 var data = new byte[dataLength];
-                Marshal.Copy(hostExceptionAddress + sizeof(int), data, 0, dataLength);
+                this.guestMemWrapper.CopyToByteArray(data, (ulong)hostExceptionOffset + sizeof(int));
                 var exceptionAsJson = Encoding.UTF8.GetString(data);
                 // TODO: Switch to System.Text.Json - requires custom serialisation as default throws an exception when serialising if an inner exception is present
                 // as it contains a Type: System.NotSupportedException: Serialization and deserialization of 'System.Type' instances are not supported and should be avoided since they can lead to security issues.
@@ -398,24 +440,23 @@ namespace Hyperlight.Core
 
         internal long GetAddressOffset()
         {
-            return runFromProcessMemory ? 0 : (long)SourceAddress - SandboxMemoryLayout.BaseAddress;
+            return runFromProcessMemory ? 0 : (long)((ulong)SourceAddress - SandboxMemoryLayout.BaseAddress);
         }
 
         internal void WriteOutbException(Exception ex, ushort port)
         {
-            var guestErrorAddress = sandboxMemoryLayout!.GetGuestErrorAddress(SourceAddress);
-            Marshal.WriteInt64(guestErrorAddress, (long)GuestErrorCode.OUTB_ERROR);
+            var guestErrorAddressOffset = sandboxMemoryLayout!.guestErrorAddressOffset;
+            this.guestMemWrapper!.WriteInt64((IntPtr)guestErrorAddressOffset, (long)GuestErrorCode.OUTB_ERROR);
 
-            var guestErrorMessagePointerAddress = sandboxMemoryLayout.GetGuestErrorMessagePointerAddress(SourceAddress);
-            var guestErrorMessageAddress = GetHostAddressFromPointer(Marshal.ReadInt64(guestErrorMessagePointerAddress));
+            var guestErrorMessageBufferOffset = sandboxMemoryLayout!.guestErrorMessageBufferOffset;
             var data = Encoding.UTF8.GetBytes($"Port:{port}, Message:{ex.Message}\0");
             if (data.Length <= (int)sandboxMemoryConfiguration.GuestErrorMessageSize)
             {
-                Marshal.Copy(data, 0, guestErrorMessageAddress, data.Length);
+                this.guestMemWrapper!.CopyFromByteArray(data, (IntPtr)guestErrorMessageBufferOffset);
             }
 
             var hyperLightException = ex.GetType() == typeof(HyperlightException) ? ex as HyperlightException : new HyperlightException("OutB Error", ex);
-            var hostExceptionPointer = sandboxMemoryLayout.GetHostExceptionAddress(SourceAddress);
+            var hostExceptionOffset = sandboxMemoryLayout!.hostExceptionOffset;
 
             // TODO: Switch to System.Text.Json - requires custom serialisation as default throws an exception when serialising if an inner exception is present
             // as it contains a Type: System.NotSupportedException: Serialization and deserialization of 'System.Type' instances are not supported and should be avoided since they can lead to security issues.
@@ -431,8 +472,8 @@ namespace Hyperlight.Core
 
             if (dataLength <= (int)sandboxMemoryConfiguration.HostExceptionSize - sizeof(int))
             {
-                Marshal.WriteInt32(hostExceptionPointer, dataLength);
-                Marshal.Copy(data, 0, hostExceptionPointer + sizeof(int), data.Length);
+                this.guestMemWrapper!.WriteInt32((IntPtr)hostExceptionOffset, dataLength);
+                this.guestMemWrapper!.CopyFromByteArray(data, (IntPtr)hostExceptionOffset + sizeof(int));
             }
 
             HyperlightLogger.LogError($"Exception occurred in outb", Sandbox.CorrelationId.Value!, GetType().Name, ex);
@@ -442,7 +483,7 @@ namespace Hyperlight.Core
         {
             if (runFromProcessMemory)
             {
-                return sandboxMemoryLayout!.GetInProcessPEBAddress(SourceAddress);
+                return (ulong)sandboxMemoryLayout!.GetInProcessPEBAddress(SourceAddress);
             }
 
             return (ulong)sandboxMemoryLayout!.PEBAddress;
@@ -467,12 +508,8 @@ namespace Hyperlight.Core
             {
                 if (disposing)
                 {
-                    // TODO: dispose managed state (managed objects)
-                }
-
-                if (IntPtr.Zero != SourceAddress)
-                {
-                    OS.Free(SourceAddress, Size);
+                    this.sandboxMemoryLayout?.Dispose();
+                    this.guestMemWrapper!.Dispose();
                 }
 
                 if (IntPtr.Zero != loadAddress)

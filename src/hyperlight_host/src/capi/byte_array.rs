@@ -1,8 +1,10 @@
-use super::context::{Context, ReadResult, WriteResult};
+use super::context::{Context, ERR_NULL_CONTEXT};
 use super::fill_vec;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::strings::{to_string, RawCString};
+use crate::{validate_context, validate_context_or_panic};
+use anyhow::Result;
 use anyhow::{anyhow, Error};
 
 mod impls {
@@ -49,15 +51,17 @@ mod impls {
 /// Get the byte array in `ctx` referenced by `handle` in a `ReadResult`
 /// that can be used only to read the bytes, or `Err` if the
 /// byte array could not be fetched from `ctx`.
-pub fn get_byte_array(ctx: &Context, handle: Handle) -> ReadResult<Vec<u8>> {
+pub fn get_byte_array(ctx: &Context, handle: Handle) -> Result<&Vec<u8>> {
     Context::get(handle, &ctx.byte_arrays, |b| matches!(b, Hdl::ByteArray(_)))
 }
 
 /// Get the byte array in `ctx` referenced by `handle` in a `WriteResult`
 /// that can be used to read or write the bytes, or `Err` if the
 /// byte array could not be fetched from `ctx`.
-pub fn get_byte_array_mut(ctx: &Context, handle: Handle) -> WriteResult<Vec<u8>> {
-    Context::get_mut(handle, &ctx.byte_arrays, |b| matches!(b, Hdl::ByteArray(_)))
+pub fn get_byte_array_mut(ctx: &mut Context, handle: Handle) -> Result<&mut Vec<u8>> {
+    Context::get_mut(handle, &mut ctx.byte_arrays, |b| {
+        matches!(b, Hdl::ByteArray(_))
+    })
 }
 /// Copy all the memory from `arr_ptr` to `arr_ptr + arr_len` into a new
 /// byte array, register the new byte array's memory with the given `ctx`,
@@ -77,12 +81,14 @@ pub unsafe extern "C" fn byte_array_new(
     arr_ptr: *const u8,
     arr_len: usize,
 ) -> Handle {
+    validate_context!(ctx);
+
     if arr_ptr.is_null() {
         let err = Error::msg("array pointer passed to byte_array_new is NULL");
         return (*ctx).register_err(err);
     }
     let vec = fill_vec(arr_ptr, arr_len);
-    Context::register(vec, &(*ctx).byte_arrays, Hdl::ByteArray)
+    Context::register(vec, &mut (*ctx).byte_arrays, Hdl::ByteArray)
 }
 
 /// Read the entire contents of the file at `file_name` into
@@ -101,10 +107,12 @@ pub unsafe extern "C" fn byte_array_new_from_file(
     ctx: *mut Context,
     file_name: RawCString,
 ) -> Handle {
+    validate_context!(ctx);
+
     let file_name_str = to_string(file_name);
     let vec_res = impls::new_from_file(&file_name_str);
     match vec_res {
-        Ok(vec) => Context::register(vec, &(*ctx).byte_arrays, Hdl::ByteArray),
+        Ok(vec) => Context::register(vec, &mut (*ctx).byte_arrays, Hdl::ByteArray),
         Err(err) => (*ctx).register_err(anyhow!(err)),
     }
 }
@@ -120,6 +128,8 @@ pub unsafe extern "C" fn byte_array_new_from_file(
 /// the execution of this function.
 #[no_mangle]
 pub unsafe extern "C" fn byte_array_len(ctx: *const Context, handle: Handle) -> i64 {
+    validate_context_or_panic!(ctx);
+
     match impls::len(&(*ctx), handle) {
         Ok(l) => l as i64,
         Err(_) => -1,
@@ -144,6 +154,8 @@ pub unsafe extern "C" fn byte_array_len(ctx: *const Context, handle: Handle) -> 
 /// in `ctx`.
 #[no_mangle]
 pub unsafe extern "C" fn byte_array_remove(ctx: *mut Context, handle: Handle) -> *const u8 {
+    validate_context_or_panic!(ctx);
+
     match impls::remove(&mut *ctx, handle) {
         Ok(vec) => {
             let ptr = vec.as_ptr();
@@ -174,10 +186,10 @@ mod tests {
 
     #[test]
     fn byte_array_len() -> Result<()> {
-        let ctx = Context::default();
+        let mut ctx = Context::default();
         let barr = vec![1, 2, 3];
         let barr_len = barr.len();
-        let barr_hdl = Context::register(barr, &ctx.byte_arrays, Hdl::ByteArray);
+        let barr_hdl = Context::register(barr, &mut ctx.byte_arrays, Hdl::ByteArray);
         assert_eq!(handle_get_status(barr_hdl), HandleStatus::ValidOther);
         assert_eq!(impls::len(&ctx, barr_hdl)?, barr_len);
 
@@ -189,7 +201,7 @@ mod tests {
         let mut ctx = Context::default();
         let barr = vec![1, 2, 3];
         let barr_copy = barr.clone();
-        let barr_hdl = Context::register(barr, &ctx.byte_arrays, Hdl::ByteArray);
+        let barr_hdl = Context::register(barr, &mut ctx.byte_arrays, Hdl::ByteArray);
         assert_eq!(handle_get_status(barr_hdl), HandleStatus::ValidOther);
 
         {

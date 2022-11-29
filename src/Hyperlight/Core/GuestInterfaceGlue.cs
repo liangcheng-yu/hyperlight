@@ -130,11 +130,11 @@ namespace Hyperlight
         }
         private void CreateDymanicMethod(FieldInfo fieldInfo, object target)
         {
-            var dynamicMethod = CreateOrAddDynamicMethod(fieldInfo, target);
+            var dynamicMethod = CreateOrAddDynamicMethod(fieldInfo);
             fieldInfo.SetValue(target, dynamicMethod.Value.CreateDelegate(fieldInfo.FieldType, this));
         }
 
-        private Lazy<DynamicMethod> CreateOrAddDynamicMethod(FieldInfo fieldInfo, object target)
+        private Lazy<DynamicMethod> CreateOrAddDynamicMethod(FieldInfo fieldInfo)
         {
 
             return dynamicMethods.GetOrAdd(fieldInfo.Name, _ => new Lazy<DynamicMethod>(() =>

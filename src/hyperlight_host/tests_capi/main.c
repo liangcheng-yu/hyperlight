@@ -18,24 +18,23 @@
 
 static MunitSuite test_suites[] = {
     /* {name, tests, suites, iterations, options} */
-    {"/sandbox_tests", sandbox_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-    {"/val_ref_tests", val_ref_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-    {"/host_func_tests", host_func_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-    {"/context_tests", context_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-    {"/pe_file_tests", pe_file_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/byte_array_tests", byte_array_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-    {"/mem_config_tests", mem_config_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-    {"/mem_layout_tests", mem_layout_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
+    {"/context_tests", context_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
+    {"/err_tests", err_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
+    {"/guest_memory_tests", guest_memory_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
+    {"/sandbox_tests", sandbox_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
+    {"/host_func_tests", host_func_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
 #if defined(__linux__)
     {"/hyperv_linux_tests", hyperv_linux_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-    {"/kvm_tests", kvm_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
 #endif
     {"/int_handle_tests", int_handle_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-    {"/guest_memory_tests", guest_memory_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-    {"/int_handle_tests", int_handle_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-    {"/guest_memory_tests", guest_memory_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-    {"/err_tests", err_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-
+#if defined(__linux__)
+    {"/kvm_tests", kvm_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
+#endif
+    {"/mem_config_tests", mem_config_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
+    {"/mem_layout_tests", mem_layout_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
+    {"/pe_file_tests", pe_file_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
+    {"/val_ref_tests", val_ref_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {NULL, NULL, NULL, 0, MUNIT_SUITE_OPTION_NONE}};
 
 static const MunitSuite sandbox_test = {

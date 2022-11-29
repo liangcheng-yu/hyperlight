@@ -4,9 +4,9 @@ using Hyperlight.Core;
 
 namespace Hyperlight.Wrapper
 {
-    public class GuestMemoryWrapper : IDisposable
+    public class GuestMemory : IDisposable
     {
-        private Context ctxWrapper;
+        private readonly Context ctxWrapper;
         public Handle handleWrapper { get; private set; }
         private bool disposed;
         public IntPtr Address
@@ -17,23 +17,23 @@ namespace Hyperlight.Wrapper
                     this.ctxWrapper.ctx,
                     this.handleWrapper.handle
                 );
-                return new IntPtr((int)addr);
+                return (IntPtr)addr;
             }
         }
-        public GuestMemoryWrapper(
-            Context ctxWrapper,
+        public GuestMemory(
             ulong size
         )
         {
-            this.ctxWrapper = ctxWrapper;
+            HyperlightException.ThrowIfNull(Sandbox.Context.Value, Sandbox.CorrelationId.Value!, GetType().Name);
+            this.ctxWrapper = Sandbox.Context.Value;
             this.handleWrapper = new Handle(
-                ctxWrapper,
+                this.ctxWrapper,
                 guest_memory_new(
                     this.ctxWrapper.ctx,
                     size
                 )
             );
-
+            this.handleWrapper.ThrowIfError();
         }
 
         // TODO: make this a long rather than ulong
@@ -55,13 +55,13 @@ namespace Hyperlight.Wrapper
         }
 
         public long ReadInt64(
-            IntPtr addr
+            UIntPtr addr
         )
         {
             var rawHdl = guest_memory_read_int_64(
                 this.ctxWrapper.ctx,
                 this.handleWrapper.handle,
-                (ulong)addr.ToInt64()
+                addr.ToUInt64()
             );
             using (var hdl = new Handle(this.ctxWrapper, rawHdl))
             {
@@ -88,13 +88,13 @@ namespace Hyperlight.Wrapper
         }
 
         public int ReadInt32(
-            IntPtr addr
+            UIntPtr addr
         )
         {
             var rawHdl = guest_memory_read_int_32(
                 this.ctxWrapper.ctx,
                 this.handleWrapper.handle,
-                (ulong)addr.ToInt64()
+                (ulong)addr.ToUInt64()
             );
             using (var hdl = new Handle(this.ctxWrapper, rawHdl))
             {
@@ -103,16 +103,15 @@ namespace Hyperlight.Wrapper
             }
         }
 
-        public void CopyByteArray(
-            Context ctxWrapper,
+        public void CopyFromByteArray(
             byte[] arr,
             IntPtr addr
         )
         {
             HyperlightException.ThrowIfNull(arr, Sandbox.CorrelationId.Value!, GetType().Name);
 
-            using var barr = new ByteArray(ctxWrapper, arr);
-            this.CopyByteArray(
+            using var barr = new ByteArray(arr);
+            this.CopyFromByteArray(
                 barr,
                 (ulong)addr.ToInt64(),
                 0,
@@ -120,7 +119,28 @@ namespace Hyperlight.Wrapper
             );
         }
 
-        public void CopyByteArray(
+        public void CopyToByteArray(
+            byte[] arr,
+            ulong offset
+        )
+        {
+            HyperlightException.ThrowIfNull(arr, Sandbox.CorrelationId.Value!, GetType().Name);
+
+            var rawHdl = guest_memory_copy_to_byte_array(
+                this.ctxWrapper.ctx,
+                this.handleWrapper.handle,
+                offset,
+                arr,
+                (ulong)arr.Length
+            );
+            using (var hdl = new Handle(this.ctxWrapper, rawHdl))
+            {
+                hdl.ThrowIfError();
+            }
+        }
+
+
+        public void CopyFromByteArray(
             ByteArray arr,
             ulong addr,
             ulong arrStart,
@@ -129,7 +149,7 @@ namespace Hyperlight.Wrapper
         {
             HyperlightException.ThrowIfNull(arr, Sandbox.CorrelationId.Value!, GetType().Name);
 
-            var rawHdl = guest_memory_copy_byte_array(
+            var rawHdl = guest_memory_copy_from_byte_array(
                 this.ctxWrapper.ctx,
                 this.handleWrapper.handle,
                 arr.handleWrapper.handle,
@@ -181,12 +201,22 @@ namespace Hyperlight.Wrapper
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        public static extern NativeHandle guest_memory_copy_byte_array(
+        public static extern NativeHandle guest_memory_copy_from_byte_array(
             NativeContext ctx,
             NativeHandle guest_memory_handle,
             NativeHandle byte_array_handle,
             ulong address,
             ulong arr_start,
+            ulong arr_length
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        public static extern NativeHandle guest_memory_copy_to_byte_array(
+            NativeContext ctx,
+            NativeHandle guest_memory_handle,
+            ulong offset,
+            [In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] arr,
             ulong arr_length
         );
 

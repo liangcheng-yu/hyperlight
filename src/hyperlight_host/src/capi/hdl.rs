@@ -1,4 +1,4 @@
-use super::handle::{Handle, Key, TypeID, EMPTY_KEY};
+use super::handle::{Handle, Key, TypeID, EMPTY_KEY, INVALID_KEY, NULL_CONTEXT_KEY};
 use anyhow::bail;
 
 /// The type-safe adapter to `Handle`
@@ -14,6 +14,14 @@ pub enum Hdl {
     ///
     /// Roughly equivalent to `NULL`.
     Empty(),
+    /// A reference to an `Invalid` Handle error.
+    ///
+    /// Indicates that an invalid Handle was passed to the C api.
+    Invalid(),
+    /// A reference to a `NullContext` error.
+    ///
+    /// Indicates that a C api function was passed a null Context.
+    NullContext(),
     /// A reference to a `HostFunc`.
     HostFunc(Key),
     /// A reference to a `String`.
@@ -71,6 +79,8 @@ pub enum Hdl {
 }
 
 impl Hdl {
+    const INVALID_TYPE_ID: TypeID = 1;
+    const NULL_CONTEXT_TYPE_ID: TypeID = 2;
     const ERROR_TYPE_ID: TypeID = 100;
     const SANDBOX_TYPE_ID: TypeID = 101;
     const VAL_TYPE_ID: TypeID = 102;
@@ -118,6 +128,8 @@ impl Hdl {
             Hdl::Sandbox(_) => Self::SANDBOX_TYPE_ID,
             Hdl::Val(_) => Self::VAL_TYPE_ID,
             Hdl::Empty() => Self::EMPTY_TYPE_ID,
+            Hdl::Invalid() => Self::INVALID_TYPE_ID,
+            Hdl::NullContext() => Self::NULL_CONTEXT_TYPE_ID,
             Hdl::HostFunc(_) => Self::HOST_FUNC_TYPE_ID,
             Hdl::String(_) => Self::STRING_TYPE_ID,
             Hdl::ByteArray(_) => Self::BYTE_ARRAY_TYPE_ID,
@@ -164,6 +176,8 @@ impl Hdl {
             Hdl::Sandbox(key) => *key,
             Hdl::Val(key) => *key,
             Hdl::Empty() => EMPTY_KEY,
+            Hdl::Invalid() => INVALID_KEY,
+            Hdl::NullContext() => NULL_CONTEXT_KEY,
             Hdl::HostFunc(key) => *key,
             Hdl::String(key) => *key,
             Hdl::ByteArray(key) => *key,
@@ -208,6 +222,8 @@ impl std::fmt::Display for Hdl {
             Hdl::Sandbox(key) => write!(f, "Sandbox({})", key),
             Hdl::Val(key) => write!(f, "Val({})", key),
             Hdl::Empty() => write!(f, "Empty()"),
+            Hdl::Invalid() => write!(f, "Invalid()"),
+            Hdl::NullContext() => write!(f, "NullContext()"),
             Hdl::HostFunc(key) => write!(f, "HostFunc({})", key),
             Hdl::String(key) => write!(f, "String({})", key),
             Hdl::ByteArray(key) => write!(f, "ByteArray({})", key),
@@ -257,6 +273,8 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::SANDBOX_TYPE_ID => Ok(Hdl::Sandbox(key)),
             Self::VAL_TYPE_ID => Ok(Hdl::Val(key)),
             Self::EMPTY_TYPE_ID => Ok(Hdl::Empty()),
+            Self::INVALID_TYPE_ID => Ok(Hdl::Invalid()),
+            Self::NULL_CONTEXT_TYPE_ID => Ok(Hdl::NullContext()),
             Self::HOST_FUNC_TYPE_ID => Ok(Hdl::HostFunc(key)),
             Self::STRING_TYPE_ID => Ok(Hdl::String(key)),
             Self::BYTE_ARRAY_TYPE_ID => Ok(Hdl::ByteArray(key)),

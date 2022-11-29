@@ -1,7 +1,10 @@
+global using NativeHandle = System.UInt64;
+global using NativeContext = System.IntPtr;
 using System;
 using Xunit;
 using Hyperlight.Core;
 using Hyperlight.Wrapper;
+using System.Runtime.InteropServices;
 
 namespace Hyperlight.Tests
 {
@@ -58,6 +61,27 @@ namespace Hyperlight.Tests
             Assert.False(errHdl.IsEmpty());
             Assert.True(errHdl.IsInvalid());
         }
+
+        [Fact]
+        public void Test_NewInvalidNullContext_Handle()
+        {
+            using var ctx = new Wrapper.Context();
+            // Force a null context handle to be created so that we can validate that we are detecting the null context handle returned by the C API
+            var rawHdl = int_32_new(NativeContext.Zero, 0);
+            var hdl = new Handle(ctx, rawHdl);
+
+            // Null context errors should be returned as a well-known handle
+            Assert.False(hdl.IsError());
+            Assert.False(hdl.IsEmpty());
+            Assert.True(hdl.IsInvalid()); // NullContext should also be detected as an invalid handle
+        }
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle int_32_new(
+                    NativeContext ctx,
+                    int val
+                );
 
         [Fact]
         public void Test_NewError_ThrowIfError()

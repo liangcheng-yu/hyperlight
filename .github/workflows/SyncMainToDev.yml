@@ -1,0 +1,27 @@
+# dependabot is configured to only update the main branch
+# This action will sync the main branch to the dev branch
+
+name: Sync main to dev
+on:
+  schedule:
+    - cron: '0 8 * * 1' # run at 8am every Monday
+  workflow_dispatch: # allow manual triggering
+jobs:
+  sync:
+    name: Create PR  from main to dev
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # https://github.com/marketplace/actions/github-pull-request-action
+      - name: Create PR
+        id: open-pr
+        uses: repo-sync/pull-request@v2
+        with:
+          source_branch: "main"                                 
+          destination_branch: "dev"    
+          pr_title: "[Automated] Merge main into dev"
+          pr_body: "Automated Pull Request to bring dependabot changes (and any other changes) that have been committed to main into dev"
+          pr_allow_empty: false   

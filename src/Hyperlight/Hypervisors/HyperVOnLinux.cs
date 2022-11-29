@@ -20,7 +20,7 @@ namespace Hyperlight.Hypervisors
         LinuxHyperV.MSHV_REGISTER[]? registers;
         readonly LinuxHyperV.MSHV_REGISTER[] ripRegister = new LinuxHyperV.MSHV_REGISTER[1] { new() { Name = LinuxHyperV.HV_X64_REGISTER_RIP, Value = new LinuxHyperV.MSHV_U128 { HighPart = 0, LowPart = 0 } } };
 
-        internal HyperVOnLinux(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, Action handleMemoryAccess) : base(sourceAddress, entryPoint, rsp, outb, handleMemoryAccess)
+        internal HyperVOnLinux(IntPtr sourceAddress, ulong pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, Action handleMemoryAccess) : base(sourceAddress, entryPoint, rsp, outb, handleMemoryAccess)
         {
 
             if (!LinuxHyperV.IsHypervisorPresent())
@@ -49,14 +49,14 @@ namespace Hyperlight.Hypervisors
             {
                 HyperlightException.LogAndThrowException<HyperVOnLinuxException>($"Unable to create HyperV VCPU Error:  {vcpuHandle.GetErrorMessage()}", Sandbox.CorrelationId.Value!, GetType().Name);
             }
-            var userMemoryRegion = LinuxHyperV.map_vm_memory_region(context.ctx, vmHandle.handle, (ulong)SandboxMemoryLayout.BaseAddress >> 12, (ulong)sourceAddress, size);
+            var userMemoryRegion = LinuxHyperV.map_vm_memory_region(context.ctx, vmHandle.handle, SandboxMemoryLayout.BaseAddress >> 12, (ulong)sourceAddress, size);
             memoryHandle = new Handle(context, userMemoryRegion);
             if (memoryHandle.IsError())
             {
                 HyperlightException.LogAndThrowException<HyperVOnLinuxException>($"Failed to map User Memory Region Error: {memoryHandle.GetErrorMessage()}", Sandbox.CorrelationId.Value!, GetType().Name);
             }
 
-            AddRegister(LinuxHyperV.HV_X64_REGISTER_CR3, (ulong)pml4_addr, 0);
+            AddRegister(LinuxHyperV.HV_X64_REGISTER_CR3, pml4_addr, 0);
             AddRegister(LinuxHyperV.HV_X64_REGISTER_CR4, X64.CR4_PAE | X64.CR4_OSFXSR | X64.CR4_OSXMMEXCPT, 0);
             AddRegister(LinuxHyperV.HV_X64_REGISTER_CR0, X64.CR0_PE | X64.CR0_MP | X64.CR0_ET | X64.CR0_NE | X64.CR0_WP | X64.CR0_AM | X64.CR0_PG, 0);
             AddRegister(LinuxHyperV.HV_X64_REGISTER_EFER, X64.EFER_LME | X64.EFER_LMA, 0);
@@ -95,7 +95,7 @@ namespace Hyperlight.Hypervisors
 
         internal override void ResetRSP(ulong rsp)
         {
-            var reg = new LinuxHyperV.MSHV_REGISTER[1] { new() { Name = LinuxHyperV.HV_X64_REGISTER_RIP, Value = new LinuxHyperV.MSHV_U128 { HighPart = rsp, LowPart = 0 } } };
+            var reg = new LinuxHyperV.MSHV_REGISTER[1] { new() { Name = LinuxHyperV.HV_X64_REGISTER_RSP, Value = new LinuxHyperV.MSHV_U128 { HighPart = 0, LowPart = rsp } } };
             var setRegister = LinuxHyperV.set_registers(context.ctx, vcpuHandle.handle, reg, (UIntPtr)reg.Length);
             using (var registerHandle = new Handle(context, setRegister))
             {

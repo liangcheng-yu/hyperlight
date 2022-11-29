@@ -12,7 +12,8 @@ namespace Hyperlight.Wrapper
         ValidOther,
         ValidEmpty,
         ValidError,
-        Invalid
+        Invalid,
+        InvalidNullContext
     }
 
     public class Handle : IDisposable
@@ -178,7 +179,8 @@ namespace Hyperlight.Wrapper
         /// <returns>true if the handle is invalid, false otherwise</returns>
         public bool IsInvalid()
         {
-            return handle_get_status(this.handle) == HandleStatus.Invalid;
+            var hdl = handle_get_status(this.handle);
+            return hdl == HandleStatus.Invalid || hdl == HandleStatus.InvalidNullContext;
         }
 
         /// <summary>

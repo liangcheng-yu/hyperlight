@@ -1,9 +1,13 @@
-use super::context::{Context, ReadResult};
+use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
+use crate::capi::context::ERR_NULL_CONTEXT;
 use crate::func::args::Val;
 use crate::func::SerializationType;
+use crate::validate_context;
+use crate::validate_context_or_panic;
 use anyhow::bail;
+use anyhow::Result;
 use std::boxed::Box;
 
 mod impls {
@@ -32,7 +36,7 @@ mod impls {
 
 /// Get a read-only reference to a value from `ctx` that is
 /// referenced by `val_hdl`.
-pub fn get_val(ctx: &Context, val_hdl: Handle) -> ReadResult<Val> {
+pub fn get_val(ctx: &Context, val_hdl: Handle) -> Result<&Val> {
     match Hdl::try_from(val_hdl) {
         Ok(Hdl::Val(_)) => {}
         _ => bail!("Handle is not a Val"),
@@ -102,6 +106,8 @@ pub unsafe extern "C" fn val_ref_free(v: *mut Val) {
 /// you call `val_ref_free` exactly once when you're done with it.
 #[no_mangle]
 pub unsafe extern "C" fn val_ref_get(ctx: *const Context, val_hdl: Handle) -> *mut Val {
+    validate_context_or_panic!(ctx);
+
     let ctx_ref = &*ctx;
     let bx = impls::val_ref_get(ctx_ref, val_hdl);
     Box::into_raw(bx)
@@ -121,7 +127,9 @@ pub unsafe extern "C" fn val_ref_get(ctx: *const Context, val_hdl: Handle) -> *m
 /// and no earlier than when this function returns.
 #[no_mangle]
 pub unsafe extern "C" fn val_ref_register(ctx: *mut Context, val: *const Val) -> Handle {
-    let ctx_ref = &*ctx;
+    validate_context!(ctx);
+
+    let ctx_ref = &mut *ctx;
     let val_ref = &*val;
-    Context::register(val_ref.clone(), &ctx_ref.vals, Hdl::Val)
+    Context::register(val_ref.clone(), &mut ctx_ref.vals, Hdl::Val)
 }

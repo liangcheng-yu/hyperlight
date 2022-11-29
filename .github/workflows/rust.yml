@@ -2,9 +2,9 @@ name: Rust Tests and Lints
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
 
 env:
   CARGO_TERM_COLOR: always
@@ -29,7 +29,7 @@ jobs:
             hypervisor: kvm
             config: debug
           - build: linux-hyperv-debug
-            os: [self-hosted, Linux, X64, hyperv]
+            os: [self-hosted, Linux, X64, hyperv-nov82022]
             hypervisor: hyperv
             config: debug
           - build: ubuntu-20.04-release
@@ -45,18 +45,16 @@ jobs:
             hypervisor: kvm
             config: release
           - build: linux-hyperv-release
-            os: [self-hosted, Linux, X64, hyperv]
+            os: [self-hosted, Linux, X64, hyperv-nov82022]
             hypervisor: hyperv
             config: release
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+
+      - uses: dtolnay/rust-toolchain@1.64.0
         with:
-          toolchain: 1.64.0
-          override: true
-          default: true
-          profile: default
+          components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
       - name: fmt
         run: cargo fmt --all -- --check

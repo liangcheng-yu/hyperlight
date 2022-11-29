@@ -78,7 +78,7 @@ namespace Hyperlight
             var totalHeaderSize = headerSize + (int)header.CountFunctions * functionDefinitionSize;
             if (totalHeaderSize > length)
             {
-                HyperlightException.LogAndThrowException("Not enough memory for header structures", Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.LogAndThrowException($"Not enough memory for header structures. Available {length} Required {totalHeaderSize}", Sandbox.CorrelationId.Value!, GetType().Name);
             }
 
             var dataTable = new SimpleDataTable(IntPtr.Add(ptr, totalHeaderSize), length - totalHeaderSize, offset);

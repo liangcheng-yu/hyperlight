@@ -37,7 +37,8 @@ pub unsafe extern "C" fn ${FUNC_NAME}(
     ctx: *mut Context,
     hdl: Handle,
     [${OTHER_PARAM_1}, ...]
-) -> Handle
+) -> Handle {
+  validate_context!(ctx);
 ```
 
 Since the function is marked `unsafe` due to the `*mut Context` parameter, the linter will require a `# Safety` section in the documentation comment. That section should _at least_ describe the requirements of the `ctx` parameter:

@@ -17,13 +17,18 @@ pub enum HandleStatus {
     /// memory in any `Context`, nor can it be introspected by any Hyperlight
     /// C API functions
     Invalid,
+    /// A `Handle` that is invalid, because a C API function was called and a NULL `Context` was passed.
+    InvalidNullContext,
 }
 
 /// Return the status of a `Handle`
 #[no_mangle]
 pub extern "C" fn handle_get_status(hdl: Handle) -> HandleStatus {
     match Hdl::try_from(hdl) {
+        // Return an error if the function determined it's an invalid handle, or if the function that returns a handle, instead returned an error
         Err(_) => HandleStatus::Invalid,
+        Ok(Hdl::Invalid()) => HandleStatus::Invalid,
+        Ok(Hdl::NullContext()) => HandleStatus::InvalidNullContext,
         Ok(Hdl::Err(_)) => HandleStatus::ValidError,
         Ok(Hdl::Empty()) => HandleStatus::ValidEmpty,
         _ => HandleStatus::ValidOther,

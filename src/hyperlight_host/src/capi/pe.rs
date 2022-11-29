@@ -1,7 +1,9 @@
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
+use crate::capi::context::ERR_NULL_CONTEXT;
 use crate::mem::pe::PEInfo;
+use crate::{validate_context, validate_context_or_panic};
 
 mod impls {
     use crate::capi::context::Context;
@@ -17,7 +19,7 @@ mod impls {
         addr_to_load_at: usize,
     ) -> Result<Handle> {
         let pe_info = Context::get(pe_info_hdl, &ctx.pe_infos, |p| matches!(p, Hdl::PEInfo(_)))?;
-        let mut bar = Context::get_mut(payload_hdl, &ctx.byte_arrays, |b| {
+        let bar = Context::get_mut(payload_hdl, &mut ctx.byte_arrays, |b| {
             matches!(b, Hdl::ByteArray(_))
         })?;
         let reloc_patches = pe_info.get_exe_relocation_patches(addr_to_load_at, bar.as_slice())?;
@@ -31,14 +33,14 @@ mod impls {
         get_fn: U,
     ) -> Result<T> {
         let pe = Context::get(pe_hdl, &ctx.pe_infos, |p| matches!(p, Hdl::PEInfo(_)))?;
-        get_fn(&pe)
+        get_fn(pe)
     }
 
     pub fn pe_parse(ctx: &Context, bytes_handle: Handle) -> Result<PEInfo> {
         let bytes = Context::get(bytes_handle, &ctx.byte_arrays, |p| {
             matches!(p, Hdl::ByteArray(_))
         })?;
-        PEInfo::new(&bytes)
+        PEInfo::new(bytes)
     }
 }
 
@@ -50,8 +52,10 @@ mod impls {
 /// and not modified or deleted while this function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn pe_parse(ctx: *mut Context, byte_array_handle: Handle) -> Handle {
+    validate_context!(ctx);
+
     match impls::pe_parse(&*ctx, byte_array_handle) {
-        Ok(pe_info) => Context::register(pe_info, &(*ctx).pe_infos, Hdl::PEInfo),
+        Ok(pe_info) => Context::register(pe_info, &mut (*ctx).pe_infos, Hdl::PEInfo),
         Err(e) => (*ctx).register_err(e),
     }
 }
@@ -66,6 +70,8 @@ pub unsafe extern "C" fn pe_parse(ctx: *mut Context, byte_array_handle: Handle) 
 /// and not modified or deleted while this function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn pe_stack_reserve(ctx: *mut Context, pe_handle: Handle) -> u64 {
+    validate_context_or_panic!(ctx);
+
     impls::get_pe_and(&*ctx, pe_handle, PEInfo::stack_reserve).unwrap_or(0)
 }
 
@@ -79,6 +85,8 @@ pub unsafe extern "C" fn pe_stack_reserve(ctx: *mut Context, pe_handle: Handle) 
 /// and not modified or deleted while this function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn pe_stack_commit(ctx: *mut Context, pe_handle: Handle) -> u64 {
+    validate_context_or_panic!(ctx);
+
     impls::get_pe_and(&*ctx, pe_handle, PEInfo::stack_commit).unwrap_or(0)
 }
 
@@ -92,6 +100,8 @@ pub unsafe extern "C" fn pe_stack_commit(ctx: *mut Context, pe_handle: Handle) -
 /// and not modified or deleted while this function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn pe_heap_reserve(ctx: *mut Context, pe_handle: Handle) -> u64 {
+    validate_context_or_panic!(ctx);
+
     impls::get_pe_and(&*ctx, pe_handle, PEInfo::heap_reserve).unwrap_or(0)
 }
 
@@ -105,6 +115,8 @@ pub unsafe extern "C" fn pe_heap_reserve(ctx: *mut Context, pe_handle: Handle) -
 /// and not modified or deleted while this function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn pe_heap_commit(ctx: *mut Context, pe_handle: Handle) -> u64 {
+    validate_context_or_panic!(ctx);
+
     impls::get_pe_and(&*ctx, pe_handle, PEInfo::heap_commit).unwrap_or(0)
 }
 
@@ -118,6 +130,8 @@ pub unsafe extern "C" fn pe_heap_commit(ctx: *mut Context, pe_handle: Handle) ->
 /// and not modified or deleted while this function is executing.
 #[no_mangle]
 pub unsafe extern "C" fn pe_entry_point_offset(ctx: *mut Context, pe_handle: Handle) -> u64 {
+    validate_context_or_panic!(ctx);
+
     impls::get_pe_and(&*ctx, pe_handle, PEInfo::try_entry_point_offset).unwrap_or(0)
 }
 
@@ -144,6 +158,8 @@ pub unsafe extern "C" fn pe_relocate(
     byte_array_handle: Handle,
     addr_to_load_at: usize,
 ) -> Handle {
+    validate_context!(ctx);
+
     match impls::pe_relocate(&mut (*ctx), pe_handle, byte_array_handle, addr_to_load_at) {
         Ok(hdl) => hdl,
         Err(e) => (*ctx).register_err(e),
@@ -164,11 +180,11 @@ mod tests {
     #[test]
     fn pe_getters() -> Result<()> {
         for pe_file_name in PE_FILE_NAMES {
-            let ctx = Context::default();
+            let mut ctx = Context::default();
             let pe_file_bytes = fs::read(pe_file_name)?;
             let pe_info = PEInfo::new(pe_file_bytes.as_slice())?;
             let pe_file_bytes_hdl =
-                Context::register(pe_file_bytes, &ctx.byte_arrays, Hdl::ByteArray);
+                Context::register(pe_file_bytes, &mut ctx.byte_arrays, Hdl::ByteArray);
             let pe_info_ret = super::impls::pe_parse(&ctx, pe_file_bytes_hdl)?;
 
             assert_eq!(pe_info.stack_commit()?, pe_info_ret.stack_commit()?);
@@ -182,12 +198,13 @@ mod tests {
         for pe_file_name in PE_FILE_NAMES {
             let pe_file_bytes = fs::read(pe_file_name)?;
             let mut ctx = Context::default();
-            let payload_hdl = Context::register(pe_file_bytes, &ctx.byte_arrays, Hdl::ByteArray);
+            let payload_hdl =
+                Context::register(pe_file_bytes, &mut ctx.byte_arrays, Hdl::ByteArray);
             assert_eq!(handle_get_status(payload_hdl), HandleStatus::ValidOther);
             let addr = 123;
             let pe_info_hdl = {
                 let pe_info = super::impls::pe_parse(&ctx, payload_hdl)?;
-                Context::register(pe_info, &ctx.pe_infos, Hdl::PEInfo)
+                Context::register(pe_info, &mut ctx.pe_infos, Hdl::PEInfo)
             };
             assert_eq!(handle_get_status(pe_info_hdl), HandleStatus::ValidOther);
             let res_hdl = super::impls::pe_relocate(&mut ctx, pe_info_hdl, payload_hdl, addr)?;

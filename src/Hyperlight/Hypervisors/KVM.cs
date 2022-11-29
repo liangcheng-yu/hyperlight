@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using Hyperlight.Core;
 using Hyperlight.Native;
+using Hyperlight.Wrapper;
 
 namespace Hyperlight.Hypervisors
 {
@@ -12,7 +13,7 @@ namespace Hyperlight.Hypervisors
         readonly IntPtr pRun = IntPtr.Zero;
         readonly int vcpufd = -1;
         readonly int vmfd = -1;
-        internal KVM(IntPtr sourceAddress, int pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, Action handleMemoryAccess) : base(sourceAddress, entryPoint, rsp, outb, handleMemoryAccess)
+        internal KVM(IntPtr sourceAddress, ulong pml4_addr, ulong size, ulong entryPoint, ulong rsp, Action<ushort, byte> outb, Action handleMemoryAccess) : base(sourceAddress, entryPoint, rsp, outb, handleMemoryAccess)
         {
             if (!LinuxKVM.IsHypervisorPresent())
             {

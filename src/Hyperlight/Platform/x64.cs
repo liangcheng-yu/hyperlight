@@ -4,9 +4,9 @@ namespace Hyperlight.Native
 {
     static class X64
     {
-        public const ulong PDE64_PRESENT = (ulong)1;
-        public const ulong PDE64_RW = (ulong)1 << 1;
-        public const ulong PDE64_USER = (ulong)1 << 2;
+        public const long PDE64_PRESENT = 1;
+        public const long PDE64_RW = 1 << 1;
+        public const long PDE64_USER = 1 << 2;
         public const ulong PDE64_PS = (ulong)1 << 7;
 
         public const ulong CR4_PAE = (ulong)1 << 5;

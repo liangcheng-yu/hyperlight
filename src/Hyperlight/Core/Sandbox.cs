@@ -7,6 +7,7 @@ using System.Threading;
 using Hyperlight.Core;
 using Hyperlight.Hypervisors;
 using Hyperlight.Native;
+using Hyperlight.Wrapper;
 using HyperlightDependencies;
 using Microsoft.Extensions.Logging;
 
@@ -30,6 +31,7 @@ namespace Hyperlight
     public class Sandbox : IDisposable, ISandboxRegistration
     {
         public static AsyncLocal<string> CorrelationId { get; } = new AsyncLocal<string>();
+        public static AsyncLocal<Context> Context { get; } = new AsyncLocal<Context>();
         static readonly object peInfoLock = new();
         static readonly ConcurrentDictionary<string, PEInfo> guestPEInfo = new(StringComparer.InvariantCultureIgnoreCase);
         static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
@@ -87,9 +89,6 @@ namespace Hyperlight
         /// SandboxBuilder class to construct Sandboxes
         /// to this constructor.
         /// </summary>
-        /// <param name="sandboxMemoryConfiguration">
-        /// The memory configuration with which to create this sandbox
-        /// </param>
         /// <param name="guestBinaryPath">
         /// The path location of the binary to run inside the sandbox
         /// </param>
@@ -108,6 +107,9 @@ namespace Hyperlight
         /// <param name="errorMessageLogger">
         /// Optional ILogger to use for logging
         /// </param>
+        /// <param name="sandboxMemoryConfiguration">
+        /// Optional memory configuration with which to create this sandbox
+        /// </param>
         /// <exception cref="PlatformNotSupportedException">
         /// If a sandbox is constructed on a platform on which it 
         /// can't currently run
@@ -120,13 +122,13 @@ namespace Hyperlight
         /// * a suitable Hypervisor is not found
         /// </exception>
         public Sandbox(
-            SandboxMemoryConfiguration sandboxMemoryConfiguration,
             string guestBinaryPath,
             SandboxRunOptions? runOptions,
             Action<ISandboxRegistration>? initFunction = null,
             StringWriter? writer = null,
             string? correlationId = null,
-            ILogger? errorMessageLogger = null
+            ILogger? errorMessageLogger = null,
+            SandboxMemoryConfiguration? sandboxMemoryConfiguration = null
         )
         {
             if (string.IsNullOrEmpty(correlationId))
@@ -134,6 +136,9 @@ namespace Hyperlight
                 correlationId = Guid.NewGuid().ToString("N");
             }
             CorrelationId.Value = correlationId;
+            sandboxMemoryConfiguration ??= new SandboxMemoryConfiguration();
+            HyperlightException.ThrowIfNull(SandboxMemoryConfiguration.Context.Value, nameof(SandboxMemoryConfiguration.Context), GetType().Name);
+            Context.Value = SandboxMemoryConfiguration.Context.Value;
 
             if (!IsSupportedPlatform)
             {

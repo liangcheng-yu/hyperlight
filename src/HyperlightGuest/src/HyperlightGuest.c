@@ -58,6 +58,14 @@ void InitialiseFunctionTable(int size)
     }
 }
 
+void checkForHostError()
+{
+    if (pPeb->guestError.errorNo != 0)
+    {
+        setError(pPeb->guestError.errorNo, pPeb->guestError.message);
+    }
+}
+
 void outb(uint16_t port, uint8_t value)
 {
     if (runningInHyperlight)
@@ -78,6 +86,7 @@ void outb(uint16_t port, uint8_t value)
         outb_ptr(port, value);
         setrsi(rsi);
         setrdi(rdi);
+        checkForHostError();
     }
 }
 

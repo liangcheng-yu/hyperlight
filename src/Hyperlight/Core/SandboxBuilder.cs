@@ -61,11 +61,7 @@ namespace Hyperlight
 
         public Sandbox Build()
         {
-            if (null == this.config)
-            {
-                throw new InvalidOperationException("SandboxMemoryConfig is null");
-            }
-            else if (null == this.guestBinaryPath)
+            if (null == this.guestBinaryPath)
             {
                 throw new InvalidOperationException("guest binary path is null");
             }
@@ -76,13 +72,13 @@ namespace Hyperlight
             }
 
             return new Sandbox(
-                this.config,
                 this.guestBinaryPath,
                 runOpts,
                 this.initFunction,
                 this.writer,
                 this.correlationId,
-                this.errorMessageLogger
+                this.errorMessageLogger,
+                this.config
             );
         }
 
