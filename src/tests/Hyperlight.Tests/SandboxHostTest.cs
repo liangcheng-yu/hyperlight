@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -1482,6 +1483,63 @@ namespace Hyperlight.Tests
             foreach (var option in options)
             {
                 RunTests(testData, option, CallbackTest);
+            }
+        }
+
+        [Fact]
+        public void Test_RecycleAfterRun()
+        {
+
+            var options = Array.Empty<SandboxRunOptions>();
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                if (Sandbox.IsHypervisorPresent())
+                {
+                    options = new SandboxRunOptions[] { SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
+                }
+                else
+                {
+                    options = new SandboxRunOptions[] { SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
+                }
+            }
+            else
+            {
+                if (Sandbox.IsHypervisorPresent())
+                {
+                    options = new SandboxRunOptions[] { SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
+                }
+            }
+
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryPath = Path.Combine(path, "callbackguest.exe");
+            foreach (var option in options)
+            {
+                var stopWatch = Stopwatch.StartNew();
+                var numberOfIterations = 25000;
+                var instance = new ExposeInstanceMethodsUsingAttribute();
+                using (var output = new StringWriter())
+                {
+                    var correlationId = Guid.NewGuid().ToString("N");
+                    using (var sandbox = new Sandbox(guestBinaryPath, option, null, output, correlationId, null, GetSandboxMemoryConfiguration()))
+                    {
+                        sandbox.ExposeAndBindMembers(instance);
+                        var builder = output.GetStringBuilder();
+                        for (var i = 0; i < numberOfIterations; i++)
+                        {
+                            builder.Remove(0, builder.Length);
+                            var message = $"Hello from RecycleAfterRun Instance {numberOfIterations}";
+                            var expectedMessage = $"Host Received: Hello from GuestFunction, {message} from Guest";
+                            var result = sandbox.CallGuest<int>(() =>
+                            {
+                                return instance.GuestMethod!(message);
+                            });
+                            Assert.Equal<int>(expectedMessage.Length, (int)result!);
+                            Assert.Equal(expectedMessage, builder.ToString());
+                        }
+                    }
+                }
+                stopWatch.Stop();
+                output.WriteLine($"RecycleAfterRun Test {numberOfIterations} iterations with options {option} in {stopWatch.Elapsed.TotalMilliseconds} ms");
             }
         }
 

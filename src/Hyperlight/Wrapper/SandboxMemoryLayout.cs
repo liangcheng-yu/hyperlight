@@ -70,6 +70,11 @@ namespace Hyperlight.Wrapper
         public long codePointerAddressOffset => this.addrToOffset(
                 mem_layout_get_code_pointer_address
         );
+
+        public long guestErrorMessageBufferOffset => this.addrToOffset(
+                mem_layout_get_guest_error_message_buffer_address
+        );
+
         public long dispatchFunctionPointerOffSet => this.addrToOffset(
             mem_layout_get_dispatch_function_pointer_address
         );
@@ -79,13 +84,10 @@ namespace Hyperlight.Wrapper
             this.handleWrapper.handle
         );
 
-        public IntPtr GetGuestErrorAddress(IntPtr address)
-        {
-            return new IntPtr(this.callAddrFn(
-                mem_layout_get_guest_error_address,
-                address.ToInt64()
-            ));
-        }
+        public long guestErrorAddressOffset => this.addrToOffset(
+            mem_layout_get_guest_error_address
+        );
+
 #pragma warning disable IDE0051 // Member is Unused - this is only used by tests
         // TODO: Remove this when port to rust is done and the test is no longer needed.
         private IntPtr GetGuestErrorMessageSizeAddress(IntPtr address)
@@ -423,6 +425,15 @@ namespace Hyperlight.Wrapper
             NativeHandle mem_layout_handle,
             long address
         );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern long mem_layout_get_guest_error_message_buffer_address(
+            NativeContext ctx,
+            NativeHandle mem_layout_handle,
+            long address
+        );
+
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern long mem_layout_get_dispatch_function_pointer_address(

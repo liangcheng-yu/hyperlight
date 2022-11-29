@@ -132,6 +132,7 @@ macro_rules! mem_layout_get_address_using_field {
 
 mem_layout_get_address_using_field!(code_and_outb_pointer);
 mem_layout_get_address_using_field!(guest_error);
+mem_layout_get_address_using_field!(guest_error_message_buffer);
 mem_layout_get_address_using_field!(host_function_definitions);
 mem_layout_get_address_using_field!(input_data_buffer);
 mem_layout_get_address_using_field!(output_data_buffer);

@@ -445,19 +445,18 @@ namespace Hyperlight.Core
 
         internal void WriteOutbException(Exception ex, ushort port)
         {
-            var guestErrorAddress = sandboxMemoryLayout!.GetGuestErrorAddress(SourceAddress);
-            this.guestMemWrapper!.WriteInt64(guestErrorAddress, (long)GuestErrorCode.OUTB_ERROR);
+            var guestErrorAddressOffset = sandboxMemoryLayout!.guestErrorAddressOffset;
+            this.guestMemWrapper!.WriteInt64((IntPtr)guestErrorAddressOffset, (long)GuestErrorCode.OUTB_ERROR);
 
-            var guestErrorMessagePointerAddress = sandboxMemoryLayout.GetGuestErrorMessagePointerAddress(SourceAddress);
-            var guestErrorMessageAddress = GetHostAddressFromPointer(Marshal.ReadInt64(guestErrorMessagePointerAddress));
+            var guestErrorMessageBufferOffset = sandboxMemoryLayout!.guestErrorMessageBufferOffset;
             var data = Encoding.UTF8.GetBytes($"Port:{port}, Message:{ex.Message}\0");
             if (data.Length <= (int)sandboxMemoryConfiguration.GuestErrorMessageSize)
             {
-                this.guestMemWrapper!.CopyFromByteArray(data, guestErrorMessageAddress);
+                this.guestMemWrapper!.CopyFromByteArray(data, (IntPtr)guestErrorMessageBufferOffset);
             }
 
             var hyperLightException = ex.GetType() == typeof(HyperlightException) ? ex as HyperlightException : new HyperlightException("OutB Error", ex);
-            var hostExceptionPointer = sandboxMemoryLayout.GetHostExceptionAddress(SourceAddress);
+            var hostExceptionOffset = sandboxMemoryLayout!.hostExceptionOffset;
 
             // TODO: Switch to System.Text.Json - requires custom serialisation as default throws an exception when serialising if an inner exception is present
             // as it contains a Type: System.NotSupportedException: Serialization and deserialization of 'System.Type' instances are not supported and should be avoided since they can lead to security issues.
@@ -473,8 +472,8 @@ namespace Hyperlight.Core
 
             if (dataLength <= (int)sandboxMemoryConfiguration.HostExceptionSize - sizeof(int))
             {
-                this.guestMemWrapper!.WriteInt32(hostExceptionPointer, dataLength);
-                this.guestMemWrapper!.CopyFromByteArray(data, hostExceptionPointer + sizeof(int));
+                this.guestMemWrapper!.WriteInt32((IntPtr)hostExceptionOffset, dataLength);
+                this.guestMemWrapper!.CopyFromByteArray(data, (IntPtr)hostExceptionOffset + sizeof(int));
             }
 
             HyperlightLogger.LogError($"Exception occurred in outb", Sandbox.CorrelationId.Value!, GetType().Name, ex);

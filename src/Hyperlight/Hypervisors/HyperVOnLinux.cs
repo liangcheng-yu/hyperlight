@@ -95,7 +95,7 @@ namespace Hyperlight.Hypervisors
 
         internal override void ResetRSP(ulong rsp)
         {
-            var reg = new LinuxHyperV.MSHV_REGISTER[1] { new() { Name = LinuxHyperV.HV_X64_REGISTER_RIP, Value = new LinuxHyperV.MSHV_U128 { HighPart = rsp, LowPart = 0 } } };
+            var reg = new LinuxHyperV.MSHV_REGISTER[1] { new() { Name = LinuxHyperV.HV_X64_REGISTER_RSP, Value = new LinuxHyperV.MSHV_U128 { HighPart = 0, LowPart = rsp } } };
             var setRegister = LinuxHyperV.set_registers(context.ctx, vcpuHandle.handle, reg, (UIntPtr)reg.Length);
             using (var registerHandle = new Handle(context, setRegister))
             {
