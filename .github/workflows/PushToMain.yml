@@ -140,16 +140,13 @@ jobs:
           libhyperlight_host.d
           hyperlight_host.dll
           hyperlight_host.pdb
-    - name: Store Shortened Git SHA for release
-      run: echo "shortened_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-      id: set-output-var
     - name: Create Release (shortened SHA)
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         prerelease: true
-        automatic_release_tag: "${{ steps.set-output-var.outputs.shortened_sha }}"
-        title: "Release ${{steps.vars.outputs.shortened_sha}}"
+        automatic_release_tag: "${{ env.MINVERBUILDMETADATA }}"
+        title: "Release ${{ env.MINVERBUILDMETADATA }}"
         files: |
           src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe
           src/tests/Guests/simpleguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/simpleguest.exe
