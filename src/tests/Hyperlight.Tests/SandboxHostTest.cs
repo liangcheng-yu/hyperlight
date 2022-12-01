@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Hyperlight.Core;
 using HyperlightDependencies;
@@ -28,7 +29,7 @@ namespace Hyperlight.Tests
 
         public SandboxHostTest(ITestOutputHelper output)
         {
-            //TODO: implment skip for this
+            //TODO: implement skip for this
             Assert.True(Sandbox.IsSupportedPlatform, "Hyperlight Sandbox is not supported on this platform.");
 
             // This is to ensure that the tests fail if they are run on a runner where we expect a Hypervisor but one is not present.
@@ -65,7 +66,14 @@ namespace Hyperlight.Tests
 
             public ExposeMembersToGuest ExposeMembers = ExposeMembersToGuest.All;
 
-            public TestData(string guestBinaryFileName, string expectedOutput = "Hello, World!!\n", int? expectedReturnValue = null, int numberOfIterations = 0, int numberOfParallelTests = 0, ExposeMembersToGuest exposeMembers = ExposeMembersToGuest.All)
+            public TestData(
+                string guestBinaryFileName,
+                string expectedOutput = "Hello, World!!\n",
+                int? expectedReturnValue = null,
+                int numberOfIterations = 0,
+                int numberOfParallelTests = 0,
+                ExposeMembersToGuest exposeMembers = ExposeMembersToGuest.All
+            )
             {
                 var path = AppDomain.CurrentDomain.BaseDirectory;
                 var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
@@ -78,7 +86,15 @@ namespace Hyperlight.Tests
                 this.ExposeMembers = exposeMembers;
             }
 
-            public TestData(Type instanceOrTypeType, string guestBinaryFileName, string expectedOutput = "Hello, World!!\n", int? expectedReturnValue = null, int numberOfIterations = 0, int numberOfParallelTests = 0, ExposeMembersToGuest exposeMembers = ExposeMembersToGuest.All) : this(guestBinaryFileName, expectedOutput, expectedReturnValue, numberOfIterations, numberOfParallelTests, exposeMembers)
+            public TestData(
+                Type instanceOrTypeType,
+                string guestBinaryFileName,
+                string expectedOutput = "Hello, World!!\n",
+                int? expectedReturnValue = null,
+                int numberOfIterations = 0,
+                int numberOfParallelTests = 0,
+                ExposeMembersToGuest exposeMembers = ExposeMembersToGuest.All
+            ) : this(guestBinaryFileName, expectedOutput, expectedReturnValue, numberOfIterations, numberOfParallelTests, exposeMembers)
             {
                 this.instanceOrTypeType = instanceOrTypeType;
             }
@@ -862,7 +878,7 @@ namespace Hyperlight.Tests
 
             List<(string Method, object[] args, int returnValue, string expectedOutput)> testData = new()
             {
-                 (
+                (
                     "PrintTwoArgs",
                     new object[] { "Test2", 1 },
                     27,
@@ -1724,6 +1740,7 @@ namespace Hyperlight.Tests
             using (var output = new StringWriter())
             {
                 var correlationId = Guid.NewGuid().ToString("N");
+
                 var sboxBuilder = new SandboxBuilder()
                     .WithConfig(GetSandboxMemoryConfiguration())
                     .WithGuestBinaryPath(testData.GuestBinaryPath)

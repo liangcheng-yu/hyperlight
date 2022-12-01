@@ -43,12 +43,18 @@ pub mod int;
 ///! C-compatible API functions for creating and running guests on KVM
 ///! on Linux.
 pub mod kvm;
+///! C-compatible APi functions for manipulating memory access
+///! handler callback functions
+pub mod mem_access_handler;
 ///! C-compatible API functions to manage `SandboxMemoryConfiguration`
 ///! structures.
 pub mod mem_config;
 ///! C-compatible API functions to manage `SandboxMemoryLayout`
 ///! structures.
 pub mod mem_layout;
+///! C-compatible API functions for manipulating outb handler callback
+///! functions.
+pub mod outb_handler;
 ///! C-compatible API functions to manage `PEInfo` structures.
 pub mod pe;
 ///! C-compatible API functions to manage `Sandbox` structures.

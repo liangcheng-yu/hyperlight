@@ -3,7 +3,6 @@ bin-suffix := if os() == "windows" { ".exe" } else { ".out" }
 # TODO: use UMDH here for windows?
 # https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/umdh
 valgrind-command := if os() == "windows" { "echo 'valgrind not supported on windows'" } else { "./scripts/valgrind-command.sh" }
-valgrind-command-gen-suppressions := if os() == "windows" { "echo 'valgrind not supported on windows'" } else { "LD_LIBRARY_PATH=../../target/release valgrind --leak-check=full -s --error-exitcode=1 --show-leak-kinds=all --gen-suppressions=all --suppressions=./minimal.supp --log-file=minimalraw.log ./bin/test_c.out" }
 test-command := if os() == "windows" { "./scripts/test-command.bat" } else { "./scripts/test-command.sh" }
 clang-checks := if os() == "windows" { "-Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" } else { "-Wall -Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" }
 default-target:= "debug"
@@ -17,6 +16,7 @@ build-test-rust target=default-target:  (build target)
 build-tests-capi target=default-target: (build target)
     clang \
     {{ clang-checks }} \
+    {{ if target == "debug" { "" } else { "-O3" } }} \
     tests_capi/*.c \
     tests_capi/munit/munit.c \
     -Iinclude \
@@ -27,6 +27,6 @@ build-tests-capi target=default-target: (build target)
 run-tests-capi target=default-target: (build-tests-capi target)
     {{test-command}} {{target}}
 valgrind-tests-capi target=default-target: (build-tests-capi target)
-    {{valgrind-command}} {{target}}
+    GEN_SUPPRESSIONS_ON=1 LOG_FILE_ON=0 {{valgrind-command}} {{target}}
 valgrind-tests-capi-gen-suppressions target=default-target: (build-tests-capi target)
-    {{valgrind-command-gen-suppressions}}
+    GEN_SUPPRESSIONS_ON=1 LOG_FILE_ON=1 {{valgrind-command}} {{target}} 1

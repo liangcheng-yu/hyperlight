@@ -71,14 +71,14 @@ namespace Hyperlight.Wrapper
             }
         }
         public void WriteInt32(
-            IntPtr addr,
+            IntPtr offset,
             int val
         )
         {
             var hdlRes = guest_memory_write_int_32(
                 this.ctxWrapper.ctx,
                 this.handleWrapper.handle,
-                (ulong)addr.ToInt64(),
+                (ulong)offset.ToInt64(),
                 val
             );
             using (var hdlWrapper = new Handle(this.ctxWrapper, hdlRes))
@@ -88,13 +88,13 @@ namespace Hyperlight.Wrapper
         }
 
         public int ReadInt32(
-            UIntPtr addr
+            UIntPtr offset
         )
         {
             var rawHdl = guest_memory_read_int_32(
                 this.ctxWrapper.ctx,
                 this.handleWrapper.handle,
-                (ulong)addr.ToUInt64()
+                offset.ToUInt64()
             );
             using (var hdl = new Handle(this.ctxWrapper, rawHdl))
             {

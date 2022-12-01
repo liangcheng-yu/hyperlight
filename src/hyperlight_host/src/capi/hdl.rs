@@ -34,21 +34,6 @@ pub enum Hdl {
     MemConfig(Key),
     /// A reference to a `SandboxMemoryLayout`.
     MemLayout(Key),
-    /// A reference to a `Mshv`.
-    #[cfg(target_os = "linux")]
-    Mshv(Key),
-    /// A reference to a `VmFd`.
-    #[cfg(target_os = "linux")]
-    VmFd(Key),
-    /// A reference to a `VcpuFd`.
-    #[cfg(target_os = "linux")]
-    VcpuFd(Key),
-    /// A reference to a `MshvUserMemRegion`.
-    #[cfg(target_os = "linux")]
-    MshvUserMemRegion(Key),
-    /// A reference to a `MshvRunMessage`.
-    #[cfg(target_os = "linux")]
-    MshvRunMessage(Key),
     /// A reference to a `GuestMemory`.
     GuestMemory(Key),
     /// A reference to an `i64`
@@ -76,6 +61,13 @@ pub enum Hdl {
     #[cfg(target_os = "linux")]
     /// A reference to the KVM segment registers
     KvmSRegisters(Key),
+    #[cfg(target_os = "linux")]
+    /// A reference to a HyperV linux driver
+    HypervLinuxDriver(Key),
+    /// A reference to an outb handler function
+    OutbHandlerFunc(Key),
+    /// A reference to a memory access handler function
+    MemAccessHandlerFunc(Key),
 }
 
 impl Hdl {
@@ -91,33 +83,27 @@ impl Hdl {
     const PE_INFO_TYPE_ID: TypeID = 107;
     const MEM_CONFIG_TYPE_ID: TypeID = 108;
     const MEM_LAYOUT_TYPE_ID: TypeID = 109;
+    const GUEST_MEMORY_TYPE_ID: TypeID = 110;
+    const INT_64_TYPE_ID: TypeID = 111;
+    const INT_32_TYPE_ID: TypeID = 112;
     #[cfg(target_os = "linux")]
-    const MSHV_TYPE_ID: TypeID = 110;
+    const KVM_TYPE_ID: TypeID = 113;
     #[cfg(target_os = "linux")]
-    const VM_FD_TYPE_ID: TypeID = 111;
+    const KVM_VMFD_TYPE_ID: TypeID = 114;
     #[cfg(target_os = "linux")]
-    const VCPU_FD_TYPE_ID: TypeID = 112;
+    const KVM_VCPUFD_TYPE_ID: TypeID = 115;
     #[cfg(target_os = "linux")]
-    const MSHV_USER_MEM_REGION_TYPE_ID: TypeID = 113;
+    const KVM_USER_MEM_REGION_TYPE_ID: TypeID = 116;
     #[cfg(target_os = "linux")]
-    const MSHV_RUN_MESSAGE_TYPE_ID: TypeID = 114;
-    const GUEST_MEMORY_TYPE_ID: TypeID = 115;
-    const INT_64_TYPE_ID: TypeID = 116;
-    const INT_32_TYPE_ID: TypeID = 117;
+    const KVM_RUN_MESSAGE_TYPE_ID: TypeID = 117;
     #[cfg(target_os = "linux")]
-    const KVM_TYPE_ID: TypeID = 118;
+    const KVM_REGISTERS_TYPE_ID: TypeID = 118;
     #[cfg(target_os = "linux")]
-    const KVM_VMFD_TYPE_ID: TypeID = 119;
+    const KVM_SREGISTERS_TYPE_ID: TypeID = 119;
     #[cfg(target_os = "linux")]
-    const KVM_VCPUFD_TYPE_ID: TypeID = 120;
-    #[cfg(target_os = "linux")]
-    const KVM_USER_MEM_REGION_TYPE_ID: TypeID = 121;
-    #[cfg(target_os = "linux")]
-    const KVM_RUN_MESSAGE_TYPE_ID: TypeID = 122;
-    #[cfg(target_os = "linux")]
-    const KVM_REGISTERS_TYPE_ID: TypeID = 123;
-    #[cfg(target_os = "linux")]
-    const KVM_SREGISTERS_TYPE_ID: TypeID = 124;
+    const HYPER_V_LINUX_DRIVER_TYPE_ID: TypeID = 120;
+    const OUTB_HANDLER_FUNC_TYPE_ID: TypeID = 121;
+    const MEM_ACCESS_HANDLER_FUNC_TYPE_ID: TypeID = 122;
 
     /// Get the `TypeID` associated with `self`.
     ///
@@ -136,16 +122,6 @@ impl Hdl {
             Hdl::PEInfo(_) => Self::PE_INFO_TYPE_ID,
             Hdl::MemConfig(_) => Self::MEM_CONFIG_TYPE_ID,
             Hdl::MemLayout(_) => Self::MEM_LAYOUT_TYPE_ID,
-            #[cfg(target_os = "linux")]
-            Hdl::Mshv(_) => Self::MSHV_TYPE_ID,
-            #[cfg(target_os = "linux")]
-            Hdl::VmFd(_) => Self::VM_FD_TYPE_ID,
-            #[cfg(target_os = "linux")]
-            Hdl::VcpuFd(_) => Self::VCPU_FD_TYPE_ID,
-            #[cfg(target_os = "linux")]
-            Hdl::MshvUserMemRegion(_) => Self::MSHV_USER_MEM_REGION_TYPE_ID,
-            #[cfg(target_os = "linux")]
-            Hdl::MshvRunMessage(_) => Self::MSHV_RUN_MESSAGE_TYPE_ID,
             Hdl::GuestMemory(_) => Self::GUEST_MEMORY_TYPE_ID,
             Hdl::Int64(_) => Self::INT_64_TYPE_ID,
             Hdl::Int32(_) => Self::INT_32_TYPE_ID,
@@ -163,6 +139,10 @@ impl Hdl {
             Hdl::KvmRegisters(_) => Self::KVM_REGISTERS_TYPE_ID,
             #[cfg(target_os = "linux")]
             Hdl::KvmSRegisters(_) => Self::KVM_SREGISTERS_TYPE_ID,
+            #[cfg(target_os = "linux")]
+            Hdl::HypervLinuxDriver(_) => Self::HYPER_V_LINUX_DRIVER_TYPE_ID,
+            Hdl::OutbHandlerFunc(_) => Self::OUTB_HANDLER_FUNC_TYPE_ID,
+            Hdl::MemAccessHandlerFunc(_) => Self::MEM_ACCESS_HANDLER_FUNC_TYPE_ID,
         }
     }
 
@@ -184,16 +164,6 @@ impl Hdl {
             Hdl::PEInfo(key) => *key,
             Hdl::MemConfig(key) => *key,
             Hdl::MemLayout(key) => *key,
-            #[cfg(target_os = "linux")]
-            Hdl::Mshv(key) => *key,
-            #[cfg(target_os = "linux")]
-            Hdl::VmFd(key) => *key,
-            #[cfg(target_os = "linux")]
-            Hdl::VcpuFd(key) => *key,
-            #[cfg(target_os = "linux")]
-            Hdl::MshvUserMemRegion(key) => *key,
-            #[cfg(target_os = "linux")]
-            Hdl::MshvRunMessage(key) => *key,
             Hdl::GuestMemory(key) => *key,
             Hdl::Int64(key) => *key,
             Hdl::Int32(key) => *key,
@@ -211,6 +181,10 @@ impl Hdl {
             Hdl::KvmRegisters(key) => *key,
             #[cfg(target_os = "linux")]
             Hdl::KvmSRegisters(key) => *key,
+            #[cfg(target_os = "linux")]
+            Hdl::HypervLinuxDriver(key) => *key,
+            Hdl::OutbHandlerFunc(key) => *key,
+            Hdl::MemAccessHandlerFunc(key) => *key,
         }
     }
 }
@@ -230,16 +204,6 @@ impl std::fmt::Display for Hdl {
             Hdl::PEInfo(key) => write!(f, "PEInfo({})", key),
             Hdl::MemConfig(key) => write!(f, "MemConfig({})", key),
             Hdl::MemLayout(key) => write!(f, "MemLayout({})", key),
-            #[cfg(target_os = "linux")]
-            Hdl::Mshv(key) => write!(f, "Mshv({})", key),
-            #[cfg(target_os = "linux")]
-            Hdl::VmFd(key) => write!(f, "VmFd({})", key),
-            #[cfg(target_os = "linux")]
-            Hdl::VcpuFd(key) => write!(f, "VcpuFd({})", key),
-            #[cfg(target_os = "linux")]
-            Hdl::MshvUserMemRegion(key) => write!(f, "MshvUserMemRegion({})", key),
-            #[cfg(target_os = "linux")]
-            Hdl::MshvRunMessage(key) => write!(f, "MshvRunMessage({})", key),
             Hdl::GuestMemory(key) => write!(f, "GuestMemory({})", key),
             Hdl::Int64(key) => write!(f, "Int64({})", key),
             Hdl::Int32(key) => write!(f, "Int32({})", key),
@@ -257,6 +221,10 @@ impl std::fmt::Display for Hdl {
             Hdl::KvmRegisters(key) => write!(f, "KvmRegisters({})", key),
             #[cfg(target_os = "linux")]
             Hdl::KvmSRegisters(key) => write!(f, "KvmSRegisters({})", key),
+            #[cfg(target_os = "linux")]
+            Hdl::HypervLinuxDriver(key) => write!(f, "HypervLinuxDriver({})", key),
+            Hdl::OutbHandlerFunc(key) => write!(f, "OutbHandlerFunc({})", key),
+            Hdl::MemAccessHandlerFunc(key) => write!(f, "MemAccessHandlerFunc({})", key),
         }
     }
 }
@@ -281,16 +249,6 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::PE_INFO_TYPE_ID => Ok(Hdl::PEInfo(key)),
             Self::MEM_CONFIG_TYPE_ID => Ok(Hdl::MemConfig(key)),
             Self::MEM_LAYOUT_TYPE_ID => Ok(Hdl::MemLayout(key)),
-            #[cfg(target_os = "linux")]
-            Self::MSHV_TYPE_ID => Ok(Hdl::Mshv(key)),
-            #[cfg(target_os = "linux")]
-            Self::VM_FD_TYPE_ID => Ok(Hdl::VmFd(key)),
-            #[cfg(target_os = "linux")]
-            Self::VCPU_FD_TYPE_ID => Ok(Hdl::VcpuFd(key)),
-            #[cfg(target_os = "linux")]
-            Self::MSHV_USER_MEM_REGION_TYPE_ID => Ok(Hdl::MshvUserMemRegion(key)),
-            #[cfg(target_os = "linux")]
-            Self::MSHV_RUN_MESSAGE_TYPE_ID => Ok(Hdl::MshvRunMessage(key)),
             Self::GUEST_MEMORY_TYPE_ID => Ok(Hdl::GuestMemory(key)),
             Self::INT_64_TYPE_ID => Ok(Hdl::Int64(key)),
             Self::INT_32_TYPE_ID => Ok(Hdl::Int32(key)),
@@ -308,6 +266,10 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::KVM_REGISTERS_TYPE_ID => Ok(Hdl::KvmRegisters(key)),
             #[cfg(target_os = "linux")]
             Self::KVM_SREGISTERS_TYPE_ID => Ok(Hdl::KvmSRegisters(key)),
+            #[cfg(target_os = "linux")]
+            Self::HYPER_V_LINUX_DRIVER_TYPE_ID => Ok(Hdl::HypervLinuxDriver(key)),
+            Self::OUTB_HANDLER_FUNC_TYPE_ID => Ok(Hdl::OutbHandlerFunc(key)),
+            Self::MEM_ACCESS_HANDLER_FUNC_TYPE_ID => Ok(Hdl::MemAccessHandlerFunc(key)),
             _ => bail!("invalid handle type {}", hdl.type_id()),
         }
     }

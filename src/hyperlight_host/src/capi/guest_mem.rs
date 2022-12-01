@@ -24,19 +24,22 @@ mod impls {
         (*guest_mem).read_i64(addr)
     }
 
-    pub fn write_int_64(ctx: &mut Context, hdl: Handle, addr: usize, val: usize) -> Result<()> {
+    /// Read an `i64` from the memory location at `offset`
+    pub fn write_int_64(ctx: &mut Context, hdl: Handle, offset: usize, val: usize) -> Result<()> {
         let guest_mem = super::get_guest_memory_mut(ctx, hdl)?;
-        (*guest_mem).write_u64(addr, val as u64)
+        (*guest_mem).write_u64(offset, val as u64)
     }
 
-    pub fn read_int_32(ctx: &Context, hdl: Handle, addr: u64) -> Result<i32> {
+    /// Read an `i32` from the memory location at `offset`
+    pub fn read_int_32(ctx: &Context, hdl: Handle, offset: u64) -> Result<i32> {
         let guest_mem = super::get_guest_memory(ctx, hdl)?;
-        (*guest_mem).read_i32(addr)
+        (*guest_mem).read_i32(offset)
     }
 
-    pub fn write_int_32(ctx: &mut Context, hdl: Handle, addr: usize, val: i32) -> Result<()> {
+    /// Write `val` to the memory location at `offset`
+    pub fn write_int_32(ctx: &mut Context, hdl: Handle, offset: usize, val: i32) -> Result<()> {
         let guest_mem = super::get_guest_memory_mut(ctx, hdl)?;
-        (*guest_mem).write_i32(addr, val)?;
+        (*guest_mem).write_i32(offset, val)?;
         Ok(())
     }
 
@@ -436,7 +439,7 @@ pub unsafe extern "C" fn guest_memory_read_int_64(
 }
 
 /// Write a single 64 bit integer `val` to guest memory in `ctx` referenced
-/// by `hdl` at `addr`.
+/// by `hdl` at the offset `offset`
 ///
 /// Return an empty `Handle` if the write succeeded,
 /// and an error `Handle` otherwise.
@@ -452,19 +455,19 @@ pub unsafe extern "C" fn guest_memory_read_int_64(
 pub unsafe extern "C" fn guest_memory_write_int_64(
     ctx: *mut Context,
     hdl: Handle,
-    addr: usize,
+    offset: usize,
     val: usize,
 ) -> Handle {
     validate_context!(ctx);
 
-    match impls::write_int_64(&mut *ctx, hdl, addr, val) {
+    match impls::write_int_64(&mut *ctx, hdl, offset, val) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
 }
 
 /// Fetch guest memory from `ctx` referenced by `hdl`, then read
-/// a single 32 bit integer from it at address `addr`.
+/// a single 32 bit integer from it at offset `offset`.
 ///
 /// Return a `Handle` containing the integer if the read succeeded,
 /// and an error otherwise.
@@ -480,11 +483,11 @@ pub unsafe extern "C" fn guest_memory_write_int_64(
 pub unsafe extern "C" fn guest_memory_read_int_32(
     ctx: *mut Context,
     hdl: Handle,
-    addr: u64,
+    offset: u64,
 ) -> Handle {
     validate_context!(ctx);
 
-    match impls::read_int_32(&*ctx, hdl, addr) {
+    match impls::read_int_32(&*ctx, hdl, offset) {
         Ok(val) => Context::register(val, &mut (*ctx).int32s, Hdl::Int32),
         Err(e) => (*ctx).register_err(e),
     }

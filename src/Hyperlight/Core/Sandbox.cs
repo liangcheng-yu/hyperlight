@@ -35,7 +35,7 @@ namespace Hyperlight
         static readonly object peInfoLock = new();
         static readonly ConcurrentDictionary<string, PEInfo> guestPEInfo = new(StringComparer.InvariantCultureIgnoreCase);
         static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-        static bool IsLinux => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+        public static bool IsLinux => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
         public static bool IsSupportedPlatform => IsLinux || IsWindows;
         Hypervisor? hyperVisor;
         GCHandle? gCHandle;
@@ -62,8 +62,11 @@ namespace Hyperlight
         // Platform dependent delegate for callbacks from native code when native code is calling 'outb' functionality
         // On Linux, delegates passed from .NET core to native code expect arguments to be passed RDI, RSI, RDX, RCX.
         // On Windows, the expected order starts with RCX, RDX.  Our native code assumes this Windows calling convention
-        // so 'port' is passed in RCX and 'value' is passed in RDX.  When run in Linux, we have an alternate callback
-        // that will take RCX and RDX in the different positions and pass it to the HandleOutb method correctly
+        // so 'port' is passed in RCX and 'value' is passed in RDX.  When run in Linux with in-process set to true (and the
+        // guest is a PE file), we have an alternate callback that will take RCX and RDX in the different positions and pass 
+        // it to the HandleOutb method correctly
+        // The registers are different because when .NET is running on linux it is using one call pattern, and the guest binary (PE file) is compiled for a different call pattern.
+        // The wonky CallOutb_Linux delegate is for when we are crossing the call pattern streams.
 
         delegate void CallOutb_Windows(ushort port, byte value);
         delegate void CallOutb_Linux(int unused1, int unused2, byte value, ushort port);
@@ -72,7 +75,7 @@ namespace Hyperlight
         // 0 No calls are executing
         // 1 Call guest is executing
         // 2 Dynamic Method is executing standalone
-        int executingGuestCall;
+        ulong executingGuestCall;
 
         readonly ulong rsp;
 
@@ -394,7 +397,16 @@ namespace Hyperlight
             {
                 if (LinuxHyperV.IsHypervisorPresent())
                 {
-                    hyperVisor = new HyperVOnLinux(sandboxMemoryManager.SourceAddress, SandboxMemoryLayout.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, HandleMMIOExit);
+                    hyperVisor = new HyperVOnLinux(
+                        Context.Value!,
+                        sandboxMemoryManager.SourceAddress,
+                        SandboxMemoryLayout.PML4GuestAddress,
+                        sandboxMemoryManager.Size,
+                        sandboxMemoryManager.EntryPoint,
+                        rsp,
+                        HandleOutb,
+                        HandleMMIOExit
+                    );
                 }
                 else if (LinuxKVM.IsHypervisorPresent())
                 {
@@ -540,9 +552,11 @@ namespace Hyperlight
         /// <exception cref="HyperlightException"></exception>
         internal bool EnterDynamicMethod()
         {
-            // Check if call is before initialisation is finished or invoked inside CallGuest<T>
-            // is both cases there is no need to check state
-            if (!initialised || executingGuestCall == 1)
+            // If at least one of the following are true, we don't need to set
+            // state:
+            // 1. we haven't been initialised yet
+            // 2. we are finished or invoked inside CallGuest<T>
+            if (!initialised || Interlocked.Read(ref executingGuestCall) == 1)
             {
                 return false;
             }
