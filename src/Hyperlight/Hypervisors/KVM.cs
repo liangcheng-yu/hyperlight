@@ -119,7 +119,7 @@ namespace Hyperlight.Hypervisors
             ExecuteUntilHalt();
         }
 
-        internal override void ExecuteUntilHalt()
+        private void ExecuteUntilHalt()
         {
             while (true)
             {

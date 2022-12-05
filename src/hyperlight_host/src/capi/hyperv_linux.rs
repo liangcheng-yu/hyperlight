@@ -1,108 +1,27 @@
-use crate::capi::context::ERR_NULL_CONTEXT;
-use crate::{validate_context, validate_context_or_panic};
+use crate::validate_context;
 
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
+use super::mem_access_handler::get_mem_access_handler_func;
+use super::mem_access_handler::MemAccessHandlerWrapper;
+use super::outb_handler::{get_outb_handler_func, OutbHandlerWrapper};
+use crate::hypervisor::hyperv_linux::{is_hypervisor_present, HypervLinuxDriver};
+use crate::hypervisor::hyperv_linux_mem::HypervLinuxDriverAddrs;
 use anyhow::Result;
-use mshv_bindings::{
-    hv_message_type, hv_register_assoc, hv_register_value, hv_u128, mshv_user_mem_region,
-};
-use mshv_ioctls::{Mshv, VcpuFd, VmFd};
-use std::os::raw::{c_uint, c_ulonglong};
-use std::{panic::catch_unwind, slice};
+use mshv_bindings::hv_register_name;
 
-mod impls {
-    use anyhow::Result;
-    use mshv_bindings::*;
-    use mshv_ioctls::{Mshv, VcpuFd, VmFd};
-
-    pub const HV_MAP_GPA_READABLE: u32 = 1;
-    pub const HV_MAP_GPA_WRITABLE: u32 = 2;
-    pub const HV_MAP_GPA_EXECUTABLE: u32 = 12;
-
-    pub use crate::hypervisor::hyperv_linux::is_hypervisor_present;
-
-    pub fn open_mshv(require_stable_api: bool) -> Result<Mshv> {
-        match is_hypervisor_present(require_stable_api) {
-            Ok(true) => Mshv::new().map_err(|e| anyhow::anyhow!(e)),
-            Ok(false) => anyhow::bail!(
-                "Hypervisor not present (stable api was {:?})",
-                require_stable_api
-            ),
-            Err(e) => Err(e),
-        }
-    }
-
-    pub fn create_vm(mshv: &Mshv) -> Result<VmFd> {
-        let pr = Default::default();
-        mshv.create_vm_with_config(&pr)
-            .map_err(|e| anyhow::anyhow!(e))
-    }
-
-    pub fn create_vcpu(vmfd: &VmFd) -> Result<VcpuFd> {
-        vmfd.create_vcpu(0).map_err(|e| anyhow::anyhow!(e))
-    }
-
-    pub fn map_vm_memory_region(
-        vmfd: &VmFd,
-        guest_pfn: u64,
-        load_address: u64,
-        size: u64,
-    ) -> Result<mshv_user_mem_region> {
-        let user_memory_region = mshv_user_mem_region {
-            flags: HV_MAP_GPA_READABLE | HV_MAP_GPA_WRITABLE | HV_MAP_GPA_EXECUTABLE,
-            guest_pfn,
-            size,
-            userspace_addr: load_address as u64,
-        };
-
-        match vmfd.map_user_memory(user_memory_region) {
-            Ok(_) => Ok(user_memory_region),
-            Err(e) => anyhow::bail!(e),
-        }
-    }
-
-    pub fn unmap_vm_memory_region(
-        vmfd: &VmFd,
-        user_memory_region: &mshv_user_mem_region,
-    ) -> Result<()> {
-        vmfd.unmap_user_memory(*user_memory_region)
-            .map_err(|e| anyhow::anyhow!(e))
-    }
-
-    pub fn set_registers(vcpuFd: &VcpuFd, registers: &[hv_register_assoc]) -> Result<()> {
-        vcpuFd.set_reg(registers).map_err(|e| anyhow::anyhow!(e))
-    }
-
-    pub fn run_vcpu(vcpuFd: &VcpuFd) -> Result<hv_message> {
-        let hv_message: hv_message = Default::default();
-        vcpuFd.run(hv_message).map_err(|e| anyhow::anyhow!(e))
-    }
+fn get_driver_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut HypervLinuxDriver> {
+    Context::get_mut(hdl, &mut ctx.hyperv_linux_drivers, |h| {
+        matches!(h, Hdl::HypervLinuxDriver(_))
+    })
 }
 
-/// CR0 Register
-pub const HV_X64_REGISTER_CR0: u32 = 262144;
-/// CR3 Register
-pub const HV_X64_REGISTER_CR3: u32 = 262146;
-/// CR4 Register
-pub const HV_X64_REGISTER_CR4: u32 = 262147;
-/// EFER Register
-pub const HV_X64_REGISTER_EFER: u32 = 524289;
-/// RAX Register
-pub const HV_X64_REGISTER_RAX: u32 = 131072;
-/// RBX Register
-pub const HV_X64_REGISTER_RBX: u32 = 131075;
-/// RIP Register
-pub const HV_X64_REGISTER_RIP: u32 = 131088;
-/// RFLAGS Register
-pub const HV_X64_REGISTER_RFLAGS: u32 = 131089;
-/// CS Register
-pub const HV_X64_REGISTER_CS: u32 = 393217;
-/// RSP Register
-pub const HV_X64_REGISTER_RSP: u32 = 131076;
-/// RCX Register
-pub const HV_X64_REGISTER_RCX: u32 = 131073;
+fn get_driver(ctx: &Context, hdl: Handle) -> Result<&HypervLinuxDriver> {
+    Context::get(hdl, &ctx.hyperv_linux_drivers, |h| {
+        matches!(h, Hdl::HypervLinuxDriver(_))
+    })
+}
 
 /// Returns a bool indicating if hyperv is present on the machine
 /// Takes an argument to indicate if the hypervisor api must be stable
@@ -118,668 +37,262 @@ pub const HV_X64_REGISTER_RCX: u32 = 131073;
 #[no_mangle]
 pub extern "C" fn is_hyperv_linux_present(require_stable_api: bool) -> bool {
     // At this point we dont have any way to report the error if one occurs.
-    impls::is_hypervisor_present(require_stable_api).unwrap_or(false)
+    is_hypervisor_present(require_stable_api).unwrap_or(false)
 }
 
-/// Open a Handle to mshv. Returns a handle to mshv or a `Handle` to an error
-/// if there was an issue.
+/// Creates a new HyperV-Linux driver with the given parameters and
+/// "advanced" registers, suitable for a guest program that access
+/// memory.
+///
+/// If the driver was created successfully, returns a `Handle` referencing the
+/// new driver. Otherwise, returns a new `Handle` that references a descriptive
+/// error.
 ///
 /// # Safety
-///
-/// You must free this handle by calling `handle_free` exactly once
-/// after you're done using it.
-///
 /// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free`
+/// - Not yet freed with `context_free
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
-pub unsafe extern "C" fn open_mshv(ctx: *mut Context, require_stable_api: bool) -> Handle {
-    validate_context!(ctx);
-
-    match impls::open_mshv(require_stable_api) {
-        Ok(mshv) => Context::register(mshv, &mut (*ctx).mshvs, Hdl::Mshv),
-        Err(e) => (*ctx).register_err(e),
-    }
-}
-
-/// Create a VM and return a Handle to it. Returns a handle to a VM or a `Handle` to an error
-/// if there was an issue.
-///
-/// # Safety
-///
-/// You must free this handle by calling `handle_free` exactly once
-/// after you're done using it.
-///
-/// You must call this function with
-///
-/// 1. `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free`
-/// - Not modified, except by calling functions in the Hyperlight C API
-/// - Used to call `open_mshv`
-///
-/// 2. `Handle` to a `Mshv` that has been:
-/// - Created with `open_mshv`
-/// - Not yet freed with `handle_free`
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn create_vm(ctx: *mut Context, mshv_handle: Handle) -> Handle {
-    validate_context!(ctx);
-
-    let mshv = match get_mshv(&mut (*ctx), mshv_handle) {
-        Ok(result) => result,
-        Err(e) => return (*ctx).register_err(e),
-    };
-
-    match impls::create_vm(mshv) {
-        Ok(vmfd) => Context::register(vmfd, &mut (*ctx).vmfds, Hdl::VmFd),
-        Err(e) => (*ctx).register_err(e),
-    }
-}
-
-/// Create a vCPU and return a Handle to it. Returns a handle to a vCPU or a `Handle` to an error
-/// if there was an issue.
-///
-/// # Safety
-///
-/// You must free this handle by calling `handle_free` exactly once
-/// after you're done using it.
-///
-/// You must call this function with
-///
-/// 1. `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free`
-/// - Not modified, except by calling functions in the Hyperlight C API
-/// - Used to call `open_mshv`
-/// - Used to call `create_vm`
-///
-/// 2. `Handle` to a `VmFd` that has been:
-/// - Created with `create_vm`
-/// - Not yet freed with `handle_free`
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn create_vcpu(ctx: *mut Context, vmfd_handle: Handle) -> Handle {
-    validate_context!(ctx);
-
-    let vmfd = match get_vmfd(&mut (*ctx), vmfd_handle) {
-        Ok(result) => result,
-        Err(e) => return (*ctx).register_err(e),
-    };
-
-    match impls::create_vcpu(vmfd) {
-        Ok(vcpu) => Context::register(vcpu, &mut (*ctx).vcpufds, Hdl::VcpuFd),
-        Err(e) => (*ctx).register_err(e),
-    }
-}
-
-/// Map a memory region in the host to the VM and return a Handle to it. Returns a handle to a mshv_user_mem_region or a `Handle` to an error
-/// if there was an issue.
-///
-/// # Safety
-///
-/// You must destory this handle by calling `unmap_memory_region` exactly once
-/// after you're done using it.
-///
-/// You must call this function with
-///
-/// 1. `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free`
-/// - Not modified, except by calling functions in the Hyperlight C API
-/// - Used to call `open_mshv`
-/// - Used to call `create_vm`
-///
-/// 2. `Handle` to a `VmFd` that has been:
-/// - Created with `create_vm`
-/// - Not yet freed with `handle_free`
-/// - Not modified, except by calling functions in the Hyperlight C API
-///
-/// 3. The guest Page Frame Number (this can be calculated by right bit shifting the guest base address by 12 e.g. BaseAddress >> 12)
-///
-/// 4. The load address of the memory region being mapped (this is the address of the memory in the host process)
-///
-/// 5. The size of the memory region being mapped (this is the size of the memory allocated at load_address)
-#[no_mangle]
-pub unsafe extern "C" fn map_vm_memory_region(
+pub unsafe extern "C" fn hyperv_linux_create_driver(
     ctx: *mut Context,
-    vmfd_handle: Handle,
-    guest_pfn: u64,
-    load_address: u64,
-    size: u64,
+    require_stable_api: bool,
+    addrs: HypervLinuxDriverAddrs,
+    rsp: u64,
+    pml4: u64,
 ) -> Handle {
     validate_context!(ctx);
 
-    let vmfd = match get_vmfd(&mut (*ctx), vmfd_handle) {
-        Ok(result) => result,
+    let mut driver = match HypervLinuxDriver::new(require_stable_api, &addrs) {
+        Ok(d) => d,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    match driver.add_advanced_registers(&addrs, rsp, pml4) {
+        Ok(_) => (),
         Err(e) => return (*ctx).register_err(e),
     };
 
-    match impls::map_vm_memory_region(vmfd, guest_pfn, load_address, size) {
-        Ok(user_mem_region) => Context::register(
-            user_mem_region,
-            &mut (*ctx).mshv_user_mem_regions,
-            Hdl::MshvUserMemRegion,
-        ),
-        Err(e) => (*ctx).register_err(e),
+    Context::register(
+        driver,
+        &mut (*ctx).hyperv_linux_drivers,
+        Hdl::HypervLinuxDriver,
+    )
+}
+
+/// Creates a new HyperV-Linux driver with the given parameters and "basic"
+/// registers, suitable for a program that does not access memory.
+///
+/// If the driver was created successfully, returns a `Handle` referencing the
+/// new driver. Otherwise, returns a new `Handle` that references a descriptive
+/// error.
+///
+/// # Safety
+/// You must call this function with a `Context*` that has been:
+///
+/// - Created with `context_new`
+/// - Not yet freed with `context_free
+/// - Not modified, except by calling functions in the Hyperlight C API
+#[no_mangle]
+pub unsafe extern "C" fn hyperv_linux_create_driver_simple(
+    ctx_ptr: *mut Context,
+    require_stable_api: bool,
+    addrs: HypervLinuxDriverAddrs,
+) -> Handle {
+    validate_context!(ctx_ptr);
+
+    let mut driver = match HypervLinuxDriver::new(require_stable_api, &addrs) {
+        Ok(d) => d,
+        Err(e) => return (*ctx_ptr).register_err(e),
+    };
+    match driver.add_basic_registers(&addrs) {
+        Ok(_) => (),
+        Err(e) => return (*ctx_ptr).register_err(e),
+    };
+
+    Context::register(
+        driver,
+        &mut (*ctx_ptr).hyperv_linux_drivers,
+        Hdl::HypervLinuxDriver,
+    )
+}
+
+/// Apply all drivers to the vCPU stored within the HypervLinuxDriver
+/// referenced by `driver_hdl` that were previously added but not already
+/// set.
+///
+/// Some functions will do this for you, and thus if you use one of those
+/// you won't need to call this. See the below list for details.
+///
+/// - `hyperv_linux_execute_until_halt`: does not call this function for you.
+/// Call this function prior to calling that one.
+/// - `hyperv_linux_initialise`: calls this function for you. Calling it again
+/// is a no-op.
+/// - `hyperv_linux_dispatch_call_from_host`: calls this function for you.
+/// Calling it again is a no-op.
+///
+/// # Safety
+/// You must call this function with a `Context*` that has been:
+///
+/// - Created with `context_new`
+/// - Not yet freed with `context_free
+/// - Not modified, except by calling functions in the Hyperlight C API
+#[no_mangle]
+pub unsafe extern "C" fn hyperv_linux_apply_registers(
+    ctx_ptr: *mut Context,
+    driver_hdl: Handle,
+) -> Handle {
+    validate_context!(ctx_ptr);
+
+    let res = {
+        let ctx = &*ctx_ptr;
+        get_driver(ctx, driver_hdl).and_then(|driver| driver.apply_registers())
+    };
+    match res {
+        Ok(_) => Handle::new_empty(),
+        Err(e) => (*ctx_ptr).register_err(e),
     }
 }
 
-/// Unmap a memory region in the host to the VM and return a Handle to it. Returns an empty handle or a `Handle` to an error
-/// if there was an issue.
+/// Set, but do not apply, the stack pointer register.
 ///
 /// # Safety
-///
-/// If the retruned handle is a Handle to an error then it should be freed by calling `handle_free` .The empty handle does not need to be freed but calling `handle_free` is will not cause an error.
-/// The `mshv_user_mem_regions_handle` handle passed to this function should be freed after the call using `free_handle`.
-///
-/// You must call this function with
-///
-/// 1. `Context*` that has been:
+/// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free`
+/// - Not yet freed with `context_free
 /// - Not modified, except by calling functions in the Hyperlight C API
-/// - Used to call `open_mshv`
-/// - Used to call `create_vm`
-///
-/// 2. `Handle` to a `VmFd` that has been:
-/// - Created with `create_vm`
-/// - Not yet freed with `handle_free`
-/// - Not modified, except by calling functions in the Hyperlight C API
-///
-/// 3. `Handle` to a `mshv_user_mem_region` that has been:
-/// - Created with `map_vm_memory_region`
-/// - Not unmapped and freed by calling this function
-/// - Not modified, except by calling functions in the Hyperlight C API
-///
 #[no_mangle]
-pub unsafe extern "C" fn unmap_vm_memory_region(
+pub unsafe extern "C" fn hyperv_linux_set_rsp(
+    ctx_ptr: *mut Context,
+    driver_hdl: Handle,
+    rsp_val: u64,
+) -> Handle {
+    validate_context!(ctx_ptr);
+    let driver = match get_driver_mut(&mut *ctx_ptr, driver_hdl) {
+        Ok(d) => d,
+        Err(e) => return (*ctx_ptr).register_err(e),
+    };
+    match driver.update_register_u64(hv_register_name::HV_X64_REGISTER_RSP, rsp_val) {
+        Ok(_) => Handle::new_empty(),
+        Err(e) => (*ctx_ptr).register_err(e),
+    }
+}
+
+fn get_handler_funcs(
+    ctx: &Context,
+    outb_func_hdl: Handle,
+    mem_access_func_hdl: Handle,
+) -> Result<(OutbHandlerWrapper, MemAccessHandlerWrapper)> {
+    let outb_func = get_outb_handler_func(ctx, outb_func_hdl).map(|f| (*f).clone())?;
+    let mem_access_func =
+        get_mem_access_handler_func(ctx, mem_access_func_hdl).map(|f| (*f).clone())?;
+    Ok((outb_func, mem_access_func))
+}
+
+/// Initialise the vCPU, call the equivalent of `execute_until_halt`,
+/// and return the result.
+///
+/// Return an empty `Handle` on success, or a `Handle` that references a
+/// descriptive error on failure.
+///
+/// # Safety
+/// You must call this function with a `Context*` that has been:
+///
+/// - Created with `context_new`
+/// - Not yet freed with `context_free
+/// - Not modified, except by calling functions in the Hyperlight C API
+#[no_mangle]
+pub unsafe extern "C" fn hyperv_linux_initialise(
     ctx: *mut Context,
-    vmfd_handle: Handle,
-    mshv_user_mem_regions_handle: Handle,
+    driver_hdl: Handle,
+    outb_func_hdl: Handle,
+    mem_access_func_hdl: Handle,
+    peb_addr: u64,
+    seed: u64,
 ) -> Handle {
     validate_context!(ctx);
-
-    let vmfd = match get_vmfd(&mut (*ctx), vmfd_handle) {
-        Ok(result) => result,
+    let driver = match get_driver_mut(&mut *ctx, driver_hdl) {
+        Ok(d) => d,
         Err(e) => return (*ctx).register_err(e),
     };
-
-    let user_memory_region =
-        match get_mshv_user_mem_region(&mut (*ctx), mshv_user_mem_regions_handle) {
-            Ok(result) => result,
+    let (outb_func, mem_access_func) =
+        match get_handler_funcs(&*ctx, outb_func_hdl, mem_access_func_hdl) {
+            Ok(tup) => tup,
             Err(e) => return (*ctx).register_err(e),
         };
-
-    match impls::unmap_vm_memory_region(vmfd, user_memory_region) {
+    let init_res = (*driver).initialise(peb_addr, seed, outb_func, mem_access_func);
+    match init_res {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
 }
 
-/// mshv_register represents a register in the VM. It is used to set and get register values in the VM.
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct mshv_register {
-    /// The name of the register - should be equal to one of the constant values with the prefix `HV_X64_REGISTER_`.
-    pub name: c_uint,
-    /// reserved1 should always be set to 0.
-    pub reserved1: c_uint,
-    /// reserved2 should always be set to 0.
-    pub reserved2: c_ulonglong,
-    /// The value of the register.
-    pub value: mshv_u128,
-}
-
-/// mshv_u128 represents the value of a register.
-#[repr(C)]
-#[derive(Default, Copy, Clone)]
-pub struct mshv_u128 {
-    /// The lower 64 bits of the register value.
-    pub low_part: c_ulonglong,
-    /// The upper 64 bits of the register value.
-    pub high_part: c_ulonglong,
-}
-
-/// Set Registers in the vCPU. Returns an empty handle or a `Handle` to an error
-/// if there was an issue.
+/// Execute the virtual CPU stored inside the HyperV Linux driver referenced
+/// by `driver_hdl` until a HLT instruction is reached. You likely should
+/// call `hyperv_linux_initialise` instead of this function.
+///
+/// Return an empty `Handle` on success, or a `Handle` that references a
+/// descriptive error on failure.
 ///
 /// # Safety
-///
-/// If the handle is a Handle to an error then it should be freed by calling `handle_free` .The empty handle does not need to be freed but calling `handle_free` is will not cause an error.
-///
-/// You must call this function with
-///
-/// 1. `Context*` that has been:
+/// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free`
+/// - Not yet freed with `context_free
 /// - Not modified, except by calling functions in the Hyperlight C API
-/// - Used to call `open_mshv`
-/// - Used to call `create_vm`
-/// - Used to call `create_vcpu`
-///
-/// 2. `Handle` to a `VcpuFd` that has been:
-/// - Created with `create_vcpu`
-/// - Not yet freed with `handle_free`
-/// - Not modified, except by calling functions in the Hyperlight C API
-///
-/// 3. An array of `mshv_register`s
-/// 4. The number of `mshv_register`s in the array
-///
 #[no_mangle]
-pub unsafe extern "C" fn set_registers(
+pub unsafe extern "C" fn hyperv_linux_execute_until_halt(
     ctx: *mut Context,
-    vcpufd_handle: Handle,
-    reg_ptr: *const mshv_register,
-    reg_length: usize,
+    driver_hdl: Handle,
+    outb_func_hdl: Handle,
+    mem_access_func_hdl: Handle,
 ) -> Handle {
     validate_context!(ctx);
-
-    let vcpufd = match get_vcpufd(&mut (*ctx), vcpufd_handle) {
-        Ok(result) => result,
+    let driver = match get_driver_mut(&mut *ctx, driver_hdl) {
+        Ok(d) => d,
         Err(e) => return (*ctx).register_err(e),
     };
-
-    let did_it_panic = catch_unwind(|| {
-        let regs: &[mshv_register] = slice::from_raw_parts(reg_ptr, reg_length);
-        regs
-    });
-
-    let ffi_regs = match did_it_panic {
-        Ok(result) => result,
-        Err(_) => {
-            return (*ctx).register_err(anyhow::anyhow!(
-                "failed to create array from reg_ptr ad reg_length"
-            ))
-        }
-    };
-
-    let mut regs: Vec<hv_register_assoc> = Vec::with_capacity(reg_length);
-
-    for reg in ffi_regs {
-        let hv_reg = hv_register_assoc {
-            name: reg.name,
-            value: hv_register_value {
-                reg128: hv_u128 {
-                    low_part: reg.value.low_part,
-                    high_part: reg.value.high_part,
-                },
-            },
-            reserved1: reg.reserved1,
-            reserved2: reg.reserved2,
+    let (outb_func, mem_access_func) =
+        match get_handler_funcs(&*ctx, outb_func_hdl, mem_access_func_hdl) {
+            Ok(tup) => tup,
+            Err(e) => return (*ctx).register_err(e),
         };
-        regs.push(hv_reg);
-    }
-
-    match impls::set_registers(vcpufd, &regs) {
+    match (*driver).execute_until_halt(outb_func, mem_access_func) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
 }
 
-/// mshv_run_message contains the results of a vCPU execution
-#[repr(C)]
-#[derive(Copy, Clone, Default)]
-pub struct mshv_run_message {
-    /// The exit reason of the vCPU.
-    pub message_type: c_uint,
-    /// The value of the RAX register.
-    pub rax: u64,
-    /// The value of the RIP register.
-    pub rip: u64,
-    /// The port number when the reason is hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT.
-    pub port_number: u16,
-    /// The size of the instruction. This is combined with the value of the RIP register to determine the next instruction to be executed.
-    pub instruction_length: u32,
-}
-
-/// Unmapped Memory Access
-pub const HV_MESSAGE_TYPE_HVMSG_UNMAPPED_GPA: hv_message_type = 2147483648;
-/// Port IO (out called in the guest)
-pub const HV_MESSAGE_TYPE_HVMSG_X64_IO_PORT_INTERCEPT: hv_message_type = 2147549184;
-/// HALT  (hlt called in the guest)
-pub const HV_MESSAGE_TYPE_HVMSG_X64_HALT: hv_message_type = 2147549191;
-
-/// Runs a vCPU. Returns an handle to an `mshv_run_message` or a `Handle` to an error
-/// if there was an issue.
+/// Dispatch a call from the host to the guest, using the function
+/// referenced by `dispatch_func_addr`
 ///
 /// # Safety
-///
-/// The returned handle is a handle to an `mshv_run_message` the corresponding `mshv_run_message`
-/// should be retrieved using `get_run_result_from_handle` . The handle should be freed by calling `handle_free` once the message has been retrieved.
-///
-/// You must call this function with
-///
-/// 1. `Context*` that has been:
+/// You must call this function with a `Context*` that has been:
 ///
 /// - Created with `context_new`
-/// - Not yet freed with `context_free`
+/// - Not yet freed with `context_free
 /// - Not modified, except by calling functions in the Hyperlight C API
-/// - Used to call `open_mshv`
-/// - Used to call `create_vm`
-/// - Used to call `create_vcpu`
-/// - Used to call `set_registers`
-///
-/// 2. `Handle` to a `VcpuFd` that has been:
-/// - Created with `create_vcpu`
-/// - Not yet freed with `handle_free`
-/// - Not modified, except by calling functions in the Hyperlight C API
-///
-///
 #[no_mangle]
-pub unsafe extern "C" fn run_vcpu(ctx: *mut Context, vcpufd_handle: Handle) -> Handle {
+pub unsafe extern "C" fn hyperv_linux_dispatch_call_from_host(
+    ctx: *mut Context,
+    driver_hdl: Handle,
+    outb_func_hdl: Handle,
+    mem_access_func_hdl: Handle,
+    dispatch_func_addr: u64,
+) -> Handle {
     validate_context!(ctx);
-
-    let vcpufd = match get_vcpufd(&mut (*ctx), vcpufd_handle) {
-        Ok(result) => result,
+    let driver = match get_driver_mut(&mut *ctx, driver_hdl) {
+        Ok(d) => d,
         Err(e) => return (*ctx).register_err(e),
     };
-
-    match impls::run_vcpu(vcpufd) {
-        Ok(run_result) => {
-            let mut result = mshv_run_message {
-                message_type: run_result.header.message_type,
-                ..Default::default()
-            };
-            if result.message_type == HV_MESSAGE_TYPE_HVMSG_X64_IO_PORT_INTERCEPT {
-                let io_message = run_result.to_ioport_info().unwrap();
-                result.port_number = io_message.port_number;
-                result.rax = io_message.rax;
-                result.rip = io_message.header.rip;
-                result.instruction_length = io_message.header.instruction_length() as u32;
-            };
-            Context::register(result, &mut (*ctx).mshv_run_messages, Hdl::MshvRunMessage)
-        }
+    let (outb_func, mem_access_func) =
+        match get_handler_funcs(&*ctx, outb_func_hdl, mem_access_func_hdl) {
+            Ok(tup) => tup,
+            Err(e) => return (*ctx).register_err(e),
+        };
+    match (*driver).dispatch_call_from_host(dispatch_func_addr, outb_func, mem_access_func) {
+        Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
-    }
-}
-
-/// Gets the `mshv_run_message` associated with the given handle.
-///
-/// # Safety
-///
-/// The returned `mshv_run_message` should be freed by the caller when it is no longer needed along with the handle used to retrieve it (using `handle_free`).
-///
-/// You must call this function with
-///
-/// 1. `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free`
-/// - Not modified, except by calling functions in the Hyperlight C API
-/// - Used to call `open_mshv`
-/// - Used to call `create_vm`
-/// - Used to call `create_vcpu`
-/// - Used to call `set_registers`
-/// - Used to call `run_vcpu`
-///
-/// 2. `Handle` to a `mshv_run_message` that has been:
-/// - Created with `run_vcpu`
-/// - Not yet used to call this function
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn get_run_result_from_handle(
-    ctx: *mut Context,
-    handle: Handle,
-) -> *const mshv_run_message {
-    validate_context_or_panic!(ctx);
-
-    let result = match get_mshv_run_message(&mut (*ctx), handle) {
-        Ok(result) => result,
-        Err(_) => return std::ptr::null(),
-    };
-    // TODO: Investigate why calling (*ctx).remove(hdl, |_| true) hangs here.
-    Box::into_raw(Box::new(*result))
-}
-
-// see https://doc.rust-lang.org/std/boxed/index.html#memory-layout
-/// Frees a `mshv_run_message` previously returned by `get_run_result_from_handle`.
-///
-/// # Safety
-///
-/// You must call this function with
-///
-///
-/// 1. A Pointer to a previously returned  `mshv_run_message` from `get_run_result_from_handle`.
-/// - Created with `get_run_result_from_handle`
-/// - Not yet used to call this function
-/// - Not modified, except by calling functions in the Hyperlight C API
-///
-#[no_mangle]
-pub extern "C" fn free_run_result(_: Option<Box<mshv_run_message>>) {}
-
-fn get_mshv(ctx: &mut Context, handle: Handle) -> Result<&Mshv> {
-    Context::get(handle, &ctx.mshvs, |b| matches!(b, Hdl::Mshv(_)))
-}
-
-fn get_vmfd(ctx: &mut Context, handle: Handle) -> Result<&VmFd> {
-    Context::get(handle, &ctx.vmfds, |b| matches!(b, Hdl::VmFd(_)))
-}
-
-fn get_vcpufd(ctx: &mut Context, handle: Handle) -> Result<&VcpuFd> {
-    Context::get(handle, &ctx.vcpufds, |b| matches!(b, Hdl::VcpuFd(_)))
-}
-
-fn get_mshv_user_mem_region(ctx: &mut Context, handle: Handle) -> Result<&mshv_user_mem_region> {
-    Context::get(handle, &ctx.mshv_user_mem_regions, |b| {
-        matches!(b, Hdl::MshvUserMemRegion(_))
-    })
-}
-
-fn get_mshv_run_message(ctx: &mut Context, handle: Handle) -> Result<&mshv_run_message> {
-    Context::get(handle, &ctx.mshv_run_messages, |b| {
-        matches!(b, Hdl::MshvRunMessage(_))
-    })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::hypervisor::hyperv_linux::test_cfg::{SHOULD_RUN_TEST, TEST_CONFIG};
-    use crate::should_run_hyperv_linux_test;
-    use libc::c_void;
-    use mshv_bindings::{hv_message_type_HVMSG_X64_HALT, hv_register_name};
-    use std::io::Write;
-
-    #[test]
-    fn test_open_mshv() -> anyhow::Result<()> {
-        crate::should_run_hyperv_linux_test!();
-        impls::open_mshv(TEST_CONFIG.should_have_stable_api).map(|_| ())
-    }
-
-    #[test]
-    fn test_create_vm() -> anyhow::Result<()> {
-        should_run_hyperv_linux_test!();
-        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api)?;
-        impls::create_vm(&mshv).map(|_| ())
-    }
-
-    #[test]
-    fn test_create_vcpu() -> anyhow::Result<()> {
-        should_run_hyperv_linux_test!();
-        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api)?;
-        let vmfd = impls::create_vm(&mshv)?;
-        impls::create_vcpu(&vmfd).map(|_| ())
-    }
-
-    #[test]
-    fn test_map_user_memory_region() -> anyhow::Result<()> {
-        should_run_hyperv_linux_test!();
-        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api)?;
-        let vmfd = impls::create_vm(&mshv)?;
-        let guest_pfn = 0x1;
-        let mem_size = 0x1000;
-        let load_addr = unsafe {
-            libc::mmap(
-                std::ptr::null_mut(),
-                mem_size,
-                libc::PROT_READ | libc::PROT_WRITE,
-                libc::MAP_ANONYMOUS | libc::MAP_SHARED | libc::MAP_NORESERVE,
-                -1,
-                0,
-            )
-        } as *mut u8;
-        let user_memory_region =
-            impls::map_vm_memory_region(&vmfd, guest_pfn, load_addr as u64, mem_size as u64)?;
-        impls::unmap_vm_memory_region(&vmfd, &user_memory_region)?;
-        unsafe { libc::munmap(load_addr as *mut c_void, mem_size) };
-        Ok(())
-    }
-
-    #[test]
-    fn test_set_registers() -> anyhow::Result<()> {
-        should_run_hyperv_linux_test!();
-        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api)?;
-        let vmfd = impls::create_vm(&mshv)?;
-        let vcpu = impls::create_vcpu(&vmfd)?;
-
-        let regs = &[
-            hv_register_assoc {
-                name: hv_register_name::HV_X64_REGISTER_RAX as u32,
-                value: hv_register_value { reg64: 12 },
-                ..Default::default()
-            },
-            hv_register_assoc {
-                name: hv_register_name::HV_X64_REGISTER_RBX as u32,
-                value: hv_register_value { reg64: 24 },
-                ..Default::default()
-            },
-            hv_register_assoc {
-                name: hv_register_name::HV_X64_REGISTER_RFLAGS as u32,
-                value: hv_register_value { reg64: 0x2000 },
-                ..Default::default()
-            },
-        ];
-
-        impls::set_registers(&vcpu, regs).map(|_| ())
-    }
-
-    #[test]
-    fn test_run_vcpu() -> anyhow::Result<()> {
-        should_run_hyperv_linux_test!();
-        let mshv = impls::open_mshv(TEST_CONFIG.should_have_stable_api)?;
-        let vmfd = impls::create_vm(&mshv)?;
-        let vcpu = impls::create_vcpu(&vmfd)?;
-        #[rustfmt::skip]
-        let code:[u8;12] = [
-           0xba, 0xf8, 0x03,  /* mov $0x3f8, %dx */
-           0x00, 0xd8,         /* add %bl, %al */
-           0x04, b'0',         /* add $'0', %al */
-           0xee,               /* out %al, (%dx) */
-           /* send a 0 to indicate we're done */
-           0xb0, b'\0',        /* mov $'\0', %al */
-           0xee,               /* out %al, (%dx) */
-           0xf4, /* HLT */
-        ];
-        let guest_pfn = 0x1;
-        let mem_size = 0x1000;
-        let load_addr = unsafe {
-            libc::mmap(
-                std::ptr::null_mut(),
-                mem_size,
-                libc::PROT_READ | libc::PROT_WRITE,
-                libc::MAP_ANONYMOUS | libc::MAP_SHARED | libc::MAP_NORESERVE,
-                -1,
-                0,
-            )
-        } as *mut u8;
-        let user_memory_region =
-            impls::map_vm_memory_region(&vmfd, guest_pfn, load_addr as u64, mem_size as u64)?;
-
-        unsafe {
-            let mut mslice = ::std::slice::from_raw_parts_mut(
-                user_memory_region.userspace_addr as *mut u8,
-                mem_size,
-            );
-            mslice.write_all(&code).unwrap();
-        }
-
-        let regs = &[
-            hv_register_assoc {
-                name: hv_register_name::HV_X64_REGISTER_CS as u32,
-                value: hv_register_value {
-                    reg128: hv_u128 {
-                        low_part: 0,
-                        high_part: 43628621390217215,
-                    },
-                },
-                ..Default::default()
-            },
-            hv_register_assoc {
-                name: hv_register_name::HV_X64_REGISTER_RAX as u32,
-                value: hv_register_value { reg64: 6 },
-                ..Default::default()
-            },
-            hv_register_assoc {
-                name: hv_register_name::HV_X64_REGISTER_RBX as u32,
-                value: hv_register_value { reg64: 2 },
-                ..Default::default()
-            },
-            hv_register_assoc {
-                name: hv_register_name::HV_X64_REGISTER_RIP as u32,
-                value: hv_register_value { reg64: 0x1000 },
-                ..Default::default()
-            },
-            hv_register_assoc {
-                name: hv_register_name::HV_X64_REGISTER_RFLAGS as u32,
-                value: hv_register_value { reg64: 0x2 },
-                ..Default::default()
-            },
-        ];
-
-        impls::set_registers(&vcpu, regs).map(|_| ())?;
-
-        let run_result = impls::run_vcpu(&vcpu)?;
-        let message_type = run_result.header.message_type;
-
-        assert_eq!(message_type, HV_MESSAGE_TYPE_HVMSG_X64_IO_PORT_INTERCEPT);
-
-        let io_message = run_result.to_ioport_info().unwrap();
-        assert!(io_message.rax == b'8' as u64);
-        assert!(io_message.port_number == 0x3f8);
-
-        let regs = &[hv_register_assoc {
-            name: hv_register_name::HV_X64_REGISTER_RIP as u32,
-            value: hv_register_value {
-                reg64: io_message.header.rip + io_message.header.instruction_length() as u64,
-            },
-            ..Default::default()
-        }];
-
-        impls::set_registers(&vcpu, regs).map(|_| ())?;
-
-        let run_result = impls::run_vcpu(&vcpu)?;
-        let message_type = run_result.header.message_type;
-
-        let io_message = run_result.to_ioport_info().unwrap();
-        assert_eq!(message_type, HV_MESSAGE_TYPE_HVMSG_X64_IO_PORT_INTERCEPT);
-        assert!(io_message.rax == b'\0' as u64);
-        assert!(io_message.port_number == 0x3f8);
-
-        let regs = &[hv_register_assoc {
-            name: hv_register_name::HV_X64_REGISTER_RIP as u32,
-            value: hv_register_value {
-                reg64: io_message.header.rip + io_message.header.instruction_length() as u64,
-            },
-            ..Default::default()
-        }];
-
-        impls::set_registers(&vcpu, regs).map(|_| ())?;
-
-        let run_result = impls::run_vcpu(&vcpu)?;
-        let message_type = run_result.header.message_type;
-
-        assert_eq!(message_type, hv_message_type_HVMSG_X64_HALT);
-
-        impls::unmap_vm_memory_region(&vmfd, &user_memory_region)?;
-        unsafe { libc::munmap(load_addr as *mut c_void, mem_size) };
-        Ok(())
     }
 }

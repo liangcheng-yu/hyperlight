@@ -1,7 +1,9 @@
 use super::handle::{new_key, Handle, Key};
 use super::hdl::Hdl;
+use crate::capi::mem_access_handler::MemAccessHandlerWrapper;
+use crate::capi::outb_handler::OutbHandlerWrapper;
 #[cfg(target_os = "linux")]
-use crate::capi::hyperv_linux::mshv_run_message;
+use crate::hypervisor::hyperv_linux::HypervLinuxDriver;
 #[cfg(target_os = "linux")]
 use crate::hypervisor::kvm;
 #[cfg(target_os = "linux")]
@@ -13,10 +15,6 @@ use crate::{func::def::HostFunc, mem::layout::SandboxMemoryLayout};
 use anyhow::{bail, Error, Result};
 #[cfg(target_os = "linux")]
 use kvm_ioctls::Kvm;
-#[cfg(target_os = "linux")]
-use mshv_bindings::mshv_user_mem_region;
-#[cfg(target_os = "linux")]
-use mshv_ioctls::{Mshv, VcpuFd, VmFd};
 use std::collections::HashMap;
 
 /// Context is a memory storage mechanism used in the Hyperlight C API
@@ -58,21 +56,6 @@ pub struct Context {
     pub mem_configs: HashMap<Key, SandboxMemoryConfiguration>,
     /// All `SandboxMemoryLayout`s stored in this context
     pub mem_layouts: HashMap<Key, SandboxMemoryLayout>,
-    /// All `Mshv`s stored in this context
-    #[cfg(target_os = "linux")]
-    pub mshvs: HashMap<Key, Mshv>,
-    /// All `VmFd`s stored in this context
-    #[cfg(target_os = "linux")]
-    pub vmfds: HashMap<Key, VmFd>,
-    /// All `VcpuFd`s stored in this context
-    #[cfg(target_os = "linux")]
-    pub vcpufds: HashMap<Key, VcpuFd>,
-    /// All `mshv_user_mem_region`s stored in this context
-    #[cfg(target_os = "linux")]
-    pub mshv_user_mem_regions: HashMap<Key, mshv_user_mem_region>,
-    /// All `mshv_run_message`s stored in this context
-    #[cfg(target_os = "linux")]
-    pub mshv_run_messages: HashMap<Key, mshv_run_message>,
     /// All the `GuestMemory`s stored in this context
     pub guest_mems: HashMap<Key, GuestMemory>,
     /// All the `i64`s stored in this context
@@ -100,6 +83,13 @@ pub struct Context {
     #[cfg(target_os = "linux")]
     /// All the KVM segment registers stored in this context
     pub kvm_sregs: HashMap<Key, kvm_regs::SRegs>,
+    #[cfg(target_os = "linux")]
+    /// The HyperV Linux VM drivers stored in this context
+    pub hyperv_linux_drivers: HashMap<Key, HypervLinuxDriver>,
+    /// The outb handler functions stored in this context
+    pub outb_handler_funcs: HashMap<Key, OutbHandlerWrapper>,
+    /// The memory access handler functions stored in this context
+    pub mem_access_handler_funcs: HashMap<Key, MemAccessHandlerWrapper>,
 }
 
 impl Context {
@@ -201,18 +191,6 @@ impl Context {
                     Hdl::PEInfo(key) => self.pe_infos.remove(&key).is_some(),
                     Hdl::MemConfig(key) => self.mem_configs.remove(&key).is_some(),
                     Hdl::MemLayout(key) => self.mem_layouts.remove(&key).is_some(),
-                    #[cfg(target_os = "linux")]
-                    Hdl::Mshv(key) => self.mshvs.remove(&key).is_some(),
-                    #[cfg(target_os = "linux")]
-                    Hdl::VmFd(key) => self.vmfds.remove(&key).is_some(),
-                    #[cfg(target_os = "linux")]
-                    Hdl::VcpuFd(key) => self.vcpufds.remove(&key).is_some(),
-                    #[cfg(target_os = "linux")]
-                    Hdl::MshvUserMemRegion(key) => {
-                        self.mshv_user_mem_regions.remove(&key).is_some()
-                    }
-                    #[cfg(target_os = "linux")]
-                    Hdl::MshvRunMessage(key) => self.mshv_run_messages.remove(&key).is_some(),
                     Hdl::GuestMemory(key) => self.guest_mems.remove(&key).is_some(),
                     Hdl::Int64(key) => self.int64s.remove(&key).is_some(),
                     Hdl::Int32(key) => self.int32s.remove(&key).is_some(),
@@ -230,6 +208,12 @@ impl Context {
                     Hdl::KvmRegisters(key) => self.kvm_regs.remove(&key).is_some(),
                     #[cfg(target_os = "linux")]
                     Hdl::KvmSRegisters(key) => self.kvm_sregs.remove(&key).is_some(),
+                    #[cfg(target_os = "linux")]
+                    Hdl::HypervLinuxDriver(key) => self.hyperv_linux_drivers.remove(&key).is_some(),
+                    Hdl::OutbHandlerFunc(key) => self.outb_handler_funcs.remove(&key).is_some(),
+                    Hdl::MemAccessHandlerFunc(key) => {
+                        self.mem_access_handler_funcs.remove(&key).is_some()
+                    }
                 }
             }
             Err(_) => false,

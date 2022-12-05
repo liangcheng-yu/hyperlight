@@ -16,11 +16,8 @@ build-dotnet:
     cd src/Hyperlight && dotnet build || cd ../../
     cd src/examples/NativeHost && dotnet build || cd ../../../
 
-build-rust:
-    cargo build
-
-build-rust-release:
-    cargo build --release
+build-rust target=default-target:
+    cargo build --verbose --profile={{ if target == "debug" {"dev"} else { target } }}
 
 build: build-rust build-dotnet
     echo "built all .Net and Rust projects"

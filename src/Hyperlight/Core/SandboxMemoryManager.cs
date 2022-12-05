@@ -130,8 +130,8 @@ namespace Hyperlight.Core
             var guestCookie = new byte[cookie.Length];
             var stackOffset = sandboxMemoryLayout!.topOfStackOffset;
             this.guestMemWrapper!.CopyToByteArray(
-               guestCookie,
-               (ulong)stackOffset
+                guestCookie,
+                (ulong)stackOffset
             );
             return guestCookie.SequenceEqual(cookie);
         }

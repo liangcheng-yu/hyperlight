@@ -92,11 +92,12 @@ jobs:
           just run-tests-capi  ${{ matrix.config }}
       # Script to install Valgrind does not work on Mariner or on the kvm 
       # runner. Valgrind has been installed manually on the runners.
-      - name: Install Valgrind (Linux only - not hyperv)
+      - name: Install Valgrind (Linux builds only - not hyperv)
         if: ${{ (matrix.hypervisor != 'hyperv') && (matrix.hypervisor != 'kvm') && (runner.os == 'Linux') }}
         run: ./install_valgrind.sh
         working-directory: ./scripts
-      - name: Valgrind C tests (Linux only)
+      - name: Valgrind C tests (Linux builds only)
         working-directory: src/hyperlight_host
         if: runner.os == 'Linux'
         run: just valgrind-tests-capi  ${{ matrix.config }}
+

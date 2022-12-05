@@ -82,16 +82,32 @@ impl GuestMemory {
     pub fn new(min_size_bytes: usize) -> Result<Self> {
         cfg_if::cfg_if! {
             if #[cfg(unix)] {
+                use anyhow::bail;
+                use libc::{
+                    size_t,
+                    c_int,
+                    off_t,
+                    PROT_READ,
+                    PROT_WRITE,
+                    MAP_ANONYMOUS,
+                    MAP_SHARED,
+                    MAP_NORESERVE,
+                    MAP_FAILED,
+                };
                 // https://docs.rs/libc/latest/libc/fn.mmap.html
                 let addr = unsafe {
-                    mmap(
-                        null_mut(),
-                        min_size_bytes,
-                        libc::PROT_READ | libc::PROT_WRITE,
-                        libc::MAP_ANONYMOUS | libc::MAP_SHARED | libc::MAP_NORESERVE,
-                        -1,
-                        0,
-                    )
+                    let ptr = mmap(
+                        null_mut() as *mut c_void,
+                        min_size_bytes as size_t,
+                        PROT_READ | PROT_WRITE,
+                        MAP_ANONYMOUS | MAP_SHARED | MAP_NORESERVE,
+                        -1 as c_int,
+                        0 as off_t,
+                    );
+                    if ptr == MAP_FAILED {
+                        bail!(std::io::Error::last_os_error())
+                    }
+                    ptr
                 };
             } else {
                 let addr = unsafe {

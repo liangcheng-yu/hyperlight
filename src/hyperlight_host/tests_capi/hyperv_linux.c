@@ -62,250 +62,93 @@ MunitResult test_is_hyperv_linux_present(const MunitParameter params[], void *fi
     return MUNIT_OK;
 }
 
-MunitResult test_open_mshv(const MunitParameter params[], void *fixture)
+MunitResult test_hyperv_linux_create_driver(const MunitParameter params[], void *fixture)
 {
-    bool hypervisor_is_present = is_hyperv_linux_present(!EXPECT_HYPERV_LINUX_PRERELEASE_API);
-
+    CHECK_HYPERV_LINUX_PRESENT;
+    const size_t MEM_SIZE = 0x1000;
     Context *ctx = context_new();
-    munit_assert_not_null(ctx);
-    Handle mshv = open_mshv(ctx, true);
+    Handle guest_mem_ref = guest_memory_new(ctx, MEM_SIZE);
+    struct HypervLinuxDriverAddrs addrs = {
+        .entrypoint = 0,
+        .guest_pfn = 0,
+        .host_addr = guest_memory_get_address(ctx, guest_mem_ref),
+        .mem_size = MEM_SIZE,
+    };
 
-    if (hypervisor_is_present && !EXPECT_HYPERV_LINUX_PRERELEASE_API && EXPECT_HYPERV_LINUX_PRESENT)
-    {
-        handle_assert_no_error(ctx, mshv);
-    }
-    else
-    {
-        handle_assert_error(ctx, mshv);
-    }
+    Handle hv_driver_hdl = hyperv_linux_create_driver(ctx, false, addrs, 0, 0);
+    handle_assert_no_error(ctx, hv_driver_hdl);
 
-    handle_free(ctx, mshv);
-
-    mshv = open_mshv(ctx, false);
-
-    if (hypervisor_is_present && EXPECT_HYPERV_LINUX_PRERELEASE_API && EXPECT_HYPERV_LINUX_PRESENT)
-    {
-        handle_assert_no_error(ctx, mshv);
-    }
-    else
-    {
-        handle_assert_error(ctx, mshv);
-    }
-
-    handle_free(ctx, mshv);
+    handle_free(ctx, hv_driver_hdl);
+    handle_free(ctx, guest_mem_ref);
     context_free(ctx);
     return MUNIT_OK;
 }
 
-MunitResult test_create_vm(const MunitParameter params[], void *fixture)
+void outb_func(uint16_t port, uint64_t payload)
 {
-    CHECK_HYPERV_LINUX_PRESENT;
-
-    Context *ctx = context_new();
-    munit_assert_not_null(ctx);
-    Handle mshv = open_mshv(ctx, !EXPECT_HYPERV_LINUX_PRERELEASE_API);
-    handle_assert_no_error(ctx, mshv);
-    Handle vm = create_vm(ctx, mshv);
-    handle_assert_no_error(ctx, vm);
-    handle_free(ctx, vm);
-    handle_free(ctx, mshv);
-    context_free(ctx);
-
-    return MUNIT_OK;
+}
+void mem_access_func(void)
+{
 }
 
-MunitResult test_create_vcpu(const MunitParameter params[], void *fixture)
+MunitResult test_hyperv_linux_execute_until_halt(const MunitParameter params[], void *fixture)
 {
     CHECK_HYPERV_LINUX_PRESENT;
-
-    Context *ctx = context_new();
-    munit_assert_not_null(ctx);
-    Handle mshv = open_mshv(ctx, !EXPECT_HYPERV_LINUX_PRERELEASE_API);
-    handle_assert_no_error(ctx, mshv);
-    Handle vm = create_vm(ctx, mshv);
-    handle_assert_no_error(ctx, vm);
-    Handle vcpu = create_vcpu(ctx, vm);
-    handle_assert_no_error(ctx, vcpu);
-    handle_free(ctx, vcpu);
-    handle_free(ctx, vm);
-    handle_free(ctx, mshv);
-    context_free(ctx);
-
-    return MUNIT_OK;
-}
-
-MunitResult test_map_user_memory_region(const MunitParameter params[], void *fixture)
-{
-    CHECK_HYPERV_LINUX_PRESENT;
-
-    Context *ctx = context_new();
-    munit_assert_not_null(ctx);
-    Handle mshv = open_mshv(ctx, !EXPECT_HYPERV_LINUX_PRERELEASE_API);
-    handle_assert_no_error(ctx, mshv);
-    Handle vm = create_vm(ctx, mshv);
-    handle_assert_no_error(ctx, vm);
-    uint64_t memSize = 0x1000;
-    uint64_t guestPFN = 0x1;
-    void *guestMemory = mmap(0, memSize, PROT_READ | PROT_WRITE, MAP_SHARED | 0x20 /* MAP-SHARED */ | 0x4000 /* MAP_NORESERVE */, -1, 0);
-    munit_assert_not_null(guestMemory);
-    Handle mshv_user_memory_region = map_vm_memory_region(ctx, vm, guestPFN, (uint64_t)guestMemory, memSize);
-    handle_assert_no_error(ctx, mshv_user_memory_region);
-    Handle should_be_empty = unmap_vm_memory_region(ctx, vm, mshv_user_memory_region);
-    handle_assert_no_error(ctx, should_be_empty);
-    handle_free(ctx, mshv_user_memory_region);
-    handle_free(ctx, should_be_empty);
-
-    munmap(guestMemory, memSize);
-
-    handle_free(ctx, vm);
-    handle_free(ctx, mshv);
-    context_free(ctx);
-
-    return MUNIT_OK;
-}
-
-MunitResult test_set_registers(const MunitParameter params[], void *fixture)
-{
-    CHECK_HYPERV_LINUX_PRESENT;
-
-    Context *ctx = context_new();
-    munit_assert_not_null(ctx);
-    Handle mshv = open_mshv(ctx, !EXPECT_HYPERV_LINUX_PRERELEASE_API);
-    handle_assert_no_error(ctx, mshv);
-    Handle vm = create_vm(ctx, mshv);
-    handle_assert_no_error(ctx, vm);
-    Handle vcpu = create_vcpu(ctx, vm);
-    handle_assert_no_error(ctx, vcpu);
-
-    mshv_register mshvRegisters[] = {
-        {.name = HV_X64_REGISTER_RBX, .reserved1 = 0, .reserved2 = 0, .value = {.low_part = 2, .high_part = 0}},
-        {.name = HV_X64_REGISTER_RIP, .reserved1 = 0, .reserved2 = 0, .value = {.low_part = 0x1000, .high_part = 0}},
-        {.name = HV_X64_REGISTER_RFLAGS, .reserved1 = 0, .reserved2 = 0, .value = {.low_part = 2, .high_part = 0}}};
-
-    Handle result = set_registers(ctx, vcpu, mshvRegisters, 6);
-    handle_assert_error(ctx, result);
-    handle_free(ctx, result);
-
-    result = set_registers(ctx, vcpu, mshvRegisters, 3);
-    handle_assert_no_error(ctx, result);
-    handle_free(ctx, result);
-
-    handle_free(ctx, vcpu);
-    handle_free(ctx, vm);
-    handle_free(ctx, mshv);
-    context_free(ctx);
-
-    return MUNIT_OK;
-}
-
-MunitResult test_run_vpcu(const MunitParameter params[], void *fixture)
-{
-
-    CHECK_HYPERV_LINUX_PRESENT;
-
-    Context *ctx = context_new();
-    munit_assert_not_null(ctx);
-    Handle mshv = open_mshv(ctx, !EXPECT_HYPERV_LINUX_PRERELEASE_API);
-    handle_assert_no_error(ctx, mshv);
-    Handle vm = create_vm(ctx, mshv);
-    handle_assert_no_error(ctx, vm);
-    Handle vcpu = create_vcpu(ctx, vm);
-    handle_assert_no_error(ctx, vcpu);
-
-    uint64_t memSize = 0x1000;
-    uint64_t guestPFN = 0x1;
-    void *guestMemory = mmap(0, memSize, PROT_READ | PROT_WRITE, MAP_SHARED | 0x20 /* MAP-SHARED */ | 0x4000 /* MAP_NORESERVE */, -1, 0);
-    munit_assert_not_null(guestMemory);
-
-    const uint8_t code[] = {
+    const size_t ACTUAL_MEM_SIZE = 0x4000;
+    const size_t REGION_MEM_SIZE = 0x1000;
+    const uint8_t CODE[] = {
         0xba, 0xf8, 0x03, /* mov $0x3f8, %dx */
         0x00, 0xd8,       /* add %bl, %al */
         0x04, '0',        /* add $'0', %al */
         0xee,             /* out %al, (%dx) */
-        /* send a 0 to indicate we're done */
-        0xb0, '\0', /* mov $'\0', %al */
-        0xee,
-        0xf4, /* HLT */
+        0xb0, '\0',       /* mov $'\n', %al */
+        0xee,             /* out %al, (%dx) */
+        0xf4,             /* hlt */
     };
+    const uint8_t CODE_LENGTH = sizeof(CODE);
+    struct Context *ctx = context_new();
+    Handle guest_mem_ref = guest_memory_new(ctx, ACTUAL_MEM_SIZE);
 
-    memcpy((void *)guestMemory, code, sizeof(code));
+    {
+        // copy code into guest memory
+        Handle barr_ref = byte_array_new(ctx, CODE, CODE_LENGTH);
+        handle_assert_no_error(ctx, barr_ref);
+        Handle copy_res_ref = guest_memory_copy_from_byte_array(ctx, guest_mem_ref, barr_ref, 0, 0, CODE_LENGTH);
+        handle_assert_no_error(ctx, copy_res_ref);
+        handle_free(ctx, barr_ref);
+    }
 
-    Handle mshv_user_memory_region = map_vm_memory_region(ctx, vm, guestPFN, (uint64_t)guestMemory, memSize);
-    handle_assert_no_error(ctx, mshv_user_memory_region);
-
-    mshv_register mshvRegisters[] = {
-        {.name = HV_X64_REGISTER_CS, .value = {.low_part = 0, .high_part = 43628621390217215}},
-        {.name = HV_X64_REGISTER_RAX, .value = {.low_part = 2, .high_part = 0}},
-        {.name = HV_X64_REGISTER_RBX, .reserved1 = 0, .reserved2 = 0, .value = {.low_part = 2, .high_part = 0}},
-        {.name = HV_X64_REGISTER_RIP, .reserved1 = 0, .reserved2 = 0, .value = {.low_part = 0x1000, .high_part = 0}},
-        {.name = HV_X64_REGISTER_RFLAGS, .reserved1 = 0, .reserved2 = 0, .value = {.low_part = 2, .high_part = 0}}};
-
-    Handle result = set_registers(ctx, vcpu, mshvRegisters, 5);
-    handle_assert_no_error(ctx, result);
-    handle_free(ctx, result);
-
-    result = run_vcpu(ctx, vcpu);
-    handle_assert_no_error(ctx, result);
-
-    const mshv_run_message *run_message = get_run_result_from_handle(ctx, result);
-    munit_assert_not_null(run_message);
-    handle_free(ctx, result);
-
-    munit_assert_uint32(run_message->message_type, ==, HV_MESSAGE_TYPE_HVMSG_X64_IO_PORT_INTERCEPT);
-    munit_assert_uint64(run_message->rax, ==, (uint64_t)'4');
-    munit_assert_uint16(run_message->port_number, ==, 0x3f8);
-
-    mshv_register RIPReg[] = {
-        {.name = HV_X64_REGISTER_RIP, .value = {.low_part = run_message->rip + run_message->instruction_length, .high_part = 0}}};
-
-    free_run_result((mshv_run_message *)run_message);
-
-    result = set_registers(ctx, vcpu, RIPReg, 1);
-    handle_assert_no_error(ctx, result);
-    handle_free(ctx, result);
-
-    result = run_vcpu(ctx, vcpu);
-    handle_assert_no_error(ctx, result);
-
-    run_message = get_run_result_from_handle(ctx, result);
-    munit_assert_not_null(run_message);
-    handle_free(ctx, result);
-
-    munit_assert_uint32(run_message->message_type, ==, HV_MESSAGE_TYPE_HVMSG_X64_IO_PORT_INTERCEPT);
-    munit_assert_uint64(run_message->rax, ==, 0);
-    munit_assert_uint16(run_message->port_number, ==, 0x3f8);
-
-    mshv_register rip = {.name = HV_X64_REGISTER_RIP, .value = {.low_part = run_message->rip + run_message->instruction_length, .high_part = 0}};
-    RIPReg[0] = rip;
-    free_run_result((mshv_run_message *)run_message);
-
-    result = set_registers(ctx, vcpu, RIPReg, 1);
-    handle_assert_no_error(ctx, result);
-    handle_free(ctx, result);
-
-    result = run_vcpu(ctx, vcpu);
-    handle_assert_no_error(ctx, result);
-
-    run_message = get_run_result_from_handle(ctx, result);
-    munit_assert_not_null(run_message);
-    handle_free(ctx, result);
-
-    munit_assert_uint32(run_message->message_type, ==, HV_MESSAGE_TYPE_HVMSG_X64_HALT);
-
-    free_run_result((mshv_run_message *)run_message);
-
-    Handle should_be_empty = unmap_vm_memory_region(ctx, vm, mshv_user_memory_region);
-    handle_free(ctx, mshv_user_memory_region);
-    handle_assert_no_error(ctx, should_be_empty);
-    handle_free(ctx, should_be_empty);
-
-    munmap(guestMemory, memSize);
-
-    handle_free(ctx, vcpu);
-    handle_free(ctx, vm);
-    handle_free(ctx, mshv);
+    HypervLinuxDriverAddrs addrs = {
+        .entrypoint = 0x1000,
+        .guest_pfn = 0x1,
+        .host_addr = guest_memory_get_address(ctx, guest_mem_ref),
+        .mem_size = REGION_MEM_SIZE};
+    Handle driver_ref = hyperv_linux_create_driver_simple(ctx, false, addrs);
+    handle_assert_no_error(ctx, driver_ref);
+    Handle apply_regs_ref = hyperv_linux_apply_registers(ctx, driver_ref);
+    handle_assert_no_error(ctx, apply_regs_ref);
+    {
+        // TODO: create and register outb and mem access func handles
+        Handle outb_func_ref = outb_fn_handler_create(ctx, outb_func);
+        handle_assert_no_error(ctx, outb_func_ref);
+        Handle mem_access_func_ref = mem_access_handler_create(ctx, mem_access_func);
+        handle_assert_no_error(ctx, mem_access_func_ref);
+        Handle exec_res_ref = hyperv_linux_execute_until_halt(
+            ctx,
+            driver_ref,
+            outb_func_ref,
+            mem_access_func_ref);
+        handle_assert_no_error(ctx, exec_res_ref);
+        // a valid execution should return an empty handle
+        munit_assert_true(handle_get_status(exec_res_ref) == ValidEmpty);
+        handle_free(ctx, exec_res_ref);
+        handle_free(ctx, outb_func_ref);
+        handle_free(ctx, mem_access_func_ref);
+    }
+    handle_free(ctx, driver_ref);
+    handle_free(ctx, guest_mem_ref);
     context_free(ctx);
-
     return MUNIT_OK;
 }
+
 #endif

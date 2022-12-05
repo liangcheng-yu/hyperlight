@@ -65,7 +65,7 @@ namespace Hyperlight.Hypervisors
             ExecuteUntilHalt();
         }
 
-        internal override void ExecuteUntilHalt()
+        private void ExecuteUntilHalt()
         {
             WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_CONTEXT exitContext;
             do
