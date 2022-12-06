@@ -376,6 +376,8 @@ namespace Hyperlight.Core
 
         internal void WriteResponseFromHostMethodCall(Type type, object? returnValue)
         {
+            // TODO: support returing different types from host method call remove all the casts. 
+
             var inputDataAddress = (IntPtr)sandboxMemoryLayout!.inputDataBufferOffset;
             if (type == typeof(int))
             {
@@ -383,19 +385,18 @@ namespace Hyperlight.Core
             }
             else if (type == typeof(uint))
             {
-                // TODO fix this
                 int result = (int)(returnValue is null ? 0 : (uint)returnValue);
                 this.guestMemWrapper!.WriteInt32(inputDataAddress, result);
             }
             else if (type == typeof(long))
             {
-                // TODO fix this
                 ulong result = (ulong)(returnValue is null ? 0 : (long)returnValue);
                 this.guestMemWrapper!.WriteInt64(inputDataAddress, result);
             }
             else if (type == typeof(IntPtr))
             {
-                this.guestMemWrapper!.WriteInt64(inputDataAddress, returnValue is null ? 0 : (ulong)returnValue);
+                ulong result = (ulong)(returnValue is null ? 0 : ((IntPtr)returnValue).ToInt64());
+                this.guestMemWrapper!.WriteInt64(inputDataAddress, result);
             }
             else
             {
