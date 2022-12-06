@@ -189,8 +189,8 @@ unsigned int GetHostReturnValueAsUInt()
     return *((unsigned int*)pPeb->inputdata.inputDataBuffer);
 }
 
-// Calls a Host Function that returns an long
-long native_symbol_thunk_returning_long(char* functionName, ...)
+// Calls a Host Function that returns an long long
+long long native_symbol_thunk_returning_longlong(char* functionName, ...)
 {
 
     va_list ap = NULL;
@@ -201,16 +201,16 @@ long native_symbol_thunk_returning_long(char* functionName, ...)
 
     va_end(ap);
 
-    return  GetHostReturnValueAsLong();
+    return  GetHostReturnValueAsLongLong();
 }
 
-long GetHostReturnValueAsLong()
+long long GetHostReturnValueAsLongLong()
 {
-    return *((long*)pPeb->inputdata.inputDataBuffer);
+    return *((long long*)pPeb->inputdata.inputDataBuffer);
 }
 
-// Calls a Host Function that returns an ulong
-unsigned long native_symbol_thunk_returning_ulong(char* functionName, ...)
+// Calls a Host Function that returns an ulong long
+unsigned long long native_symbol_thunk_returning_ulonglong(char* functionName, ...)
 {
 
     va_list ap = NULL;
@@ -221,12 +221,12 @@ unsigned long native_symbol_thunk_returning_ulong(char* functionName, ...)
 
     va_end(ap);
 
-    return  GetHostReturnValueAsULong();
+    return  GetHostReturnValueAsULongLong();
 }
 
-unsigned long GetHostReturnValueAsULong()
+unsigned long long GetHostReturnValueAsULongLong()
 {
-    return *((unsigned long*)pPeb->inputdata.inputDataBuffer);
+    return *((unsigned long long*)pPeb->inputdata.inputDataBuffer);
 }
 
 
@@ -646,14 +646,14 @@ int printOutput(const char* message)
 }
 
 
-// The following host functions are defined in the Sandnox Host in Core/HyperLightExports.cs
+// The following host functions are defined in the Sandbox Host in Core/HyperLightExports.cs
 
 /// <summary>
 /// This function is required by dlmalloc
 /// </summary>
-long GetHyperLightTickCount()
+long long GetHyperLightTickCount()
 {
-    return native_symbol_thunk_returning_long("GetTickCount");
+    return native_symbol_thunk_returning_longlong("GetTickCount");
 }
 
 /// <summary>
@@ -662,17 +662,20 @@ long GetHyperLightTickCount()
 /// </summary>
 uint8_t* GetStackBoundary()
 {
-    unsigned __int64 thread_stack_boundary;
+    static unsigned __int64 thread_stack_boundary = 0;
     // If we are not running in Hyperlight then we need to get this information in the host
     if (!runningInHyperlight)
     {
-        thread_stack_boundary = native_symbol_thunk_returning_ulong("GetStackBoundary");
+        thread_stack_boundary = native_symbol_thunk_returning_ulonglong("GetStackBoundary");
     }
     else
     {
-        thread_stack_boundary = pPeb->gueststackData.minStackAddress;
+        if (0 == thread_stack_boundary)
+        {
+            thread_stack_boundary = pPeb->gueststackData.minStackAddress;
+        }
     }
-    return (uint8_t*)(uintptr_t)thread_stack_boundary;
+    return (uint8_t*)thread_stack_boundary;
 }
 
 /// <summary>
@@ -686,7 +689,7 @@ unsigned int GetOSPageSize()
 /// <summary>
 /// This is required by os_time_get_boot_microsecond() in WAMR 
 /// </summary>
-long GetTimeSinceBootMicrosecond()
+long long GetTimeSinceBootMicrosecond()
 {
-    return native_symbol_thunk_returning_long("GetTimeSinceBootMicrosecond");
+    return native_symbol_thunk_returning_longlong("GetTimeSinceBootMicrosecond");
 }
