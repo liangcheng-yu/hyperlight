@@ -183,14 +183,22 @@ int native_symbol_thunk_returning_int(char*, ...);
 
 void CallHostFunction(char* functionName, va_list ap);
 
-long GetHostReturnValueAsLong();
+long long GetHostReturnValueAsLongLong();
 
 int GetHostReturnValueAsInt();
 
-unsigned long GetHostReturnValueAsULong();
+unsigned long long GetHostReturnValueAsULongLong();
 
 unsigned int GetHostReturnValueAsUInt();
 
 void Log(LogLevel logLevel, const char* message, const char* source, const char* caller, const char* sourceFile, int32_t line);
 
 #define LOG(loglevel, message, source) Log(loglevel,message,source, __func__,__FILE__,__LINE__)
+
+unsigned int GetOSPageSize();
+
+uint8_t* GetStackBoundary();
+
+long long GetHyperLightTickCount();
+
+long long GetTimeSinceBootMicrosecond();
