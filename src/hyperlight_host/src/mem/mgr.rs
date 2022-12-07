@@ -8,11 +8,6 @@ use goblin::pe::PE;
 /// A struct that is responsible for laying out and managing the memory
 /// for a given `Sandbox`.
 pub struct SandboxMemoryManager {
-    // entry_point: usize,
-
-    // disposed_value: bool,
-    // load_address: usize,
-    // mem_snapshot: Vec<u8>,
     run_from_process_memory: bool,
     layout: Box<SandboxMemoryLayout>,
 }
@@ -61,7 +56,6 @@ impl SandboxMemoryManager {
             guest_mem.copy_from_slice(pe_payload, 0)?;
             guest_mem.write_u64(layout.get_code_pointer_offset(), host_code_address as u64)?;
             Ok(Self {
-                // entry_point,
                 layout,
                 run_from_process_memory,
             })
@@ -80,7 +74,6 @@ impl SandboxMemoryManager {
                 SandboxMemoryLayout::GUEST_CODE_ADDRESS as u64,
             )?;
             Ok(Self {
-                // entry_point,
                 layout,
                 run_from_process_memory,
             })

@@ -3,6 +3,9 @@ pub mod config;
 ///! A wrapper around unsafe functionality to create and initialize
 ///! a memory region for a guest running in a sandbox.
 pub mod guest_mem;
+///! A wrapper around a `GuestMemory` and a snapshot in time
+///! of the memory therein
+pub mod guest_mem_snapshot;
 ///! Functionality to establish a sandbox's memory layout.
 pub mod layout;
 ///! Functionality taht wraps a `SandboxMemoryLayout` and a

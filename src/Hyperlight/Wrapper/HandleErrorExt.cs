@@ -7,33 +7,88 @@ namespace Hyperlight.Wrapper
 {
     public static class NativeHandleWrapperErrorExtensions
     {
+        /// Extension method on Handle to throw if hdl was an error
         public static void ThrowIfError(this Handle hdl)
         {
-            HyperlightException.ThrowIfNull(hdl, Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
-            if (hdl.IsError())
+            HyperlightException.ThrowIfNull(
+                hdl,
+                Sandbox.CorrelationId.Value!,
+                MethodBase.GetCurrentMethod()!.DeclaringType!.Name
+            );
+            ThrowIfError(hdl.ctx, hdl.handle);
+        }
+
+        /// <summary>
+        /// Given a context wrapper and a raw handle, throw if the handle represents
+        /// an error
+        /// </summary>
+        /// <param name="ctx">the context wrapper</param>
+        /// <param name="hdl">the raw handle in question</param>
+        public static void ThrowIfError(Context ctx, NativeHandle hdl)
+        {
+            HyperlightException.ThrowIfNull(
+                ctx,
+                Sandbox.CorrelationId.Value!,
+                MethodBase.GetCurrentMethod()!.DeclaringType!.Name
+            );
+            if (Handle.IsError(hdl))
             {
-                var errMsg = GetErrorMessage(hdl);
-                HyperlightException.LogAndThrowException(
-                    errMsg,
-                    Sandbox.CorrelationId.Value!,
-                    MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+                {
+                    var errMsg = GetErrorMessage(ctx, hdl);
+                    HyperlightException.LogAndThrowException(
+                        errMsg,
+                        Sandbox.CorrelationId.Value!,
+                        MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+                }
             }
         }
 
+        /// <summary>
+        /// Get the error message from the hdl, or return defaultErrMsg
+        /// if no error message could be fetched or the handle was not
+        /// an error
+        /// </summary>
+        /// <param name="hdl">
+        /// the handle from which to get the error message
+        /// </param>
+        /// <param name="defaultErrMsg">
+        /// the message to return if the error message couldn't be fetched
+        /// for any reason
+        /// </param>
+        /// <returns></returns>
         public static String GetErrorMessage(
             this Handle hdl,
             String defaultErrMsg = "Handle was an error but failed to get error message"
         )
         {
-            ArgumentNullException.ThrowIfNull(hdl);
-            if (!hdl.IsError())
+            HyperlightException.ThrowIfNull(
+                hdl,
+                nameof(hdl),
+                Sandbox.CorrelationId.Value!,
+                "GetErrorMessage"
+            );
+            return GetErrorMessage(hdl.ctx, hdl.handle, defaultErrMsg);
+        }
+        private static String GetErrorMessage(
+            Context ctx,
+            NativeHandle hdl,
+            String defaultErrMsg = "Handle was an error but failed to get error message"
+        )
+        {
+            HyperlightException.ThrowIfNull(
+                hdl,
+                nameof(hdl),
+                Sandbox.CorrelationId.Value!,
+                "GetErrorMessage"
+            );
+            if (!Handle.IsError(hdl))
             {
                 HyperlightException.LogAndThrowException(
                     "attempted to get error string of a non-error Handle",
                     Sandbox.CorrelationId.Value!,
-                   MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+                    MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             }
-            var msgPtr = handle_get_error_message(hdl.ctx.ctx, hdl.handle);
+            var msgPtr = handle_get_error_message(ctx.ctx, hdl);
             var result = Marshal.PtrToStringAnsi(msgPtr) ?? string.Empty;
             error_message_free(msgPtr);
             return result;

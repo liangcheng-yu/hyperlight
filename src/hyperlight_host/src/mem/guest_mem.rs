@@ -196,6 +196,15 @@ impl GuestMemory {
         Ok(())
     }
 
+    /// Copy the entire contents of `self` into a `Vec<u8>`, then return it
+    pub fn copy_all_to_vec(&self) -> Result<Vec<u8>> {
+        // ensure this vec has _length_ (not just capacity) of self.mem_size()
+        // so that the copy_to_slice reads the slice length properly.
+        let mut ret_vec = vec![b'\0'; self.mem_size()];
+        self.copy_to_slice(ret_vec.as_mut_slice(), 0)?;
+        Ok(ret_vec)
+    }
+
     /// Get the raw pointer to the memory region.
     ///
     /// # Safety
@@ -570,6 +579,15 @@ mod tests {
         gm2.copy_from_slice(&[b'c'], 2).unwrap();
         assert_eq!(gm2.read_u8(2).unwrap(), b'c');
         drop(gm2);
+    }
+
+    #[test]
+    pub fn copy_all_to_vec() {
+        let data = vec![b'a', b'b', b'c'];
+        let mut gm = GuestMemory::new(data.len()).unwrap();
+        gm.copy_from_slice(data.as_slice(), 0).unwrap();
+        let ret_vec = gm.copy_all_to_vec().unwrap();
+        assert_eq!(data, ret_vec);
     }
 
     #[test]

@@ -1,8 +1,6 @@
 using System;
-using System.Drawing;
 using System.IO;
-using System.Net;
-using Hyperlight.Core;
+using System.Linq;
 using Hyperlight.Wrapper;
 using Xunit;
 
@@ -21,21 +19,31 @@ namespace Hyperlight.Tests
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
-            using var _ = new Sandbox(guestBinaryPath, options[0]);
+            using (new Sandbox(guestBinaryPath, options[0]))
+            {
+
+            }
         }
 
         const ulong Size = 0x1000;
 
-        [FactSkipIfNotWindowsAndNoHypervisor]
+        [Fact]
         public void Test_Copy_Array()
         {
             var val = Guid.NewGuid().ToByteArray();
             var offset = new IntPtr(0x100);
-            using var mem = new GuestMemory(Size);
-            mem.CopyFromByteArray(val, offset);
-            var result = new byte[16];
-            mem.CopyToByteArray(result, (ulong)offset);
-            Assert.Equal(val, result);
+            using (var mem = new GuestMemory(Size))
+            {
+                mem.CopyFromByteArray(val, offset);
+                var result = new byte[16];
+                mem.CopyToByteArray(result, (ulong)offset);
+                Assert.Equal(val, result);
+                Assert.Equal(
+                    val,
+                    mem.CopyAllToByteArray().Skip((int)offset).Take(result.Length)
+                );
+            }
         }
+
     }
 }

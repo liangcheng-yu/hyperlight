@@ -365,6 +365,9 @@ pub unsafe extern "C" fn guest_memory_copy_from_byte_array(
 /// - Created with `context_new`
 /// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
+///
+/// You must also call this function with:
+///
 /// - A valid handle to guest memory
 /// - A valid offset into the guest memory
 /// - A pointer to a byte array

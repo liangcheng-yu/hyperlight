@@ -189,12 +189,12 @@ namespace Hyperlight.Wrapper
         /// <returns>true if the handle is a valid error, false otherwise</returns>
         public bool IsError()
         {
-            return handle_get_status(this.handle) == HandleStatus.ValidError;
+            return IsError(this.handle);
         }
 
-        public static bool Err(IntPtr hdl)
+        public static bool IsError(NativeHandle hdl)
         {
-            return handle_get_status((System.UInt64)hdl.ToInt64()) == HandleStatus.ValidError;
+            return handle_get_status(hdl) == HandleStatus.ValidError;
         }
 
 #pragma warning disable CA1707 // Remove the underscores from member name
