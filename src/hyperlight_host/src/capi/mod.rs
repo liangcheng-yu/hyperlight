@@ -24,6 +24,8 @@ pub mod err;
 pub mod filepath;
 ///! C-compatible API functions to manage guest / shared memory.
 pub mod guest_mem;
+///! C-compatible API functions to manage guest memory snapshots
+pub mod guest_mem_snapshot;
 ///! C-compatible API functions to manage `Handle` structures,
 ///! which are specialized pointers purpose-built for the Hyperlight
 ///! C API.

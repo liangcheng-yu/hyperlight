@@ -14,14 +14,14 @@ namespace Hyperlight.Core
         public ulong EntryPoint { get; private set; }
         public ulong Size { get; private set; }
         public IntPtr SourceAddress { get; private set; }
-        public Wrapper.GuestMemory? guestMemWrapper
+        public GuestMemory? guestMemWrapper
         {
             get; private set;
         }
+        private GuestMemorySnapshot? guestMemSnapshotWrapper;
 
         bool disposedValue;
         IntPtr loadAddress = IntPtr.Zero;
-        byte[]? memorySnapShot;
         readonly bool runFromProcessMemory;
         readonly SandboxMemoryConfiguration sandboxMemoryConfiguration;
         SandboxMemoryLayout? sandboxMemoryLayout;
@@ -99,9 +99,9 @@ namespace Hyperlight.Core
             {
                 EntryPoint = SandboxMemoryLayout.GuestCodeAddress + peInfo.EntryPointOffset;
                 this.guestMemWrapper.CopyFromByteArray(
-                   peInfo.HyperVisorPayload,
+                    peInfo.HyperVisorPayload,
                     (IntPtr)SandboxMemoryLayout.CodeOffSet
-               );
+                );
 
                 // Write a pointer to code so that guest exe can check that it is running in Hyperlight
 
@@ -181,17 +181,42 @@ namespace Hyperlight.Core
 
         internal void SnapshotState()
         {
-            //TODO: Track dirty pages instead of copying entire memory
-            if (memorySnapShot == null)
+            // we may not have taken a snapshot yet, but we must
+            // have a guest memory by this point so we can take
+            // one.
+            HyperlightException.ThrowIfNull(
+                this.guestMemWrapper,
+                nameof(this.guestMemWrapper),
+                GetType().Name
+            );
+
+            if (null == this.guestMemSnapshotWrapper)
             {
-                memorySnapShot = new byte[Size];
+                // if we haven't snapshotted already, create a new
+                // GuestMemorySnapshot from the existing guest memory.
+                this.guestMemSnapshotWrapper = new GuestMemorySnapshot(
+                    Sandbox.Context.Value!,
+                    this.guestMemWrapper
+                );
             }
-            this.guestMemWrapper!.CopyToByteArray(memorySnapShot, 0);
+            else
+            {
+                // otherwise, if we have already snapshotted, replace
+                // the existing snapshot we have already.
+                this.guestMemSnapshotWrapper.ReplaceSnapshot();
+            }
         }
 
         internal void RestoreState()
         {
-            this.guestMemWrapper!.CopyFromByteArray(memorySnapShot!, IntPtr.Zero);
+            // we should have already created a snapshot by this
+            // point, so throw if we haven't
+            HyperlightException.ThrowIfNull(
+                this.guestMemSnapshotWrapper,
+                nameof(this.guestMemSnapshotWrapper),
+                GetType().Name
+            );
+            this.guestMemSnapshotWrapper.RestoreFromSnapshot();
         }
 
         internal int GetReturnValue()
@@ -511,6 +536,7 @@ namespace Hyperlight.Core
                 {
                     this.sandboxMemoryLayout?.Dispose();
                     this.guestMemWrapper!.Dispose();
+                    this.guestMemSnapshotWrapper?.Dispose();
                 }
 
                 if (IntPtr.Zero != loadAddress)

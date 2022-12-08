@@ -6,6 +6,7 @@ namespace Hyperlight.Wrapper
 {
     public class GuestMemory : IDisposable
     {
+        private readonly ulong size;
         private readonly Context ctxWrapper;
         public Handle handleWrapper { get; private set; }
         private bool disposed;
@@ -26,6 +27,7 @@ namespace Hyperlight.Wrapper
         {
             HyperlightException.ThrowIfNull(Sandbox.Context.Value, Sandbox.CorrelationId.Value!, GetType().Name);
             this.ctxWrapper = Sandbox.Context.Value;
+            this.size = size;
             this.handleWrapper = new Handle(
                 this.ctxWrapper,
                 guest_memory_new(
@@ -105,7 +107,7 @@ namespace Hyperlight.Wrapper
 
         public void CopyFromByteArray(
             byte[] arr,
-            IntPtr addr
+            IntPtr offset
         )
         {
             HyperlightException.ThrowIfNull(arr, Sandbox.CorrelationId.Value!, GetType().Name);
@@ -113,7 +115,7 @@ namespace Hyperlight.Wrapper
             using var barr = new ByteArray(arr);
             this.CopyFromByteArray(
                 barr,
-                (ulong)addr.ToInt64(),
+                (ulong)offset.ToInt64(),
                 0,
                 (ulong)arr.Length
             );
@@ -137,6 +139,13 @@ namespace Hyperlight.Wrapper
             {
                 hdl.ThrowIfError();
             }
+        }
+
+        public byte[] CopyAllToByteArray()
+        {
+            var outArr = new byte[this.size];
+            this.CopyToByteArray(outArr, 0);
+            return outArr;
         }
 
 
