@@ -1,12 +1,12 @@
 using System;
-using System.Diagnostics.CodeAnalysis;
+using Hyperlight.Core;
 using System.Runtime.InteropServices;
 using Hyperlight.Wrapper;
 
 namespace Hyperlight.Hypervisors
 {
     [StructLayout(LayoutKind.Sequential)]
-    public struct HyperVOnLinuxAddrs
+    public struct HyperVOnLinuxAddrs : IEquatable<HyperVOnLinuxAddrs>
     {
         // IMPORTANT: do not change the order of these fields,
         // unless you change them to match in hyperv_linux_mem.rs
@@ -26,6 +26,31 @@ namespace Hyperlight.Hypervisors
             this.memSize = memSize;
         }
 
+        public static bool operator ==(
+            HyperVOnLinuxAddrs a1,
+            HyperVOnLinuxAddrs a2
+        )
+        {
+            return a1.Equals(a2);
+        }
+
+        public static bool operator !=(
+            HyperVOnLinuxAddrs a1,
+            HyperVOnLinuxAddrs a2
+        )
+        {
+            return !a1.Equals(a2);
+        }
+
+        public bool Equals(HyperVOnLinuxAddrs other)
+        {
+            return (
+                other.entrypoint == this.entrypoint &&
+                other.hostAddr == this.hostAddr &&
+                other.guestPFN == this.guestPFN &&
+                other.memSize == this.memSize
+            );
+        }
         public override bool Equals(Object? obj)
         {
             //Check for null and compare run-time types.
@@ -34,12 +59,7 @@ namespace Hyperlight.Hypervisors
                 return false;
             }
             HyperVOnLinuxAddrs other = (HyperVOnLinuxAddrs)obj;
-            return (
-                other.entrypoint == this.entrypoint &&
-                other.hostAddr == this.hostAddr &&
-                other.guestPFN == this.guestPFN &&
-                other.memSize == this.memSize
-            );
+            return this.Equals(other);
         }
         public override int GetHashCode()
         {

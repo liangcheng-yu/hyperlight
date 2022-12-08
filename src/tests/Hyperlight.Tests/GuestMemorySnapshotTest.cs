@@ -18,12 +18,14 @@ namespace Hyperlight.Tests
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
-            using var _ = new Sandbox(guestBinaryPath, options[0]);
+            using (var s = new Sandbox(guestBinaryPath, options[0]))
+            {
+            }
         }
 
         const ulong Size = 0x1000;
 
-        [FactSkipIfNotWindowsAndNoHypervisor]
+        [Fact]
         public void Test_Create_Replace_Restore()
         {
             // not the most efficient way to initialize a long byte array, 

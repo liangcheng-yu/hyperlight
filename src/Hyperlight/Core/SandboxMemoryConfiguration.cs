@@ -137,7 +137,7 @@ namespace Hyperlight.Core
             set
             {
                 mem_config_set_input_data_size(
-                   Context.Value!.ctx,
+                    Context.Value!.ctx,
                     this.hdlWrapper.handle,
                     value
                 );

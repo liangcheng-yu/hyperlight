@@ -19,7 +19,7 @@ namespace Hyperlight.Tests
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
-            using (new Sandbox(guestBinaryPath, options[0]))
+            using (var s = new Sandbox(guestBinaryPath, options[0]))
             {
 
             }
