@@ -422,7 +422,7 @@ void _putchar(char c)
     char* ptr = pPeb->outputdata.outputDataBuffer;
     *ptr++ = c;
     *ptr = '\0';
-
+    
     outb(OUTB_WRITE_OUTPUT, 0);
 }
 
@@ -562,6 +562,8 @@ HostFunctionDetails* GetHostFunctionDetails()
 
 __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int functionTableSize)
 {
+
+    // TODO: We should try and write to stderr here in case the program was started from the command line, note that we dont link against the CRT so we cant use printf
     pPeb = (HyperlightPEB*)pebAddress;
     if (NULL == pPeb)
     {
@@ -574,11 +576,6 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int f
     // setjmp is used to capture state so that if an error occurs then lngjmp is called in setError and control returns to this point , the if returns false and the program exits/halts
     if (!setjmp(jmpbuf))
     {
-        if (*pPeb->pCode != 'J')
-        {
-            setError(CODE_HEADER_NOT_SET, NULL);
-        }
-
         // Either in WHP partition (hyperlight) or in memory.  If in memory, outb_ptr will be non-NULL
         outb_ptr = (void(*)(uint16_t, uint8_t))pPeb->pOutb;
         if (outb_ptr)
