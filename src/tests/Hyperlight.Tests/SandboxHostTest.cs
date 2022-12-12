@@ -18,7 +18,7 @@ using Xunit.Abstractions;
 
 namespace Hyperlight.Tests
 {
-
+    [Collection("Sandbox tests")]
     public class SandboxHostTest
     {
         private readonly ITestOutputHelper output;

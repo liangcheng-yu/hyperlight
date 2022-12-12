@@ -416,14 +416,33 @@ void DispatchFunction()
 }
 
 // this is required by print functions to write output.
+// calls from print functions are buffered until
+// either the output buffer is full or a null character is sent
 
 void _putchar(char c)
 {
+    static int index = 0;
     char* ptr = pPeb->outputdata.outputDataBuffer;
-    *ptr++ = c;
-    *ptr = '\0';
+
+    if (index >= pPeb->outputdata.outputDataSize)
+    {
+        ptr[index] = '\0';
+        outb(OUTB_WRITE_OUTPUT, 0);
+        index = 0;
+        ptr = pPeb->outputdata.outputDataBuffer;
+    }
+
+    if (c != '\0')
+    {
+        ptr[index++] = c;
+        return;
+    }
     
+    ptr[index++] = c;
+    ptr[index] = '\0';
+
     outb(OUTB_WRITE_OUTPUT, 0);
+    index = 0;
 }
 
 bool CheckOutputBufferSize(size_t used, size_t size)

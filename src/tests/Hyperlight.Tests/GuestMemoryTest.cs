@@ -7,7 +7,7 @@ using Xunit;
 
 namespace Hyperlight.Tests
 {
-
+    [Collection("Sandbox tests")]
     public class GuestMemoryTest
     {
         public GuestMemoryTest()
