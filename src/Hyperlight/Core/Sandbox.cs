@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
@@ -262,7 +263,8 @@ namespace Hyperlight
                         {
                             if (exception.InnerException != null)
                             {
-                                HyperlightLogger.LogError($"Rethrowing exception from Host {exception.InnerException.GetType().Name} {exception.InnerException.Message}", CorrelationId.Value!, GetType().Name);
+                                HyperlightLogger.LogError($"Exception from Host With Inner exception {exception.GetType().Name} {exception.Message}", CorrelationId.Value!, GetType().Name);
+                                HyperlightLogger.LogError($"Rethrowing Inner exception from Host {exception.InnerException.GetType().Name} {exception.InnerException.Message}", CorrelationId.Value!, GetType().Name);
                                 throw exception.InnerException;
                             }
                             HyperlightLogger.LogError($"Rethrowing exception from Host {exception.GetType().Name} {exception.Message}", CorrelationId.Value!, GetType().Name);
@@ -650,7 +652,15 @@ namespace Hyperlight
             catch (Exception ex)
 #pragma warning restore CA1031
             {
-                sandboxMemoryManager.WriteOutbException(ex, port);
+                // Call function can throw TargetInvocationException, we need to unwrap the inner exception
+                if (ex is TargetInvocationException && ex.InnerException != null)
+                {
+                    sandboxMemoryManager.WriteOutbException(ex.InnerException, port);
+                }
+                else
+                {
+                    sandboxMemoryManager.WriteOutbException(ex, port);
+                }
             }
         }
 

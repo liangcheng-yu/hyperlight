@@ -88,12 +88,19 @@ int logMessage(const char* message, const char* source, int logLevel)
     return (int)strlen(message);
 }
 
+int callErrorMethod(const char* message)
+{
+    char guestMessage[256] = "Error From Host: ";
+    return sendMessagetoHostMethod("ErrorMethod", guestMessage, message);
+}
+
 GENERATE_FUNCTION(printOutput, 1, string);
 GENERATE_FUNCTION(guestFunction, 1, string);
 GENERATE_FUNCTION(guestFunction1, 1, string);
 GENERATE_FUNCTION(guestFunction2, 1, string); 
 GENERATE_FUNCTION(guestFunction3, 1, string);
 GENERATE_FUNCTION(logMessage, 3, string, string, i32);
+GENERATE_FUNCTION(callErrorMethod, 1, string);
 
 void HyperlightMain()
 {
@@ -103,4 +110,5 @@ void HyperlightMain()
     RegisterFunction("GuestMethod2", FUNCTIONDETAILS(guestFunction2));
     RegisterFunction("GuestMethod3", FUNCTIONDETAILS(guestFunction3));
     RegisterFunction("LogMessage", FUNCTIONDETAILS(logMessage));
+    RegisterFunction("CallErrorMethod", FUNCTIONDETAILS(callErrorMethod));
 }

@@ -81,13 +81,17 @@ void outb(uint16_t port, uint8_t value)
         // allow the dotnet code to overwrite rsi/rdi.  If this binary is built
         // using MSVC, it expects rsi/rdi to be preserved by anything it calls.  The optimizer
         // might make use of one of these registers, so we will save/restore them ourselves.
-        uint64_t rsi = getrsi();
-        uint64_t rdi = getrdi();
+
+        // This code is not needed at present as in process calls are disabled on Linux.
+        // However, it is left here in case we need to re-enable in process calls in future.
+        // TODO: Enable if Linux in process is supported.
+        //uint64_t rsi = getrsi();
+        //uint64_t rdi = getrdi();
         outb_ptr(port, value);
-        setrsi(rsi);
-        setrdi(rdi);
-        checkForHostError();
+        //setrsi(rsi);
+        //setrdi(rdi);
     }
+    checkForHostError();
 }
 
 void halt()

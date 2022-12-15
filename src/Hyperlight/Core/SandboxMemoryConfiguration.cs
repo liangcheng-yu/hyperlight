@@ -10,7 +10,7 @@ namespace Hyperlight.Core
         const ulong DefaultInputSize = 0x4000;
         const ulong DefaultOutputSize = 0x4000;
         const ulong DefaultHostFunctionDefinitionSize = 0x1000;
-        const ulong DefaultHostExceptionSize = 0x1000;
+        const ulong DefaultHostExceptionSize = 0x4000;
         const ulong DefaultGuestErrorMessageSize = 0x100;
 
         private readonly Wrapper.Handle hdlWrapper;

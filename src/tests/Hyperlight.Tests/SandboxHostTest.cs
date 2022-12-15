@@ -141,6 +141,15 @@ namespace Hyperlight.Tests
             }
         }
 
+        public class HostExceptionTestMembers
+        {
+            public Func<string, int>? CallErrorMethod;
+            public int ErrorMethod(string msg)
+            {
+                throw new HyperlightException(HyperlightException.GetExceptionMessage(msg, Sandbox.CorrelationId.Value!, GetType().Name));
+            }
+        }
+
         public class NoExposedMembers { }
         public class ExposedMembers
         {
@@ -369,6 +378,40 @@ namespace Hyperlight.Tests
         }
 
         [Fact]
+        public void Test_Handles_Host_Exception()
+        {
+            var options = GetSandboxRunOptions();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "callbackguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var message = "This is a test exception message";
+            foreach (var option in options)
+            {
+                foreach (var logLevel in Enum.GetValues(typeof(LogLevel)))
+                {
+                    var hostExceptionTest = new HostExceptionTestMembers();
+
+                    var correlationId = Guid.NewGuid().ToString("N");
+                    var builder = new SandboxBuilder()
+                        .WithRunOptions(option)
+                        .WithGuestBinaryPath(guestBinaryPath)
+                        .WithCorrelationId(correlationId);
+                    using (var sandbox = builder.Build())
+                    {
+                        sandbox.ExposeAndBindMembers(hostExceptionTest);
+                        var ex = Record.Exception(() =>
+                        {
+                            hostExceptionTest.CallErrorMethod!(message);
+                        });
+                        Assert.NotNull(ex);
+                        Assert.IsType<Hyperlight.Core.HyperlightException>(ex);
+                        Assert.Equal($"Error From Host: {message} CorrelationId: {correlationId} Source: HostExceptionTestMembers", ex.Message);
+                    }
+                }
+            }
+        }
+
+        [Fact]
         public void Test_Sandbox_Configs()
         {
             var testFunc = (ulong initialExpected, Func<ulong> getter, Action<ulong> setter) =>
@@ -396,7 +439,7 @@ namespace Hyperlight.Tests
                     (val) => config.HostFunctionDefinitionSize = val
                 );
                 testFunc(
-                    0x1000,
+                    0x4000,
                     () => config.HostExceptionSize,
                     (val) => config.HostExceptionSize = val
                 );
