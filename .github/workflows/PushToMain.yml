@@ -45,7 +45,7 @@ jobs:
       run:  echo "MINVERBUILDMETADATA=$(git rev-parse --short ${{ github.sha }})" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
       shell: pwsh
     - name: Add msbuild to PATH
-      uses: microsoft/setup-msbuild@v1.1
+      uses: microsoft/setup-msbuild@v1.3
       with:
         msbuild-architecture: x64
     - name: Ensure path exists for debug build
