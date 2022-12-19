@@ -18,7 +18,6 @@ using Xunit.Abstractions;
 
 namespace Hyperlight.Tests
 {
-    [Collection("Sandbox tests")]
     public class SandboxHostTest
     {
         private readonly ITestOutputHelper output;
@@ -411,45 +410,10 @@ namespace Hyperlight.Tests
             }
         }
 
-        [Fact]
-        public void Test_Sandbox_Configs()
-        {
-            var testFunc = (ulong initialExpected, Func<ulong> getter, Action<ulong> setter) =>
-            {
-                Assert.Equal(initialExpected, getter());
-                setter(initialExpected + 0x100);
-                Assert.Equal(initialExpected + 0x100, getter());
-            };
-
-            using (var config = new SandboxMemoryConfiguration())
-            {
-                testFunc(
-                    0x4000,
-                    () => config.InputDataSize,
-                    (val) => config.InputDataSize = val
-                );
-                testFunc(
-                    0x4000,
-                    () => config.OutputDataSize,
-                    (val) => config.OutputDataSize = val
-                );
-                testFunc(
-                    0x1000,
-                    () => config.HostFunctionDefinitionSize,
-                    (val) => config.HostFunctionDefinitionSize = val
-                );
-                testFunc(
-                    0x4000,
-                    () => config.HostExceptionSize,
-                    (val) => config.HostExceptionSize = val
-                );
-            }
-        }
-
         [FactSkipIfNotWindowsAndNoHypervisor]
         public void Test_Stack_Size()
         {
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             var options = GetSandboxRunOptions();
             if (options.Length == 0)
             {
@@ -486,7 +450,7 @@ namespace Hyperlight.Tests
         [FactSkipIfNotWindows]
         public void Test_Memory_Size_From_GuestBinary()
         {
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             var option = SandboxRunOptions.RunFromGuestBinary;
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
@@ -526,7 +490,7 @@ namespace Hyperlight.Tests
         [Fact]
         public void Test_Buffer_Overrun()
         {
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
@@ -680,12 +644,13 @@ namespace Hyperlight.Tests
         public void Test_Maximum_Memory_Size()
         {
             var correlationId = Guid.NewGuid().ToString("N");
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context(correlationId);
             var option = SandboxRunOptions.RunInProcess;
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
-            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration(inputDataSize: 1073741824);
+            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration()
+                .WithInputDataSize(1073741824);
             var ex = Record.Exception(() =>
             {
                 using var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, sandboxMemoryConfiguration);
@@ -764,9 +729,16 @@ namespace Hyperlight.Tests
             foreach (var option in options)
             {
                 var size = GetErrorMessageSize();
-                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, null, null, new SandboxMemoryConfiguration(guestErrorMessageSize: (ulong)size)))
+                var bld = new SandboxBuilder()
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithRunOptions(option)
+                    .WithConfig(
+                        new SandboxMemoryConfiguration()
+                            .WithGuestErrorMessageSize((ulong)size)
+                    );
+                using (var sandbox = bld.Build())
                 {
-                    CheckSize(size, sandbox, "GetGuestErrorMessageSizeAddress");
+                    CheckSize((int)size, sandbox, "GetGuestErrorMessageSizeAddress");
                 }
             }
         }
@@ -782,9 +754,16 @@ namespace Hyperlight.Tests
             foreach (var option in options)
             {
                 var size = GetFunctionDefinitionSize();
-                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, null, null, new SandboxMemoryConfiguration(functionDefinitionSize: (ulong)size)))
+                var bld = new SandboxBuilder()
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithRunOptions(option)
+                    .WithConfig(
+                        new SandboxMemoryConfiguration()
+                            .WithHostFunctionDefinitionSize((ulong)size)
+                    );
+                using (var sandbox = bld.Build())
                 {
-                    CheckSize(size, sandbox, "GetFunctionDefinitionSizeAddress");
+                    CheckSize((int)size, sandbox, "GetFunctionDefinitionSizeAddress");
                 }
             }
         }
@@ -800,9 +779,16 @@ namespace Hyperlight.Tests
             foreach (var option in options)
             {
                 var size = GetInputDataSize();
-                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, null, null, new SandboxMemoryConfiguration(inputDataSize: (ulong)size)))
+                var bld = new SandboxBuilder()
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithRunOptions(option)
+                    .WithConfig(
+                        new SandboxMemoryConfiguration()
+                            .WithInputDataSize((ulong)size)
+                    );
+                using (var sandbox = bld.Build())
                 {
-                    CheckSize(size, sandbox, "GetInputDataSizeAddress");
+                    CheckSize((int)size, sandbox, "GetInputDataSizeAddress");
                 }
             }
         }
@@ -818,9 +804,16 @@ namespace Hyperlight.Tests
             foreach (var option in options)
             {
                 var size = GetOutputDataSize();
-                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, null, null, new SandboxMemoryConfiguration(outputDataSize: (ulong)size)))
+                var bld = new SandboxBuilder()
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithRunOptions(option)
+                    .WithConfig(
+                        new SandboxMemoryConfiguration()
+                            .WithOutputDataSize((ulong)size)
+                    );
+                using (var sandbox = bld.Build())
                 {
-                    CheckSize(size, sandbox, "GetOutputDataSizeAddress");
+                    CheckSize((int)size, sandbox, "GetOutputDataSizeAddress");
                 }
             }
         }
@@ -831,7 +824,7 @@ namespace Hyperlight.Tests
             ulong minInputSize = 0x2000;
             ulong minOutputSize = 0x2000;
             ulong minHostFunctionDefinitionSize = 0x400;
-            ulong minHostExceptionSize = 0x400;
+            ulong minHostExceptionSize = 0x4000;
             ulong minGuestErrorMessageSize = 0x80;
             var sandboxMemoryConfiguration = new SandboxMemoryConfiguration(0, 0, 0, 0, 0);
             Assert.Equal(minInputSize, sandboxMemoryConfiguration.InputDataSize);
@@ -852,9 +845,16 @@ namespace Hyperlight.Tests
             foreach (var option in options)
             {
                 var size = GetHostExceptionSize();
-                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, null, null, new SandboxMemoryConfiguration(hostExceptionSize: (ulong)size)))
+                var bld = new SandboxBuilder()
+                .WithGuestBinaryPath(guestBinaryPath)
+                .WithRunOptions(option)
+                .WithConfig(
+                    new SandboxMemoryConfiguration()
+                        .WithHostExceptionSize((ulong)size)
+                );
+                using (var sandbox = bld.Build())
                 {
-                    CheckSize(size, sandbox, "GetHostExceptionSizeAddress");
+                    CheckSize((int)size, sandbox, "GetHostExceptionSizeAddress");
                 }
             }
         }
@@ -913,7 +913,7 @@ namespace Hyperlight.Tests
         [Fact]
         public void Test_Multiple_Guest_Function_Parameters()
         {
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             var options = GetSandboxRunOptions();
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
@@ -1053,7 +1053,7 @@ namespace Hyperlight.Tests
         [Fact()]
         public void Test_Guest_Malloc()
         {
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             var options = GetSandboxRunOptions();
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
@@ -1460,10 +1460,17 @@ namespace Hyperlight.Tests
                 var correlationId = Guid.NewGuid().ToString("N");
                 var ex = Record.Exception(() =>
                 {
-                    var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxMemoryConfiguration());
-                    var guestMethods = new SimpleTestMembers();
-                    sandbox.BindGuestFunction("PrintOutput", guestMethods);
-                    var result = guestMethods.PrintOutput!("This will throw an exception");
+                    var bld = new SandboxBuilder()
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithRunOptions(option)
+                    .WithCorrelationId(correlationId)
+                    .WithConfig(GetSandboxMemoryConfiguration());
+                    using (var sandbox = bld.Build())
+                    {
+                        var guestMethods = new SimpleTestMembers();
+                        sandbox.BindGuestFunction("PrintOutput", guestMethods);
+                        var result = guestMethods.PrintOutput!("This will throw an exception");
+                    }
                 });
                 Assert.NotNull(ex);
                 Assert.IsType<NotSupportedException>(ex);
@@ -1614,7 +1621,7 @@ namespace Hyperlight.Tests
                     var output1 = new StringWriter();
                     var builder = output1.GetStringBuilder();
                     var correlationId1 = Guid.NewGuid().ToString("N");
-                    var sandbox1 = new Sandbox(testData.GuestBinaryPath, option, null, output1, correlationId1, null, GetSandboxMemoryConfiguration());
+                    using var sandbox1 = new Sandbox(testData.GuestBinaryPath, option, null, output1, correlationId1, null, GetSandboxMemoryConfiguration());
                     if (instanceOrType is not null)
                     {
                         if (instanceOrType is Type)
@@ -1754,7 +1761,15 @@ namespace Hyperlight.Tests
         {
             using (var output = new StringWriter())
             {
-                using (var sandbox = new Sandbox(testData.GuestBinaryPath, sandboxRunOptions, null, output, correlationId, null, GetSandboxMemoryConfiguration()))
+                using (var sandbox = new Sandbox(
+                    testData.GuestBinaryPath,
+                    sandboxRunOptions,
+                    null,
+                    output,
+                    correlationId,
+                    null,
+                    GetSandboxMemoryConfiguration()
+                ))
                 {
                     if (instanceOrType is not null)
                     {
@@ -1966,47 +1981,53 @@ namespace Hyperlight.Tests
                 return new SandboxMemoryConfiguration();
             }
             output.WriteLine($"Using Configuration: guestErrorMessageSize: {errorMessageSize} functionDefinitionSize: {functionDefinitionSize} hostExceptionSize: {hostExceptionSize} inputDataSize: {inputDataSize} outputDataSize: {outputDataSize}");
-            return new SandboxMemoryConfiguration(guestErrorMessageSize: (ulong)errorMessageSize, functionDefinitionSize: (ulong)functionDefinitionSize, hostExceptionSize: (ulong)hostExceptionSize, inputDataSize: (ulong)inputDataSize, outputDataSize: (ulong)outputDataSize);
+            return new SandboxMemoryConfiguration(
+                guestErrorMessageSize: errorMessageSize,
+                hostFunctionDefinitionSize: functionDefinitionSize,
+                hostExceptionSize: hostExceptionSize,
+                inputDataSize: inputDataSize,
+                outputDataSize: outputDataSize
+            );
         }
 
-        private int GetErrorMessageSize()
+        private ulong GetErrorMessageSize()
         {
             var min = 256;
             var max = 1024;
             var random = new Random();
-            return random.Next(min, max + 1);
+            return (ulong)random.NextInt64(min, max + 1);
         }
 
-        private int GetFunctionDefinitionSize()
+        private ulong GetFunctionDefinitionSize()
         {
             var min = 1024;
             var max = 8192;
             var random = new Random();
-            return random.Next(min, max + 1);
+            return (ulong)random.NextInt64(min, max + 1);
         }
 
-        private int GetHostExceptionSize()
+        private ulong GetHostExceptionSize()
         {
             var min = 1024;
             var max = 8192;
             var random = new Random();
-            return random.Next(min, max + 1);
+            return (ulong)random.NextInt64(min, max + 1);
         }
 
-        private int GetInputDataSize()
+        private ulong GetInputDataSize()
         {
             var min = 8182;
             var max = 65536;
             var random = new Random();
-            return random.Next(min, max + 1);
+            return (ulong)random.NextInt64(min, max + 1);
         }
 
-        private int GetOutputDataSize()
+        private ulong GetOutputDataSize()
         {
             var min = 8182;
             var max = 65536;
             var random = new Random();
-            return random.Next(min, max + 1);
+            return (ulong)random.NextInt64(min, max + 1);
         }
     }
 }

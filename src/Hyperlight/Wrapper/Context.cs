@@ -10,17 +10,17 @@ namespace Hyperlight.Wrapper
         /// Create a new context wrapper with a newly allocated
         /// context.
         /// </summary>
-        public Context() : this(context_new())
+        public Context(string corrID) : this(context_new(), corrID)
         {
         }
 
         public NativeContext ctx { get; private set; }
         private bool disposed;
-        private Context(NativeContext ctx)
+        private Context(NativeContext ctx, string corrID)
         {
             if (ctx == IntPtr.Zero)
             {
-                HyperlightException.LogAndThrowException<HyperlightException>("Invalid, empty context passed to Context constructor", Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.LogAndThrowException<HyperlightException>("Invalid, empty context passed to Context constructor", corrID, GetType().Name);
             }
 
             this.ctx = ctx;

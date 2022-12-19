@@ -9,7 +9,7 @@ namespace Hyperlight.Tests
         [Fact]
         public void Test_Constructor_Call()
         {
-            using (var ctx = new Context())
+            using (var ctx = new Context("sample_corr_id"))
             {
                 bool called = false;
                 Action action = () =>

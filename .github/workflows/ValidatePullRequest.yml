@@ -124,6 +124,11 @@ jobs:
     - name: Build Solution
       run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
       shell: pwsh
+    - name: Upload Binary Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: guest-binaries-${{ matrix.config }}
+        path: src\tests\Guests\*\${{ matrix.platform }}\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']
     - name: Test
       shell: pwsh
       run: dotnet test -c ${{ matrix.config }} --logger "trx;verbosity=detailed;LogFilePrefix=win-${{ matrix.config }}" --blame
@@ -136,11 +141,6 @@ jobs:
       shell: pwsh
       run:  dotnet run -c ${{ matrix.config }} -- -nowait
       working-directory: src/examples/NativeHost
-    - name: Upload Binary Artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: guest-binaries-${{ matrix.config }}
-        path: src\tests\Guests\*\${{ matrix.platform }}\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']
     - name: Upload Test Results
       uses: actions/upload-artifact@v3
       with:

@@ -8,7 +8,7 @@ namespace Hyperlight.Tests
         [Fact]
         public void Test_Create_Context()
         {
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             var rawCtx = ctx.ctx;
             Assert.NotEqual(IntPtr.Zero, rawCtx);
         }

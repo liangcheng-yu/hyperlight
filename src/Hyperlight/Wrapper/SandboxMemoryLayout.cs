@@ -34,9 +34,9 @@ namespace Hyperlight.Wrapper
 #pragma warning disable IDE0051 // Member is Unused - this is only used by tests
         // TODO: Remove this when port to rust is done and the test is no longer needed.
         long stackSize => (long)mem_layout_get_stack_size(
-             this.ctxWrapper.ctx,
-             this.handleWrapper.handle
-         );
+            this.ctxWrapper.ctx,
+            this.handleWrapper.handle
+        );
 #pragma warning restore IDE0051 // Member is Unused
 
         public long hostExceptionOffset => this.addrToOffset(
@@ -68,11 +68,11 @@ namespace Hyperlight.Wrapper
         );
 
         public long codePointerAddressOffset => this.addrToOffset(
-                mem_layout_get_code_pointer_address
+            mem_layout_get_code_pointer_address
         );
 
         public long guestErrorMessageBufferOffset => this.addrToOffset(
-                mem_layout_get_guest_error_message_buffer_address
+            mem_layout_get_guest_error_message_buffer_address
         );
 
         public long dispatchFunctionPointerOffSet => this.addrToOffset(
@@ -205,17 +205,17 @@ namespace Hyperlight.Wrapper
 
         private bool disposed;
         internal SandboxMemoryLayout(
+            Context ctx,
             SandboxMemoryConfiguration sandboxMemoryConfiguration,
             ulong codeSize,
             ulong stackSize,
             ulong heapSize
         )
         {
-            HyperlightException.ThrowIfNull(Sandbox.Context.Value, Sandbox.CorrelationId.Value!, GetType().Name);
-            this.ctxWrapper = Sandbox.Context.Value;
+            this.ctxWrapper = ctx;
             var rawHandle = mem_layout_new(
                 ctxWrapper.ctx,
-                sandboxMemoryConfiguration.Handle.handle,
+                sandboxMemoryConfiguration,
                 codeSize,
                 stackSize,
                 heapSize
@@ -283,7 +283,7 @@ namespace Hyperlight.Wrapper
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle mem_layout_new(
             NativeContext ctx,
-            NativeHandle mem_config_handle,
+            SandboxMemoryConfiguration cfg,
             ulong code_size,
             ulong stack_size,
             ulong heap_size

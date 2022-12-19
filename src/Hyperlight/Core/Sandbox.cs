@@ -32,7 +32,7 @@ namespace Hyperlight
     public class Sandbox : IDisposable, ISandboxRegistration
     {
         public static AsyncLocal<string> CorrelationId { get; } = new AsyncLocal<string>();
-        public static AsyncLocal<Context> Context { get; } = new AsyncLocal<Context>();
+        readonly Context context;
         static readonly object peInfoLock = new();
         static readonly ConcurrentDictionary<string, PEInfo> guestPEInfo = new(StringComparer.InvariantCultureIgnoreCase);
         static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
@@ -140,9 +140,8 @@ namespace Hyperlight
                 correlationId = Guid.NewGuid().ToString("N");
             }
             CorrelationId.Value = correlationId;
-            sandboxMemoryConfiguration ??= new SandboxMemoryConfiguration();
-            HyperlightException.ThrowIfNull(SandboxMemoryConfiguration.Context.Value, nameof(SandboxMemoryConfiguration.Context), GetType().Name);
-            Context.Value = SandboxMemoryConfiguration.Context.Value;
+            var memCfg = sandboxMemoryConfiguration ?? new SandboxMemoryConfiguration();
+            this.context = new Context(correlationId);
 
             if (!IsSupportedPlatform)
             {
@@ -170,7 +169,11 @@ namespace Hyperlight
             }
 
             this.guestInterfaceGlue = new HyperlightGuestInterfaceGlue(this);
-            this.sandboxMemoryManager = new SandboxMemoryManager(sandboxMemoryConfiguration, runFromProcessMemory);
+            this.sandboxMemoryManager = new SandboxMemoryManager(
+                this.context,
+                memCfg,
+                runFromProcessMemory
+            );
 
             HyperlightLogger.SetLogger(errorMessageLogger);
             LoadGuestBinary();
@@ -400,7 +403,7 @@ namespace Hyperlight
                 if (LinuxHyperV.IsHypervisorPresent())
                 {
                     hyperVisor = new HyperVOnLinux(
-                        Context.Value!,
+                        this.context,
                         sandboxMemoryManager.SourceAddress,
                         SandboxMemoryLayout.PML4GuestAddress,
                         sandboxMemoryManager.Size,
@@ -752,6 +755,7 @@ namespace Hyperlight
                     sandboxMemoryManager?.Dispose();
 
                     hyperVisor?.Dispose();
+                    this.context.Dispose();
 
                 }
 

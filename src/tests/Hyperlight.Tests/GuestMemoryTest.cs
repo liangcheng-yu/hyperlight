@@ -7,32 +7,17 @@ using Xunit;
 
 namespace Hyperlight.Tests
 {
-    [Collection("Sandbox tests")]
     public class GuestMemoryTest
     {
-        public GuestMemoryTest()
-        {
-            Assert.True(Sandbox.IsSupportedPlatform, "Hyperlight Sandbox is not supported on this platform.");
-
-            // sandbox is only needed to initialise the context and correlation id.
-            var options = SandboxHostTest.GetSandboxRunOptions();
-            var path = AppDomain.CurrentDomain.BaseDirectory;
-            var guestBinaryFileName = "simpleguest.exe";
-            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
-            using (var s = new Sandbox(guestBinaryPath, options[0]))
-            {
-
-            }
-        }
-
         const ulong Size = 0x1000;
 
         [Fact]
         public void Test_Copy_Array()
         {
+            using var ctx = new Context("sample_corr_id");
             var val = Guid.NewGuid().ToByteArray();
             var offset = new IntPtr(0x100);
-            using (var mem = new GuestMemory(Size))
+            using (var mem = new GuestMemory(ctx, Size))
             {
                 mem.CopyFromByteArray(val, offset);
                 var result = new byte[16];

@@ -12,7 +12,7 @@ namespace Hyperlight.Tests
         [Fact]
         public void Test_Constructor_Call()
         {
-            using (var ctx = new Context())
+            using (var ctx = new Context("sample_corr_id"))
             {
                 bool called = false;
                 ushort? calledPort = null;
@@ -38,7 +38,7 @@ namespace Hyperlight.Tests
         public void Test_Constructor_Call_Concurrent()
         {
             const int numTasks = 10;
-            using (var ctx = new Context())
+            using (var ctx = new Context("sample_corr_id"))
             {
                 int called = 0;
 

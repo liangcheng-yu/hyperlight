@@ -13,7 +13,7 @@ namespace Hyperlight.Tests
         [Fact]
         public void Test_Ctor_Throw_Zero_Hdl()
         {
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             Assert.Throws<HyperlightException>(
                 () => new Wrapper.Handle(ctx, Wrapper.Handle.Zero)
             );
@@ -23,7 +23,7 @@ namespace Hyperlight.Tests
         public void Test_Raw_Hdl_Getter()
         {
             ulong rawHdl = 12345;
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             using var hdl = new Wrapper.Handle(ctx, rawHdl);
             Assert.Equal(rawHdl, hdl.handle);
         }
@@ -32,7 +32,7 @@ namespace Hyperlight.Tests
         public void Test_Dispose()
         {
             ulong rawHdl = 23456;
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             var hdl = new Wrapper.Handle(ctx, rawHdl);
             Assert.NotEqual(Wrapper.Handle.Zero, hdl.handle);
             hdl.Dispose();
@@ -43,7 +43,7 @@ namespace Hyperlight.Tests
         public void Test_Handle_Error()
         {
             var errStr = "TEST_HANDLE_ERROR";
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             using var errHdl = Wrapper.Handle.NewError(ctx, errStr);
             Assert.True(errHdl.IsError());
             var retErrStr = errHdl.GetErrorMessage();
@@ -53,7 +53,7 @@ namespace Hyperlight.Tests
         [Fact]
         public void Test_NewError_Empty_String()
         {
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             using var errHdl = Wrapper.Handle.NewError(ctx, "");
             // errHdl should be an invalid handle rather than a valid error
             // because empty error strings should return invalid
@@ -65,7 +65,7 @@ namespace Hyperlight.Tests
         [Fact]
         public void Test_NewInvalidNullContext_Handle()
         {
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             // Force a null context handle to be created so that we can validate that we are detecting the null context handle returned by the C API
             var rawHdl = int_32_new(NativeContext.Zero, 0);
             var hdl = new Handle(ctx, rawHdl);
@@ -87,7 +87,7 @@ namespace Hyperlight.Tests
         public void Test_NewError_ThrowIfError()
         {
             const String errMsg = "TEST ERR MSG";
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             using var errHdl = Wrapper.Handle.NewError(ctx, errMsg);
             Assert.Throws<HyperlightException>(
                 () => errHdl.ThrowIfError()
@@ -98,7 +98,7 @@ namespace Hyperlight.Tests
         public void Test_Int_32()
         {
             const int val = 23456;
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             using var hdl = Wrapper.Handle.NewInt32(ctx, val);
             Assert.False(hdl.IsInt64());
             Assert.True(hdl.IsInt32());
@@ -109,7 +109,7 @@ namespace Hyperlight.Tests
         public void Test_Int_64()
         {
             const long val = 12345;
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             using var hdl = Wrapper.Handle.NewInt64(ctx, val);
             Assert.False(hdl.IsInt32());
             Assert.True(hdl.IsInt64());

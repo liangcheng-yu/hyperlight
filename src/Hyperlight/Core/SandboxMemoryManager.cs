@@ -11,6 +11,7 @@ namespace Hyperlight.Core
 {
     internal class SandboxMemoryManager : IDisposable
     {
+        private readonly Context ctx;
         public ulong EntryPoint { get; private set; }
         public ulong Size { get; private set; }
         public IntPtr SourceAddress { get; private set; }
@@ -26,15 +27,15 @@ namespace Hyperlight.Core
         readonly SandboxMemoryConfiguration sandboxMemoryConfiguration;
         SandboxMemoryLayout? sandboxMemoryLayout;
 
-        internal SandboxMemoryManager(bool runFromProcessMemory = false) : this(new SandboxMemoryConfiguration(), runFromProcessMemory)
+        internal SandboxMemoryManager(
+            Context ctx,
+            SandboxMemoryConfiguration sandboxMemoryConfiguration,
+            bool runFromProcessMemory = false
+        )
         {
-        }
-
-        internal SandboxMemoryManager(SandboxMemoryConfiguration sandboxMemoryConfiguration, bool runFromProcessMemory = false)
-        {
+            this.ctx = ctx;
             this.sandboxMemoryConfiguration = sandboxMemoryConfiguration;
             this.runFromProcessMemory = runFromProcessMemory;
-            HyperlightException.ThrowIfNull(Sandbox.Context.Value, nameof(Sandbox.Context.Value), Sandbox.CorrelationId.Value!, GetType().Name);
         }
 
         internal void LoadGuestBinaryUsingLoadLibrary(string guestBinaryPath, PEInfo peInfo)
@@ -42,10 +43,16 @@ namespace Hyperlight.Core
             HyperlightException.ThrowIfNull(guestBinaryPath, nameof(guestBinaryPath), Sandbox.CorrelationId.Value!, GetType().Name);
             HyperlightException.ThrowIfNull(peInfo, nameof(peInfo), Sandbox.CorrelationId.Value!, GetType().Name);
 
-            sandboxMemoryLayout = new SandboxMemoryLayout(sandboxMemoryConfiguration, 0, (ulong)peInfo.StackReserve, (ulong)peInfo.HeapReserve);
+            sandboxMemoryLayout = new SandboxMemoryLayout(
+                this.ctx,
+                sandboxMemoryConfiguration,
+                0,
+                (ulong)peInfo.StackReserve,
+                (ulong)peInfo.HeapReserve
+            );
             Size = sandboxMemoryLayout.GetMemorySize();
 
-            guestMemWrapper = new GuestMemory(this.Size);
+            guestMemWrapper = new GuestMemory(this.ctx, this.Size);
 
             loadAddress = OS.LoadLibrary(guestBinaryPath);
 
@@ -71,9 +78,15 @@ namespace Hyperlight.Core
         internal void LoadGuestBinaryIntoMemory(PEInfo peInfo)
         {
             HyperlightException.ThrowIfNull(peInfo, nameof(peInfo), Sandbox.CorrelationId.Value!, GetType().Name);
-            sandboxMemoryLayout = new SandboxMemoryLayout(sandboxMemoryConfiguration, (ulong)peInfo.Payload.Length, (ulong)peInfo.StackReserve, (ulong)peInfo.HeapReserve);
+            sandboxMemoryLayout = new SandboxMemoryLayout(
+                this.ctx,
+                sandboxMemoryConfiguration,
+                (ulong)peInfo.Payload.Length,
+                (ulong)peInfo.StackReserve,
+                (ulong)peInfo.HeapReserve
+            );
             Size = sandboxMemoryLayout.GetMemorySize();
-            this.guestMemWrapper = new GuestMemory(this.Size);
+            this.guestMemWrapper = new GuestMemory(this.ctx, this.Size);
             SourceAddress = this.guestMemWrapper.Address;
             var hostCodeAddress = (ulong)SandboxMemoryLayout.GetHostCodeAddress(SourceAddress);
             // If we are running in memory the entry point will be relative to the sourceAddress if we are running in a Hypervisor it will be relative to 0x230000 which is where the code is loaded in the GP
@@ -195,7 +208,7 @@ namespace Hyperlight.Core
                 // if we haven't snapshotted already, create a new
                 // GuestMemorySnapshot from the existing guest memory.
                 this.guestMemSnapshotWrapper = new GuestMemorySnapshot(
-                    Sandbox.Context.Value!,
+                    this.ctx,
                     this.guestMemWrapper
                 );
             }
@@ -481,7 +494,7 @@ namespace Hyperlight.Core
                 this.guestMemWrapper!.CopyFromByteArray(data, (IntPtr)guestErrorMessageBufferOffset);
             }
 
-            var hyperLightException = ex.GetType() == typeof(HyperlightException) ? ex as HyperlightException : new HyperlightException("OutB Error", ex);
+            var hyperLightException = ex.GetType() == typeof(HyperlightException) ? ex as HyperlightException : new HyperlightException($"OutB Error {ex.Message}", ex);
             var hostExceptionOffset = sandboxMemoryLayout!.hostExceptionOffset;
 
             // TODO: Switch to System.Text.Json - requires custom serialisation as default throws an exception when serialising if an inner exception is present
