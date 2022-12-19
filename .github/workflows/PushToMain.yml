@@ -169,6 +169,8 @@ jobs:
       - uses: extractions/setup-just@v1
         with:
           just-version: '1.5.0' # optional semver specification, otherwise latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build Debug
         run: cargo build --verbose
       - name: Build Release 
