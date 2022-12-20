@@ -5,7 +5,6 @@
 #include "context_tests.h"
 #include "host_func_tests.h"
 #include "byte_array_tests.h"
-#include "mem_config.h"
 #include "mem_layout.h"
 #if defined(__linux__)
 #include "hyperv_linux.h"
@@ -33,7 +32,6 @@ static MunitSuite test_suites[] = {
     {"/kvm_tests", kvm_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
 #endif
     {"/mem_access_handler_tests", mem_access_handler_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-    {"/mem_config_tests", mem_config_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/mem_layout_tests", mem_layout_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/outb_handler_tests", outb_handler_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/pe_file_tests", pe_file_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},

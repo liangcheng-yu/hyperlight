@@ -11,13 +11,13 @@ namespace Hyperlight.Wrapper
         private bool disposed;
 
         public ByteArray(
+            Context ctx,
             byte[] arr
         )
         {
-            HyperlightException.ThrowIfNull(Sandbox.Context.Value, Sandbox.CorrelationId.Value!, GetType().Name);
             HyperlightException.ThrowIfNull(arr, Sandbox.CorrelationId.Value!, GetType().Name);
 
-            this.ctxWrapper = Sandbox.Context.Value;
+            this.ctxWrapper = ctx;
             unsafe
             {
                 fixed (byte* arr_ptr = arr)

@@ -49,7 +49,7 @@ namespace Hyperlight.Core
             HyperlightLogger.Log(level, message, correlationId, source, ex, memberName, sourceFilePath, sourceLineNumber);
             throw ex;
         }
-        static string GetExceptionMessage(string message, string correlationId, string source)
+        public static string GetExceptionMessage(string message, string correlationId, string source)
         {
             return $"{message} CorrelationId: {correlationId} Source: {source}";
         }

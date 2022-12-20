@@ -81,13 +81,17 @@ void outb(uint16_t port, uint8_t value)
         // allow the dotnet code to overwrite rsi/rdi.  If this binary is built
         // using MSVC, it expects rsi/rdi to be preserved by anything it calls.  The optimizer
         // might make use of one of these registers, so we will save/restore them ourselves.
-        uint64_t rsi = getrsi();
-        uint64_t rdi = getrdi();
+
+        // This code is not needed at present as in process calls are disabled on Linux.
+        // However, it is left here in case we need to re-enable in process calls in future.
+        // TODO: Enable if Linux in process is supported.
+        //uint64_t rsi = getrsi();
+        //uint64_t rdi = getrdi();
         outb_ptr(port, value);
-        setrsi(rsi);
-        setrdi(rdi);
-        checkForHostError();
+        //setrsi(rsi);
+        //setrdi(rdi);
     }
+    checkForHostError();
 }
 
 void halt()
@@ -416,14 +420,33 @@ void DispatchFunction()
 }
 
 // this is required by print functions to write output.
+// calls from print functions are buffered until
+// either the output buffer is full or a null character is sent
 
 void _putchar(char c)
 {
+    static int index = 0;
     char* ptr = pPeb->outputdata.outputDataBuffer;
-    *ptr++ = c;
-    *ptr = '\0';
+
+    if (index >= pPeb->outputdata.outputDataSize)
+    {
+        ptr[index] = '\0';
+        outb(OUTB_WRITE_OUTPUT, 0);
+        index = 0;
+        ptr = pPeb->outputdata.outputDataBuffer;
+    }
+
+    if (c != '\0')
+    {
+        ptr[index++] = c;
+        return;
+    }
+    
+    ptr[index++] = c;
+    ptr[index] = '\0';
 
     outb(OUTB_WRITE_OUTPUT, 0);
+    index = 0;
 }
 
 bool CheckOutputBufferSize(size_t used, size_t size)
@@ -562,6 +585,8 @@ HostFunctionDetails* GetHostFunctionDetails()
 
 __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int functionTableSize)
 {
+
+    // TODO: We should try and write to stderr here in case the program was started from the command line, note that we dont link against the CRT so we cant use printf
     pPeb = (HyperlightPEB*)pebAddress;
     if (NULL == pPeb)
     {
@@ -574,11 +599,6 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int f
     // setjmp is used to capture state so that if an error occurs then lngjmp is called in setError and control returns to this point , the if returns false and the program exits/halts
     if (!setjmp(jmpbuf))
     {
-        if (*pPeb->pCode != 'J')
-        {
-            setError(CODE_HEADER_NOT_SET, NULL);
-        }
-
         // Either in WHP partition (hyperlight) or in memory.  If in memory, outb_ptr will be non-NULL
         outb_ptr = (void(*)(uint16_t, uint8_t))pPeb->pOutb;
         if (outb_ptr)

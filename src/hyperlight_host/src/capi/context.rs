@@ -1,6 +1,7 @@
 use super::handle::{new_key, Handle, Key};
 use super::hdl::Hdl;
 use crate::capi::outb_handler::OutbHandlerWrapper;
+use crate::func::args::Val;
 #[cfg(target_os = "linux")]
 use crate::hypervisor::hyperv_linux::HypervLinuxDriver;
 #[cfg(target_os = "linux")]
@@ -12,7 +13,6 @@ use crate::sandbox::Sandbox;
 use crate::{
     capi::mem_access_handler::MemAccessHandlerWrapper, mem::guest_mem_snapshot::GuestMemorySnapshot,
 };
-use crate::{func::args::Val, mem::config::SandboxMemoryConfiguration};
 use crate::{func::def::HostFunc, mem::layout::SandboxMemoryLayout};
 use anyhow::{bail, Error, Result};
 #[cfg(target_os = "linux")]
@@ -54,8 +54,6 @@ pub struct Context {
     pub byte_arrays: HashMap<Key, Vec<u8>>,
     /// All `PEInfo`s stored in this context
     pub pe_infos: HashMap<Key, PEInfo>,
-    /// All `SandboxMemoryConfiguration`s stored in this context
-    pub mem_configs: HashMap<Key, SandboxMemoryConfiguration>,
     /// All `SandboxMemoryLayout`s stored in this context
     pub mem_layouts: HashMap<Key, SandboxMemoryLayout>,
     /// All the `GuestMemory`s stored in this context
@@ -193,7 +191,6 @@ impl Context {
                     Hdl::String(key) => self.strings.remove(&key).is_some(),
                     Hdl::ByteArray(key) => self.byte_arrays.remove(&key).is_some(),
                     Hdl::PEInfo(key) => self.pe_infos.remove(&key).is_some(),
-                    Hdl::MemConfig(key) => self.mem_configs.remove(&key).is_some(),
                     Hdl::MemLayout(key) => self.mem_layouts.remove(&key).is_some(),
                     Hdl::GuestMemory(key) => self.guest_mems.remove(&key).is_some(),
                     Hdl::GuestMemorySnapshot(key) => {

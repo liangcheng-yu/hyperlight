@@ -18,7 +18,6 @@ using Xunit.Abstractions;
 
 namespace Hyperlight.Tests
 {
-
     public class SandboxHostTest
     {
         private readonly ITestOutputHelper output;
@@ -138,6 +137,15 @@ namespace Hyperlight.Tests
             public int HostMethod1(string msg)
             {
                 return PrintOutput!($"Host Method 1 Received: {msg} from Guest");
+            }
+        }
+
+        public class HostExceptionTestMembers
+        {
+            public Func<string, int>? CallErrorMethod;
+            public int ErrorMethod(string msg)
+            {
+                throw new HyperlightException(HyperlightException.GetExceptionMessage(msg, Sandbox.CorrelationId.Value!, GetType().Name));
             }
         }
 
@@ -337,8 +345,52 @@ namespace Hyperlight.Tests
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
             var message = "This is a test log message";
             var source = "SandboxHostTest";
+
             foreach (var option in options)
             {
+                // If no correlationId or function is provided then the correlationId should change with each invocation.
+
+                foreach (var logLevel in Enum.GetValues(typeof(LogLevel)))
+                {
+                    var logFunctions = new LoggingTests();
+                    var mockLogger = new Mock<ILogger>();
+                    mockLogger.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+                    var builder = new SandboxBuilder()
+                        .WithConfig(GetSandboxMemoryConfiguration())
+                        .WithRunOptions(option)
+                        .WithGuestBinaryPath(guestBinaryPath)
+                        .WithErrorMessageLogger(mockLogger.Object);
+                    using (var sandbox = builder.Build())
+                    {
+                        sandbox.BindGuestFunction("LogMessage", logFunctions);
+                        logFunctions.LogMessage!(message, source, (int)logLevel);
+                        var correlationId = Sandbox.CorrelationId.Value;
+                        mockLogger.Verify(
+                            l => l.Log<It.IsAnyType>(
+                                (LogLevel)logLevel,
+                                It.IsAny<EventId>(),
+                                It.Is<It.IsAnyType>((v, t) => v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationId} Source: {source}")),
+                                null,
+                                It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                                Times.Once);
+                        if (option.HasFlag(SandboxRunOptions.RecycleAfterRun))
+                        {
+                            logFunctions.LogMessage!(message, source, (int)logLevel);
+                            correlationId = Sandbox.CorrelationId.Value;
+                            mockLogger.Verify(
+                                l => l.Log<It.IsAnyType>(
+                                    (LogLevel)logLevel,
+                                    It.IsAny<EventId>(),
+                                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationId} Source: {source}")),
+                                    null,
+                                    It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                                    Times.Once);
+                        }
+                    }
+                }
+
+                // If a correlationId provided then the correlationId should always be used;
+
                 foreach (var logLevel in Enum.GetValues(typeof(LogLevel)))
                 {
                     var logFunctions = new LoggingTests();
@@ -362,51 +414,348 @@ namespace Hyperlight.Tests
                                 It.Is<It.IsAnyType>((v, t) => v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationId} Source: {source}")),
                                 null,
                                 It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
-                            Times.Once);
+                                Times.Once);
+                        if (option.HasFlag(SandboxRunOptions.RecycleAfterRun))
+                        {
+                            logFunctions.LogMessage!(message, source, (int)logLevel);
+                            mockLogger.Verify(
+                                l => l.Log<It.IsAnyType>(
+                                    (LogLevel)logLevel,
+                                    It.IsAny<EventId>(),
+                                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationId} Source: {source}")),
+                                    null,
+                                    It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                                    Times.Exactly(2));
+                        }
+                    }
+                }
+
+                string correlationIdFromLocalFunc = string.Empty;
+                var callCount = 0;
+                var calledCount = 0;
+                string GetCorrelationId()
+                {
+                    calledCount++;
+                    correlationIdFromLocalFunc = Guid.NewGuid().ToString("N");
+                    return correlationIdFromLocalFunc;
+                }
+
+                // If a function is provided then the function should be called for each invocation.
+
+                foreach (var logLevel in Enum.GetValues(typeof(LogLevel)))
+                {
+                    var logFunctions = new LoggingTests();
+                    var mockLogger = new Mock<ILogger>();
+                    mockLogger.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+                    var builder = new SandboxBuilder()
+                        .WithConfig(GetSandboxMemoryConfiguration())
+                        .WithRunOptions(option)
+                        .WithGuestBinaryPath(guestBinaryPath)
+                        .WithCorrelationId(GetCorrelationId)
+                        .WithErrorMessageLogger(mockLogger.Object);
+                    using (var sandbox = builder.Build())
+                    {
+                        callCount++;
+                        Assert.Equal(callCount, calledCount);
+                        sandbox.BindGuestFunction("LogMessage", logFunctions);
+                        logFunctions.LogMessage!(message, source, (int)logLevel);
+                        callCount++;
+                        Assert.Equal(callCount, calledCount);
+                        mockLogger.Verify(
+                            l => l.Log<It.IsAnyType>(
+                                (LogLevel)logLevel,
+                                It.IsAny<EventId>(),
+                                It.Is<It.IsAnyType>((v, t) => v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationIdFromLocalFunc} Source: {source}")),
+                                null,
+                                It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                                Times.Once);
+                        if (option.HasFlag(SandboxRunOptions.RecycleAfterRun))
+                        {
+
+                            logFunctions.LogMessage!(message, source, (int)logLevel);
+                            callCount++;
+                            Assert.Equal(callCount, calledCount);
+                            mockLogger.Verify(
+                                l => l.Log<It.IsAnyType>(
+                                    (LogLevel)logLevel,
+                                    It.IsAny<EventId>(),
+                                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationIdFromLocalFunc} Source: {source}")),
+                                    null,
+                                    It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                                    Times.Once);
+                        }
                     }
                 }
             }
         }
 
         [Fact]
-        public void Test_Sandbox_Configs()
+        public void Test_Error_Logging_Cross_ExecutionContext()
         {
-            var testFunc = (ulong initialExpected, Func<ulong> getter, Action<ulong> setter) =>
+            var options = GetSandboxRunOptions();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "callbackguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var message = "This is a test log message";
+            var source = "SandboxHostTest";
+            foreach (var option in options)
             {
-                Assert.Equal(initialExpected, getter());
-                setter(initialExpected + 0x100);
-                Assert.Equal(initialExpected + 0x100, getter());
-            };
+                // If no correlationId or function is provided then a new one is generated for each invocation.
 
-            using (var config = new SandboxMemoryConfiguration())
+                foreach (var logLevel in Enum.GetValues(typeof(LogLevel)))
+                {
+                    var correlationId1 = string.Empty;
+                    var correlationId2 = string.Empty;
+                    var logFunctions = new LoggingTests();
+                    var mockLogger = new Mock<ILogger>();
+                    mockLogger.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+                    var builder = new SandboxBuilder()
+                        .WithRunOptions(option)
+                        .WithGuestBinaryPath(guestBinaryPath)
+                        .WithErrorMessageLogger(mockLogger.Object);
+                    using (var sandbox = builder.Build())
+                    {
+                        sandbox.BindGuestFunction("LogMessage", logFunctions);
+                        Exception? threadTestException = null;
+
+                        // Make sure that CorrelationId is correct after a call on a different thread with a different execution context from the one that constructed the Sandbox
+                        void threadStart1()
+                        {
+                            threadTestException = Record.Exception(() =>
+                            {
+                                logFunctions.LogMessage!(message, source, (int)logLevel);
+                                correlationId1 = Sandbox.CorrelationId.Value;
+                            });
+                        }
+
+                        var thread = new Thread(threadStart1);
+
+                        // UnsafeStart causes the thread to start without flowing the ExecutionContext from the current thread.
+
+                        thread.UnsafeStart();
+                        thread.Join();
+                        Assert.Null(threadTestException);
+                        mockLogger.Verify(
+                        l => l.Log<It.IsAnyType>(
+                            (LogLevel)logLevel,
+                            It.IsAny<EventId>(),
+                            It.Is<It.IsAnyType>((v, t) =>
+                                v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationId1} Source: {source}")
+                            ),
+                            null,
+                            It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                            Times.Once);
+
+                        if (option.HasFlag(SandboxRunOptions.RecycleAfterRun))
+                        {
+                            void threadStart2()
+                            {
+                                threadTestException = Record.Exception(() =>
+                                {
+                                    logFunctions.LogMessage!(message, source, (int)logLevel);
+                                    correlationId2 = Sandbox.CorrelationId.Value;
+                                });
+                            }
+                            thread = new Thread(threadStart2);
+                            thread.UnsafeStart();
+                            thread.Join();
+                            Assert.Null(threadTestException);
+                            mockLogger.Verify(
+                                l => l.Log<It.IsAnyType>(
+                                    (LogLevel)logLevel,
+                                    It.IsAny<EventId>(),
+                                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationId2} Source: {source}")),
+                                    null,
+                                    It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                                    Times.Once);
+                        }
+                    }
+                }
+
+                // If a correlationId is provided in the constructor then the value should always be used for the correlationId for the life of the Sandbox.
+                foreach (var logLevel in Enum.GetValues(typeof(LogLevel)))
+                {
+                    var correlationId = Guid.NewGuid().ToString("N");
+                    var logFunctions = new LoggingTests();
+                    var mockLogger = new Mock<ILogger>();
+                    mockLogger.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+                    var builder = new SandboxBuilder()
+                        .WithCorrelationId(correlationId)
+                        .WithRunOptions(option)
+                        .WithGuestBinaryPath(guestBinaryPath)
+                        .WithErrorMessageLogger(mockLogger.Object);
+                    using (var sandbox = builder.Build())
+                    {
+                        sandbox.BindGuestFunction("LogMessage", logFunctions);
+                        Exception? threadTestException = null;
+
+                        // Make sure that CorrelationId is correct after a call on a different thread with a different execution context from the one that constructed the Sandbox
+                        void threadStart()
+                        {
+                            threadTestException = Record.Exception(() =>
+                            {
+                                logFunctions.LogMessage!(message, source, (int)logLevel);
+                            });
+                        }
+
+                        var thread = new Thread(threadStart);
+
+                        // UnsafeStart causes the thread to start without flowing the ExecutionContext from the current thread.
+
+                        thread.UnsafeStart();
+                        thread.Join();
+                        Assert.Null(threadTestException);
+                        mockLogger.Verify(
+                           l => l.Log<It.IsAnyType>(
+                               (LogLevel)logLevel,
+                               It.IsAny<EventId>(),
+                               It.Is<It.IsAnyType>((v, t) =>
+                                   v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationId} Source: {source}")
+                               ),
+                               null,
+                               It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                               Times.Once);
+
+                        if (option.HasFlag(SandboxRunOptions.RecycleAfterRun))
+                        {
+                            thread = new Thread(threadStart);
+                            thread.UnsafeStart();
+                            thread.Join();
+                            Assert.Null(threadTestException);
+                            mockLogger.Verify(
+                                l => l.Log<It.IsAnyType>(
+                                    (LogLevel)logLevel,
+                                    It.IsAny<EventId>(),
+                                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationId} Source: {source}")),
+                                    null,
+                                    It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                                    Times.Exactly(2));
+                        }
+                    }
+                }
+                string correlationIdFromLocalFunc = string.Empty;
+                var callCount = 0;
+                var calledCount = 0;
+                string GetCorrelationId()
+                {
+                    calledCount++;
+                    correlationIdFromLocalFunc = Guid.NewGuid().ToString("N");
+                    return correlationIdFromLocalFunc;
+                }
+                // If a function is provided then the function should be called during construction and once for each invocation.
+                foreach (var logLevel in Enum.GetValues(typeof(LogLevel)))
+                {
+                    var logFunctions = new LoggingTests();
+                    var mockLogger = new Mock<ILogger>();
+                    mockLogger.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+                    var builder = new SandboxBuilder()
+                        .WithRunOptions(option)
+                        .WithGuestBinaryPath(guestBinaryPath)
+                        .WithCorrelationId(GetCorrelationId)
+                        .WithErrorMessageLogger(mockLogger.Object);
+                    using (var sandbox = builder.Build())
+                    {
+                        // function should get called from the constructor.
+                        callCount++;
+                        Assert.Equal(callCount, calledCount);
+                        sandbox.BindGuestFunction("LogMessage", logFunctions);
+
+                        Exception? threadTestException = null;
+
+                        // Make sure that CorrelationId is correct after a recycle on a different thread.
+                        void threadStart()
+                        {
+                            threadTestException = Record.Exception(() =>
+                            {
+                                logFunctions.LogMessage!(message, source, (int)logLevel);
+                                callCount++;
+                            });
+                        }
+
+                        var thread = new Thread(threadStart);
+
+
+                        // UnsafeStart causes the thread to start without flowing the ExecutionContext from the current thread.
+
+                        thread.UnsafeStart();
+                        thread.Join();
+                        Assert.Null(threadTestException);
+                        Assert.Equal(callCount, calledCount);
+                        mockLogger.Verify(
+                        l => l.Log<It.IsAnyType>(
+                            (LogLevel)logLevel,
+                            It.IsAny<EventId>(),
+                            It.Is<It.IsAnyType>((v, t) =>
+                                v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationIdFromLocalFunc} Source: {source}")
+                            ),
+                            null,
+                            It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                            Times.Once);
+
+                        if (option.HasFlag(SandboxRunOptions.RecycleAfterRun))
+                        {
+                            thread = new Thread(threadStart);
+
+                            // UnsafeStart causes the thread to start without flowing the ExecutionContext from the current thread.
+
+                            thread.UnsafeStart();
+                            thread.Join();
+                            Assert.Null(threadTestException);
+                            Assert.Equal(callCount, calledCount);
+                            mockLogger.Verify(
+                               l => l.Log<It.IsAnyType>(
+                                   (LogLevel)logLevel,
+                                   It.IsAny<EventId>(),
+                                   It.Is<It.IsAnyType>((v, t) =>
+                                       v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationIdFromLocalFunc} Source: {source}")
+                                   ),
+                                   null,
+                                   It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                                   Times.Once);
+                        }
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_Handles_Host_Exception()
+        {
+            var options = GetSandboxRunOptions();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "callbackguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var message = "This is a test exception message";
+            foreach (var option in options)
             {
-                testFunc(
-                    0x4000,
-                    () => config.InputDataSize,
-                    (val) => config.InputDataSize = val
-                );
-                testFunc(
-                    0x4000,
-                    () => config.OutputDataSize,
-                    (val) => config.OutputDataSize = val
-                );
-                testFunc(
-                    0x1000,
-                    () => config.HostFunctionDefinitionSize,
-                    (val) => config.HostFunctionDefinitionSize = val
-                );
-                testFunc(
-                    0x1000,
-                    () => config.HostExceptionSize,
-                    (val) => config.HostExceptionSize = val
-                );
+                foreach (var logLevel in Enum.GetValues(typeof(LogLevel)))
+                {
+                    var hostExceptionTest = new HostExceptionTestMembers();
+
+                    var correlationId = Guid.NewGuid().ToString("N");
+                    var builder = new SandboxBuilder()
+                        .WithRunOptions(option)
+                        .WithGuestBinaryPath(guestBinaryPath)
+                        .WithCorrelationId(correlationId);
+                    using (var sandbox = builder.Build())
+                    {
+                        sandbox.ExposeAndBindMembers(hostExceptionTest);
+                        var ex = Record.Exception(() =>
+                        {
+                            hostExceptionTest.CallErrorMethod!(message);
+                        });
+                        Assert.NotNull(ex);
+                        Assert.IsType<Hyperlight.Core.HyperlightException>(ex);
+                        Assert.Equal($"Error From Host: {message} CorrelationId: {correlationId} Source: HostExceptionTestMembers", ex.Message);
+                    }
+                }
             }
         }
 
         [FactSkipIfNotWindowsAndNoHypervisor]
         public void Test_Stack_Size()
         {
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             var options = GetSandboxRunOptions();
             if (options.Length == 0)
             {
@@ -443,7 +792,7 @@ namespace Hyperlight.Tests
         [FactSkipIfNotWindows]
         public void Test_Memory_Size_From_GuestBinary()
         {
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             var option = SandboxRunOptions.RunFromGuestBinary;
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
@@ -483,7 +832,7 @@ namespace Hyperlight.Tests
         [Fact]
         public void Test_Buffer_Overrun()
         {
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
@@ -637,12 +986,13 @@ namespace Hyperlight.Tests
         public void Test_Maximum_Memory_Size()
         {
             var correlationId = Guid.NewGuid().ToString("N");
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context(correlationId);
             var option = SandboxRunOptions.RunInProcess;
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
-            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration(inputDataSize: 1073741824);
+            var sandboxMemoryConfiguration = new SandboxMemoryConfiguration()
+                .WithInputDataSize(1073741824);
             var ex = Record.Exception(() =>
             {
                 using var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, sandboxMemoryConfiguration);
@@ -721,9 +1071,16 @@ namespace Hyperlight.Tests
             foreach (var option in options)
             {
                 var size = GetErrorMessageSize();
-                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, null, null, new SandboxMemoryConfiguration(guestErrorMessageSize: (ulong)size)))
+                var bld = new SandboxBuilder()
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithRunOptions(option)
+                    .WithConfig(
+                        new SandboxMemoryConfiguration()
+                            .WithGuestErrorMessageSize((ulong)size)
+                    );
+                using (var sandbox = bld.Build())
                 {
-                    CheckSize(size, sandbox, "GetGuestErrorMessageSizeAddress");
+                    CheckSize((int)size, sandbox, "GetGuestErrorMessageSizeAddress");
                 }
             }
         }
@@ -739,9 +1096,16 @@ namespace Hyperlight.Tests
             foreach (var option in options)
             {
                 var size = GetFunctionDefinitionSize();
-                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, null, null, new SandboxMemoryConfiguration(functionDefinitionSize: (ulong)size)))
+                var bld = new SandboxBuilder()
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithRunOptions(option)
+                    .WithConfig(
+                        new SandboxMemoryConfiguration()
+                            .WithHostFunctionDefinitionSize((ulong)size)
+                    );
+                using (var sandbox = bld.Build())
                 {
-                    CheckSize(size, sandbox, "GetFunctionDefinitionSizeAddress");
+                    CheckSize((int)size, sandbox, "GetFunctionDefinitionSizeAddress");
                 }
             }
         }
@@ -757,9 +1121,16 @@ namespace Hyperlight.Tests
             foreach (var option in options)
             {
                 var size = GetInputDataSize();
-                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, null, null, new SandboxMemoryConfiguration(inputDataSize: (ulong)size)))
+                var bld = new SandboxBuilder()
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithRunOptions(option)
+                    .WithConfig(
+                        new SandboxMemoryConfiguration()
+                            .WithInputDataSize((ulong)size)
+                    );
+                using (var sandbox = bld.Build())
                 {
-                    CheckSize(size, sandbox, "GetInputDataSizeAddress");
+                    CheckSize((int)size, sandbox, "GetInputDataSizeAddress");
                 }
             }
         }
@@ -775,9 +1146,16 @@ namespace Hyperlight.Tests
             foreach (var option in options)
             {
                 var size = GetOutputDataSize();
-                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, null, null, new SandboxMemoryConfiguration(outputDataSize: (ulong)size)))
+                var bld = new SandboxBuilder()
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithRunOptions(option)
+                    .WithConfig(
+                        new SandboxMemoryConfiguration()
+                            .WithOutputDataSize((ulong)size)
+                    );
+                using (var sandbox = bld.Build())
                 {
-                    CheckSize(size, sandbox, "GetOutputDataSizeAddress");
+                    CheckSize((int)size, sandbox, "GetOutputDataSizeAddress");
                 }
             }
         }
@@ -788,7 +1166,7 @@ namespace Hyperlight.Tests
             ulong minInputSize = 0x2000;
             ulong minOutputSize = 0x2000;
             ulong minHostFunctionDefinitionSize = 0x400;
-            ulong minHostExceptionSize = 0x400;
+            ulong minHostExceptionSize = 0x4000;
             ulong minGuestErrorMessageSize = 0x80;
             var sandboxMemoryConfiguration = new SandboxMemoryConfiguration(0, 0, 0, 0, 0);
             Assert.Equal(minInputSize, sandboxMemoryConfiguration.InputDataSize);
@@ -809,9 +1187,16 @@ namespace Hyperlight.Tests
             foreach (var option in options)
             {
                 var size = GetHostExceptionSize();
-                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, null, null, new SandboxMemoryConfiguration(hostExceptionSize: (ulong)size)))
+                var bld = new SandboxBuilder()
+                .WithGuestBinaryPath(guestBinaryPath)
+                .WithRunOptions(option)
+                .WithConfig(
+                    new SandboxMemoryConfiguration()
+                        .WithHostExceptionSize((ulong)size)
+                );
+                using (var sandbox = bld.Build())
                 {
-                    CheckSize(size, sandbox, "GetHostExceptionSizeAddress");
+                    CheckSize((int)size, sandbox, "GetHostExceptionSizeAddress");
                 }
             }
         }
@@ -870,7 +1255,7 @@ namespace Hyperlight.Tests
         [Fact]
         public void Test_Multiple_Guest_Function_Parameters()
         {
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             var options = GetSandboxRunOptions();
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
@@ -1010,7 +1395,7 @@ namespace Hyperlight.Tests
         [Fact()]
         public void Test_Guest_Malloc()
         {
-            using var ctx = new Wrapper.Context();
+            using var ctx = new Wrapper.Context("sample_corr_id");
             var options = GetSandboxRunOptions();
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "simpleguest.exe";
@@ -1417,10 +1802,17 @@ namespace Hyperlight.Tests
                 var correlationId = Guid.NewGuid().ToString("N");
                 var ex = Record.Exception(() =>
                 {
-                    var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxMemoryConfiguration());
-                    var guestMethods = new SimpleTestMembers();
-                    sandbox.BindGuestFunction("PrintOutput", guestMethods);
-                    var result = guestMethods.PrintOutput!("This will throw an exception");
+                    var bld = new SandboxBuilder()
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithRunOptions(option)
+                    .WithCorrelationId(correlationId)
+                    .WithConfig(GetSandboxMemoryConfiguration());
+                    using (var sandbox = bld.Build())
+                    {
+                        var guestMethods = new SimpleTestMembers();
+                        sandbox.BindGuestFunction("PrintOutput", guestMethods);
+                        var result = guestMethods.PrintOutput!("This will throw an exception");
+                    }
                 });
                 Assert.NotNull(ex);
                 Assert.IsType<NotSupportedException>(ex);
@@ -1571,7 +1963,7 @@ namespace Hyperlight.Tests
                     var output1 = new StringWriter();
                     var builder = output1.GetStringBuilder();
                     var correlationId1 = Guid.NewGuid().ToString("N");
-                    var sandbox1 = new Sandbox(testData.GuestBinaryPath, option, null, output1, correlationId1, null, GetSandboxMemoryConfiguration());
+                    using var sandbox1 = new Sandbox(testData.GuestBinaryPath, option, null, output1, correlationId1, null, GetSandboxMemoryConfiguration());
                     if (instanceOrType is not null)
                     {
                         if (instanceOrType is Type)
@@ -1711,7 +2103,15 @@ namespace Hyperlight.Tests
         {
             using (var output = new StringWriter())
             {
-                using (var sandbox = new Sandbox(testData.GuestBinaryPath, sandboxRunOptions, null, output, correlationId, null, GetSandboxMemoryConfiguration()))
+                using (var sandbox = new Sandbox(
+                    testData.GuestBinaryPath,
+                    sandboxRunOptions,
+                    null,
+                    output,
+                    correlationId,
+                    null,
+                    GetSandboxMemoryConfiguration()
+                ))
                 {
                     if (instanceOrType is not null)
                     {
@@ -1923,47 +2323,53 @@ namespace Hyperlight.Tests
                 return new SandboxMemoryConfiguration();
             }
             output.WriteLine($"Using Configuration: guestErrorMessageSize: {errorMessageSize} functionDefinitionSize: {functionDefinitionSize} hostExceptionSize: {hostExceptionSize} inputDataSize: {inputDataSize} outputDataSize: {outputDataSize}");
-            return new SandboxMemoryConfiguration(guestErrorMessageSize: (ulong)errorMessageSize, functionDefinitionSize: (ulong)functionDefinitionSize, hostExceptionSize: (ulong)hostExceptionSize, inputDataSize: (ulong)inputDataSize, outputDataSize: (ulong)outputDataSize);
+            return new SandboxMemoryConfiguration(
+                guestErrorMessageSize: errorMessageSize,
+                hostFunctionDefinitionSize: functionDefinitionSize,
+                hostExceptionSize: hostExceptionSize,
+                inputDataSize: inputDataSize,
+                outputDataSize: outputDataSize
+            );
         }
 
-        private int GetErrorMessageSize()
+        private ulong GetErrorMessageSize()
         {
             var min = 256;
             var max = 1024;
             var random = new Random();
-            return random.Next(min, max + 1);
+            return (ulong)random.NextInt64(min, max + 1);
         }
 
-        private int GetFunctionDefinitionSize()
+        private ulong GetFunctionDefinitionSize()
         {
             var min = 1024;
             var max = 8192;
             var random = new Random();
-            return random.Next(min, max + 1);
+            return (ulong)random.NextInt64(min, max + 1);
         }
 
-        private int GetHostExceptionSize()
+        private ulong GetHostExceptionSize()
         {
             var min = 1024;
             var max = 8192;
             var random = new Random();
-            return random.Next(min, max + 1);
+            return (ulong)random.NextInt64(min, max + 1);
         }
 
-        private int GetInputDataSize()
+        private ulong GetInputDataSize()
         {
             var min = 8182;
             var max = 65536;
             var random = new Random();
-            return random.Next(min, max + 1);
+            return (ulong)random.NextInt64(min, max + 1);
         }
 
-        private int GetOutputDataSize()
+        private ulong GetOutputDataSize()
         {
             var min = 8182;
             var max = 65536;
             var random = new Random();
-            return random.Next(min, max + 1);
+            return (ulong)random.NextInt64(min, max + 1);
         }
     }
 }

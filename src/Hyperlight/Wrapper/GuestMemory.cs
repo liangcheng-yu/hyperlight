@@ -22,11 +22,11 @@ namespace Hyperlight.Wrapper
             }
         }
         public GuestMemory(
+            Context ctx,
             ulong size
         )
         {
-            HyperlightException.ThrowIfNull(Sandbox.Context.Value, Sandbox.CorrelationId.Value!, GetType().Name);
-            this.ctxWrapper = Sandbox.Context.Value;
+            this.ctxWrapper = ctx;
             this.size = size;
             this.handleWrapper = new Handle(
                 this.ctxWrapper,
@@ -112,7 +112,7 @@ namespace Hyperlight.Wrapper
         {
             HyperlightException.ThrowIfNull(arr, Sandbox.CorrelationId.Value!, GetType().Name);
 
-            using var barr = new ByteArray(arr);
+            using var barr = new ByteArray(this.ctxWrapper, arr);
             this.CopyFromByteArray(
                 barr,
                 (ulong)offset.ToInt64(),

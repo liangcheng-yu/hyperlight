@@ -15,6 +15,7 @@ namespace Hyperlight
         private StringWriter? writer;
         private string? correlationId;
         private ILogger? errorMessageLogger;
+        private Func<string>? getCorrelationId;
         public SandboxBuilder() { }
 
         public SandboxBuilder WithGuestBinaryPath(string path)
@@ -49,7 +50,15 @@ namespace Hyperlight
 
         public SandboxBuilder WithCorrelationId(string correlationId)
         {
+            this.getCorrelationId = null;
             this.correlationId = correlationId;
+            return this;
+        }
+
+        public SandboxBuilder WithCorrelationId(Func<string> getCorrelationId)
+        {
+            this.correlationId = null;
+            this.getCorrelationId = getCorrelationId;
             return this;
         }
 
@@ -72,14 +81,15 @@ namespace Hyperlight
             }
 
             return new Sandbox(
-                this.guestBinaryPath,
-                runOpts,
-                this.initFunction,
-                this.writer,
-                this.correlationId,
-                this.errorMessageLogger,
-                this.config
-            );
+                   this.guestBinaryPath,
+                   runOpts,
+                   this.initFunction,
+                   this.writer,
+                   this.correlationId,
+                   this.errorMessageLogger,
+                   this.config,
+                   this.getCorrelationId
+               );
         }
 
     }

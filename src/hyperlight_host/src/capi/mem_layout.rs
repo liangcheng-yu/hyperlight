@@ -2,29 +2,27 @@ use super::context::{Context, ERR_NULL_CONTEXT};
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::Addr;
-use crate::mem::layout::SandboxMemoryLayout;
+use crate::mem::{config::SandboxMemoryConfiguration, layout::SandboxMemoryLayout};
 use crate::{validate_context, validate_context_or_panic};
+use anyhow::anyhow;
 
 mod impls {
-    use crate::capi::context::Context;
     use crate::capi::guest_mem::get_guest_memory_mut;
     use crate::capi::handle::Handle;
     use crate::capi::hdl::Hdl;
-    use crate::capi::mem_config::get_mem_config;
     use crate::capi::Addr;
     use crate::mem::layout::SandboxMemoryLayout;
+    use crate::{capi::context::Context, mem::config::SandboxMemoryConfiguration};
     use anyhow::{anyhow, Result};
 
     pub fn new(
-        ctx: &mut Context,
-        mem_cfg_ref: Handle,
+        mem_cfg: SandboxMemoryConfiguration,
         code_size: usize,
         stack_size: usize,
         heap_size: usize,
     ) -> Result<SandboxMemoryLayout> {
-        let cfg = get_mem_config(ctx, mem_cfg_ref)?;
         Ok(SandboxMemoryLayout::new(
-            *cfg, code_size, stack_size, heap_size,
+            mem_cfg, code_size, stack_size, heap_size,
         ))
     }
 
@@ -72,8 +70,8 @@ mod impls {
     }
 }
 
-/// Create a new memory layout within `ctx` with the given parameters and return
-/// a reference to it.
+/// Creates a new memory layout within `ctx` with the given parameters and
+/// returns a reference to it.
 ///
 /// # Safety
 ///
@@ -82,14 +80,27 @@ mod impls {
 #[no_mangle]
 pub unsafe extern "C" fn mem_layout_new(
     ctx: *mut Context,
-    mem_cfg_ref: Handle,
+    mem_cfg: SandboxMemoryConfiguration,
     code_size: usize,
     stack_size: usize,
     heap_size: usize,
 ) -> Handle {
     validate_context!(ctx);
 
-    match impls::new(&mut *ctx, mem_cfg_ref, code_size, stack_size, heap_size) {
+    match std::panic::catch_unwind(|| {
+        let _ = mem_cfg.guest_error_message_size;
+        let _ = mem_cfg.host_function_definition_size;
+        let _ = mem_cfg.host_exception_size;
+        let _ = mem_cfg.input_data_size;
+        let _ = mem_cfg.output_data_size;
+    }) {
+        Ok(_) => (),
+        Err(_) => {
+            return (*ctx).register_err(anyhow!("SandboxMemoryConfiguration struct is invalid"))
+        }
+    };
+
+    match impls::new(mem_cfg, code_size, stack_size, heap_size) {
         Ok(layout) => Context::register(layout, &mut (*ctx).mem_layouts, Hdl::MemLayout),
         Err(e) => (*ctx).register_err(e),
     }

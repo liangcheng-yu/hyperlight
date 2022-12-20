@@ -12,13 +12,17 @@ MunitResult test_mem_layout_getters(void)
     static const size_t heap_size = 0x5000;
 
     struct Context *ctx = context_new();
-    struct Handle mem_cfg_ref = mem_config_new(ctx, 1, 2, 3, 4, 5);
-    struct Handle mem_layout_ref = mem_layout_new(ctx, mem_cfg_ref, code_size, stack_size, heap_size);
+    struct SandboxMemoryConfiguration mem_cfg = {
+        .guest_error_message_size = 1,
+        .host_function_definition_size = 2,
+        .input_data_size = 3,
+        .output_data_size = 4,
+        .host_exception_size = 5};
+    struct Handle mem_layout_ref = mem_layout_new(ctx, mem_cfg, code_size, stack_size, heap_size);
 
     RUN_TEST_USIZE(mem_layout_get_stack_size(ctx, mem_layout_ref), stack_size);
 
     handle_free(ctx, mem_layout_ref);
-    handle_free(ctx, mem_cfg_ref);
     context_free(ctx);
     return MUNIT_OK;
 }

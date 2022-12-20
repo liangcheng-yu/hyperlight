@@ -48,9 +48,9 @@ pub mod kvm;
 ///! C-compatible APi functions for manipulating memory access
 ///! handler callback functions
 pub mod mem_access_handler;
-///! C-compatible API functions to manage `SandboxMemoryConfiguration`
-///! structures.
-pub mod mem_config;
+///! C-compatible API functions to get basic information about
+///! memory configuration
+pub mod mem_cfg;
 ///! C-compatible API functions to manage `SandboxMemoryLayout`
 ///! structures.
 pub mod mem_layout;
