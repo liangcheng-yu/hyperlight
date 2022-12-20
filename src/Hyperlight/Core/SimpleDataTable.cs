@@ -43,7 +43,7 @@ namespace Hyperlight
             var ptrNew = IntPtr.Add(ptrCurrent, data.Length);
             if ((long)ptrNew > (long)ptrEnd)
             {
-                HyperlightException.LogAndThrowException("Reached end of Buffer", Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.LogAndThrowException("Reached end of Buffer", GetType().Name);
             }
 
             Marshal.Copy(data, 0, ptrCurrent, data.Length);

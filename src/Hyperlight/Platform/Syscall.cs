@@ -32,7 +32,7 @@ namespace Hyperlight.Native
             if (!checkRetVal(ret))
             {
                 int error = Marshal.GetLastPInvokeError();
-                HyperlightException.LogAndThrowException($"${opName}: Expected return value, got {ret} Pinvoke Last Error:{error}", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+                HyperlightException.LogAndThrowException($"${opName}: Expected return value, got {ret} Pinvoke Last Error:{error}", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             }
             return ret;
         }
@@ -59,7 +59,7 @@ namespace Hyperlight.Native
             var ret = fn();
             if (!checkRetVal(ret))
             {
-                HyperlightException.LogAndThrowException($"${opName}: Expected return value, got {ret}", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+                HyperlightException.LogAndThrowException($"${opName}: Expected return value, got {ret}", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             }
             return ret;
         }

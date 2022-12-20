@@ -114,13 +114,13 @@ namespace Hyperlight.Native
             }
             else
             {
-                HyperlightException.LogAndThrowException<NotSupportedException>($"Hyperlight is only supported on Windows and Linux", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+                HyperlightException.LogAndThrowException<NotSupportedException>($"Hyperlight is only supported on Windows and Linux", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             }
 
             if (IntPtr.Zero == memPtr)
             {
                 var err = Marshal.GetLastWin32Error();
-                HyperlightException.LogAndThrowException($"Failed to allocate memory. Error code: {err}", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+                HyperlightException.LogAndThrowException($"Failed to allocate memory. Error code: {err}", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             }
 
             return memPtr;
@@ -149,7 +149,7 @@ namespace Hyperlight.Native
             }
             else
             {
-                HyperlightException.LogAndThrowException<NotSupportedException>($"Hyperlight is only supported on Windows and Linux", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+                HyperlightException.LogAndThrowException<NotSupportedException>($"Hyperlight is only supported on Windows and Linux", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             }
         }
 
@@ -314,7 +314,7 @@ namespace Hyperlight.Native
                 int error;
                 if ((error = Marshal.GetLastPInvokeError()) != 0)
                 {
-                    HyperlightException.LogAndThrowException($"GetNativeSystemInfo:Pinvoke Last Error:{error}", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+                    HyperlightException.LogAndThrowException($"GetNativeSystemInfo:Pinvoke Last Error:{error}", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
                 }
 
                 pageSize = sysInfo.dwPageSize;
@@ -329,7 +329,7 @@ namespace Hyperlight.Native
             }
             else
             {
-                HyperlightException.LogAndThrowException<NotSupportedException>($"Hyperlight is only supported on Windows and Linux", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+                HyperlightException.LogAndThrowException<NotSupportedException>($"Hyperlight is only supported on Windows and Linux", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             }
 
             return pageSize;

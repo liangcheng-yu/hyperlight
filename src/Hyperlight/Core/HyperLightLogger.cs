@@ -51,39 +51,39 @@ namespace Hyperlight.Core
         [LoggerMessage(EventId = 7, Message = "ErrorMessage: {message} CorrelationId:{correlationId} Source: {source} HyperLightVersion: {version} Caller: {memberName} SourceFile: {sourceFilePath} Line: {sourceLineNumber:n0}", Level = LogLevel.Critical)]
         static partial void logCritical(ILogger logger, string message, string correlationId, string source, string version, string memberName, string sourceFilePath, int sourceLineNumber, Exception? ex = null);
 
-        public static void LogError(string message, string correlationId, string source, Exception? ex = null, [System.Runtime.CompilerServices.CallerMemberName] string memberName = "", [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0)
+        public static void LogError(string message, string source, Exception? ex = null, [System.Runtime.CompilerServices.CallerMemberName] string memberName = "", [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0)
         {
-            logError(logger, message, correlationId, source, version, memberName, sourceFilePath, sourceLineNumber, ex);
+            logError(logger, message, Sandbox.CorrelationId.Value!, source, version, memberName, sourceFilePath, sourceLineNumber, ex);
         }
 
-        public static void LogInformation(string message, string correlationId, string source, Exception? ex = null, [System.Runtime.CompilerServices.CallerMemberName] string memberName = "", [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0)
+        public static void LogInformation(string message, string source, Exception? ex = null, [System.Runtime.CompilerServices.CallerMemberName] string memberName = "", [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0)
         {
-            logInformation(logger, message, correlationId, source, version, memberName, sourceFilePath, sourceLineNumber, ex);
+            logInformation(logger, message, Sandbox.CorrelationId.Value!, source, version, memberName, sourceFilePath, sourceLineNumber, ex);
         }
 
-        public static void LogTrace(string message, string correlationId, string source, Exception? ex = null, [System.Runtime.CompilerServices.CallerMemberName] string memberName = "", [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0)
+        public static void LogTrace(string message, string source, Exception? ex = null, [System.Runtime.CompilerServices.CallerMemberName] string memberName = "", [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0)
         {
-            logTrace(logger, message, correlationId, source, version, memberName, sourceFilePath, sourceLineNumber, ex);
+            logTrace(logger, message, Sandbox.CorrelationId.Value!, source, version, memberName, sourceFilePath, sourceLineNumber, ex);
         }
 
-        public static void LogDebug(string message, string correlationId, string source, Exception? ex = null, [System.Runtime.CompilerServices.CallerMemberName] string memberName = "", [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0)
+        public static void LogDebug(string message, string source, Exception? ex = null, [System.Runtime.CompilerServices.CallerMemberName] string memberName = "", [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0)
         {
-            logDebug(logger, message, correlationId, source, version, memberName, sourceFilePath, sourceLineNumber, ex);
+            logDebug(logger, message, Sandbox.CorrelationId.Value!, source, version, memberName, sourceFilePath, sourceLineNumber, ex);
         }
 
-        public static void LogWarning(string message, string correlationId, string source, Exception? ex = null, [System.Runtime.CompilerServices.CallerMemberName] string memberName = "", [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0)
+        public static void LogWarning(string message, string source, Exception? ex = null, [System.Runtime.CompilerServices.CallerMemberName] string memberName = "", [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0)
         {
-            logWarning(logger, message, correlationId, source, version, memberName, sourceFilePath, sourceLineNumber, ex);
+            logWarning(logger, message, Sandbox.CorrelationId.Value!, source, version, memberName, sourceFilePath, sourceLineNumber, ex);
         }
 
-        public static void LogCritical(string message, string correlationId, string source, Exception? ex = null, [System.Runtime.CompilerServices.CallerMemberName] string memberName = "", [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0)
+        public static void LogCritical(string message, string source, Exception? ex = null, [System.Runtime.CompilerServices.CallerMemberName] string memberName = "", [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0)
         {
-            logCritical(logger, message, correlationId, source, version, memberName, sourceFilePath, sourceLineNumber, ex);
+            logCritical(logger, message, Sandbox.CorrelationId.Value!, source, version, memberName, sourceFilePath, sourceLineNumber, ex);
         }
 
-        public static void Log(LogLevel level, string message, string correlationId, string source, Exception? ex = null, [System.Runtime.CompilerServices.CallerMemberName] string memberName = "", [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0)
+        public static void Log(LogLevel level, string message, string source, Exception? ex = null, [System.Runtime.CompilerServices.CallerMemberName] string memberName = "", [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "", [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0)
         {
-            log(level, logger, message, correlationId, source, version, memberName, sourceFilePath, sourceLineNumber, ex);
+            log(level, logger, message, Sandbox.CorrelationId.Value!, source, version, memberName, sourceFilePath, sourceLineNumber, ex);
         }
     }
 }

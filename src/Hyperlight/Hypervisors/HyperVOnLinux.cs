@@ -87,7 +87,6 @@ namespace Hyperlight.Hypervisors
                 {
                     HyperlightException.LogAndThrowException<HyperVOnLinuxException>(
                         $"Failed setting RSP Error: {hdl.GetErrorMessage()}",
-                        Sandbox.CorrelationId.Value!,
                         GetType().Name
                     );
                 }

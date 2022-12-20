@@ -66,13 +66,13 @@ namespace Hyperlight
                     {
                         if (!ShouldExposeMember(fieldInfo.GetCustomAttribute<ExposeToGuestAttribute>(), exposeMembers))
                         {
-                            HyperlightLogger.LogInformation($"Skipping delegate {fieldInfo.Name} as it is excluded using ExposeToGuestAttribute.", Sandbox.CorrelationId.Value!, GetType().Name);
+                            HyperlightLogger.LogInformation($"Skipping delegate {fieldInfo.Name} as it is excluded using ExposeToGuestAttribute.", GetType().Name);
                             continue;
                         }
 
                         if (fieldInfo.GetValue(target) != null)
                         {
-                            HyperlightLogger.LogInformation($"Skipping delegate {fieldInfo.Name} as it has an implementation. Use the ExposeToGuestAttribute to explictly exclude this delegate", Sandbox.CorrelationId.Value!, GetType().Name);
+                            HyperlightLogger.LogInformation($"Skipping delegate {fieldInfo.Name} as it has an implementation. Use the ExposeToGuestAttribute to explictly exclude this delegate", GetType().Name);
                             continue;
                         }
                         CreateDymanicMethod(fieldInfo, target);
@@ -91,7 +91,7 @@ namespace Hyperlight
                 {
                     if (ShouldExposeMember(fieldInfo.GetCustomAttribute<ExposeToGuestAttribute>(), exposeMembers) && fieldInfo.GetValue(null) == null)
                     {
-                        HyperlightLogger.LogError($"Skipping delegate ${fieldInfo.Name} as it is static. Use ExposeToGuestAttribute[false] to exclude this member", Sandbox.CorrelationId.Value!, GetType().Name);
+                        HyperlightLogger.LogError($"Skipping delegate ${fieldInfo.Name} as it is static. Use ExposeToGuestAttribute[false] to exclude this member", GetType().Name);
                     }
                 }
             }
@@ -123,7 +123,7 @@ namespace Hyperlight
 
                 if (!MapHostFunctionNamesToMethodInfo.TryAdd(methodInfo.Name, new HostMethodInfo { methodInfo = methodInfo, target = target }))
                 {
-                    HyperlightLogger.LogWarning($"Updating MethodInfo for ${methodInfo.Name} - there are multiple host methods with the same name.", Sandbox.CorrelationId.Value!, GetType().Name);
+                    HyperlightLogger.LogWarning($"Updating MethodInfo for ${methodInfo.Name} - there are multiple host methods with the same name.", GetType().Name);
                     MapHostFunctionNamesToMethodInfo[methodInfo.Name] = new HostMethodInfo { methodInfo = methodInfo, target = target };
                 }
             }
@@ -208,12 +208,12 @@ namespace Hyperlight
 
                 il.Emit(OpCodes.Ldarg_0);
                 var updateCorrelationId = typeof(GuestInterfaceGlue).GetMethod("UpdateCorrelationId", BindingFlags.NonPublic | BindingFlags.Instance);
-                HyperlightException.ThrowIfNull(updateCorrelationId, nameof(updateCorrelationId), Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.ThrowIfNull(updateCorrelationId, nameof(updateCorrelationId), GetType().Name);
                 il.Emit(OpCodes.Callvirt, updateCorrelationId);
 
                 il.Emit(OpCodes.Ldarg_0);
                 var enterDynamicMethod = typeof(GuestInterfaceGlue).GetMethod("EnterDynamicMethod", BindingFlags.NonPublic | BindingFlags.Instance);
-                HyperlightException.ThrowIfNull(enterDynamicMethod, nameof(enterDynamicMethod), Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.ThrowIfNull(enterDynamicMethod, nameof(enterDynamicMethod), GetType().Name);
                 il.Emit(OpCodes.Callvirt, enterDynamicMethod);
                 il.Emit(OpCodes.Stloc_0);
 
@@ -227,7 +227,7 @@ namespace Hyperlight
                 il.Emit(OpCodes.Brfalse, noreset);
                 il.Emit(OpCodes.Ldarg_0);
                 var resetState = typeof(GuestInterfaceGlue).GetMethod("ResetState", BindingFlags.NonPublic | BindingFlags.Instance);
-                HyperlightException.ThrowIfNull(resetState, nameof(resetState), Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.ThrowIfNull(resetState, nameof(resetState), GetType().Name);
                 il.Emit(OpCodes.Callvirt, resetState);
                 il.MarkLabel(noreset);
 
@@ -278,7 +278,7 @@ namespace Hyperlight
                 // Create object[] with a length equal to the number of parameters in the delegate
                 if (parameters.Length > 255)
                 {
-                    HyperlightException.LogAndThrowException($"Hyperlight does not support calling a function with more than 255 parameters", Sandbox.CorrelationId.Value!, GetType().Name);
+                    HyperlightException.LogAndThrowException($"Hyperlight does not support calling a function with more than 255 parameters", GetType().Name);
                 }
 
                 EmitLoadInt((byte)parameters.Length);
@@ -324,7 +324,7 @@ namespace Hyperlight
 
                 // Emit call to DispatchCallFromHost
                 var dispatchCallFromHost = typeof(GuestInterfaceGlue).GetMethod("DispatchCallFromHost", BindingFlags.NonPublic | BindingFlags.Instance);
-                HyperlightException.ThrowIfNull(dispatchCallFromHost, nameof(dispatchCallFromHost), Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.ThrowIfNull(dispatchCallFromHost, nameof(dispatchCallFromHost), GetType().Name);
                 il.EmitCall(OpCodes.Callvirt, dispatchCallFromHost, null);
 
                 // See if we need to unbox
@@ -346,7 +346,7 @@ namespace Hyperlight
                 // The argument is the return value from EnterDynamicMethod which is stored in the second variable declared above
                 il.Emit(OpCodes.Ldloc_0);
                 var exitDynamicMethod = typeof(GuestInterfaceGlue).GetMethod("ExitDynamicMethod", BindingFlags.NonPublic | BindingFlags.Instance);
-                HyperlightException.ThrowIfNull(exitDynamicMethod, nameof(exitDynamicMethod), Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.ThrowIfNull(exitDynamicMethod, nameof(exitDynamicMethod), GetType().Name);
                 il.Emit(OpCodes.Callvirt, exitDynamicMethod);
 
                 il.EndExceptionBlock();
@@ -370,12 +370,12 @@ namespace Hyperlight
             var fieldInfo = instance.GetType().GetField(memberName, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
             if (fieldInfo == null || fieldInfo.FieldType.BaseType != typeof(MulticastDelegate))
             {
-                HyperlightException.LogAndThrowException<ArgumentException>($"Hyperlight does not support binding a function to a non-delegate field, {memberName} is not a delegate.", Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.LogAndThrowException<ArgumentException>($"Hyperlight does not support binding a function to a non-delegate field, {memberName} is not a delegate.", GetType().Name);
             }
 
             if (fieldInfo.GetValue(instance) != null)
             {
-                HyperlightException.LogAndThrowException<ArgumentException>($"Hyperlight does not support binding a function to a delegate field that is already bound, {memberName} is already bound.", Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.LogAndThrowException<ArgumentException>($"Hyperlight does not support binding a function to a delegate field that is already bound, {memberName} is already bound.", GetType().Name);
             }
 
             CreateDymanicMethod(fieldInfo, instance);
@@ -386,7 +386,7 @@ namespace Hyperlight
             var methodInfo = instance.GetType().GetMethod(methodName, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
             if (methodInfo == null)
             {
-                HyperlightException.LogAndThrowException<ArgumentException>($"{methodName} not found.", Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.LogAndThrowException<ArgumentException>($"{methodName} not found.", GetType().Name);
             }
             ExposeHostMethod(methodInfo, instance);
         }
@@ -396,7 +396,7 @@ namespace Hyperlight
             var methodInfo = type.GetMethod(methodName, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
             if (methodInfo == null)
             {
-                HyperlightException.LogAndThrowException<ArgumentException>($"{methodName} not found.", Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.LogAndThrowException<ArgumentException>($"{methodName} not found.", GetType().Name);
             }
             ExposeHostMethod(methodInfo);
         }
@@ -407,7 +407,7 @@ namespace Hyperlight
         {
             if (!MapHostFunctionNamesToMethodInfo.ContainsKey(functionName))
             {
-                HyperlightException.LogAndThrowException($"Host Function {functionName} not found.", Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.LogAndThrowException($"Host Function {functionName} not found.", GetType().Name);
             }
 
             var hostMethodInfo = MapHostFunctionNamesToMethodInfo[functionName];
@@ -416,7 +416,7 @@ namespace Hyperlight
             var parameters = hostMethodInfo.methodInfo.GetParameters();
             if (parameters.Length != args.Length)
             {
-                HyperlightException.LogAndThrowException($"Passed wrong number of arguments for Function {functionName}. Expected {parameters.Length} Passed {args.Length}", Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.LogAndThrowException($"Passed wrong number of arguments for Function {functionName}. Expected {parameters.Length} Passed {args.Length}", GetType().Name);
             }
 
             for (var i = 0; i < parameters.Length; i++)
@@ -426,7 +426,7 @@ namespace Hyperlight
                 // We could make this more relaxed in the future
                 if (!parameters[i].ParameterType.IsAssignableFrom(args[i].GetType()))
                 {
-                    HyperlightException.LogAndThrowException($"Passed argument that is not assignable to the expected type for Function {functionName} Parameter Number {i} - Expected {parameters[i].ParameterType} Passed {args[i].GetType()}", Sandbox.CorrelationId.Value!, GetType().Name);
+                    HyperlightException.LogAndThrowException($"Passed argument that is not assignable to the expected type for Function {functionName} Parameter Number {i} - Expected {parameters[i].ParameterType} Passed {args[i].GetType()}", GetType().Name);
                 }
             }
 
@@ -448,13 +448,13 @@ namespace Hyperlight
         // Throws exception if not supported.  Note that void is supported as a return type
         static void ValidateMethodSupported(MethodInfo? methodInfo)
         {
-            HyperlightException.ThrowIfNull(methodInfo, nameof(methodInfo), Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+            HyperlightException.ThrowIfNull(methodInfo, nameof(methodInfo), MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             var parameters = methodInfo.GetParameters();
 
             // Currently we only support up to 10 parameters
             if (parameters.Length > Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS)
             {
-                HyperlightException.LogAndThrowException($"Method {methodInfo.Name} has too many parameters. Maximum of {Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS} allowed", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+                HyperlightException.LogAndThrowException($"Method {methodInfo.Name} has too many parameters. Maximum of {Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS} allowed", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             }
 
             // Check if each parameter is a supported type
@@ -462,14 +462,14 @@ namespace Hyperlight
             {
                 if (!supportedParameterAndReturnTypes.Contains(parameter.ParameterType))
                 {
-                    HyperlightException.LogAndThrowException($"Unsupported Paramter Type {parameter.ParameterType} on parameter {parameter.Name} method {methodInfo.Name}", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+                    HyperlightException.LogAndThrowException($"Unsupported Paramter Type {parameter.ParameterType} on parameter {parameter.Name} method {methodInfo.Name}", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
                 }
             }
 
             // Check if return value is a supported type of 'void'
             if (!(methodInfo.ReturnType == typeof(void)) && !supportedParameterAndReturnTypes.Contains(methodInfo.ReturnType))
             {
-                HyperlightException.LogAndThrowException($"Unsupported Return Type {methodInfo.ReturnType} on method {methodInfo.Name}", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+                HyperlightException.LogAndThrowException($"Unsupported Return Type {methodInfo.ReturnType} on method {methodInfo.Name}", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             }
         }
     }

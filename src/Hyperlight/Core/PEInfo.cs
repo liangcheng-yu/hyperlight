@@ -72,7 +72,7 @@ namespace Hyperlight
             }
             else
             {
-                HyperlightException.LogAndThrowException<ArgumentException>($"File {guestBinaryPath} is not a PE File", Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.LogAndThrowException<ArgumentException>($"File {guestBinaryPath} is not a PE File", GetType().Name);
             }
 
             var e_lfanew = BitConverter.ToInt32(Payload, ELFANEW_OFFSET);
@@ -80,7 +80,7 @@ namespace Hyperlight
             // Validate that this is an x64 binary.
             if (machineType != IMAGE_FILE_MACHINE_AMD64)
             {
-                HyperlightException.LogAndThrowException<ArgumentException>($"File {guestBinaryPath} is not a x64 File", Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.LogAndThrowException<ArgumentException>($"File {guestBinaryPath} is not a x64 File", GetType().Name);
             }
 
             var characteristics = BitConverter.ToUInt16(Payload, e_lfanew + IMAGE_CHARACTERISTCS_OFFSET);
@@ -88,19 +88,19 @@ namespace Hyperlight
             // validate that this is an exe and is not forced to load at its preferred base address.
             if (!imageFileCharacteristics.HasFlag(ImageFileCharacteristics.EXECUTABLEIMAGE))
             {
-                HyperlightException.LogAndThrowException<ArgumentException>($"File {guestBinaryPath} is not an executable image", Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.LogAndThrowException<ArgumentException>($"File {guestBinaryPath} is not an executable image", GetType().Name);
             }
 
             if (imageFileCharacteristics.HasFlag(ImageFileCharacteristics.RELOCSSTRIPPED))
             {
-                HyperlightException.LogAndThrowException<ArgumentException>($"File {guestBinaryPath} should not be force to load at fixed address", Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.LogAndThrowException<ArgumentException>($"File {guestBinaryPath} should not be force to load at fixed address", GetType().Name);
             }
 
             // validate that the magic number is 0x20b - this should be a PE32+ file.
             var magicNumber = BitConverter.ToInt16(Payload, e_lfanew + IMAGE_MAGICNUMBER_OFFSET);
             if (magicNumber != IMAGE_PE32PLUS)
             {
-                HyperlightException.LogAndThrowException<ArgumentException>($"File {guestBinaryPath} is not a PE32+ formatted file", Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.LogAndThrowException<ArgumentException>($"File {guestBinaryPath} is not a PE32+ formatted file", GetType().Name);
             }
 
             StackReserve = BitConverter.ToInt64(Payload, e_lfanew + IMAGE_STACK_RESERVE);
@@ -214,7 +214,7 @@ namespace Hyperlight
                         // IMAGE_REL_BASED_ABSOLUTE is padding at end of block, the last block is empty.
                         if ((ImageRel)relocType != ImageRel.ABSOLUTE)
                         {
-                            HyperlightException.LogAndThrowException($"Unexpected reloc type: {relocType}", Sandbox.CorrelationId.Value!, GetType().Name);
+                            HyperlightException.LogAndThrowException($"Unexpected reloc type: {relocType}", GetType().Name);
                         }
                     }
                 }

@@ -99,7 +99,7 @@ namespace Hyperlight.Hypervisors
                 var error = Marshal.GetLastWin32Error();
                 if (error != 0)
                 {
-                    HyperlightException.LogAndThrowException("Failed to create Hyperlight Surrogate process", Sandbox.CorrelationId.Value!, GetType().Name);
+                    HyperlightException.LogAndThrowException("Failed to create Hyperlight Surrogate process", GetType().Name);
                 }
 
                 var safeProcessHandle = new SafeProcessHandle(pi.hProcess, true);

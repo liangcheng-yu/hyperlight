@@ -28,7 +28,7 @@ namespace Hyperlight.Wrapper
             CorrelationId = correlationId;
             if (ctx == IntPtr.Zero)
             {
-                HyperlightException.LogAndThrowException<HyperlightException>("Invalid, empty context passed to Context constructor", correlationId, GetType().Name);
+                HyperlightException.LogAndThrowException<HyperlightException>("Invalid, empty context passed to Context constructor", GetType().Name);
             }
 
             this.ctx = ctx;

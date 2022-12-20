@@ -83,7 +83,7 @@ namespace Hyperlight.Hypervisors
                     int error = Marshal.GetLastWin32Error();
                     if (error != 0)
                     {
-                        HyperlightException.LogAndThrowException($"WriteProcessMemory Error: {error}", Sandbox.CorrelationId.Value!, GetType().Name);
+                        HyperlightException.LogAndThrowException($"WriteProcessMemory Error: {error}", GetType().Name);
                     }
                 }
                 WindowsHypervisorPlatform.WHvRunVirtualProcessor(hPartition, 0, out exitContext, (uint)Marshal.SizeOf<WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_CONTEXT>());
@@ -92,7 +92,7 @@ namespace Hyperlight.Hypervisors
                     int error = Marshal.GetLastWin32Error();
                     if (error != 0)
                     {
-                        HyperlightException.LogAndThrowException($"ReadProcessMemory Error: {error}", Sandbox.CorrelationId.Value!, GetType().Name);
+                        HyperlightException.LogAndThrowException($"ReadProcessMemory Error: {error}", GetType().Name);
                     }
                 }
 
@@ -139,7 +139,7 @@ namespace Hyperlight.Hypervisors
                 context.AppendLine($"{registerNames[i]} - {v2[i].low:X16}");
 #pragma warning restore CA1305 // Specify IFormatProvider
             }
-            HyperlightException.LogAndThrowException(context.ToString(), Sandbox.CorrelationId.Value!, GetType().Name);
+            HyperlightException.LogAndThrowException(context.ToString(), GetType().Name);
         }
 
         internal override void ResetRSP(ulong rsp)

@@ -58,12 +58,11 @@ namespace Hyperlight.Wrapper
             bool checkErr = false
         )
         {
-            HyperlightException.ThrowIfNull(ctx, Sandbox.CorrelationId.Value!, GetType().Name);
+            HyperlightException.ThrowIfNull(ctx, GetType().Name);
             if (Zero == hdl)
             {
                 HyperlightException.LogAndThrowException(
                     "Handle wrapper created with empty handle",
-                    Sandbox.CorrelationId.Value!,
                     this.GetType().Name);
             }
             this.ctx = ctx;
@@ -89,7 +88,7 @@ namespace Hyperlight.Wrapper
         /// </returns>
         public static Handle NewError(Context ctx, String errMsg)
         {
-            HyperlightException.ThrowIfNull(ctx, Sandbox.CorrelationId.Value!, Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+            HyperlightException.ThrowIfNull(ctx, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             var barr = Encoding.Default.GetBytes(errMsg);
             Array.Resize(ref barr, barr.Length + 1);
             barr[barr.Length - 1] = (byte)'\0';
@@ -114,7 +113,7 @@ namespace Hyperlight.Wrapper
         /// </returns>
         public static Handle NewInt32(Context ctx, int val)
         {
-            HyperlightException.ThrowIfNull(ctx, Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+            HyperlightException.ThrowIfNull(ctx, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             var rawHdl = int_32_new(ctx.ctx, val);
             return new Handle(ctx, rawHdl);
         }
@@ -136,7 +135,7 @@ namespace Hyperlight.Wrapper
         /// </returns>
         public static Handle NewInt64(Context ctx, long val)
         {
-            HyperlightException.ThrowIfNull(ctx, Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+            HyperlightException.ThrowIfNull(ctx, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             var rawHdl = int_64_new(ctx.ctx, val);
             return new Handle(ctx, rawHdl);
         }

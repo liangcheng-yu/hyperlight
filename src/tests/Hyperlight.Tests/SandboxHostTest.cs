@@ -145,7 +145,7 @@ namespace Hyperlight.Tests
             public Func<string, int>? CallErrorMethod;
             public int ErrorMethod(string msg)
             {
-                throw new HyperlightException(HyperlightException.GetExceptionMessage(msg, Sandbox.CorrelationId.Value!, GetType().Name));
+                throw new HyperlightException(HyperlightException.GetExceptionMessage(msg, GetType().Name));
             }
         }
 

@@ -228,7 +228,7 @@ namespace Hyperlight.Wrapper
             );
             if (memSize == 0)
             {
-                HyperlightException.LogAndThrowException("Memory requested exceeds maximum size allowed", Sandbox.CorrelationId.Value!, GetType().Name);
+                HyperlightException.LogAndThrowException("Memory requested exceeds maximum size allowed", GetType().Name);
             }
         }
 

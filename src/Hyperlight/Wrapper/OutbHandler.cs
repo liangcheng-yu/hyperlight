@@ -29,13 +29,11 @@ namespace Hyperlight.Wrapper
             HyperlightException.ThrowIfNull(
                 ctx,
                 nameof(ctx),
-                Sandbox.CorrelationId.Value!,
                 GetType().Name
             );
             HyperlightException.ThrowIfNull(
                 handlerFn,
                 nameof(handlerFn),
-                Sandbox.CorrelationId.Value!,
                 GetType().Name
             );
             // we need to wrap our handleFn -- which is an Action<T1, T2>

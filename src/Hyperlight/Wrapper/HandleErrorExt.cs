@@ -12,7 +12,6 @@ namespace Hyperlight.Wrapper
         {
             HyperlightException.ThrowIfNull(
                 hdl,
-                Sandbox.CorrelationId.Value!,
                 MethodBase.GetCurrentMethod()!.DeclaringType!.Name
             );
             ThrowIfError(hdl.ctx, hdl.handle);
@@ -28,7 +27,6 @@ namespace Hyperlight.Wrapper
         {
             HyperlightException.ThrowIfNull(
                 ctx,
-                Sandbox.CorrelationId.Value!,
                 MethodBase.GetCurrentMethod()!.DeclaringType!.Name
             );
             if (Handle.IsError(hdl))
@@ -37,7 +35,6 @@ namespace Hyperlight.Wrapper
                     var errMsg = GetErrorMessage(ctx, hdl);
                     HyperlightException.LogAndThrowException(
                         errMsg,
-                        Sandbox.CorrelationId.Value!,
                         MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
                 }
             }
@@ -64,7 +61,6 @@ namespace Hyperlight.Wrapper
             HyperlightException.ThrowIfNull(
                 hdl,
                 nameof(hdl),
-                Sandbox.CorrelationId.Value!,
                 "GetErrorMessage"
             );
             return GetErrorMessage(hdl.ctx, hdl.handle, defaultErrMsg);
@@ -78,14 +74,12 @@ namespace Hyperlight.Wrapper
             HyperlightException.ThrowIfNull(
                 hdl,
                 nameof(hdl),
-                Sandbox.CorrelationId.Value!,
                 "GetErrorMessage"
             );
             if (!Handle.IsError(hdl))
             {
                 HyperlightException.LogAndThrowException(
                     "attempted to get error string of a non-error Handle",
-                    Sandbox.CorrelationId.Value!,
                     MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             }
             var msgPtr = handle_get_error_message(ctx.ctx, hdl);

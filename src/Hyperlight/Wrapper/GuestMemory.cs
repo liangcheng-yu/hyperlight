@@ -110,7 +110,7 @@ namespace Hyperlight.Wrapper
             IntPtr offset
         )
         {
-            HyperlightException.ThrowIfNull(arr, Sandbox.CorrelationId.Value!, GetType().Name);
+            HyperlightException.ThrowIfNull(arr, GetType().Name);
 
             using var barr = new ByteArray(this.ctxWrapper, arr);
             this.CopyFromByteArray(
@@ -126,7 +126,7 @@ namespace Hyperlight.Wrapper
             ulong offset
         )
         {
-            HyperlightException.ThrowIfNull(arr, Sandbox.CorrelationId.Value!, GetType().Name);
+            HyperlightException.ThrowIfNull(arr, GetType().Name);
 
             var rawHdl = guest_memory_copy_to_byte_array(
                 this.ctxWrapper.ctx,
@@ -156,7 +156,7 @@ namespace Hyperlight.Wrapper
             ulong arrLength
         )
         {
-            HyperlightException.ThrowIfNull(arr, Sandbox.CorrelationId.Value!, GetType().Name);
+            HyperlightException.ThrowIfNull(arr, GetType().Name);
 
             var rawHdl = guest_memory_copy_from_byte_array(
                 this.ctxWrapper.ctx,

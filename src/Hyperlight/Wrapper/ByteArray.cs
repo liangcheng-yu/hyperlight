@@ -15,7 +15,7 @@ namespace Hyperlight.Wrapper
             byte[] arr
         )
         {
-            HyperlightException.ThrowIfNull(arr, Sandbox.CorrelationId.Value!, GetType().Name);
+            HyperlightException.ThrowIfNull(arr, GetType().Name);
 
             this.ctxWrapper = ctx;
             unsafe

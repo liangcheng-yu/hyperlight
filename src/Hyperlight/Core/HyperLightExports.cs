@@ -26,7 +26,7 @@ namespace Hyperlight.Core
             //TODO: This should be implemented for Linux if we re-enable in process support on Linux.
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                HyperlightException.LogAndThrowException<NotSupportedException>($"Hyperlight only supports in process execution on Windows.", Sandbox.CorrelationId.Value!, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+                HyperlightException.LogAndThrowException<NotSupportedException>($"Hyperlight only supports in process execution on Windows.", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             }
 
             // This implementation mirrors the implementation in WAMR at 

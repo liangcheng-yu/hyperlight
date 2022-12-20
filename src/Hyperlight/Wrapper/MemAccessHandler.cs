@@ -15,13 +15,11 @@ namespace Hyperlight.Wrapper
             HyperlightException.ThrowIfNull(
                 ctx,
                 nameof(ctx),
-                Sandbox.CorrelationId.Value!,
                 GetType().Name
             );
             HyperlightException.ThrowIfNull(
                 handlerFn,
                 nameof(handlerFn),
-                Sandbox.CorrelationId.Value!,
                 GetType().Name
             );
 
