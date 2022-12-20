@@ -33,6 +33,7 @@ namespace Hyperlight
     {
         public static AsyncLocal<string> CorrelationId { get; } = new AsyncLocal<string>();
         readonly Context context;
+        readonly string? fixedCorrelationId;
         static readonly object peInfoLock = new();
         static readonly ConcurrentDictionary<string, PEInfo> guestPEInfo = new(StringComparer.InvariantCultureIgnoreCase);
         static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
@@ -82,6 +83,8 @@ namespace Hyperlight
 
         int countRunCalls;
 
+        readonly Func<string> GetCorrelationId;
+
         /// <summary>
         /// Returns the maximum number of partitions per process, on windows its the mximum number of processes that can be handled by the HyperVSurrogateProcessManager , on Linux its not fixed and dependent on resources.
         /// </summary>
@@ -114,6 +117,9 @@ namespace Hyperlight
         /// <param name="sandboxMemoryConfiguration">
         /// Optional memory configuration with which to create this sandbox
         /// </param>
+        /// <param name="getCorrelationIdFunc">
+        /// Optional function called by the Sandbox to get the correlationId
+        /// </param>
         /// <exception cref="PlatformNotSupportedException">
         /// If a sandbox is constructed on a platform on which it 
         /// can't currently run
@@ -132,16 +138,24 @@ namespace Hyperlight
             StringWriter? writer = null,
             string? correlationId = null,
             ILogger? errorMessageLogger = null,
-            SandboxMemoryConfiguration? sandboxMemoryConfiguration = null
+            SandboxMemoryConfiguration? sandboxMemoryConfiguration = null,
+            Func<string>? getCorrelationIdFunc = null
         )
         {
-            if (string.IsNullOrEmpty(correlationId))
+            if (!string.IsNullOrEmpty(correlationId))
             {
-                correlationId = Guid.NewGuid().ToString("N");
+                fixedCorrelationId = correlationId;
             }
-            CorrelationId.Value = correlationId;
+
+            // Set the function to get the correlationId to the one that was provided , if this is null then use the default function
+
+            GetCorrelationId = getCorrelationIdFunc ?? GetDefaultCorrelationId;
+
+            // Use the function to get the correlationId
+
+            UpdateCorrelationId();
             var memCfg = sandboxMemoryConfiguration ?? new SandboxMemoryConfiguration();
-            this.context = new Context(correlationId);
+            this.context = new Context(CorrelationId.Value!);
 
             if (!IsSupportedPlatform)
             {
@@ -211,6 +225,34 @@ namespace Hyperlight
 
         }
 
+        // Default function to get a correlationid ,if a correlationId was provided in the constructor
+        // then use it otherwise generate a new one for each invocation of the function.
+        string GetDefaultCorrelationId()
+        {
+            return fixedCorrelationId ?? Guid.NewGuid().ToString("N");
+        }
+
+        // Update the correlationId if the function provided  returns null or throws an exception then use the default function.
+        internal void UpdateCorrelationId()
+        {
+            string result;
+            try
+            {
+                result = GetCorrelationId() ?? GetDefaultCorrelationId();
+            }
+#pragma warning disable CA1031 // Intentional to catch alll exceptions here as we dont want to crash just because we cannot get a correlationId from the function.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                result = GetDefaultCorrelationId();
+                HyperlightLogger.LogError($"Exception thrown tyring to get new CorrelationId {ex.GetType().Name} {ex.Message}", result, nameof(GetCorrelationId));
+            }
+            if (this.context != null && this.context.CorrelationId != result)
+            {
+                this.context.CorrelationId = result;
+            }
+            CorrelationId.Value = result;
+        }
         internal object DispatchCallFromHost(string functionName, object[] args)
         {
             var pDispatchFunction = sandboxMemoryManager.GetPointerToDispatchFunction();

@@ -345,8 +345,52 @@ namespace Hyperlight.Tests
             var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
             var message = "This is a test log message";
             var source = "SandboxHostTest";
+
             foreach (var option in options)
             {
+                // If no correlationId or function is provided then the correlationId should change with each invocation.
+
+                foreach (var logLevel in Enum.GetValues(typeof(LogLevel)))
+                {
+                    var logFunctions = new LoggingTests();
+                    var mockLogger = new Mock<ILogger>();
+                    mockLogger.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+                    var builder = new SandboxBuilder()
+                        .WithConfig(GetSandboxMemoryConfiguration())
+                        .WithRunOptions(option)
+                        .WithGuestBinaryPath(guestBinaryPath)
+                        .WithErrorMessageLogger(mockLogger.Object);
+                    using (var sandbox = builder.Build())
+                    {
+                        sandbox.BindGuestFunction("LogMessage", logFunctions);
+                        logFunctions.LogMessage!(message, source, (int)logLevel);
+                        var correlationId = Sandbox.CorrelationId.Value;
+                        mockLogger.Verify(
+                            l => l.Log<It.IsAnyType>(
+                                (LogLevel)logLevel,
+                                It.IsAny<EventId>(),
+                                It.Is<It.IsAnyType>((v, t) => v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationId} Source: {source}")),
+                                null,
+                                It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                                Times.Once);
+                        if (option.HasFlag(SandboxRunOptions.RecycleAfterRun))
+                        {
+                            logFunctions.LogMessage!(message, source, (int)logLevel);
+                            correlationId = Sandbox.CorrelationId.Value;
+                            mockLogger.Verify(
+                                l => l.Log<It.IsAnyType>(
+                                    (LogLevel)logLevel,
+                                    It.IsAny<EventId>(),
+                                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationId} Source: {source}")),
+                                    null,
+                                    It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                                    Times.Once);
+                        }
+                    }
+                }
+
+                // If a correlationId provided then the correlationId should always be used;
+
                 foreach (var logLevel in Enum.GetValues(typeof(LogLevel)))
                 {
                     var logFunctions = new LoggingTests();
@@ -370,7 +414,305 @@ namespace Hyperlight.Tests
                                 It.Is<It.IsAnyType>((v, t) => v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationId} Source: {source}")),
                                 null,
                                 It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                                Times.Once);
+                        if (option.HasFlag(SandboxRunOptions.RecycleAfterRun))
+                        {
+                            logFunctions.LogMessage!(message, source, (int)logLevel);
+                            mockLogger.Verify(
+                                l => l.Log<It.IsAnyType>(
+                                    (LogLevel)logLevel,
+                                    It.IsAny<EventId>(),
+                                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationId} Source: {source}")),
+                                    null,
+                                    It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                                    Times.Exactly(2));
+                        }
+                    }
+                }
+
+                string correlationIdFromLocalFunc = string.Empty;
+                var callCount = 0;
+                var calledCount = 0;
+                string GetCorrelationId()
+                {
+                    calledCount++;
+                    correlationIdFromLocalFunc = Guid.NewGuid().ToString("N");
+                    return correlationIdFromLocalFunc;
+                }
+
+                // If a function is provided then the function should be called for each invocation.
+
+                foreach (var logLevel in Enum.GetValues(typeof(LogLevel)))
+                {
+                    var logFunctions = new LoggingTests();
+                    var mockLogger = new Mock<ILogger>();
+                    mockLogger.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+                    var builder = new SandboxBuilder()
+                        .WithConfig(GetSandboxMemoryConfiguration())
+                        .WithRunOptions(option)
+                        .WithGuestBinaryPath(guestBinaryPath)
+                        .WithCorrelationId(GetCorrelationId)
+                        .WithErrorMessageLogger(mockLogger.Object);
+                    using (var sandbox = builder.Build())
+                    {
+                        callCount++;
+                        Assert.Equal(callCount, calledCount);
+                        sandbox.BindGuestFunction("LogMessage", logFunctions);
+                        logFunctions.LogMessage!(message, source, (int)logLevel);
+                        callCount++;
+                        Assert.Equal(callCount, calledCount);
+                        mockLogger.Verify(
+                            l => l.Log<It.IsAnyType>(
+                                (LogLevel)logLevel,
+                                It.IsAny<EventId>(),
+                                It.Is<It.IsAnyType>((v, t) => v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationIdFromLocalFunc} Source: {source}")),
+                                null,
+                                It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                                Times.Once);
+                        if (option.HasFlag(SandboxRunOptions.RecycleAfterRun))
+                        {
+
+                            logFunctions.LogMessage!(message, source, (int)logLevel);
+                            callCount++;
+                            Assert.Equal(callCount, calledCount);
+                            mockLogger.Verify(
+                                l => l.Log<It.IsAnyType>(
+                                    (LogLevel)logLevel,
+                                    It.IsAny<EventId>(),
+                                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationIdFromLocalFunc} Source: {source}")),
+                                    null,
+                                    It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                                    Times.Once);
+                        }
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_Error_Logging_Cross_ExecutionContext()
+        {
+            var options = GetSandboxRunOptions();
+            var path = AppDomain.CurrentDomain.BaseDirectory;
+            var guestBinaryFileName = "callbackguest.exe";
+            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var message = "This is a test log message";
+            var source = "SandboxHostTest";
+            foreach (var option in options)
+            {
+                // If no correlationId or function is provided then a new one is generated for each invocation.
+
+                foreach (var logLevel in Enum.GetValues(typeof(LogLevel)))
+                {
+                    var correlationId1 = string.Empty;
+                    var correlationId2 = string.Empty;
+                    var logFunctions = new LoggingTests();
+                    var mockLogger = new Mock<ILogger>();
+                    mockLogger.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+                    var builder = new SandboxBuilder()
+                        .WithRunOptions(option)
+                        .WithGuestBinaryPath(guestBinaryPath)
+                        .WithErrorMessageLogger(mockLogger.Object);
+                    using (var sandbox = builder.Build())
+                    {
+                        sandbox.BindGuestFunction("LogMessage", logFunctions);
+                        Exception? threadTestException = null;
+
+                        // Make sure that CorrelationId is correct after a call on a different thread with a different execution context from the one that constructed the Sandbox
+                        void threadStart1()
+                        {
+                            threadTestException = Record.Exception(() =>
+                            {
+                                logFunctions.LogMessage!(message, source, (int)logLevel);
+                                correlationId1 = Sandbox.CorrelationId.Value;
+                            });
+                        }
+
+                        var thread = new Thread(threadStart1);
+
+                        // UnsafeStart causes the thread to start without flowing the ExecutionContext from the current thread.
+
+                        thread.UnsafeStart();
+                        thread.Join();
+                        Assert.Null(threadTestException);
+                        mockLogger.Verify(
+                        l => l.Log<It.IsAnyType>(
+                            (LogLevel)logLevel,
+                            It.IsAny<EventId>(),
+                            It.Is<It.IsAnyType>((v, t) =>
+                                v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationId1} Source: {source}")
+                            ),
+                            null,
+                            It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
                             Times.Once);
+
+                        if (option.HasFlag(SandboxRunOptions.RecycleAfterRun))
+                        {
+                            void threadStart2()
+                            {
+                                threadTestException = Record.Exception(() =>
+                                {
+                                    logFunctions.LogMessage!(message, source, (int)logLevel);
+                                    correlationId2 = Sandbox.CorrelationId.Value;
+                                });
+                            }
+                            thread = new Thread(threadStart2);
+                            thread.UnsafeStart();
+                            thread.Join();
+                            Assert.Null(threadTestException);
+                            mockLogger.Verify(
+                                l => l.Log<It.IsAnyType>(
+                                    (LogLevel)logLevel,
+                                    It.IsAny<EventId>(),
+                                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationId2} Source: {source}")),
+                                    null,
+                                    It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                                    Times.Once);
+                        }
+                    }
+                }
+
+                // If a correlationId is provided in the constructor then the value should always be used for the correlationId for the life of the Sandbox.
+                foreach (var logLevel in Enum.GetValues(typeof(LogLevel)))
+                {
+                    var correlationId = Guid.NewGuid().ToString("N");
+                    var logFunctions = new LoggingTests();
+                    var mockLogger = new Mock<ILogger>();
+                    mockLogger.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+                    var builder = new SandboxBuilder()
+                        .WithCorrelationId(correlationId)
+                        .WithRunOptions(option)
+                        .WithGuestBinaryPath(guestBinaryPath)
+                        .WithErrorMessageLogger(mockLogger.Object);
+                    using (var sandbox = builder.Build())
+                    {
+                        sandbox.BindGuestFunction("LogMessage", logFunctions);
+                        Exception? threadTestException = null;
+
+                        // Make sure that CorrelationId is correct after a call on a different thread with a different execution context from the one that constructed the Sandbox
+                        void threadStart()
+                        {
+                            threadTestException = Record.Exception(() =>
+                            {
+                                logFunctions.LogMessage!(message, source, (int)logLevel);
+                            });
+                        }
+
+                        var thread = new Thread(threadStart);
+
+                        // UnsafeStart causes the thread to start without flowing the ExecutionContext from the current thread.
+
+                        thread.UnsafeStart();
+                        thread.Join();
+                        Assert.Null(threadTestException);
+                        mockLogger.Verify(
+                           l => l.Log<It.IsAnyType>(
+                               (LogLevel)logLevel,
+                               It.IsAny<EventId>(),
+                               It.Is<It.IsAnyType>((v, t) =>
+                                   v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationId} Source: {source}")
+                               ),
+                               null,
+                               It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                               Times.Once);
+
+                        if (option.HasFlag(SandboxRunOptions.RecycleAfterRun))
+                        {
+                            thread = new Thread(threadStart);
+                            thread.UnsafeStart();
+                            thread.Join();
+                            Assert.Null(threadTestException);
+                            mockLogger.Verify(
+                                l => l.Log<It.IsAnyType>(
+                                    (LogLevel)logLevel,
+                                    It.IsAny<EventId>(),
+                                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationId} Source: {source}")),
+                                    null,
+                                    It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                                    Times.Exactly(2));
+                        }
+                    }
+                }
+                string correlationIdFromLocalFunc = string.Empty;
+                var callCount = 0;
+                var calledCount = 0;
+                string GetCorrelationId()
+                {
+                    calledCount++;
+                    correlationIdFromLocalFunc = Guid.NewGuid().ToString("N");
+                    return correlationIdFromLocalFunc;
+                }
+                // If a function is provided then the function should be called during construction and once for each invocation.
+                foreach (var logLevel in Enum.GetValues(typeof(LogLevel)))
+                {
+                    var logFunctions = new LoggingTests();
+                    var mockLogger = new Mock<ILogger>();
+                    mockLogger.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+                    var builder = new SandboxBuilder()
+                        .WithRunOptions(option)
+                        .WithGuestBinaryPath(guestBinaryPath)
+                        .WithCorrelationId(GetCorrelationId)
+                        .WithErrorMessageLogger(mockLogger.Object);
+                    using (var sandbox = builder.Build())
+                    {
+                        // function should get called from the constructor.
+                        callCount++;
+                        Assert.Equal(callCount, calledCount);
+                        sandbox.BindGuestFunction("LogMessage", logFunctions);
+
+                        Exception? threadTestException = null;
+
+                        // Make sure that CorrelationId is correct after a recycle on a different thread.
+                        void threadStart()
+                        {
+                            threadTestException = Record.Exception(() =>
+                            {
+                                logFunctions.LogMessage!(message, source, (int)logLevel);
+                                callCount++;
+                            });
+                        }
+
+                        var thread = new Thread(threadStart);
+
+
+                        // UnsafeStart causes the thread to start without flowing the ExecutionContext from the current thread.
+
+                        thread.UnsafeStart();
+                        thread.Join();
+                        Assert.Null(threadTestException);
+                        Assert.Equal(callCount, calledCount);
+                        mockLogger.Verify(
+                        l => l.Log<It.IsAnyType>(
+                            (LogLevel)logLevel,
+                            It.IsAny<EventId>(),
+                            It.Is<It.IsAnyType>((v, t) =>
+                                v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationIdFromLocalFunc} Source: {source}")
+                            ),
+                            null,
+                            It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                            Times.Once);
+
+                        if (option.HasFlag(SandboxRunOptions.RecycleAfterRun))
+                        {
+                            thread = new Thread(threadStart);
+
+                            // UnsafeStart causes the thread to start without flowing the ExecutionContext from the current thread.
+
+                            thread.UnsafeStart();
+                            thread.Join();
+                            Assert.Null(threadTestException);
+                            Assert.Equal(callCount, calledCount);
+                            mockLogger.Verify(
+                               l => l.Log<It.IsAnyType>(
+                                   (LogLevel)logLevel,
+                                   It.IsAny<EventId>(),
+                                   It.Is<It.IsAnyType>((v, t) =>
+                                       v.ToString()!.StartsWith($"ErrorMessage: {message} CorrelationId: {correlationIdFromLocalFunc} Source: {source}")
+                                   ),
+                                   null,
+                                   It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                                   Times.Once);
+                        }
                     }
                 }
             }

@@ -167,6 +167,7 @@ namespace Hyperlight
                 //
                 //   public object GuestFunction(int o1, int o2, bool o3, int o4, bool o5, int o6, bool o7, Byte[] o8, int o9, int o10, int o11) 
                 //   {   
+                //      UpdateCorrelationId();
                 //      bool shouldReset=EnterDynamicMethod();
                 //      try
                 //      {
@@ -202,6 +203,13 @@ namespace Hyperlight
                 il.DeclareLocal(typeof(object));
                 il.Emit(OpCodes.Ldnull);
                 il.Emit(OpCodes.Stloc_1);
+
+                // Call UpdateCorrelationId
+
+                il.Emit(OpCodes.Ldarg_0);
+                var updateCorrelationId = typeof(GuestInterfaceGlue).GetMethod("UpdateCorrelationId", BindingFlags.NonPublic | BindingFlags.Instance);
+                HyperlightException.ThrowIfNull(updateCorrelationId, nameof(updateCorrelationId), Sandbox.CorrelationId.Value!, GetType().Name);
+                il.Emit(OpCodes.Callvirt, updateCorrelationId);
 
                 il.Emit(OpCodes.Ldarg_0);
                 var enterDynamicMethod = typeof(GuestInterfaceGlue).GetMethod("EnterDynamicMethod", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -433,6 +441,8 @@ namespace Hyperlight
         protected abstract void ExitDynamicMethod(bool shouldRelease);
 
         protected abstract void ResetState();
+
+        protected abstract void UpdateCorrelationId();
 
         // Validate that we support the parameter count, parameter types, and return value
         // Throws exception if not supported.  Note that void is supported as a return type

@@ -10,17 +10,25 @@ namespace Hyperlight.Wrapper
         /// Create a new context wrapper with a newly allocated
         /// context.
         /// </summary>
-        public Context(string corrID) : this(context_new(), corrID)
+        public Context(string correlationId) : this(context_new(), correlationId)
         {
         }
 
+        // TODO: This should be passed to the Rust API and used in error messages/logging from Rust code. Each time set is called the correlationId 
+        // that is associated with the context should be updated.
+        /// <summary>
+        /// The request Correlation ID
+        /// </summary>
+        public string CorrelationId { get; set; }
+
         public NativeContext ctx { get; private set; }
         private bool disposed;
-        private Context(NativeContext ctx, string corrID)
+        private Context(NativeContext ctx, string correlationId)
         {
+            CorrelationId = correlationId;
             if (ctx == IntPtr.Zero)
             {
-                HyperlightException.LogAndThrowException<HyperlightException>("Invalid, empty context passed to Context constructor", corrID, GetType().Name);
+                HyperlightException.LogAndThrowException<HyperlightException>("Invalid, empty context passed to Context constructor", correlationId, GetType().Name);
             }
 
             this.ctx = ctx;

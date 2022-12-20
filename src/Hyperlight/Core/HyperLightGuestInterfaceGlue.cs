@@ -24,6 +24,10 @@ namespace Hyperlight
         {
             sandbox.ResetState();
         }
+        protected override void UpdateCorrelationId()
+        {
+            sandbox.UpdateCorrelationId();
+        }
 
     }
 }
