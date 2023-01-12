@@ -38,7 +38,7 @@ fn get_kvm_run_message(ctx: &Context, handle: Handle) -> Result<&kvm::KvmRunMess
 }
 
 fn get_sregisters_from_handle(ctx: &Context, handle: Handle) -> Result<&SRegs> {
-    Context::get(handle, &((*ctx).kvm_sregs), |h| {
+    Context::get(handle, &(ctx.kvm_sregs), |h| {
         matches!(h, Hdl::KvmSRegisters(_))
     })
 }

@@ -96,7 +96,7 @@ pub fn get_sregisters(vcpu_fd: &VcpuFd) -> Result<SRegs> {
 
 fn get_port_num(vcpu_exit: &VcpuExit) -> Result<u16> {
     match vcpu_exit {
-        VcpuExit::IoOut(addr, _) => Ok(*addr as u16),
+        VcpuExit::IoOut(addr, _) => Ok(*addr),
         _ => bail!("no port num for VcpuExit {:?}", vcpu_exit),
     }
 }

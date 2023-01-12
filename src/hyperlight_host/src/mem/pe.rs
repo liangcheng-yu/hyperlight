@@ -164,7 +164,7 @@ impl PEInfo {
                             if should_relocate(&sym) {
                                 relocated_symbols.push((
                                     reloc.symbol_table_index as usize,
-                                    reloc.virtual_address as u32,
+                                    reloc.virtual_address,
                                 ));
                             }
                         } else {

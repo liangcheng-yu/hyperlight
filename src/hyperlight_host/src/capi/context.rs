@@ -228,7 +228,7 @@ impl Context {
 /// Create a new context for use in the C API.
 #[no_mangle]
 pub extern "C" fn context_new() -> *mut Context {
-    Box::into_raw(Box::new(Context::default()))
+    Box::into_raw(Box::default())
 }
 
 /// Free the memory referenced by with `ctx`.

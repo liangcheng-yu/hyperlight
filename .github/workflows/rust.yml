@@ -51,8 +51,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-
-      - uses: dtolnay/rust-toolchain@1.64.0
+      - uses: dtolnay/rust-toolchain@1.66.1
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
