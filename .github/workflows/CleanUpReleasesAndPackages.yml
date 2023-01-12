@@ -12,13 +12,13 @@ jobs:
     steps:
       # https://github.com/marketplace/actions/delete-package-versions
       - name: Delete old 'DeisLabs.Hyperlight' package versions
-        uses: actions/delete-package-versions@v3
+        uses: actions/delete-package-versions@v4
         with: 
           package-name: 'DeisLabs.Hyperlight'
           min-versions-to-keep:  40
           delete-only-pre-release-versions: "true" 
       - name: Delete old 'DeisLabs.HyperlightDependencies' package versions
-        uses: actions/delete-package-versions@v3
+        uses: actions/delete-package-versions@v4
         with: 
           package-name: 'DeisLabs.HyperlightDependencies'
           min-versions-to-keep:  40
