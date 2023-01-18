@@ -14,7 +14,7 @@ use crate::mem::guest_mem::GuestMemory;
 use crate::mem::guest_mem_snapshot::GuestMemorySnapshot;
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::mgr::SandboxMemoryManager;
-use crate::mem::pe::PEInfo;
+use crate::mem::pe::pe_info::PEInfo;
 use crate::sandbox::Sandbox;
 use anyhow::{bail, Error, Result};
 #[cfg(target_os = "linux")]

@@ -52,9 +52,24 @@ namespace Hyperlight.Wrapper
             }
         }
 
+        /// Returns a copy of the byte array contents from the context.
+        public unsafe byte[] GetContents()
+        {
+            ulong len = byte_array_len(this.ctxWrapper.ctx, this.handleWrapper.handle);
+            byte* arr_ptr = byte_array_get(this.ctxWrapper.ctx, this.handleWrapper.handle);
+            if (arr_ptr == null)
+            {
+                // TODO: How do I get the error from the context and throw it?
+                throw new InvalidOperationException("ByteArray was not present in the Context");
+            }
+
+            var contents = new byte[len];
+            Marshal.Copy(new IntPtr(arr_ptr), contents, 0, contents.Length);
+            return contents;
+        }
+
 #pragma warning disable CA1707 // Remove the underscores from member name
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
-
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
@@ -62,6 +77,20 @@ namespace Hyperlight.Wrapper
             NativeContext ctx,
             byte* arr_ptr,
             ulong arr_len
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle byte_array_len(
+            NativeContext ctx,
+            NativeHandle bye_array_handle
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern unsafe byte* byte_array_get(
+            NativeContext ctx,
+            NativeHandle bye_array_handle
         );
 
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

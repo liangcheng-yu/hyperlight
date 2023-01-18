@@ -1,38 +1,77 @@
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
-use crate::mem::pe::PEInfo;
+use crate::capi::handle::handle_new_empty;
 use crate::{validate_context, validate_context_or_panic};
+
+/// An immutable set of PE File headers.
+#[repr(C)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct PEHeaders {
+    /// Stack reserve size.
+    pub stack_reserve: u64,
+
+    /// Stack commit size.
+    pub stack_commit: u64,
+
+    /// Heap reserve size.
+    pub heap_reserve: u64,
+
+    /// Heap commit size.
+    pub heap_commit: u64,
+
+    /// Entrypoint offset.
+    pub entrypoint_offset: u64,
+
+    /// Preferred load address.
+    pub preferred_load_address: u64,
+}
+
+/// Wrapper around a PEFile that is stored in the context.
+#[repr(C)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct PEFile {
+    /// Handle for the PE file so that it can be released later.
+    pub handle: Handle,
+
+    /// Pointer to a byte array with the PE file contents.
+    pub arr_ptr: *const u8,
+
+    /// The size of the byte array.
+    pub arr_len: usize,
+}
 
 mod impls {
     use crate::capi::context::Context;
     use crate::capi::handle::Handle;
     use crate::capi::hdl::Hdl;
-    use crate::mem::pe::PEInfo;
+    use crate::mem::pe::pe_info::PEInfo;
     use anyhow::Result;
 
+    use super::PEHeaders;
+
+    /// Updates the PE File contents to relocate it to the specified load address.
+    /// If no relocations are required, the payload is not modified.
     pub fn pe_relocate(
         ctx: &mut Context,
         pe_info_hdl: Handle,
         payload_hdl: Handle,
         addr_to_load_at: usize,
-    ) -> Result<Handle> {
+    ) -> Result<()> {
         let pe_info = Context::get(pe_info_hdl, &ctx.pe_infos, |p| matches!(p, Hdl::PEInfo(_)))?;
-        let bar = Context::get_mut(payload_hdl, &mut ctx.byte_arrays, |b| {
+        let payload_bytes = Context::get_mut(payload_hdl, &mut ctx.byte_arrays, |b| {
             matches!(b, Hdl::ByteArray(_))
         })?;
-        let reloc_patches = pe_info.get_exe_relocation_patches(addr_to_load_at, bar.as_slice())?;
-        pe_info.apply_relocation_patches(&reloc_patches, bar.as_mut_slice())?;
-        Ok(payload_hdl)
-    }
+        let payload = payload_bytes.as_mut_slice();
+        let reloc_patches = pe_info.get_exe_relocation_patches(payload, addr_to_load_at)?;
 
-    pub fn get_pe_and<T, U: FnOnce(&PEInfo) -> Result<T>>(
-        ctx: &Context,
-        pe_hdl: Handle,
-        get_fn: U,
-    ) -> Result<T> {
-        let pe = Context::get(pe_hdl, &ctx.pe_infos, |p| matches!(p, Hdl::PEInfo(_)))?;
-        get_fn(pe)
+        if reloc_patches.is_empty() {
+            return Ok(());
+        }
+
+        // Modify the payload and apply the patches
+        pe_info.apply_relocation_patches(payload, reloc_patches)?;
+        Ok(())
     }
 
     pub fn pe_parse(ctx: &Context, bytes_handle: Handle) -> Result<PEInfo> {
@@ -40,6 +79,21 @@ mod impls {
             matches!(p, Hdl::ByteArray(_))
         })?;
         PEInfo::new(bytes)
+    }
+
+    pub fn pe_get_headers(ctx: &Context, pe_info_hdl: Handle) -> Result<PEHeaders> {
+        let pe_info = Context::get(pe_info_hdl, &ctx.pe_infos, |p| matches!(p, Hdl::PEInfo(_)))?;
+
+        let hdrs = PEHeaders {
+            entrypoint_offset: pe_info.entry_point_offset(),
+            stack_reserve: pe_info.stack_reserve(),
+            stack_commit: pe_info.stack_commit(),
+            heap_reserve: pe_info.heap_reserve(),
+            heap_commit: pe_info.heap_commit(),
+            preferred_load_address: pe_info.preferred_load_address(),
+        };
+
+        Ok(hdrs)
     }
 }
 
@@ -59,79 +113,17 @@ pub unsafe extern "C" fn pe_parse(ctx: *mut Context, byte_array_handle: Handle) 
     }
 }
 
-/// Get the stack reserve value from the PE file referenced by `pe_handle`,
-/// or `0` if `pe_handle` does not reference a valid PE file or there
-/// was another problem fetching the value.
+/// Read the headers for a PE file.
 ///
 /// # Safety
 ///
 /// `ctx` must be memory created by `context_new`, owned by the caller,
 /// and not modified or deleted while this function is executing.
 #[no_mangle]
-pub unsafe extern "C" fn pe_stack_reserve(ctx: *mut Context, pe_handle: Handle) -> u64 {
+pub unsafe extern "C" fn pe_get_headers(ctx: *mut Context, pe_handle: Handle) -> PEHeaders {
     validate_context_or_panic!(ctx);
 
-    impls::get_pe_and(&*ctx, pe_handle, PEInfo::stack_reserve).unwrap_or(0)
-}
-
-/// Get the stack commit value from the PE file referenced by `pe_handle`,
-/// or `0` if `pe_handle` does not reference a valid PE file or there
-/// was another problem fetching the value.
-///
-/// # Safety
-///
-/// `ctx` must be memory created by `context_new`, owned by the caller,
-/// and not modified or deleted while this function is executing.
-#[no_mangle]
-pub unsafe extern "C" fn pe_stack_commit(ctx: *mut Context, pe_handle: Handle) -> u64 {
-    validate_context_or_panic!(ctx);
-
-    impls::get_pe_and(&*ctx, pe_handle, PEInfo::stack_commit).unwrap_or(0)
-}
-
-/// Get the heap reserve value from the PE file referenced by `pe_handle`,
-/// or `0` if `pe_handle` does not reference a valid PE file or there
-/// was another problem fetching the value.
-///
-/// # Safety
-///
-/// `ctx` must be memory created by `context_new`, owned by the caller,
-/// and not modified or deleted while this function is executing.
-#[no_mangle]
-pub unsafe extern "C" fn pe_heap_reserve(ctx: *mut Context, pe_handle: Handle) -> u64 {
-    validate_context_or_panic!(ctx);
-
-    impls::get_pe_and(&*ctx, pe_handle, PEInfo::heap_reserve).unwrap_or(0)
-}
-
-/// Get the heap commit value from the PE file referenced by `pe_handle`,
-/// or `0` if `pe_handle` does not reference a valid PE file or there
-/// was another problem fetching the value.
-///
-/// # Safety
-///
-/// `ctx` must be memory created by `context_new`, owned by the caller,
-/// and not modified or deleted while this function is executing.
-#[no_mangle]
-pub unsafe extern "C" fn pe_heap_commit(ctx: *mut Context, pe_handle: Handle) -> u64 {
-    validate_context_or_panic!(ctx);
-
-    impls::get_pe_and(&*ctx, pe_handle, PEInfo::heap_commit).unwrap_or(0)
-}
-
-/// Get the entry point offset value from the PE file referenced by `pe_handle`,
-/// or `0` if `pe_handle` does not reference a valid PE file or there
-/// was another problem fetching the value.
-///
-/// # Safety
-///
-/// `ctx` must be memory created by `context_new`, owned by the caller,
-/// and not modified or deleted while this function is executing.
-#[no_mangle]
-pub unsafe extern "C" fn pe_entry_point_offset(ctx: *mut Context, pe_handle: Handle) -> u64 {
-    validate_context_or_panic!(ctx);
-
-    impls::get_pe_and(&*ctx, pe_handle, PEInfo::try_entry_point_offset).unwrap_or(0)
+    impls::pe_get_headers(&*ctx, pe_handle).unwrap()
 }
 
 /// Apply relocations to the payload referenced by `payload_hdl`
@@ -140,8 +132,8 @@ pub unsafe extern "C" fn pe_entry_point_offset(ctx: *mut Context, pe_handle: Han
 /// It is expected that `payload_hdl` references a byte array
 /// created with `byte_array_new`.
 ///
-/// On success, the payload will be updated in-place and the same
-/// `payload_hdl` will be returned. On failure, a `Handle`
+/// On success, the payload will be updated in-place and an empty
+/// handle will be returned. On failure, a `Handle`
 /// referencing an error will be returned. In both cases,
 /// new memory will be created that should be freed with
 /// `handle_free`.
@@ -160,59 +152,171 @@ pub unsafe extern "C" fn pe_relocate(
     validate_context!(ctx);
 
     match impls::pe_relocate(&mut (*ctx), pe_handle, byte_array_handle, addr_to_load_at) {
-        Ok(hdl) => hdl,
+        Ok(_) => handle_new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::capi::byte_array::{self, byte_array_new};
     use crate::capi::context::Context;
     use crate::capi::handle_status::{handle_get_status, HandleStatus};
-    use crate::capi::hdl::Hdl;
-    use crate::mem::pe::PEInfo;
+    use crate::capi::pe::impls::pe_get_headers;
+    use crate::capi::pe::pe_parse;
     use anyhow::Result;
+    use byteorder::{LittleEndian, ReadBytesExt};
     use std::fs;
+    use std::io::Cursor;
+    use std::path::PathBuf;
 
-    const PE_FILE_NAMES: [&str; 1] = ["./testdata/simpleguest.exe"];
+    struct PEFileTest<'a> {
+        path: &'a str,
+        stack_size: u64,
+        heap_size: u64,
+        entrypoint: u64,
+        load_address: u64,
+        has_relocations: bool,
+    }
+    const PE_FILES: [PEFileTest; 2] = [
+        PEFileTest {
+            path: "testdata/simpleguest.exe",
+            stack_size: 65536,
+            heap_size: 131072,
+            entrypoint: 14256,
+            load_address: 5368709120,
+            has_relocations: true,
+        },
+        PEFileTest {
+            path: "testdata/callbackguest.exe",
+            stack_size: 65536,
+            heap_size: 131072,
+            entrypoint: 4112,
+            load_address: 5368709120,
+            has_relocations: false,
+        },
+    ];
 
     #[test]
-    fn pe_getters() -> Result<()> {
-        for pe_file_name in PE_FILE_NAMES {
-            let mut ctx = Context::default();
-            let pe_file_bytes = fs::read(pe_file_name)?;
-            let pe_info = PEInfo::new(pe_file_bytes.as_slice())?;
-            let pe_file_bytes_hdl =
-                Context::register(pe_file_bytes, &mut ctx.byte_arrays, Hdl::ByteArray);
-            let pe_info_ret = super::impls::pe_parse(&ctx, pe_file_bytes_hdl)?;
+    fn pe_headers() -> Result<()> {
+        for test in PE_FILES {
+            let pe_file_name = test.path;
+            let mut pe_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            pe_path.push(pe_file_name);
+            let pe_path = pe_path.to_str().unwrap();
+            let pe_file_bytes = fs::read(pe_path)
+                .unwrap_or_else(|e| panic!("error opening test file {}: {}", pe_path, e));
 
-            assert_eq!(pe_info.stack_commit()?, pe_info_ret.stack_commit()?);
+            let pe_headers = unsafe {
+                let ctx = &mut Context::default();
+                let payload_hdl = byte_array_new(ctx, pe_file_bytes.as_ptr(), pe_file_bytes.len());
+                assert_eq!(handle_get_status(payload_hdl), HandleStatus::ValidOther);
+
+                let pe_hdl = pe_parse(ctx, payload_hdl);
+                assert_eq!(handle_get_status(pe_hdl), HandleStatus::ValidOther);
+
+                pe_get_headers(ctx, pe_hdl)?
+            };
+
+            // Check that the headers are populated
+            assert_eq!(
+                test.stack_size, pe_headers.stack_reserve,
+                "unexpected stack reserve for {pe_file_name}"
+            );
+            assert_eq!(
+                test.stack_size, pe_headers.stack_commit,
+                "unexpected stack commit for {pe_file_name}"
+            );
+            assert_eq!(
+                pe_headers.heap_reserve, test.heap_size,
+                "unexpected heap reserve for {pe_file_name}"
+            );
+            assert_eq!(
+                pe_headers.heap_commit, test.heap_size,
+                "unexpected heap commit for {pe_file_name}"
+            );
+            assert_eq!(
+                pe_headers.entrypoint_offset, test.entrypoint,
+                "unexpected entrypoint for {pe_file_name}"
+            );
+            assert_eq!(
+                pe_headers.preferred_load_address, test.load_address,
+                "unexpected load address for {pe_file_name}"
+            );
         }
 
         Ok(())
     }
 
     #[test]
-    fn pe_relocate() -> Result<()> {
-        for pe_file_name in PE_FILE_NAMES {
-            let pe_file_bytes = fs::read(pe_file_name)?;
-            let mut ctx = Context::default();
-            let payload_hdl =
-                Context::register(pe_file_bytes, &mut ctx.byte_arrays, Hdl::ByteArray);
-            assert_eq!(handle_get_status(payload_hdl), HandleStatus::ValidOther);
-            let addr = 123;
-            let pe_info_hdl = {
-                let pe_info = super::impls::pe_parse(&ctx, payload_hdl)?;
-                Context::register(pe_info, &mut ctx.pe_infos, Hdl::PEInfo)
+    fn pe_relocate() {
+        for test in PE_FILES {
+            let pe_file_name = test.path;
+            let mut pe_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            pe_path.push(pe_file_name);
+            let pe_path = pe_path.to_str().unwrap();
+            let pe_file_bytes = fs::read(pe_path)
+                .unwrap_or_else(|e| panic!("error opening test file {}: {}", pe_path, e));
+
+            unsafe {
+                let ctx = &mut Context::default();
+                let payload_hdl = byte_array_new(ctx, pe_file_bytes.as_ptr(), pe_file_bytes.len());
+                assert_eq!(
+                    handle_get_status(payload_hdl),
+                    HandleStatus::ValidOther,
+                    "failed to load {pe_file_name} into a byte array"
+                );
+
+                let pe_hdl = pe_parse(ctx, payload_hdl);
+                assert_eq!(
+                    handle_get_status(pe_hdl),
+                    HandleStatus::ValidOther,
+                    "failed to parse {pe_file_name}"
+                );
+
+                let addr = 0x20000;
+                let reloc_result = super::pe_relocate(ctx, pe_hdl, payload_hdl, addr);
+                assert_eq!(
+                    handle_get_status(reloc_result),
+                    HandleStatus::ValidEmpty,
+                    "failed to relocate {pe_file_name}"
+                );
+
+                let relocated_payload_len = byte_array::byte_array_len(ctx, payload_hdl) as usize;
+                assert_eq!(
+                    relocated_payload_len,
+                    pe_file_bytes.len(),
+                    "expected the relocated payload length to match the original payload length of {pe_file_name}"
+                );
+
+                let relocated_payload_ptr = byte_array::byte_array_get(ctx, payload_hdl);
+                assert!(
+                    !relocated_payload_ptr.is_null(),
+                    "the relocated payload pointer was null for {pe_file_name}"
+                );
+
+                let relocated_payload =
+                    std::slice::from_raw_parts(relocated_payload_ptr, relocated_payload_len)
+                        .to_vec();
+
+                if test.has_relocations {
+                    // Check that we updated the payload with relocation patches
+                    assert_ne!(relocated_payload, pe_file_bytes, "expected the relocated payload contents to be different from the original contents of {pe_file_name}");
+
+                    let mut cur = Cursor::new(relocated_payload);
+                    cur.set_position(0x12A08);
+                    let rva = cur.read_u64::<LittleEndian>().expect(
+                        "Could not read the relocated symbol as a 64bit number from {pe_file_name}",
+                    );
+                    assert_eq!(
+                        rva, 0xA328,
+                        "unexpected RVA for patched symbol in {pe_file_name}"
+                    )
+                } else {
+                    // Check that the original payload is unchanged because there are no relocations
+                    assert_eq!(relocated_payload, pe_file_bytes, "expected the relocated payload contents to be the same because {pe_file_name} has no relocations");
+                }
             };
-            assert_eq!(handle_get_status(pe_info_hdl), HandleStatus::ValidOther);
-            let res_hdl = super::impls::pe_relocate(&mut ctx, pe_info_hdl, payload_hdl, addr)?;
-            assert_eq!(handle_get_status(res_hdl), HandleStatus::ValidOther);
-
-            assert_eq!(payload_hdl, res_hdl);
-            // TODO: assert that the payload is changed.
         }
-
-        Ok(())
     }
 }

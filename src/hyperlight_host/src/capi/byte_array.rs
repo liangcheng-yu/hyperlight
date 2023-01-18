@@ -14,9 +14,9 @@ mod impls {
     use anyhow::{anyhow, bail, Result};
     use std::fs::read;
 
-    fn get(ctx: &Context, handle: Handle) -> Result<Vec<u8>> {
+    pub fn get(ctx: &Context, handle: Handle) -> Result<&Vec<u8>> {
         match super::get_byte_array(ctx, handle) {
-            Ok(bytes) => Ok((*bytes).clone()),
+            Ok(bytes) => Ok(bytes),
             _ => bail!("handle is not a byte array handle"),
         }
     }
@@ -24,7 +24,7 @@ mod impls {
     pub fn remove(ctx: &mut Context, handle: Handle) -> Result<Vec<u8>> {
         match Hdl::try_from(handle) {
             Ok(Hdl::ByteArray(_)) => {
-                let val = get(ctx, handle)?;
+                let val = get(ctx, handle)?.to_owned();
                 ctx.remove(handle, |h| matches!(h, Hdl::ByteArray(_)));
                 Ok(val)
             }
@@ -136,6 +136,32 @@ pub unsafe extern "C" fn byte_array_len(ctx: *const Context, handle: Handle) -> 
     }
 }
 
+/// Get the byte array referenced by `handle`, returning a pointer to the
+/// underlying array.
+///
+/// The length of the memory referenced by the returned pointer is
+/// equal to the value returned from `byte_array_len(ctx, handle)`.
+///
+/// If no such byte array exists for the given `handle`, `NULL`
+/// will be returned.
+///
+///
+/// # Safety
+///
+/// The Context is still responsible for the byte array memory after this function returns.
+#[no_mangle]
+pub unsafe extern "C" fn byte_array_get(ctx: *mut Context, handle: Handle) -> *const u8 {
+    validate_context_or_panic!(ctx);
+
+    match impls::get(&*ctx, handle) {
+        Ok(vec) => vec.as_ptr(),
+        Err(e) => {
+            (*ctx).register_err(e);
+            std::ptr::null()
+        }
+    }
+}
+
 /// Get the byte array referenced by `handle`, return a pointer to the
 /// underlying array, and remove it from `ctx`.
 ///
@@ -192,6 +218,22 @@ mod tests {
         let barr_hdl = Context::register(barr, &mut ctx.byte_arrays, Hdl::ByteArray);
         assert_eq!(handle_get_status(barr_hdl), HandleStatus::ValidOther);
         assert_eq!(impls::len(&ctx, barr_hdl)?, barr_len);
+
+        Ok(())
+    }
+
+    #[test]
+    fn byte_array_get() -> Result<()> {
+        let mut ctx = Context::default();
+        let barr = vec![1, 2, 3];
+        let barr_copy = barr.clone();
+        let barr_hdl = Context::register(barr, &mut ctx.byte_arrays, Hdl::ByteArray);
+        assert_eq!(handle_get_status(barr_hdl), HandleStatus::ValidOther);
+
+        {
+            let ret_barr = impls::get(&ctx, barr_hdl)?;
+            assert_eq!(barr_copy, ret_barr.as_slice());
+        }
 
         Ok(())
     }

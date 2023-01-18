@@ -34,8 +34,6 @@ namespace Hyperlight
         public static AsyncLocal<string> CorrelationId { get; } = new AsyncLocal<string>();
         readonly Context context;
         readonly string? fixedCorrelationId;
-        static readonly object peInfoLock = new();
-        static readonly ConcurrentDictionary<string, PEInfo> guestPEInfo = new(StringComparer.InvariantCultureIgnoreCase);
         static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         public static bool IsLinux => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
         public static bool IsSupportedPlatform => IsLinux || IsWindows;
@@ -334,33 +332,40 @@ namespace Hyperlight
 
         void LoadGuestBinary()
         {
-            var peInfo = guestPEInfo.GetOrAdd(guestBinaryPath, (guestBinaryPath) => GetPEInfo(guestBinaryPath, SandboxMemoryLayout.GuestCodeAddress));
+            var peInfo = new PEInfo(this.context, guestBinaryPath);
 
-            if (runFromGuestBinary)
+            try
             {
-                if (!IsWindows)
+                if (runFromGuestBinary)
                 {
-                    // If not on Windows runFromBinary doesn't mean anything because we cannot use LoadLibrary.
-                    HyperlightException.LogAndThrowException<NotSupportedException>("RunFromBinary is only supported on Windows", GetType().Name);
-                }
+                    if (!IsWindows)
+                    {
+                        // If not on Windows runFromBinary doesn't mean anything because we cannot use LoadLibrary.
+                        HyperlightException.LogAndThrowException<NotSupportedException>("RunFromBinary is only supported on Windows", GetType().Name);
+                    }
 
-                // LoadLibrary does not support multple independent instances of a binary beng loaded 
-                // so we cannot support multiple instances using loadlibrary
+                    // LoadLibrary does not support multple independent instances of a binary beng loaded 
+                    // so we cannot support multiple instances using loadlibrary
 
-                if (Interlocked.CompareExchange(ref isRunningFromGuestBinary, IS_RUNNING_FROM_GUEST_BINARY, 0) == 0)
-                {
-                    didRunFromGuestBinary = true;
+                    if (Interlocked.CompareExchange(ref isRunningFromGuestBinary, IS_RUNNING_FROM_GUEST_BINARY, 0) == 0)
+                    {
+                        didRunFromGuestBinary = true;
+                    }
+                    else
+                    {
+                        HyperlightException.LogAndThrowException("Only one instance of Sandbox is allowed when running from guest binary", GetType().Name);
+                    }
+
+                    sandboxMemoryManager.LoadGuestBinaryUsingLoadLibrary(guestBinaryPath, peInfo);
                 }
                 else
                 {
-                    HyperlightException.LogAndThrowException("Only one instance of Sandbox is allowed when running from guest binary", GetType().Name);
+                    sandboxMemoryManager.LoadGuestBinaryIntoMemory(peInfo);
                 }
-
-                sandboxMemoryManager.LoadGuestBinaryUsingLoadLibrary(guestBinaryPath, peInfo);
             }
-            else
+            finally
             {
-                sandboxMemoryManager.LoadGuestBinaryIntoMemory(peInfo);
+                peInfo.Dispose();
             }
         }
 
@@ -493,7 +498,7 @@ namespace Hyperlight
             {
                 if (IsLinux)
                 {
-                    // This code is unstable, it causes segmetation faults so for now we are throwing an exception if we try to run in process in Linux
+                    // This code is unstable, it causes segmentation faults so for now we are throwing an exception if we try to run in process in Linux
                     // I think this is due to the fact that the guest binary is built for windows
                     // x64 compilation for windows uses fastcall which is different on windows and linux
                     // dotnet will default to the calling convention for the platform that the code is running on
@@ -767,18 +772,6 @@ namespace Hyperlight
                 return WindowsHypervisorPlatform.IsHypervisorPresent();
             }
             return false;
-        }
-
-        static PEInfo GetPEInfo(string fileName, ulong hyperVisorCodeAddress)
-        {
-            lock (peInfoLock)
-            {
-                if (guestPEInfo.ContainsKey(fileName))
-                {
-                    return guestPEInfo[fileName];
-                }
-                return new PEInfo(fileName, hyperVisorCodeAddress);
-            }
         }
 
         protected virtual void Dispose(bool disposing)

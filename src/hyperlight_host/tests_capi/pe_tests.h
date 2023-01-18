@@ -5,7 +5,7 @@
 
 #include "munit/munit.h"
 
-MunitResult test_pe_getters();
+MunitResult test_pe_get_headers();
 MunitResult test_pe_relocate();
 
 static const size_t NUM_PE_FILES = 2;
@@ -20,8 +20,8 @@ static MunitTest pe_file_tests[] = {
         MUNIT_TEST_OPTION_NONE, /* options */
         NULL                    /* parameters */
     },
-    {"/test_pe_getters",
-     test_pe_getters,
+    {"/test_pe_get_headers",
+     test_pe_get_headers,
      NULL,
      NULL,
      MUNIT_TEST_OPTION_NONE,
