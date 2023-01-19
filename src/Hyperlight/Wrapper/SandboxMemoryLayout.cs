@@ -202,6 +202,7 @@ namespace Hyperlight.Wrapper
 
         readonly Wrapper.Context ctxWrapper;
         readonly Wrapper.Handle handleWrapper;
+        public NativeHandle rawHandle => handleWrapper.handle;
 
         private bool disposed;
         internal SandboxMemoryLayout(

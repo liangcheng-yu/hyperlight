@@ -32,6 +32,8 @@ pub enum Hdl {
     PEInfo(Key),
     /// A reference to a `SandboxMemoryLayout`.
     MemLayout(Key),
+    /// A reference to a `SandboxMemoryManager`.
+    MemMgr(Key),
     /// A reference to a `GuestMemory`.
     GuestMemory(Key),
     /// A reference to a `GuestMemorySnapshot`.
@@ -82,6 +84,7 @@ impl Hdl {
     const BYTE_ARRAY_TYPE_ID: TypeID = 106;
     const PE_INFO_TYPE_ID: TypeID = 107;
     const MEM_LAYOUT_TYPE_ID: TypeID = 109;
+    const MEM_MGR_TYPE_ID: TypeID = 124;
     const GUEST_MEMORY_TYPE_ID: TypeID = 110;
     const INT_64_TYPE_ID: TypeID = 111;
     const INT_32_TYPE_ID: TypeID = 112;
@@ -121,6 +124,7 @@ impl Hdl {
             Hdl::ByteArray(_) => Self::BYTE_ARRAY_TYPE_ID,
             Hdl::PEInfo(_) => Self::PE_INFO_TYPE_ID,
             Hdl::MemLayout(_) => Self::MEM_LAYOUT_TYPE_ID,
+            Hdl::MemMgr(_) => Self::MEM_MGR_TYPE_ID,
             Hdl::GuestMemory(_) => Self::GUEST_MEMORY_TYPE_ID,
             Hdl::GuestMemorySnapshot(_) => Self::GUEST_MEMORY_SNAPSHOT_TYPE_ID,
             Hdl::Int64(_) => Self::INT_64_TYPE_ID,
@@ -163,6 +167,7 @@ impl Hdl {
             Hdl::ByteArray(key) => *key,
             Hdl::PEInfo(key) => *key,
             Hdl::MemLayout(key) => *key,
+            Hdl::MemMgr(key) => *key,
             Hdl::GuestMemory(key) => *key,
             Hdl::GuestMemorySnapshot(key) => *key,
             Hdl::Int64(key) => *key,
@@ -203,6 +208,7 @@ impl std::fmt::Display for Hdl {
             Hdl::ByteArray(key) => write!(f, "ByteArray({})", key),
             Hdl::PEInfo(key) => write!(f, "PEInfo({})", key),
             Hdl::MemLayout(key) => write!(f, "MemLayout({})", key),
+            Hdl::MemMgr(key) => write!(f, "MemMgr({})", key),
             Hdl::GuestMemory(key) => write!(f, "GuestMemory({})", key),
             Hdl::GuestMemorySnapshot(key) => write!(f, "GuestMemorySnapshot({})", key),
             Hdl::Int64(key) => write!(f, "Int64({})", key),
@@ -248,6 +254,7 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::BYTE_ARRAY_TYPE_ID => Ok(Hdl::ByteArray(key)),
             Self::PE_INFO_TYPE_ID => Ok(Hdl::PEInfo(key)),
             Self::MEM_LAYOUT_TYPE_ID => Ok(Hdl::MemLayout(key)),
+            Self::MEM_MGR_TYPE_ID => Ok(Hdl::MemMgr(key)),
             Self::GUEST_MEMORY_TYPE_ID => Ok(Hdl::GuestMemory(key)),
             Self::GUEST_MEMORY_SNAPSHOT_TYPE_ID => Ok(Hdl::GuestMemorySnapshot(key)),
             Self::INT_64_TYPE_ID => Ok(Hdl::Int64(key)),

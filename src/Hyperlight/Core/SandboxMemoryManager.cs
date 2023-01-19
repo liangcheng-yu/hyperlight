@@ -11,7 +11,8 @@ namespace Hyperlight.Core
 {
     internal class SandboxMemoryManager : IDisposable
     {
-        private readonly Context ctx;
+        private readonly Context ctxWrapper;
+        private readonly Handle hdlMemManagerWrapper;
         public ulong EntryPoint { get; private set; }
         public ulong Size { get; private set; }
         public IntPtr SourceAddress { get; private set; }
@@ -33,7 +34,13 @@ namespace Hyperlight.Core
             bool runFromProcessMemory = false
         )
         {
-            this.ctx = ctx;
+            this.ctxWrapper = ctx;
+            var rawHdl = mem_mgr_new(
+                this.ctxWrapper.ctx,
+                sandboxMemoryConfiguration,
+                runFromProcessMemory
+            );
+            this.hdlMemManagerWrapper = new Handle(this.ctxWrapper, rawHdl, true);
             this.sandboxMemoryConfiguration = sandboxMemoryConfiguration;
             this.runFromProcessMemory = runFromProcessMemory;
         }
@@ -44,7 +51,7 @@ namespace Hyperlight.Core
             HyperlightException.ThrowIfNull(peInfo, nameof(peInfo), GetType().Name);
 
             sandboxMemoryLayout = new SandboxMemoryLayout(
-                this.ctx,
+                this.ctxWrapper,
                 sandboxMemoryConfiguration,
                 0,
                 (ulong)peInfo.StackReserve,
@@ -52,7 +59,7 @@ namespace Hyperlight.Core
             );
             Size = sandboxMemoryLayout.GetMemorySize();
 
-            guestMemWrapper = new GuestMemory(this.ctx, this.Size);
+            guestMemWrapper = new GuestMemory(this.ctxWrapper, this.Size);
 
             loadAddress = OS.LoadLibrary(guestBinaryPath);
 
@@ -79,14 +86,17 @@ namespace Hyperlight.Core
         {
             HyperlightException.ThrowIfNull(peInfo, nameof(peInfo), GetType().Name);
             sandboxMemoryLayout = new SandboxMemoryLayout(
-                this.ctx,
+                this.ctxWrapper,
                 sandboxMemoryConfiguration,
                 (ulong)peInfo.Payload.Length,
                 (ulong)peInfo.StackReserve,
                 (ulong)peInfo.HeapReserve
             );
             Size = sandboxMemoryLayout.GetMemorySize();
-            this.guestMemWrapper = new GuestMemory(this.ctx, this.Size);
+            this.guestMemWrapper = new GuestMemory(
+                this.ctxWrapper,
+                this.Size
+            );
             SourceAddress = this.guestMemWrapper.Address;
             var hostCodeAddress = (ulong)SandboxMemoryLayout.GetHostCodeAddress(SourceAddress);
             // If we are running in memory the entry point will be relative to the sourceAddress if we are running in a Hypervisor it will be relative to 0x230000 which is where the code is loaded in the GP
@@ -128,13 +138,37 @@ namespace Hyperlight.Core
 
         internal void SetStackGuard(byte[] cookie)
         {
-            HyperlightException.ThrowIfNull(cookie, nameof(cookie), GetType().Name);
-            var stackOffset = sandboxMemoryLayout!.topOfStackOffset;
-            this.guestMemWrapper!.CopyFromByteArray(
+            HyperlightException.ThrowIfNull(
                 cookie,
-                (IntPtr)stackOffset
+                nameof(cookie),
+                GetType().Name
             );
-
+            HyperlightException.ThrowIfNull(
+                this.sandboxMemoryLayout,
+                nameof(this.sandboxMemoryLayout),
+                GetType().Name
+            );
+            HyperlightException.ThrowIfNull(
+                this.guestMemWrapper,
+                nameof(this.guestMemWrapper),
+                GetType().Name
+            );
+            using var cookieByteArray = new ByteArray(
+                this.ctxWrapper,
+                cookie
+            );
+            var rawHdl = mem_mgr_set_stack_guard(
+                this.ctxWrapper.ctx,
+                this.hdlMemManagerWrapper.handle,
+                this.sandboxMemoryLayout.rawHandle,
+                this.guestMemWrapper.handleWrapper.handle,
+                cookieByteArray.handleWrapper.handle
+            );
+            using var hdl = new Handle(
+                this.ctxWrapper,
+                rawHdl,
+                true
+            );
         }
 
         internal bool CheckStackGuard(byte[]? cookie)
@@ -208,7 +242,7 @@ namespace Hyperlight.Core
                 // if we haven't snapshotted already, create a new
                 // GuestMemorySnapshot from the existing guest memory.
                 this.guestMemSnapshotWrapper = new GuestMemorySnapshot(
-                    this.ctx,
+                    this.ctxWrapper,
                     this.guestMemWrapper
                 );
             }
@@ -550,6 +584,7 @@ namespace Hyperlight.Core
                     this.sandboxMemoryLayout?.Dispose();
                     this.guestMemWrapper!.Dispose();
                     this.guestMemSnapshotWrapper?.Dispose();
+                    this.hdlMemManagerWrapper.Dispose();
                 }
 
                 if (IntPtr.Zero != loadAddress)
@@ -574,5 +609,32 @@ namespace Hyperlight.Core
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
         }
+
+#pragma warning disable CA1707 // Remove the underscores from member name
+#pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_new(
+            NativeContext ctx,
+            SandboxMemoryConfiguration cfg,
+            [MarshalAs(UnmanagedType.U1)] bool runFromProcessMemory
+        );
+
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_set_stack_guard(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            NativeHandle layoutHdl,
+            NativeHandle guestMemHdl,
+            NativeHandle cookieHdl
+
+        );
+#pragma warning restore CA1707 // Remove the underscores from member name
+#pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
+
     }
+
 }

@@ -1,19 +1,21 @@
 use super::handle::{new_key, Handle, Key};
 use super::hdl::Hdl;
+use crate::capi::mem_access_handler::MemAccessHandlerWrapper;
 use crate::capi::outb_handler::OutbHandlerWrapper;
 use crate::func::args::Val;
+use crate::func::def::HostFunc;
 #[cfg(target_os = "linux")]
 use crate::hypervisor::hyperv_linux::HypervLinuxDriver;
 #[cfg(target_os = "linux")]
 use crate::hypervisor::kvm;
 #[cfg(target_os = "linux")]
 use crate::hypervisor::kvm_regs;
-use crate::mem::{guest_mem::GuestMemory, pe::PEInfo};
+use crate::mem::guest_mem::GuestMemory;
+use crate::mem::guest_mem_snapshot::GuestMemorySnapshot;
+use crate::mem::layout::SandboxMemoryLayout;
+use crate::mem::mgr::SandboxMemoryManager;
+use crate::mem::pe::PEInfo;
 use crate::sandbox::Sandbox;
-use crate::{
-    capi::mem_access_handler::MemAccessHandlerWrapper, mem::guest_mem_snapshot::GuestMemorySnapshot,
-};
-use crate::{func::def::HostFunc, mem::layout::SandboxMemoryLayout};
 use anyhow::{bail, Error, Result};
 #[cfg(target_os = "linux")]
 use kvm_ioctls::Kvm;
@@ -56,6 +58,8 @@ pub struct Context {
     pub pe_infos: HashMap<Key, PEInfo>,
     /// All `SandboxMemoryLayout`s stored in this context
     pub mem_layouts: HashMap<Key, SandboxMemoryLayout>,
+    /// All the `SandboxMemoryManager`s stored in this context
+    pub mem_mgrs: HashMap<Key, SandboxMemoryManager>,
     /// All the `GuestMemory`s stored in this context
     pub guest_mems: HashMap<Key, GuestMemory>,
     /// All the `GuestMemorySnapshot`s stored in this context
@@ -192,6 +196,7 @@ impl Context {
                     Hdl::ByteArray(key) => self.byte_arrays.remove(&key).is_some(),
                     Hdl::PEInfo(key) => self.pe_infos.remove(&key).is_some(),
                     Hdl::MemLayout(key) => self.mem_layouts.remove(&key).is_some(),
+                    Hdl::MemMgr(key) => self.mem_mgrs.remove(&key).is_some(),
                     Hdl::GuestMemory(key) => self.guest_mems.remove(&key).is_some(),
                     Hdl::GuestMemorySnapshot(key) => {
                         self.guest_mem_snapshots.remove(&key).is_some()

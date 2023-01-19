@@ -70,8 +70,10 @@ mod impls {
     }
 }
 
-/// Creates a new memory layout within `ctx` with the given parameters and
-/// returns a reference to it.
+pub use impls::get_mem_layout;
+
+/// Create a new memory layout within `ctx` with the given parameters and
+/// return a reference to it.
 ///
 /// # Safety
 ///

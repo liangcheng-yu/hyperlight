@@ -54,6 +54,9 @@ pub mod mem_cfg;
 ///! C-compatible API functions to manage `SandboxMemoryLayout`
 ///! structures.
 pub mod mem_layout;
+///! C-compatible API functions to manage `SandboxMemoryManager`
+///! structures.
+pub mod mem_mgr;
 ///! C-compatible API functions for manipulating outb handler callback
 ///! functions.
 pub mod outb_handler;
