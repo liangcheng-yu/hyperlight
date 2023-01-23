@@ -173,14 +173,42 @@ namespace Hyperlight.Core
 
         internal bool CheckStackGuard(byte[]? cookie)
         {
-            HyperlightException.ThrowIfNull(cookie, nameof(cookie), GetType().Name);
-            var guestCookie = new byte[cookie.Length];
-            var stackOffset = sandboxMemoryLayout!.topOfStackOffset;
-            this.guestMemWrapper!.CopyToByteArray(
-                guestCookie,
-                (ulong)stackOffset
+            HyperlightException.ThrowIfNull(
+                cookie,
+                nameof(cookie),
+                GetType().Name
             );
-            return guestCookie.SequenceEqual(cookie);
+            HyperlightException.ThrowIfNull(
+                this.sandboxMemoryLayout,
+                nameof(this.sandboxMemoryLayout),
+                GetType().Name
+            );
+            HyperlightException.ThrowIfNull(
+                this.guestMemWrapper,
+                nameof(this.guestMemWrapper),
+                GetType().Name
+            );
+            using var cookieByteArray = new ByteArray(
+                this.ctxWrapper,
+                cookie
+            );
+            var rawHdl = mem_mgr_check_stack_guard(
+                this.ctxWrapper.ctx,
+                this.hdlMemManagerWrapper.handle,
+                this.sandboxMemoryLayout.rawHandle,
+                this.guestMemWrapper.handleWrapper.handle,
+                cookieByteArray.handleWrapper.handle
+            );
+            using var hdl = new Handle(
+                this.ctxWrapper,
+                rawHdl,
+                true
+            );
+            if (!hdl.IsBoolean())
+            {
+                throw new HyperlightException("call to rust mem_mgr_check_stack_guard` did not return an error nor a boolean");
+            }
+            return hdl.GetBoolean();
         }
 
         internal HyperlightPEB SetUpHyperLightPEB()
@@ -630,7 +658,16 @@ namespace Hyperlight.Core
             NativeHandle layoutHdl,
             NativeHandle guestMemHdl,
             NativeHandle cookieHdl
+        );
 
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_check_stack_guard(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            NativeHandle layoutHdl,
+            NativeHandle guestMemHdl,
+            NativeHandle cookieHdl
         );
 #pragma warning restore CA1707 // Remove the underscores from member name
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

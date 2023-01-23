@@ -6,6 +6,8 @@ use anyhow::bail;
 pub enum Hdl {
     /// A reference to an `anyhow::Error`
     Err(Key),
+    /// A reference to a `bool`
+    Boolean(Key),
     /// A reference to a `Sandbox`.
     Sandbox(Key),
     /// A reference to a `Val`.
@@ -84,7 +86,6 @@ impl Hdl {
     const BYTE_ARRAY_TYPE_ID: TypeID = 106;
     const PE_INFO_TYPE_ID: TypeID = 107;
     const MEM_LAYOUT_TYPE_ID: TypeID = 109;
-    const MEM_MGR_TYPE_ID: TypeID = 124;
     const GUEST_MEMORY_TYPE_ID: TypeID = 110;
     const INT_64_TYPE_ID: TypeID = 111;
     const INT_32_TYPE_ID: TypeID = 112;
@@ -107,6 +108,8 @@ impl Hdl {
     const OUTB_HANDLER_FUNC_TYPE_ID: TypeID = 121;
     const MEM_ACCESS_HANDLER_FUNC_TYPE_ID: TypeID = 122;
     const GUEST_MEMORY_SNAPSHOT_TYPE_ID: TypeID = 123;
+    const MEM_MGR_TYPE_ID: TypeID = 124;
+    const BOOLEAN_TYPE_ID: TypeID = 125;
 
     /// Get the `TypeID` associated with `self`.
     ///
@@ -114,6 +117,7 @@ impl Hdl {
     pub fn type_id(&self) -> TypeID {
         match self {
             Hdl::Err(_) => Self::ERROR_TYPE_ID,
+            Hdl::Boolean(_) => Self::BOOLEAN_TYPE_ID,
             Hdl::Sandbox(_) => Self::SANDBOX_TYPE_ID,
             Hdl::Val(_) => Self::VAL_TYPE_ID,
             Hdl::Empty() => Self::EMPTY_TYPE_ID,
@@ -157,6 +161,7 @@ impl Hdl {
     pub fn key(&self) -> Key {
         match self {
             Hdl::Err(key) => *key,
+            Hdl::Boolean(key) => *key,
             Hdl::Sandbox(key) => *key,
             Hdl::Val(key) => *key,
             Hdl::Empty() => EMPTY_KEY,
@@ -198,6 +203,7 @@ impl std::fmt::Display for Hdl {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Hdl::Err(key) => write!(f, "Err({})", key),
+            Hdl::Boolean(key) => write!(f, "Boolean({})", key),
             Hdl::Sandbox(key) => write!(f, "Sandbox({})", key),
             Hdl::Val(key) => write!(f, "Val({})", key),
             Hdl::Empty() => write!(f, "Empty()"),
@@ -244,6 +250,7 @@ impl std::convert::TryFrom<Handle> for Hdl {
         let key = hdl.key();
         match hdl.type_id() {
             Self::ERROR_TYPE_ID => Ok(Hdl::Err(key)),
+            Self::BOOLEAN_TYPE_ID => Ok(Hdl::Boolean(key)),
             Self::SANDBOX_TYPE_ID => Ok(Hdl::Sandbox(key)),
             Self::VAL_TYPE_ID => Ok(Hdl::Val(key)),
             Self::EMPTY_TYPE_ID => Ok(Hdl::Empty()),

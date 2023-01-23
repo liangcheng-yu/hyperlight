@@ -44,6 +44,8 @@ use std::collections::HashMap;
 pub struct Context {
     /// All `anyhow::Error`s stored in this context.
     pub errs: HashMap<Key, Error>,
+    /// All booleans stored in this context
+    pub booleans: HashMap<Key, bool>,
     /// All `Sandbox`es stored in this context
     pub sandboxes: HashMap<Key, Sandbox>,
     /// All `Val`s stored in this context
@@ -186,6 +188,7 @@ impl Context {
                 }
                 match hdl {
                     Hdl::Err(key) => self.errs.remove(&key).is_some(),
+                    Hdl::Boolean(key) => self.booleans.remove(&key).is_some(),
                     Hdl::Sandbox(key) => self.sandboxes.remove(&key).is_some(),
                     Hdl::Empty() => true,
                     Hdl::Invalid() => true,
@@ -268,15 +271,18 @@ macro_rules! validate_context {
 macro_rules! validate_context_or_panic {
     ($cob:ident) => {
         if $cob.is_null() {
-            panic!("{}", ERR_NULL_CONTEXT);
+            // using the fully-qualified name for ERR_NULL_CONTEXT
+            // here to avoid forcing macro users to import it
+            // themselves.
+            panic!("{}", $crate::capi::context::ERR_NULL_CONTEXT);
         }
     };
 }
 
 #[cfg(test)]
 mod tests {
+    use super::Context;
     use super::Handle;
-    use super::{Context, ERR_NULL_CONTEXT};
     use crate::capi::byte_array::get_byte_array_mut;
     use crate::capi::handle::NULL_CONTEXT_KEY;
     use crate::capi::hdl::Hdl;

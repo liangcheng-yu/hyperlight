@@ -1,7 +1,6 @@
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
-use crate::capi::context::ERR_NULL_CONTEXT;
 use crate::mem::pe::PEInfo;
 use crate::{validate_context, validate_context_or_panic};
 

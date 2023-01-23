@@ -1,4 +1,3 @@
-use crate::capi::context::ERR_NULL_CONTEXT;
 use crate::{validate_context, validate_context_or_panic};
 
 use super::context::Context;

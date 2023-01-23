@@ -1,10 +1,7 @@
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
-use crate::{
-    capi::context::ERR_NULL_CONTEXT, mem::guest_mem::GuestMemory, validate_context,
-    validate_context_or_panic,
-};
+use crate::{mem::guest_mem::GuestMemory, validate_context, validate_context_or_panic};
 use anyhow::{anyhow, Result};
 use std::panic::catch_unwind;
 

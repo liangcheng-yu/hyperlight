@@ -1,6 +1,6 @@
 use crate::validate_context_or_panic;
 
-use super::context::{Context, ERR_NULL_CONTEXT};
+use super::context::Context;
 use super::hdl::Hdl;
 use rand::random;
 

@@ -1,9 +1,7 @@
-use crate::capi::context::ERR_NULL_CONTEXT;
-use crate::validate_context_or_panic;
-
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
+use crate::validate_context_or_panic;
 use anyhow::Result;
 use std::ffi::{CStr, CString, NulError};
 use std::os::raw::c_char;

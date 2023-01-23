@@ -1,7 +1,6 @@
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
-use crate::capi::context::ERR_NULL_CONTEXT;
 use crate::func::args::Val;
 use crate::func::SerializationType;
 use crate::validate_context;

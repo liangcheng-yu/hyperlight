@@ -176,6 +176,16 @@ impl GuestMemory {
 
     /// copy all of `self` in the range `[ offset, offset + slc.len() )`
     /// into `slc` and return `Ok`. If the range is invalid, return `Err`
+    ///
+    /// # Example usage
+    ///
+    /// The below will copy 20 bytes from `guest_mem` starting at
+    /// the very beginning of the guest memory (offset 0).
+    ///
+    /// ```rust
+    /// let mut ret_vec = vec![b'\0'; 20];
+    /// guest_mem.copy_to_slice(ret_vec.as_mut_slice(), 0)?
+    /// ```
     pub fn copy_to_slice(&self, slc: &mut [u8], offset: usize) -> Result<()> {
         bounds_check!(offset, self.mem_size());
         bounds_check!(offset + slc.len(), self.mem_size());

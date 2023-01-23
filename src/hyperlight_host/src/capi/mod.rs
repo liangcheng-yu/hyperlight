@@ -7,6 +7,8 @@ use anyhow::{bail, Result};
 pub mod api;
 ///! C-compatible API functions to manipulate guest and host functions.
 pub mod api_funcs;
+///! C-compatible functions for manipulating booleans in `Handle`s
+pub mod bool;
 ///! C-compatible API functions to manage plain byte arrays.
 pub mod byte_array;
 ///! C-compatible API functions to create, modify, read and delete
@@ -45,7 +47,7 @@ pub mod int;
 ///! C-compatible API functions for creating and running guests on KVM
 ///! on Linux.
 pub mod kvm;
-///! C-compatible APi functions for manipulating memory access
+///! C-compatible API functions for manipulating memory access
 ///! handler callback functions
 pub mod mem_access_handler;
 ///! C-compatible API functions to get basic information about
