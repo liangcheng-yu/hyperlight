@@ -220,38 +220,27 @@ namespace Hyperlight.Core
 
         internal ulong SetUpHyperVisorPartition()
         {
-            ulong rsp = Size + (ulong)SandboxMemoryLayout.BaseAddress; // Add 0x200000 because that's the start of mapped memorS
-
-            // For MSVC, move rsp down by 0x28.  This gives the called 'main' function the appearance that rsp was
-            // was 16 byte aligned before the 'call' that calls main (note we don't really have a return value on the
-            // stack but some assembly instructions are expecting rsp have started 0x8 bytes off of 16 byte alignment
-            // when 'main' is invoked.  We do 0x28 instead of 0x8 because MSVC can expect that there are 0x20 bytes
-            // of space to write to by the called function.  I am not sure if this happens with the 'main' method, but
-            // we do this just in case.
-            // NOTE: We do this also for GCC freestanding binaries because we specify __attribute__((ms_abi)) on the start method
-            rsp -= 0x28;
-
-            // Create pagetable
-
-            this.guestMemWrapper!.WriteInt64((IntPtr)SandboxMemoryLayout.PML4Offset, X64.PDE64_PRESENT | X64.PDE64_RW | X64.PDE64_USER | SandboxMemoryLayout.PDPTGuestAddress);
-            this.guestMemWrapper!.WriteInt64((IntPtr)SandboxMemoryLayout.PDPTOffset, X64.PDE64_PRESENT | X64.PDE64_RW | X64.PDE64_USER | SandboxMemoryLayout.PDGuestAddress);
-
-            for (var i = 0/*We do not map first 2 megs*/; i < 512; i++)
+            HyperlightException.ThrowIfNull(
+                this.guestMemWrapper,
+                nameof(this.guestMemWrapper),
+                GetType().Name
+            );
+            var rawHdl = mem_mgr_set_up_hypervisor_partition(
+                this.ctxWrapper.ctx,
+                this.hdlMemManagerWrapper.handle,
+                this.guestMemWrapper.handleWrapper.handle,
+                Size
+            );
+            using var hdl = new Handle(
+                this.ctxWrapper,
+                rawHdl,
+                true
+            );
+            if (!hdl.IsUInt64())
             {
-                // map each VA to physical memory 2 megs lower
-                var valToWrite = (
-                    (i << 21) +
-                    (long)(
-                        X64.PDE64_PRESENT |
-                        X64.PDE64_RW |
-                        X64.PDE64_USER |
-                        X64.PDE64_PS
-                    )
-                );
-                this.guestMemWrapper.WriteInt64(IntPtr.Add((IntPtr)SandboxMemoryLayout.PDOffset, i * 8), (ulong)valToWrite);
+                throw new HyperlightException("mem_mgr_set_up_hypervisor_partition did not return a UInt64");
             }
-
-            return rsp;
+            return hdl.GetUInt64();
         }
 
         internal void SnapshotState()
@@ -668,6 +657,15 @@ namespace Hyperlight.Core
             NativeHandle layoutHdl,
             NativeHandle guestMemHdl,
             NativeHandle cookieHdl
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_set_up_hypervisor_partition(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            NativeHandle guestMemHdl,
+            ulong mem_size
         );
 #pragma warning restore CA1707 // Remove the underscores from member name
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

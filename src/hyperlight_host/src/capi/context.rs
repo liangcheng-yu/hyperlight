@@ -68,6 +68,8 @@ pub struct Context {
     pub guest_mem_snapshots: HashMap<Key, GuestMemorySnapshot>,
     /// All the `i64`s stored in this context
     pub int64s: HashMap<Key, i64>,
+    /// All the `u64`s stored in this context
+    pub uint64s: HashMap<Key, u64>,
     /// All the `i32`s stored in this context
     pub int32s: HashMap<Key, i32>,
     #[cfg(target_os = "linux")]
@@ -205,6 +207,7 @@ impl Context {
                         self.guest_mem_snapshots.remove(&key).is_some()
                     }
                     Hdl::Int64(key) => self.int64s.remove(&key).is_some(),
+                    Hdl::UInt64(key) => self.uint64s.remove(&key).is_some(),
                     Hdl::Int32(key) => self.int32s.remove(&key).is_some(),
                     #[cfg(target_os = "linux")]
                     Hdl::Kvm(key) => self.kvms.remove(&key).is_some(),

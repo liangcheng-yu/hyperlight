@@ -42,6 +42,8 @@ pub enum Hdl {
     GuestMemorySnapshot(Key),
     /// A reference to an `i64`
     Int64(Key),
+    /// A reference to a `u64`
+    UInt64(Key),
     /// A reference to an `i32`
     Int32(Key),
     #[cfg(target_os = "linux")]
@@ -109,7 +111,8 @@ impl Hdl {
     const MEM_ACCESS_HANDLER_FUNC_TYPE_ID: TypeID = 122;
     const GUEST_MEMORY_SNAPSHOT_TYPE_ID: TypeID = 123;
     const MEM_MGR_TYPE_ID: TypeID = 124;
-    const BOOLEAN_TYPE_ID: TypeID = 125;
+    const UINT_64_TYPE_ID: TypeID = 125;
+    const BOOLEAN_TYPE_ID: TypeID = 126;
 
     /// Get the `TypeID` associated with `self`.
     ///
@@ -132,6 +135,7 @@ impl Hdl {
             Hdl::GuestMemory(_) => Self::GUEST_MEMORY_TYPE_ID,
             Hdl::GuestMemorySnapshot(_) => Self::GUEST_MEMORY_SNAPSHOT_TYPE_ID,
             Hdl::Int64(_) => Self::INT_64_TYPE_ID,
+            Hdl::UInt64(_) => Self::UINT_64_TYPE_ID,
             Hdl::Int32(_) => Self::INT_32_TYPE_ID,
             #[cfg(target_os = "linux")]
             Hdl::Kvm(_) => Self::KVM_TYPE_ID,
@@ -176,6 +180,7 @@ impl Hdl {
             Hdl::GuestMemory(key) => *key,
             Hdl::GuestMemorySnapshot(key) => *key,
             Hdl::Int64(key) => *key,
+            Hdl::UInt64(key) => *key,
             Hdl::Int32(key) => *key,
             #[cfg(target_os = "linux")]
             Hdl::Kvm(key) => *key,
@@ -218,6 +223,7 @@ impl std::fmt::Display for Hdl {
             Hdl::GuestMemory(key) => write!(f, "GuestMemory({})", key),
             Hdl::GuestMemorySnapshot(key) => write!(f, "GuestMemorySnapshot({})", key),
             Hdl::Int64(key) => write!(f, "Int64({})", key),
+            Hdl::UInt64(key) => write!(f, "UInt64({})", key),
             Hdl::Int32(key) => write!(f, "Int32({})", key),
             #[cfg(target_os = "linux")]
             Hdl::Kvm(key) => write!(f, "Kvm({})", key),
@@ -265,6 +271,7 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::GUEST_MEMORY_TYPE_ID => Ok(Hdl::GuestMemory(key)),
             Self::GUEST_MEMORY_SNAPSHOT_TYPE_ID => Ok(Hdl::GuestMemorySnapshot(key)),
             Self::INT_64_TYPE_ID => Ok(Hdl::Int64(key)),
+            Self::UINT_64_TYPE_ID => Ok(Hdl::UInt64(key)),
             Self::INT_32_TYPE_ID => Ok(Hdl::Int32(key)),
             #[cfg(target_os = "linux")]
             Self::KVM_TYPE_ID => Ok(Hdl::Kvm(key)),

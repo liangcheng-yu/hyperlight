@@ -74,6 +74,37 @@ pub unsafe extern "C" fn mem_mgr_set_stack_guard(
     }
 }
 
+/// Set up a new hypervisor partition in the given `Context` using the
+/// `GuestMemory` referenced by `guest_mem_hdl`, the
+/// `SandboxMemoryManager` referenced by `mgr_hdl`, and the given memory
+/// size `mem_size`.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_set_up_hypervisor_partition(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+    guest_mem_hdl: Handle,
+    mem_size: u64,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let guest_mem = match get_guest_memory_mut(&mut *ctx, guest_mem_hdl) {
+        Ok(gm) => gm,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    match mgr.set_up_hypervisor_partition(guest_mem, mem_size) {
+        Ok(rsp) => Context::register(rsp, &mut (*ctx).uint64s, Hdl::UInt64),
+        Err(e) => (*ctx).register_err(e),
+    }
+}
+
 /// Check the stack guard for the `SandboxMemoryManager` in `ctx` referenced
 /// by `mgr_hdl`. Return a `Handle` referencing a boolean indicating
 /// whether the stack guard matches the contents of the byte array

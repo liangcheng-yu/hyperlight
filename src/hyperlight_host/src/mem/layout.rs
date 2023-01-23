@@ -181,8 +181,14 @@ impl SandboxMemoryLayout {
     pub const PML4_OFFSET: usize = 0x0000;
     /// The offset into the sandbox's memory where the Page Directory starts.
     pub const PD_OFFSET: usize = 0x2000;
-    /// The offset into the sandbox's memory where the Page Directory Pointer Table is located.
+    /// The address (not the offset) to the start of the page directory
+    pub const PD_GUEST_ADDRESS: usize = Self::BASE_ADDRESS + Self::PD_OFFSET;
+    /// The offset into the sandbox's memory where the Page Directory Pointer
+    /// Table starts.
     pub const PDPT_OFFSET: usize = 0x1000;
+    /// The address (not the offset) into sandbox memory where the Page
+    /// Directory Pointer Table starts
+    pub const PDPT_GUEST_ADDRESS: usize = Self::BASE_ADDRESS + Self::PDPT_OFFSET;
     /// The offset into the sandbox's memory where code starts.
     pub const CODE_OFFSET: usize = Self::PAGE_TABLE_SIZE;
     /// The maximum amount of memory a single sandbox will be allowed.

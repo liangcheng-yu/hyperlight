@@ -69,6 +69,9 @@ pub mod sandbox;
 ///! C-compatible types and functions, and Rust helper functions
 ///! for managing both Rust-native `String` types and C-style strings.
 pub mod strings;
+///! C-compatible API functions for converting `Handle`s to various
+/// unsigned integer types.
+pub mod uint;
 ///! C-compatible API functions for managing `Val` structures.
 pub mod val_ref;
 
