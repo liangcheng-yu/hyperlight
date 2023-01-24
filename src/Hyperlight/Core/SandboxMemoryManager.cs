@@ -571,12 +571,23 @@ namespace Hyperlight.Core
         }
         internal ulong GetPebAddress()
         {
-            if (runFromProcessMemory)
+            HyperlightException.ThrowIfNull(
+                this.sandboxMemoryLayout,
+                nameof(this.sandboxMemoryLayout),
+                GetType().Name
+            );
+            var rawHdl = mem_mgr_get_peb_address(
+                this.ctxWrapper.ctx,
+                this.hdlMemManagerWrapper.handle,
+                this.sandboxMemoryLayout.rawHandle,
+                (ulong)this.SourceAddress.ToInt64()
+            );
+            using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
+            if (!hdl.IsUInt64())
             {
-                return (ulong)sandboxMemoryLayout!.GetInProcessPEBAddress(SourceAddress);
+                throw new HyperlightException("mem_mgr_get_peb_address did not return a uint64");
             }
-
-            return (ulong)sandboxMemoryLayout!.PEBAddress;
+            return hdl.GetUInt64();
         }
 
         internal string? ReadStringOutput()
@@ -667,6 +678,16 @@ namespace Hyperlight.Core
             NativeHandle guestMemHdl,
             ulong mem_size
         );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_get_peb_address(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            NativeHandle memLayoutHdl,
+            ulong memStartAddr
+        );
+
 #pragma warning restore CA1707 // Remove the underscores from member name
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
 

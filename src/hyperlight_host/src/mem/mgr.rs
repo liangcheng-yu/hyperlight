@@ -23,15 +23,15 @@ const PDE64_PS: u64 = 1 << 7;
 /// for a given `Sandbox`.
 pub struct SandboxMemoryManager {
     _cfg: SandboxMemoryConfiguration,
-    _run_from_process_memory: bool,
+    run_from_process_memory: bool,
 }
 
 impl SandboxMemoryManager {
     /// Create a new `SandboxMemoryManager` with the given parameters
-    pub fn new(_cfg: SandboxMemoryConfiguration, _run_from_process_memory: bool) -> Self {
+    pub fn new(_cfg: SandboxMemoryConfiguration, run_from_process_memory: bool) -> Self {
         Self {
             _cfg,
-            _run_from_process_memory,
+            run_from_process_memory,
         }
     }
 
@@ -119,5 +119,19 @@ impl SandboxMemoryManager {
 
         let cmp_res = cookie.iter().cmp(test_cookie.iter());
         Ok(cmp_res == Ordering::Equal)
+    }
+
+    /// Get the process environment block (PEB) address assuming `start_addr`
+    /// is the address of the start of memory, using the given
+    /// `SandboxMemoryLayout` to calculate the address.
+    ///
+    /// For more details on PEBs, please see the following link:
+    ///
+    /// https://en.wikipedia.org/wiki/Process_Environment_Block
+    pub fn get_peb_address(&self, layout: &SandboxMemoryLayout, start_addr: u64) -> u64 {
+        match self.run_from_process_memory {
+            true => layout.get_in_process_peb_offset() as u64 + start_addr,
+            false => layout.peb_address as u64,
+        }
     }
 }
