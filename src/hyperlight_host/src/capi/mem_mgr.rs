@@ -151,3 +151,31 @@ pub unsafe extern "C" fn mem_mgr_check_stack_guard(
         Err(e) => (*ctx).register_err(e),
     }
 }
+
+/// Get the address of the process environment block (PEB) and return a
+/// `Handle` referencing it. On error, return a `Handle` referencing
+/// that error. Use the `uint64` methods to fetch the returned value from
+/// the returned `Handle`
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_peb_address(
+    ctx: *mut Context,
+    mem_mgr_hdl: Handle,
+    mem_layout_hdl: Handle,
+    mem_start_addr: u64,
+) -> Handle {
+    let mgr = match get_mem_mgr(&*ctx, mem_mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let layout = match get_mem_layout(&*ctx, mem_layout_hdl) {
+        Ok(l) => l,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let addr = mgr.get_peb_address(&layout, mem_start_addr);
+    Context::register(addr, &mut (*ctx).uint64s, Hdl::UInt64)
+}
