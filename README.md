@@ -2,9 +2,9 @@
 
 _Hyperlight_ is a lightweight Hypervisor Sandbox. Its purpose is to enable applications to safely run untrusted or third party code within a HyperVisor Partition with very low latency/overhead.
 
-This initial release is designed to be used in a dotnet application, future versions will be made available for other languages and frameworks, we are currently porting the majority of Hyperlight to Rust with the aim of creating a Rust API and a C API that can be used for other languages/frameworks, the existing dotnet version will be retargetted to use this API.
+This initial release is designed to be used as an SDK in a dotnet application, future versions will be made available for other languages and frameworks, we are currently porting the majority of Hyperlight to Rust with the aim of creating a Rust implementation with a C API that interops with language-specific SDKs.
 
-Hyperlight currently supports running applications using either the [Windows Hypervisor Platform](https://docs.microsoft.com/en-us/virtualization/api/#windows-hypervisor-platform) on Windows and either [KVM](https://www.linux-kvm.org/page/Main_Page) or mshv on Linux.
+Hyperlight supports running applications using the [Windows Hypervisor Platform](https://docs.microsoft.com/en-us/virtualization/api/#windows-hypervisor-platform) on Windows and Hyper-V on Linux (mshv). Currently, the only way to run mshv is on the Mariner distribution, see our [mshv setup instructions][mariner] for more information.
 
 >WARNING: This is experimental code. It is not considered production-grade by its developers, neither is it "supported" software.
 
@@ -14,7 +14,7 @@ Hyperlight runs applications in a "sandbox" that it provides. A sandbox is a VM 
 
 ## Hyperlight-Wasm
 
-One primary scenerio is to run WebAssembly (WASM) modules. A sibling project called [Hyperlight WASM](https://github.com/deislabs/hyperlight-wasm) is available to make it easy for users to build tools that run arbitrary WASM modules within a Hyperlight sandbox. Hyperlight WASM is an example of a "guest" application, but a very general one that comes with a full WASM runtime and provides a simple API to run WASM modules within a sandbox.
+One primary scenario is to run WebAssembly (WASM) modules. A sibling project called [Hyperlight WASM](https://github.com/deislabs/hyperlight-wasm) is available to make it easy for users to build tools that run arbitrary WASM modules within a Hyperlight sandbox. Hyperlight WASM is an example of a "guest" application, but a very general one that comes with a full WASM runtime and provides a simple API to run WASM modules within a sandbox.
 
 ## Projects Inside This Repository
 
@@ -41,7 +41,7 @@ Here is the quickest way to try out Hyperlight:
 
 Note: You can also run the linux version using WSL2 on Windows. At present their is no version available for macOS.
 
-To use mshv on Linux follow the instructions [here.](./docs/mariner-mshv.md)
+To use mshv on Linux follow the instructions [here][mariner].
 
 The code for the NativeHost application is available [here](https://github.com/deislabs/hyperlight/blob/main/src/examples/NativeHost/Program.cs).
 
@@ -100,6 +100,9 @@ Hyperlight will build on any Windows or Linux machine that has the [prerequisite
 ```console
 git clone git@github.com:deislabs/hyperlight.git
 cd hyperlight
+# Hyperlight uses submodules to pull in some dependencies such as munit
+# If you see munit errors when running tests, make sure you have the submodules cloned
+git submodule update --init
 just init
 just build
 just test-rust
@@ -142,7 +145,7 @@ Visual Studio Code does not currently support mixed mode debugging, to debug gue
 
 1. [Rust](https://www.rust-lang.org/tools/install)
 1. [Clang](https://clang.llvm.org/get_started.html).  If you have Visual Studio instructions are [here](https://docs.microsoft.com/en-us/cpp/build/clang-support-msbuild?view=msvc-170).
-1. [just](https://github.com/casey/just).  `cargo install just` or with chocolatey `choco install just`.
+1. [just](https://github.com/casey/just).  `cargo install just`. Do not install `just` with Chocolately because it installs an older incompatible version.
 1. [cbindgen](https://github.com/eqrion/cbindgen) `cargo install cbindgen`
 1. [pwsh](https://github.com/PowerShell/PowerShell)
 1. [dotnet](https://learn.microsoft.com/en-us/dotnet/core/install/windows)
@@ -163,10 +166,10 @@ Enter-VsDevShell 001cb2cc -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -ho
 Prerequisites:
 
 1. [Rust](https://www.rust-lang.org/tools/install)
-1. [Clang](https://clang.llvm.org/get_started.html). `sudo apt install clang`.
+1. [Clang](https://clang.llvm.org/get_started.html). `sudo apt install clang` or `sudo dnf install clang` on [Mariner][mariner].
 1. [just](https://github.com/casey/just).  `cargo install just` .
 1. [cbindgen](https://github.com/eqrion/cbindgen) `cargo install cbindgen`
-1. [dotnet](https://learn.microsoft.com/en-us/dotnet/core/install/linux)
+1. [dotnet](https://learn.microsoft.com/en-us/dotnet/core/install/linux). `sudo dnf install dotnet-sdk-6.0` on [Mariner][mariner].
 
 ## Code of Conduct
 
@@ -176,3 +179,5 @@ Conduct](https://opensource.microsoft.com/codeofconduct/).
 For more information see the [Code of Conduct
 FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact
 [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+
+[mariner]: ./docs/mariner-mshv.md
