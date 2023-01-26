@@ -44,7 +44,7 @@ namespace Hyperlight
         byte[]? stackGuard;
         readonly string guestBinaryPath;
         readonly HyperLightExports hyperLightExports;
-        readonly SandboxMemoryManager sandboxMemoryManager;
+        readonly Core.SandboxMemoryManager sandboxMemoryManager;
         readonly bool initialised;
         readonly bool recycleAfterRun;
         readonly bool runFromProcessMemory;
@@ -183,7 +183,7 @@ namespace Hyperlight
             }
 
             this.guestInterfaceGlue = new HyperlightGuestInterfaceGlue(this);
-            this.sandboxMemoryManager = new SandboxMemoryManager(
+            this.sandboxMemoryManager = new Core.SandboxMemoryManager(
                 this.context,
                 memCfg,
                 runFromProcessMemory
