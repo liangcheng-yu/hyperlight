@@ -1,4 +1,5 @@
 #include "hyperlight.h"
+#include <string.h>
 
 int simpleprintOutput(const char* message)
 {
@@ -152,6 +153,8 @@ int bufferOverrun(const char* str)
     return (int) (17 - length);
 }
 
+// If the following two fucntions are compiled with /O2 then they get optimised away and the tests fail.s
+#pragma optimize("",off)
 #pragma warning(suppress:6262)
 int stackOverflow(int i)
 {
@@ -163,12 +166,15 @@ int stackOverflow(int i)
     return i;
 }
 
+
 #pragma warning(suppress:6262)
 int largeVar()
 {
     char buffer[GUEST_STACK_SIZE + 1] = { 0 };
     return GUEST_STACK_SIZE + 1;
 }
+
+#pragma optimize("",on)
 
 int smallVar()
 {

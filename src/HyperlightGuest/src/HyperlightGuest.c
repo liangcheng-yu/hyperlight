@@ -4,6 +4,7 @@
 #include "hyperlight_error.h"
 #include "hyperlight_peb.h"
 #include <setjmp.h>
+#include <string.h>
 
 extern int _fltused = 0;
 uintptr_t __security_cookie;
@@ -13,8 +14,6 @@ FuncTable* funcTable;
 bool runningInHyperlight = true;
 void (*outb_ptr)(uint16_t port, uint8_t value) = NULL;
 
-#pragma optimize("", off)
-
 void RegisterFunction(const char* FunctionName, guestFunc pFunction, int paramCount, ParameterKind parameterKind[])
 {
     if (funcTable->next > funcTable->size)
@@ -23,7 +22,7 @@ void RegisterFunction(const char* FunctionName, guestFunc pFunction, int paramCo
         snprintf(message, 100, "Function Table Limit is %d.", funcTable->size);
         setError(TOO_MANY_GUEST_FUNCTIONS, message);
     }
-    FuncEntry* funcEntry = (FuncEntry*)malloc(sizeof(FuncEntry));
+    FuncEntry* funcEntry = (FuncEntry*)calloc(1,sizeof(FuncEntry));
     if (NULL == funcEntry)
     {
         setError(MALLOC_FAILED, NULL);
@@ -42,7 +41,7 @@ void RegisterFunction(const char* FunctionName, guestFunc pFunction, int paramCo
 void InitialiseFunctionTable(int size)
 {
     size = size > 0 ? size : DEFAULT_FUNC_TABLE_SIZE;
-    funcTable = (FuncTable*)malloc(sizeof(FuncTable));
+    funcTable = (FuncTable*)calloc(1, sizeof(FuncTable));
     if (NULL == funcTable)
     {
         setError(MALLOC_FAILED, NULL);
@@ -51,7 +50,7 @@ void InitialiseFunctionTable(int size)
 #pragma warning(suppress:6011)
     funcTable->next = 0;
     funcTable->size = size;
-    funcTable->funcEntry = (FuncEntry**)(malloc(sizeof(FuncEntry*) * size));
+    funcTable->funcEntry = (FuncEntry**)(calloc(size, sizeof(FuncEntry*)));
     if (NULL == funcTable->funcEntry)
     {
         setError(MALLOC_FAILED, NULL);
@@ -94,6 +93,8 @@ void outb(uint16_t port, uint8_t value)
     checkForHostError();
 }
 
+#pragma optimize("", off)
+
 void halt()
 {
     const uint8_t hlt = 0xF4;
@@ -102,6 +103,8 @@ void halt()
         ((void (*)()) & hlt)();
     }
 }
+
+#pragma optimize("", on)
 
 void resetError()
 {
@@ -129,7 +132,7 @@ void setError(uint64_t errorCode, char* message)
 #pragma warning(suppress : 4996)
         strncpy(pPeb->guestError.message, (char*)message, length);
     }
-
+    memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
     *(uint32_t*)pPeb->outputdata.outputDataBuffer = -1;
 
     longjmp(jmpbuf, 1);
@@ -137,13 +140,14 @@ void setError(uint64_t errorCode, char* message)
 
 void CallHostFunction(char* functionName, va_list ap)
 {
+    memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
     HostFunctionCall* functionCall = (HostFunctionCall*)pPeb->outputdata.outputDataBuffer;
     functionCall->FunctionName = functionName;
     uint64_t** ptr = &functionCall->argv;
 
     uint64_t* arg;
 
-    while (arg = va_arg(ap, uint64_t*))
+    while ((arg = va_arg(ap, uint64_t*)))
     {
         *ptr++ = arg;
     }
@@ -295,7 +299,7 @@ void DispatchFunction()
             setError(GUEST_FUNCTION_NAME_NOT_PROVIDED, NULL);
         }
 
-        guestFunctionDetails = (GuestFunctionDetails*)malloc(sizeof(GuestFunctionDetails));
+        guestFunctionDetails = (GuestFunctionDetails*)calloc(1, sizeof(GuestFunctionDetails));
 
         if (NULL == guestFunctionDetails)
         {
@@ -312,7 +316,7 @@ void DispatchFunction()
         }
         else
         {
-            paramv = (Parameter*)malloc(guestFunctionDetails->paramc * sizeof(GuestFunctionDetails));
+            paramv = (Parameter*)calloc(guestFunctionDetails->paramc, sizeof(Parameter));
             if (NULL == paramv)
             {
                 setError(MALLOC_FAILED, NULL);
@@ -320,7 +324,7 @@ void DispatchFunction()
             guestFunctionDetails->paramv = paramv;
         }
 
-        parg_to_free = malloc(sizeof(uint64_t) * guestFunctionDetails->paramc);
+        parg_to_free = calloc(guestFunctionDetails->paramc, sizeof(uint64_t));
         if (NULL == parg_to_free)
         {
             setError(MALLOC_FAILED, NULL);
@@ -343,7 +347,7 @@ void DispatchFunction()
                 else
                 {
                     uint32_t len = (uint32_t)guestArgument.argv;
-                    void* ptr = malloc(len);
+                    void* ptr = calloc(1, len);
                     if (NULL == ptr)
                     {
                         setError(MALLOC_FAILED, NULL);
@@ -363,8 +367,9 @@ void DispatchFunction()
                 switch (guestArgument.argt)
                 {
                 case (string):
-                    size_t length = strlen((char*)guestArgument.argv);
-                    void* ptr = malloc(length+1);
+                    // Length + 1 as we need to make sure the string is null terminated
+                    size_t length = strlen((char*)guestArgument.argv)+1;
+                    void* ptr = (void *)calloc(1,length);
                     if (NULL == ptr)
                     {
                         setError(MALLOC_FAILED, NULL);
@@ -402,7 +407,10 @@ void DispatchFunction()
             setError(ARRAY_LENGTH_PARAM_IS_MISSING, "Last parameter should be the length of the array");
         }
 
-        *(uint32_t*)pPeb->outputdata.outputDataBuffer = CallGuestFunction(guestFunctionDetails);
+        int result = CallGuestFunction(guestFunctionDetails);
+        memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
+        *( (uint32_t*)(pPeb->outputdata.outputDataBuffer) ) = result;
+
         for (int32_t i = 0; i < guestFunctionDetails->paramc; i++)
         {
             if (parg_to_free[i])
@@ -426,6 +434,10 @@ void DispatchFunction()
 void _putchar(char c)
 {
     static int index = 0;
+    if (index == 0)
+    {
+        memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
+    }
     char* ptr = pPeb->outputdata.outputDataBuffer;
 
     if (index >= pPeb->outputdata.outputDataSize)
@@ -449,12 +461,12 @@ void _putchar(char c)
     index = 0;
 }
 
-bool CheckOutputBufferSize(size_t used, size_t size)
+bool CheckOutputBufferSize(char* dest, size_t size)
 {
-    return used + size > pPeb->outputdata.outputDataSize;
+    return (uint64_t)dest - (uint64_t)pPeb->outputdata.outputDataBuffer + size > pPeb->outputdata.outputDataSize;
 }
 
-size_t CheckAndCopyString(const char* source, char* dest, size_t used)
+char* CheckAndCopyString(const char* source, char* dest)
 {
     size_t length = NULL == source ? 0 : strlen(source);
 
@@ -463,40 +475,27 @@ size_t CheckAndCopyString(const char* source, char* dest, size_t used)
         setError(GUEST_ERROR, "Length was zero");
     }
 
-    if (CheckOutputBufferSize(used, length))
+    if (CheckOutputBufferSize(dest, ++length))
     {
         setError(GUEST_ERROR, "Output buffer is full");
     }
 
-    if (NULL == source)
-    {
-        dest = '\0';
-        used++;
-        return 1;
-    }
-
 #pragma warning(suppress : 4996)
-    strncpy(dest, (char*)source, length);
-    used += ++length;
-    return length;
+    return strncpy(dest, (char*)source, length) + length;
+
 }
 
 void Log(LogLevel logLevel, const char* message, const char* source, const char* caller, const char* sourceFile, int32_t line)
 {
+    memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
     LogData* logData = (LogData*)pPeb->outputdata.outputDataBuffer;
-    size_t used = sizeof(LogData);
-    char* ptr = (char*)pPeb->outputdata.outputDataBuffer + used;
-    logData->Message = ptr;
-    ptr += CheckAndCopyString(message, ptr, used);
-    logData->Level = logLevel;
-    logData->Source = ptr;
-    ptr += CheckAndCopyString(source, ptr, used);
-    logData->Caller = ptr;
-    ptr += CheckAndCopyString(caller, ptr, used);
-    logData->SourceFile = ptr;
-    CheckAndCopyString(sourceFile, ptr, used);
+    logData->Message = (char*)pPeb->outputdata.outputDataBuffer + sizeof(LogData);
+    logData->Source = CheckAndCopyString(message, logData->Message);
+    logData->Level = logLevel;  
+    logData->Caller = CheckAndCopyString(source, logData->Source);
+    logData->SourceFile = CheckAndCopyString(caller, logData->Caller);
+    CheckAndCopyString(sourceFile, logData->SourceFile);
     logData->Line = line;
-
     outb(OUTB_LOG, 0);
 }
 
@@ -557,8 +556,6 @@ void* hyperlightMoreCore(size_t size)
     }
 }
 
-#pragma optimize("", on)
-
 HostFunctionDetails* GetHostFunctionDetails()
 {
 
@@ -569,7 +566,7 @@ HostFunctionDetails* GetHostFunctionDetails()
         return NULL;
     }
 
-    HostFunctionDetails* hostFunctionDetails = (HostFunctionDetails*)malloc(sizeof(HostFunctionDetails));
+    HostFunctionDetails* hostFunctionDetails = (HostFunctionDetails*)calloc(1, sizeof(HostFunctionDetails));
     if (NULL == hostFunctionDetails)
     {
         setError(MALLOC_FAILED, NULL);
@@ -606,7 +603,7 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int f
         HostFunctions* pFuncs = (HostFunctions*)pPeb->hostFunctionDefinitions.functionDefinitions;
         pFuncs->header.DispatchFunction = (uint64_t)DispatchFunction;
 
-        size_t limit = dlmalloc_set_footprint_limit(pPeb->guestheapData.guestHeapSize);
+        dlmalloc_set_footprint_limit(pPeb->guestheapData.guestHeapSize);
 
         //TODO: Pass FunctionTablesize in entryPoint.
 
@@ -617,6 +614,7 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int f
         HyperlightMain();
 
         // Setup return values
+        memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
         *(int32_t*)pPeb->outputdata.outputDataBuffer = 0;
     }
 
@@ -628,22 +626,6 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int f
 // The following functions expose functionality provided by the Host.
 //
 
-
-/// <summary>
-/// strncpy is required by printOutput
-/// TODO: replace this with a libc version (e.g. MUSL Libc)
-/// </summary>
-
-char* strncpy(char* dest, const char* src, size_t len)
-{
-    char* result = dest;
-    while (len--)
-    {
-        *dest++ = *src++;
-    }
-    *dest = 0;
-    return result;
-}
 
 /// <summary>
 /// printOutput exposes functionaility to print a message to the console or a stringwriter via the host
@@ -659,6 +641,8 @@ int printOutput(const char* message)
     {
         result = (size_t)pPeb->outputdata.outputDataSize - 1;
     }
+    memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
+
 #pragma warning(suppress : 4996)
     strncpy((char*)pPeb->outputdata.outputDataBuffer, (char*)message, result);
     outb(OUTB_WRITE_OUTPUT, 0);

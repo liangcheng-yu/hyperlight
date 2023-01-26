@@ -1,4 +1,5 @@
 #pragma once
+
 #include <stdint.h>
 #include <stdbool.h>
 #include "printf.h"
@@ -9,9 +10,7 @@
 #define realloc              dlrealloc
 #define GUEST_ERROR          15
 
-#define GENERATE_FUNCTION(function, paramsc, ... ) GENERATE_FUNCTION_EXPANDED(GENERATE_FUNCTION_##paramsc##, (function, __VA_ARGS__))
-
-#define GENERATE_FUNCTION_EXPANDED(function ,args_expanded) function args_expanded
+#define GENERATE_FUNCTION(function, paramsc, ... ) GENERATE_FUNCTION_##paramsc(function, __VA_ARGS__)
 
 #define GENERATE_FUNCTION_0(function, ...) \
 int __call_##function(Parameter* params) \
@@ -168,8 +167,6 @@ void  dlfree(void*);
 void* dlrealloc(void*, size_t);
 
 void* dlcalloc(size_t, size_t);
-
-char* strncpy(char*, const char*, size_t);
 
 size_t dlmalloc_set_footprint_limit(size_t bytes);
 

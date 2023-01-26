@@ -16,7 +16,7 @@
 
 _TEXT  SEGMENT
     
-_setjmp PROC
+setjmp PROC
   mov     rax, [rsp]       ; rip: save the return address
   mov     [rcx+80], rax      
 
@@ -50,7 +50,7 @@ _setjmp PROC
   xor     eax, eax
   ret
 
-_setjmp ENDP
+setjmp ENDP
 
 ; called with jmp_buf in ecx, and arg in edx (= always 1)
 longjmp PROC

@@ -21,6 +21,7 @@ When we move away from MSVC to either CLang or GCC these changes will need to be
 
 // Modified for Hyperlight - define MORECORE, ABORT and  GetHyperLightTickCount functions
 #ifdef HYPERLIGHT
+typedef unsigned long DWORD, * PDWORD, * LPDWORD;
 extern void* hyperlightMoreCore(size_t);
 extern void dlmalloc_abort();
 extern long  GetHyperLightTickCount();
@@ -568,14 +569,14 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
 #define WIN32 1
 #endif /* _WIN32_WCE */
 #endif  /* WIN32 */
+// Modified for Hyperlight - HAVE_MMAP and HAVE_MORECORE are defined in project preprocessor directives for Hyperlight.
+
+#ifndef HYPERLIGHT
 #ifdef WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <tchar.h>
 
-// Modified for Hyperlight - HAVE_MMAP and HAVE_MORECORE are defined in project preprocessor directives for Hyperlight.
-
-#ifndef HYPERLIGHT
 #define HAVE_MMAP 1
 #define HAVE_MORECORE 0
 #endif /* HYPERLIGHT */
@@ -620,8 +621,12 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
 #define MAX_SIZE_T           (~(size_t)0)
 
 #ifndef USE_LOCKS /* ensure true if spin or recursive locks set */
-#define USE_LOCKS  ((defined(USE_SPIN_LOCKS) && USE_SPIN_LOCKS != 0) || \
-                    (defined(USE_RECURSIVE_LOCKS) && USE_RECURSIVE_LOCKS != 0))
+#if ((defined(USE_SPIN_LOCKS) && USE_SPIN_LOCKS != 0) || \
+    (defined(USE_RECURSIVE_LOCKS) && USE_RECURSIVE_LOCKS != 0))
+#define USE_LOCKS 1
+#else
+#define USE_LOCKS 0
+#endif
 #endif /* USE_LOCKS */
 
 #if USE_LOCKS /* Spin locks for gcc >= 4.1, older gcc on x86, MSC >= 1310 */
@@ -3156,8 +3161,7 @@ static int init_mparams(void) {
                 DEFAULT_GRANULARITY : system_info.dwAllocationGranularity);
 #else
             psize = GetOSPageSize();
-            gsize = gsize = ((DEFAULT_GRANULARITY != 0) ?
-                DEFAULT_GRANULARITY : psize);
+            gsize = ((DEFAULT_GRANULARITY != 0) ? DEFAULT_GRANULARITY : psize);
 #endif /* HYPERLIGHT */
         }
 #endif /* WIN32 */
@@ -4257,7 +4261,7 @@ static void* sys_alloc(mstate m, size_t nb) {
                 if (tbase < m->least_addr)
                     m->least_addr = tbase;
                 sp = &m->seg;
-                while (sp != 0 && sp->base != (size_t)tbase + tsize)
+                while (sp != 0 && sp->base != (size_t)tbase + tsize)        
                     sp = (NO_SEGMENT_TRAVERSAL) ? 0 : sp->next;
                 if (sp != 0 &&
                     !is_extern_segment(sp) &&
