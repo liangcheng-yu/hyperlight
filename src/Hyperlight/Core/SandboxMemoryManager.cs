@@ -9,10 +9,8 @@ using Newtonsoft.Json;
 
 namespace Hyperlight.Core
 {
-    internal class SandboxMemoryManager : IDisposable
+    internal class SandboxMemoryManager : Wrapper.SandboxMemoryManager
     {
-        private readonly Context ctxWrapper;
-        private readonly Handle hdlMemManagerWrapper;
         public ulong EntryPoint { get; private set; }
         public ulong Size { get; private set; }
         public IntPtr SourceAddress { get; private set; }
@@ -28,19 +26,34 @@ namespace Hyperlight.Core
         readonly SandboxMemoryConfiguration sandboxMemoryConfiguration;
         SandboxMemoryLayout? sandboxMemoryLayout;
 
+        internal override GuestMemory GetGuestMemory()
+        {
+            return this.guestMemWrapper!;
+        }
+        internal override SandboxMemoryLayout GetSandboxMemoryLayout()
+        {
+            return this.sandboxMemoryLayout!;
+        }
+        internal override ulong GetSize()
+        {
+            return this.Size;
+        }
+
+        internal override NativeContext GetSourceAddress()
+        {
+            return this.SourceAddress;
+        }
+
         internal SandboxMemoryManager(
             Context ctx,
             SandboxMemoryConfiguration sandboxMemoryConfiguration,
             bool runFromProcessMemory = false
+        ) : base(
+            ctx,
+            sandboxMemoryConfiguration,
+            runFromProcessMemory
         )
         {
-            this.ctxWrapper = ctx;
-            var rawHdl = mem_mgr_new(
-                this.ctxWrapper.ctx,
-                sandboxMemoryConfiguration,
-                runFromProcessMemory
-            );
-            this.hdlMemManagerWrapper = new Handle(this.ctxWrapper, rawHdl, true);
             this.sandboxMemoryConfiguration = sandboxMemoryConfiguration;
             this.runFromProcessMemory = runFromProcessMemory;
         }
@@ -118,111 +131,11 @@ namespace Hyperlight.Core
 
         }
 
-        internal void SetStackGuard(byte[] cookie)
-        {
-            HyperlightException.ThrowIfNull(
-                cookie,
-                nameof(cookie),
-                GetType().Name
-            );
-            HyperlightException.ThrowIfNull(
-                this.sandboxMemoryLayout,
-                nameof(this.sandboxMemoryLayout),
-                GetType().Name
-            );
-            HyperlightException.ThrowIfNull(
-                this.guestMemWrapper,
-                nameof(this.guestMemWrapper),
-                GetType().Name
-            );
-            using var cookieByteArray = new ByteArray(
-                this.ctxWrapper,
-                cookie
-            );
-            var rawHdl = mem_mgr_set_stack_guard(
-                this.ctxWrapper.ctx,
-                this.hdlMemManagerWrapper.handle,
-                this.sandboxMemoryLayout.rawHandle,
-                this.guestMemWrapper.handleWrapper.handle,
-                cookieByteArray.handleWrapper.handle
-            );
-            using var hdl = new Handle(
-                this.ctxWrapper,
-                rawHdl,
-                true
-            );
-        }
-
-        internal bool CheckStackGuard(byte[]? cookie)
-        {
-            HyperlightException.ThrowIfNull(
-                cookie,
-                nameof(cookie),
-                GetType().Name
-            );
-            HyperlightException.ThrowIfNull(
-                this.sandboxMemoryLayout,
-                nameof(this.sandboxMemoryLayout),
-                GetType().Name
-            );
-            HyperlightException.ThrowIfNull(
-                this.guestMemWrapper,
-                nameof(this.guestMemWrapper),
-                GetType().Name
-            );
-            using var cookieByteArray = new ByteArray(
-                this.ctxWrapper,
-                cookie
-            );
-            var rawHdl = mem_mgr_check_stack_guard(
-                this.ctxWrapper.ctx,
-                this.hdlMemManagerWrapper.handle,
-                this.sandboxMemoryLayout.rawHandle,
-                this.guestMemWrapper.handleWrapper.handle,
-                cookieByteArray.handleWrapper.handle
-            );
-            using var hdl = new Handle(
-                this.ctxWrapper,
-                rawHdl,
-                true
-            );
-            if (!hdl.IsBoolean())
-            {
-                throw new HyperlightException("call to rust mem_mgr_check_stack_guard` did not return an error nor a boolean");
-            }
-            return hdl.GetBoolean();
-        }
-
         internal HyperlightPEB SetUpHyperLightPEB()
         {
             sandboxMemoryLayout!.WriteMemoryLayout(this.guestMemWrapper!, GetGuestAddressFromPointer(SourceAddress), Size);
             var offset = GetAddressOffset();
             return new HyperlightPEB(sandboxMemoryLayout.GetFunctionDefinitionAddress(SourceAddress), (int)sandboxMemoryConfiguration.HostFunctionDefinitionSize, offset);
-        }
-
-        internal ulong SetUpHyperVisorPartition()
-        {
-            HyperlightException.ThrowIfNull(
-                this.guestMemWrapper,
-                nameof(this.guestMemWrapper),
-                GetType().Name
-            );
-            var rawHdl = mem_mgr_set_up_hypervisor_partition(
-                this.ctxWrapper.ctx,
-                this.hdlMemManagerWrapper.handle,
-                this.guestMemWrapper.handleWrapper.handle,
-                Size
-            );
-            using var hdl = new Handle(
-                this.ctxWrapper,
-                rawHdl,
-                true
-            );
-            if (!hdl.IsUInt64())
-            {
-                throw new HyperlightException("mem_mgr_set_up_hypervisor_partition did not return a UInt64");
-            }
-            return hdl.GetUInt64();
         }
 
         internal void SnapshotState()
@@ -551,26 +464,7 @@ namespace Hyperlight.Core
             HyperlightLogger.LogError($"Exception occurred in outb", GetType().Name, ex);
 
         }
-        internal ulong GetPebAddress()
-        {
-            HyperlightException.ThrowIfNull(
-                this.sandboxMemoryLayout,
-                nameof(this.sandboxMemoryLayout),
-                GetType().Name
-            );
-            var rawHdl = mem_mgr_get_peb_address(
-                this.ctxWrapper.ctx,
-                this.hdlMemManagerWrapper.handle,
-                this.sandboxMemoryLayout.rawHandle,
-                (ulong)this.SourceAddress.ToInt64()
-            );
-            using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
-            if (!hdl.IsUInt64())
-            {
-                throw new HyperlightException("mem_mgr_get_peb_address did not return a uint64");
-            }
-            return hdl.GetUInt64();
-        }
+
 
         internal string? ReadStringOutput()
         {
@@ -585,7 +479,7 @@ namespace Hyperlight.Core
             return GuestLogData.Create(outputDataAddress, offset);
         }
 
-        protected virtual void Dispose(bool disposing)
+        protected override void DisposeHook(bool disposing)
         {
             if (!disposedValue)
             {
@@ -594,7 +488,6 @@ namespace Hyperlight.Core
                     this.sandboxMemoryLayout?.Dispose();
                     this.guestMemWrapper!.Dispose();
                     this.guestMemSnapshotWrapper?.Dispose();
-                    this.hdlMemManagerWrapper.Dispose();
                 }
 
                 if (IntPtr.Zero != loadAddress)
@@ -605,74 +498,6 @@ namespace Hyperlight.Core
                 disposedValue = true;
             }
         }
-
-        // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
-        ~SandboxMemoryManager()
-        {
-            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-            Dispose(disposing: false);
-        }
-
-        public void Dispose()
-        {
-            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
-        }
-
-#pragma warning disable CA1707 // Remove the underscores from member name
-#pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
-
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle mem_mgr_new(
-            NativeContext ctx,
-            SandboxMemoryConfiguration cfg,
-            [MarshalAs(UnmanagedType.U1)] bool runFromProcessMemory
-        );
-
-
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle mem_mgr_set_stack_guard(
-            NativeContext ctx,
-            NativeHandle mgrHdl,
-            NativeHandle layoutHdl,
-            NativeHandle guestMemHdl,
-            NativeHandle cookieHdl
-        );
-
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle mem_mgr_check_stack_guard(
-            NativeContext ctx,
-            NativeHandle mgrHdl,
-            NativeHandle layoutHdl,
-            NativeHandle guestMemHdl,
-            NativeHandle cookieHdl
-        );
-
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle mem_mgr_set_up_hypervisor_partition(
-            NativeContext ctx,
-            NativeHandle mgrHdl,
-            NativeHandle guestMemHdl,
-            ulong mem_size
-        );
-
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle mem_mgr_get_peb_address(
-            NativeContext ctx,
-            NativeHandle mgrHdl,
-            NativeHandle memLayoutHdl,
-            ulong memStartAddr
-        );
-
-#pragma warning restore CA1707 // Remove the underscores from member name
-#pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
-
     }
 
 }

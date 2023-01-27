@@ -1,17 +1,5 @@
 #include "hyperlight.h"
-
-char* strncat(char* dest, const char* src, int length )
-{
-    char* result = dest;
-    dest += strlen(dest);
-    int count = 0;
-
-    while (++count <= length)
-        *dest++ = *src++;
-            
-    *(++dest) = '0';
-    return result;
-}
+#include <string.h>
 
 int sendMessagetoHostMethod(char* methodName, char* guestMessage, const char* message)
 {

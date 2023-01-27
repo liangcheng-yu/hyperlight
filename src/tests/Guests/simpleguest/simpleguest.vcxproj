@@ -46,12 +46,28 @@
   <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">
     <GenerateManifest>false</GenerateManifest>
     <OutDir>$(SolutionDir)src\tests\Guests\$(ProjectName)\$(Platform)\$(Configuration.toLower())\</OutDir>
-    <IncludePath>$(ProjectDir)..\..\..\HyperlightGuest\third_party\printf;$(ProjectDir)..\..\..\HyperlightGuest\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\internal;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\generic;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\x86_64;$(ProjectDir)..\..\..\HyperlightGuest\third_party\printf;$(ProjectDir)..\..\..\HyperlightGuest\third_party\musl;$(ProjectDir)..\..\..\HyperlightGuest\include</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">
     <GenerateManifest>false</GenerateManifest>
     <OutDir>$(SolutionDir)src\tests\Guests\$(ProjectName)\$(Platform)\$(Configuration.toLower())\</OutDir>
-    <IncludePath>$(ProjectDir)..\..\..\HyperlightGuest\third_party\printf;$(ProjectDir)..\..\..\HyperlightGuest\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\internal;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\generic;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\x86_64;$(ProjectDir)..\..\..\HyperlightGuest\third_party\printf;$(ProjectDir)..\..\..\HyperlightGuest\third_party\musl;$(ProjectDir)..\..\..\HyperlightGuest\include</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='release|x64'">
+    <ExternalIncludePath />
+    <ReferencePath />
+    <LibraryPath />
+    <LibraryWPath />
+    <SourcePath />
+    <ExcludePath />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='debug|x64'">
+    <ExternalIncludePath />
+    <ReferencePath />
+    <LibraryPath />
+    <LibraryWPath />
+    <SourcePath />
+    <ExcludePath />
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">
     <ProjectReference />
@@ -69,12 +85,19 @@
     </Link>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <InlineFunctionExpansion>
+      </InlineFunctionExpansion>
       <BufferSecurityCheck>true</BufferSecurityCheck>
       <UseFullPaths>false</UseFullPaths>
       <debugInformationFormat>None</debugInformationFormat>
-      <Optimization>Disabled</Optimization>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <Optimization>MaxSpeed</Optimization>
+      <IntrinsicFunctions>
+      </IntrinsicFunctions>
+      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='release|x64'">MultiThreaded</RuntimeLibrary>
+      <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='release|x64'">stdc17</LanguageStandard_C>
+      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='release|x64'">true</ShowIncludes>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='release|x64'">hidden=;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck Condition="'$(Configuration)|$(Platform)'=='release|x64'">true</SDLCheck>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">
@@ -101,7 +124,12 @@
       <debugInformationFormat>ProgramDatabase</debugInformationFormat>
       <Optimization>Disabled</Optimization>
       <BufferSecurityCheck>true</BufferSecurityCheck>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <IntrinsicFunctions>false</IntrinsicFunctions>
+      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='debug|x64'">MultiThreaded</RuntimeLibrary>
+      <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='debug|x64'">stdc17</LanguageStandard_C>
+      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='debug|x64'">true</ShowIncludes>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='debug|x64'">hidden=;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck Condition="'$(Configuration)|$(Platform)'=='debug|x64'">true</SDLCheck>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>

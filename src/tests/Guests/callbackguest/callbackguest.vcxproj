@@ -44,15 +44,31 @@
   <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">
     <GenerateManifest>false</GenerateManifest>
     <OutDir>$(SolutionDir)src\tests\Guests\$(ProjectName)\$(Platform)\$(Configuration.toLower())\</OutDir>
-    <IncludePath>$(ProjectDir)..\..\..\HyperlightGuest\third_party\printf;$(ProjectDir)..\..\..\HyperlightGuest\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\internal;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\generic;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\x86_64;$(ProjectDir)..\..\..\HyperlightGuest\third_party\printf;$(ProjectDir)..\..\..\HyperlightGuest\third_party\musl;$(ProjectDir)..\..\..\HyperlightGuest\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">
     <OutDir>$(SolutionDir)src\tests\Guests\$(ProjectName)\$(Platform)\$(Configuration.toLower())\</OutDir>
-    <IncludePath>$(ProjectDir)..\..\..\HyperlightGuest\third_party\printf;$(ProjectDir)..\..\..\HyperlightGuest\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\internal;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\generic;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\x86_64;$(ProjectDir)..\..\..\HyperlightGuest\third_party\printf;$(ProjectDir)..\..\..\HyperlightGuest\third_party\musl;$(ProjectDir)..\..\..\HyperlightGuest\include;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='debug|x64'">
+    <ExternalIncludePath />
+    <ReferencePath />
+    <LibraryPath />
+    <LibraryWPath />
+    <SourcePath />
+    <ExcludePath />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='release|x64'">
+    <ExternalIncludePath />
+    <ReferencePath />
+    <LibraryPath />
+    <LibraryWPath />
+    <SourcePath />
+    <ExcludePath />
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">
     <ClCompile>
-      <Optimization>Disabled</Optimization>
+      <Optimization>MaxSpeed</Optimization>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">
@@ -62,10 +78,15 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">
     <ClCompile>
-      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <InlineFunctionExpansion>
+      </InlineFunctionExpansion>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <IntrinsicFunctions>
+      </IntrinsicFunctions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='release|x64'">hidden=;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='release|x64'">stdc17</LanguageStandard_C>
+      <SDLCheck Condition="'$(Configuration)|$(Platform)'=='release|x64'">true</SDLCheck>
     </ClCompile>
     <Link>
       <AdditionalDependencies>HyperlightGuest.lib</AdditionalDependencies>
@@ -86,7 +107,10 @@
       <WarningLevel>Level3</WarningLevel>
       <debugInformationFormat>ProgramDatabase</debugInformationFormat>
       <UseFullPaths />
-      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <IntrinsicFunctions>false</IntrinsicFunctions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='debug|x64'">hidden=;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='debug|x64'">stdc17</LanguageStandard_C>
+      <SDLCheck Condition="'$(Configuration)|$(Platform)'=='debug|x64'">true</SDLCheck>
     </ClCompile>
     <Link>
       <AdditionalDependencies>HyperlightGuest.lib</AdditionalDependencies>

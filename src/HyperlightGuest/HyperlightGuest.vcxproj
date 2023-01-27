@@ -41,6 +41,50 @@
       <DisableSpecificWarnings Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">5105;4133;4047;6297;26450;28182;6285;6237;</DisableSpecificWarnings>
     </ClCompile>
     <ClCompile Include=".\third_party\printf\printf.c" />
+    <ClCompile Include="third_party\libc\musl\src\ctype\isalnum.c" />
+    <ClCompile Include="third_party\libc\musl\src\ctype\isalpha.c" />
+    <ClCompile Include="third_party\libc\musl\src\ctype\isdigit.c" />
+    <ClCompile Include="third_party\libc\musl\src\ctype\isgraph.c" />
+    <ClCompile Include="third_party\libc\musl\src\ctype\islower.c" />
+    <ClCompile Include="third_party\libc\musl\src\ctype\isprint.c" />
+    <ClCompile Include="third_party\libc\musl\src\ctype\isspace.c" />
+    <ClCompile Include="third_party\libc\musl\src\ctype\isupper.c" />
+    <ClCompile Include="third_party\libc\musl\src\ctype\isxdigit.c" />
+    <ClCompile Include="third_party\libc\musl\src\ctype\tolower.c" />
+    <ClCompile Include="third_party\libc\musl\src\ctype\toupper.c" />
+    <ClCompile Include="third_party\libc\musl\src\errno\__errno_location.c" />
+    <ClCompile Include="third_party\libc\musl\src\internal\floatscan.c" />
+    <ClCompile Include="third_party\libc\musl\src\internal\intscan.c" />
+    <ClCompile Include="third_party\libc\musl\src\internal\shgetc.c" />
+    <ClCompile Include="third_party\libc\musl\src\math\copysign.c" />
+    <ClCompile Include="third_party\libc\musl\src\math\copysignl.c" />
+    <ClCompile Include="third_party\libc\musl\src\math\fabs.c" />
+    <ClCompile Include="third_party\libc\musl\src\math\fabsl.c" />
+    <ClCompile Include="third_party\libc\musl\src\math\fmod.c" />
+    <ClCompile Include="third_party\libc\musl\src\math\fmodl.c" />
+    <ClCompile Include="third_party\libc\musl\src\math\scalbnl.c" />
+    <ClCompile Include="third_party\libc\musl\src\stdio\__toread.c" />
+    <ClCompile Include="third_party\libc\musl\src\stdio\__uflow.c" />
+    <ClCompile Include="third_party\libc\musl\src\stdlib\atoi.c" />
+    <ClCompile Include="third_party\libc\musl\src\stdlib\strtod.c" />
+    <ClCompile Include="third_party\libc\musl\src\stdlib\strtol.c" />
+    <ClCompile Include="third_party\libc\musl\src\string\memchr.c" />
+    <ClCompile Include="third_party\libc\musl\src\string\memcmp.c" />
+    <ClCompile Include="third_party\libc\musl\src\string\memcpy.c" />
+    <ClCompile Include="third_party\libc\musl\src\string\memmove.c" />
+    <ClCompile Include="third_party\libc\musl\src\string\memset.c" />
+    <ClCompile Include="third_party\libc\musl\src\string\stpncpy.c" />
+    <ClCompile Include="third_party\libc\musl\src\string\strchr.c" />
+    <ClCompile Include="third_party\libc\musl\src\string\strchrnul.c" />
+    <ClCompile Include="third_party\libc\musl\src\string\strcmp.c" />
+    <ClCompile Include="third_party\libc\musl\src\string\strcspn.c" />
+    <ClCompile Include="third_party\libc\musl\src\string\strlen.c" />
+    <ClCompile Include="third_party\libc\musl\src\string\strncasecmp.c" />
+    <ClCompile Include="third_party\libc\musl\src\string\strncat.c" />
+    <ClCompile Include="third_party\libc\musl\src\string\strncmp.c" />
+    <ClCompile Include="third_party\libc\musl\src\string\strncpy.c" />
+    <ClCompile Include="third_party\libc\musl\src\string\strspn.c" />
+    <ClCompile Include="third_party\libc\musl\src\string\strstr.c" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
@@ -77,24 +121,45 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">
-    <IncludePath>$(ProjectDir)third_party\dlmalloc;$(ProjectDir)\include;$(ProjectDir)third_party\printf;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)third_party\libc\musl\src\include;$(ProjectDir)third_party\libc\musl\include;$(ProjectDir)third_party\libc\musl\src\internal;$(ProjectDir)third_party\libc\musl\arch\generic;$(ProjectDir)third_party\libc\musl\arch\x86_64;$(ProjectDir)third_party\dlmalloc;$(ProjectDir)\include;$(ProjectDir)third_party\printf</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">
-    <IncludePath>$(ProjectDir)third_party\dlmalloc;$(ProjectDir)\include;$(ProjectDir)third_party\printf;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)third_party\libc\musl\src\include;$(ProjectDir)third_party\libc\musl\include;$(ProjectDir)third_party\libc\musl\src\internal;$(ProjectDir)third_party\libc\musl\arch\generic;$(ProjectDir)third_party\libc\musl\arch\x86_64;$(ProjectDir)third_party\dlmalloc;$(ProjectDir)\include;$(ProjectDir)third_party\printf</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='debug|x64'">
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
+    <ExternalIncludePath />
+    <ReferencePath />
+    <LibraryPath />
+    <LibraryWPath />
+    <SourcePath />
+    <ExcludePath />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='release|x64'">
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
+    <ExternalIncludePath />
+    <ReferencePath />
+    <LibraryPath />
+    <LibraryWPath />
+    <SourcePath />
+    <ExcludePath />
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <ConformanceMode>true</ConformanceMode>
+      <ConformanceMode>Default</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <IntrinsicFunctions>false</IntrinsicFunctions>
       <ShowIncludes>true</ShowIncludes>
-      <PreprocessorDefinitions>HAVE_MMAP=0;HAVE_MORECORE=1;MORECORE=hyperlightMoreCore;MORECORE_CANNOT_TRIM=1;MORECORE_CONTIGUOUS=1;USE_DL_PREFIX;NO_MALLOC_STATS;ABORT=dlmalloc_abort();HYPERLIGHT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <UseStandardPreprocessor>true</UseStandardPreprocessor>
-      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='debug|x64'">OldStyle</DebugInformationFormat>
+      <PreprocessorDefinitions>HAVE_MMAP=0;HAVE_MORECORE=1;MORECORE=hyperlightMoreCore;MORECORE_CANNOT_TRIM=1;MORECORE_CONTIGUOUS=1;USE_DL_PREFIX;NO_MALLOC_STATS;ABORT=dlmalloc_abort();HYPERLIGHT;HYPERLIGHT_PAGESIZE=4096;HYPERLIGHT_GRANULARITYSIZE=65536;__x86_64__;LACKS_SYS_TYPES_H;LACKS_UNISTD_H;__DEFINED_va_list;__DEFINED___isoc_va_list;hidden=;MMAP_CLEARS=0;__FLT_EVAL_METHOD__=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <UseStandardPreprocessor>
+      </UseStandardPreprocessor>
+      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='debug|x64'">ProgramDatabase</DebugInformationFormat>
+      <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='debug|x64'">Disabled</InlineFunctionExpansion>
+      <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='debug|x64'" />
     </ClCompile>
     <Link>
       <SubSystem>
@@ -107,12 +172,19 @@
       <WarningLevel>Level3</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <SDLCheck>true</SDLCheck>
-      <ConformanceMode>true</ConformanceMode>
+      <ConformanceMode>Default</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>HAVE_MMAP=0;HAVE_MORECORE=1;MORECORE=hyperlightMoreCore;MORECORE_CANNOT_TRIM=1;MORECORE_CONTIGUOUS=1;USE_DL_PREFIX;NO_MALLOC_STATS;ABORT=dlmalloc_abort();HYPERLIGHT_PAGESIZE=4096;HYPERLIGHT_GRANULARITYSIZE=65536;HYPERLIGHT;HAVE_LIBC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <UseStandardPreprocessor>true</UseStandardPreprocessor>
+      <IntrinsicFunctions>
+      </IntrinsicFunctions>
+      <PreprocessorDefinitions>HAVE_MMAP=0;HAVE_MORECORE=1;MORECORE=hyperlightMoreCore;MORECORE_CANNOT_TRIM=1;MORECORE_CONTIGUOUS=1;USE_DL_PREFIX;NO_MALLOC_STATS;ABORT=dlmalloc_abort();HYPERLIGHT;HYPERLIGHT_PAGESIZE=4096;HYPERLIGHT_GRANULARITYSIZE=65536;__x86_64__;LACKS_SYS_TYPES_H;LACKS_UNISTD_H;__DEFINED_va_list;__DEFINED___isoc_va_list;hidden=;MMAP_CLEARS=0;__FLT_EVAL_METHOD__=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <UseStandardPreprocessor>
+      </UseStandardPreprocessor>
+      <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='release|x64'">
+      </InlineFunctionExpansion>
+      <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='release|x64'" />
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='release|x64'">MaxSpeed</Optimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='release|x64'">false</WholeProgramOptimization>
     </ClCompile>
     <Link>
       <SubSystem>

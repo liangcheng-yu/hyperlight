@@ -20,6 +20,30 @@
     <Filter Include="Source Files\third_party">
       <UniqueIdentifier>{e7997cc5-886b-4e4c-a28e-45f89324a269}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\third_party\libc">
+      <UniqueIdentifier>{6264436e-0232-4d28-b584-f6ed2ee73071}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\third_party\libc\string">
+      <UniqueIdentifier>{6d98e78c-ce91-4947-a740-bddc6fe92baa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\third_party\libc\stdlib">
+      <UniqueIdentifier>{404fb999-f2db-4e8f-89f2-b98bc924a745}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\third_party\libc\ctype">
+      <UniqueIdentifier>{f64f7467-6c32-4e73-afc0-0bf14af451f0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\third_party\libc\internal">
+      <UniqueIdentifier>{b6f11722-8fa3-4597-858a-de930cd3536e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\third_party\libc\stdio">
+      <UniqueIdentifier>{cde30fb0-88a0-41b0-9e56-4a78d2e4ce05}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\third_party\libc\math">
+      <UniqueIdentifier>{5c39f1dc-36ef-434c-89a4-fa48c647aa8e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\third_party\libc\errno">
+      <UniqueIdentifier>{b8257a7f-f943-41f8-bc0c-87ed5ab5b4fc}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include=".\include\hyperlight_error.h">
@@ -44,6 +68,138 @@
     </ClCompile>
     <ClCompile Include=".\third_party\printf\printf.c">
       <Filter>Source Files\third_party</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\string\strlen.c">
+      <Filter>Source Files\third_party\libc\string</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\string\memcpy.c">
+      <Filter>Source Files\third_party\libc\string</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\string\strcmp.c">
+      <Filter>Source Files\third_party\libc\string</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\string\memset.c">
+      <Filter>Source Files\third_party\libc\string</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\string\stpncpy.c">
+      <Filter>Source Files\third_party\libc\string</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\string\strncpy.c">
+      <Filter>Source Files\third_party\libc\string</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\string\memmove.c">
+      <Filter>Source Files\third_party\libc\string</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\string\strchr.c">
+      <Filter>Source Files\third_party\libc\string</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\string\strchrnul.c">
+      <Filter>Source Files\third_party\libc\string</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\string\strncmp.c">
+      <Filter>Source Files\third_party\libc\string</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\string\strncasecmp.c">
+      <Filter>Source Files\third_party\libc\string</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\string\memchr.c">
+      <Filter>Source Files\third_party\libc\string</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\string\memcmp.c">
+      <Filter>Source Files\third_party\libc\string</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\ctype\isupper.c">
+      <Filter>Source Files\third_party\libc\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\ctype\isalpha.c">
+      <Filter>Source Files\third_party\libc\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\ctype\isspace.c">
+      <Filter>Source Files\third_party\libc\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\ctype\tolower.c">
+      <Filter>Source Files\third_party\libc\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\stdlib\atoi.c">
+      <Filter>Source Files\third_party\libc\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\ctype\isalnum.c">
+      <Filter>Source Files\third_party\libc\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\ctype\isgraph.c">
+      <Filter>Source Files\third_party\libc\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\ctype\isprint.c">
+      <Filter>Source Files\third_party\libc\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\ctype\isxdigit.c">
+      <Filter>Source Files\third_party\libc\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\ctype\toupper.c">
+      <Filter>Source Files\third_party\libc\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\ctype\islower.c">
+      <Filter>Source Files\third_party\libc\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\string\strstr.c">
+      <Filter>Source Files\third_party\libc\string</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\string\strcspn.c">
+      <Filter>Source Files\third_party\libc\string</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\string\strspn.c">
+      <Filter>Source Files\third_party\libc\string</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\stdlib\strtod.c">
+      <Filter>Source Files\third_party\libc\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\internal\floatscan.c">
+      <Filter>Source Files\third_party\libc\internal</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\internal\shgetc.c">
+      <Filter>Source Files\third_party\libc\internal</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\stdio\__uflow.c">
+      <Filter>Source Files\third_party\libc\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\math\copysignl.c">
+      <Filter>Source Files\third_party\libc\math</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\math\fabs.c">
+      <Filter>Source Files\third_party\libc\math</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\math\fabsl.c">
+      <Filter>Source Files\third_party\libc\math</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\math\fmod.c">
+      <Filter>Source Files\third_party\libc\math</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\math\fmodl.c">
+      <Filter>Source Files\third_party\libc\math</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\math\copysign.c">
+      <Filter>Source Files\third_party\libc\math</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\stdio\__toread.c">
+      <Filter>Source Files\third_party\libc\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\math\scalbnl.c">
+      <Filter>Source Files\third_party\libc\math</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\errno\__errno_location.c">
+      <Filter>Source Files\third_party\libc\errno</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\stdlib\strtol.c">
+      <Filter>Source Files\third_party\libc\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\internal\intscan.c">
+      <Filter>Source Files\third_party\libc\internal</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\string\strncat.c">
+      <Filter>Source Files\third_party\libc\string</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\libc\musl\src\ctype\isdigit.c">
+      <Filter>Source Files\third_party\libc\ctype</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

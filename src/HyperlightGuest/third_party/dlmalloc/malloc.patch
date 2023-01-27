@@ -1,8 +1,18 @@
+From 01ef89bdd2f2920224af64c42193fdfce090db38 Mon Sep 17 00:00:00 2001
+From: Simon Davies <simongdavies@users.noreply.github.com>
+Date: Wed, 25 Jan 2023 21:38:01 +0000
+Subject: [PATCH] update malloc1
+
+Signed-off-by: Simon Davies <simongdavies@users.noreply.github.com>
+---
+ .../third_party/dlmalloc/malloc.c             | 5702 +++++++++--------
+ 1 file changed, 2879 insertions(+), 2823 deletions(-)
+
 diff --git a/src/HyperlightGuest/third_party/dlmalloc/malloc.c b/src/HyperlightGuest/third_party/dlmalloc/malloc.c
-index 649cfbc..3b703b5 100644
+index 649cfbc..07013ce 100644
 --- a/src/HyperlightGuest/third_party/dlmalloc/malloc.c
 +++ b/src/HyperlightGuest/third_party/dlmalloc/malloc.c
-@@ -1,3 +1,32 @@
+@@ -1,3 +1,33 @@
 +/*****************************************************************************************
 +
 +This version has been modified to make it work with Hyperlight and the MSVC compiler.
@@ -26,6 +36,7 @@ index 649cfbc..3b703b5 100644
 +
 +// Modified for Hyperlight - define MORECORE, ABORT and  GetHyperLightTickCount functions
 +#ifdef HYPERLIGHT
++typedef unsigned long DWORD, * PDWORD, * LPDWORD;
 +extern void* hyperlightMoreCore(size_t);
 +extern void dlmalloc_abort();
 +extern long  GetHyperLightTickCount();
@@ -35,14 +46,18 @@ index 649cfbc..3b703b5 100644
  /*
    This is a version (aka dlmalloc) of malloc/free/realloc written by
    Doug Lea and released to the public domain, as explained at
-@@ -543,8 +572,14 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
+@@ -539,12 +569,18 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
+ #define WIN32 1
+ #endif /* _WIN32_WCE */
+ #endif  /* WIN32 */
++// Modified for Hyperlight - HAVE_MMAP and HAVE_MORECORE are defined in project preprocessor directives for Hyperlight.
++
++#ifndef HYPERLIGHT
+ #ifdef WIN32
  #define WIN32_LEAN_AND_MEAN
  #include <windows.h>
  #include <tchar.h>
 +
-+// Modified for Hyperlight - HAVE_MMAP and HAVE_MORECORE are defined in project preprocessor directives for Hyperlight.
-+
-+#ifndef HYPERLIGHT
  #define HAVE_MMAP 1
  #define HAVE_MORECORE 0
 +#endif /* HYPERLIGHT */
@@ -50,7 +65,22 @@ index 649cfbc..3b703b5 100644
  #define LACKS_UNISTD_H
  #define LACKS_SYS_PARAM_H
  #define LACKS_SYS_MMAN_H
-@@ -761,16 +796,16 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
+@@ -585,8 +621,12 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
+ #define MAX_SIZE_T           (~(size_t)0)
+ 
+ #ifndef USE_LOCKS /* ensure true if spin or recursive locks set */
+-#define USE_LOCKS  ((defined(USE_SPIN_LOCKS) && USE_SPIN_LOCKS != 0) || \
+-                    (defined(USE_RECURSIVE_LOCKS) && USE_RECURSIVE_LOCKS != 0))
++#if ((defined(USE_SPIN_LOCKS) && USE_SPIN_LOCKS != 0) || \
++    (defined(USE_RECURSIVE_LOCKS) && USE_RECURSIVE_LOCKS != 0))
++#define USE_LOCKS 1
++#else
++#define USE_LOCKS 0
++#endif
+ #endif /* USE_LOCKS */
+ 
+ #if USE_LOCKS /* Spin locks for gcc >= 4.1, older gcc on x86, MSC >= 1310 */
+@@ -761,16 +801,16 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
  #define _STRUCT_MALLINFO
  #define STRUCT_MALLINFO_DECLARED 1
  struct mallinfo {
@@ -77,7 +107,7 @@ index 649cfbc..3b703b5 100644
  };
  #endif /* STRUCT_MALLINFO_DECLARED */
  #endif /* HAVE_USR_INCLUDE_MALLOC_H */
-@@ -782,35 +817,35 @@ struct mallinfo {
+@@ -782,35 +822,35 @@ struct mallinfo {
  */
  
  #ifndef FORCEINLINE
@@ -127,7 +157,7 @@ index 649cfbc..3b703b5 100644
  
  #ifndef USE_DL_PREFIX
  #define dlcalloc               calloc
-@@ -851,565 +886,565 @@ extern "C" {
+@@ -851,565 +891,565 @@ extern "C" {
    maximum supported value of n differs across systems, but is in all
    cases less than the maximum representable value of a size_t.
  */
@@ -1201,7 +1231,7 @@ index 649cfbc..3b703b5 100644
  
  #endif /* MSPACES */
  
-@@ -1484,7 +1519,7 @@ DLMALLOC_EXPORT int mspace_mallopt(int, int);
+@@ -1484,7 +1524,7 @@ DLMALLOC_EXPORT int mspace_mallopt(int, int);
  #include <unistd.h>     /* for sbrk, sysconf */
  #else /* LACKS_UNISTD_H */
  #if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__NetBSD__)
@@ -1210,7 +1240,7 @@ index 649cfbc..3b703b5 100644
  #endif /* FreeBSD etc */
  #endif /* LACKS_UNISTD_H */
  
-@@ -1505,8 +1540,8 @@ extern void*     sbrk(ptrdiff_t);
+@@ -1505,8 +1545,8 @@ extern void*     sbrk(ptrdiff_t);
  #ifdef __cplusplus
  extern "C" {
  #endif /* __cplusplus */
@@ -1221,7 +1251,7 @@ index 649cfbc..3b703b5 100644
  #ifdef __cplusplus
  }
  #endif /* __cplusplus */
-@@ -1532,8 +1567,8 @@ LONG __cdecl _InterlockedExchange(LONG volatile *Target, LONG Value);
+@@ -1532,8 +1572,8 @@ LONG __cdecl _InterlockedExchange(LONG volatile *Target, LONG Value);
  #ifdef __cplusplus
  extern "C" {
  #endif /* __cplusplus */
@@ -1232,7 +1262,7 @@ index 649cfbc..3b703b5 100644
  #ifdef __cplusplus
  }
  #endif /* __cplusplus */
-@@ -1556,7 +1591,7 @@ unsigned char _BitScanReverse(unsigned long *index, unsigned long mask);
+@@ -1556,7 +1596,7 @@ unsigned char _BitScanReverse(unsigned long *index, unsigned long mask);
  #    define malloc_getpagesize sysconf(_SC_PAGE_SIZE)
  #  else
  #    if defined(BSD) || defined(DGUX) || defined(HAVE_GETPAGESIZE)
@@ -1241,7 +1271,7 @@ index 649cfbc..3b703b5 100644
  #      define malloc_getpagesize getpagesize()
  #    else
  #      ifdef WIN32 /* use supplied emulation of getpagesize */
-@@ -1663,33 +1698,33 @@ static int dev_zero_fd = -1; /* Cached file descriptor for /dev/zero. */
+@@ -1663,33 +1703,33 @@ static int dev_zero_fd = -1; /* Cached file descriptor for /dev/zero. */
  
  /* Win32 MMAP via VirtualAlloc */
  static FORCEINLINE void* win32mmap(size_t size) {
@@ -1294,7 +1324,7 @@ index 649cfbc..3b703b5 100644
  }
  
  #define MMAP_DEFAULT(s)             win32mmap(s)
-@@ -1708,61 +1743,61 @@ static FORCEINLINE int win32munmap(void* ptr, size_t size) {
+@@ -1708,61 +1748,61 @@ static FORCEINLINE int win32munmap(void* ptr, size_t size) {
   * Define CALL_MORECORE
   */
  #if HAVE_MORECORE
@@ -1400,7 +1430,7 @@ index 649cfbc..3b703b5 100644
  #define USE_NONCONTIGUOUS_BIT (4U)
  
  /* segment bit set in create_mspace_with_base */
-@@ -1828,25 +1863,25 @@ static FORCEINLINE int win32munmap(void* ptr, size_t size) {
+@@ -1828,25 +1868,25 @@ static FORCEINLINE int win32munmap(void* ptr, size_t size) {
  
  #elif (defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__)))
  /* Custom spin locks for older gcc on x86 */
@@ -1442,7 +1472,7 @@ index 649cfbc..3b703b5 100644
  }
  
  #define CAS_LOCK(sl)     x86_cas_lock(sl)
-@@ -1873,14 +1908,14 @@ static FORCEINLINE void x86_clear_lock(int* sl) {
+@@ -1873,14 +1913,14 @@ static FORCEINLINE void x86_clear_lock(int* sl) {
  
  #if !defined(USE_RECURSIVE_LOCKS) || USE_RECURSIVE_LOCKS == 0
  /* Plain spin locks use single word (embedded in malloc_states) */
@@ -1464,7 +1494,7 @@ index 649cfbc..3b703b5 100644
  }
  
  #define MLOCK_T               int
-@@ -1909,56 +1944,56 @@ static MLOCK_T malloc_global_mutex = 0;
+@@ -1909,56 +1949,56 @@ static MLOCK_T malloc_global_mutex = 0;
  #endif
  
  struct malloc_recursive_lock {
@@ -1561,7 +1591,7 @@ index 649cfbc..3b703b5 100644
  }
  
  #define RELEASE_LOCK(lk)      recursive_release_lock(lk)
-@@ -1982,19 +2017,19 @@ static volatile LONG malloc_global_mutex_status;
+@@ -1982,19 +2022,19 @@ static volatile LONG malloc_global_mutex_status;
  
  /* Use spin loop to initialize global lock */
  static void init_malloc_global_mutex() {
@@ -1593,7 +1623,7 @@ index 649cfbc..3b703b5 100644
  }
  
  #else /* pthreads-based locks */
-@@ -2008,23 +2043,23 @@ static void init_malloc_global_mutex() {
+@@ -2008,23 +2048,23 @@ static void init_malloc_global_mutex() {
  #if defined(USE_RECURSIVE_LOCKS) && USE_RECURSIVE_LOCKS != 0 && defined(linux) && !defined(PTHREAD_MUTEX_RECURSIVE)
  /* Cope with old-style linux recursive lock initialization by adding */
  /* skipped internal declaration from pthread.h */
@@ -1626,7 +1656,7 @@ index 649cfbc..3b703b5 100644
  }
  
  #endif /* ... lock types ... */
-@@ -2180,10 +2215,10 @@ static int pthread_init_lock (MLOCK_T *lk) {
+@@ -2180,10 +2220,10 @@ static int pthread_init_lock (MLOCK_T *lk) {
  */
  
  struct malloc_chunk {
@@ -1641,7 +1671,7 @@ index 649cfbc..3b703b5 100644
  };
  
  typedef struct malloc_chunk  mchunk;
-@@ -2389,15 +2424,15 @@ nextchunk-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+@@ -2389,15 +2429,15 @@ nextchunk-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
  
  struct malloc_tree_chunk {
@@ -1666,7 +1696,7 @@ index 649cfbc..3b703b5 100644
  };
  
  typedef struct malloc_tree_chunk  tchunk;
-@@ -2465,10 +2500,10 @@ typedef struct malloc_tree_chunk* tbinptr; /* The type of bins of trees */
+@@ -2465,10 +2505,10 @@ typedef struct malloc_tree_chunk* tbinptr; /* The type of bins of trees */
  */
  
  struct malloc_segment {
@@ -1681,7 +1711,7 @@ index 649cfbc..3b703b5 100644
  };
  
  #define is_mmapped_segment(S)  ((S)->sflags & USE_MMAP_BIT)
-@@ -2575,31 +2610,31 @@ typedef struct malloc_segment* msegmentptr;
+@@ -2575,31 +2615,31 @@ typedef struct malloc_segment* msegmentptr;
  #define MAX_SMALL_REQUEST (MAX_SMALL_SIZE - CHUNK_ALIGN_MASK - CHUNK_OVERHEAD)
  
  struct malloc_state {
@@ -1734,7 +1764,7 @@ index 649cfbc..3b703b5 100644
  
  /* ------------- Global malloc_state and malloc_params ------------------- */
  
-@@ -2611,12 +2646,12 @@ typedef struct malloc_state*    mstate;
+@@ -2611,12 +2651,12 @@ typedef struct malloc_state*    mstate;
  */
  
  struct malloc_params {
@@ -1753,7 +1783,7 @@ index 649cfbc..3b703b5 100644
  };
  
  static struct malloc_params mparams;
-@@ -2694,24 +2729,24 @@ static struct malloc_state _gm_;
+@@ -2694,24 +2734,24 @@ static struct malloc_state _gm_;
  
  /* Return segment holding given address */
  static msegmentptr segment_holding(mstate m, char* addr) {
@@ -1792,7 +1822,7 @@ index 649cfbc..3b703b5 100644
  }
  
  #ifndef MORECORE_CANNOT_TRIM
-@@ -3088,123 +3123,139 @@ static size_t traverse_and_check(mstate m);
+@@ -3088,123 +3128,138 @@ static size_t traverse_and_check(mstate m);
  /* ---------------------------- setting mparams -------------------------- */
  
  #if LOCK_AT_FORK
@@ -1847,8 +1877,7 @@ index 649cfbc..3b703b5 100644
 +                DEFAULT_GRANULARITY : system_info.dwAllocationGranularity);
 +#else
 +            psize = GetOSPageSize();
-+            gsize = gsize = ((DEFAULT_GRANULARITY != 0) ?
-+                DEFAULT_GRANULARITY : psize);
++            gsize = ((DEFAULT_GRANULARITY != 0) ? DEFAULT_GRANULARITY : psize);
 +#endif /* HYPERLIGHT */
 +        }
  #endif /* WIN32 */
@@ -2014,7 +2043,7 @@ index 649cfbc..3b703b5 100644
  }
  
  #if DEBUG
-@@ -3212,267 +3263,267 @@ static int change_mparam(int param_number, int value) {
+@@ -3212,267 +3267,267 @@ static int change_mparam(int param_number, int value) {
  
  /* Check properties of any chunk, whether free, inuse, mmapped etc  */
  static void do_check_any_chunk(mstate m, mchunkptr p) {
@@ -2359,7 +2388,6 @@ index 649cfbc..3b703b5 100644
      }
 -  }
 -  return 0;
--}
 +    else {
 +        bindex_t tidx;
 +        compute_tree_index(size, tidx);
@@ -2380,7 +2408,7 @@ index 649cfbc..3b703b5 100644
 +        }
 +    }
 +    return 0;
-+}
+ }
  
  /* Traverse each chunk and check it; return total */
  static size_t traverse_and_check(mstate m) {
@@ -2492,7 +2520,7 @@ index 649cfbc..3b703b5 100644
  }
  #endif /* DEBUG */
  
-@@ -3480,75 +3531,75 @@ static void do_check_malloc_state(mstate m) {
+@@ -3480,75 +3535,75 @@ static void do_check_malloc_state(mstate m) {
  
  #if !NO_MALLINFO
  static struct mallinfo internal_mallinfo(mstate m) {
@@ -2627,7 +2655,7 @@ index 649cfbc..3b703b5 100644
  }
  #endif /* NO_MALLOC_STATS */
  
-@@ -3819,69 +3870,69 @@ static void internal_malloc_stats(mstate m) {
+@@ -3819,69 +3874,69 @@ static void internal_malloc_stats(mstate m) {
  
  /* Malloc using mmap */
  static void* mmap_alloc(mstate m, size_t nb) {
@@ -2754,7 +2782,7 @@ index 649cfbc..3b703b5 100644
  }
  
  
-@@ -3889,913 +3940,913 @@ static mchunkptr mmap_resize(mstate m, mchunkptr oldp, size_t nb, int flags) {
+@@ -3889,913 +3944,913 @@ static mchunkptr mmap_resize(mstate m, mchunkptr oldp, size_t nb, int flags) {
  
  /* Initialize top chunk and its size */
  static void init_top(mstate m, mchunkptr p, size_t psize) {
@@ -3355,7 +3383,7 @@ index 649cfbc..3b703b5 100644
 +                if (tbase < m->least_addr)
 +                    m->least_addr = tbase;
 +                sp = &m->seg;
-+                while (sp != 0 && sp->base != (size_t)tbase + tsize)
++                while (sp != 0 && sp->base != (size_t)tbase + tsize)        
 +                    sp = (NO_SEGMENT_TRAVERSAL) ? 0 : sp->next;
 +                if (sp != 0 &&
 +                    !is_extern_segment(sp) &&
@@ -4439,7 +4467,7 @@ index 649cfbc..3b703b5 100644
  }
  
  #endif /* !ONLY_MSPACES */
-@@ -4804,156 +4855,156 @@ void* dlcalloc(size_t n_elements, size_t elem_size) {
+@@ -4804,156 +4859,156 @@ void* dlcalloc(size_t n_elements, size_t elem_size) {
  
  /* Try to realloc; only in-place unless can_move true */
  static mchunkptr try_realloc_chunk(mstate m, mchunkptr p, size_t nb,
@@ -4733,7 +4761,7 @@ index 649cfbc..3b703b5 100644
  }
  
  /*
-@@ -4964,122 +5015,122 @@ static void* internal_memalign(mstate m, size_t alignment, size_t bytes) {
+@@ -4964,122 +5019,122 @@ static void* internal_memalign(mstate m, size_t alignment, size_t bytes) {
      bit 1 set if elements should be zeroed
  */
  static void** ialloc(mstate m,
@@ -4957,7 +4985,7 @@ index 649cfbc..3b703b5 100644
  }
  
  /* Try to free all pointers in the given array.
-@@ -5090,86 +5141,86 @@ static void** ialloc(mstate m,
+@@ -5090,86 +5145,86 @@ static void** ialloc(mstate m,
     with ialloc or the array is sorted.
  */
  static size_t internal_bulk_free(mstate m, void* array[], size_t nelem) {
@@ -5113,7 +5141,7 @@ index 649cfbc..3b703b5 100644
  }
  #endif /* MALLOC_INSPECT_ALL */
  
-@@ -5178,211 +5229,211 @@ static void internal_inspect_all(mstate m,
+@@ -5178,211 +5233,211 @@ static void internal_inspect_all(mstate m,
  #if !ONLY_MSPACES
  
  void* dlrealloc(void* oldmem, size_t bytes) {
@@ -5458,7 +5486,7 @@ index 649cfbc..3b703b5 100644
  }
  
  #endif /* !ONLY_MSPACES */
-@@ -5392,99 +5443,100 @@ size_t dlmalloc_usable_size(void* mem) {
+@@ -5392,99 +5447,100 @@ size_t dlmalloc_usable_size(void* mem) {
  #if MSPACES
  
  static mstate init_user_mstate(char* tbase, size_t tsize) {
@@ -5637,7 +5665,7 @@ index 649cfbc..3b703b5 100644
  }
  
  /*
-@@ -5493,476 +5545,476 @@ size_t destroy_mspace(mspace msp) {
+@@ -5493,476 +5549,476 @@ size_t destroy_mspace(mspace msp) {
  */
  
  void* mspace_malloc(mspace msp, size_t bytes) {
@@ -6495,10 +6523,13 @@ index 649cfbc..3b703b5 100644
  }
  
  #endif /* MSPACES */
-@@ -6277,4 +6329,4 @@ History:
+@@ -6277,4 +6333,4 @@ History:
        * Based loosely on libg++-1.2X malloc. (It retains some of the overall
           structure of old version,  but most details differ.)
  
 -*/
 +*/
 \ No newline at end of file
+-- 
+2.39.0
+

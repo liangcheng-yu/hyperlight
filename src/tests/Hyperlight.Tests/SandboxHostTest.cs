@@ -882,7 +882,7 @@ namespace Hyperlight.Tests
             // StackOverflow(int) function allocates a 16384 sized array and recursively calls itself int times
 
             var shouldNotOverflow = (GetAssemblyMetadataAttribute("GUESTSTACKSIZE") / 16384) - 2;
-            var shouldOverflow = shouldNotOverflow * 2;
+            var shouldOverflow = (GetAssemblyMetadataAttribute("GUESTSTACKSIZE") / 16384) + 1;
 
             foreach (var option in options)
             {
