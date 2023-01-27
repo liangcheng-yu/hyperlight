@@ -10,10 +10,10 @@ use anyhow::{anyhow, Error};
 mod impls {
     use super::super::context::Context;
     use super::super::handle::Handle;
-    use crate::capi::hdl::Hdl;
     use anyhow::{anyhow, bail, Result};
     use std::fs::read;
 
+    /// Returns a reference to the byte array
     pub fn get(ctx: &Context, handle: Handle) -> Result<&Vec<u8>> {
         match super::get_byte_array(ctx, handle) {
             Ok(bytes) => Ok(bytes),
@@ -21,17 +21,7 @@ mod impls {
         }
     }
 
-    pub fn remove(ctx: &mut Context, handle: Handle) -> Result<Vec<u8>> {
-        match Hdl::try_from(handle) {
-            Ok(Hdl::ByteArray(_)) => {
-                let val = get(ctx, handle)?.to_owned();
-                ctx.remove(handle, |h| matches!(h, Hdl::ByteArray(_)));
-                Ok(val)
-            }
-            _ => bail!("handle is not a byte array handle"),
-        }
-    }
-
+    /// Returns the length of the byte array.
     pub fn len(ctx: &Context, handle: Handle) -> Result<usize> {
         let arr = super::get_byte_array(ctx, handle)?;
         Ok(arr.len())
@@ -55,14 +45,6 @@ pub fn get_byte_array(ctx: &Context, handle: Handle) -> Result<&Vec<u8>> {
     Context::get(handle, &ctx.byte_arrays, |b| matches!(b, Hdl::ByteArray(_)))
 }
 
-/// Get the byte array in `ctx` referenced by `handle` in a `WriteResult`
-/// that can be used to read or write the bytes, or `Err` if the
-/// byte array could not be fetched from `ctx`.
-pub fn get_byte_array_mut(ctx: &mut Context, handle: Handle) -> Result<&mut Vec<u8>> {
-    Context::get_mut(handle, &mut ctx.byte_arrays, |b| {
-        matches!(b, Hdl::ByteArray(_))
-    })
-}
 /// Copy all the memory from `arr_ptr` to `arr_ptr + arr_len` into a new
 /// byte array, register the new byte array's memory with the given `ctx`,
 /// and return a `Handle` that references it.
@@ -136,8 +118,8 @@ pub unsafe extern "C" fn byte_array_len(ctx: *const Context, handle: Handle) -> 
     }
 }
 
-/// Get the byte array referenced by `handle`, returning a pointer to the
-/// underlying array.
+/// Get a copy of the byte array referenced by `handle`, returning a
+/// pointer to the copy.
 ///
 /// The length of the memory referenced by the returned pointer is
 /// equal to the value returned from `byte_array_len(ctx, handle)`.
@@ -148,48 +130,45 @@ pub unsafe extern "C" fn byte_array_len(ctx: *const Context, handle: Handle) -> 
 ///
 /// # Safety
 ///
+/// `ctx` must refer to an existing `Context` the caller owns, and
+/// that context must not be modified or deleted at any time during
+/// the execution of this function.
+///
+/// The caller is responsible for the memory referenced by the returned
+/// pointer. After this function returns, the caller must therefore free
+/// this memory when they're done with it with `byte_array_free` or
+/// manually as appropriate in the calling SDK.
+///
 /// The Context is still responsible for the byte array memory after this function returns.
 #[no_mangle]
-pub unsafe extern "C" fn byte_array_get(ctx: *mut Context, handle: Handle) -> *const u8 {
+pub unsafe extern "C" fn byte_array_get(ctx: *mut Context, handle: Handle) -> *mut u8 {
     validate_context_or_panic!(ctx);
 
     match impls::get(&*ctx, handle) {
-        Ok(vec) => vec.as_ptr(),
+        Ok(vec) => {
+            let mut copy = vec.clone();
+            copy.shrink_to_fit();
+            let copy_ptr = copy.as_mut_ptr();
+            std::mem::forget(copy);
+            copy_ptr
+        }
         Err(e) => {
             (*ctx).register_err(e);
-            std::ptr::null()
+            std::ptr::null_mut()
         }
     }
 }
 
-/// Get the byte array referenced by `handle`, return a pointer to the
-/// underlying array, and remove it from `ctx`.
-///
-/// The length of the memory referenced by the returned pointer is
-/// equal to the value returned from `byte_array_len(ctx, handle)`.
-///
-/// If no such byte array exists for the given `handle`, `NULL`
-/// will be returned.
-///
+/// Free the byte array's memory associated with `ptr` based on its length.
 ///
 /// # Safety
 ///
-/// The caller is responsible for the memory referenced by the returned
-/// pointer. After this function returns, the caller must therefore free
-/// this memory when they're done with it, and it will no longer exist
-/// in `ctx`.
+/// You must only call this function exactly once per `ByteArray`, and only
+/// call it after you're done using `ptr`.
 #[no_mangle]
-pub unsafe extern "C" fn byte_array_remove(ctx: *mut Context, handle: Handle) -> *const u8 {
-    validate_context_or_panic!(ctx);
-
-    match impls::remove(&mut *ctx, handle) {
-        Ok(vec) => {
-            let ptr = vec.as_ptr();
-            std::mem::forget(vec);
-            ptr
-        }
-        Err(_) => std::ptr::null(),
-    }
+pub unsafe extern "C" fn byte_array_free(ptr: *mut u8, len: usize) -> bool {
+    drop(std::vec::Vec::from_raw_parts(ptr, len, len));
+    true
 }
 
 #[cfg(test)]
@@ -233,27 +212,6 @@ mod tests {
         {
             let ret_barr = impls::get(&ctx, barr_hdl)?;
             assert_eq!(barr_copy, ret_barr.as_slice());
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn byte_array_remove() -> Result<()> {
-        let mut ctx = Context::default();
-        let barr = vec![1, 2, 3];
-        let barr_copy = barr.clone();
-        let barr_hdl = Context::register(barr, &mut ctx.byte_arrays, Hdl::ByteArray);
-        assert_eq!(handle_get_status(barr_hdl), HandleStatus::ValidOther);
-
-        {
-            let ret_barr = impls::remove(&mut ctx, barr_hdl)?;
-            assert_eq!(barr_copy, ret_barr);
-        }
-
-        {
-            let ret_barr_res = impls::remove(&mut ctx, barr_hdl);
-            assert!(ret_barr_res.is_err());
         }
 
         Ok(())

@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using Hyperlight.Core;
 
 namespace Hyperlight.Wrapper
 {
@@ -84,21 +85,27 @@ namespace Hyperlight.Wrapper
         public Handle handleWrapper { get; private set; }
         private bool disposed;
 
-        public PEInfo(Context ctx, String filename)
+        public PEInfo(Context ctxWrapper, String filename)
         {
-            this.ctxWrapper = ctx;
+            HyperlightException.ThrowIfNull(
+                ctxWrapper,
+                nameof(ctxWrapper),
+                GetType().Name
+            );
+
+            this.ctxWrapper = ctxWrapper;
 
             var contents = System.IO.File.ReadAllBytes(filename);
-            this.payload = new ByteArray(ctx, contents);
+            this.payload = new ByteArray(ctxWrapper, contents);
             this.PayloadLength = contents.Length;
             this.handleWrapper = new Handle(
                 this.ctxWrapper,
                 pe_parse(
                     this.ctxWrapper.ctx,
                     this.payload.handleWrapper.handle
-                )
+                ),
+                true
             );
-            this.handleWrapper.ThrowIfError();
         }
 
         public void Dispose()
@@ -134,21 +141,15 @@ namespace Hyperlight.Wrapper
 
         /// Updates the PE file payload and relocates it to the specified load address
         /// returning the relocated payload.
-        public byte[] GetPayload(ulong addressToLoadAt)
+        public byte[] Relocate(ulong addressToLoadAt)
         {
-            var arrHdl = new Handle(
+            using var arrHdl = new Handle(
                  this.ctxWrapper,
-                 pe_relocate(this.ctxWrapper.ctx, this.handleWrapper.handle, this.payload.handleWrapper.handle, addressToLoadAt)
+                 pe_relocate(this.ctxWrapper.ctx, this.handleWrapper.handle, this.payload.handleWrapper.handle, addressToLoadAt),
+                 true
              );
-            try
-            {
-                arrHdl.ThrowIfError();
-                return this.payload.GetContents();
-            }
-            finally
-            {
-                arrHdl.Dispose();
-            }
+
+            return this.payload.GetContents();
         }
 
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

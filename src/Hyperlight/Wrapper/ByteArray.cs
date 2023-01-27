@@ -11,13 +11,18 @@ namespace Hyperlight.Wrapper
         private bool disposed;
 
         public ByteArray(
-            Context ctx,
+            Context ctxWrapper,
             byte[] arr
         )
         {
+            HyperlightException.ThrowIfNull(
+                ctxWrapper,
+                nameof(ctxWrapper),
+                GetType().Name
+            );
             HyperlightException.ThrowIfNull(arr, GetType().Name);
 
-            this.ctxWrapper = ctx;
+            this.ctxWrapper = ctxWrapper;
             unsafe
             {
                 fixed (byte* arr_ptr = arr)
@@ -27,8 +32,7 @@ namespace Hyperlight.Wrapper
                         arr_ptr,
                         (ulong)arr.Length
                     );
-                    this.handleWrapper = new Handle(ctxWrapper, rawHdl);
-                    this.handleWrapper.ThrowIfError();
+                    this.handleWrapper = new Handle(ctxWrapper, rawHdl, true);
                 }
             }
 
@@ -63,6 +67,8 @@ namespace Hyperlight.Wrapper
                 throw new InvalidOperationException("ByteArray was not present in the Context");
             }
 
+            // This is copying the byte array into a managed string, and C# will GC it later
+            // Because of that we should not call byte_array_free to avoid a double free
             var contents = new byte[len];
             Marshal.Copy(new IntPtr(arr_ptr), contents, 0, contents.Length);
             return contents;

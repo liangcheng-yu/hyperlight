@@ -117,7 +117,7 @@ namespace Hyperlight.Core
             EntryPoint = addressToLoadAt + headers.EntryPointOffset;
 
             // Copy the PE file, applying relocations if required
-            byte[] relocatedPayload = peInfo.GetPayload(addressToLoadAt);
+            byte[] relocatedPayload = peInfo.Relocate(addressToLoadAt);
             this.guestMemWrapper.CopyFromByteArray(
                 relocatedPayload,
                 (IntPtr)SandboxMemoryLayout.CodeOffSet
