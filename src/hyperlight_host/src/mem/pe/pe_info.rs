@@ -39,7 +39,7 @@ impl PEInfo {
             bail!("unsupported PE file, not a PE32+ formatted file")
         }
 
-        if pe.header.coff_header.characteristics & CHARACTERISTICS_EXECUTABLE_IMAGE
+        if (pe.header.coff_header.characteristics & CHARACTERISTICS_EXECUTABLE_IMAGE)
             != CHARACTERISTICS_EXECUTABLE_IMAGE
         {
             bail!("unsupported PE file, not an executable image")
@@ -50,7 +50,7 @@ impl PEInfo {
             .optional_header
             .expect("unsupported PE file, missing optional header entry");
 
-        if pe.header.coff_header.characteristics & CHARACTERISTICS_RELOCS_STRIPPED
+        if (pe.header.coff_header.characteristics & CHARACTERISTICS_RELOCS_STRIPPED)
             == CHARACTERISTICS_RELOCS_STRIPPED
         {
             bail!("unsupported PE file, relocations have been removed")
