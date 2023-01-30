@@ -4,6 +4,9 @@ using Hyperlight.Core;
 
 namespace Hyperlight.Wrapper
 {
+    // PEHeaders is a 1:1 representation of the PEHeaders struct in the C API
+    // Do not change the order of the fields, their types or names without updating
+    // the C API at the same time so that they stay in sync. Otherwise the interop calls will break.
     [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
     public struct PEHeaders : IEquatable<PEHeaders>
     {

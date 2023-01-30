@@ -112,7 +112,8 @@ namespace Hyperlight.Core
             this.guestMemWrapper = new GuestMemory(this.ctxWrapper, this.Size);
             SourceAddress = this.guestMemWrapper.Address;
 
-            // If we are running in memory the entry point will be relative to the sourceAddress if we are running in a Hypervisor it will be relative to 0x230000 which is where the code is loaded in the GP
+            // If we are running in the host process, then the entry point will be relative to the host memory.
+            // If we are running in a hypervisor, then it's relative the guest memory.
             var addressToLoadAt = runFromProcessMemory ? (ulong)SandboxMemoryLayout.GetHostCodeAddress(SourceAddress) : SandboxMemoryLayout.GuestCodeAddress;
             EntryPoint = addressToLoadAt + headers.EntryPointOffset;
 
