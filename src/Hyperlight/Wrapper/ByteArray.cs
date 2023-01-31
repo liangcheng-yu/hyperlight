@@ -59,18 +59,20 @@ namespace Hyperlight.Wrapper
         /// Returns a copy of the byte array contents from the context.
         public unsafe byte[] GetContents()
         {
-            ulong len = byte_array_len(this.ctxWrapper.ctx, this.handleWrapper.handle);
-            byte* arr_ptr = byte_array_get(this.ctxWrapper.ctx, this.handleWrapper.handle);
+            var len = byte_array_len(this.ctxWrapper.ctx, this.handleWrapper.handle);
+            var arr_ptr = byte_array_get(this.ctxWrapper.ctx, this.handleWrapper.handle);
             if (arr_ptr == null)
             {
                 // TODO: How do I get the error from the context and throw it?
                 throw new InvalidOperationException("ByteArray was not present in the Context");
             }
 
-            // This is copying the byte array into a managed string, and C# will GC it later
-            // Because of that we should not call byte_array_free to avoid a double free
+            // This is copying the byte array into a managed byte array, which
+            // C# will GC later, but the original arr_ptr still points to
+            // unmanaged memory, so we need to free it after we copy.
             var contents = new byte[len];
             Marshal.Copy(new IntPtr(arr_ptr), contents, 0, contents.Length);
+            byte_array_raw_free(arr_ptr, len);
             return contents;
         }
 
@@ -97,6 +99,13 @@ namespace Hyperlight.Wrapper
         private static extern unsafe byte* byte_array_get(
             NativeContext ctx,
             NativeHandle bye_array_handle
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern unsafe bool byte_array_raw_free(
+            byte* ptr,
+            ulong size
         );
 
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

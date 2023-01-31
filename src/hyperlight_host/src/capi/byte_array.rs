@@ -136,7 +136,7 @@ pub unsafe extern "C" fn byte_array_len(ctx: *const Context, handle: Handle) -> 
 ///
 /// The caller is responsible for the memory referenced by the returned
 /// pointer. After this function returns, the caller must therefore free
-/// this memory when they're done with it with `byte_array_free` or
+/// this memory when they're done with it with `byte_array_raw_free` or
 /// manually as appropriate in the calling SDK.
 ///
 /// The Context is still responsible for the byte array memory after this function returns.
@@ -166,7 +166,7 @@ pub unsafe extern "C" fn byte_array_get(ctx: *mut Context, handle: Handle) -> *m
 /// You must only call this function exactly once per `ByteArray`, and only
 /// call it after you're done using `ptr`.
 #[no_mangle]
-pub unsafe extern "C" fn byte_array_free(ptr: *mut u8, len: usize) -> bool {
+pub unsafe extern "C" fn byte_array_raw_free(ptr: *mut u8, len: usize) -> bool {
     drop(std::vec::Vec::from_raw_parts(ptr, len, len));
     true
 }

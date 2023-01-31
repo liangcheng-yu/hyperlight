@@ -92,7 +92,7 @@ MunitResult test_pe_relocate()
 
                 uint8_t *reloc_bytes = byte_array_get(ctx, mem_ref);
                 munit_assert_memory_not_equal(orig_len, orig_bytes, reloc_bytes);
-                byte_array_free(reloc_bytes, reloc_len);
+                byte_array_raw_free(reloc_bytes, reloc_len);
                 handle_free(ctx, result_ref);
             }
             else if (result_status != ValidEmpty)
@@ -100,7 +100,7 @@ MunitResult test_pe_relocate()
                 munit_errorf("expected a relocate that does nothing to return ValidEmpty but got %d", result_status);
             }
 
-            byte_array_free(orig_bytes, orig_len);
+            byte_array_raw_free(orig_bytes, orig_len);
             handle_free(ctx, mem_ref);
             context_free(ctx);
         }
