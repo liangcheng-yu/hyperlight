@@ -1,7 +1,8 @@
 use super::config::SandboxMemoryConfiguration;
 use super::guest_mem::GuestMemory;
+use super::guest_mem_snapshot::GuestMemorySnapshot;
 use super::layout::SandboxMemoryLayout;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use std::cmp::Ordering;
 
 /// Whether or not the 64-bit page directory entry (PDE) record is
@@ -24,6 +25,7 @@ const PDE64_PS: u64 = 1 << 7;
 pub struct SandboxMemoryManager {
     _cfg: SandboxMemoryConfiguration,
     run_from_process_memory: bool,
+    mem_snapshot: Option<GuestMemorySnapshot>,
 }
 
 impl SandboxMemoryManager {
@@ -32,6 +34,7 @@ impl SandboxMemoryManager {
         Self {
             _cfg,
             run_from_process_memory,
+            mem_snapshot: None,
         }
     }
 
@@ -132,6 +135,32 @@ impl SandboxMemoryManager {
         match self.run_from_process_memory {
             true => layout.get_in_process_peb_offset() as u64 + start_addr,
             false => layout.peb_address as u64,
+        }
+    }
+
+    /// Create a new memory snapshot of the given `GuestMemory` and
+    /// store it internally. Return an `Ok(())` if the snapshot
+    /// operation succeeded, and an `Err` otherwise.
+    pub fn snapshot_state(&mut self, guest_mem: &GuestMemory) -> Result<()> {
+        let snap = &mut self.mem_snapshot;
+        if let Some(snapshot) = snap {
+            snapshot.replace_snapshot()
+        } else {
+            let new_snapshot = GuestMemorySnapshot::new(guest_mem.clone())?;
+            self.mem_snapshot = Some(new_snapshot);
+            Ok(())
+        }
+    }
+
+    /// Restore memory from the pre-existing snapshot and return
+    /// `Ok(())`. Return an `Err` if there was no pre-existing
+    /// snapshot, or there was but there was an error restoring.
+    pub fn restore_state(&mut self) -> Result<()> {
+        let snap = &mut self.mem_snapshot;
+        if let Some(snapshot) = snap {
+            snapshot.restore_from_snapshot()
+        } else {
+            bail!("restore_state called with no valid snapshot");
         }
     }
 }
