@@ -64,7 +64,7 @@ namespace Hyperlight.Core
 
             var headers = peInfo.GetHeaders();
             sandboxMemoryLayout = new SandboxMemoryLayout(
-                this.ctxWrapper,
+                this.ContextWrapper,
                 sandboxMemoryConfiguration,
                 0,
                 (ulong)headers.StackReserve,
@@ -72,7 +72,7 @@ namespace Hyperlight.Core
             );
             Size = sandboxMemoryLayout.GetMemorySize();
 
-            guestMemWrapper = new GuestMemory(this.ctxWrapper, this.Size);
+            guestMemWrapper = new GuestMemory(this.ContextWrapper, this.Size);
 
             loadAddress = OS.LoadLibrary(guestBinaryPath);
 
@@ -101,14 +101,14 @@ namespace Hyperlight.Core
 
             var headers = peInfo.GetHeaders();
             sandboxMemoryLayout = new SandboxMemoryLayout(
-                this.ctxWrapper,
+                this.ContextWrapper,
                 sandboxMemoryConfiguration,
                 (ulong)peInfo.PayloadLength,
                 (ulong)headers.StackReserve,
                 (ulong)headers.HeapReserve
             );
             Size = sandboxMemoryLayout.GetMemorySize();
-            this.guestMemWrapper = new GuestMemory(this.ctxWrapper, this.Size);
+            this.guestMemWrapper = new GuestMemory(this.ContextWrapper, this.Size);
             SourceAddress = this.guestMemWrapper.Address;
 
             // If we are running in the host process, then the entry point will be relative to the host memory.
