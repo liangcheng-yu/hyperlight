@@ -204,6 +204,18 @@ namespace Hyperlight.Wrapper
             return hdl.GetInt32();
         }
 
+        internal void SetOutBAddress(long pOutB)
+        {
+            var rawHdl = mem_mgr_set_outb_address(
+                this.ctxWrapper.ctx,
+                this.hdlMemManagerWrapper.handle,
+                this.GetGuestMemory().handleWrapper.handle,
+                this.GetSandboxMemoryLayout().rawHandle,
+                (ulong)pOutB
+            );
+            using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
+        }
+
         /// <summary>
         /// A function for subclasses to implement if they want to implement
         /// any Dispose logic of their own.
@@ -318,6 +330,15 @@ namespace Hyperlight.Wrapper
             NativeHandle layoutHdl
         );
 
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_set_outb_address(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            NativeHandle guestMemHdl,
+            NativeHandle layoutHdl,
+            ulong addr
+        );
 
 #pragma warning restore CA1707 // Remove the underscores from member name
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

@@ -276,3 +276,40 @@ pub unsafe extern "C" fn mem_mgr_get_return_value(
     };
     register_i32(&mut *ctx, ret_val)
 }
+
+/// Sets `addr` to the correct offset in the memory referenced by
+/// `guest_mem` to indicate the address of the outb pointer.
+///
+/// Return an empty `Handle` on success, and a `Handle` referencing
+/// an error otherwise.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_set_outb_address(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+    guest_mem_hdl: Handle,
+    layout_hdl: Handle,
+    addr: u64,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let guest_mem = match get_guest_memory_mut(&mut *ctx, guest_mem_hdl) {
+        Ok(g) => g,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let layout = match get_mem_layout(&*ctx, layout_hdl) {
+        Ok(l) => l,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    match mgr.set_outb_address(guest_mem, &layout, addr) {
+        Ok(_) => Handle::new_empty(),
+        Err(e) => (*ctx).register_err(e),
+    }
+}

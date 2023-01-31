@@ -174,4 +174,16 @@ impl SandboxMemoryManager {
         let offset = layout.output_data_buffer_offset;
         guest_mem.read_i32(offset as u64)
     }
+
+    /// Sets `addr` to the correct offset in the memory referenced by
+    /// `guest_mem` to indicate the address of the outb pointer
+    pub fn set_outb_address(
+        &self,
+        guest_mem: &mut GuestMemory,
+        layout: &SandboxMemoryLayout,
+        addr: u64,
+    ) -> Result<()> {
+        let offset = layout.get_out_b_pointer_offset();
+        guest_mem.write_u64(offset, addr)
+    }
 }

@@ -138,13 +138,6 @@ namespace Hyperlight.Core
             return new HyperlightPEB(sandboxMemoryLayout.GetFunctionDefinitionAddress(SourceAddress), (int)sandboxMemoryConfiguration.HostFunctionDefinitionSize, offset);
         }
 
-
-        internal void SetOutBAddress(long pOutB)
-        {
-            var outBPointerOffset = sandboxMemoryLayout!.outbPointerOffset;
-            this.guestMemWrapper!.WriteInt64((IntPtr)outBPointerOffset, (ulong)pOutB);
-        }
-
         internal (GuestErrorCode ErrorCode, string? Message) GetGuestError()
         {
             var guestErrorOffset = sandboxMemoryLayout!.guestErrorOffset;
