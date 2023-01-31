@@ -63,7 +63,7 @@ namespace Hyperlight.Core
             HyperlightException.ThrowIfNull(peInfo, nameof(peInfo), GetType().Name);
 
             sandboxMemoryLayout = new SandboxMemoryLayout(
-                this.ctxWrapper,
+                this.ContextWrapper,
                 sandboxMemoryConfiguration,
                 0,
                 (ulong)peInfo.StackReserve,
@@ -71,7 +71,7 @@ namespace Hyperlight.Core
             );
             Size = sandboxMemoryLayout.GetMemorySize();
 
-            guestMemWrapper = new GuestMemory(this.ctxWrapper, this.Size);
+            guestMemWrapper = new GuestMemory(this.ContextWrapper, this.Size);
 
             loadAddress = OS.LoadLibrary(guestBinaryPath);
 
@@ -98,7 +98,7 @@ namespace Hyperlight.Core
         {
             HyperlightException.ThrowIfNull(peInfo, nameof(peInfo), GetType().Name);
             sandboxMemoryLayout = new SandboxMemoryLayout(
-                this.ctxWrapper,
+                this.ContextWrapper,
                 sandboxMemoryConfiguration,
                 (ulong)peInfo.Payload.Length,
                 (ulong)peInfo.StackReserve,
@@ -106,7 +106,7 @@ namespace Hyperlight.Core
             );
             Size = sandboxMemoryLayout.GetMemorySize();
             this.guestMemWrapper = new GuestMemory(
-                this.ctxWrapper,
+                this.ContextWrapper,
                 this.Size
             );
             SourceAddress = this.guestMemWrapper.Address;

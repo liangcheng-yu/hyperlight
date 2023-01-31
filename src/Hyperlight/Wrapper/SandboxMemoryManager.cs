@@ -6,8 +6,9 @@ namespace Hyperlight.Wrapper
     public abstract class SandboxMemoryManager : IDisposable
     {
         private bool disposedValue;
-        protected readonly Context ctxWrapper;
+        private readonly Context ctxWrapper;
         private readonly Handle hdlMemManagerWrapper;
+        protected Context ContextWrapper => ctxWrapper;
         internal abstract GuestMemory GetGuestMemory();
         internal abstract SandboxMemoryLayout GetSandboxMemoryLayout();
         internal abstract ulong GetSize();
