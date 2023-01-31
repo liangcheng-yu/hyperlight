@@ -19,6 +19,11 @@ namespace Hyperlight.Wrapper
             bool runFromProcessMemory
         )
         {
+            HyperlightException.ThrowIfNull(
+                ctxWrapper,
+                nameof(ctxWrapper),
+                GetType().Name
+            );
             this.ctxWrapper = ctxWrapper;
             var rawHdl = mem_mgr_new(
                     ctxWrapper.ctx,
@@ -158,6 +163,25 @@ namespace Hyperlight.Wrapper
             return hdl.GetUInt64();
         }
 
+        internal void SnapshotState()
+        {
+            var rawHdl = mem_mgr_snapshot_state(
+                this.ctxWrapper.ctx,
+                this.hdlMemManagerWrapper.handle,
+                this.GetGuestMemory().handleWrapper.handle
+            );
+            using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
+        }
+
+        internal void RestoreState()
+        {
+            var rawHdl = mem_mgr_restore_state(
+                this.ctxWrapper.ctx,
+                this.hdlMemManagerWrapper.handle
+            );
+            using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
+        }
+
         /// <summary>
         /// A function for subclasses to implement if they want to implement
         /// any Dispose logic of their own.
@@ -246,6 +270,21 @@ namespace Hyperlight.Wrapper
             NativeHandle memLayoutHdl,
             ulong memStartAddr
         );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_snapshot_state(
+                    NativeContext ctx,
+                    NativeHandle mgrHdl,
+                    NativeHandle guestMemHdl
+                );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_restore_state(
+                    NativeContext ctx,
+                    NativeHandle mgrHdl
+                );
 
 #pragma warning restore CA1707 // Remove the underscores from member name
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

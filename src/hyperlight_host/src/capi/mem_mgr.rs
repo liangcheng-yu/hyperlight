@@ -9,6 +9,11 @@ fn get_mem_mgr(ctx: &Context, hdl: Handle) -> Result<&SandboxMemoryManager> {
     Context::get(hdl, &ctx.mem_mgrs, |h| matches!(h, Hdl::MemMgr(_))).map_err(|e| anyhow!(e))
 }
 
+fn get_mem_mgr_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut SandboxMemoryManager> {
+    Context::get_mut(hdl, &mut ctx.mem_mgrs, |h| matches!(h, Hdl::MemMgr(_)))
+        .map_err(|e| anyhow!(e))
+}
+
 /// Create a new `SandboxMemoryManager` from the given `run_from_process`
 /// memory and the `SandboxMemoryConfiguration` stored in `ctx` referenced by
 /// `cfg_hdl`. Then, store it in `ctx`, and return a new `Handle` referencing
@@ -178,4 +183,56 @@ pub unsafe extern "C" fn mem_mgr_get_peb_address(
     };
     let addr = mgr.get_peb_address(&layout, mem_start_addr);
     Context::register(addr, &mut (*ctx).uint64s, Hdl::UInt64)
+}
+
+/// Fetch the `SandboxMemoryManager` referenced by `mgr_hdl`, then
+/// snapshot the memory from the `GuestMemory` referenced by `guest_mem_hdl`
+/// internally. Return an empty handle if all succeeded, and a `Handle`
+/// referencing an error otherwise.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_snapshot_state(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+    guest_mem_hdl: Handle,
+) -> Handle {
+    let mgr = match get_mem_mgr_mut(&mut *ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let guest_mem = match get_guest_memory(&*ctx, guest_mem_hdl) {
+        Ok(g) => g,
+        Err(e) => return (*ctx).register_err(e),
+    };
+
+    match mgr.snapshot_state(guest_mem) {
+        Ok(_) => Handle::new_empty(),
+        Err(e) => (*ctx).register_err(e),
+    }
+}
+
+/// Fetch the `SandboxMemoryManager` referenced by `mgr_hdl`, then
+/// restore memory from the internally-stored snapshot. Return
+/// an empty handle if the restore succeeded, and a `Handle` referencing
+/// an error otherwise.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_restore_state(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
+    let mgr = match get_mem_mgr_mut(&mut *ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    match mgr.restore_state() {
+        Ok(_) => Handle::new_empty(),
+        Err(e) => (*ctx).register_err(e),
+    }
 }

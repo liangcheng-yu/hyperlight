@@ -18,7 +18,6 @@ namespace Hyperlight.Core
         {
             get; private set;
         }
-        private GuestMemorySnapshot? guestMemSnapshotWrapper;
 
         bool disposedValue;
         IntPtr loadAddress = IntPtr.Zero;
@@ -137,46 +136,6 @@ namespace Hyperlight.Core
             sandboxMemoryLayout!.WriteMemoryLayout(this.guestMemWrapper!, GetGuestAddressFromPointer(SourceAddress), Size);
             var offset = GetAddressOffset();
             return new HyperlightPEB(sandboxMemoryLayout.GetFunctionDefinitionAddress(SourceAddress), (int)sandboxMemoryConfiguration.HostFunctionDefinitionSize, offset);
-        }
-
-        internal void SnapshotState()
-        {
-            // we may not have taken a snapshot yet, but we must
-            // have a guest memory by this point so we can take
-            // one.
-            HyperlightException.ThrowIfNull(
-                this.guestMemWrapper,
-                nameof(this.guestMemWrapper),
-                GetType().Name
-            );
-
-            if (null == this.guestMemSnapshotWrapper)
-            {
-                // if we haven't snapshotted already, create a new
-                // GuestMemorySnapshot from the existing guest memory.
-                this.guestMemSnapshotWrapper = new GuestMemorySnapshot(
-                    this.ctxWrapper,
-                    this.guestMemWrapper
-                );
-            }
-            else
-            {
-                // otherwise, if we have already snapshotted, replace
-                // the existing snapshot we have already.
-                this.guestMemSnapshotWrapper.ReplaceSnapshot();
-            }
-        }
-
-        internal void RestoreState()
-        {
-            // we should have already created a snapshot by this
-            // point, so throw if we haven't
-            HyperlightException.ThrowIfNull(
-                this.guestMemSnapshotWrapper,
-                nameof(this.guestMemSnapshotWrapper),
-                GetType().Name
-            );
-            this.guestMemSnapshotWrapper.RestoreFromSnapshot();
         }
 
         internal int GetReturnValue()
@@ -482,13 +441,13 @@ namespace Hyperlight.Core
 
         protected override void DisposeHook(bool disposing)
         {
+            // This function is called by the parent's Dispose method.
             if (!disposedValue)
             {
                 if (disposing)
                 {
                     this.sandboxMemoryLayout?.Dispose();
                     this.guestMemWrapper!.Dispose();
-                    this.guestMemSnapshotWrapper?.Dispose();
                 }
 
                 if (IntPtr.Zero != loadAddress)
@@ -498,6 +457,21 @@ namespace Hyperlight.Core
 
                 disposedValue = true;
             }
+        }
+
+        ~SandboxMemoryManager()
+        {
+            // NOTE: this finalizer is empty on purpose. It is here
+            // because the C# linter says this class needs a finalizer
+            // because it implements IDisposable.
+            // It doesn't need to call the base finalizer either, because
+            // all finalizers will be called manually by the garbage 
+            // collector in last-in-first-out (LIFO) order.
+            //
+            // See the following link for more information on how finalizers
+            // interact with inheritance:
+            //
+            // https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/finalizers#example
         }
     }
 
