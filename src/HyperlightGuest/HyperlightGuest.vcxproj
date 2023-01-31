@@ -120,12 +120,6 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">
-    <IncludePath>$(ProjectDir)third_party\libc\musl\src\include;$(ProjectDir)third_party\libc\musl\include;$(ProjectDir)third_party\libc\musl\src\internal;$(ProjectDir)third_party\libc\musl\arch\generic;$(ProjectDir)third_party\libc\musl\arch\x86_64;$(ProjectDir)third_party\dlmalloc;$(ProjectDir)\include;$(ProjectDir)third_party\printf</IncludePath>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">
-    <IncludePath>$(ProjectDir)third_party\libc\musl\src\include;$(ProjectDir)third_party\libc\musl\include;$(ProjectDir)third_party\libc\musl\src\internal;$(ProjectDir)third_party\libc\musl\arch\generic;$(ProjectDir)third_party\libc\musl\arch\x86_64;$(ProjectDir)third_party\dlmalloc;$(ProjectDir)\include;$(ProjectDir)third_party\printf</IncludePath>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='debug|x64'">
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
     <ExternalIncludePath />
@@ -146,6 +140,8 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">
     <ClCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\libc\musl\src\include;$(ProjectDir)third_party\libc\musl\include;$(ProjectDir)third_party\libc\musl\src\internal;$(ProjectDir)third_party\libc\musl\arch\generic;$(ProjectDir)third_party\libc\musl\arch\x86_64;$(ProjectDir)third_party\dlmalloc;$(ProjectDir)\include;$(ProjectDir)third_party\printf
+      </AdditionalIncludeDirectories>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>Default</ConformanceMode>
@@ -160,6 +156,7 @@
       <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='debug|x64'">ProgramDatabase</DebugInformationFormat>
       <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='debug|x64'">Disabled</InlineFunctionExpansion>
       <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='debug|x64'" />
+      <IgnoreStandardIncludePath Condition="'$(Configuration)|$(Platform)'=='debug|x64'">true</IgnoreStandardIncludePath>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -169,6 +166,8 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">
     <ClCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\libc\musl\src\include;$(ProjectDir)third_party\libc\musl\include;$(ProjectDir)third_party\libc\musl\src\internal;$(ProjectDir)third_party\libc\musl\arch\generic;$(ProjectDir)third_party\libc\musl\arch\x86_64;$(ProjectDir)third_party\dlmalloc;$(ProjectDir)\include;$(ProjectDir)third_party\printf
+      </AdditionalIncludeDirectories>
       <WarningLevel>Level3</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <SDLCheck>true</SDLCheck>
@@ -185,6 +184,7 @@
       <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='release|x64'" />
       <Optimization Condition="'$(Configuration)|$(Platform)'=='release|x64'">MaxSpeed</Optimization>
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='release|x64'">false</WholeProgramOptimization>
+      <IgnoreStandardIncludePath Condition="'$(Configuration)|$(Platform)'=='release|x64'">true</IgnoreStandardIncludePath>
     </ClCompile>
     <Link>
       <SubSystem>
