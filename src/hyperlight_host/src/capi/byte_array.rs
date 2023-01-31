@@ -136,12 +136,16 @@ pub unsafe extern "C" fn byte_array_len(ctx: *const Context, handle: Handle) -> 
 ///
 /// The caller is responsible for the memory referenced by the returned
 /// pointer. After this function returns, the caller must therefore free
-/// this memory when they're done with it with `byte_array_raw_free` or
-/// manually as appropriate in the calling SDK.
+/// this memory when they're done with it by calling `byte_array_raw_free`
+/// and passing this pointer and the length of the byte array as returned
+/// by `byte_array_len`.
+///
+/// **It is not guaranteed that all memory will be correctly freed if you
+/// call any other function than `byte_array_raw_free`**.
 ///
 /// The Context is still responsible for the byte array memory after this function returns.
 #[no_mangle]
-pub unsafe extern "C" fn byte_array_get(ctx: *mut Context, handle: Handle) -> *mut u8 {
+pub unsafe extern "C" fn byte_array_get_raw(ctx: *mut Context, handle: Handle) -> *mut u8 {
     validate_context_or_panic!(ctx);
 
     match impls::get(&*ctx, handle) {
@@ -202,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn byte_array_get() -> Result<()> {
+    fn byte_array_get_raw() -> Result<()> {
         let mut ctx = Context::default();
         let barr = vec![1, 2, 3];
         let barr_copy = barr.clone();

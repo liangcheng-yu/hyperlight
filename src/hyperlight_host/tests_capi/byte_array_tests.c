@@ -30,7 +30,7 @@ MunitResult test_byte_array_lifecycle()
     munit_assert_true(handle_get_status(barr_ref) == ValidOther);
     munit_assert_int(size, ==, byte_array_len(ctx, barr_ref));
 
-    uint8_t *barr_ptr = byte_array_get(ctx, barr_ref);
+    uint8_t *barr_ptr = byte_array_get_raw(ctx, barr_ref);
 
     byte_array_raw_free(barr_ptr, size);
     handle_free(ctx, barr_ref);

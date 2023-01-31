@@ -289,7 +289,7 @@ mod tests {
                     "expected the relocated payload length to match the original payload length of {pe_file_name}"
                 );
 
-                let relocated_payload_ptr = byte_array::byte_array_get(ctx, payload_hdl);
+                let relocated_payload_ptr = byte_array::byte_array_get_raw(ctx, payload_hdl);
                 assert!(
                     !relocated_payload_ptr.is_null(),
                     "the relocated payload pointer was null for {pe_file_name}"

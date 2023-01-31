@@ -60,7 +60,8 @@ namespace Hyperlight.Wrapper
         public unsafe byte[] GetContents()
         {
             var len = byte_array_len(this.ctxWrapper.ctx, this.handleWrapper.handle);
-            var arr_ptr = byte_array_get(this.ctxWrapper.ctx, this.handleWrapper.handle);
+            var arr_ptr = byte_array_get_raw(this.ctxWrapper.ctx, this.handleWrapper.handle);
+            
             if (arr_ptr == null)
             {
                 // TODO: How do I get the error from the context and throw it?
@@ -96,7 +97,7 @@ namespace Hyperlight.Wrapper
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern unsafe byte* byte_array_get(
+        private static extern unsafe byte* byte_array_get_raw(
             NativeContext ctx,
             NativeHandle bye_array_handle
         );

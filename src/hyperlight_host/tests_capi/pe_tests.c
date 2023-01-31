@@ -67,7 +67,7 @@ MunitResult test_pe_relocate()
             handle_assert_no_error(ctx, mem_ref);
 
             // Remember the original payload
-            uint8_t *orig_bytes = byte_array_get(ctx, mem_ref);
+            uint8_t *orig_bytes = byte_array_get_raw(ctx, mem_ref);
             int64_t orig_len = byte_array_len(ctx, mem_ref);
 
             Handle pe_ref = pe_parse(ctx, mem_ref);
@@ -90,7 +90,7 @@ MunitResult test_pe_relocate()
                     munit_error("the relocated pe file should be the same size as the original");
                 }
 
-                uint8_t *reloc_bytes = byte_array_get(ctx, mem_ref);
+                uint8_t *reloc_bytes = byte_array_get_raw(ctx, mem_ref);
                 munit_assert_memory_not_equal(orig_len, orig_bytes, reloc_bytes);
                 byte_array_raw_free(reloc_bytes, reloc_len);
                 handle_free(ctx, result_ref);
