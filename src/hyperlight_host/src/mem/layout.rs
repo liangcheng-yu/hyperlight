@@ -325,6 +325,9 @@ impl SandboxMemoryLayout {
     }
 
     /// Get the offset in guest memory to the start of output data.
+    ///
+    /// This function exists to accommodate the macro that generates C API
+    /// compatible functions.
     pub fn get_output_data_offset(&self) -> usize {
         self.output_data_buffer_offset
     }

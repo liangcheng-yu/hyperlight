@@ -13,6 +13,11 @@ fn get_i32(ctx: &Context, hdl: Handle) -> Result<&i32> {
     Context::get(hdl, &ctx.int32s, |h| matches!(h, Hdl::Int32(_)))
 }
 
+/// Add `val` to `ctx` and return a new `Handle` referencing it
+pub fn register_i32(ctx: &mut Context, val: i32) -> Handle {
+    Context::register(val, &mut ctx.int32s, Hdl::Int32)
+}
+
 /// Create a new `Handle` that contains the given `val`
 ///
 /// Generally, this function should not be called directly.
@@ -71,8 +76,7 @@ pub unsafe extern "C" fn handle_is_int_64(ctx: *const Context, hdl: Handle) -> b
 #[no_mangle]
 pub unsafe extern "C" fn int_32_new(ctx: *mut Context, val: i32) -> Handle {
     validate_context!(ctx);
-
-    Context::register(val, &mut (*ctx).int32s, Hdl::Int32)
+    register_i32(&mut *ctx, val)
 }
 
 /// Return `true` if `hdl` references an `i32` inside `ctx`, false

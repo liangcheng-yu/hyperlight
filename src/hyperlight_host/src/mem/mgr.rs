@@ -163,4 +163,15 @@ impl SandboxMemoryManager {
             bail!("restore_state called with no valid snapshot");
         }
     }
+
+    /// Get the return value of an executable that ran, or an `Err`
+    /// if no such return value was present.
+    pub fn get_return_value(
+        &self,
+        guest_mem: &GuestMemory,
+        layout: &SandboxMemoryLayout,
+    ) -> Result<i32> {
+        let offset = layout.output_data_buffer_offset;
+        guest_mem.read_i32(offset as u64)
+    }
 }

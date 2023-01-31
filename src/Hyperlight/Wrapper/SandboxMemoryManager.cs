@@ -183,6 +183,27 @@ namespace Hyperlight.Wrapper
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
         }
 
+        internal int GetReturnValue()
+        {
+            var guestMem = this.GetGuestMemory();
+            var layout = this.GetSandboxMemoryLayout();
+
+            var rawHdl = mem_mgr_get_return_value(
+                this.ctxWrapper.ctx,
+                this.hdlMemManagerWrapper.handle,
+                guestMem.handleWrapper.handle,
+                layout.rawHandle
+            );
+            using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
+            if (!hdl.IsInt32())
+            {
+                throw new HyperlightException(
+                    "handle returned from mem_mgr_get_return_value was not an int32"
+                );
+            }
+            return hdl.GetInt32();
+        }
+
         /// <summary>
         /// A function for subclasses to implement if they want to implement
         /// any Dispose logic of their own.
@@ -209,6 +230,7 @@ namespace Hyperlight.Wrapper
                 disposedValue = true;
             }
         }
+
 
         ~SandboxMemoryManager()
         {
@@ -283,9 +305,19 @@ namespace Hyperlight.Wrapper
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle mem_mgr_restore_state(
-                    NativeContext ctx,
-                    NativeHandle mgrHdl
-                );
+            NativeContext ctx,
+            NativeHandle mgrHdl
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_get_return_value(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            NativeHandle guestMemHdl,
+            NativeHandle layoutHdl
+        );
+
 
 #pragma warning restore CA1707 // Remove the underscores from member name
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

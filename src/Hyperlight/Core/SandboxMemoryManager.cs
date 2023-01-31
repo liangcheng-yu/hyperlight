@@ -155,12 +155,6 @@ namespace Hyperlight.Core
             return new HyperlightPEB(sandboxMemoryLayout.GetFunctionDefinitionAddress(SourceAddress), (int)sandboxMemoryConfiguration.HostFunctionDefinitionSize, offset);
         }
 
-        internal int GetReturnValue()
-        {
-            return this.guestMemWrapper!.ReadInt32(
-                (UIntPtr)this.sandboxMemoryLayout!.outputDataOffset
-            );
-        }
 
         internal void SetOutBAddress(long pOutB)
         {
