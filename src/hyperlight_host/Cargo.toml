@@ -25,6 +25,7 @@ windows = { version = "0.44.0", features = [
 ] }
 paste = "1.0"
 quote = "1.0"
+scroll = { version = "0.11", default_features = false }
 
 [target.'cfg(unix)'.dependencies]
 mshv-bindings = {git = "https://github.com/rust-vmm/mshv", rev="1a9ca01" }

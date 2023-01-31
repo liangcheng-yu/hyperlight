@@ -71,7 +71,7 @@
    fun:main
 }
 {
-   suppress_test_pe_getters_1
+   suppress_test_pe_get_headers_1
    Memcheck:Param
    statx(buf)
    fun:statx
@@ -85,14 +85,14 @@
    fun:*read*
    fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
    fun:byte_array_new_from_file
-   fun:test_pe_getters
+   fun:test_pe_get_headers
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
    fun:munit_test_runner_run_suite
 }
 {
-   suppress_test_pe_getters_2
+   suppress_test_pe_get_headers_2
    Memcheck:Param
    statx(file_name)
    fun:statx
@@ -106,7 +106,7 @@
    fun:*read*
    fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
    fun:byte_array_new_from_file
-   fun:test_pe_getters
+   fun:test_pe_get_headers
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test

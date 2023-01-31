@@ -14,7 +14,7 @@ use crate::mem::guest_mem::GuestMemory;
 use crate::mem::guest_mem_snapshot::GuestMemorySnapshot;
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::mgr::SandboxMemoryManager;
-use crate::mem::pe::PEInfo;
+use crate::mem::pe::pe_info::PEInfo;
 use crate::sandbox::Sandbox;
 use anyhow::{bail, Error, Result};
 #[cfg(target_os = "linux")]
@@ -286,7 +286,7 @@ macro_rules! validate_context_or_panic {
 mod tests {
     use super::Context;
     use super::Handle;
-    use crate::capi::byte_array::get_byte_array_mut;
+    use crate::capi::byte_array::get_byte_array;
     use crate::capi::handle::NULL_CONTEXT_KEY;
     use crate::capi::hdl::Hdl;
     use crate::capi::strings::get_string;
@@ -320,7 +320,7 @@ mod tests {
         let start = vec![1, 2, 3, 4, 5];
         let start_clone = start.clone();
         let hdl_res = Context::register(start, &mut ctx.byte_arrays, Hdl::ByteArray);
-        get_byte_array_mut(&mut ctx, hdl_res).map(|b| assert_eq!(**b, start_clone))
+        get_byte_array(&ctx, hdl_res).map(|b| assert_eq!(**b, start_clone))
     }
 
     #[test]

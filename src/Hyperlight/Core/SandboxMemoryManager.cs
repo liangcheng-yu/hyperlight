@@ -62,12 +62,13 @@ namespace Hyperlight.Core
             HyperlightException.ThrowIfNull(guestBinaryPath, nameof(guestBinaryPath), GetType().Name);
             HyperlightException.ThrowIfNull(peInfo, nameof(peInfo), GetType().Name);
 
+            var headers = peInfo.GetHeaders();
             sandboxMemoryLayout = new SandboxMemoryLayout(
                 this.ContextWrapper,
                 sandboxMemoryConfiguration,
                 0,
-                (ulong)peInfo.StackReserve,
-                (ulong)peInfo.HeapReserve
+                (ulong)headers.StackReserve,
+                (ulong)headers.HeapReserve
             );
             Size = sandboxMemoryLayout.GetMemorySize();
 
@@ -78,7 +79,7 @@ namespace Hyperlight.Core
             // Mark first byte as 'J' so we know we are running in hyperlight VM and not as real windows exe
             Marshal.WriteByte(loadAddress, (byte)'J');
 
-            EntryPoint = (ulong)loadAddress + peInfo.EntryPointOffset;
+            EntryPoint = (ulong)loadAddress + headers.EntryPointOffset;
 
             SourceAddress = this.guestMemWrapper.Address;
 
@@ -97,54 +98,36 @@ namespace Hyperlight.Core
         internal void LoadGuestBinaryIntoMemory(PEInfo peInfo)
         {
             HyperlightException.ThrowIfNull(peInfo, nameof(peInfo), GetType().Name);
+
+            var headers = peInfo.GetHeaders();
             sandboxMemoryLayout = new SandboxMemoryLayout(
                 this.ContextWrapper,
                 sandboxMemoryConfiguration,
-                (ulong)peInfo.Payload.Length,
-                (ulong)peInfo.StackReserve,
-                (ulong)peInfo.HeapReserve
+                (ulong)peInfo.PayloadLength,
+                (ulong)headers.StackReserve,
+                (ulong)headers.HeapReserve
             );
             Size = sandboxMemoryLayout.GetMemorySize();
-            this.guestMemWrapper = new GuestMemory(
-                this.ContextWrapper,
-                this.Size
-            );
+            this.guestMemWrapper = new GuestMemory(this.ContextWrapper, this.Size);
             SourceAddress = this.guestMemWrapper.Address;
-            var hostCodeAddress = (ulong)SandboxMemoryLayout.GetHostCodeAddress(SourceAddress);
-            // If we are running in memory the entry point will be relative to the sourceAddress if we are running in a Hypervisor it will be relative to 0x230000 which is where the code is loaded in the GP
-            if (runFromProcessMemory)
-            {
-                EntryPoint = hostCodeAddress + peInfo.EntryPointOffset;
-                this.guestMemWrapper.CopyFromByteArray(
-                    peInfo.Payload,
-                    (IntPtr)SandboxMemoryLayout.CodeOffSet
-                );
 
-                // When loading in memory we need to fix up the relocations in the exe to reflect the address the exe was loaded at.
-                peInfo.PatchExeRelocations(hostCodeAddress);
+            // If we are running in the host process, then the entry point will be relative to the host memory.
+            // If we are running in a hypervisor, then it's relative the guest memory.
+            var addressToLoadAt = runFromProcessMemory ? (ulong)SandboxMemoryLayout.GetHostCodeAddress(SourceAddress) : SandboxMemoryLayout.GuestCodeAddress;
+            EntryPoint = addressToLoadAt + headers.EntryPointOffset;
 
-                // Write a pointer to code so that guest exe can check that it is running in Hyperlight
+            // Copy the PE file, applying relocations if required
+            byte[] relocatedPayload = peInfo.Relocate(addressToLoadAt);
+            this.guestMemWrapper.CopyFromByteArray(
+                relocatedPayload,
+                (IntPtr)SandboxMemoryLayout.CodeOffSet
+            );
 
-                this.guestMemWrapper.WriteInt64(
-                    (IntPtr)sandboxMemoryLayout.codePointerAddressOffset,
-                    hostCodeAddress
-                );
-            }
-            else
-            {
-                EntryPoint = SandboxMemoryLayout.GuestCodeAddress + peInfo.EntryPointOffset;
-                this.guestMemWrapper.CopyFromByteArray(
-                    peInfo.HyperVisorPayload,
-                    (IntPtr)SandboxMemoryLayout.CodeOffSet
-                );
-
-                // Write a pointer to code so that guest exe can check that it is running in Hyperlight
-
-                this.guestMemWrapper.WriteInt64(
-                    (IntPtr)sandboxMemoryLayout.codePointerAddressOffset,
-                    (ulong)SandboxMemoryLayout.GuestCodeAddress
-                );
-            }
+            // Write a pointer to code so that guest exe can check that it is running in Hyperlight
+            this.guestMemWrapper.WriteInt64(
+                (IntPtr)sandboxMemoryLayout.codePointerAddressOffset,
+                addressToLoadAt
+            );
 
         }
 

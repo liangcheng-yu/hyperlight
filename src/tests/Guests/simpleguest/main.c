@@ -1,9 +1,12 @@
 #include "hyperlight.h"
 #include <string.h>
 
-int simpleprintOutput(const char* message)
+// Force an entry in the PE file's relocation table to help us with testing PE file relocation
+static int (*foo)(const char *format, ...) = printf;
+
+int simpleprintOutput(const char *message)
 {
-    return printf("%s", message);
+    return foo("%s", message);
 }
 
 int setByteArrayToZero(void* arrayPtr, int length)

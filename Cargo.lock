@@ -191,6 +191,7 @@ dependencies = [
  "pretty_assertions",
  "quote",
  "rand",
+ "scroll",
  "serde",
  "windows",
 ]

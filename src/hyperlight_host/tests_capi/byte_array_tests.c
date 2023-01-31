@@ -30,9 +30,10 @@ MunitResult test_byte_array_lifecycle()
     munit_assert_true(handle_get_status(barr_ref) == ValidOther);
     munit_assert_int(size, ==, byte_array_len(ctx, barr_ref));
 
-    const uint8_t *barr = byte_array_remove(ctx, barr_ref);
-    munit_assert_false(handle_free(ctx, barr_ref));
-    free((uint8_t *)barr);
+    uint8_t *barr_ptr = byte_array_get(ctx, barr_ref);
+    
+    byte_array_free(barr_ptr, size);
+    handle_free(ctx, barr_ref);
     context_free(ctx);
     return MUNIT_OK;
 }
@@ -48,10 +49,7 @@ MunitResult test_byte_array_new_from_file()
     long actual_size = file_size(file_name);
     munit_assert_long(actual_size, ==, byte_array_len(ctx, barr_ref));
 
-    const uint8_t *barr = byte_array_remove(ctx, barr_ref);
-    free((uint8_t *)barr);
-    munit_assert_false(handle_free(ctx, barr_ref));
-
+    handle_free(ctx, barr_ref);
     context_free(ctx);
     return MUNIT_OK;
 }
