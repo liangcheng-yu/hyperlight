@@ -1,8 +1,11 @@
 use super::guest_mem::{get_guest_memory, get_guest_memory_mut};
 use super::mem_layout::get_mem_layout;
 use super::{byte_array::get_byte_array, context::Context, handle::Handle, hdl::Hdl};
-use crate::mem::{config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager};
 use crate::validate_context;
+use crate::{
+    capi::int::register_i32,
+    mem::{config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager},
+};
 use anyhow::{anyhow, Result};
 
 fn get_mem_mgr(ctx: &Context, hdl: Handle) -> Result<&SandboxMemoryManager> {
@@ -173,6 +176,7 @@ pub unsafe extern "C" fn mem_mgr_get_peb_address(
     mem_layout_hdl: Handle,
     mem_start_addr: u64,
 ) -> Handle {
+    validate_context!(ctx);
     let mgr = match get_mem_mgr(&*ctx, mem_mgr_hdl) {
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
@@ -200,6 +204,7 @@ pub unsafe extern "C" fn mem_mgr_snapshot_state(
     mgr_hdl: Handle,
     guest_mem_hdl: Handle,
 ) -> Handle {
+    validate_context!(ctx);
     let mgr = match get_mem_mgr_mut(&mut *ctx, mgr_hdl) {
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
@@ -224,9 +229,9 @@ pub unsafe extern "C" fn mem_mgr_snapshot_state(
 ///
 /// `ctx` must be created by `context_new`, owned by the caller, and
 /// not yet freed by `context_free`.
-
 #[no_mangle]
 pub unsafe extern "C" fn mem_mgr_restore_state(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
+    validate_context!(ctx);
     let mgr = match get_mem_mgr_mut(&mut *ctx, mgr_hdl) {
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
@@ -235,4 +240,39 @@ pub unsafe extern "C" fn mem_mgr_restore_state(ctx: *mut Context, mgr_hdl: Handl
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
+}
+
+/// Get the return value of an executable that ran and return a `Handle`
+/// referencing an int32 with the return value. Return a `Handle` referencing
+/// an error otherwise.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_return_value(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+    guest_mem_hdl: Handle,
+    layout_hdl: Handle,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let guest_mem = match get_guest_memory(&*ctx, guest_mem_hdl) {
+        Ok(g) => g,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let layout = match get_mem_layout(&*ctx, layout_hdl) {
+        Ok(l) => l,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let ret_val = match mgr.get_return_value(guest_mem, &layout) {
+        Ok(v) => v,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    register_i32(&mut *ctx, ret_val)
 }
