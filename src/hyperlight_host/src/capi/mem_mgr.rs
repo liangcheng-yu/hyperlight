@@ -1,11 +1,11 @@
 use super::guest_mem::{get_guest_memory, get_guest_memory_mut};
 use super::mem_layout::get_mem_layout;
 use super::{byte_array::get_byte_array, context::Context, handle::Handle, hdl::Hdl};
-use crate::validate_context;
 use crate::{
     capi::int::register_i32,
     mem::{config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager},
 };
+use crate::{capi::int::register_u64, validate_context};
 use anyhow::{anyhow, Result};
 
 fn get_mem_mgr(ctx: &Context, hdl: Handle) -> Result<&SandboxMemoryManager> {
@@ -312,4 +312,28 @@ pub unsafe extern "C" fn mem_mgr_set_outb_address(
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
+}
+
+/// Get the offset to use when calculating addresses.
+///
+/// Return a `Handle` referencing a uint64 on success, and a `Handle`
+/// referencing an error otherwise.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_address_offset(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+    source_addr: u64,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let val = mgr.get_address_offset(source_addr);
+    register_u64(&mut *ctx, val)
 }

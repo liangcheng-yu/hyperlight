@@ -216,6 +216,21 @@ namespace Hyperlight.Wrapper
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
         }
 
+        internal long GetAddressOffset()
+        {
+            var rawHdl = mem_mgr_get_address_offset(
+                this.ctxWrapper.ctx,
+                this.hdlMemManagerWrapper.handle,
+    (ulong)this.GetSourceAddress().ToInt64()
+            );
+            using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
+            if (!hdl.IsUInt64())
+            {
+                throw new HyperlightException("mem_mgr_get_address_offset did not return a uint64");
+            }
+            return (long)hdl.GetUInt64();
+        }
+
         /// <summary>
         /// A function for subclasses to implement if they want to implement
         /// any Dispose logic of their own.
@@ -338,6 +353,14 @@ namespace Hyperlight.Wrapper
             NativeHandle guestMemHdl,
             NativeHandle layoutHdl,
             ulong addr
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_get_address_offset(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            ulong sourceAddr
         );
 
 #pragma warning restore CA1707 // Remove the underscores from member name

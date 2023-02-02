@@ -186,4 +186,12 @@ impl SandboxMemoryManager {
         let offset = layout.get_out_b_pointer_offset();
         guest_mem.write_u64(offset, addr)
     }
+
+    /// Get the offset to use when calculating addresses
+    pub fn get_address_offset(&self, source_addr: u64) -> u64 {
+        match self.run_from_process_memory {
+            true => 0,
+            false => source_addr - SandboxMemoryLayout::BASE_ADDRESS as u64,
+        }
+    }
 }

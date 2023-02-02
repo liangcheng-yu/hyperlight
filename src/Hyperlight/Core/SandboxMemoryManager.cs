@@ -370,11 +370,6 @@ namespace Hyperlight.Core
             return (IntPtr)((long)address - GetAddressOffset());
         }
 
-        internal long GetAddressOffset()
-        {
-            return runFromProcessMemory ? 0 : (long)((ulong)SourceAddress - SandboxMemoryLayout.BaseAddress);
-        }
-
         internal void WriteOutbException(Exception ex, ushort port)
         {
             var guestErrorAddressOffset = sandboxMemoryLayout!.guestErrorAddressOffset;
