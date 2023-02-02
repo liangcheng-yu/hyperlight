@@ -194,6 +194,16 @@ impl SandboxMemoryManager {
             false => source_addr - SandboxMemoryLayout::BASE_ADDRESS as u64,
         }
     }
+
+    /// Get the address of the dispatch function in memory
+    pub fn get_pointer_to_dispatch_function(
+        &self,
+        guest_mem: &GuestMemory,
+        layout: &SandboxMemoryLayout,
+    ) -> Result<u64> {
+        guest_mem.read_u64(layout.get_dispatch_function_pointer_offset() as u64)
+    }
+
     /// Get output from the guest as a `String`
     pub fn get_string_output(
         &self,

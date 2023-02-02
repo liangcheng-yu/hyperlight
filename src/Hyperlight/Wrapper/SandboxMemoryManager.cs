@@ -231,6 +231,22 @@ namespace Hyperlight.Wrapper
             return (long)hdl.GetUInt64();
         }
 
+        internal ulong GetPointerToDispatchFunction()
+        {
+            var rawHdl = mem_mgr_get_pointer_to_dispatch_function(
+                this.ctxWrapper.ctx,
+                this.hdlMemManagerWrapper.handle,
+                this.GetGuestMemory().handleWrapper.handle,
+                this.GetSandboxMemoryLayout().rawHandle
+            );
+            using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
+            if (!hdl.IsUInt64())
+            {
+                throw new HyperlightException("mem_mgr_get_pointer_to_dispatch_function did not return a uint64");
+            }
+            return hdl.GetUInt64();
+        }
+
         internal string? ReadStringOutput()
         {
             var sandboxMemoryLayout = this.GetSandboxMemoryLayout();
@@ -388,12 +404,21 @@ namespace Hyperlight.Wrapper
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle mem_mgr_read_string_output(
+        private static extern NativeHandle mem_mgr_get_pointer_to_dispatch_function(
             NativeContext ctx,
             NativeHandle mgrHdl,
-            NativeHandle layoutHdl,
-            NativeHandle guestMemHdl
+            NativeHandle guestMemHdl,
+            NativeHandle layoutHdl
         );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_read_string_output(
+                    NativeContext ctx,
+                    NativeHandle mgrHdl,
+                    NativeHandle layoutHdl,
+                    NativeHandle guestMemHdl
+                );
 
 #pragma warning restore CA1707 // Remove the underscores from member name
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

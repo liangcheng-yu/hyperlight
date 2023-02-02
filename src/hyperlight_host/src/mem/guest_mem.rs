@@ -263,6 +263,21 @@ impl GuestMemory {
         c.read_i64::<LittleEndian>().map_err(|e| anyhow!(e))
     }
 
+    /// Read an `u64` from guest memory starting at `offset`
+    ///
+    /// Return `Ok` with the `u64` value starting at `offset`
+    /// if the value between `offset` and `offset + <64 bits>`
+    /// was successfully decoded to a little-endian `u64`,
+    /// and `Err` otherwise.
+    pub fn read_u64(&self, offset: u64) -> Result<u64> {
+        bounds_check!(offset, self.mem_size() as u64);
+        bounds_check!(offset + size_of::<u64>() as u64, self.mem_size() as u64);
+        let slc = unsafe { self.as_slice() };
+        let mut c = Cursor::new(slc);
+        c.set_position(offset);
+        c.read_u64::<LittleEndian>().map_err(|e| anyhow!(e))
+    }
+
     /// Write val into guest memory at the given offset
     /// from the start of guest memory
     pub fn write_u64(&mut self, offset: usize, val: u64) -> Result<()> {

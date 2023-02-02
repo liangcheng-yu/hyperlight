@@ -167,11 +167,6 @@ namespace Hyperlight.Core
             return (guestErrorCode, errorMessage);
         }
 
-        internal ulong GetPointerToDispatchFunction()
-        {
-            return (ulong)this.guestMemWrapper!.ReadInt64((UIntPtr)sandboxMemoryLayout!.dispatchFunctionPointerOffSet);
-        }
-
         internal void WriteGuestFunctionCallDetails(string functionName, object[] args)
         {
             // The number of parameters to a guest function is fixed as serialisation of an array to memory
