@@ -221,7 +221,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_mgr_get_address_offset(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-    (ulong)this.GetSourceAddress().ToInt64()
+                (ulong)this.GetSourceAddress().ToInt64()
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
             if (!hdl.IsUInt64())
@@ -229,6 +229,29 @@ namespace Hyperlight.Wrapper
                 throw new HyperlightException("mem_mgr_get_address_offset did not return a uint64");
             }
             return (long)hdl.GetUInt64();
+        }
+
+        internal string? ReadStringOutput()
+        {
+            var sandboxMemoryLayout = this.GetSandboxMemoryLayout();
+            var guestMemWrapper = this.GetGuestMemory();
+            HyperlightException.ThrowIfNull(
+                sandboxMemoryLayout,
+                nameof(sandboxMemoryLayout),
+                GetType().Name
+            );
+            var rawHdl = mem_mgr_read_string_output(
+                this.ctxWrapper.ctx,
+                this.hdlMemManagerWrapper.handle,
+                sandboxMemoryLayout.rawHandle,
+                guestMemWrapper.handleWrapper.handle
+            );
+            using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
+            if (!hdl.IsString())
+            {
+                throw new HyperlightException("mem_mgr_read_string_output did not return a string");
+            }
+            return hdl.GetString();
         }
 
         /// <summary>
@@ -324,10 +347,10 @@ namespace Hyperlight.Wrapper
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle mem_mgr_snapshot_state(
-                    NativeContext ctx,
-                    NativeHandle mgrHdl,
-                    NativeHandle guestMemHdl
-                );
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            NativeHandle guestMemHdl
+        );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
@@ -361,6 +384,15 @@ namespace Hyperlight.Wrapper
             NativeContext ctx,
             NativeHandle mgrHdl,
             ulong sourceAddr
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_read_string_output(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            NativeHandle layoutHdl,
+            NativeHandle guestMemHdl
         );
 
 #pragma warning restore CA1707 // Remove the underscores from member name

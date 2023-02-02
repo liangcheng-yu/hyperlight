@@ -56,9 +56,9 @@ pub fn to_c_string<T: Into<Vec<u8>>>(string: T) -> Result<RawCString, NulError> 
 /// modified or deleted while this function is running.
 ///
 /// This function creates new memory. You must pass the returned
-/// value to `free()` after you're done using it.
+/// value to `free_raw_string()` after you're done using it.
 #[no_mangle]
-pub unsafe extern "C" fn handle_get_string(ctx: *const Context, hdl: Handle) -> RawCString {
+pub unsafe extern "C" fn handle_get_raw_string(ctx: *const Context, hdl: Handle) -> RawCString {
     validate_context_or_panic!(ctx);
 
     match Context::get(hdl, &(*ctx).strings, |s| matches!(s, Hdl::String(_))) {
@@ -70,10 +70,31 @@ pub unsafe extern "C" fn handle_get_string(ctx: *const Context, hdl: Handle) -> 
     }
 }
 
+/// Free the memory created by a handle_get_raw_string call
+#[no_mangle]
+pub extern "C" fn free_raw_string(ptr: RawCString) {
+    if !ptr.is_null() {
+        unsafe { drop(CString::from_raw(ptr as *mut c_char)) }
+    }
+}
+
 /// Get a read-only reference to a string that is stored in `ctx`
 /// and pointed to by `handle`.
 pub fn get_string(ctx: &Context, handle: Handle) -> Result<&String> {
     Context::get(handle, &ctx.strings, |s| matches!(s, Hdl::String(_)))
+}
+
+/// Return true if the given handle `hdl` references a string in `ctx`,
+/// and false otherwise
+///
+/// # Safety
+///
+/// `ctx` must be a valid pointer to a `Context` created with `context_new`,
+/// owned by you, and not yet freed with `context_free`
+#[no_mangle]
+pub unsafe extern "C" fn handle_is_string(ctx: *const Context, hdl: Handle) -> bool {
+    validate_context_or_panic!(ctx);
+    get_string(&*ctx, hdl).is_ok()
 }
 
 #[cfg(test)]

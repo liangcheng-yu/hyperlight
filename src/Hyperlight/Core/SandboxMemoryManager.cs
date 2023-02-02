@@ -407,13 +407,6 @@ namespace Hyperlight.Core
 
         }
 
-
-        internal string? ReadStringOutput()
-        {
-            var outputDataAddress = sandboxMemoryLayout!.GetOutputDataAddress(SourceAddress);
-            return Marshal.PtrToStringAnsi(outputDataAddress);
-        }
-
         internal GuestLogData ReadGuestLogData()
         {
             var offset = GetAddressOffset();

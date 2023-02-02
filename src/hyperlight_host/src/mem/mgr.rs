@@ -194,4 +194,13 @@ impl SandboxMemoryManager {
             false => source_addr - SandboxMemoryLayout::BASE_ADDRESS as u64,
         }
     }
+    /// Get output from the guest as a `String`
+    pub fn get_string_output(
+        &self,
+        layout: &SandboxMemoryLayout,
+        guest_mem: &GuestMemory,
+    ) -> Result<String> {
+        let offset = layout.get_output_data_offset();
+        guest_mem.read_string(offset)
+    }
 }

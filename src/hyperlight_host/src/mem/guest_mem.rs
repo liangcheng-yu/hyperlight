@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use libc::strlen;
 #[cfg(target_os = "linux")]
 use libc::{mmap, munmap};
 use std::ffi::c_void;
@@ -7,6 +8,7 @@ use std::io::{Cursor, Error};
 use std::mem::size_of;
 use std::ptr::null_mut;
 use std::rc::Rc;
+use std::slice;
 #[cfg(target_os = "windows")]
 use windows::Win32::System::Memory::{
     VirtualAlloc, VirtualFree, MEM_COMMIT, MEM_DECOMMIT, PAGE_EXECUTE_READWRITE,
@@ -329,6 +331,21 @@ impl GuestMemory {
             slc[offset + idx] = *elt;
         }
         Ok(())
+    }
+
+    /// Read a `string` written as a c string from guest memory starting at `offset`
+    ///
+    /// Return `Ok` with the `string` value starting at `offset`
+    /// if the value at `offset` was successfully decoded as a string,
+    /// and `Err` otherwise.
+    pub fn read_string(&self, offset: usize) -> Result<String> {
+        bounds_check!(offset, self.mem_size());
+        let addr = self.base_addr() + offset;
+        unsafe {
+            let len = strlen(addr as *const i8);
+            String::from_utf8(slice::from_raw_parts(addr as *const u8, len).to_vec())
+                .map_err(|e| anyhow!(e))
+        }
     }
 }
 

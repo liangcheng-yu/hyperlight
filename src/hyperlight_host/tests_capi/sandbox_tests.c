@@ -29,10 +29,10 @@ MunitResult test_get_binary_path()
 
     Handle bin_path_ret = guest_binary_path(ctx, sbox);
     handle_assert_no_error(ctx, bin_path_ret);
-    const char *bin_path_str = handle_get_string(ctx, bin_path_ret);
+    const char *bin_path_str = handle_get_raw_string(ctx, bin_path_ret);
     munit_assert_not_null(bin_path_str);
     munit_assert_string_equal(bin_path_str, bin_path);
-    free((char *)bin_path_str);
+    free_raw_string(bin_path_str);
     handle_free(ctx, bin_path_ret);
     handle_free(ctx, sbox);
     context_free(ctx);

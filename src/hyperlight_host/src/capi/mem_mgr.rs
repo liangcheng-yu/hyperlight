@@ -337,3 +337,38 @@ pub unsafe extern "C" fn mem_mgr_get_address_offset(
     let val = mgr.get_address_offset(source_addr);
     register_u64(&mut *ctx, val)
 }
+
+/// Use `SandboxMemoryManager` in `ctx` referenced
+/// by `mgr_hdl` to get a string value written to output by the Hyperlight Guest
+/// Return a `Handle` referencing the string contents. Otherwise, return a `Handle` referencing
+/// an error.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_read_string_output(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+    layout_hdl: Handle,
+    guest_mem_hdl: Handle,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let layout = match get_mem_layout(&*ctx, layout_hdl) {
+        Ok(l) => l,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let guest_mem = match get_guest_memory(&*ctx, guest_mem_hdl) {
+        Ok(gm) => gm,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    match mgr.get_string_output(&layout, guest_mem) {
+        Ok(output) => Context::register(output, &mut (*ctx).strings, Hdl::String),
+        Err(e) => (*ctx).register_err(e),
+    }
+}
