@@ -3,7 +3,11 @@ use super::mem_layout::get_mem_layout;
 use super::{byte_array::get_byte_array, context::Context, handle::Handle, hdl::Hdl};
 use crate::{
     capi::int::register_i32,
-    mem::{config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager},
+    mem::{
+        config::SandboxMemoryConfiguration,
+        mgr::SandboxMemoryManager,
+        ptr::{GuestPtr, HostPtr, RawPtr},
+    },
 };
 use crate::{capi::int::register_u64, validate_context};
 use anyhow::{anyhow, Result};
@@ -336,6 +340,78 @@ pub unsafe extern "C" fn mem_mgr_get_address_offset(
     };
     let val = mgr.get_address_offset(source_addr);
     register_u64(&mut *ctx, val)
+}
+
+/// Translate `addr` -- a pointer to memory in the guest address space --
+/// to the equivalent pointer in the host's.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_host_address_from_pointer(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+    guest_mem_hdl: Handle,
+    addr: u64,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let guest_mem = match get_guest_memory(&*ctx, guest_mem_hdl) {
+        Ok(g) => g,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let guest_ptr = match GuestPtr::try_from((RawPtr(addr), mgr.run_from_process_memory)) {
+        Ok(g) => g,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    match mgr.get_host_address_from_ptr(guest_ptr, guest_mem) {
+        Ok(addr_ptr) => match addr_ptr.absolute() {
+            Ok(addr) => register_u64(&mut *ctx, addr),
+            Err(e) => (*ctx).register_err(e),
+        },
+        Err(e) => (*ctx).register_err(e),
+    }
+}
+
+/// Translate `addr` -- a pointer to memory in the host's address space --
+/// to the equivalent pointer in the guest's.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_guest_address_from_pointer(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+    guest_mem_hdl: Handle,
+    addr: u64,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let guest_mem = match get_guest_memory(&*ctx, guest_mem_hdl) {
+        Ok(g) => g,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let host_ptr = match HostPtr::try_from((RawPtr(addr), guest_mem, mgr.run_from_process_memory)) {
+        Ok(p) => p,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    match mgr.get_guest_address_from_ptr(host_ptr) {
+        Ok(addr_ptr) => match addr_ptr.absolute() {
+            Ok(addr) => register_u64(&mut *ctx, addr),
+            Err(e) => (*ctx).register_err(e),
+        },
+        Err(e) => (*ctx).register_err(e),
+    }
 }
 
 /// Get the address of the dispatch function located in the guest memory

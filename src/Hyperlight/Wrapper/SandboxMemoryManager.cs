@@ -230,21 +230,60 @@ namespace Hyperlight.Wrapper
             }
             return (long)hdl.GetUInt64();
         }
-
         internal ulong GetPointerToDispatchFunction()
         {
+            var layout = this.GetSandboxMemoryLayout();
+            HyperlightException.ThrowIfNull(
+                layout,
+                nameof(layout),
+                GetType().Name
+            );
             var rawHdl = mem_mgr_get_pointer_to_dispatch_function(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
                 this.GetGuestMemory().handleWrapper.handle,
-                this.GetSandboxMemoryLayout().rawHandle
+                layout.rawHandle
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
             if (!hdl.IsUInt64())
             {
-                throw new HyperlightException("mem_mgr_get_pointer_to_dispatch_function did not return a uint64");
+                throw new HyperlightException(
+                    "mem_mgr_get_pointer_to_dispatch_function did not return a uint64"
+                );
             }
             return hdl.GetUInt64();
+        }
+
+        internal IntPtr GetHostAddressFromPointer(long address)
+        {
+            var rawHdl = mem_mgr_get_host_address_from_pointer(
+                this.ctxWrapper.ctx,
+                this.hdlMemManagerWrapper.handle,
+                this.GetGuestMemory().handleWrapper.handle,
+                (ulong)address
+            );
+            using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
+            if (!hdl.IsUInt64())
+            {
+                throw new HyperlightException("mem_mgr_get_host_address_from_pointer did not return a uint64");
+            }
+            return (IntPtr)hdl.GetUInt64();
+        }
+
+        internal IntPtr GetGuestAddressFromPointer(IntPtr address)
+        {
+            var rawHdl = mem_mgr_get_guest_address_from_pointer(
+                this.ctxWrapper.ctx,
+                this.hdlMemManagerWrapper.handle,
+                this.GetGuestMemory().handleWrapper.handle,
+                (ulong)address.ToInt64()
+            );
+            using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
+            if (!hdl.IsUInt64())
+            {
+                throw new HyperlightException("mem_mgr_get_guest_address_from_pointer did not return a uint64");
+            }
+            return (IntPtr)hdl.GetUInt64();
         }
 
         internal string? ReadStringOutput()
@@ -404,6 +443,25 @@ namespace Hyperlight.Wrapper
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_get_host_address_from_pointer(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            NativeHandle guestMemHdl,
+            ulong addr
+        );
+
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_get_guest_address_from_pointer(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            NativeHandle guestMemHdl,
+            ulong addr
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle mem_mgr_get_pointer_to_dispatch_function(
             NativeContext ctx,
             NativeHandle mgrHdl,
@@ -414,11 +472,11 @@ namespace Hyperlight.Wrapper
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle mem_mgr_read_string_output(
-                    NativeContext ctx,
-                    NativeHandle mgrHdl,
-                    NativeHandle layoutHdl,
-                    NativeHandle guestMemHdl
-                );
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            NativeHandle layoutHdl,
+            NativeHandle guestMemHdl
+        );
 
 #pragma warning restore CA1707 // Remove the underscores from member name
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

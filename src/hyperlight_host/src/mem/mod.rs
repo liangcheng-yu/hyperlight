@@ -13,6 +13,11 @@ pub mod layout;
 pub mod mgr;
 ///! Functionality to read and mutate a PE file in a structured manner.
 pub mod pe;
+///! Structures to represent pointers into guest and host memory
+pub mod ptr;
+///! Structures to represent memory address spaces into which pointers
+///! point.
+pub mod ptr_addr_space;
 
 use anyhow::Result;
 use byteorder::{LittleEndian, WriteBytesExt};

@@ -1,7 +1,8 @@
-use super::config::SandboxMemoryConfiguration;
-use super::guest_mem::GuestMemory;
 use super::guest_mem_snapshot::GuestMemorySnapshot;
 use super::layout::SandboxMemoryLayout;
+use super::ptr::{GuestPtr, HostPtr};
+use super::{config::SandboxMemoryConfiguration, ptr_addr_space::HostAddressSpace};
+use super::{guest_mem::GuestMemory, ptr_addr_space::GuestAddressSpace};
 use anyhow::{bail, Result};
 use std::cmp::Ordering;
 
@@ -24,7 +25,8 @@ const PDE64_PS: u64 = 1 << 7;
 /// for a given `Sandbox`.
 pub struct SandboxMemoryManager {
     _cfg: SandboxMemoryConfiguration,
-    run_from_process_memory: bool,
+    /// Whether or not to run a sandbox in-process
+    pub run_from_process_memory: bool,
     mem_snapshot: Option<GuestMemorySnapshot>,
 }
 
@@ -193,6 +195,33 @@ impl SandboxMemoryManager {
             true => 0,
             false => source_addr - SandboxMemoryLayout::BASE_ADDRESS as u64,
         }
+    }
+
+    /// Convert a pointer in the guest's address space to a pointer in the
+    /// host's.
+    pub fn get_host_address_from_ptr(
+        &self,
+        guest_ptr: GuestPtr,
+        shared_mem: &GuestMemory,
+    ) -> Result<HostPtr> {
+        // to translate a pointer from the guest address space,
+        // we need to get the offset (which is already taken care of in
+        // guest_ptr) and then add it to the host base address, which is
+        // the base address of shared memory.
+        guest_ptr.to_foreign_ptr(HostAddressSpace::new(
+            shared_mem,
+            self.run_from_process_memory,
+        ))
+    }
+
+    /// Convert a pointer in the host's address space to a pointer in the
+    /// guest's.
+    pub fn get_guest_address_from_ptr(&self, host_ptr: HostPtr) -> Result<GuestPtr> {
+        // to convert a pointer in the host address space, we need to get its
+        // offset (which is already done inside host_ptr) and then
+        // add it to the base address inside guest memory, which is
+        // below.
+        host_ptr.to_foreign_ptr(GuestAddressSpace::new(self.run_from_process_memory))
     }
 
     /// Get the address of the dispatch function in memory

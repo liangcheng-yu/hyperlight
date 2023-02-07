@@ -355,16 +355,6 @@ namespace Hyperlight.Core
             return hyperlightException;
         }
 
-        internal IntPtr GetHostAddressFromPointer(long address)
-        {
-            return (IntPtr)(address + GetAddressOffset());
-        }
-
-        internal IntPtr GetGuestAddressFromPointer(IntPtr address)
-        {
-            return (IntPtr)((long)address - GetAddressOffset());
-        }
-
         internal void WriteOutbException(Exception ex, ushort port)
         {
             var guestErrorAddressOffset = sandboxMemoryLayout!.guestErrorAddressOffset;
