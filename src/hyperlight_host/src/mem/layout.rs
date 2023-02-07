@@ -258,22 +258,22 @@ impl SandboxMemoryLayout {
     }
 
     /// Get the offset in guest memory to the size field in the
-    /// host functions structure.
+    /// `HostExceptionData` structure.
     pub fn get_host_exception_size_offset(&self) -> usize {
-        // The size field is the first field in the `HostFunctions` struct
+        // The size field is the first field in the `HostExceptionData` struct
         self.host_exception_offset
     }
 
-    /// Get the offset in guest memory to the size field in the
-    /// guest error message structure.
+    /// Get the offset in guest memory to the max size field in the
+    /// `GuestError` structure.
     pub fn get_guest_error_message_size_offset(&self) -> usize {
-        // This is the field after the `GuestErrorMessage` field,
+        // This is the field after the `guest_error_code` field,
         // which is a `u64`
         self.guest_error_offset + size_of::<u64>()
     }
 
     /// Get the offset in guest memory to the error message pointer in the
-    /// guest error message structure.
+    /// `GuestError` structure.
     pub fn get_guest_error_message_pointer_offset(&self) -> usize {
         // This offset is after the message size, which is a `u64`.
         self.get_guest_error_message_size_offset() + size_of::<u64>()

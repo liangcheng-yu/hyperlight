@@ -4,6 +4,7 @@ use super::ptr::{GuestPtr, HostPtr};
 use super::{config::SandboxMemoryConfiguration, ptr_addr_space::HostAddressSpace};
 use super::{guest_mem::GuestMemory, ptr_addr_space::GuestAddressSpace};
 use anyhow::{bail, Result};
+use core::mem::size_of;
 use std::cmp::Ordering;
 
 /// Whether or not the 64-bit page directory entry (PDE) record is
@@ -241,5 +242,105 @@ impl SandboxMemoryManager {
     ) -> Result<String> {
         let offset = layout.get_output_data_offset();
         guest_mem.read_string(offset)
+    }
+
+    /// Get the length of the host exception
+    pub fn get_host_exception_length(
+        &self,
+        layout: &SandboxMemoryLayout,
+        guest_mem: &GuestMemory,
+    ) -> Result<i32> {
+        let offset = layout.get_host_exception_offset() as u64;
+        // The host exception field is expected to contain a 32-bit length followed by the exception data.
+        guest_mem.read_i32(offset)
+    }
+
+    /// Get a bool indicating if there is a host exception
+    pub fn has_host_exception(
+        &self,
+        layout: &SandboxMemoryLayout,
+        guest_mem: &GuestMemory,
+    ) -> Result<bool> {
+        let offset = layout.get_host_exception_offset() as u64;
+        // The host exception field is expected to contain a 32-bit length followed by the exception data.
+        let len = guest_mem.read_i32(offset)?;
+        Ok(len != 0)
+    }
+
+    /// Get the exception data that was written by the Hyperlight Host
+    /// Returns a `Result` containing 'Unit' or an error.
+    /// Writes the exception data to the buffer at `exception_data_ptr`.
+    pub fn get_host_exception_data(
+        &self,
+        layout: &SandboxMemoryLayout,
+        guest_mem: &GuestMemory,
+        exception_data_slc: &mut [u8],
+    ) -> Result<()> {
+        let offset = layout.get_host_exception_offset();
+        // The host exception field is expected to contain a 32-bit length followed by the exception data.
+        let len = guest_mem.read_i32(offset as u64)?;
+        let exception_data_slc_len = exception_data_slc.len();
+        if exception_data_slc_len != len as usize {
+            bail!(
+                "Exception data length mismatch. Got {}, expected {}",
+                exception_data_slc_len,
+                len
+            );
+        }
+        // The host exception field is expected to contain a 32-bit length followed by the exception data.
+        guest_mem.copy_to_slice(exception_data_slc, offset + size_of::<i32>())?;
+        Ok(())
+    }
+
+    /// This function writes an exception to guest memory and is intended to be used when an exception occurs
+    /// handling an outb call from the guest
+    pub fn write_outb_exception(
+        &self,
+        layout: &SandboxMemoryLayout,
+        guest_mem: &mut GuestMemory,
+        guest_error_msg: &Vec<u8>,
+        host_exception_data: &Vec<u8>,
+    ) -> Result<()> {
+        const OUTB_ERROR: u64 = 7;
+        let err_code_offset = layout.guest_error_offset;
+
+        // write the error code to memory
+        guest_mem.write_u64(err_code_offset, OUTB_ERROR)?;
+
+        let err_code_size_offset = layout.get_guest_error_message_size_offset() as u64;
+        let max_err_msg_size = guest_mem.read_u64(err_code_size_offset)?;
+        if guest_error_msg.len() as u64 > max_err_msg_size {
+            bail!(
+                "Guest error message is too large. Max size is {} Got {}",
+                max_err_msg_size,
+                guest_error_msg.len()
+            );
+        }
+
+        let err_msg_offset = layout.guest_error_message_buffer_offset;
+        guest_mem.copy_from_slice(guest_error_msg, err_msg_offset)?;
+
+        let host_exception_offset = layout.get_host_exception_offset();
+        let host_exception_size_offset = layout.get_host_exception_size_offset();
+        let max_host_exception_size =
+            guest_mem.read_u64(host_exception_size_offset as u64)? as usize;
+
+        // First four bytes of host exception are length
+
+        if host_exception_data.len() > max_host_exception_size - size_of::<i32>() {
+            bail!(
+                "Host exception message is too large. Max size is {} Got {}",
+                max_host_exception_size,
+                host_exception_data.len()
+            );
+        }
+
+        guest_mem.write_i32(host_exception_offset, host_exception_data.len() as i32)?;
+        guest_mem.copy_from_slice(
+            host_exception_data,
+            host_exception_offset + size_of::<i32>(),
+        )?;
+
+        Ok(())
     }
 }

@@ -24,14 +24,29 @@ namespace Hyperlight.Core
         readonly bool runFromProcessMemory;
         readonly SandboxMemoryConfiguration sandboxMemoryConfiguration;
         SandboxMemoryLayout? sandboxMemoryLayout;
-
-        internal override GuestMemory GetGuestMemory()
+        internal override GuestMemory GuestMemoryWrapper
         {
-            return this.guestMemWrapper!;
+            get
+            {
+                var guestMemWrapper = this.guestMemWrapper;
+                HyperlightException.ThrowIfNull(
+                    guestMemWrapper,
+                    nameof(guestMemWrapper),
+                    GetType().Name
+                );
+                return guestMemWrapper;
+            }
         }
+
         internal override SandboxMemoryLayout GetSandboxMemoryLayout()
         {
-            return this.sandboxMemoryLayout!;
+            var sandboxMemoryLayout = this.sandboxMemoryLayout;
+            HyperlightException.ThrowIfNull(
+                sandboxMemoryLayout,
+                nameof(sandboxMemoryLayout),
+                GetType().Name
+            );
+            return sandboxMemoryLayout;
         }
         internal override ulong GetSize()
         {
@@ -328,68 +343,6 @@ namespace Hyperlight.Core
             {
                 HyperlightException.LogAndThrowException<ArgumentException>($"Unsupported Host Method Return Type {nameof(type)}", GetType().Name);
             }
-        }
-
-        internal HyperlightException? GetHostException()
-        {
-            var hostExceptionOffset = sandboxMemoryLayout!.hostExceptionOffset;
-            HyperlightException? hyperlightException = null;
-            var dataLength = this.guestMemWrapper!.ReadInt32((UIntPtr)hostExceptionOffset);
-            if (dataLength > 0)
-            {
-                var data = new byte[dataLength];
-                this.guestMemWrapper.CopyToByteArray(data, (ulong)hostExceptionOffset + sizeof(int));
-                var exceptionAsJson = Encoding.UTF8.GetString(data);
-                // TODO: Switch to System.Text.Json - requires custom serialisation as default throws an exception when serialising if an inner exception is present
-                // as it contains a Type: System.NotSupportedException: Serialization and deserialization of 'System.Type' instances are not supported and should be avoided since they can lead to security issues.
-                // https://docs.microsoft.com/en-us/dotnet/standard/serialization/system-text-json-converters-how-to?pivots=dotnet-6-0
-#pragma warning disable CA2326 // Do not use TypeNameHandling values other than None - this will be fixed by the above TODO
-#pragma warning disable CA2327 // Do not use SerializationBinder classes - this will be fixed by the above TODO 
-                hyperlightException = JsonConvert.DeserializeObject<HyperlightException>(exceptionAsJson, new JsonSerializerSettings
-                {
-                    TypeNameHandling = TypeNameHandling.Auto
-                });
-#pragma warning restore CA2326 // Do not use TypeNameHandling values other than None
-#pragma warning restore CA2327 // Do not use SerializationBinder classes
-            }
-            return hyperlightException;
-        }
-
-        internal void WriteOutbException(Exception ex, ushort port)
-        {
-            var guestErrorAddressOffset = sandboxMemoryLayout!.guestErrorAddressOffset;
-            this.guestMemWrapper!.WriteInt64((IntPtr)guestErrorAddressOffset, (long)GuestErrorCode.OUTB_ERROR);
-
-            var guestErrorMessageBufferOffset = sandboxMemoryLayout!.guestErrorMessageBufferOffset;
-            var data = Encoding.UTF8.GetBytes($"Port:{port}, Message:{ex.Message}\0");
-            if (data.Length <= (int)sandboxMemoryConfiguration.GuestErrorMessageSize)
-            {
-                this.guestMemWrapper!.CopyFromByteArray(data, (IntPtr)guestErrorMessageBufferOffset);
-            }
-
-            var hyperLightException = ex.GetType() == typeof(HyperlightException) ? ex as HyperlightException : new HyperlightException($"OutB Error {ex.Message}", ex);
-            var hostExceptionOffset = sandboxMemoryLayout!.hostExceptionOffset;
-
-            // TODO: Switch to System.Text.Json - requires custom serialisation as default throws an exception when serialising if an inner exception is present
-            // as it contains a Type: System.NotSupportedException: Serialization and deserialization of 'System.Type' instances are not supported and should be avoided since they can lead to security issues.
-            // https://docs.microsoft.com/en-us/dotnet/standard/serialization/system-text-json-converters-how-to?pivots=dotnet-6-0
-#pragma warning disable CA2326 // Do not use TypeNameHandling values other than None - this will be fixed by the above TODO
-            var exceptionAsJson = JsonConvert.SerializeObject(hyperLightException, new JsonSerializerSettings
-            {
-                TypeNameHandling = TypeNameHandling.Auto
-            });
-#pragma warning restore CA2326 // Do not use TypeNameHandling values other than None
-            data = Encoding.UTF8.GetBytes(exceptionAsJson);
-            var dataLength = data.Length;
-
-            if (dataLength <= (int)sandboxMemoryConfiguration.HostExceptionSize - sizeof(int))
-            {
-                this.guestMemWrapper!.WriteInt32((IntPtr)hostExceptionOffset, dataLength);
-                this.guestMemWrapper!.CopyFromByteArray(data, (IntPtr)hostExceptionOffset + sizeof(int));
-            }
-
-            HyperlightLogger.LogError($"Exception occurred in outb", GetType().Name, ex);
-
         }
 
         internal GuestLogData ReadGuestLogData()

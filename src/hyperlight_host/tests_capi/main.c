@@ -4,6 +4,7 @@
 #include "pe_tests.h"
 #include "context_tests.h"
 #include "host_func_tests.h"
+#include "host_exception.h"
 #include "byte_array_tests.h"
 #include "mem_layout.h"
 #if defined(__linux__)
@@ -23,6 +24,7 @@ static MunitSuite test_suites[] = {
     {"/context_tests", context_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/err_tests", err_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/guest_memory_tests", guest_memory_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
+    {"/host_exception_tests", host_exception_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/host_func_tests", host_func_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
 #if defined(__linux__)
     {"/hyperv_linux_tests", hyperv_linux_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},

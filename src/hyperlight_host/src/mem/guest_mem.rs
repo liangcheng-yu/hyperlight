@@ -358,6 +358,8 @@ impl GuestMemory {
         let addr = self.base_addr() + offset;
         unsafe {
             let len = strlen(addr as *const i8);
+            // Ensure string length is within the memory bounds.
+            bounds_check!(offset + len, self.mem_size());
             String::from_utf8(slice::from_raw_parts(addr as *const u8, len).to_vec())
                 .map_err(|e| anyhow!(e))
         }

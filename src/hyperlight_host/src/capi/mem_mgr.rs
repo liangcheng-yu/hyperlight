@@ -11,6 +11,7 @@ use crate::{
 };
 use crate::{capi::int::register_u64, validate_context};
 use anyhow::{anyhow, Result};
+use std::slice;
 
 fn get_mem_mgr(ctx: &Context, hdl: Handle) -> Result<&SandboxMemoryManager> {
     Context::get(hdl, &ctx.mem_mgrs, |h| matches!(h, Hdl::MemMgr(_))).map_err(|e| anyhow!(e))
@@ -481,6 +482,180 @@ pub unsafe extern "C" fn mem_mgr_read_string_output(
     };
     match mgr.get_string_output(&layout, guest_mem) {
         Ok(output) => Context::register(output, &mut (*ctx).strings, Hdl::String),
+        Err(e) => (*ctx).register_err(e),
+    }
+}
+
+/// Use `SandboxMemoryManager` in `ctx` referenced
+/// by `mgr_hdl` to get a boolean if an exception was written by the Hyperlight Host
+/// Returns a `Handle` containing a bool that describes if exception data exists or a `Handle` referencing an error.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_has_host_exception(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+    layout_hdl: Handle,
+    guest_mem_hdl: Handle,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let guest_mem = match get_guest_memory_mut(&mut *ctx, guest_mem_hdl) {
+        Ok(g) => g,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let layout = match get_mem_layout(&*ctx, layout_hdl) {
+        Ok(l) => l,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    match mgr.has_host_exception(&layout, guest_mem) {
+        Ok(output) => Context::register(output, &mut (*ctx).booleans, Hdl::Boolean),
+        Err(e) => (*ctx).register_err(e),
+    }
+}
+
+/// Use `SandboxMemoryManager` in `ctx` referenced
+/// by `mgr_hdl` to get the length of any exception data that was written by the Hyperlight Host
+/// Returns a `Handle` containing a i32 representing the length of the exception data or a `Handle` referencing an error.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_host_exception_length(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+    layout_hdl: Handle,
+    guest_mem_hdl: Handle,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let guest_mem = match get_guest_memory_mut(&mut *ctx, guest_mem_hdl) {
+        Ok(g) => g,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let layout = match get_mem_layout(&*ctx, layout_hdl) {
+        Ok(l) => l,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    match mgr.get_host_exception_length(&layout, guest_mem) {
+        Ok(output) => Context::register(output, &mut (*ctx).int32s, Hdl::Int32),
+        Err(e) => (*ctx).register_err(e),
+    }
+}
+
+/// Use `SandboxMemoryManager` in `ctx` referenced
+/// by `mgr_hdl` to get the exception data that was written by the Hyperlight Host
+/// Returns an Empty `Handle` or a `Handle` referencing an error.
+/// Writes the exception data to the buffer at `exception_data_ptr` for length `exception_data_len`, `exception_data_ptr`
+/// should be a pointer to contiguous memory of length ``exception_data_len`.
+/// The caller is responsible for allocating and free the memory buffer.
+/// The length of the buffer must match the length of the exception data available, the length can be
+/// determind by calling `mem_mgr_get_host_exception_length`
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+/// `exception_data_ptr` must be a valid pointer to a buffer of size `exception_data_len`, this buffer is owned and managed by the client.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_host_exception_data(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+    layout_hdl: Handle,
+    guest_mem_hdl: Handle,
+    exception_data_ptr: *mut u8,
+    exception_data_len: i32,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let guest_mem = match get_guest_memory_mut(&mut *ctx, guest_mem_hdl) {
+        Ok(g) => g,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let layout = match get_mem_layout(&*ctx, layout_hdl) {
+        Ok(l) => l,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    if exception_data_ptr.is_null() {
+        return (*ctx).register_err(anyhow!("Exception data ptr is null"));
+    }
+    if exception_data_len == 0 {
+        return (*ctx).register_err(anyhow!("Exception data length is zero"));
+    }
+    let slice =
+        slice::from_raw_parts_mut(exception_data_ptr, exception_data_len as usize) as &mut [u8];
+
+    match mgr.get_host_exception_data(&layout, guest_mem, slice) {
+        Ok(_) => Handle::from(Hdl::Empty()),
+        Err(e) => (*ctx).register_err(e),
+    }
+}
+
+/// Use `SandboxMemoryManager` in `ctx` referenced by `mgr_hdl` to write a guest error message and
+/// host exception data when an exception occurs processing a guest request in the host.
+///
+/// When the guest calls a function in the host an error may occur, these errors cannot be transparently handled,so the host signals the error by writing
+/// an error code (`OUTB_ERROR` ) and error message to the guest error section of shared memory, it also serialises any exception
+/// data into the host exception section. When the call returns from the host , the guests checks to see if an error occurs
+/// and if so returns control to the host which can then check for an `OUTB_ERROR` and read the exception data and
+/// process it
+///
+/// Returns an Empty `Handle` or a `Handle` referencing an error.
+/// Writes the an `OUTB_ERROR` code along with guest error message from the `guest_error_msg_hdl` to memory, writes the host exception data
+/// from the `host_exception_hdl` to memory.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+/// `exception_data_ptr` must be a valid pointer to a buffer of size `exception_data_len`, this buffer is owned and managed by the client.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_write_outb_exception(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+    layout_hdl: Handle,
+    guest_mem_hdl: Handle,
+    guest_error_msg_hdl: Handle,
+    host_exception_data_hdl: Handle,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let guest_mem = match get_guest_memory_mut(&mut *ctx, guest_mem_hdl) {
+        Ok(g) => g,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let layout = match get_mem_layout(&*ctx, layout_hdl) {
+        Ok(l) => l,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let guest_error_msg = match get_byte_array(&*ctx, guest_error_msg_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let host_exception_data = match get_byte_array(&*ctx, host_exception_data_hdl) {
+        Ok(h) => h,
+        Err(e) => return (*ctx).register_err(e),
+    };
+
+    match mgr.write_outb_exception(&layout, guest_mem, guest_error_msg, host_exception_data) {
+        Ok(_) => Handle::from(Hdl::Empty()),
         Err(e) => (*ctx).register_err(e),
     }
 }

@@ -1,6 +1,9 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 using Hyperlight.Core;
+using Newtonsoft.Json;
+
 namespace Hyperlight.Wrapper
 {
     public abstract class SandboxMemoryManager : IDisposable
@@ -9,7 +12,8 @@ namespace Hyperlight.Wrapper
         private readonly Context ctxWrapper;
         private readonly Handle hdlMemManagerWrapper;
         protected Context ContextWrapper => ctxWrapper;
-        internal abstract GuestMemory GetGuestMemory();
+        internal abstract GuestMemory GuestMemoryWrapper { get; }
+
         internal abstract SandboxMemoryLayout GetSandboxMemoryLayout();
         internal abstract ulong GetSize();
         internal abstract IntPtr GetSourceAddress();
@@ -36,21 +40,10 @@ namespace Hyperlight.Wrapper
 
         internal void SetStackGuard(byte[] cookie)
         {
-            var guestMemWrapper = this.GetGuestMemory();
             var sandboxMemoryLayout = this.GetSandboxMemoryLayout();
             HyperlightException.ThrowIfNull(
                 cookie,
                 nameof(cookie),
-                GetType().Name
-            );
-            HyperlightException.ThrowIfNull(
-                sandboxMemoryLayout,
-                nameof(sandboxMemoryLayout),
-                GetType().Name
-            );
-            HyperlightException.ThrowIfNull(
-                guestMemWrapper,
-                nameof(guestMemWrapper),
                 GetType().Name
             );
             using var cookieByteArray = new ByteArray(
@@ -61,7 +54,7 @@ namespace Hyperlight.Wrapper
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
                 sandboxMemoryLayout.rawHandle,
-                guestMemWrapper.handleWrapper.handle,
+                this.GuestMemoryWrapper.handleWrapper.handle,
                 cookieByteArray.handleWrapper.handle
             );
             using var hdl = new Handle(
@@ -73,21 +66,10 @@ namespace Hyperlight.Wrapper
 
         internal bool CheckStackGuard(byte[]? cookie)
         {
-            var guestMemWrapper = this.GetGuestMemory();
             var sandboxMemoryLayout = this.GetSandboxMemoryLayout();
             HyperlightException.ThrowIfNull(
                 cookie,
                 nameof(cookie),
-                GetType().Name
-            );
-            HyperlightException.ThrowIfNull(
-                sandboxMemoryLayout,
-                nameof(sandboxMemoryLayout),
-                GetType().Name
-            );
-            HyperlightException.ThrowIfNull(
-                guestMemWrapper,
-                nameof(guestMemWrapper),
                 GetType().Name
             );
             using var cookieByteArray = new ByteArray(
@@ -98,7 +80,7 @@ namespace Hyperlight.Wrapper
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
                 sandboxMemoryLayout.rawHandle,
-                guestMemWrapper.handleWrapper.handle,
+                this.GuestMemoryWrapper.handleWrapper.handle,
                 cookieByteArray.handleWrapper.handle
             );
             using var hdl = new Handle(
@@ -115,18 +97,12 @@ namespace Hyperlight.Wrapper
 
         internal ulong SetUpHyperVisorPartition()
         {
-            var guestMemWrapper = this.GetGuestMemory();
             var sandboxMemoryLayout = this.GetSandboxMemoryLayout();
             var size = this.GetSize();
-            HyperlightException.ThrowIfNull(
-                guestMemWrapper,
-                nameof(guestMemWrapper),
-                GetType().Name
-            );
             var rawHdl = mem_mgr_set_up_hypervisor_partition(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                guestMemWrapper.handleWrapper.handle,
+                this.GuestMemoryWrapper.handleWrapper.handle,
                 size
             );
             using var hdl = new Handle(
@@ -145,11 +121,6 @@ namespace Hyperlight.Wrapper
         {
             var sandboxMemoryLayout = this.GetSandboxMemoryLayout();
             var sourceAddress = this.GetSourceAddress();
-            HyperlightException.ThrowIfNull(
-                sandboxMemoryLayout,
-                nameof(sandboxMemoryLayout),
-                GetType().Name
-            );
             var rawHdl = mem_mgr_get_peb_address(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
@@ -169,7 +140,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_mgr_snapshot_state(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                this.GetGuestMemory().handleWrapper.handle
+                this.GuestMemoryWrapper.handleWrapper.handle
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
         }
@@ -185,13 +156,12 @@ namespace Hyperlight.Wrapper
 
         internal int GetReturnValue()
         {
-            var guestMem = this.GetGuestMemory();
             var layout = this.GetSandboxMemoryLayout();
 
             var rawHdl = mem_mgr_get_return_value(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                guestMem.handleWrapper.handle,
+                this.GuestMemoryWrapper.handleWrapper.handle,
                 layout.rawHandle
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
@@ -209,7 +179,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_mgr_set_outb_address(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                this.GetGuestMemory().handleWrapper.handle,
+                this.GuestMemoryWrapper.handleWrapper.handle,
                 this.GetSandboxMemoryLayout().rawHandle,
                 (ulong)pOutB
             );
@@ -241,7 +211,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_mgr_get_pointer_to_dispatch_function(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                this.GetGuestMemory().handleWrapper.handle,
+                this.GuestMemoryWrapper.handleWrapper.handle,
                 layout.rawHandle
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
@@ -259,7 +229,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_mgr_get_host_address_from_pointer(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                this.GetGuestMemory().handleWrapper.handle,
+                this.GuestMemoryWrapper.handleWrapper.handle,
                 (ulong)address
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
@@ -275,7 +245,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_mgr_get_guest_address_from_pointer(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                this.GetGuestMemory().handleWrapper.handle,
+                this.GuestMemoryWrapper.handleWrapper.handle,
                 (ulong)address.ToInt64()
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
@@ -289,17 +259,11 @@ namespace Hyperlight.Wrapper
         internal string? ReadStringOutput()
         {
             var sandboxMemoryLayout = this.GetSandboxMemoryLayout();
-            var guestMemWrapper = this.GetGuestMemory();
-            HyperlightException.ThrowIfNull(
-                sandboxMemoryLayout,
-                nameof(sandboxMemoryLayout),
-                GetType().Name
-            );
             var rawHdl = mem_mgr_read_string_output(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
                 sandboxMemoryLayout.rawHandle,
-                guestMemWrapper.handleWrapper.handle
+                this.GuestMemoryWrapper.handleWrapper.handle
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
             if (!hdl.IsString())
@@ -307,6 +271,116 @@ namespace Hyperlight.Wrapper
                 throw new HyperlightException("mem_mgr_read_string_output did not return a string");
             }
             return hdl.GetString();
+        }
+
+        internal HyperlightException? GetHostException()
+        {
+            HyperlightException? hyperlightException = null;
+            var sandboxMemoryLayout = this.GetSandboxMemoryLayout();
+            var rawHdl = mem_mgr_has_host_exception(
+                this.ctxWrapper.ctx,
+                this.hdlMemManagerWrapper.handle,
+                sandboxMemoryLayout.rawHandle,
+                this.GuestMemoryWrapper.handleWrapper.handle
+            );
+            using var hdl1 = new Handle(this.ctxWrapper, rawHdl, true);
+            if (!hdl1.IsBoolean())
+            {
+                throw new HyperlightException("mem_mgr_has_host_exception did not return a boolean");
+            }
+            var hasException = hdl1.GetBoolean();
+            if (hasException)
+            {
+                rawHdl = mem_mgr_get_host_exception_length(
+                    this.ctxWrapper.ctx,
+                    this.hdlMemManagerWrapper.handle,
+                    sandboxMemoryLayout.rawHandle,
+                    this.GuestMemoryWrapper.handleWrapper.handle
+                );
+                using var hdl2 = new Handle(this.ctxWrapper, rawHdl, true);
+                if (!hdl2.IsInt32())
+                {
+                    throw new HyperlightException("mem_mgr_get_host_exception_length did not return an int32");
+                }
+                var size = hdl2.GetInt32();
+                if (size == 0)
+                {
+                    throw new HyperlightException("mem_mgr_get_host_exception_length returned 0");
+                }
+                var data = new byte[size];
+                unsafe
+                {
+                    fixed (byte* exceptionDataPtr = data)
+                    {
+                        using var resultHdlWrapper = new Handle(
+                            this.ctxWrapper,
+                            mem_mgr_get_host_exception_data(
+                                this.ctxWrapper.ctx,
+                                this.hdlMemManagerWrapper.handle,
+                                sandboxMemoryLayout.rawHandle,
+                                this.GuestMemoryWrapper.handleWrapper.handle,
+                                (IntPtr)exceptionDataPtr,
+                                size
+                            ),
+                            true
+                        );
+                    }
+                }
+                var exceptionAsJson = Encoding.UTF8.GetString(data);
+                // TODO: Switch to System.Text.Json - requires custom serialisation as default throws an exception when serialising if an inner exception is present
+                // as it contains a Type: System.NotSupportedException: Serialization and deserialization of 'System.Type' instances are not supported and should be avoided since they can lead to security issues.
+                // https://docs.microsoft.com/en-us/dotnet/standard/serialization/system-text-json-converters-how-to?pivots=dotnet-6-0
+#pragma warning disable CA2326 // Do not use TypeNameHandling values other than None - this will be fixed by the above TODO
+#pragma warning disable CA2327 // Do not use SerializationBinder classes - this will be fixed by the above TODO 
+                hyperlightException = JsonConvert.DeserializeObject<HyperlightException>(exceptionAsJson, new JsonSerializerSettings
+                {
+                    TypeNameHandling = TypeNameHandling.Auto
+                });
+#pragma warning restore CA2326 // Do not use TypeNameHandling values other than None
+#pragma warning restore CA2327 // Do not use SerializationBinder classes
+            }
+            return hyperlightException;
+        }
+
+        internal void WriteOutbException(Exception ex, ushort port)
+        {
+            var data = Encoding.UTF8.GetBytes($"Port:{port}, Message:{ex.Message}\0");
+            using var errorMessage = new ByteArray(
+                this.ctxWrapper,
+                data
+            );
+
+            var hyperLightException = ex.GetType() == typeof(HyperlightException) ? ex as HyperlightException : new HyperlightException($"OutB Error {ex.Message}", ex);
+
+            // TODO: Switch to System.Text.Json - requires custom serialisation as default throws an exception when serialising if an inner exception is present
+            // as it contains a Type: System.NotSupportedException: Serialization and deserialization of 'System.Type' instances are not supported and should be avoided since they can lead to security issues.
+            // https://docs.microsoft.com/en-us/dotnet/standard/serialization/system-text-json-converters-how-to?pivots=dotnet-6-0
+#pragma warning disable CA2326 // Do not use TypeNameHandling values other than None - this will be fixed by the above TODO
+            var exceptionAsJson = JsonConvert.SerializeObject(hyperLightException, new JsonSerializerSettings
+            {
+                TypeNameHandling = TypeNameHandling.Auto
+            });
+
+#pragma warning restore CA2326 // Do not use TypeNameHandling values other than None
+            data = Encoding.UTF8.GetBytes(exceptionAsJson);
+            using var exceptionData = new ByteArray(
+                this.ctxWrapper,
+                data
+            );
+
+            using var resultHdlWrapper = new Handle(
+                this.ctxWrapper,
+                mem_mgr_write_outb_exception(
+                    this.ctxWrapper.ctx,
+                    this.hdlMemManagerWrapper.handle,
+                    this.GetSandboxMemoryLayout().rawHandle,
+                    this.GuestMemoryWrapper.handleWrapper.handle,
+                    errorMessage.handleWrapper.handle,
+                    exceptionData.handleWrapper.handle),
+                true
+            );
+
+            HyperlightLogger.LogError($"Exception occurred in outb", GetType().Name, ex);
         }
 
         /// <summary>
@@ -476,6 +550,46 @@ namespace Hyperlight.Wrapper
             NativeHandle mgrHdl,
             NativeHandle layoutHdl,
             NativeHandle guestMemHdl
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_has_host_exception(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            NativeHandle layoutHdl,
+            NativeHandle guestMemHdl
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_get_host_exception_length(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            NativeHandle layoutHdl,
+            NativeHandle guestMemHdl
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_get_host_exception_data(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            NativeHandle layoutHdl,
+            NativeHandle guestMemHdl,
+            IntPtr exceptionDataPtr,
+            int exceptionDataLen
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_write_outb_exception(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            NativeHandle layoutHdl,
+            NativeHandle guestMemHdl,
+            NativeHandle guestErrorMsgHdl,
+            NativeHandle hostExceptionDataHdl
         );
 
 #pragma warning restore CA1707 // Remove the underscores from member name
