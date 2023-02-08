@@ -1,4 +1,5 @@
 use super::ptr_addr_space::{AddressSpace, GuestAddressSpace, HostAddressSpace};
+use super::ptr_offset::Offset;
 use super::shared_mem::SharedMemory;
 use anyhow::{anyhow, Result};
 
@@ -8,11 +9,11 @@ use anyhow::{anyhow, Result};
 #[derive(Debug, Clone)]
 pub struct RawPtr(pub u64);
 
-/// An offset into a given address space.
-///
-/// Use this type to distinguish between an offset and a raw pointer
-#[derive(Debug)]
-pub struct Offset(pub u64);
+impl From<u64> for RawPtr {
+    fn from(val: u64) -> Self {
+        Self(val)
+    }
+}
 
 /// Convenience type for representing a pointer into the host address space
 pub type HostPtr = Ptr<HostAddressSpace>;
@@ -40,7 +41,7 @@ impl TryFrom<(RawPtr, bool)> for GuestPtr {
 /// A pointer into a specific `AddressSpace` `T`.
 pub struct Ptr<T: AddressSpace> {
     addr_space: T,
-    offset: u64,
+    offset: Offset,
 }
 
 impl<T: AddressSpace> Ptr<T> {
@@ -56,7 +57,10 @@ impl<T: AddressSpace> Ptr<T> {
                 addr_space.base(),
             )
         })?;
-        Ok(Self { addr_space, offset })
+        Ok(Self {
+            addr_space,
+            offset: Offset::from(offset),
+        })
     }
 
     /// Create a new `Ptr<Tgt>` from a source pointer and a target
@@ -84,8 +88,8 @@ impl<T: AddressSpace> Ptr<T> {
     }
 
     /// Get the offset into the pointer's address space
-    fn offset(&self) -> u64 {
-        self.offset
+    fn offset(&self) -> Offset {
+        self.offset.clone()
     }
 
     /// Get the absolute value for the pointer represented by `self`.
@@ -93,13 +97,15 @@ impl<T: AddressSpace> Ptr<T> {
     /// This function should rarely be used. Prefer to use offsets
     /// instead.
     pub fn absolute(&self) -> Result<u64> {
-        self.base().checked_add(self.offset).ok_or_else(|| {
-            anyhow!(
-                "couldn't add pointer offset {} to base {}",
-                self.offset,
-                self.base(),
-            )
-        })
+        self.base()
+            .checked_add(self.offset.as_u64())
+            .ok_or_else(|| {
+                anyhow!(
+                    "couldn't add pointer offset {} to base {}",
+                    self.offset.as_u64(),
+                    self.base(),
+                )
+            })
     }
 }
 
@@ -161,7 +167,7 @@ mod tests {
             let hp = HostPtr::try_from((raw_host_ptr, &gm, false));
             assert!(hp.is_ok());
             let host_ptr = hp.unwrap();
-            assert_eq!(OFFSET, host_ptr.offset());
+            assert_eq!(OFFSET, host_ptr.offset().as_u64());
             host_ptr
         };
 
@@ -170,7 +176,7 @@ mod tests {
             assert!(gp_res.is_ok());
             gp_res.unwrap()
         };
-        assert_eq!(OFFSET, guest_ptr.offset());
+        assert_eq!(OFFSET, guest_ptr.offset().as_u64());
         assert_eq!(
             OFFSET + SandboxMemoryLayout::BASE_ADDRESS as u64,
             guest_ptr.absolute().unwrap()

@@ -12,6 +12,8 @@ pub mod ptr;
 ///! Structures to represent memory address spaces into which pointers
 ///! point.
 pub mod ptr_addr_space;
+///! Structures to represent an offset into a memory space
+pub mod ptr_offset;
 ///! A wrapper around unsafe functionality to create and initialize
 ///! a memory region for a guest running in a sandbox.
 pub mod shared_mem;
