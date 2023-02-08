@@ -1,17 +1,32 @@
+using System;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Hyperlight.Core;
-using System;
 
 namespace Hyperlight.Wrapper
 {
     public static class NativeHandleWrapperStringExtensions
     {
+        /// <summary>
+        /// Determine whether hdl refrences a string
+        /// </summary>
+        /// <param name="hdl">the Handle to interrogate</param>
+        /// <returns>true if hdl references a string, false otherwise</returns>
         public static bool IsString(this Handle hdl)
         {
             HyperlightException.ThrowIfNull(hdl, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             return handle_is_string(hdl.ctx.ctx, hdl.handle);
         }
+
+        /// <summary>
+        /// Get the string from the given handle or throw an exception if it 
+        /// was an error. You can check if the handle was an error prior
+        /// to calling this function using IsString.
+        /// </summary>
+        /// <param name="hdl">
+        /// the handle from which to get the error message
+        /// </param>
+        /// <returns>the string to which hdl refers</returns>
         public static string? GetString(this Handle hdl)
         {
             HyperlightException.ThrowIfNull(hdl, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);

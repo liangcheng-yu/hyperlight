@@ -17,6 +17,7 @@
 #include "munit/munit.h"
 #include "outb_handler.h"
 #include "mem_access_handler.h"
+#include "string_tests.h"
 
 static MunitSuite test_suites[] = {
     /* {name, tests, suites, iterations, options} */
@@ -39,6 +40,7 @@ static MunitSuite test_suites[] = {
     {"/pe_file_tests", pe_file_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/sandbox_tests", sandbox_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/val_ref_tests", val_ref_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
+    {"/string_tests", string_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {NULL, NULL, NULL, 0, MUNIT_SUITE_OPTION_NONE}};
 
 static const MunitSuite sandbox_test = {

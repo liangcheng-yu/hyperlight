@@ -46,6 +46,39 @@ pub fn to_c_string<T: Into<Vec<u8>>>(string: T) -> Result<RawCString, NulError> 
     CString::new(string).map(|s| s.into_raw() as RawCString)
 }
 
+/// Get a read-only reference to a string that is stored in `ctx`
+/// and pointed to by `handle`.
+pub fn get_string(ctx: &Context, handle: Handle) -> Result<&String> {
+    Context::get(handle, &ctx.strings, |s| matches!(s, Hdl::String(_)))
+}
+
+/// Register the string in `val` in `ctx` and return a new `Handle`
+/// referencing it.
+pub fn register_string(ctx: &mut Context, val: String) -> Handle {
+    Context::register(val, &mut ctx.strings, Hdl::String)
+}
+
+/// Copy `str` and create a new string in `ctx` from the copy. Then, return
+/// a new `Handle` referencing the new string.
+///
+/// This function is primarily
+/// used for testing purposes. In most cases, you won't need to create a
+/// string manually but rather, will receive a `Handle` referencing a string
+/// from another function.
+///
+/// This function does not take ownership of `str`, so the caller is still
+/// responsible for the memory to which that parameter points.
+///
+/// # Safety
+///
+/// `ctx` must have been created with `context_new` and must not be
+/// modified or deleted while this function is running.
+#[no_mangle]
+pub unsafe extern "C" fn string_new(ctx: *mut Context, str: RawCString) -> Handle {
+    let str_copy = to_string(str);
+    register_string(&mut *ctx, str_copy)
+}
+
 /// Get the string value of the given `Handle`, or `NULL` if
 /// `hdl` doesn't exist in `ctx` or it does exist but is not
 /// a string value.
@@ -56,7 +89,10 @@ pub fn to_c_string<T: Into<Vec<u8>>>(string: T) -> Result<RawCString, NulError> 
 /// modified or deleted while this function is running.
 ///
 /// This function creates new memory. You must pass the returned
-/// value to `free_raw_string()` after you're done using it.
+/// value to `free_raw_string()` after you're done using it. Failure
+/// to pass this pointer to `free_raw_string()` exactly once after you're
+/// done with it will result in undefined behavior, double-frees, or
+/// other bad things.
 #[no_mangle]
 pub unsafe extern "C" fn handle_get_raw_string(ctx: *const Context, hdl: Handle) -> RawCString {
     validate_context_or_panic!(ctx);
@@ -70,18 +106,18 @@ pub unsafe extern "C" fn handle_get_raw_string(ctx: *const Context, hdl: Handle)
     }
 }
 
-/// Free the memory created by a handle_get_raw_string call
+/// Free the memory created and returned from `handle_get_raw_string`.
+///
+/// # Safety
+///
+/// `ptr` must be a pointer previously returned by `handle_get_raw_string`
+/// and not already freed by this or any other function
+
 #[no_mangle]
 pub extern "C" fn free_raw_string(ptr: RawCString) {
     if !ptr.is_null() {
         unsafe { drop(CString::from_raw(ptr as *mut c_char)) }
     }
-}
-
-/// Get a read-only reference to a string that is stored in `ctx`
-/// and pointed to by `handle`.
-pub fn get_string(ctx: &Context, handle: Handle) -> Result<&String> {
-    Context::get(handle, &ctx.strings, |s| matches!(s, Hdl::String(_)))
 }
 
 /// Return true if the given handle `hdl` references a string in `ctx`,
