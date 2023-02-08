@@ -8,15 +8,47 @@ namespace Hyperlight.Wrapper
 {
     public abstract class SandboxMemoryManager : IDisposable
     {
+        public ulong EntryPoint { get; internal set; }
         private bool disposedValue;
         private readonly Context ctxWrapper;
         private readonly Handle hdlMemManagerWrapper;
-        protected Context ContextWrapper => ctxWrapper;
-        internal abstract GuestMemory GuestMemoryWrapper { get; }
+        internal IntPtr loadAddress = IntPtr.Zero;
+        internal readonly bool runFromProcessMemory;
+        internal readonly SandboxMemoryConfiguration sandboxMemoryConfiguration;
+        internal Context ContextWrapper => ctxWrapper;
+        internal GuestMemory? guestMemoryWrapper;
+        internal SandboxMemoryLayout? sandboxMemoryLayout;
+        internal ulong size;
+        internal IntPtr sourceAddress;
+        internal ulong Size { get { return size; } }
+        internal IntPtr SourceAddress { get { return sourceAddress; } }
+        internal GuestMemory GuestMemoryWrapper
+        {
+            get
+            {
+                var guestMemWrapper = this.guestMemoryWrapper;
+                HyperlightException.ThrowIfNull(
+                    guestMemWrapper,
+                    nameof(guestMemWrapper),
+                    GetType().Name
+                );
+                return guestMemWrapper;
+            }
+        }
 
-        internal abstract SandboxMemoryLayout GetSandboxMemoryLayout();
-        internal abstract ulong GetSize();
-        internal abstract IntPtr GetSourceAddress();
+        internal SandboxMemoryLayout SandboxMemoryLayoutWrapper
+        {
+            get
+            {
+                var sandboxMemoryLayout = this.sandboxMemoryLayout;
+                HyperlightException.ThrowIfNull(
+                    sandboxMemoryLayout,
+                    nameof(sandboxMemoryLayout),
+                    GetType().Name
+                );
+                return sandboxMemoryLayout;
+            }
+        }
 
         protected SandboxMemoryManager(
             Context ctxWrapper,
@@ -24,6 +56,8 @@ namespace Hyperlight.Wrapper
             bool runFromProcessMemory
         )
         {
+            this.sandboxMemoryConfiguration = memCfg;
+            this.runFromProcessMemory = runFromProcessMemory;
             HyperlightException.ThrowIfNull(
                 ctxWrapper,
                 nameof(ctxWrapper),
@@ -40,7 +74,6 @@ namespace Hyperlight.Wrapper
 
         internal void SetStackGuard(byte[] cookie)
         {
-            var sandboxMemoryLayout = this.GetSandboxMemoryLayout();
             HyperlightException.ThrowIfNull(
                 cookie,
                 nameof(cookie),
@@ -53,7 +86,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_mgr_set_stack_guard(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                sandboxMemoryLayout.rawHandle,
+                this.SandboxMemoryLayoutWrapper.rawHandle,
                 this.GuestMemoryWrapper.handleWrapper.handle,
                 cookieByteArray.handleWrapper.handle
             );
@@ -66,7 +99,6 @@ namespace Hyperlight.Wrapper
 
         internal bool CheckStackGuard(byte[]? cookie)
         {
-            var sandboxMemoryLayout = this.GetSandboxMemoryLayout();
             HyperlightException.ThrowIfNull(
                 cookie,
                 nameof(cookie),
@@ -79,7 +111,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_mgr_check_stack_guard(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                sandboxMemoryLayout.rawHandle,
+                this.SandboxMemoryLayoutWrapper.rawHandle,
                 this.GuestMemoryWrapper.handleWrapper.handle,
                 cookieByteArray.handleWrapper.handle
             );
@@ -97,13 +129,11 @@ namespace Hyperlight.Wrapper
 
         internal ulong SetUpHyperVisorPartition()
         {
-            var sandboxMemoryLayout = this.GetSandboxMemoryLayout();
-            var size = this.GetSize();
             var rawHdl = mem_mgr_set_up_hypervisor_partition(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
                 this.GuestMemoryWrapper.handleWrapper.handle,
-                size
+                this.Size
             );
             using var hdl = new Handle(
                 this.ctxWrapper,
@@ -119,13 +149,11 @@ namespace Hyperlight.Wrapper
 
         internal ulong GetPebAddress()
         {
-            var sandboxMemoryLayout = this.GetSandboxMemoryLayout();
-            var sourceAddress = this.GetSourceAddress();
             var rawHdl = mem_mgr_get_peb_address(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                sandboxMemoryLayout.rawHandle,
-                (ulong)sourceAddress.ToInt64()
+                this.SandboxMemoryLayoutWrapper.rawHandle,
+                (ulong)this.SourceAddress.ToInt64()
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
             if (!hdl.IsUInt64())
@@ -156,13 +184,11 @@ namespace Hyperlight.Wrapper
 
         internal int GetReturnValue()
         {
-            var layout = this.GetSandboxMemoryLayout();
-
             var rawHdl = mem_mgr_get_return_value(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
                 this.GuestMemoryWrapper.handleWrapper.handle,
-                layout.rawHandle
+                this.SandboxMemoryLayoutWrapper.rawHandle
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
             if (!hdl.IsInt32())
@@ -180,7 +206,7 @@ namespace Hyperlight.Wrapper
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
                 this.GuestMemoryWrapper.handleWrapper.handle,
-                this.GetSandboxMemoryLayout().rawHandle,
+                this.SandboxMemoryLayoutWrapper.rawHandle,
                 (ulong)pOutB
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
@@ -191,7 +217,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_mgr_get_address_offset(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                (ulong)this.GetSourceAddress().ToInt64()
+                (ulong)this.SourceAddress.ToInt64()
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
             if (!hdl.IsUInt64())
@@ -202,17 +228,11 @@ namespace Hyperlight.Wrapper
         }
         internal ulong GetPointerToDispatchFunction()
         {
-            var layout = this.GetSandboxMemoryLayout();
-            HyperlightException.ThrowIfNull(
-                layout,
-                nameof(layout),
-                GetType().Name
-            );
             var rawHdl = mem_mgr_get_pointer_to_dispatch_function(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
                 this.GuestMemoryWrapper.handleWrapper.handle,
-                layout.rawHandle
+                this.SandboxMemoryLayoutWrapper.rawHandle
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
             if (!hdl.IsUInt64())
@@ -258,11 +278,10 @@ namespace Hyperlight.Wrapper
 
         internal string? ReadStringOutput()
         {
-            var sandboxMemoryLayout = this.GetSandboxMemoryLayout();
             var rawHdl = mem_mgr_read_string_output(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                sandboxMemoryLayout.rawHandle,
+                this.SandboxMemoryLayoutWrapper.rawHandle,
                 this.GuestMemoryWrapper.handleWrapper.handle
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
@@ -276,11 +295,10 @@ namespace Hyperlight.Wrapper
         internal HyperlightException? GetHostException()
         {
             HyperlightException? hyperlightException = null;
-            var sandboxMemoryLayout = this.GetSandboxMemoryLayout();
             var rawHdl = mem_mgr_has_host_exception(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                sandboxMemoryLayout.rawHandle,
+                this.SandboxMemoryLayoutWrapper.rawHandle,
                 this.GuestMemoryWrapper.handleWrapper.handle
             );
             using var hdl1 = new Handle(this.ctxWrapper, rawHdl, true);
@@ -294,7 +312,7 @@ namespace Hyperlight.Wrapper
                 rawHdl = mem_mgr_get_host_exception_length(
                     this.ctxWrapper.ctx,
                     this.hdlMemManagerWrapper.handle,
-                    sandboxMemoryLayout.rawHandle,
+                    this.SandboxMemoryLayoutWrapper.rawHandle,
                     this.GuestMemoryWrapper.handleWrapper.handle
                 );
                 using var hdl2 = new Handle(this.ctxWrapper, rawHdl, true);
@@ -317,7 +335,7 @@ namespace Hyperlight.Wrapper
                             mem_mgr_get_host_exception_data(
                                 this.ctxWrapper.ctx,
                                 this.hdlMemManagerWrapper.handle,
-                                sandboxMemoryLayout.rawHandle,
+                                this.SandboxMemoryLayoutWrapper.rawHandle,
                                 this.GuestMemoryWrapper.handleWrapper.handle,
                                 (IntPtr)exceptionDataPtr,
                                 size
@@ -373,7 +391,7 @@ namespace Hyperlight.Wrapper
                 mem_mgr_write_outb_exception(
                     this.ctxWrapper.ctx,
                     this.hdlMemManagerWrapper.handle,
-                    this.GetSandboxMemoryLayout().rawHandle,
+                    this.SandboxMemoryLayoutWrapper.rawHandle,
                     this.GuestMemoryWrapper.handleWrapper.handle,
                     errorMessage.handleWrapper.handle,
                     exceptionData.handleWrapper.handle),
