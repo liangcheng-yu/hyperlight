@@ -12,27 +12,28 @@ namespace Hyperlight.Wrapper
         private bool disposedValue;
         private readonly Context ctxWrapper;
         private readonly Handle hdlMemManagerWrapper;
+        protected Context ContextWrapper => ctxWrapper;
+        internal SharedMemory? sharedMemoryWrapper;
+        internal SandboxMemoryLayout? sandboxMemoryLayout;
+
         internal IntPtr loadAddress = IntPtr.Zero;
         internal readonly bool runFromProcessMemory;
         internal readonly SandboxMemoryConfiguration sandboxMemoryConfiguration;
-        internal Context ContextWrapper => ctxWrapper;
-        internal GuestMemory? guestMemoryWrapper;
-        internal SandboxMemoryLayout? sandboxMemoryLayout;
         internal ulong size;
         internal IntPtr sourceAddress;
         internal ulong Size { get { return size; } }
         internal IntPtr SourceAddress { get { return sourceAddress; } }
-        internal GuestMemory GuestMemoryWrapper
+        internal SharedMemory SharedMemoryWrapper
         {
             get
             {
-                var guestMemWrapper = this.guestMemoryWrapper;
+                var sharedMemWrapper = this.sharedMemoryWrapper;
                 HyperlightException.ThrowIfNull(
-                    guestMemWrapper,
-                    nameof(guestMemWrapper),
+                    sharedMemWrapper,
+                    nameof(sharedMemWrapper),
                     GetType().Name
                 );
-                return guestMemWrapper;
+                return sharedMemWrapper;
             }
         }
 
@@ -86,8 +87,9 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_mgr_set_stack_guard(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
+
                 this.SandboxMemoryLayoutWrapper.rawHandle,
-                this.GuestMemoryWrapper.handleWrapper.handle,
+                this.SharedMemoryWrapper.handleWrapper.handle,
                 cookieByteArray.handleWrapper.handle
             );
             using var hdl = new Handle(
@@ -112,7 +114,7 @@ namespace Hyperlight.Wrapper
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
                 this.SandboxMemoryLayoutWrapper.rawHandle,
-                this.GuestMemoryWrapper.handleWrapper.handle,
+                this.SharedMemoryWrapper.handleWrapper.handle,
                 cookieByteArray.handleWrapper.handle
             );
             using var hdl = new Handle(
@@ -132,7 +134,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_mgr_set_up_hypervisor_partition(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                this.GuestMemoryWrapper.handleWrapper.handle,
+                this.SharedMemoryWrapper.handleWrapper.handle,
                 this.Size
             );
             using var hdl = new Handle(
@@ -168,7 +170,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_mgr_snapshot_state(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                this.GuestMemoryWrapper.handleWrapper.handle
+                this.SharedMemoryWrapper.handleWrapper.handle
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
         }
@@ -187,7 +189,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_mgr_get_return_value(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                this.GuestMemoryWrapper.handleWrapper.handle,
+                this.SharedMemoryWrapper.handleWrapper.handle,
                 this.SandboxMemoryLayoutWrapper.rawHandle
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
@@ -205,7 +207,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_mgr_set_outb_address(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                this.GuestMemoryWrapper.handleWrapper.handle,
+                this.SharedMemoryWrapper.handleWrapper.handle,
                 this.SandboxMemoryLayoutWrapper.rawHandle,
                 (ulong)pOutB
             );
@@ -231,7 +233,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_mgr_get_pointer_to_dispatch_function(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                this.GuestMemoryWrapper.handleWrapper.handle,
+                this.SharedMemoryWrapper.handleWrapper.handle,
                 this.SandboxMemoryLayoutWrapper.rawHandle
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
@@ -249,7 +251,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_mgr_get_host_address_from_pointer(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                this.GuestMemoryWrapper.handleWrapper.handle,
+                this.SharedMemoryWrapper.handleWrapper.handle,
                 (ulong)address
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
@@ -265,7 +267,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_mgr_get_guest_address_from_pointer(
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
-                this.GuestMemoryWrapper.handleWrapper.handle,
+                this.SharedMemoryWrapper.handleWrapper.handle,
                 (ulong)address.ToInt64()
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
@@ -282,7 +284,7 @@ namespace Hyperlight.Wrapper
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
                 this.SandboxMemoryLayoutWrapper.rawHandle,
-                this.GuestMemoryWrapper.handleWrapper.handle
+                this.SharedMemoryWrapper.handleWrapper.handle
             );
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
             if (!hdl.IsString())
@@ -299,7 +301,7 @@ namespace Hyperlight.Wrapper
                 this.ctxWrapper.ctx,
                 this.hdlMemManagerWrapper.handle,
                 this.SandboxMemoryLayoutWrapper.rawHandle,
-                this.GuestMemoryWrapper.handleWrapper.handle
+                this.SharedMemoryWrapper.handleWrapper.handle
             );
             using var hdl1 = new Handle(this.ctxWrapper, rawHdl, true);
             if (!hdl1.IsBoolean())
@@ -313,7 +315,7 @@ namespace Hyperlight.Wrapper
                     this.ctxWrapper.ctx,
                     this.hdlMemManagerWrapper.handle,
                     this.SandboxMemoryLayoutWrapper.rawHandle,
-                    this.GuestMemoryWrapper.handleWrapper.handle
+                    this.SharedMemoryWrapper.handleWrapper.handle
                 );
                 using var hdl2 = new Handle(this.ctxWrapper, rawHdl, true);
                 if (!hdl2.IsInt32())
@@ -336,7 +338,7 @@ namespace Hyperlight.Wrapper
                                 this.ctxWrapper.ctx,
                                 this.hdlMemManagerWrapper.handle,
                                 this.SandboxMemoryLayoutWrapper.rawHandle,
-                                this.GuestMemoryWrapper.handleWrapper.handle,
+                                this.SharedMemoryWrapper.handleWrapper.handle,
                                 (IntPtr)exceptionDataPtr,
                                 size
                             ),
@@ -392,7 +394,7 @@ namespace Hyperlight.Wrapper
                     this.ctxWrapper.ctx,
                     this.hdlMemManagerWrapper.handle,
                     this.SandboxMemoryLayoutWrapper.rawHandle,
-                    this.GuestMemoryWrapper.handleWrapper.handle,
+                    this.SharedMemoryWrapper.handleWrapper.handle,
                     errorMessage.handleWrapper.handle,
                     exceptionData.handleWrapper.handle),
                 true
@@ -459,7 +461,7 @@ namespace Hyperlight.Wrapper
             NativeContext ctx,
             NativeHandle mgrHdl,
             NativeHandle layoutHdl,
-            NativeHandle guestMemHdl,
+            NativeHandle sharedMemHdl,
             NativeHandle cookieHdl
         );
 
@@ -469,7 +471,7 @@ namespace Hyperlight.Wrapper
             NativeContext ctx,
             NativeHandle mgrHdl,
             NativeHandle layoutHdl,
-            NativeHandle guestMemHdl,
+            NativeHandle sharedMemHdl,
             NativeHandle cookieHdl
         );
 
@@ -478,7 +480,7 @@ namespace Hyperlight.Wrapper
         private static extern NativeHandle mem_mgr_set_up_hypervisor_partition(
             NativeContext ctx,
             NativeHandle mgrHdl,
-            NativeHandle guestMemHdl,
+            NativeHandle sharedMemHdl,
             ulong mem_size
         );
 
@@ -496,7 +498,7 @@ namespace Hyperlight.Wrapper
         private static extern NativeHandle mem_mgr_snapshot_state(
             NativeContext ctx,
             NativeHandle mgrHdl,
-            NativeHandle guestMemHdl
+            NativeHandle sharedMemHdl
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
@@ -511,7 +513,7 @@ namespace Hyperlight.Wrapper
         private static extern NativeHandle mem_mgr_get_return_value(
             NativeContext ctx,
             NativeHandle mgrHdl,
-            NativeHandle guestMemHdl,
+            NativeHandle sharedMemHdl,
             NativeHandle layoutHdl
         );
 
@@ -520,7 +522,7 @@ namespace Hyperlight.Wrapper
         private static extern NativeHandle mem_mgr_set_outb_address(
             NativeContext ctx,
             NativeHandle mgrHdl,
-            NativeHandle guestMemHdl,
+            NativeHandle sharedMemHdl,
             NativeHandle layoutHdl,
             ulong addr
         );
@@ -538,7 +540,7 @@ namespace Hyperlight.Wrapper
         private static extern NativeHandle mem_mgr_get_host_address_from_pointer(
             NativeContext ctx,
             NativeHandle mgrHdl,
-            NativeHandle guestMemHdl,
+            NativeHandle sharedMemHdl,
             ulong addr
         );
 
@@ -548,7 +550,7 @@ namespace Hyperlight.Wrapper
         private static extern NativeHandle mem_mgr_get_guest_address_from_pointer(
             NativeContext ctx,
             NativeHandle mgrHdl,
-            NativeHandle guestMemHdl,
+            NativeHandle sharedMemHdl,
             ulong addr
         );
 
@@ -557,7 +559,7 @@ namespace Hyperlight.Wrapper
         private static extern NativeHandle mem_mgr_get_pointer_to_dispatch_function(
             NativeContext ctx,
             NativeHandle mgrHdl,
-            NativeHandle guestMemHdl,
+            NativeHandle sharedMemHdl,
             NativeHandle layoutHdl
         );
 
@@ -567,7 +569,7 @@ namespace Hyperlight.Wrapper
             NativeContext ctx,
             NativeHandle mgrHdl,
             NativeHandle layoutHdl,
-            NativeHandle guestMemHdl
+            NativeHandle sharedMemHdl
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
@@ -576,7 +578,7 @@ namespace Hyperlight.Wrapper
             NativeContext ctx,
             NativeHandle mgrHdl,
             NativeHandle layoutHdl,
-            NativeHandle guestMemHdl
+            NativeHandle sharedMemHdl
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
@@ -585,7 +587,7 @@ namespace Hyperlight.Wrapper
             NativeContext ctx,
             NativeHandle mgrHdl,
             NativeHandle layoutHdl,
-            NativeHandle guestMemHdl
+            NativeHandle sharedMemHdl
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
@@ -594,7 +596,7 @@ namespace Hyperlight.Wrapper
             NativeContext ctx,
             NativeHandle mgrHdl,
             NativeHandle layoutHdl,
-            NativeHandle guestMemHdl,
+            NativeHandle sharedMemHdl,
             IntPtr exceptionDataPtr,
             int exceptionDataLen
         );
@@ -605,7 +607,7 @@ namespace Hyperlight.Wrapper
             NativeContext ctx,
             NativeHandle mgrHdl,
             NativeHandle layoutHdl,
-            NativeHandle guestMemHdl,
+            NativeHandle sharedMemHdl,
             NativeHandle guestErrorMsgHdl,
             NativeHandle hostExceptionDataHdl
         );

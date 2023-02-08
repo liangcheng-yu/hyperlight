@@ -1,49 +1,52 @@
 use anyhow::Result;
 
-use super::guest_mem::GuestMemory;
+use super::shared_mem::SharedMemory;
 
-/// A wrapper around a `GuestMemory` reference and a snapshot
+/// A wrapper around a `SharedMemory` reference and a snapshot
 /// of the memory therein
-pub struct GuestMemorySnapshot {
+pub struct SharedMemorySnapshot {
     snapshot: Vec<u8>,
-    gm: GuestMemory,
+    shared_mem: SharedMemory,
 }
 
-impl GuestMemorySnapshot {
-    /// Take a snapshot of the memory in `gm`, then create a new instance
-    /// of `Self` with the snapshot stored therein.
-    pub fn new(gm: GuestMemory) -> Result<Self> {
+impl SharedMemorySnapshot {
+    /// Take a snapshot of the memory in `shared_mem`, then create a new
+    /// instance of `Self` with the snapshot stored therein.
+    pub fn new(shared_mem: SharedMemory) -> Result<Self> {
         // TODO: Track dirty pages instead of copying entire memory
-        let snapshot = gm.copy_all_to_vec()?;
-        Ok(Self { gm, snapshot })
+        let snapshot = shared_mem.copy_all_to_vec()?;
+        Ok(Self {
+            shared_mem,
+            snapshot,
+        })
     }
 
-    /// Take another snapshot of the internally-stored `GuestMemory`,
+    /// Take another snapshot of the internally-stored `SharedMemory`,
     /// then store it internally.
     pub fn replace_snapshot(&mut self) -> Result<()> {
-        let new_snapshot = self.gm.copy_all_to_vec()?;
+        let new_snapshot = self.shared_mem.copy_all_to_vec()?;
         self.snapshot = new_snapshot;
         Ok(())
     }
 
     /// Copy the memory from the internally-stored memory snapshot
-    /// into the internally-stored `GuestMemory`
+    /// into the internally-stored `SharedMemory`
     pub fn restore_from_snapshot(&mut self) -> Result<()> {
-        self.gm.copy_from_slice(self.snapshot.as_slice(), 0)
+        self.shared_mem.copy_from_slice(self.snapshot.as_slice(), 0)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::mem::guest_mem::GuestMemory;
+    use crate::mem::shared_mem::SharedMemory;
 
     #[test]
     fn restore_replace() {
         let data1 = vec![b'a', b'b', b'c'];
         let data2 = data1.iter().map(|b| b + 1).collect::<Vec<u8>>();
-        let mut gm = GuestMemory::new(data1.len()).unwrap();
+        let mut gm = SharedMemory::new(data1.len()).unwrap();
         gm.copy_from_slice(data1.as_slice(), 0).unwrap();
-        let mut snap = super::GuestMemorySnapshot::new(gm.clone()).unwrap();
+        let mut snap = super::SharedMemorySnapshot::new(gm.clone()).unwrap();
         {
             // after the first snapshot is taken, make sure gm has the equivalent
             // of data1

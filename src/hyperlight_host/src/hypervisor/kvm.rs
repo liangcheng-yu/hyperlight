@@ -154,7 +154,7 @@ mod tests {
             map_vm_memory_region, map_vm_memory_region_raw, unmap_vm_memory_region_raw,
         },
         hypervisor::kvm_regs,
-        mem::guest_mem::GuestMemory,
+        mem::shared_mem::SharedMemory,
     };
     use anyhow::Result;
     use kvm_ioctls::{Kvm, VcpuFd, VmFd};
@@ -196,7 +196,7 @@ mod tests {
 
     const GUEST_PHYS_ADDR: u64 = 0x1000;
     const SIZE: usize = 0x4000;
-    fn setup_run_vcpu_test() -> Result<(Kvm, VmFd, VcpuFd, GuestMemory)> {
+    fn setup_run_vcpu_test() -> Result<(Kvm, VmFd, VcpuFd, SharedMemory)> {
         #[rustfmt::skip]
         const CODE: [u8; 12] = [
             // mov $0x3f8, %dx
@@ -217,7 +217,7 @@ mod tests {
         let kvm = super::open()?;
         let vm = super::create_vm(&kvm)?;
         let vcpu = super::create_vcpu(&vm)?;
-        let mut mem = GuestMemory::new(SIZE).unwrap();
+        let mut mem = SharedMemory::new(SIZE).unwrap();
         mem.copy_from_slice(&CODE, 0).unwrap();
         Ok((kvm, vm, vcpu, mem))
     }

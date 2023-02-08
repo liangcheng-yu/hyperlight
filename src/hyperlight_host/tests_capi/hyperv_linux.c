@@ -67,11 +67,11 @@ MunitResult test_hyperv_linux_create_driver(const MunitParameter params[], void 
     CHECK_HYPERV_LINUX_PRESENT;
     const size_t MEM_SIZE = 0x1000;
     Context *ctx = context_new();
-    Handle guest_mem_ref = guest_memory_new(ctx, MEM_SIZE);
+    Handle shared_mem_ref = shared_memory_new(ctx, MEM_SIZE);
     struct HypervLinuxDriverAddrs addrs = {
         .entrypoint = 0,
         .guest_pfn = 0,
-        .host_addr = guest_memory_get_address(ctx, guest_mem_ref),
+        .host_addr = shared_memory_get_address(ctx, shared_mem_ref),
         .mem_size = MEM_SIZE,
     };
 
@@ -79,7 +79,7 @@ MunitResult test_hyperv_linux_create_driver(const MunitParameter params[], void 
     handle_assert_no_error(ctx, hv_driver_hdl);
 
     handle_free(ctx, hv_driver_hdl);
-    handle_free(ctx, guest_mem_ref);
+    handle_free(ctx, shared_mem_ref);
     context_free(ctx);
     return MUNIT_OK;
 }
@@ -107,13 +107,13 @@ MunitResult test_hyperv_linux_execute_until_halt(const MunitParameter params[], 
     };
     const uint8_t CODE_LENGTH = sizeof(CODE);
     struct Context *ctx = context_new();
-    Handle guest_mem_ref = guest_memory_new(ctx, ACTUAL_MEM_SIZE);
+    Handle shared_mem_ref = shared_memory_new(ctx, ACTUAL_MEM_SIZE);
 
     {
         // copy code into guest memory
         Handle barr_ref = byte_array_new(ctx, CODE, CODE_LENGTH);
         handle_assert_no_error(ctx, barr_ref);
-        Handle copy_res_ref = guest_memory_copy_from_byte_array(ctx, guest_mem_ref, barr_ref, 0, 0, CODE_LENGTH);
+        Handle copy_res_ref = shared_memory_copy_from_byte_array(ctx, shared_mem_ref, barr_ref, 0, 0, CODE_LENGTH);
         handle_assert_no_error(ctx, copy_res_ref);
         handle_free(ctx, barr_ref);
     }
@@ -121,7 +121,7 @@ MunitResult test_hyperv_linux_execute_until_halt(const MunitParameter params[], 
     HypervLinuxDriverAddrs addrs = {
         .entrypoint = 0x1000,
         .guest_pfn = 0x1,
-        .host_addr = guest_memory_get_address(ctx, guest_mem_ref),
+        .host_addr = shared_memory_get_address(ctx, shared_mem_ref),
         .mem_size = REGION_MEM_SIZE};
     Handle driver_ref = hyperv_linux_create_driver_simple(ctx, false, addrs);
     handle_assert_no_error(ctx, driver_ref);
@@ -146,7 +146,7 @@ MunitResult test_hyperv_linux_execute_until_halt(const MunitParameter params[], 
         handle_free(ctx, mem_access_func_ref);
     }
     handle_free(ctx, driver_ref);
-    handle_free(ctx, guest_mem_ref);
+    handle_free(ctx, shared_mem_ref);
     context_free(ctx);
     return MUNIT_OK;
 }

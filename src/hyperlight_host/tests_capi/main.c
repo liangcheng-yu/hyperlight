@@ -12,7 +12,7 @@
 #include "kvm.h"
 #endif
 #include "int.h"
-#include "guest_mem.h"
+#include "shared_mem.h"
 #include "err.h"
 #include "munit/munit.h"
 #include "outb_handler.h"
@@ -23,7 +23,7 @@ static MunitSuite test_suites[] = {
     {"/byte_array_tests", byte_array_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/context_tests", context_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/err_tests", err_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-    {"/guest_memory_tests", guest_memory_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
+    {"/shared_memory_tests", shared_memory_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/host_exception_tests", host_exception_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/host_func_tests", host_func_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
 #if defined(__linux__)

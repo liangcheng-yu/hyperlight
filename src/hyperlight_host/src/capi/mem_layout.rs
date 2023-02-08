@@ -7,9 +7,9 @@ use crate::{validate_context, validate_context_or_panic};
 use anyhow::anyhow;
 
 mod impls {
-    use crate::capi::guest_mem::get_guest_memory_mut;
     use crate::capi::handle::Handle;
     use crate::capi::hdl::Hdl;
+    use crate::capi::shared_mem::get_shared_memory_mut;
     use crate::capi::Addr;
     use crate::mem::layout::SandboxMemoryLayout;
     use crate::{capi::context::Context, mem::config::SandboxMemoryConfiguration};
@@ -50,13 +50,13 @@ mod impls {
     pub fn write_memory_layout(
         ctx: &mut Context,
         mem_layout_ref: Handle,
-        guest_mem_ref: Handle,
+        shared_mem_ref: Handle,
         guest_offset: usize,
         size: usize,
     ) -> Result<()> {
         let layout = get_mem_layout(ctx, mem_layout_ref)?;
-        let guest_mem = get_guest_memory_mut(ctx, guest_mem_ref)?;
-        layout.write(&mut (*guest_mem), guest_offset, size)
+        let shared_mem = get_shared_memory_mut(ctx, shared_mem_ref)?;
+        layout.write(&mut (*shared_mem), guest_offset, size)
     }
 
     /// Get the `SandboxMemoryLayout` stored in `ctx` and referenced
@@ -346,7 +346,7 @@ pub unsafe extern "C" fn mem_layout_get_memory_size(
 pub unsafe extern "C" fn mem_layout_write_memory_layout(
     ctx: *mut Context,
     mem_layout_ref: Handle,
-    guest_mem_ref: Handle,
+    shared_mem_ref: Handle,
     guest_address: usize,
     size: usize,
 ) -> Handle {
@@ -355,7 +355,7 @@ pub unsafe extern "C" fn mem_layout_write_memory_layout(
     match impls::write_memory_layout(
         &mut *ctx,
         mem_layout_ref,
-        guest_mem_ref,
+        shared_mem_ref,
         guest_address,
         size,
     ) {

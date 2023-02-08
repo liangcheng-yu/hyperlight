@@ -36,10 +36,10 @@ pub enum Hdl {
     MemLayout(Key),
     /// A reference to a `SandboxMemoryManager`.
     MemMgr(Key),
-    /// A reference to a `GuestMemory`.
-    GuestMemory(Key),
-    /// A reference to a `GuestMemorySnapshot`.
-    GuestMemorySnapshot(Key),
+    /// A reference to a `SharedMemory`.
+    SharedMemory(Key),
+    /// A reference to a `SharedMemorySnapshot`.
+    SharedMemorySnapshot(Key),
     /// A reference to an `i64`
     Int64(Key),
     /// A reference to a `u64`
@@ -88,7 +88,7 @@ impl Hdl {
     const BYTE_ARRAY_TYPE_ID: TypeID = 106;
     const PE_INFO_TYPE_ID: TypeID = 107;
     const MEM_LAYOUT_TYPE_ID: TypeID = 109;
-    const GUEST_MEMORY_TYPE_ID: TypeID = 110;
+    const SHARED_MEMORY_TYPE_ID: TypeID = 110;
     const INT_64_TYPE_ID: TypeID = 111;
     const INT_32_TYPE_ID: TypeID = 112;
     #[cfg(target_os = "linux")]
@@ -109,7 +109,7 @@ impl Hdl {
     const HYPER_V_LINUX_DRIVER_TYPE_ID: TypeID = 120;
     const OUTB_HANDLER_FUNC_TYPE_ID: TypeID = 121;
     const MEM_ACCESS_HANDLER_FUNC_TYPE_ID: TypeID = 122;
-    const GUEST_MEMORY_SNAPSHOT_TYPE_ID: TypeID = 123;
+    const SHARED_MEMORY_SNAPSHOT_TYPE_ID: TypeID = 123;
     const MEM_MGR_TYPE_ID: TypeID = 124;
     const UINT_64_TYPE_ID: TypeID = 125;
     const BOOLEAN_TYPE_ID: TypeID = 126;
@@ -132,8 +132,8 @@ impl Hdl {
             Hdl::PEInfo(_) => Self::PE_INFO_TYPE_ID,
             Hdl::MemLayout(_) => Self::MEM_LAYOUT_TYPE_ID,
             Hdl::MemMgr(_) => Self::MEM_MGR_TYPE_ID,
-            Hdl::GuestMemory(_) => Self::GUEST_MEMORY_TYPE_ID,
-            Hdl::GuestMemorySnapshot(_) => Self::GUEST_MEMORY_SNAPSHOT_TYPE_ID,
+            Hdl::SharedMemory(_) => Self::SHARED_MEMORY_TYPE_ID,
+            Hdl::SharedMemorySnapshot(_) => Self::SHARED_MEMORY_SNAPSHOT_TYPE_ID,
             Hdl::Int64(_) => Self::INT_64_TYPE_ID,
             Hdl::UInt64(_) => Self::UINT_64_TYPE_ID,
             Hdl::Int32(_) => Self::INT_32_TYPE_ID,
@@ -177,8 +177,8 @@ impl Hdl {
             Hdl::PEInfo(key) => *key,
             Hdl::MemLayout(key) => *key,
             Hdl::MemMgr(key) => *key,
-            Hdl::GuestMemory(key) => *key,
-            Hdl::GuestMemorySnapshot(key) => *key,
+            Hdl::SharedMemory(key) => *key,
+            Hdl::SharedMemorySnapshot(key) => *key,
             Hdl::Int64(key) => *key,
             Hdl::UInt64(key) => *key,
             Hdl::Int32(key) => *key,
@@ -220,8 +220,8 @@ impl std::fmt::Display for Hdl {
             Hdl::PEInfo(key) => write!(f, "PEInfo({})", key),
             Hdl::MemLayout(key) => write!(f, "MemLayout({})", key),
             Hdl::MemMgr(key) => write!(f, "MemMgr({})", key),
-            Hdl::GuestMemory(key) => write!(f, "GuestMemory({})", key),
-            Hdl::GuestMemorySnapshot(key) => write!(f, "GuestMemorySnapshot({})", key),
+            Hdl::SharedMemory(key) => write!(f, "SharedMemory({})", key),
+            Hdl::SharedMemorySnapshot(key) => write!(f, "SharedMemorySnapshot({})", key),
             Hdl::Int64(key) => write!(f, "Int64({})", key),
             Hdl::UInt64(key) => write!(f, "UInt64({})", key),
             Hdl::Int32(key) => write!(f, "Int32({})", key),
@@ -268,8 +268,8 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::PE_INFO_TYPE_ID => Ok(Hdl::PEInfo(key)),
             Self::MEM_LAYOUT_TYPE_ID => Ok(Hdl::MemLayout(key)),
             Self::MEM_MGR_TYPE_ID => Ok(Hdl::MemMgr(key)),
-            Self::GUEST_MEMORY_TYPE_ID => Ok(Hdl::GuestMemory(key)),
-            Self::GUEST_MEMORY_SNAPSHOT_TYPE_ID => Ok(Hdl::GuestMemorySnapshot(key)),
+            Self::SHARED_MEMORY_TYPE_ID => Ok(Hdl::SharedMemory(key)),
+            Self::SHARED_MEMORY_SNAPSHOT_TYPE_ID => Ok(Hdl::SharedMemorySnapshot(key)),
             Self::INT_64_TYPE_ID => Ok(Hdl::Int64(key)),
             Self::UINT_64_TYPE_ID => Ok(Hdl::UInt64(key)),
             Self::INT_32_TYPE_ID => Ok(Hdl::Int32(key)),

@@ -10,11 +10,11 @@ use crate::hypervisor::hyperv_linux::HypervLinuxDriver;
 use crate::hypervisor::kvm;
 #[cfg(target_os = "linux")]
 use crate::hypervisor::kvm_regs;
-use crate::mem::guest_mem::GuestMemory;
-use crate::mem::guest_mem_snapshot::GuestMemorySnapshot;
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::mgr::SandboxMemoryManager;
 use crate::mem::pe::pe_info::PEInfo;
+use crate::mem::shared_mem::SharedMemory;
+use crate::mem::shared_mem_snapshot::SharedMemorySnapshot;
 use crate::sandbox::Sandbox;
 use anyhow::{bail, Error, Result};
 #[cfg(target_os = "linux")]
@@ -62,10 +62,10 @@ pub struct Context {
     pub mem_layouts: HashMap<Key, SandboxMemoryLayout>,
     /// All the `SandboxMemoryManager`s stored in this context
     pub mem_mgrs: HashMap<Key, SandboxMemoryManager>,
-    /// All the `GuestMemory`s stored in this context
-    pub guest_mems: HashMap<Key, GuestMemory>,
-    /// All the `GuestMemorySnapshot`s stored in this context
-    pub guest_mem_snapshots: HashMap<Key, GuestMemorySnapshot>,
+    /// All the `SharedMemory`s stored in this context
+    pub shared_mems: HashMap<Key, SharedMemory>,
+    /// All the `SharedMemorySnapshot`s stored in this context
+    pub shared_mem_snapshots: HashMap<Key, SharedMemorySnapshot>,
     /// All the `i64`s stored in this context
     pub int64s: HashMap<Key, i64>,
     /// All the `u64`s stored in this context
@@ -202,9 +202,9 @@ impl Context {
                     Hdl::PEInfo(key) => self.pe_infos.remove(&key).is_some(),
                     Hdl::MemLayout(key) => self.mem_layouts.remove(&key).is_some(),
                     Hdl::MemMgr(key) => self.mem_mgrs.remove(&key).is_some(),
-                    Hdl::GuestMemory(key) => self.guest_mems.remove(&key).is_some(),
-                    Hdl::GuestMemorySnapshot(key) => {
-                        self.guest_mem_snapshots.remove(&key).is_some()
+                    Hdl::SharedMemory(key) => self.shared_mems.remove(&key).is_some(),
+                    Hdl::SharedMemorySnapshot(key) => {
+                        self.shared_mem_snapshots.remove(&key).is_some()
                     }
                     Hdl::Int64(key) => self.int64s.remove(&key).is_some(),
                     Hdl::UInt64(key) => self.uint64s.remove(&key).is_some(),

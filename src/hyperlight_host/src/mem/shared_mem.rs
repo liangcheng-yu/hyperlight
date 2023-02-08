@@ -31,17 +31,17 @@ macro_rules! bounds_check {
 /// Guest Physical Memory or Guest Physical Addresses (GPA) in Windows
 /// Hypervisor Platform.
 ///
-/// `GuestMemory` instances can be cloned inexpensively. Internally,
+/// `SharedMemory` instances can be cloned inexpensively. Internally,
 /// this structure roughly reduces to a reference-counted pointer,
 /// so a clone just increases the reference count of the pointer. Beware,
 /// however, that only the last clone to be dropped will cause the underlying
 /// memory to be freed.
 #[derive(Debug)]
-pub struct GuestMemory {
+pub struct SharedMemory {
     ptr_and_size: Rc<(*mut c_void, usize)>,
 }
 
-impl Clone for GuestMemory {
+impl Clone for SharedMemory {
     fn clone(&self) -> Self {
         Self {
             ptr_and_size: self.ptr_and_size.clone(),
@@ -49,10 +49,10 @@ impl Clone for GuestMemory {
     }
 }
 
-impl Drop for GuestMemory {
+impl Drop for SharedMemory {
     fn drop(&mut self) {
-        // if this GuestMemory has been cloned, or is a clone
-        // of some other GuestMemory, don't actually free
+        // if this `SharedMemory` has been cloned, or is a clone
+        // of some other `SharedMemory`, don't actually free
         // the underlying memory map
         //
         // Note: regardless which case we're in, the return value
@@ -76,11 +76,11 @@ impl Drop for GuestMemory {
     }
 }
 
-impl GuestMemory {
-    /// Create a new region of guest memory with the given minimum
+impl SharedMemory {
+    /// Create a new region of shared memory with the given minimum
     /// size in bytes.
     ///
-    /// Return `Err` if guest memory could not be allocated.
+    /// Return `Err` if shared memory could not be allocated.
     pub fn new(min_size_bytes: usize) -> Result<Self> {
         cfg_if::cfg_if! {
             if #[cfg(unix)] {
@@ -131,7 +131,7 @@ impl GuestMemory {
         }
     }
 
-    /// Get the base address of guest memory as a `usize`.
+    /// Get the base address of shared memory as a `usize`.
     /// This method is equivalent to casting the internal
     /// `*const c_void` pointer to a `usize` by doing
     /// `pointer as usize`.
@@ -181,12 +181,12 @@ impl GuestMemory {
     ///
     /// # Example usage
     ///
-    /// The below will copy 20 bytes from `guest_mem` starting at
+    /// The below will copy 20 bytes from `shared_mem` starting at
     /// the very beginning of the guest memory (offset 0).
     ///
     /// ```rust
     /// let mut ret_vec = vec![b'\0'; 20];
-    /// guest_mem.copy_to_slice(ret_vec.as_mut_slice(), 0)?
+    /// shared_mem.copy_to_slice(ret_vec.as_mut_slice(), 0)?
     /// ```
     pub fn copy_to_slice(&self, slc: &mut [u8], offset: usize) -> Result<()> {
         bounds_check!(offset, self.mem_size());
@@ -241,14 +241,14 @@ impl GuestMemory {
         size
     }
 
-    /// Return the address of memory at an offset to this GuestMemory checking
-    /// that the memory is within the bounds of the GuestMemory.
+    /// Return the address of memory at an offset to this `SharedMemory` checking
+    /// that the memory is within the bounds of the `SharedMemory`.
     pub fn calculate_address(&self, offset: usize) -> Result<usize> {
         bounds_check!(offset, self.mem_size());
         Ok(self.base_addr() + offset)
     }
 
-    /// Read an `i64` from guest memory starting at `offset`
+    /// Read an `i64` from shared memory starting at `offset`
     ///
     /// Return `Ok` with the `i64` value starting at `offset`
     /// if the value between `offset` and `offset + <64 bits>`
@@ -263,7 +263,7 @@ impl GuestMemory {
         c.read_i64::<LittleEndian>().map_err(|e| anyhow!(e))
     }
 
-    /// Read an `u64` from guest memory starting at `offset`
+    /// Read an `u64` from shared memory starting at `offset`
     ///
     /// Return `Ok` with the `u64` value starting at `offset`
     /// if the value between `offset` and `offset + <64 bits>`
@@ -278,13 +278,13 @@ impl GuestMemory {
         c.read_u64::<LittleEndian>().map_err(|e| anyhow!(e))
     }
 
-    /// Write val into guest memory at the given offset
-    /// from the start of guest memory
+    /// Write val into shared memory at the given offset
+    /// from the start of shared memory
     pub fn write_u64(&mut self, offset: usize, val: u64) -> Result<()> {
         bounds_check!(offset, self.mem_size());
         bounds_check!(offset + size_of::<u64>(), self.mem_size());
         // write the u64 into 8 bytes, so we can std::ptr::write
-        // them into guest mem
+        // them into shared mem
         let mut writer = vec![];
         writer.write_u64::<LittleEndian>(val)?;
         let slice = unsafe { self.as_mut_slice() };
@@ -303,7 +303,7 @@ impl GuestMemory {
         std::slice::from_raw_parts(self.raw_ptr() as *const u8, self.mem_size())
     }
 
-    /// Read an `i32` from guest memory starting at `offset`
+    /// Read an `i32` from shared memory starting at `offset`
     ///
     /// Return `Ok` with the `i64` value starting at `offset`
     /// if the value between `offset` and `offset + <64 bits>`
@@ -318,7 +318,7 @@ impl GuestMemory {
         c.read_i32::<LittleEndian>().map_err(|e| anyhow!(e))
     }
 
-    /// Read a `u8` (i.e. a byte) from guest memory starting at `offset`
+    /// Read a `u8` (i.e. a byte) from shared memory starting at `offset`
     ///
     /// Return `Ok` with the `u8` value starting at `offset`
     /// if the value in the range `[offset, offset + 8)`
@@ -348,7 +348,8 @@ impl GuestMemory {
         Ok(())
     }
 
-    /// Read a `string` written as a c string from guest memory starting at `offset`
+    /// Read a `string` written as a c string from shared memory starting at
+    /// `offset`.
     ///
     /// Return `Ok` with the `string` value starting at `offset`
     /// if the value at `offset` was successfully decoded as a string,
@@ -368,7 +369,7 @@ impl GuestMemory {
 
 #[cfg(test)]
 mod tests {
-    use super::GuestMemory;
+    use super::SharedMemory;
     use anyhow::Result;
     #[cfg(target_os = "linux")]
     use libc::{mmap, munmap};
@@ -383,7 +384,7 @@ mod tests {
     pub fn copy_to_from_slice() -> Result<()> {
         let mem_size: usize = 4096;
         let vec_len = 10;
-        let mut gm = GuestMemory::new(mem_size)?;
+        let mut gm = SharedMemory::new(mem_size)?;
         let vec = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         // write the value to the memory at the beginning.
         gm.copy_from_slice(&vec, 0)?;
@@ -440,7 +441,7 @@ mod tests {
     pub fn copy_into_from() -> Result<()> {
         let mem_size: usize = 4096;
         let vec_len = 10;
-        let mut gm = GuestMemory::new(mem_size)?;
+        let mut gm = SharedMemory::new(mem_size)?;
         let vec = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         // write the value to the memory at the beginning.
         gm.copy_from_slice(&vec, 0)?;
@@ -495,7 +496,7 @@ mod tests {
     #[test]
     pub fn read_write_i32() -> Result<()> {
         let mem_size: usize = 4096;
-        let mut gm = GuestMemory::new(mem_size)?;
+        let mut gm = SharedMemory::new(mem_size)?;
         let val: i32 = 42;
         // write the value to the memory at the beginning.
         gm.write_i32(0, val)?;
@@ -539,7 +540,7 @@ mod tests {
     #[test]
     pub fn read_i64_write_u64() -> Result<()> {
         let mem_size: usize = 4096;
-        let mut gm = GuestMemory::new(mem_size)?;
+        let mut gm = SharedMemory::new(mem_size)?;
         let val: i64 = 42;
         // write the value to the memory at the beginning.
         gm.write_u64(0, val.try_into().unwrap())?;
@@ -582,9 +583,9 @@ mod tests {
 
     #[test]
     pub fn alloc_fail() -> Result<()> {
-        let gm = GuestMemory::new(0);
+        let gm = SharedMemory::new(0);
         assert!(gm.is_err());
-        let gm = GuestMemory::new(usize::MAX);
+        let gm = SharedMemory::new(usize::MAX);
         assert!(gm.is_err());
         Ok(())
     }
@@ -592,7 +593,7 @@ mod tests {
     const MIN_SIZE: usize = 123;
     #[test]
     pub fn clone() {
-        let mut gm1 = GuestMemory::new(MIN_SIZE).unwrap();
+        let mut gm1 = SharedMemory::new(MIN_SIZE).unwrap();
         let mut gm2 = gm1.clone();
 
         // after gm1 is cloned, gm1 and gm2 should have identical
@@ -628,7 +629,7 @@ mod tests {
     #[test]
     pub fn copy_all_to_vec() {
         let data = vec![b'a', b'b', b'c'];
-        let mut gm = GuestMemory::new(data.len()).unwrap();
+        let mut gm = SharedMemory::new(data.len()).unwrap();
         gm.copy_from_slice(data.as_slice(), 0).unwrap();
         let ret_vec = gm.copy_all_to_vec().unwrap();
         assert_eq!(data, ret_vec);
@@ -639,7 +640,7 @@ mod tests {
         let addr: *mut c_void;
         let size: usize;
         {
-            let gm = GuestMemory::new(MIN_SIZE)?;
+            let gm = SharedMemory::new(MIN_SIZE)?;
             addr = gm.raw_ptr();
             size = gm.mem_size();
         };

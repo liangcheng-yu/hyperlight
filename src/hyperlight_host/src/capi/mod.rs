@@ -24,10 +24,6 @@ pub mod context;
 pub mod err;
 ///! C-compatible APIs to manipulate paths to files.
 pub mod filepath;
-///! C-compatible API functions to manage guest / shared memory.
-pub mod guest_mem;
-///! C-compatible API functions to manage guest memory snapshots
-pub mod guest_mem_snapshot;
 ///! C-compatible API functions to manage `Handle` structures,
 ///! which are specialized pointers purpose-built for the Hyperlight
 ///! C API.
@@ -66,6 +62,10 @@ pub mod outb_handler;
 pub mod pe;
 ///! C-compatible API functions to manage `Sandbox` structures.
 pub mod sandbox;
+///! C-compatible API functions to manage guest / shared memory.
+pub mod shared_mem;
+///! C-compatible API functions to manage guest memory snapshots
+pub mod shared_mem_snapshot;
 ///! C-compatible types and functions, and Rust helper functions
 ///! for managing both Rust-native `String` types and C-style strings.
 pub mod strings;

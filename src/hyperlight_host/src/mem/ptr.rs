@@ -1,5 +1,5 @@
-use super::guest_mem::GuestMemory;
 use super::ptr_addr_space::{AddressSpace, GuestAddressSpace, HostAddressSpace};
+use super::shared_mem::SharedMemory;
 use anyhow::{anyhow, Result};
 
 /// A representation of a raw pointer inside a given address space.
@@ -16,13 +16,13 @@ pub struct Offset(pub u64);
 
 /// Convenience type for representing a pointer into the host address space
 pub type HostPtr = Ptr<HostAddressSpace>;
-impl TryFrom<(RawPtr, &GuestMemory, bool)> for HostPtr {
+impl TryFrom<(RawPtr, &SharedMemory, bool)> for HostPtr {
     type Error = anyhow::Error;
     /// Create a new `HostPtr` from the given `host_raw_ptr`, which must
     /// be a pointer in the host's address space.
-    fn try_from(tup: (RawPtr, &GuestMemory, bool)) -> Result<Self> {
-        let (host_raw_ptr, guest_mem, in_mem) = tup;
-        HostPtr::from_raw_ptr(HostAddressSpace::new(guest_mem, in_mem), host_raw_ptr)
+    fn try_from(tup: (RawPtr, &SharedMemory, bool)) -> Result<Self> {
+        let (host_raw_ptr, shared_mem, in_mem) = tup;
+        HostPtr::from_raw_ptr(HostAddressSpace::new(shared_mem, in_mem), host_raw_ptr)
     }
 }
 /// Convenience type for representing a pointer into the guest address space
@@ -106,9 +106,9 @@ impl<T: AddressSpace> Ptr<T> {
 #[cfg(test)]
 mod tests {
     use crate::mem::{
-        guest_mem::GuestMemory,
         layout::SandboxMemoryLayout,
         ptr_addr_space::{GuestAddressSpace, HostAddressSpace},
+        shared_mem::SharedMemory,
     };
 
     use super::{GuestPtr, HostPtr, RawPtr};
@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn ptr_basic_ops() {
         {
-            let gm = GuestMemory::new(10).unwrap();
+            let gm = SharedMemory::new(10).unwrap();
 
             let raw_host_ptr = RawPtr(OFFSET + gm.base_addr() as u64);
             let host_ptr = HostPtr::try_from((raw_host_ptr, &gm, false)).unwrap();
@@ -139,7 +139,7 @@ mod tests {
         // guest memory, so you shouldn't be able to create a host or guest
         // address
         {
-            let gm = GuestMemory::new(10).unwrap();
+            let gm = SharedMemory::new(10).unwrap();
 
             let raw_host_ptr = RawPtr(gm.base_addr() as u64 - 1);
             let host_ptr = HostPtr::try_from((raw_host_ptr, &gm, false));
@@ -154,7 +154,7 @@ mod tests {
 
     #[test]
     fn round_trip() {
-        let gm = GuestMemory::new(10).unwrap();
+        let gm = SharedMemory::new(10).unwrap();
         let raw_host_ptr = RawPtr(gm.base_addr() as u64 + OFFSET);
 
         let host_ptr = {

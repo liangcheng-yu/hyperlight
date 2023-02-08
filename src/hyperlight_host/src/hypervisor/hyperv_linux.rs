@@ -416,7 +416,7 @@ pub mod tests {
     use super::test_cfg::{SHOULD_RUN_TEST, TEST_CONFIG};
     use super::*;
     use crate::hypervisor::hyperv_linux_mem::HypervLinuxDriverAddrs;
-    use crate::{mem::guest_mem::GuestMemory, should_run_hyperv_linux_test};
+    use crate::{mem::shared_mem::SharedMemory, should_run_hyperv_linux_test};
 
     #[rustfmt::skip]
     const CODE:[u8;12] = [
@@ -429,11 +429,11 @@ pub mod tests {
         0xee,               /* out %al, (%dx) */
         0xf4, /* HLT */
     ];
-    fn guest_mem_with_code(
+    fn shared_mem_with_code(
         code: &[u8],
         mem_size: usize,
         load_offset: usize,
-    ) -> Result<Box<GuestMemory>> {
+    ) -> Result<Box<SharedMemory>> {
         if load_offset > mem_size {
             bail!(
                 "code load offset ({}) > memory size ({})",
@@ -441,9 +441,9 @@ pub mod tests {
                 mem_size
             )
         }
-        let mut guest_mem = GuestMemory::new(mem_size)?;
-        guest_mem.copy_from_slice(code, load_offset)?;
-        Ok(Box::new(guest_mem))
+        let mut shared_mem = SharedMemory::new(mem_size)?;
+        shared_mem.copy_from_slice(code, load_offset)?;
+        Ok(Box::new(shared_mem))
     }
 
     #[test]
@@ -462,8 +462,8 @@ pub mod tests {
     fn create_driver() {
         should_run_hyperv_linux_test!();
         const MEM_SIZE: usize = 0x1000;
-        let gm = guest_mem_with_code(CODE.as_slice(), MEM_SIZE, 0).unwrap();
-        let addrs = HypervLinuxDriverAddrs::for_guest_mem(&gm, MEM_SIZE as u64, 0, 0).unwrap();
+        let gm = shared_mem_with_code(CODE.as_slice(), MEM_SIZE, 0).unwrap();
+        let addrs = HypervLinuxDriverAddrs::for_shared_mem(&gm, MEM_SIZE as u64, 0, 0).unwrap();
         super::HypervLinuxDriver::new(TEST_CONFIG.should_have_stable_api, &addrs).unwrap();
     }
 
@@ -473,9 +473,9 @@ pub mod tests {
         const ACTUAL_MEM_SIZE: usize = 0x4000;
         const REGION_MEM_SIZE: u64 = 0x1000;
 
-        let gm = guest_mem_with_code(CODE.as_slice(), ACTUAL_MEM_SIZE, 0).unwrap();
+        let gm = shared_mem_with_code(CODE.as_slice(), ACTUAL_MEM_SIZE, 0).unwrap();
         let addrs =
-            HypervLinuxDriverAddrs::for_guest_mem(&gm, REGION_MEM_SIZE, 0x1000, 0x1).unwrap();
+            HypervLinuxDriverAddrs::for_shared_mem(&gm, REGION_MEM_SIZE, 0x1000, 0x1).unwrap();
         let mut driver =
             HypervLinuxDriver::new(TEST_CONFIG.should_have_stable_api, &addrs).unwrap();
         driver.add_basic_registers(&addrs).unwrap();
@@ -525,9 +525,10 @@ pub mod tests {
         should_run_hyperv_linux_test!();
         const ACTUAL_MEM_SIZE: usize = 0x4000;
         const REGION_MEM_SIZE: usize = 0x1000;
-        let gm = guest_mem_with_code(CODE.as_slice(), ACTUAL_MEM_SIZE, 0).unwrap();
-        let addrs = HypervLinuxDriverAddrs::for_guest_mem(&gm, REGION_MEM_SIZE as u64, 0x1000, 0x1)
-            .unwrap();
+        let gm = shared_mem_with_code(CODE.as_slice(), ACTUAL_MEM_SIZE, 0).unwrap();
+        let addrs =
+            HypervLinuxDriverAddrs::for_shared_mem(&gm, REGION_MEM_SIZE as u64, 0x1000, 0x1)
+                .unwrap();
         let mut driver =
             HypervLinuxDriver::new(TEST_CONFIG.should_have_stable_api, &addrs).unwrap();
         driver.add_advanced_registers(&addrs, 1, 2).unwrap();

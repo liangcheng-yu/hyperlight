@@ -243,7 +243,7 @@ namespace Hyperlight.Wrapper
         }
 
         internal void WriteMemoryLayout(
-            Wrapper.GuestMemory guestMemoryWrapper,
+            Wrapper.SharedMemory sharedMemoryWrapper,
             IntPtr guestAddress,
             ulong size
         )
@@ -251,7 +251,7 @@ namespace Hyperlight.Wrapper
             var hdlRes = mem_layout_write_memory_layout(
                 this.ctxWrapper.ctx,
                 this.handleWrapper.handle,
-                guestMemoryWrapper.handleWrapper.handle,
+                sharedMemoryWrapper.handleWrapper.handle,
                 (ulong)guestAddress.ToInt64(),
                 size
             );
@@ -502,8 +502,8 @@ namespace Hyperlight.Wrapper
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle mem_layout_write_memory_layout(
             NativeContext ctx,
-            NativeHandle mem_layout_handle,
-            NativeHandle guest_memory_handle,
+            NativeHandle memLayoutHdl,
+            NativeHandle guestMemHdl,
             ulong guestOffset,
             ulong size
         );
@@ -511,7 +511,7 @@ namespace Hyperlight.Wrapper
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern ulong mem_layout_get_memory_size(
             NativeContext ctx,
-            NativeHandle mem_layout_handle
+            NativeHandle memLayoutHdl
         );
 
 #pragma warning restore CA5393

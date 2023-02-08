@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::mem::guest_mem::GuestMemory;
+use crate::mem::shared_mem::SharedMemory;
 
 /// The list of addresses that are required to create a new
 /// `HypervLinuxDriver`
@@ -26,12 +26,12 @@ pub struct HypervLinuxDriverAddrs {
 
 impl HypervLinuxDriverAddrs {
     /// Create a new instance of `HypervLinuxDriverAddrs`
-    /// given a `GuestMemory` and additional metadata.
+    /// given a `SharedMemory` and additional metadata.
     ///
     /// The `load_addr` and `mem_size` fields will be set as appropriate
-    /// based on the given `guest_mem` parameter.
-    pub fn for_guest_mem(
-        guest_mem: &GuestMemory,
+    /// based on the given `shared_mem` parameter.
+    pub fn for_shared_mem(
+        shared_mem: &SharedMemory,
         region_mem_size: u64,
         entrypoint: u64,
         guest_pfn: u64,
@@ -39,7 +39,7 @@ impl HypervLinuxDriverAddrs {
         Ok(Self {
             entrypoint,
             guest_pfn,
-            host_addr: guest_mem.base_addr() as u64,
+            host_addr: shared_mem.base_addr() as u64,
             mem_size: region_mem_size,
         })
     }

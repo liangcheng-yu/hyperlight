@@ -1,16 +1,16 @@
-#include "guest_mem.h"
+#include "shared_mem.h"
 #include "munit/munit.h"
 #include "hyperlight_host.h"
 #include "stdint.h"
 #include "mem.h"
 #include "err.h"
 
-static const uint64_t GUEST_MEM_SIZE = 4096;
+static const uint64_t SHARED_MEM_SIZE = 4096;
 
-MunitResult test_guest_mem_create_delete()
+MunitResult test_shared_mem_create_delete()
 {
     Context *ctx = context_new();
-    Handle ref = guest_memory_new(ctx, GUEST_MEM_SIZE);
+    Handle ref = shared_memory_new(ctx, SHARED_MEM_SIZE);
     handle_free(ctx, ref);
     context_free(ctx);
     return MUNIT_OK;
@@ -39,42 +39,42 @@ MunitResult test_guest_mem_create_delete()
     handle_free(ctx, set_ref);                                \
     handle_free(ctx, read_ref);
 
-MunitResult test_guest_mem_read_write()
+MunitResult test_shared_mem_read_write()
 {
     {
         // read-write-read an i64
         Context *ctx = context_new();
-        Handle ref = guest_memory_new(ctx, GUEST_MEM_SIZE);
+        Handle ref = shared_memory_new(ctx, SHARED_MEM_SIZE);
 
         {
             // valid address
             READ_WRITE_READ_VALID(
                 handle_is_int_64,
-                guest_memory_read_int_64,
-                guest_memory_write_int_64,
+                shared_memory_read_int_64,
+                shared_memory_write_int_64,
                 handle_get_int_64,
                 ctx,
                 ref,
-                GUEST_MEM_SIZE / 2,
+                SHARED_MEM_SIZE / 2,
                 4000);
         }
 
         {
             // invalid address
             READ_WRITE_READ_INVALID(
-                guest_memory_read_int_64,
-                guest_memory_write_int_64,
+                shared_memory_read_int_64,
+                shared_memory_write_int_64,
                 ctx,
-                GUEST_MEM_SIZE * 4);
+                SHARED_MEM_SIZE * 4);
         }
 
         {
             // try to read 1 byte beyond memory
             READ_WRITE_READ_INVALID(
-                guest_memory_read_int_64,
-                guest_memory_write_int_64,
+                shared_memory_read_int_64,
+                shared_memory_write_int_64,
                 ctx,
-                GUEST_MEM_SIZE);
+                SHARED_MEM_SIZE);
         }
 
         handle_free(ctx, ref);
@@ -83,37 +83,37 @@ MunitResult test_guest_mem_read_write()
     {
         // read-write-read an i32
         Context *ctx = context_new();
-        Handle ref = guest_memory_new(ctx, GUEST_MEM_SIZE);
+        Handle ref = shared_memory_new(ctx, SHARED_MEM_SIZE);
 
         {
             // valid address
             READ_WRITE_READ_VALID(
                 handle_is_int_32,
-                guest_memory_read_int_32,
-                guest_memory_write_int_32,
+                shared_memory_read_int_32,
+                shared_memory_write_int_32,
                 handle_get_int_32,
                 ctx,
                 ref,
-                GUEST_MEM_SIZE / 2,
+                SHARED_MEM_SIZE / 2,
                 6000);
         }
 
         {
             // invalid address
             READ_WRITE_READ_INVALID(
-                guest_memory_read_int_32,
-                guest_memory_write_int_32,
+                shared_memory_read_int_32,
+                shared_memory_write_int_32,
                 ctx,
-                GUEST_MEM_SIZE * 4);
+                SHARED_MEM_SIZE * 4);
         }
 
         {
             // try to read 1 byte beyond memory
             READ_WRITE_READ_INVALID(
-                guest_memory_read_int_32,
-                guest_memory_write_int_32,
+                shared_memory_read_int_32,
+                shared_memory_write_int_32,
                 ctx,
-                GUEST_MEM_SIZE);
+                SHARED_MEM_SIZE);
         }
 
         handle_free(ctx, ref);
@@ -123,10 +123,10 @@ MunitResult test_guest_mem_read_write()
     return MUNIT_OK;
 }
 
-MunitResult test_guest_mem_copy_from_byte_array()
+MunitResult test_shared_mem_copy_from_byte_array()
 {
     Context *ctx = context_new();
-    Handle ref = guest_memory_new(ctx, GUEST_MEM_SIZE);
+    Handle ref = shared_memory_new(ctx, SHARED_MEM_SIZE);
     {
         // create a very small byte array, which we'll
         // use as a target into which to copy portions
@@ -137,7 +137,7 @@ MunitResult test_guest_mem_copy_from_byte_array()
 
         {
             // just create new guest memory and immediately free it
-            Handle copy_ref_start = guest_memory_copy_from_byte_array(
+            Handle copy_ref_start = shared_memory_copy_from_byte_array(
                 ctx,
                 ref,
                 barr_ref,
@@ -150,11 +150,11 @@ MunitResult test_guest_mem_copy_from_byte_array()
         {
             // copy the same small byte array to the very end of
             // guest memory
-            Handle copy_ref_end = guest_memory_copy_from_byte_array(
+            Handle copy_ref_end = shared_memory_copy_from_byte_array(
                 ctx,
                 ref,
                 barr_ref,
-                GUEST_MEM_SIZE - 2,
+                SHARED_MEM_SIZE - 2,
                 0,
                 len);
             handle_assert_no_error(ctx, copy_ref_end);
@@ -162,11 +162,11 @@ MunitResult test_guest_mem_copy_from_byte_array()
         }
         {
             // copy the same small byte array to an invalid address.
-            Handle copy_ref_invalid_addr = guest_memory_copy_from_byte_array(
+            Handle copy_ref_invalid_addr = shared_memory_copy_from_byte_array(
                 ctx,
                 ref,
                 barr_ref,
-                GUEST_MEM_SIZE + 2,
+                SHARED_MEM_SIZE + 2,
                 0,
                 1);
             handle_assert_error(ctx, copy_ref_invalid_addr);
@@ -176,11 +176,11 @@ MunitResult test_guest_mem_copy_from_byte_array()
 
             // copy the same small byte array to an address starting at the
             // end of the memory.
-            Handle copy_ref_invalid_addr = guest_memory_copy_from_byte_array(
+            Handle copy_ref_invalid_addr = shared_memory_copy_from_byte_array(
                 ctx,
                 ref,
                 barr_ref,
-                GUEST_MEM_SIZE,
+                SHARED_MEM_SIZE,
                 0,
                 1);
             handle_assert_error(ctx, copy_ref_invalid_addr);
@@ -189,7 +189,7 @@ MunitResult test_guest_mem_copy_from_byte_array()
         {
 
             // copy too much of the small byte array
-            Handle copy_ref_arr_too_long = guest_memory_copy_from_byte_array(
+            Handle copy_ref_arr_too_long = shared_memory_copy_from_byte_array(
                 ctx,
                 ref,
                 barr_ref,
@@ -202,7 +202,7 @@ MunitResult test_guest_mem_copy_from_byte_array()
         {
             // copy the small byte array starting at an invalid
             // array index
-            Handle copy_ref_arr_invalid_idx = guest_memory_copy_from_byte_array(
+            Handle copy_ref_arr_invalid_idx = shared_memory_copy_from_byte_array(
                 ctx,
                 ref,
                 barr_ref,
@@ -222,17 +222,17 @@ MunitResult test_guest_mem_copy_from_byte_array()
     return MUNIT_OK;
 }
 
-MunitResult test_guest_mem_copy_to_byte_array()
+MunitResult test_shared_mem_copy_to_byte_array()
 {
     Context *ctx = context_new();
-    Handle ref = guest_memory_new(ctx, GUEST_MEM_SIZE);
+    Handle ref = shared_memory_new(ctx, SHARED_MEM_SIZE);
 
     // Test copying a small byte array from the start of the memory.
 
     const char *mem = "0123456789abcdefghijklmnopqrstuvwxyz";
     size_t len = strlen(mem);
     Handle barr_ref = byte_array_new(ctx, (const uint8_t *)mem, len);
-    Handle copy_handle = guest_memory_copy_from_byte_array(
+    Handle copy_handle = shared_memory_copy_from_byte_array(
         ctx,
         ref,
         barr_ref,
@@ -244,7 +244,7 @@ MunitResult test_guest_mem_copy_to_byte_array()
     handle_free(ctx, barr_ref);
 
     uint8_t *buffer = (uint8_t *)malloc(len);
-    copy_handle = guest_memory_copy_to_byte_array(
+    copy_handle = shared_memory_copy_to_byte_array(
         ctx,
         ref,
         0,
@@ -256,7 +256,7 @@ MunitResult test_guest_mem_copy_to_byte_array()
 
     // Test length parameter = 0 causes an error.
 
-    copy_handle = guest_memory_copy_to_byte_array(
+    copy_handle = shared_memory_copy_to_byte_array(
         ctx,
         ref,
         0,
@@ -268,7 +268,7 @@ MunitResult test_guest_mem_copy_to_byte_array()
 
     // Test buffer = 0 causes an error.
 
-    copy_handle = guest_memory_copy_to_byte_array(
+    copy_handle = shared_memory_copy_to_byte_array(
         ctx,
         ref,
         0,
@@ -281,7 +281,7 @@ MunitResult test_guest_mem_copy_to_byte_array()
 
     const size_t len2 = 20;
     buffer = (uint8_t *)malloc(len2);
-    copy_handle = guest_memory_copy_to_byte_array(
+    copy_handle = shared_memory_copy_to_byte_array(
         ctx,
         ref,
         0,
@@ -295,9 +295,9 @@ MunitResult test_guest_mem_copy_to_byte_array()
     // Test copying a small byte array from the end of the memory.
 
     const char *mem2 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    uintptr_t offset = GUEST_MEM_SIZE - len;
+    uintptr_t offset = SHARED_MEM_SIZE - len;
     barr_ref = byte_array_new(ctx, (const uint8_t *)mem2, len);
-    copy_handle = guest_memory_copy_from_byte_array(
+    copy_handle = shared_memory_copy_from_byte_array(
         ctx,
         ref,
         barr_ref,
@@ -309,7 +309,7 @@ MunitResult test_guest_mem_copy_to_byte_array()
     handle_free(ctx, barr_ref);
 
     buffer = (uint8_t *)malloc(len);
-    copy_handle = guest_memory_copy_to_byte_array(
+    copy_handle = shared_memory_copy_to_byte_array(
         ctx,
         ref,
         offset,
@@ -321,7 +321,7 @@ MunitResult test_guest_mem_copy_to_byte_array()
 
     // Test copying from beyond the end of the memory.
 
-    copy_handle = guest_memory_copy_to_byte_array(
+    copy_handle = shared_memory_copy_to_byte_array(
         ctx,
         ref,
         offset + 1,
@@ -330,7 +330,7 @@ MunitResult test_guest_mem_copy_to_byte_array()
     handle_assert_error(ctx, copy_handle);
     handle_free(ctx, copy_handle);
 
-    copy_handle = guest_memory_copy_to_byte_array(
+    copy_handle = shared_memory_copy_to_byte_array(
         ctx,
         ref,
         offset,
@@ -339,8 +339,8 @@ MunitResult test_guest_mem_copy_to_byte_array()
     handle_assert_error(ctx, copy_handle);
     handle_free(ctx, copy_handle);
 
-    offset = GUEST_MEM_SIZE;
-    copy_handle = guest_memory_copy_to_byte_array(
+    offset = SHARED_MEM_SIZE;
+    copy_handle = shared_memory_copy_to_byte_array(
         ctx,
         ref,
         offset,

@@ -3,7 +3,7 @@ use kvm_bindings::{__u64, kvm_userspace_memory_region};
 use kvm_ioctls::VmFd;
 use std::os::raw::c_void;
 
-use crate::mem::guest_mem::GuestMemory;
+use crate::mem::shared_mem::SharedMemory;
 
 /// Map a VM memory region on the VM referenced by `vmfd` using the
 /// `guest_phys_addr` parameter as the guest physical address, the
@@ -85,10 +85,10 @@ pub fn unmap_vm_memory_region_raw(
 pub fn map_vm_memory_region<'a>(
     vmfd: &'a VmFd,
     guest_phys_addr: u64,
-    guest_mem: &GuestMemory,
+    shared_mem: &SharedMemory,
 ) -> Result<KVMMappedUserspaceMemoryRegion<'a>> {
-    let userspace_addr = guest_mem.raw_ptr();
-    let memory_size = guest_mem.mem_size() as __u64;
+    let userspace_addr = shared_mem.raw_ptr();
+    let memory_size = shared_mem.mem_size() as __u64;
     let region = kvm_userspace_memory_region {
         slot: 0,
         flags: 0,

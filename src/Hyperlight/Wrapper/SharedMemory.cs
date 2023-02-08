@@ -4,7 +4,7 @@ using Hyperlight.Core;
 
 namespace Hyperlight.Wrapper
 {
-    public class GuestMemory : IDisposable
+    public class SharedMemory : IDisposable
     {
         private readonly ulong size;
         private readonly Context ctxWrapper;
@@ -14,14 +14,14 @@ namespace Hyperlight.Wrapper
         {
             get
             {
-                var addr = guest_memory_get_address(
+                var addr = shared_memory_get_address(
                     this.ctxWrapper.ctx,
                     this.handleWrapper.handle
                 );
                 return (IntPtr)addr;
             }
         }
-        public GuestMemory(
+        public SharedMemory(
             Context ctx,
             ulong size
         )
@@ -30,7 +30,7 @@ namespace Hyperlight.Wrapper
             this.size = size;
             this.handleWrapper = new Handle(
                 this.ctxWrapper,
-                guest_memory_new(
+                shared_memory_new(
                     this.ctxWrapper.ctx,
                     size
                 )
@@ -44,7 +44,7 @@ namespace Hyperlight.Wrapper
             ulong val
         )
         {
-            var rawHdl = guest_memory_write_int_64(
+            var rawHdl = shared_memory_write_int_64(
                 this.ctxWrapper.ctx,
                 this.handleWrapper.handle,
                 (ulong)addr.ToInt64(),
@@ -60,7 +60,7 @@ namespace Hyperlight.Wrapper
             UIntPtr addr
         )
         {
-            var rawHdl = guest_memory_read_int_64(
+            var rawHdl = shared_memory_read_int_64(
                 this.ctxWrapper.ctx,
                 this.handleWrapper.handle,
                 addr.ToUInt64()
@@ -77,7 +77,7 @@ namespace Hyperlight.Wrapper
             int val
         )
         {
-            var hdlRes = guest_memory_write_int_32(
+            var hdlRes = shared_memory_write_int_32(
                 this.ctxWrapper.ctx,
                 this.handleWrapper.handle,
                 (ulong)offset.ToInt64(),
@@ -93,7 +93,7 @@ namespace Hyperlight.Wrapper
             UIntPtr offset
         )
         {
-            var rawHdl = guest_memory_read_int_32(
+            var rawHdl = shared_memory_read_int_32(
                 this.ctxWrapper.ctx,
                 this.handleWrapper.handle,
                 offset.ToUInt64()
@@ -128,7 +128,7 @@ namespace Hyperlight.Wrapper
         {
             HyperlightException.ThrowIfNull(arr, GetType().Name);
 
-            var rawHdl = guest_memory_copy_to_byte_array(
+            var rawHdl = shared_memory_copy_to_byte_array(
                 this.ctxWrapper.ctx,
                 this.handleWrapper.handle,
                 offset,
@@ -158,7 +158,7 @@ namespace Hyperlight.Wrapper
         {
             HyperlightException.ThrowIfNull(arr, GetType().Name);
 
-            var rawHdl = guest_memory_copy_from_byte_array(
+            var rawHdl = shared_memory_copy_from_byte_array(
                 this.ctxWrapper.ctx,
                 this.handleWrapper.handle,
                 arr.handleWrapper.handle,
@@ -196,23 +196,23 @@ namespace Hyperlight.Wrapper
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        public static extern NativeHandle guest_memory_new(
+        public static extern NativeHandle shared_memory_new(
             NativeContext ctx,
             ulong size
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        public static extern ulong guest_memory_get_address(
+        public static extern ulong shared_memory_get_address(
             NativeContext ctx,
             NativeHandle hdl
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        public static extern NativeHandle guest_memory_copy_from_byte_array(
+        public static extern NativeHandle shared_memory_copy_from_byte_array(
             NativeContext ctx,
-            NativeHandle guest_memory_handle,
+            NativeHandle shared_memory_handle,
             NativeHandle byte_array_handle,
             ulong address,
             ulong arr_start,
@@ -221,9 +221,9 @@ namespace Hyperlight.Wrapper
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        public static extern NativeHandle guest_memory_copy_to_byte_array(
+        public static extern NativeHandle shared_memory_copy_to_byte_array(
             NativeContext ctx,
-            NativeHandle guest_memory_handle,
+            NativeHandle shared_memory_handle,
             ulong offset,
             [In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] arr,
             ulong arr_length
@@ -231,34 +231,34 @@ namespace Hyperlight.Wrapper
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        public static extern NativeHandle guest_memory_write_int_64(
+        public static extern NativeHandle shared_memory_write_int_64(
             NativeContext ctx,
-            NativeHandle guest_memory_handle,
+            NativeHandle shared_memory_handle,
             ulong address,
             ulong val
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        public static extern NativeHandle guest_memory_read_int_32(
+        public static extern NativeHandle shared_memory_read_int_32(
             NativeContext ctx,
-            NativeHandle guest_memory_handle,
+            NativeHandle shared_memory_handle,
             ulong address
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        public static extern NativeHandle guest_memory_read_int_64(
+        public static extern NativeHandle shared_memory_read_int_64(
             NativeContext ctx,
-            NativeHandle guest_memory_handle,
+            NativeHandle shared_memory_handle,
             ulong address
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        public static extern NativeHandle guest_memory_write_int_32(
+        public static extern NativeHandle shared_memory_write_int_32(
             NativeContext ctx,
-            NativeHandle guest_memory_handle,
+            NativeHandle shared_memory_handle,
             ulong address,
             int val
         );

@@ -1,42 +1,42 @@
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
-use crate::{mem::guest_mem::GuestMemory, validate_context, validate_context_or_panic};
+use crate::{mem::shared_mem::SharedMemory, validate_context, validate_context_or_panic};
 use anyhow::{anyhow, Result};
 use std::panic::catch_unwind;
 
 mod impls {
     use crate::capi::{byte_array::get_byte_array, context::Context};
-    use crate::{capi::handle::Handle, mem::guest_mem::GuestMemory};
+    use crate::{capi::handle::Handle, mem::shared_mem::SharedMemory};
     use anyhow::{bail, Result};
     use std::cell::RefCell;
 
     pub fn get_address(ctx: &Context, hdl: Handle) -> Result<usize> {
-        let guest_mem = super::get_guest_memory(ctx, hdl)?;
-        Ok(guest_mem.base_addr())
+        let shared_mem = super::get_shared_memory(ctx, hdl)?;
+        Ok(shared_mem.base_addr())
     }
 
     pub fn read_int_64(ctx: &Context, hdl: Handle, addr: u64) -> Result<i64> {
-        let guest_mem = super::get_guest_memory(ctx, hdl)?;
-        (*guest_mem).read_i64(addr)
+        let shared_mem = super::get_shared_memory(ctx, hdl)?;
+        (*shared_mem).read_i64(addr)
     }
 
     /// Read an `i64` from the memory location at `offset`
     pub fn write_int_64(ctx: &mut Context, hdl: Handle, offset: usize, val: usize) -> Result<()> {
-        let guest_mem = super::get_guest_memory_mut(ctx, hdl)?;
-        (*guest_mem).write_u64(offset, val as u64)
+        let shared_mem = super::get_shared_memory_mut(ctx, hdl)?;
+        (*shared_mem).write_u64(offset, val as u64)
     }
 
     /// Read an `i32` from the memory location at `offset`
     pub fn read_int_32(ctx: &Context, hdl: Handle, offset: u64) -> Result<i32> {
-        let guest_mem = super::get_guest_memory(ctx, hdl)?;
-        (*guest_mem).read_i32(offset)
+        let shared_mem = super::get_shared_memory(ctx, hdl)?;
+        (*shared_mem).read_i32(offset)
     }
 
     /// Write `val` to the memory location at `offset`
     pub fn write_int_32(ctx: &mut Context, hdl: Handle, offset: usize, val: i32) -> Result<()> {
-        let guest_mem = super::get_guest_memory_mut(ctx, hdl)?;
-        (*guest_mem).write_i32(offset, val)?;
+        let shared_mem = super::get_shared_memory_mut(ctx, hdl)?;
+        (*shared_mem).write_i32(offset, val)?;
         Ok(())
     }
 
@@ -71,15 +71,15 @@ mod impls {
         Ok(RefCell::new(slice))
     }
 
-    /// Attempt to look up the `GuestMemory` referenced by `hdl` in `ctx`,
+    /// Attempt to look up the `SharedMemory` referenced by `hdl` in `ctx`,
     /// then if one exists, return it wrapped in a `RefCell`.
     ///
-    /// Returns `Err` if no such `GuestMemory` exists.
+    /// Returns `Err` if no such `SharedMemory` exists.
     ///
     /// This function is useful because you must have access to a
     /// `&mut Context` if you want to do mutable operations on
-    /// a `GuestMemory` stored therein.
-    /// Instead, when you need to do mutable operations on a `GuestMemory`,
+    /// a `SharedMemory` stored therein.
+    /// Instead, when you need to do mutable operations on a `SharedMemory`,
     /// pass a `&Context` (immutable reference) to this function, then
     /// call `try_borrow_mut` on the resulting `RefCell`
     ///
@@ -87,34 +87,34 @@ mod impls {
     ///
     /// ```rust
     /// // assume we have a Context called ctx and a Handle to
-    /// // a valid GuestMemory in Context, called hdl
-    /// let guest_mem_refcell: RefCell<GuestMemory> = get_guest_memory_ref(ctx, hdl).unwrap();
-    /// let guest_mem_ref: RefMut<GuestMemory> = res.try_borrow_mut().unwrap();
-    /// let guest_mem_mut: &mut GuestMemory = *guest_mem_ref;
+    /// // a valid SharedMemory in Context, called hdl
+    /// let shared_mem_refcell: RefCell<SharedMemory> = get_shared_memory_ref(ctx, hdl).unwrap();
+    /// let shared_mem_ref: RefMut<SharedMemory> = res.try_borrow_mut().unwrap();
+    /// let shared_mem_mut: &mut SharedMemory = *shared_mem_ref;
     /// ```
-    fn get_guest_memory_ref(ctx: &Context, hdl: Handle) -> Result<RefCell<GuestMemory>> {
-        let gm = super::get_guest_memory(ctx, hdl)?;
-        // ok to clone the GuestMemory here because internally, it's just
+    fn get_shared_memory_ref(ctx: &Context, hdl: Handle) -> Result<RefCell<SharedMemory>> {
+        let gm = super::get_shared_memory(ctx, hdl)?;
+        // ok to clone the SharedMemory here because internally, it's just
         // a reference-counted pointer, so we're simply incrementing the
         // reference count. Memory won't be deleted until all clones and the
-        // original go out of scope. see documentation inside GuestMemory
+        // original go out of scope. see documentation inside SharedMemory
         // for more detail
         Ok(RefCell::new(gm.clone()))
     }
 
     /// Copy all values in the byte array referenced by `byte_array_hdl`,
     /// in the range `[arr_start, arr_start + arr_length)` into the
-    /// `GuestMemory` referenced by `guest_mem_hdl`
+    /// `SharedMemory` referenced by `shared_mem_hdl`
     pub fn copy_byte_array(
         ctx: &mut Context,
-        guest_mem_hdl: Handle,
+        shared_mem_hdl: Handle,
         byte_array_hdl: Handle,
-        guest_mem_offset: usize,
+        shared_mem_offset: usize,
         arr_start: usize,
         arr_length: usize,
     ) -> Result<()> {
         // Below is a comprehensive explanation of why we're using
-        // `RefCell` below to fetch and access the byte array and guest memory.
+        // `RefCell` below to fetch and access the byte array and shared memory.
         // I'm including it because it took me (arschles) a long time to
         // figure out the best way to get `RefCell` working properly. If you
         // intend to change something inside this function, you should probably
@@ -128,10 +128,10 @@ mod impls {
         // We have to fetch two things from `ctx`:
         //
         // 1. The `Vec<u8>` referenced by `byte_array_hdl`, immutably
-        // 2. The `GuestMemory` referenced by `guest_mem_offset`, mutably
+        // 2. The `SharedMemory` referenced by `shared_mem_offset`, mutably
         //
         // In other words, we're only going to read from the `Vec<u8>`
-        // in (1), but we're going to write to the `GuestMemory` in (2).
+        // in (1), but we're going to write to the `SharedMemory` in (2).
         //
         // So, to do (1), we have to borrow `ctx` immutably and to do (2)
         // we have to borrow `ctx` mutably. This arrangement violates
@@ -143,13 +143,13 @@ mod impls {
         // Of course, we know that this isn't going to be a problem
         // in reality because we're not going to be reading any parts of `ctx`
         // that we're also mutating. In fact, the read -- of the `Vec<u8>`
-        // -- happens strictly before the write to the `GuestMemory`.
+        // -- happens strictly before the write to the `SharedMemory`.
         //
         // # How `RefCell` helps us solve the problem
         //
         // We don't have a clean way to indicate to the borrow checker
         // that, essentially, we know what we're doing. At the end of the
-        // day, you need to pass a `&mut Context` to get a `&mut GuestMemory`,
+        // day, you need to pass a `&mut Context` to get a `&mut SharedMemory`,
         // and that means you can't pass a `&mut Context` or a `&Context`
         // anywhere else within that same scope. Also, the borrow checker
         // is smart enough to know that _any_ reference you got from
@@ -173,9 +173,9 @@ mod impls {
         // "interior mutability".
         //
         // In the below code, `RefCell` is allowing us to pass a
-        // `&Context` to some code that gives us back a `RefCell<GuestMemory>`.
+        // `&Context` to some code that gives us back a `RefCell<SharedMemory>`.
         // We can then, in turn, use this `RefCell` to mutate the contained
-        // `GuestMemory.
+        // `SharedMemory.
         //
         // In fun terms, our end goal is to say "stfu borrow checker,
         // I know what I'm doing"
@@ -193,25 +193,25 @@ mod impls {
         //
         // Again, in fun terms: `interior mutability = "stfu borrow checker"`
         //
-        // Recall above that we had to read the `GuestMemory` from `ctx`,
-        // but since we're going to fetch that `GuestMemory` for mutation,
+        // Recall above that we had to read the `SharedMemory` from `ctx`,
+        // but since we're going to fetch that `SharedMemory` for mutation,
         // we had to borrow `ctx` mutably, and that caused the borrow checker
         // to (rightfully) cause a compile error.
         //
         // `RefCell` is precisely what allows us to borrow `ctx` immutably to
-        // get the `GuestMemory` we need, and then later allow us to mutate
-        // that `GuestMemory` anyway. See that in action in the call below to
-        // `get_guest_memory_ref`. In that call, we're passing `ctx` in as
+        // get the `SharedMemory` we need, and then later allow us to mutate
+        // that `SharedMemory` anyway. See that in action in the call below to
+        // `get_shared_memory_ref`. In that call, we're passing `ctx` in as
         // a `&Context` -- an immutable reference.
         //
-        // That function, in turn, returns a `Result<RefCell<GuestMemory>>`,
+        // That function, in turn, returns a `Result<RefCell<SharedMemory>>`,
         // but let's ignore that outer `Result` here for simplicity. Once we
-        // have our `RefCell<GuestMemory>`, we have several useful methods we
+        // have our `RefCell<SharedMemory>`, we have several useful methods we
         // can call.
         //
-        // Since at the end of the day, we want a `&mut GuestMemory`, the one
+        // Since at the end of the day, we want a `&mut SharedMemory`, the one
         // we care about most is `try_borrow_mut`. That function gives us
-        // a `Result<RefMut<GuestMemory>>`. Here, that outer `Result` matters
+        // a `Result<RefMut<SharedMemory>>`. Here, that outer `Result` matters
         // because if it returns an `Err`, that means someone else has called
         // `try_borrow_mut` before us. This function is how `RefCell` does
         // borrow checking at runtime, and allowing us to quiet the borrow
@@ -221,52 +221,52 @@ mod impls {
             let data_ref = data_refcell.try_borrow()?;
             *data_ref
         };
-        let guest_mem = &mut {
-            let gm_refcell = get_guest_memory_ref(ctx, guest_mem_hdl)?;
+        let shared_mem = &mut {
+            let gm_refcell = get_shared_memory_ref(ctx, shared_mem_hdl)?;
             let gm_refmut = gm_refcell.try_borrow_mut()?;
             // Note: this clone is cheap. It just increments a reference-counter
-            // inside the GuestMemory. See docs on GuestMemory for more
+            // inside the SharedMemory. See docs on SharedMemory for more
             // information
             (*gm_refmut).clone()
         };
 
-        guest_mem.copy_from_slice(data, guest_mem_offset)
+        shared_mem.copy_from_slice(data, shared_mem_offset)
     }
 
-    /// Look up the guest memory wrapper referenced by `guest_mem_hdl` in
+    /// Look up the shared memory wrapper referenced by `shared_mem_hdl` in
     /// `ctx`, then copy its contents starting at `offset` into `byte_array`
     pub fn copy_to_byte_array(
         ctx: &mut Context,
-        guest_mem_hdl: Handle,
+        shared_mem_hdl: Handle,
         byte_array: &mut [u8],
         offset: usize,
     ) -> Result<()> {
-        let guest_mem = super::get_guest_memory_mut(ctx, guest_mem_hdl)?;
-        (*guest_mem).copy_to_slice(byte_array, offset)
+        let shared_mem = super::get_shared_memory_mut(ctx, shared_mem_hdl)?;
+        (*shared_mem).copy_to_slice(byte_array, offset)
     }
 }
 
-/// Get the `GuestMemory` stored in `ctx` and referenced by `hdl` and return
+/// Get the `SharedMemory` stored in `ctx` and referenced by `hdl` and return
 /// it inside a `ReadResult` suitable only for read operations.
 ///
-/// Returns `Ok` if `hdl` is a valid `GuestMemory` in `ctx`,
+/// Returns `Ok` if `hdl` is a valid `SharedMemory` in `ctx`,
 /// `Err` otherwise.
-pub fn get_guest_memory(ctx: &Context, hdl: Handle) -> Result<&GuestMemory> {
-    Context::get(hdl, &ctx.guest_mems, |g| matches!(g, Hdl::GuestMemory(_)))
+pub fn get_shared_memory(ctx: &Context, hdl: Handle) -> Result<&SharedMemory> {
+    Context::get(hdl, &ctx.shared_mems, |g| matches!(g, Hdl::SharedMemory(_)))
 }
 
-/// Get the `GuestMemory` stored in `ctx` and referenced by `hdl` and return
+/// Get the `SharedMemory` stored in `ctx` and referenced by `hdl` and return
 /// it inside a `WriteResult` suitable for mutation.
 ///
-/// Returns `Ok` if `hdl` is a valid `GuestMemory` in `ctx`,
+/// Returns `Ok` if `hdl` is a valid `SharedMemory` in `ctx`,
 /// `Err` otherwise.
-pub fn get_guest_memory_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut GuestMemory> {
-    Context::get_mut(hdl, &mut ctx.guest_mems, |g| {
-        matches!(g, Hdl::GuestMemory(_))
+pub fn get_shared_memory_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut SharedMemory> {
+    Context::get_mut(hdl, &mut ctx.shared_mems, |g| {
+        matches!(g, Hdl::SharedMemory(_))
     })
 }
 
-/// Create a new instance of guest memory with `min_size` bytes.
+/// Create a new instance of shared memory with `min_size` bytes.
 ///
 /// Guest memory is shared memory intended to be shared with a
 /// hypervisor partition.
@@ -279,16 +279,16 @@ pub fn get_guest_memory_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut Guest
 /// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
-pub unsafe extern "C" fn guest_memory_new(ctx: *mut Context, min_size: u64) -> Handle {
+pub unsafe extern "C" fn shared_memory_new(ctx: *mut Context, min_size: u64) -> Handle {
     validate_context!(ctx);
 
-    match GuestMemory::new(min_size as usize) {
-        Ok(guest_mem) => Context::register(guest_mem, &mut (*ctx).guest_mems, Hdl::GuestMemory),
+    match SharedMemory::new(min_size as usize) {
+        Ok(shared_mem) => Context::register(shared_mem, &mut (*ctx).shared_mems, Hdl::SharedMemory),
         Err(e) => (*ctx).register_err(e),
     }
 }
 
-/// Get the starting address of the guest memory referenced
+/// Get the starting address of the shared memory referenced
 /// by `hdl` in `ctx`, or `0` if the handle is invalid.
 ///
 /// # Safety
@@ -299,7 +299,7 @@ pub unsafe extern "C" fn guest_memory_new(ctx: *mut Context, min_size: u64) -> H
 /// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
-pub unsafe extern "C" fn guest_memory_get_address(ctx: *const Context, hdl: Handle) -> usize {
+pub unsafe extern "C" fn shared_memory_get_address(ctx: *const Context, hdl: Handle) -> usize {
     validate_context_or_panic!(ctx);
 
     impls::get_address(&*ctx, hdl).unwrap_or(0)
@@ -307,14 +307,14 @@ pub unsafe extern "C" fn guest_memory_get_address(ctx: *const Context, hdl: Hand
 
 /// Fetch the following two strutures:
 /// * The byte array in `ctx` referenced by `byte_array_hdl`
-/// * The guest memory in `ctx` referenced by `guest_mem_hdl`
+/// * The shared memory in `ctx` referenced by `shared_mem_hdl`
 ///
 /// ... then copy the data from the byte array in the range
 /// `[arr_start, arr_start + arr_length)` (i.e. the left side is
-/// inclusive and the right side is not inclusive) into the guest
+/// inclusive and the right side is not inclusive) into the shared
 /// memory starting at offset `offset`.
 ///
-/// Return an empty `Handle` if both the guest memory and byte array
+/// Return an empty `Handle` if both the shared memory and byte array
 /// were found and the copy succeeded, and an error handle otherwise.
 ///
 /// # Safety
@@ -325,9 +325,9 @@ pub unsafe extern "C" fn guest_memory_get_address(ctx: *const Context, hdl: Hand
 /// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
-pub unsafe extern "C" fn guest_memory_copy_from_byte_array(
+pub unsafe extern "C" fn shared_memory_copy_from_byte_array(
     ctx: *mut Context,
-    guest_mem_hdl: Handle,
+    shared_mem_hdl: Handle,
     byte_array_hdl: Handle,
     offset: usize,
     arr_start: usize,
@@ -337,7 +337,7 @@ pub unsafe extern "C" fn guest_memory_copy_from_byte_array(
 
     match impls::copy_byte_array(
         &mut *ctx,
-        guest_mem_hdl,
+        shared_mem_hdl,
         byte_array_hdl,
         offset,
         arr_start,
@@ -348,11 +348,11 @@ pub unsafe extern "C" fn guest_memory_copy_from_byte_array(
     }
 }
 
-/// Fetch the guest memory in `ctx` referenced by `guest_mem_hdl`,
-/// then copy the data from guest memory starting at address `offset`
+/// Fetch the shared memory in `ctx` referenced by `shared_mem_hdl`,
+/// then copy the data from shared memory starting at address `offset`
 /// into the memory between `byte_array` and `(byte_array + length)`
 ///
-/// Return an empty `Handle` if the guest memory and byte array were valid
+/// Return an empty `Handle` if the shared memory and byte array were valid
 /// and the copy succeeded, or an error handle otherwise.
 ///
 /// # Safety
@@ -365,16 +365,16 @@ pub unsafe extern "C" fn guest_memory_copy_from_byte_array(
 ///
 /// You must also call this function with:
 ///
-/// - A valid handle to guest memory
-/// - A valid offset into the guest memory
+/// - A valid handle to shared memory
+/// - A valid offset into the shared memory
 /// - A pointer to a byte array
 /// - A valid length for the byte array
 ///
 /// The byte array is owned by the caller and must be valid for the lifetime of the call.
 #[no_mangle]
-pub unsafe extern "C" fn guest_memory_copy_to_byte_array(
+pub unsafe extern "C" fn shared_memory_copy_to_byte_array(
     ctx: *mut Context,
-    guest_mem_hdl: Handle,
+    shared_mem_hdl: Handle,
     offset: usize,
     byte_array: *mut u8,
     length: usize,
@@ -405,13 +405,13 @@ pub unsafe extern "C" fn guest_memory_copy_to_byte_array(
         }
     };
 
-    match impls::copy_to_byte_array(&mut *ctx, guest_mem_hdl, buffer, offset) {
+    match impls::copy_to_byte_array(&mut *ctx, shared_mem_hdl, buffer, offset) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
 }
 
-/// Fetch guest memory from `ctx` referenced by `hdl`, then read
+/// Fetch shared memory from `ctx` referenced by `hdl`, then read
 /// a single 64 bit integer from it at address `addr`.
 ///
 /// Return a `Handle` containing the integer if the read succeeded,
@@ -425,7 +425,7 @@ pub unsafe extern "C" fn guest_memory_copy_to_byte_array(
 /// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
-pub unsafe extern "C" fn guest_memory_read_int_64(
+pub unsafe extern "C" fn shared_memory_read_int_64(
     ctx: *mut Context,
     hdl: Handle,
     addr: u64,
@@ -438,7 +438,7 @@ pub unsafe extern "C" fn guest_memory_read_int_64(
     }
 }
 
-/// Write a single 64 bit integer `val` to guest memory in `ctx` referenced
+/// Write a single 64 bit integer `val` to shared memory in `ctx` referenced
 /// by `hdl` at the offset `offset`
 ///
 /// Return an empty `Handle` if the write succeeded,
@@ -452,7 +452,7 @@ pub unsafe extern "C" fn guest_memory_read_int_64(
 /// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
-pub unsafe extern "C" fn guest_memory_write_int_64(
+pub unsafe extern "C" fn shared_memory_write_int_64(
     ctx: *mut Context,
     hdl: Handle,
     offset: usize,
@@ -466,7 +466,7 @@ pub unsafe extern "C" fn guest_memory_write_int_64(
     }
 }
 
-/// Fetch guest memory from `ctx` referenced by `hdl`, then read
+/// Fetch shared memory from `ctx` referenced by `hdl`, then read
 /// a single 32 bit integer from it at offset `offset`.
 ///
 /// Return a `Handle` containing the integer if the read succeeded,
@@ -480,7 +480,7 @@ pub unsafe extern "C" fn guest_memory_write_int_64(
 /// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
-pub unsafe extern "C" fn guest_memory_read_int_32(
+pub unsafe extern "C" fn shared_memory_read_int_32(
     ctx: *mut Context,
     hdl: Handle,
     offset: u64,
@@ -493,7 +493,7 @@ pub unsafe extern "C" fn guest_memory_read_int_32(
     }
 }
 
-/// Write a single 32 bit integer `val` to guest memory in `ctx` referenced
+/// Write a single 32 bit integer `val` to shared memory in `ctx` referenced
 /// by `hdl` at `addr`.
 ///
 /// Return an empty `Handle` if the write succeeded,
@@ -507,7 +507,7 @@ pub unsafe extern "C" fn guest_memory_read_int_32(
 /// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
-pub unsafe extern "C" fn guest_memory_write_int_32(
+pub unsafe extern "C" fn shared_memory_write_int_32(
     ctx: *mut Context,
     hdl: Handle,
     addr: usize,
@@ -527,17 +527,17 @@ mod tests {
     use crate::capi::handle::Handle;
     use crate::{
         capi::{context::Context, hdl::Hdl},
-        mem::guest_mem::GuestMemory,
+        mem::shared_mem::SharedMemory,
     };
     use anyhow::Result;
 
     struct TestData {
         // Context used to create all handles herein
         pub ctx: Box<Context>,
-        // Handle to guest memory
-        pub guest_mem_hdl: Handle,
-        // Size of guest memory
-        pub guest_mem_size: usize,
+        // Handle to shared memory
+        pub shared_mem_hdl: Handle,
+        // Size of shared memory
+        pub shared_mem_size: usize,
         // Handle to byte array
         pub byte_arr_hdl: Handle,
         // length of byte array
@@ -545,7 +545,7 @@ mod tests {
     }
 
     impl TestData {
-        pub fn new(barr_vec_len: usize, guest_mem_size: usize) -> Result<Self> {
+        pub fn new(barr_vec_len: usize, shared_mem_size: usize) -> Result<Self> {
             let mut ctx = Context::default();
             let barr_vec = {
                 let mut v = Vec::new();
@@ -555,14 +555,14 @@ mod tests {
                 v
             };
             let barr_hdl = Context::register(barr_vec, &mut ctx.byte_arrays, Hdl::ByteArray);
-            let guest_mem_hdl = {
-                let gm = GuestMemory::new(guest_mem_size).unwrap();
-                Context::register(gm, &mut ctx.guest_mems, Hdl::GuestMemory)
+            let shared_mem_hdl = {
+                let gm = SharedMemory::new(shared_mem_size).unwrap();
+                Context::register(gm, &mut ctx.shared_mems, Hdl::SharedMemory)
             };
             Ok(Self {
                 ctx: Box::new(ctx),
-                guest_mem_hdl,
-                guest_mem_size,
+                shared_mem_hdl,
+                shared_mem_size,
                 byte_arr_hdl: barr_hdl,
                 barr_len: barr_vec_len,
             })
@@ -571,11 +571,11 @@ mod tests {
 
     #[test]
     fn copy_byte_array_at_start() {
-        // copy an entire byte array into guest memory
+        // copy an entire byte array into shared memory
         let mut test_data = TestData::new(3, 0x1000).unwrap();
         copy_byte_array(
             test_data.ctx.as_mut(),
-            test_data.guest_mem_hdl,
+            test_data.shared_mem_hdl,
             test_data.byte_arr_hdl,
             0,
             0,
@@ -589,7 +589,7 @@ mod tests {
         let mut test_data = TestData::new(3, 0x1000).unwrap();
         copy_byte_array(
             test_data.ctx.as_mut(),
-            test_data.guest_mem_hdl,
+            test_data.shared_mem_hdl,
             test_data.byte_arr_hdl,
             0,
             0,
@@ -598,7 +598,7 @@ mod tests {
         .unwrap();
         copy_byte_array(
             test_data.ctx.as_mut(),
-            test_data.guest_mem_hdl,
+            test_data.shared_mem_hdl,
             test_data.byte_arr_hdl,
             0,
             0,
@@ -609,13 +609,13 @@ mod tests {
 
     #[test]
     fn copy_byte_array_at_end() {
-        // copy byte array to the very end of guest memory
+        // copy byte array to the very end of shared memory
         let mut test_data = TestData::new(3, 0x1000).unwrap();
         copy_byte_array(
             test_data.ctx.as_mut(),
-            test_data.guest_mem_hdl,
+            test_data.shared_mem_hdl,
             test_data.byte_arr_hdl,
-            test_data.guest_mem_size - test_data.barr_len - 1,
+            test_data.shared_mem_size - test_data.barr_len - 1,
             0,
             test_data.barr_len,
         )
@@ -629,9 +629,9 @@ mod tests {
 
         let res = copy_byte_array(
             test_data.ctx.as_mut(),
-            test_data.guest_mem_hdl,
+            test_data.shared_mem_hdl,
             test_data.byte_arr_hdl,
-            test_data.guest_mem_size,
+            test_data.shared_mem_size,
             0,
             1,
         );
@@ -645,7 +645,7 @@ mod tests {
         let mut test_data = TestData::new(3, 0x1000).unwrap();
         let res = copy_byte_array(
             test_data.ctx.as_mut(),
-            test_data.guest_mem_hdl,
+            test_data.shared_mem_hdl,
             test_data.byte_arr_hdl,
             0,
             0,

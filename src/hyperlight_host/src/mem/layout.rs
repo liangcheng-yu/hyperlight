@@ -1,4 +1,4 @@
-use super::{config::SandboxMemoryConfiguration, guest_mem::GuestMemory};
+use super::{config::SandboxMemoryConfiguration, shared_mem::SharedMemory};
 use anyhow::{anyhow, Result};
 use paste::paste;
 use rand::rngs::OsRng;
@@ -427,14 +427,14 @@ impl SandboxMemoryLayout {
         }
     }
 
-    /// Write the finished memory layout to `guest_mem` and return
+    /// Write the finished memory layout to `shared_mem` and return
     /// `Ok` if successful.
     ///
-    /// Note: `guest_mem` may have been modified, even if `Err` was returned
+    /// Note: `shared_mem` may have been modified, even if `Err` was returned
     /// from this function.
     pub fn write(
         &self,
-        guest_mem: &mut GuestMemory,
+        shared_mem: &mut SharedMemory,
         guest_offset: usize,
         size: usize,
     ) -> Result<()> {
@@ -442,7 +442,7 @@ impl SandboxMemoryLayout {
             ($something:ident) => {
                 paste! {
                     if guest_offset == 0 {
-                        guest_mem.calculate_address(self.[<$something _offset>])?
+                        shared_mem.calculate_address(self.[<$something _offset>])?
                     } else {
                         guest_offset +  self.[<$something _offset>]
                     } as u64
@@ -451,7 +451,7 @@ impl SandboxMemoryLayout {
         }
 
         if guest_offset != SandboxMemoryLayout::BASE_ADDRESS
-            && guest_offset != guest_mem.base_addr()
+            && guest_offset != shared_mem.base_addr()
         {
             return Err(anyhow!(
                 "Guest offset {} is not a valid guest offset",
@@ -460,58 +460,58 @@ impl SandboxMemoryLayout {
         }
 
         // Set up Guest Error Header
-        guest_mem.write_u64(
+        shared_mem.write_u64(
             self.get_guest_error_message_size_offset(),
             self.sandbox_memory_config.guest_error_message_size as u64,
         )?;
 
         let addr = get_address!(guest_error_message_buffer);
 
-        guest_mem.write_u64(self.get_guest_error_message_pointer_offset(), addr)?;
+        shared_mem.write_u64(self.get_guest_error_message_pointer_offset(), addr)?;
 
         // Set up Host Exception Header
-        guest_mem.write_u64(
+        shared_mem.write_u64(
             self.get_host_exception_size_offset(),
             self.sandbox_memory_config.host_exception_size as u64,
         )?;
 
         // Set up input buffer pointer
-        guest_mem.write_u64(
+        shared_mem.write_u64(
             self.get_input_data_size_offset(),
             self.sandbox_memory_config.input_data_size as u64,
         )?;
 
         let addr = get_address!(input_data_buffer);
 
-        guest_mem.write_u64(self.get_input_data_pointer_offset(), addr)?;
+        shared_mem.write_u64(self.get_input_data_pointer_offset(), addr)?;
 
         // Set up output buffer pointer
-        guest_mem.write_u64(
+        shared_mem.write_u64(
             self.get_output_data_size_offset(),
             self.sandbox_memory_config.output_data_size as u64,
         )?;
 
         let addr = get_address!(output_data_buffer);
 
-        guest_mem.write_u64(self.get_output_data_pointer_offset(), addr)?;
+        shared_mem.write_u64(self.get_output_data_pointer_offset(), addr)?;
 
         let addr = get_address!(guest_heap_buffer);
 
         // Set up heap buffer pointer
-        guest_mem.write_u64(self.get_heap_size_offset(), self.heap_size as u64)?;
-        guest_mem.write_u64(self.get_heap_pointer_offset(), addr)?;
+        shared_mem.write_u64(self.get_heap_size_offset(), self.heap_size as u64)?;
+        shared_mem.write_u64(self.get_heap_pointer_offset(), addr)?;
 
         let addr = get_address!(host_function_definitions);
 
         // Set up Host Function Definition
-        guest_mem.write_u64(
+        shared_mem.write_u64(
             self.get_host_function_definitions_size_offset(),
             self.sandbox_memory_config.host_function_definition_size as u64,
         )?;
-        guest_mem.write_u64(self.get_host_function_definitions_pointer_offset(), addr)?;
+        shared_mem.write_u64(self.get_host_function_definitions_pointer_offset(), addr)?;
 
         // Set up Min Guest Stack Address
-        guest_mem.write_u64(
+        shared_mem.write_u64(
             self.get_min_guest_stack_address_offset(),
             (guest_offset + (size - self.stack_size)) as u64,
         )?;
@@ -521,7 +521,7 @@ impl SandboxMemoryLayout {
         let mut security_cookie_seed = [0u8; 8];
         OsRng.fill_bytes(&mut security_cookie_seed);
 
-        guest_mem.copy_from_slice(
+        shared_mem.copy_from_slice(
             &security_cookie_seed,
             self.guest_security_cookie_seed_offset,
         )?;
