@@ -27,6 +27,7 @@ This repo contains Hyperlight along with a couple of sample guest applications t
   - The use of surrogates is a temporary workaround on Windows until WHP allows us to create more than one partition per running process.
 - [src/tests](./src/tests) - Tests for the host
   - [`src/test/Guests](./src/tests/Guests) This directory contains two Hyperlight Guest programs written in C, which are intended to be launched within partitions as "guests".
+  - Some of the Rust tests use [proptest](https://docs.rs/proptest/latest/proptest/index.html) to do property-based testing (a [QuickCheck](https://en.wikipedia.org/wiki/QuickCheck) variant specifically). Read more about `proptest` in the [`proptest` book](https://altsysrq.github.io/proptest-book/), and in this useful [LogRocket blog post](https://blog.logrocket.com/property-based-testing-in-rust-with-proptest/).
 - [src/HyperlightDependencies](./src/HyperlightDependencies) - This directory contains a dotnet assmebly which can be used to build a wrapper around Hyperlight such as  [Hyperlight WASM](https://github.com/deislabs/hyperlight-wasm).
 - [src/hyperlight-host](./src/hyperlight_host) - This is the in-progress rewrite of the Hyperlight host into rust. See [the design document](https://hackmd.io/@arschles/hl-rust-port) for more information about this work, and see below for details on how to use this code.
 

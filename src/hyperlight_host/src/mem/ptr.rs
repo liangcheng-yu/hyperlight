@@ -193,3 +193,51 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod prop_tests {
+    use super::{HostPtr, RawPtr};
+    use crate::mem::ptr_addr_space::{GuestAddressSpace, HostAddressSpace};
+    use crate::mem::{layout::SandboxMemoryLayout, shared_mem::SharedMemory};
+    use proptest::prelude::*;
+    proptest! {
+        #[test]
+        fn test_round_trip(
+            offset in 1_u64..1000_u64,
+            guest_mem_size in 10_usize..100_usize,
+        ) {
+            let shared_mem = SharedMemory::new(guest_mem_size).unwrap();
+            let raw_host_ptr = RawPtr(shared_mem.base_addr() as u64 + offset);
+            let host_ptr = {
+                let hp = HostPtr::try_from((raw_host_ptr, &shared_mem, false));
+                assert!(hp.is_ok());
+                let host_ptr = hp.unwrap();
+                assert_eq!(offset, host_ptr.offset().as_u64());
+                host_ptr
+            };
+
+            let guest_ptr = {
+                let gp_res = host_ptr.to_foreign_ptr(GuestAddressSpace::new(false));
+                assert!(gp_res.is_ok());
+                gp_res.unwrap()
+            };
+
+            assert_eq!(offset, guest_ptr.offset().as_u64());
+            assert_eq!(
+            offset + SandboxMemoryLayout::BASE_ADDRESS as u64,
+                guest_ptr.absolute().unwrap()
+            );
+
+        let ret_host_ptr = {
+            let gp = guest_ptr.to_foreign_ptr(HostAddressSpace::new(&shared_mem, false));
+            assert!(gp.is_ok());
+            gp.unwrap()
+        };
+        assert_eq!(
+            host_ptr.absolute().unwrap(),
+            ret_host_ptr.absolute().unwrap()
+        );
+
+        }
+    }
+}
