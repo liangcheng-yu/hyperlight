@@ -344,9 +344,8 @@ namespace Hyperlight
                         HyperlightException.LogAndThrowException<NotSupportedException>("RunFromBinary is only supported on Windows", GetType().Name);
                     }
 
-                    // LoadLibrary does not support multple independent instances of a binary beng loaded 
+                    // LoadLibrary does not support multiple independent instances of a binary beng loaded 
                     // so we cannot support multiple instances using loadlibrary
-
                     if (Interlocked.CompareExchange(ref isRunningFromGuestBinary, IS_RUNNING_FROM_GUEST_BINARY, 0) == 0)
                     {
                         didRunFromGuestBinary = true;

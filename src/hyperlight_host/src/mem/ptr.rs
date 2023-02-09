@@ -7,7 +7,7 @@ use anyhow::{anyhow, Result};
 ///
 /// Use this type to distinguish between an offset and a raw pointer
 #[derive(Debug, Clone)]
-pub struct RawPtr(pub u64);
+pub struct RawPtr(u64);
 
 impl From<u64> for RawPtr {
     fn from(val: u64) -> Self {
@@ -88,7 +88,7 @@ impl<T: AddressSpace> Ptr<T> {
     }
 
     /// Get the offset into the pointer's address space
-    fn offset(&self) -> Offset {
+    pub fn offset(&self) -> Offset {
         self.offset.clone()
     }
 

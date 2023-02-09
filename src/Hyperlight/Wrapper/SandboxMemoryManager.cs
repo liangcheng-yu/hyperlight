@@ -214,6 +214,22 @@ namespace Hyperlight.Wrapper
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
         }
 
+        internal string? GetHostCallMethodName()
+        {
+            var rawHdl = mem_mgr_get_host_call_method_name(
+                this.ContextWrapper.ctx,
+                this.hdlMemManagerWrapper.handle,
+                this.SharedMemoryWrapper.handleWrapper.handle,
+                this.SandboxMemoryLayoutWrapper.rawHandle
+            );
+            using var hdl = new Handle(this.ContextWrapper, rawHdl, true);
+            if (!hdl.IsString())
+            {
+                throw new HyperlightException("mem_mgr_get_host_call_method_name did not return a Handle referencing a string");
+            }
+            return hdl.GetString();
+        }
+
         internal long GetAddressOffset()
         {
             var rawHdl = mem_mgr_get_address_offset(
@@ -525,6 +541,15 @@ namespace Hyperlight.Wrapper
             NativeHandle sharedMemHdl,
             NativeHandle layoutHdl,
             ulong addr
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_get_host_call_method_name(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            NativeHandle guestMemHdl,
+            NativeHandle layoutHdl
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]

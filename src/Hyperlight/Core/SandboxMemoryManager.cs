@@ -228,15 +228,6 @@ namespace Hyperlight.Core
             return new SimpleDataTable(outputDataAddress + headerSize, (int)this.sandboxMemoryConfiguration.OutputDataSize - headerSize, GetAddressOffset());
         }
 
-        internal string GetHostCallMethodName()
-        {
-            var outputDataAddress = sandboxMemoryLayout!.outputDataBufferOffset;
-            var strPtr = this.sharedMemoryWrapper!.ReadInt64((UIntPtr)outputDataAddress);
-            var methodName = Marshal.PtrToStringAnsi(GetHostAddressFromPointer(strPtr));
-            HyperlightException.ThrowIfNull(methodName, GetType().Name);
-            return methodName;
-        }
-
         internal object[] GetHostCallArgs(ParameterInfo[] parameters)
         {
             long strPtr;

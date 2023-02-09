@@ -9,7 +9,7 @@ use crate::{
         ptr::{GuestPtr, HostPtr, RawPtr},
     },
 };
-use crate::{capi::int::register_u64, validate_context};
+use crate::{capi::int::register_u64, capi::strings::register_string, validate_context};
 use anyhow::{anyhow, Result};
 use std::slice;
 
@@ -319,6 +319,42 @@ pub unsafe extern "C" fn mem_mgr_set_outb_address(
     }
 }
 
+/// Get the name of the method called by the host.
+///
+/// Return a `Handle` referencing a `string` with the method name,
+/// or a `Handle` referencing an error if something went wrong.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_host_call_method_name(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+    guest_mem_hdl: Handle,
+    layout_hdl: Handle,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let guest_mem = match get_shared_memory(&*ctx, guest_mem_hdl) {
+        Ok(g) => g,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let layout = match get_mem_layout(&*ctx, layout_hdl) {
+        Ok(l) => l,
+        Err(e) => return (*ctx).register_err(e),
+    };
+
+    match mgr.get_host_call_method_name(guest_mem, &layout) {
+        Ok(method_name) => register_string(&mut *ctx, method_name),
+        Err(e) => (*ctx).register_err(e),
+    }
+}
+
 /// Get the offset to use when calculating addresses.
 ///
 /// Return a `Handle` referencing a uint64 on success, and a `Handle`
@@ -366,7 +402,7 @@ pub unsafe extern "C" fn mem_mgr_get_host_address_from_pointer(
         Ok(g) => g,
         Err(e) => return (*ctx).register_err(e),
     };
-    let guest_ptr = match GuestPtr::try_from((RawPtr(addr), mgr.run_from_process_memory)) {
+    let guest_ptr = match GuestPtr::try_from((RawPtr::from(addr), mgr.run_from_process_memory)) {
         Ok(g) => g,
         Err(e) => return (*ctx).register_err(e),
     };
@@ -402,11 +438,12 @@ pub unsafe extern "C" fn mem_mgr_get_guest_address_from_pointer(
         Ok(g) => g,
         Err(e) => return (*ctx).register_err(e),
     };
-    let host_ptr = match HostPtr::try_from((RawPtr(addr), shared_mem, mgr.run_from_process_memory))
-    {
-        Ok(p) => p,
-        Err(e) => return (*ctx).register_err(e),
-    };
+
+    let host_ptr =
+        match HostPtr::try_from((RawPtr::from(addr), shared_mem, mgr.run_from_process_memory)) {
+            Ok(p) => p,
+            Err(e) => return (*ctx).register_err(e),
+        };
     match mgr.get_guest_address_from_ptr(host_ptr) {
         Ok(addr_ptr) => match addr_ptr.absolute() {
             Ok(addr) => register_u64(&mut *ctx, addr),
@@ -481,8 +518,9 @@ pub unsafe extern "C" fn mem_mgr_read_string_output(
         Ok(l) => l,
         Err(e) => return (*ctx).register_err(e),
     };
+
     match mgr.get_string_output(&layout, shared_mem) {
-        Ok(output) => Context::register(output, &mut (*ctx).strings, Hdl::String),
+        Ok(output) => register_string(&mut *ctx, output),
         Err(e) => (*ctx).register_err(e),
     }
 }

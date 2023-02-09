@@ -52,6 +52,7 @@ namespace Hyperlight.Wrapper
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern IntPtr handle_get_raw_string(NativeContext ctx, NativeHandle hdl);
+
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
 #pragma warning restore CA1707
 

@@ -26,15 +26,17 @@ MunitResult test_get_binary_path()
     const char *bin_path = "./test_bin";
     Handle sbox = sandbox_new(ctx, bin_path);
     handle_assert_no_error(ctx, sbox);
+
     {
-        Handle bin_path_ret = guest_binary_path(ctx, sbox);
-        handle_assert_no_error(ctx, bin_path_ret);
-        const char *bin_path_str = handle_get_raw_string(ctx, bin_path_ret);
+        Handle bin_path_ref = guest_binary_path(ctx, sbox);
+        handle_assert_no_error(ctx, bin_path_ref);
+        const char *bin_path_str = handle_get_raw_string(ctx, bin_path_ref);
         munit_assert_not_null(bin_path_str);
         munit_assert_string_equal(bin_path_str, bin_path);
         free_raw_string(bin_path_str);
-        handle_free(ctx, bin_path_ret);
+        handle_free(ctx, bin_path_ref);
     }
+
     handle_free(ctx, sbox);
     context_free(ctx);
     return MUNIT_OK;

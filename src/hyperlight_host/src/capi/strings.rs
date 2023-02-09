@@ -110,9 +110,8 @@ pub unsafe extern "C" fn handle_get_raw_string(ctx: *const Context, hdl: Handle)
 ///
 /// # Safety
 ///
-/// `ptr` must be a pointer previously returned by `handle_get_raw_string`
-/// and not already freed by this or any other function
-
+/// `ptr` must be a pointer previously returned by `handle_get_raw_string` and
+/// not already freed by this or any other function.
 #[no_mangle]
 pub extern "C" fn free_raw_string(ptr: RawCString) {
     if !ptr.is_null() {

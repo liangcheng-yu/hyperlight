@@ -1,9 +1,10 @@
 use super::layout::SandboxMemoryLayout;
+use super::ptr::RawPtr;
 use super::ptr::{GuestPtr, HostPtr};
 use super::shared_mem_snapshot::SharedMemorySnapshot;
 use super::{config::SandboxMemoryConfiguration, ptr_addr_space::HostAddressSpace};
 use super::{ptr_addr_space::GuestAddressSpace, shared_mem::SharedMemory};
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use core::mem::size_of;
 use std::cmp::Ordering;
 
@@ -188,6 +189,32 @@ impl SandboxMemoryManager {
     ) -> Result<()> {
         let offset = layout.get_out_b_pointer_offset();
         shared_mem.write_u64(offset, addr)
+    }
+
+    /// Get the name of the method called by the host
+    pub fn get_host_call_method_name(
+        &self,
+        guest_mem: &SharedMemory,
+        layout: &SandboxMemoryLayout,
+    ) -> Result<String> {
+        let output_data_offset = layout.output_data_buffer_offset;
+        let str_addr = guest_mem.read_u64(output_data_offset as u64)?;
+        let host_ptr = GuestPtr::try_from((RawPtr::from(str_addr), self.run_from_process_memory))
+            .and_then(|gp| {
+            gp.to_foreign_ptr(HostAddressSpace::new(
+                guest_mem,
+                self.run_from_process_memory,
+            ))
+        })?;
+        if self.run_from_process_memory {
+            let addr = host_ptr.absolute()?;
+            let str_len = unsafe { libc::strlen(addr as *const i8) };
+            let str_vec =
+                unsafe { std::slice::from_raw_parts(addr as *const u8, str_len).to_vec() };
+            String::from_utf8(str_vec).map_err(|e| anyhow!(e))
+        } else {
+            guest_mem.read_string(host_ptr.offset().as_u64() as usize)
+        }
     }
 
     /// Get the offset to use when calculating addresses
