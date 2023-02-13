@@ -1,3 +1,5 @@
+use crate::mem::ptr_offset::Offset;
+
 use super::{config::SandboxMemoryConfiguration, shared_mem::SharedMemory};
 use anyhow::{anyhow, Result};
 use paste::paste;
@@ -442,7 +444,8 @@ impl SandboxMemoryLayout {
             ($something:ident) => {
                 paste! {
                     if guest_offset == 0 {
-                        shared_mem.calculate_address(self.[<$something _offset>])?
+                        let offset = Offset::try_from(self.[<$something _offset>])?;
+                        shared_mem.calculate_address(offset)?
                     } else {
                         guest_offset +  self.[<$something _offset>]
                     } as u64
@@ -461,58 +464,73 @@ impl SandboxMemoryLayout {
 
         // Set up Guest Error Header
         shared_mem.write_u64(
-            self.get_guest_error_message_size_offset(),
+            Offset::try_from(self.get_guest_error_message_size_offset())?,
             self.sandbox_memory_config.guest_error_message_size as u64,
         )?;
 
         let addr = get_address!(guest_error_message_buffer);
 
-        shared_mem.write_u64(self.get_guest_error_message_pointer_offset(), addr)?;
+        shared_mem.write_u64(
+            Offset::try_from(self.get_guest_error_message_pointer_offset())?,
+            addr,
+        )?;
 
         // Set up Host Exception Header
         shared_mem.write_u64(
-            self.get_host_exception_size_offset(),
+            Offset::try_from(self.get_host_exception_size_offset())?,
             self.sandbox_memory_config.host_exception_size as u64,
         )?;
 
         // Set up input buffer pointer
         shared_mem.write_u64(
-            self.get_input_data_size_offset(),
+            Offset::try_from(self.get_input_data_size_offset())?,
             self.sandbox_memory_config.input_data_size as u64,
         )?;
 
         let addr = get_address!(input_data_buffer);
 
-        shared_mem.write_u64(self.get_input_data_pointer_offset(), addr)?;
+        shared_mem.write_u64(
+            Offset::try_from(self.get_input_data_pointer_offset())?,
+            addr,
+        )?;
 
         // Set up output buffer pointer
         shared_mem.write_u64(
-            self.get_output_data_size_offset(),
+            Offset::try_from(self.get_output_data_size_offset())?,
             self.sandbox_memory_config.output_data_size as u64,
         )?;
 
         let addr = get_address!(output_data_buffer);
 
-        shared_mem.write_u64(self.get_output_data_pointer_offset(), addr)?;
+        shared_mem.write_u64(
+            Offset::try_from(self.get_output_data_pointer_offset())?,
+            addr,
+        )?;
 
         let addr = get_address!(guest_heap_buffer);
 
         // Set up heap buffer pointer
-        shared_mem.write_u64(self.get_heap_size_offset(), self.heap_size as u64)?;
-        shared_mem.write_u64(self.get_heap_pointer_offset(), addr)?;
+        shared_mem.write_u64(
+            Offset::try_from(self.get_heap_size_offset())?,
+            self.heap_size as u64,
+        )?;
+        shared_mem.write_u64(Offset::try_from(self.get_heap_pointer_offset())?, addr)?;
 
         let addr = get_address!(host_function_definitions);
 
         // Set up Host Function Definition
         shared_mem.write_u64(
-            self.get_host_function_definitions_size_offset(),
+            Offset::try_from(self.get_host_function_definitions_size_offset())?,
             self.sandbox_memory_config.host_function_definition_size as u64,
         )?;
-        shared_mem.write_u64(self.get_host_function_definitions_pointer_offset(), addr)?;
+        shared_mem.write_u64(
+            Offset::try_from(self.get_host_function_definitions_pointer_offset())?,
+            addr,
+        )?;
 
         // Set up Min Guest Stack Address
         shared_mem.write_u64(
-            self.get_min_guest_stack_address_offset(),
+            Offset::try_from(self.get_min_guest_stack_address_offset())?,
             (guest_offset + (size - self.stack_size)) as u64,
         )?;
 
@@ -523,7 +541,7 @@ impl SandboxMemoryLayout {
 
         shared_mem.copy_from_slice(
             &security_cookie_seed,
-            self.guest_security_cookie_seed_offset,
+            Offset::try_from(self.guest_security_cookie_seed_offset)?,
         )?;
 
         Ok(())

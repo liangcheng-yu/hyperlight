@@ -1,6 +1,6 @@
-use anyhow::Result;
-
+use super::ptr_offset::Offset;
 use super::shared_mem::SharedMemory;
+use anyhow::Result;
 
 /// A wrapper around a `SharedMemory` reference and a snapshot
 /// of the memory therein
@@ -32,20 +32,22 @@ impl SharedMemorySnapshot {
     /// Copy the memory from the internally-stored memory snapshot
     /// into the internally-stored `SharedMemory`
     pub fn restore_from_snapshot(&mut self) -> Result<()> {
-        self.shared_mem.copy_from_slice(self.snapshot.as_slice(), 0)
+        self.shared_mem
+            .copy_from_slice(self.snapshot.as_slice(), Offset::zero())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::mem::shared_mem::SharedMemory;
+    use crate::mem::{ptr_offset::Offset, shared_mem::SharedMemory};
 
     #[test]
     fn restore_replace() {
         let data1 = vec![b'a', b'b', b'c'];
         let data2 = data1.iter().map(|b| b + 1).collect::<Vec<u8>>();
         let mut gm = SharedMemory::new(data1.len()).unwrap();
-        gm.copy_from_slice(data1.as_slice(), 0).unwrap();
+        gm.copy_from_slice(data1.as_slice(), Offset::zero())
+            .unwrap();
         let mut snap = super::SharedMemorySnapshot::new(gm.clone()).unwrap();
         {
             // after the first snapshot is taken, make sure gm has the equivalent
@@ -56,7 +58,8 @@ mod tests {
         {
             // modify gm with data2 rather than data1 and restore from
             // snapshot. we should have the equivalent of data1 again
-            gm.copy_from_slice(data2.as_slice(), 0).unwrap();
+            gm.copy_from_slice(data2.as_slice(), Offset::zero())
+                .unwrap();
             assert_eq!(data2, gm.copy_all_to_vec().unwrap());
             snap.restore_from_snapshot().unwrap();
             assert_eq!(data1, gm.copy_all_to_vec().unwrap());
@@ -64,7 +67,8 @@ mod tests {
         {
             // modify gm with data2, then retake the snapshot and restore
             // from the new snapshot. we should have the equivalent of data2
-            gm.copy_from_slice(data2.as_slice(), 0).unwrap();
+            gm.copy_from_slice(data2.as_slice(), Offset::zero())
+                .unwrap();
             assert_eq!(data2, gm.copy_all_to_vec().unwrap());
             snap.replace_snapshot().unwrap();
             assert_eq!(data2, gm.copy_all_to_vec().unwrap());

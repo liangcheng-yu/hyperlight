@@ -1,3 +1,5 @@
+use super::ptr_offset::Offset;
+use super::try_add_ext::UnsafeTryAddExt;
 use anyhow::{anyhow, Result};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use libc::strlen;
@@ -20,7 +22,7 @@ macro_rules! bounds_check {
         if $offset > $size {
             anyhow::bail!(
                 "offset {} out of bounds (max size: size {})",
-                $offset,
+                u64::from($offset),
                 $size,
             );
         }
@@ -149,7 +151,7 @@ impl SharedMemory {
     /// `[offset, offset + from_bytes.len()]` are valid, copy all
     /// bytes from `from_bytes` in order to `self` and return `Ok`.
     /// Otherwise, return `Err`.
-    pub fn copy_from_slice(&mut self, from_bytes: &[u8], offset: usize) -> Result<()> {
+    pub fn copy_from_slice(&mut self, from_bytes: &[u8], offset: Offset) -> Result<()> {
         bounds_check!(offset, self.mem_size());
         bounds_check!(offset + from_bytes.len(), self.mem_size());
         unsafe { self.copy_from_slice_subset(from_bytes, from_bytes.len(), offset) }
@@ -161,14 +163,14 @@ impl SharedMemory {
         &mut self,
         slc: &[u8],
         len: usize,
-        offset: usize,
+        offset: Offset,
     ) -> Result<()> {
         bounds_check!(offset, self.mem_size());
         let num_bytes = if len > slc.len() { slc.len() } else { len };
         bounds_check!(offset + num_bytes, self.mem_size());
         let dst_ptr = {
             let ptr = self.raw_ptr() as *mut u8;
-            ptr.add(offset)
+            ptr.try_add(offset)?
         };
 
         std::ptr::copy_nonoverlapping(slc.as_ptr(), dst_ptr, num_bytes);
@@ -188,14 +190,14 @@ impl SharedMemory {
     /// let mut ret_vec = vec![b'\0'; 20];
     /// shared_mem.copy_to_slice(ret_vec.as_mut_slice(), 0)?
     /// ```
-    pub fn copy_to_slice(&self, slc: &mut [u8], offset: usize) -> Result<()> {
+    pub fn copy_to_slice(&self, slc: &mut [u8], offset: Offset) -> Result<()> {
         bounds_check!(offset, self.mem_size());
         bounds_check!(offset + slc.len(), self.mem_size());
         let src_ptr = {
             let ptr = self.raw_ptr() as *const u8;
             unsafe {
-                // safety: we know offset is owned by `ptr`
-                ptr.add(offset)
+                // safety: we know ptr+offset is owned by `ptr`
+                ptr.try_add(offset)?
             }
         };
 
@@ -213,7 +215,7 @@ impl SharedMemory {
         // ensure this vec has _length_ (not just capacity) of self.mem_size()
         // so that the copy_to_slice reads the slice length properly.
         let mut ret_vec = vec![b'\0'; self.mem_size()];
-        self.copy_to_slice(ret_vec.as_mut_slice(), 0)?;
+        self.copy_to_slice(ret_vec.as_mut_slice(), Offset::zero())?;
         Ok(ret_vec)
     }
 
@@ -243,9 +245,9 @@ impl SharedMemory {
 
     /// Return the address of memory at an offset to this `SharedMemory` checking
     /// that the memory is within the bounds of the `SharedMemory`.
-    pub fn calculate_address(&self, offset: usize) -> Result<usize> {
+    pub fn calculate_address(&self, offset: Offset) -> Result<usize> {
         bounds_check!(offset, self.mem_size());
-        Ok(self.base_addr() + offset)
+        usize::try_from(self.base_addr() + offset)
     }
 
     /// Read an `i64` from shared memory starting at `offset`
@@ -254,12 +256,12 @@ impl SharedMemory {
     /// if the value between `offset` and `offset + <64 bits>`
     /// was successfully decoded to a little-endian `i64`,
     /// and `Err` otherwise.
-    pub fn read_i64(&self, offset: u64) -> Result<i64> {
+    pub fn read_i64(&self, offset: Offset) -> Result<i64> {
         bounds_check!(offset, self.mem_size() as u64);
         bounds_check!(offset + size_of::<i64>() as u64, self.mem_size() as u64);
         let slc = unsafe { self.as_slice() };
         let mut c = Cursor::new(slc);
-        c.set_position(offset);
+        c.set_position(offset.into());
         c.read_i64::<LittleEndian>().map_err(|e| anyhow!(e))
     }
 
@@ -269,18 +271,18 @@ impl SharedMemory {
     /// if the value between `offset` and `offset + <64 bits>`
     /// was successfully decoded to a little-endian `u64`,
     /// and `Err` otherwise.
-    pub fn read_u64(&self, offset: u64) -> Result<u64> {
+    pub fn read_u64(&self, offset: Offset) -> Result<u64> {
         bounds_check!(offset, self.mem_size() as u64);
-        bounds_check!(offset + size_of::<u64>() as u64, self.mem_size() as u64);
+        bounds_check!(offset + size_of::<u64>(), self.mem_size() as u64);
         let slc = unsafe { self.as_slice() };
         let mut c = Cursor::new(slc);
-        c.set_position(offset);
+        c.set_position(offset.into());
         c.read_u64::<LittleEndian>().map_err(|e| anyhow!(e))
     }
 
     /// Write val into shared memory at the given offset
     /// from the start of shared memory
-    pub fn write_u64(&mut self, offset: usize, val: u64) -> Result<()> {
+    pub fn write_u64(&mut self, offset: Offset, val: u64) -> Result<()> {
         bounds_check!(offset, self.mem_size());
         bounds_check!(offset + size_of::<u64>(), self.mem_size());
         // write the u64 into 8 bytes, so we can std::ptr::write
@@ -289,7 +291,7 @@ impl SharedMemory {
         writer.write_u64::<LittleEndian>(val)?;
         let slice = unsafe { self.as_mut_slice() };
         for (idx, item) in writer.iter().enumerate() {
-            slice[offset + idx] = *item;
+            slice[usize::try_from(offset + idx)?] = *item;
         }
         Ok(())
     }
@@ -309,12 +311,12 @@ impl SharedMemory {
     /// if the value between `offset` and `offset + <64 bits>`
     /// was successfully decoded to a little-endian `i64`,
     /// and `Err` otherwise.
-    pub fn read_i32(&self, offset: u64) -> Result<i32> {
+    pub fn read_i32(&self, offset: Offset) -> Result<i32> {
         bounds_check!(offset, self.mem_size() as u64);
-        bounds_check!(offset + size_of::<i32>() as u64, self.mem_size() as u64);
+        bounds_check!(offset + size_of::<i32>(), self.mem_size() as u64);
         let slc = unsafe { self.as_slice() };
         let mut c = Cursor::new(slc);
-        c.set_position(offset);
+        c.set_position(offset.into());
         c.read_i32::<LittleEndian>().map_err(|e| anyhow!(e))
     }
 
@@ -323,11 +325,11 @@ impl SharedMemory {
     /// Return `Ok` with the `u8` value starting at `offset`
     /// if the value in the range `[offset, offset + 8)`
     /// was successfully decoded to a `u8`, and `Err` otherwise.
-    pub fn read_u8(&self, offset: u64) -> Result<u8> {
+    pub fn read_u8(&self, offset: Offset) -> Result<u8> {
         bounds_check!(offset, self.mem_size() as u64);
         let slc = unsafe { self.as_slice() };
         let mut c = Cursor::new(slc);
-        c.set_position(offset);
+        c.set_position(offset.into());
         c.read_u8().map_err(|e| anyhow!(e))
     }
 
@@ -336,14 +338,14 @@ impl SharedMemory {
     /// If `Ok` is returned, `self` will have been modified
     /// in-place. Otherwise, no modifications will have been
     /// made.
-    pub fn write_i32(&mut self, offset: usize, val: i32) -> Result<()> {
+    pub fn write_i32(&mut self, offset: Offset, val: i32) -> Result<()> {
         bounds_check!(offset, self.mem_size());
         bounds_check!(offset + size_of::<i32>(), self.mem_size());
         let slc = unsafe { self.as_mut_slice() };
         let mut target: Vec<u8> = Vec::new();
         target.write_i32::<LittleEndian>(val)?;
         for (idx, elt) in target.iter().enumerate() {
-            slc[offset + idx] = *elt;
+            slc[usize::try_from(offset)? + idx] = *elt;
         }
         Ok(())
     }
@@ -354,9 +356,9 @@ impl SharedMemory {
     /// Return `Ok` with the `string` value starting at `offset`
     /// if the value at `offset` was successfully decoded as a string,
     /// and `Err` otherwise.
-    pub fn read_string(&self, offset: usize) -> Result<String> {
+    pub fn read_string(&self, offset: Offset) -> Result<String> {
         bounds_check!(offset, self.mem_size());
-        let addr = self.base_addr() + offset;
+        let addr: u64 = (self.base_addr() + offset).into();
         unsafe {
             let len = strlen(addr as *const i8);
             // Ensure string length is within the memory bounds.
@@ -369,6 +371,8 @@ impl SharedMemory {
 
 #[cfg(test)]
 mod tests {
+    use crate::mem::ptr_offset::Offset;
+
     use super::SharedMemory;
     use anyhow::Result;
     #[cfg(target_os = "linux")]
@@ -381,60 +385,73 @@ mod tests {
     };
 
     #[test]
-    pub fn copy_to_from_slice() -> Result<()> {
+    pub fn copy_to_from_slice() {
         let mem_size: usize = 4096;
         let vec_len = 10;
-        let mut gm = SharedMemory::new(mem_size)?;
+        let mut gm = SharedMemory::new(mem_size).unwrap();
         let vec = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         // write the value to the memory at the beginning.
-        gm.copy_from_slice(&vec, 0)?;
+        gm.copy_from_slice(&vec, Offset::zero()).unwrap();
 
         let mut vec2 = vec![0; vec_len];
         // read the value back from the memory at the beginning.
-        gm.copy_to_slice(&mut vec2, 0)?;
+        gm.copy_to_slice(&mut vec2, Offset::zero()).unwrap();
         assert_eq!(vec, vec2);
 
-        let offset = mem_size - vec.len();
+        let offset = Offset::try_from(mem_size - vec.len()).unwrap();
         // write the value to the memory at the end.
-        unsafe { gm.copy_from_slice_subset(&vec, vec.len(), offset)? };
+        unsafe { gm.copy_from_slice_subset(&vec, vec.len(), offset) }.unwrap();
 
         let mut vec3 = vec![0; vec_len];
         // read the value back from the memory at the end.
-        gm.copy_to_slice(&mut vec3, offset)?;
+        gm.copy_to_slice(&mut vec3, offset).unwrap();
         assert_eq!(vec, vec3);
 
-        let offset = mem_size / 2;
+        let offset = Offset::try_from(mem_size / 2).unwrap();
         // write the value to the memory at the middle.
-        unsafe { gm.copy_from_slice_subset(&vec, vec.len(), offset)? };
+        unsafe { gm.copy_from_slice_subset(&vec, vec.len(), offset) }.unwrap();
 
         let mut vec4 = vec![0; vec_len];
         // read the value back from the memory at the middle.
-        gm.copy_to_slice(&mut vec4, offset)?;
+        gm.copy_to_slice(&mut vec4, offset).unwrap();
         assert_eq!(vec, vec4);
 
         // try and read a value from an offset that is beyond the end of the memory.
         let mut vec5 = vec![0; vec_len];
-        assert!(gm.copy_to_slice(&mut vec5, mem_size).is_err());
+        assert!(gm
+            .copy_to_slice(&mut vec5, Offset::try_from(mem_size).unwrap())
+            .is_err());
 
         // try and write a value to an offset that is beyond the end of the memory.
-        assert!(unsafe { gm.copy_from_slice_subset(&vec, vec.len(), mem_size) }.is_err());
+        assert!(unsafe {
+            gm.copy_from_slice_subset(&vec, vec.len(), Offset::try_from(mem_size).unwrap())
+        }
+        .is_err());
 
         // try and read a value from an offset that is too large.
         let mut vec6 = vec![0; vec_len];
-        assert!(gm.copy_to_slice(&mut vec6, mem_size * 2).is_err());
+        assert!(gm
+            .copy_to_slice(&mut vec6, Offset::try_from(mem_size * 2).unwrap())
+            .is_err());
 
         // try and write a value to an offset that is too large.
-        assert!(unsafe { gm.copy_from_slice_subset(&vec, vec.len(), mem_size * 2) }.is_err());
+        assert!(unsafe {
+            gm.copy_from_slice_subset(&vec, vec.len(), Offset::try_from(mem_size * 2).unwrap())
+        }
+        .is_err());
 
         // try and read a value that is too large.
         let mut vec7 = vec![0; mem_size * 2];
         let len = vec7.len();
-        assert!(gm.copy_to_slice(&mut vec7, mem_size * 2).is_err());
+        assert!(gm
+            .copy_to_slice(&mut vec7, Offset::try_from(mem_size * 2).unwrap())
+            .is_err());
 
         // try and write a value that is too large.
-        assert!(unsafe { gm.copy_from_slice_subset(&vec7, len, mem_size * 2) }.is_err());
-
-        Ok(())
+        assert!(unsafe {
+            gm.copy_from_slice_subset(&vec7, len, Offset::try_from(mem_size * 2).unwrap())
+        }
+        .is_err());
     }
 
     #[test]
@@ -444,14 +461,14 @@ mod tests {
         let mut gm = SharedMemory::new(mem_size)?;
         let vec = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         // write the value to the memory at the beginning.
-        gm.copy_from_slice(&vec, 0)?;
+        gm.copy_from_slice(&vec, Offset::zero())?;
 
         let mut vec2 = vec![0; vec_len];
         // read the value back from the memory at the beginning.
-        gm.copy_to_slice(vec2.as_mut_slice(), 0)?;
+        gm.copy_to_slice(vec2.as_mut_slice(), Offset::zero())?;
         assert_eq!(vec, vec2);
 
-        let offset = mem_size - vec.len();
+        let offset = Offset::try_from(mem_size - vec.len()).unwrap();
         // write the value to the memory at the end.
         gm.copy_from_slice(&vec, offset)?;
 
@@ -460,7 +477,7 @@ mod tests {
         gm.copy_to_slice(&mut vec3, offset)?;
         assert_eq!(vec, vec3);
 
-        let offset = mem_size / 2;
+        let offset = Offset::try_from(mem_size / 2).unwrap();
         // write the value to the memory at the middle.
         gm.copy_from_slice(&vec, offset)?;
 
@@ -471,24 +488,32 @@ mod tests {
 
         // try and read a value from an offset that is beyond the end of the memory.
         let mut vec5 = vec![0; vec_len];
-        assert!(gm.copy_to_slice(&mut vec5, mem_size).is_err());
+        assert!(gm
+            .copy_to_slice(&mut vec5, Offset::try_from(mem_size).unwrap())
+            .is_err());
 
         // try and write a value to an offset that is beyond the end of the memory.
-        assert!(gm.copy_from_slice(&vec5, mem_size).is_err());
+        assert!(gm
+            .copy_from_slice(&vec5, Offset::try_from(mem_size).unwrap())
+            .is_err());
 
         // try and read a value from an offset that is too large.
         let mut vec6 = vec![0; vec_len];
-        assert!(gm.copy_to_slice(&mut vec6, mem_size * 2).is_err());
+        assert!(gm
+            .copy_to_slice(&mut vec6, Offset::try_from(mem_size * 2).unwrap())
+            .is_err());
 
         // try and write a value to an offset that is too large.
-        assert!(gm.copy_from_slice(&vec6, mem_size * 2).is_err());
+        assert!(gm
+            .copy_from_slice(&vec6, Offset::try_from(mem_size * 2).unwrap())
+            .is_err());
 
         // try and read a value that is too large.
         let mut vec7 = vec![0; mem_size * 2];
-        assert!(gm.copy_to_slice(&mut vec7, 0).is_err());
+        assert!(gm.copy_to_slice(&mut vec7, Offset::zero()).is_err());
 
         // try and write a value that is too large.
-        assert!(gm.copy_from_slice(&vec7, 0).is_err());
+        assert!(gm.copy_from_slice(&vec7, Offset::zero()).is_err());
 
         Ok(())
     }
@@ -499,95 +524,96 @@ mod tests {
         let mut gm = SharedMemory::new(mem_size)?;
         let val: i32 = 42;
         // write the value to the memory at the beginning.
-        gm.write_i32(0, val)?;
+        gm.write_i32(Offset::zero(), val)?;
         // read the value back from the memory at the beginning.
-        let read_val = gm.read_i32(0)?;
+        let read_val = gm.read_i32(Offset::zero())?;
         assert_eq!(val, read_val);
 
-        let offset = mem_size - size_of::<i32>();
+        let offset = Offset::try_from(mem_size - size_of::<i32>()).unwrap();
         // write the value to the memory at the end.
         gm.write_i32(offset, val)?;
         // read the value back from the memory at the end.
-        let read_val = gm.read_i32(offset as u64)?;
+        let read_val = gm.read_i32(offset)?;
         assert_eq!(val, read_val);
 
-        let offset = mem_size / 2;
+        let offset = Offset::try_from(mem_size / 2).unwrap();
         // write the value to the memory at the middle.
         gm.write_i32(offset, val)?;
         // read the value back from the memory at the middle.
-        let read_val = gm.read_i32(offset as u64)?;
+        let read_val = gm.read_i32(offset)?;
         assert_eq!(val, read_val);
 
         // try and read a value from the memory at an invalid offset.
-        let result = gm.read_i32((mem_size * 2) as u64);
+        let result = gm.read_i32(Offset::try_from(mem_size * 2).unwrap());
         assert!(result.is_err());
 
         // try and write the value to the memory at an invalid offset.
-        let result = gm.write_i32(mem_size * 2, val);
+        let result = gm.write_i32(Offset::try_from(mem_size * 2).unwrap(), val);
         assert!(result.is_err());
 
         // try and read a value from the memory beyond the end of the memory.
-        let result = gm.read_i32(mem_size as u64);
+        let result = gm.read_i32(Offset::try_from(mem_size).unwrap());
         assert!(result.is_err());
 
         // try and write the value to the memory beyond the end of the memory.
-        let result = gm.write_i32(mem_size, val);
+        let result = gm.write_i32(Offset::try_from(mem_size).unwrap(), val);
         assert!(result.is_err());
 
         Ok(())
     }
 
     #[test]
-    pub fn read_i64_write_u64() -> Result<()> {
+    pub fn read_i64_write_u64() {
         let mem_size: usize = 4096;
-        let mut gm = SharedMemory::new(mem_size)?;
+        let mut gm = SharedMemory::new(mem_size).unwrap();
         let val: i64 = 42;
         // write the value to the memory at the beginning.
-        gm.write_u64(0, val.try_into().unwrap())?;
+        gm.write_u64(Offset::zero(), val.try_into().unwrap())
+            .unwrap();
         // read the value back from the memory at the beginning.
-        let read_val = gm.read_i64(0)?;
+        let read_val = gm.read_i64(Offset::zero()).unwrap();
         assert_eq!(val, read_val);
 
-        let offset = mem_size - size_of::<i64>();
+        let offset = Offset::try_from(mem_size - size_of::<i64>()).unwrap();
         // write the value to the memory at the end.
-        gm.write_u64(offset, val.try_into().unwrap())?;
+        gm.write_u64(offset, val.try_into().unwrap()).unwrap();
         // read the value back from the memory at the end.
-        let read_val = gm.read_i64(offset as u64)?;
+        let read_val = gm.read_i64(offset).unwrap();
         assert_eq!(val, read_val);
 
-        let offset = mem_size / 2;
+        let offset = Offset::try_from(mem_size / 2).unwrap();
         // write the value to the memory at the middle.
-        gm.write_u64(offset, val.try_into().unwrap())?;
+        gm.write_u64(offset, val.try_into().unwrap()).unwrap();
         // read the value back from the memory at the middle.
-        let read_val = gm.read_i64(offset as u64)?;
+        let read_val = gm.read_i64(offset).unwrap();
         assert_eq!(val, read_val);
 
         // try and read a value from the memory at an invalid offset.
-        let result = gm.read_i64((mem_size * 2) as u64);
+        let result = gm.read_i64(Offset::try_from(mem_size * 2).unwrap());
         assert!(result.is_err());
 
         // try and write the value to the memory at an invalid offset.
-        let result = gm.write_u64(mem_size * 2, val.try_into().unwrap());
+        let result = gm.write_u64(
+            Offset::try_from(mem_size * 2).unwrap(),
+            val.try_into().unwrap(),
+        );
         assert!(result.is_err());
 
         // try and read a value from the memory beyond the end of the memory.
-        let result = gm.read_i64(mem_size as u64);
+        let result = gm.read_i64(Offset::try_from(mem_size).unwrap());
         assert!(result.is_err());
 
         // try and write the value to the memory beyond the end of the memory.
-        let result = gm.write_u64(mem_size, val.try_into().unwrap());
+        let result = gm.write_u64(Offset::try_from(mem_size).unwrap(), val.try_into().unwrap());
         assert!(result.is_err());
-
-        Ok(())
     }
 
     #[test]
-    pub fn alloc_fail() -> Result<()> {
+    pub fn alloc_fail() {
         let gm = SharedMemory::new(0);
         assert!(gm.is_err());
         let gm = SharedMemory::new(usize::MAX);
         assert!(gm.is_err());
-        Ok(())
     }
 
     const MIN_SIZE: usize = 123;
@@ -603,14 +629,15 @@ mod tests {
 
         // we should be able to copy a byte array into both gm1 and gm2,
         // and have both changes be reflected in all clones
-        gm1.copy_from_slice(&[b'a'], 0).unwrap();
-        gm2.copy_from_slice(&[b'b'], 1).unwrap();
+        gm1.copy_from_slice(&[b'a'], Offset::zero()).unwrap();
+        gm2.copy_from_slice(&[b'b'], Offset::from(1_u64)).unwrap();
 
         // at this point, both gm1 and gm2 should have
         // offset 0 = 'a', offset 1 = 'b'
-        for (offset, expected) in &[(0, b'a'), (1, b'b')] {
-            assert_eq!(gm1.read_u8(*offset).unwrap(), *expected);
-            assert_eq!(gm2.read_u8(*offset).unwrap(), *expected);
+        for (raw_offset, expected) in &[(0_u64, b'a'), (1_u64, b'b')] {
+            let offset = Offset::from(*raw_offset);
+            assert_eq!(gm1.read_u8(offset).unwrap(), *expected);
+            assert_eq!(gm2.read_u8(offset).unwrap(), *expected);
         }
 
         // after we drop gm1, gm2 should still exist, be valid,
@@ -618,11 +645,12 @@ mod tests {
         drop(gm1);
 
         // at this point, gm2 should still have offset 0 = 'a', offset 1 = 'b'
-        for (offset, expected) in &[(0, b'a'), (1, b'b')] {
-            assert_eq!(gm2.read_u8(*offset).unwrap(), *expected);
+        for (raw_offset, expected) in &[(0_u64, b'a'), (1_u64, b'b')] {
+            let offset = Offset::from(*raw_offset);
+            assert_eq!(gm2.read_u8(offset).unwrap(), *expected);
         }
-        gm2.copy_from_slice(&[b'c'], 2).unwrap();
-        assert_eq!(gm2.read_u8(2).unwrap(), b'c');
+        gm2.copy_from_slice(&[b'c'], Offset::from(2_u64)).unwrap();
+        assert_eq!(gm2.read_u8(Offset::from(2_u64)).unwrap(), b'c');
         drop(gm2);
     }
 
@@ -630,7 +658,8 @@ mod tests {
     pub fn copy_all_to_vec() {
         let data = vec![b'a', b'b', b'c'];
         let mut gm = SharedMemory::new(data.len()).unwrap();
-        gm.copy_from_slice(data.as_slice(), 0).unwrap();
+        gm.copy_from_slice(data.as_slice(), Offset::from(0_u64))
+            .unwrap();
         let ret_vec = gm.copy_all_to_vec().unwrap();
         assert_eq!(data, ret_vec);
     }
@@ -685,6 +714,8 @@ mod tests {
 
 #[cfg(test)]
 mod prop_tests {
+    use crate::mem::ptr_offset::Offset;
+
     use super::SharedMemory;
     use proptest::prelude::*;
 
@@ -701,9 +732,9 @@ mod prop_tests {
             slice_size in 1_usize..500_usize,
             slice_val in b'\0'..b'z',
         ) {
-            let offset = slice_size / 2;
+            let offset = Offset::try_from(slice_size / 2).unwrap();
             let mut shared_mem = {
-                let mem_size = slice_size + offset;
+                let mem_size = usize::try_from(slice_size + offset).unwrap();
                 SharedMemory::new(mem_size).unwrap()
             };
 
@@ -723,19 +754,23 @@ mod prop_tests {
             {
                 // test copy_all_to_vec
                 let ret_vec = shared_mem.copy_all_to_vec().unwrap();
-                assert_eq!(orig_vec, ret_vec[offset..offset+slice_size]);
+                assert_eq!(orig_vec, ret_vec[usize::try_from(offset).unwrap()..usize::try_from(offset+slice_size).unwrap()]);
             }
 
             {
                 // test as_slice
                 let total_slice = unsafe { shared_mem.as_slice()};
-                assert_eq!(orig_vec.as_slice(), &total_slice[offset..offset+slice_size])
+                let range_start: usize = offset.try_into().unwrap();
+                let range_end: usize = (offset + slice_size).try_into().unwrap();
+                assert_eq!(orig_vec.as_slice(), &total_slice[range_start..range_end])
             }
 
             {
                 // test as_mut_slice
                 let total_slice = unsafe { shared_mem.as_mut_slice() };
-                assert_eq!(orig_vec.as_slice(), &total_slice[offset..offset+slice_size]);
+                let range_start: usize = offset.try_into().unwrap();
+                let range_end: usize = (offset + slice_size).try_into().unwrap();
+                assert_eq!(orig_vec.as_slice(), &total_slice[range_start..range_end]);
             }
         }
     }

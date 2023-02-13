@@ -20,6 +20,9 @@ pub mod shared_mem;
 ///! A wrapper around a `SharedMemory` and a snapshot in time
 ///! of the memory therein
 pub mod shared_mem_snapshot;
+///! An extension trait for adding types like `Offset`s to
+/// types like pointers
+pub mod try_add_ext;
 
 use anyhow::Result;
 use byteorder::{LittleEndian, WriteBytesExt};

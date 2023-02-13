@@ -89,7 +89,7 @@ impl<T: AddressSpace> Ptr<T> {
 
     /// Get the offset into the pointer's address space
     pub fn offset(&self) -> Offset {
-        self.offset.clone()
+        self.offset
     }
 
     /// Get the absolute value for the pointer represented by `self`.
@@ -97,15 +97,14 @@ impl<T: AddressSpace> Ptr<T> {
     /// This function should rarely be used. Prefer to use offsets
     /// instead.
     pub fn absolute(&self) -> Result<u64> {
-        self.base()
-            .checked_add(self.offset.as_u64())
-            .ok_or_else(|| {
-                anyhow!(
-                    "couldn't add pointer offset {} to base {}",
-                    self.offset.as_u64(),
-                    self.base(),
-                )
-            })
+        let offset_u64: u64 = self.offset.into();
+        self.base().checked_add(offset_u64).ok_or_else(|| {
+            anyhow!(
+                "couldn't add pointer offset {} to base {}",
+                offset_u64,
+                self.base(),
+            )
+        })
     }
 }
 
@@ -167,7 +166,7 @@ mod tests {
             let hp = HostPtr::try_from((raw_host_ptr, &gm, false));
             assert!(hp.is_ok());
             let host_ptr = hp.unwrap();
-            assert_eq!(OFFSET, host_ptr.offset().as_u64());
+            assert_eq!(OFFSET, host_ptr.offset().into());
             host_ptr
         };
 
@@ -176,7 +175,7 @@ mod tests {
             assert!(gp_res.is_ok());
             gp_res.unwrap()
         };
-        assert_eq!(OFFSET, guest_ptr.offset().as_u64());
+        assert_eq!(OFFSET, guest_ptr.offset().into());
         assert_eq!(
             OFFSET + SandboxMemoryLayout::BASE_ADDRESS as u64,
             guest_ptr.absolute().unwrap()
@@ -212,7 +211,7 @@ mod prop_tests {
                 let hp = HostPtr::try_from((raw_host_ptr, &shared_mem, false));
                 assert!(hp.is_ok());
                 let host_ptr = hp.unwrap();
-                assert_eq!(offset, host_ptr.offset().as_u64());
+                assert_eq!(offset, host_ptr.offset().into());
                 host_ptr
             };
 
@@ -222,7 +221,7 @@ mod prop_tests {
                 gp_res.unwrap()
             };
 
-            assert_eq!(offset, guest_ptr.offset().as_u64());
+            assert_eq!(offset, guest_ptr.offset().into());
             assert_eq!(
             offset + SandboxMemoryLayout::BASE_ADDRESS as u64,
                 guest_ptr.absolute().unwrap()

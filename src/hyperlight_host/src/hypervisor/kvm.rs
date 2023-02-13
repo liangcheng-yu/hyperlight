@@ -154,7 +154,7 @@ mod tests {
             map_vm_memory_region, map_vm_memory_region_raw, unmap_vm_memory_region_raw,
         },
         hypervisor::kvm_regs,
-        mem::shared_mem::SharedMemory,
+        mem::{ptr_offset::Offset, shared_mem::SharedMemory},
     };
     use anyhow::Result;
     use kvm_ioctls::{Kvm, VcpuFd, VmFd};
@@ -218,7 +218,7 @@ mod tests {
         let vm = super::create_vm(&kvm)?;
         let vcpu = super::create_vcpu(&vm)?;
         let mut mem = SharedMemory::new(SIZE).unwrap();
-        mem.copy_from_slice(&CODE, 0).unwrap();
+        mem.copy_from_slice(&CODE, Offset::zero()).unwrap();
         Ok((kvm, vm, vcpu, mem))
     }
 

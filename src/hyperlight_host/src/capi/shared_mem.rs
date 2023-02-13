@@ -1,13 +1,19 @@
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
-use crate::{mem::shared_mem::SharedMemory, validate_context, validate_context_or_panic};
+use crate::{
+    mem::{ptr_offset::Offset, shared_mem::SharedMemory},
+    validate_context, validate_context_or_panic,
+};
 use anyhow::{anyhow, Result};
 use std::panic::catch_unwind;
 
 mod impls {
-    use crate::capi::{byte_array::get_byte_array, context::Context};
     use crate::{capi::handle::Handle, mem::shared_mem::SharedMemory};
+    use crate::{
+        capi::{byte_array::get_byte_array, context::Context},
+        mem::ptr_offset::Offset,
+    };
     use anyhow::{bail, Result};
     use std::cell::RefCell;
 
@@ -16,25 +22,25 @@ mod impls {
         Ok(shared_mem.base_addr())
     }
 
-    pub fn read_int_64(ctx: &Context, hdl: Handle, addr: u64) -> Result<i64> {
+    pub fn read_int_64(ctx: &Context, hdl: Handle, offset: Offset) -> Result<i64> {
         let shared_mem = super::get_shared_memory(ctx, hdl)?;
-        (*shared_mem).read_i64(addr)
+        (*shared_mem).read_i64(offset)
     }
 
     /// Read an `i64` from the memory location at `offset`
-    pub fn write_int_64(ctx: &mut Context, hdl: Handle, offset: usize, val: usize) -> Result<()> {
+    pub fn write_int_64(ctx: &mut Context, hdl: Handle, offset: Offset, val: usize) -> Result<()> {
         let shared_mem = super::get_shared_memory_mut(ctx, hdl)?;
         (*shared_mem).write_u64(offset, val as u64)
     }
 
     /// Read an `i32` from the memory location at `offset`
-    pub fn read_int_32(ctx: &Context, hdl: Handle, offset: u64) -> Result<i32> {
+    pub fn read_int_32(ctx: &Context, hdl: Handle, offset: Offset) -> Result<i32> {
         let shared_mem = super::get_shared_memory(ctx, hdl)?;
         (*shared_mem).read_i32(offset)
     }
 
     /// Write `val` to the memory location at `offset`
-    pub fn write_int_32(ctx: &mut Context, hdl: Handle, offset: usize, val: i32) -> Result<()> {
+    pub fn write_int_32(ctx: &mut Context, hdl: Handle, offset: Offset, val: i32) -> Result<()> {
         let shared_mem = super::get_shared_memory_mut(ctx, hdl)?;
         (*shared_mem).write_i32(offset, val)?;
         Ok(())
@@ -109,7 +115,7 @@ mod impls {
         ctx: &mut Context,
         shared_mem_hdl: Handle,
         byte_array_hdl: Handle,
-        shared_mem_offset: usize,
+        shared_mem_offset: Offset,
         arr_start: usize,
         arr_length: usize,
     ) -> Result<()> {
@@ -239,7 +245,7 @@ mod impls {
         ctx: &mut Context,
         shared_mem_hdl: Handle,
         byte_array: &mut [u8],
-        offset: usize,
+        offset: Offset,
     ) -> Result<()> {
         let shared_mem = super::get_shared_memory_mut(ctx, shared_mem_hdl)?;
         (*shared_mem).copy_to_slice(byte_array, offset)
@@ -335,11 +341,16 @@ pub unsafe extern "C" fn shared_memory_copy_from_byte_array(
 ) -> Handle {
     validate_context!(ctx);
 
+    let offset_val = match Offset::try_from(offset) {
+        Ok(offs) => offs,
+        Err(e) => return (*ctx).register_err(e),
+    };
+
     match impls::copy_byte_array(
         &mut *ctx,
         shared_mem_hdl,
         byte_array_hdl,
-        offset,
+        offset_val,
         arr_start,
         arr_length,
     ) {
@@ -405,7 +416,12 @@ pub unsafe extern "C" fn shared_memory_copy_to_byte_array(
         }
     };
 
-    match impls::copy_to_byte_array(&mut *ctx, shared_mem_hdl, buffer, offset) {
+    let offset_val = match Offset::try_from(offset) {
+        Ok(offs) => offs,
+        Err(e) => return (*ctx).register_err(e),
+    };
+
+    match impls::copy_to_byte_array(&mut *ctx, shared_mem_hdl, buffer, offset_val) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
@@ -428,11 +444,11 @@ pub unsafe extern "C" fn shared_memory_copy_to_byte_array(
 pub unsafe extern "C" fn shared_memory_read_int_64(
     ctx: *mut Context,
     hdl: Handle,
-    addr: u64,
+    stack_frame_offset: u64,
 ) -> Handle {
     validate_context!(ctx);
 
-    match impls::read_int_64(&*ctx, hdl, addr) {
+    match impls::read_int_64(&*ctx, hdl, Offset::from(stack_frame_offset)) {
         Ok(val) => Context::register(val, &mut (*ctx).int64s, Hdl::Int64),
         Err(e) => (*ctx).register_err(e),
     }
@@ -460,7 +476,12 @@ pub unsafe extern "C" fn shared_memory_write_int_64(
 ) -> Handle {
     validate_context!(ctx);
 
-    match impls::write_int_64(&mut *ctx, hdl, offset, val) {
+    let offset_val = match Offset::try_from(offset) {
+        Ok(offs) => offs,
+        Err(e) => return (*ctx).register_err(e),
+    };
+
+    match impls::write_int_64(&mut *ctx, hdl, offset_val, val) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
@@ -487,7 +508,7 @@ pub unsafe extern "C" fn shared_memory_read_int_32(
 ) -> Handle {
     validate_context!(ctx);
 
-    match impls::read_int_32(&*ctx, hdl, offset) {
+    match impls::read_int_32(&*ctx, hdl, Offset::from(offset)) {
         Ok(val) => Context::register(val, &mut (*ctx).int32s, Hdl::Int32),
         Err(e) => (*ctx).register_err(e),
     }
@@ -510,12 +531,16 @@ pub unsafe extern "C" fn shared_memory_read_int_32(
 pub unsafe extern "C" fn shared_memory_write_int_32(
     ctx: *mut Context,
     hdl: Handle,
-    addr: usize,
+    offset: usize,
     val: i32,
 ) -> Handle {
     validate_context!(ctx);
+    let offset_val = match Offset::try_from(offset) {
+        Ok(offs) => offs,
+        Err(e) => return (*ctx).register_err(e),
+    };
 
-    match impls::write_int_32(&mut *ctx, hdl, addr, val) {
+    match impls::write_int_32(&mut *ctx, hdl, offset_val, val) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
@@ -524,7 +549,7 @@ pub unsafe extern "C" fn shared_memory_write_int_32(
 #[cfg(test)]
 mod tests {
     use super::impls::copy_byte_array;
-    use crate::capi::handle::Handle;
+    use crate::{capi::handle::Handle, mem::ptr_offset::Offset};
     use crate::{
         capi::{context::Context, hdl::Hdl},
         mem::shared_mem::SharedMemory,
@@ -577,7 +602,7 @@ mod tests {
             test_data.ctx.as_mut(),
             test_data.shared_mem_hdl,
             test_data.byte_arr_hdl,
-            0,
+            Offset::zero(),
             0,
             test_data.barr_len,
         )
@@ -591,7 +616,7 @@ mod tests {
             test_data.ctx.as_mut(),
             test_data.shared_mem_hdl,
             test_data.byte_arr_hdl,
-            0,
+            Offset::zero(),
             0,
             test_data.barr_len,
         )
@@ -600,7 +625,7 @@ mod tests {
             test_data.ctx.as_mut(),
             test_data.shared_mem_hdl,
             test_data.byte_arr_hdl,
-            0,
+            Offset::zero(),
             0,
             test_data.barr_len,
         )
@@ -615,7 +640,7 @@ mod tests {
             test_data.ctx.as_mut(),
             test_data.shared_mem_hdl,
             test_data.byte_arr_hdl,
-            test_data.shared_mem_size - test_data.barr_len - 1,
+            Offset::try_from(test_data.shared_mem_size - test_data.barr_len - 1).unwrap(),
             0,
             test_data.barr_len,
         )
@@ -631,7 +656,7 @@ mod tests {
             test_data.ctx.as_mut(),
             test_data.shared_mem_hdl,
             test_data.byte_arr_hdl,
-            test_data.shared_mem_size,
+            Offset::try_from(test_data.shared_mem_size).unwrap(),
             0,
             1,
         );
@@ -647,7 +672,7 @@ mod tests {
             test_data.ctx.as_mut(),
             test_data.shared_mem_hdl,
             test_data.byte_arr_hdl,
-            0,
+            Offset::zero(),
             0,
             test_data.barr_len * 10,
         );

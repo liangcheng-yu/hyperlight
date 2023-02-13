@@ -415,7 +415,7 @@ pub mod test_cfg {
 pub mod tests {
     use super::test_cfg::{SHOULD_RUN_TEST, TEST_CONFIG};
     use super::*;
-    use crate::hypervisor::hyperv_linux_mem::HypervLinuxDriverAddrs;
+    use crate::{hypervisor::hyperv_linux_mem::HypervLinuxDriverAddrs, mem::ptr_offset::Offset};
     use crate::{mem::shared_mem::SharedMemory, should_run_hyperv_linux_test};
 
     #[rustfmt::skip]
@@ -432,12 +432,13 @@ pub mod tests {
     fn shared_mem_with_code(
         code: &[u8],
         mem_size: usize,
-        load_offset: usize,
+        load_offset: Offset,
     ) -> Result<Box<SharedMemory>> {
-        if load_offset > mem_size {
+        let load_offset_usize = usize::try_from(load_offset)?;
+        if load_offset_usize > mem_size {
             bail!(
                 "code load offset ({}) > memory size ({})",
-                load_offset,
+                u64::from(load_offset),
                 mem_size
             )
         }
@@ -462,7 +463,7 @@ pub mod tests {
     fn create_driver() {
         should_run_hyperv_linux_test!();
         const MEM_SIZE: usize = 0x1000;
-        let gm = shared_mem_with_code(CODE.as_slice(), MEM_SIZE, 0).unwrap();
+        let gm = shared_mem_with_code(CODE.as_slice(), MEM_SIZE, Offset::zero()).unwrap();
         let addrs = HypervLinuxDriverAddrs::for_shared_mem(&gm, MEM_SIZE as u64, 0, 0).unwrap();
         super::HypervLinuxDriver::new(TEST_CONFIG.should_have_stable_api, &addrs).unwrap();
     }
@@ -473,7 +474,7 @@ pub mod tests {
         const ACTUAL_MEM_SIZE: usize = 0x4000;
         const REGION_MEM_SIZE: u64 = 0x1000;
 
-        let gm = shared_mem_with_code(CODE.as_slice(), ACTUAL_MEM_SIZE, 0).unwrap();
+        let gm = shared_mem_with_code(CODE.as_slice(), ACTUAL_MEM_SIZE, Offset::zero()).unwrap();
         let addrs =
             HypervLinuxDriverAddrs::for_shared_mem(&gm, REGION_MEM_SIZE, 0x1000, 0x1).unwrap();
         let mut driver =
@@ -525,7 +526,7 @@ pub mod tests {
         should_run_hyperv_linux_test!();
         const ACTUAL_MEM_SIZE: usize = 0x4000;
         const REGION_MEM_SIZE: usize = 0x1000;
-        let gm = shared_mem_with_code(CODE.as_slice(), ACTUAL_MEM_SIZE, 0).unwrap();
+        let gm = shared_mem_with_code(CODE.as_slice(), ACTUAL_MEM_SIZE, Offset::zero()).unwrap();
         let addrs =
             HypervLinuxDriverAddrs::for_shared_mem(&gm, REGION_MEM_SIZE as u64, 0x1000, 0x1)
                 .unwrap();

@@ -1,6 +1,7 @@
 use super::layout::SandboxMemoryLayout;
 use super::ptr::RawPtr;
 use super::ptr::{GuestPtr, HostPtr};
+use super::ptr_offset::Offset;
 use super::shared_mem_snapshot::SharedMemorySnapshot;
 use super::{config::SandboxMemoryConfiguration, ptr_addr_space::HostAddressSpace};
 use super::{ptr_addr_space::GuestAddressSpace, shared_mem::SharedMemory};
@@ -56,7 +57,7 @@ impl SandboxMemoryManager {
         shared_mem: &mut SharedMemory,
         cookie: &Vec<u8>,
     ) -> Result<()> {
-        let stack_offset = layout.get_top_of_stack_offset();
+        let stack_offset = Offset::try_from(layout.get_top_of_stack_offset())?;
         shared_mem.copy_from_slice(cookie.as_slice(), stack_offset)
     }
 
@@ -83,17 +84,17 @@ impl SandboxMemoryManager {
 
         // Create pagetable
         shared_mem.write_u64(
-            SandboxMemoryLayout::PML4_OFFSET,
+            Offset::try_from(SandboxMemoryLayout::PML4_OFFSET)?,
             PDE64_PRESENT | PDE64_RW | PDE64_USER | SandboxMemoryLayout::PDPT_GUEST_ADDRESS as u64,
         )?;
         shared_mem.write_u64(
-            SandboxMemoryLayout::PDPT_OFFSET,
+            Offset::try_from(SandboxMemoryLayout::PDPT_OFFSET)?,
             PDE64_PRESENT | PDE64_RW | PDE64_USER | SandboxMemoryLayout::PD_GUEST_ADDRESS as u64,
         )?;
 
         // do not map first 2 megs
         for i in 0..512 {
-            let offset: usize = SandboxMemoryLayout::PD_OFFSET + (i * 8);
+            let offset = Offset::try_from(SandboxMemoryLayout::PD_OFFSET + (i * 8))?;
             // map each VA to physical memory 2 megs lower
             let val_to_write: u64 =
                 (i << 21) as u64 + (PDE64_PRESENT | PDE64_RW | PDE64_USER | PDE64_PS);
@@ -120,7 +121,7 @@ impl SandboxMemoryManager {
         shared_mem: &SharedMemory,
         cookie: &Vec<u8>,
     ) -> Result<bool> {
-        let offset = layout.get_top_of_stack_offset();
+        let offset = Offset::try_from(layout.get_top_of_stack_offset())?;
         let mut test_cookie = vec![b'\0'; cookie.len()];
         shared_mem.copy_to_slice(test_cookie.as_mut_slice(), offset)?;
 
@@ -175,8 +176,8 @@ impl SandboxMemoryManager {
         shared_mem: &SharedMemory,
         layout: &SandboxMemoryLayout,
     ) -> Result<i32> {
-        let offset = layout.output_data_buffer_offset;
-        shared_mem.read_i32(offset as u64)
+        let offset = Offset::try_from(layout.output_data_buffer_offset)?;
+        shared_mem.read_i32(offset)
     }
 
     /// Sets `addr` to the correct offset in the memory referenced by
@@ -187,7 +188,7 @@ impl SandboxMemoryManager {
         layout: &SandboxMemoryLayout,
         addr: u64,
     ) -> Result<()> {
-        let offset = layout.get_out_b_pointer_offset();
+        let offset = Offset::try_from(layout.get_out_b_pointer_offset())?;
         shared_mem.write_u64(offset, addr)
     }
 
@@ -197,8 +198,8 @@ impl SandboxMemoryManager {
         guest_mem: &SharedMemory,
         layout: &SandboxMemoryLayout,
     ) -> Result<String> {
-        let output_data_offset = layout.output_data_buffer_offset;
-        let str_addr = guest_mem.read_u64(output_data_offset as u64)?;
+        let output_data_offset = Offset::try_from(layout.output_data_buffer_offset)?;
+        let str_addr = guest_mem.read_u64(output_data_offset)?;
         let host_ptr = GuestPtr::try_from((RawPtr::from(str_addr), self.run_from_process_memory))
             .and_then(|gp| {
             gp.to_foreign_ptr(HostAddressSpace::new(
@@ -213,7 +214,7 @@ impl SandboxMemoryManager {
                 unsafe { std::slice::from_raw_parts(addr as *const u8, str_len).to_vec() };
             String::from_utf8(str_vec).map_err(|e| anyhow!(e))
         } else {
-            guest_mem.read_string(host_ptr.offset().as_u64() as usize)
+            guest_mem.read_string(host_ptr.offset())
         }
     }
 
@@ -258,7 +259,9 @@ impl SandboxMemoryManager {
         shared_mem: &SharedMemory,
         layout: &SandboxMemoryLayout,
     ) -> Result<u64> {
-        shared_mem.read_u64(layout.get_dispatch_function_pointer_offset() as u64)
+        shared_mem.read_u64(Offset::try_from(
+            layout.get_dispatch_function_pointer_offset(),
+        )?)
     }
 
     /// Get output from the guest as a `String`
@@ -267,7 +270,7 @@ impl SandboxMemoryManager {
         layout: &SandboxMemoryLayout,
         shared_mem: &SharedMemory,
     ) -> Result<String> {
-        let offset = layout.get_output_data_offset();
+        let offset = Offset::try_from(layout.get_output_data_offset())?;
         shared_mem.read_string(offset)
     }
 
@@ -277,7 +280,7 @@ impl SandboxMemoryManager {
         layout: &SandboxMemoryLayout,
         guest_mem: &SharedMemory,
     ) -> Result<i32> {
-        let offset = layout.get_host_exception_offset() as u64;
+        let offset = Offset::try_from(layout.get_host_exception_offset())?;
         // The host exception field is expected to contain a 32-bit length followed by the exception data.
         guest_mem.read_i32(offset)
     }
@@ -288,7 +291,7 @@ impl SandboxMemoryManager {
         layout: &SandboxMemoryLayout,
         guest_mem: &SharedMemory,
     ) -> Result<bool> {
-        let offset = layout.get_host_exception_offset() as u64;
+        let offset = Offset::try_from(layout.get_host_exception_offset())?;
         // The host exception field is expected to contain a 32-bit length followed by the exception data.
         let len = guest_mem.read_i32(offset)?;
         Ok(len != 0)
@@ -303,9 +306,9 @@ impl SandboxMemoryManager {
         guest_mem: &SharedMemory,
         exception_data_slc: &mut [u8],
     ) -> Result<()> {
-        let offset = layout.get_host_exception_offset();
+        let offset = Offset::try_from(layout.get_host_exception_offset())?;
         // The host exception field is expected to contain a 32-bit length followed by the exception data.
-        let len = guest_mem.read_i32(offset as u64)?;
+        let len = guest_mem.read_i32(offset)?;
         let exception_data_slc_len = exception_data_slc.len();
         if exception_data_slc_len != len as usize {
             bail!(
@@ -329,12 +332,12 @@ impl SandboxMemoryManager {
         host_exception_data: &Vec<u8>,
     ) -> Result<()> {
         const OUTB_ERROR: u64 = 7;
-        let err_code_offset = layout.guest_error_offset;
+        let err_code_offset = Offset::try_from(layout.guest_error_offset)?;
 
         // write the error code to memory
         guest_mem.write_u64(err_code_offset, OUTB_ERROR)?;
 
-        let err_code_size_offset = layout.get_guest_error_message_size_offset() as u64;
+        let err_code_size_offset = Offset::try_from(layout.get_guest_error_message_size_offset())?;
         let max_err_msg_size = guest_mem.read_u64(err_code_size_offset)?;
         if guest_error_msg.len() as u64 > max_err_msg_size {
             bail!(
@@ -344,13 +347,12 @@ impl SandboxMemoryManager {
             );
         }
 
-        let err_msg_offset = layout.guest_error_message_buffer_offset;
+        let err_msg_offset = Offset::try_from(layout.guest_error_message_buffer_offset)?;
         guest_mem.copy_from_slice(guest_error_msg, err_msg_offset)?;
 
-        let host_exception_offset = layout.get_host_exception_offset();
-        let host_exception_size_offset = layout.get_host_exception_size_offset();
-        let max_host_exception_size =
-            guest_mem.read_u64(host_exception_size_offset as u64)? as usize;
+        let host_exception_offset = Offset::try_from(layout.get_host_exception_offset())?;
+        let host_exception_size_offset = Offset::try_from(layout.get_host_exception_size_offset())?;
+        let max_host_exception_size = guest_mem.read_u64(host_exception_size_offset)? as usize;
 
         // First four bytes of host exception are length
 
