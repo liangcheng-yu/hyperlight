@@ -682,3 +682,61 @@ mod tests {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod prop_tests {
+    use super::SharedMemory;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Test the `copy_from_slice`, `copy_to_slice`, `copy_all_to_slice`,
+        /// and `as_slice` methods on shared memory
+        ///
+        /// Note about parameters: if you modify any of the below parameters,
+        /// ensure the following holds for all combinations:
+        ///
+        /// (offset + slice_size) < (slice_size * size_multiplier)
+        #[test]
+        fn slice_ops(
+            slice_size in 1_usize..500_usize,
+            slice_val in b'\0'..b'z',
+        ) {
+            let offset = slice_size / 2;
+            let mut shared_mem = {
+                let mem_size = slice_size + offset;
+                SharedMemory::new(mem_size).unwrap()
+            };
+
+            let orig_vec = {
+                let the_vec = vec![slice_val; slice_size];
+                shared_mem.copy_from_slice(the_vec.as_slice(), offset).unwrap();
+                the_vec
+            };
+
+            {
+                // test copy_to_slice
+                let mut ret_vec = vec![slice_val + 1; slice_size];
+                shared_mem.copy_to_slice(ret_vec.as_mut_slice(), offset).unwrap();
+                assert_eq!(orig_vec, ret_vec);
+            }
+
+            {
+                // test copy_all_to_vec
+                let ret_vec = shared_mem.copy_all_to_vec().unwrap();
+                assert_eq!(orig_vec, ret_vec[offset..offset+slice_size]);
+            }
+
+            {
+                // test as_slice
+                let total_slice = unsafe { shared_mem.as_slice()};
+                assert_eq!(orig_vec.as_slice(), &total_slice[offset..offset+slice_size])
+            }
+
+            {
+                // test as_mut_slice
+                let total_slice = unsafe { shared_mem.as_mut_slice() };
+                assert_eq!(orig_vec.as_slice(), &total_slice[offset..offset+slice_size]);
+            }
+        }
+    }
+}
