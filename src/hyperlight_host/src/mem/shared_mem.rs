@@ -29,6 +29,16 @@ macro_rules! bounds_check {
     };
 }
 
+/// A `std::io::Cursor` for reading byte slices
+type ByteSliceCursor<'a> = Cursor<&'a [u8]>;
+
+/// A function that's capable of reading a data of type `T` from a
+/// given `Cursor` of bytes.
+type Reader<T> = Box<dyn Fn(ByteSliceCursor) -> Result<T>>;
+/// A function that's capable of writing a type `T` into
+/// a given `Cursor` of bytes.
+type Writer<'a, T> = Box<dyn Fn(T) -> Result<Vec<u8>>>;
+
 /// A representation of the guests's physical memory, often referred to as
 /// Guest Physical Memory or Guest Physical Addresses (GPA) in Windows
 /// Hypervisor Platform.
@@ -257,12 +267,10 @@ impl SharedMemory {
     /// was successfully decoded to a little-endian `i64`,
     /// and `Err` otherwise.
     pub fn read_i64(&self, offset: Offset) -> Result<i64> {
-        bounds_check!(offset, self.mem_size() as u64);
-        bounds_check!(offset + size_of::<i64>() as u64, self.mem_size() as u64);
-        let slc = unsafe { self.as_slice() };
-        let mut c = Cursor::new(slc);
-        c.set_position(offset.into());
-        c.read_i64::<LittleEndian>().map_err(|e| anyhow!(e))
+        self.read(
+            offset,
+            Box::new(|mut c: ByteSliceCursor| c.read_i64::<LittleEndian>().map_err(|e| anyhow!(e))),
+        )
     }
 
     /// Read an `u64` from shared memory starting at `offset`
@@ -272,37 +280,10 @@ impl SharedMemory {
     /// was successfully decoded to a little-endian `u64`,
     /// and `Err` otherwise.
     pub fn read_u64(&self, offset: Offset) -> Result<u64> {
-        bounds_check!(offset, self.mem_size() as u64);
-        bounds_check!(offset + size_of::<u64>(), self.mem_size() as u64);
-        let slc = unsafe { self.as_slice() };
-        let mut c = Cursor::new(slc);
-        c.set_position(offset.into());
-        c.read_u64::<LittleEndian>().map_err(|e| anyhow!(e))
-    }
-
-    /// Write val into shared memory at the given offset
-    /// from the start of shared memory
-    pub fn write_u64(&mut self, offset: Offset, val: u64) -> Result<()> {
-        bounds_check!(offset, self.mem_size());
-        bounds_check!(offset + size_of::<u64>(), self.mem_size());
-        // write the u64 into 8 bytes, so we can std::ptr::write
-        // them into shared mem
-        let mut writer = vec![];
-        writer.write_u64::<LittleEndian>(val)?;
-        let slice = unsafe { self.as_mut_slice() };
-        for (idx, item) in writer.iter().enumerate() {
-            slice[usize::try_from(offset + idx)?] = *item;
-        }
-        Ok(())
-    }
-
-    unsafe fn as_mut_slice(&mut self) -> &mut [u8] {
-        // inspired by https://docs.rs/mmap-rs/0.3.0/src/mmap_rs/lib.rs.html#309
-        std::slice::from_raw_parts_mut(self.raw_ptr() as *mut u8, self.mem_size())
-    }
-
-    unsafe fn as_slice(&self) -> &[u8] {
-        std::slice::from_raw_parts(self.raw_ptr() as *const u8, self.mem_size())
+        self.read(
+            offset,
+            Box::new(|mut c| c.read_u64::<LittleEndian>().map_err(|e| anyhow!(e))),
+        )
     }
 
     /// Read an `i32` from shared memory starting at `offset`
@@ -312,12 +293,10 @@ impl SharedMemory {
     /// was successfully decoded to a little-endian `i64`,
     /// and `Err` otherwise.
     pub fn read_i32(&self, offset: Offset) -> Result<i32> {
-        bounds_check!(offset, self.mem_size() as u64);
-        bounds_check!(offset + size_of::<i32>(), self.mem_size() as u64);
-        let slc = unsafe { self.as_slice() };
-        let mut c = Cursor::new(slc);
-        c.set_position(offset.into());
-        c.read_i32::<LittleEndian>().map_err(|e| anyhow!(e))
+        self.read(
+            offset,
+            Box::new(|mut c| c.read_i32::<LittleEndian>().map_err(|e| anyhow!(e))),
+        )
     }
 
     /// Read a `u8` (i.e. a byte) from shared memory starting at `offset`
@@ -326,28 +305,10 @@ impl SharedMemory {
     /// if the value in the range `[offset, offset + 8)`
     /// was successfully decoded to a `u8`, and `Err` otherwise.
     pub fn read_u8(&self, offset: Offset) -> Result<u8> {
-        bounds_check!(offset, self.mem_size() as u64);
-        let slc = unsafe { self.as_slice() };
-        let mut c = Cursor::new(slc);
-        c.set_position(offset.into());
-        c.read_u8().map_err(|e| anyhow!(e))
-    }
-
-    /// Write `val` to `slc` as little-endian at `offset.
-    ///
-    /// If `Ok` is returned, `self` will have been modified
-    /// in-place. Otherwise, no modifications will have been
-    /// made.
-    pub fn write_i32(&mut self, offset: Offset, val: i32) -> Result<()> {
-        bounds_check!(offset, self.mem_size());
-        bounds_check!(offset + size_of::<i32>(), self.mem_size());
-        let slc = unsafe { self.as_mut_slice() };
-        let mut target: Vec<u8> = Vec::new();
-        target.write_i32::<LittleEndian>(val)?;
-        for (idx, elt) in target.iter().enumerate() {
-            slc[usize::try_from(offset)? + idx] = *elt;
-        }
-        Ok(())
+        self.read(
+            offset,
+            Box::new(|mut c| c.read_u8().map_err(|e| anyhow!(e))),
+        )
     }
 
     /// Read a `string` written as a c string from shared memory starting at
@@ -367,6 +328,84 @@ impl SharedMemory {
                 .map_err(|e| anyhow!(e))
         }
     }
+
+    /// Read a value of type T from the memory in `self`, using `reader`
+    /// to do the conversion from bytes to the actual type
+    fn read<T>(&self, offset: Offset, reader: Reader<T>) -> Result<T> {
+        bounds_check!(offset, self.mem_size() as u64);
+        bounds_check!(offset + size_of::<T>() as u64, self.mem_size() as u64);
+        let slc = unsafe { self.as_slice() };
+        let mut c = Cursor::new(slc);
+        c.set_position(offset.into());
+        reader(c)
+    }
+
+    /// Write val into shared memory at the given offset
+    /// from the start of shared memory
+    pub fn write_u64(&mut self, offset: Offset, val: u64) -> Result<()> {
+        self.write(
+            offset,
+            val,
+            Box::new(|val| {
+                let mut v = Vec::new();
+                v.write_u64::<LittleEndian>(val)?;
+                Ok(v)
+            }),
+        )
+    }
+
+    /// Write `val` to `slc` as little-endian at `offset.
+    ///
+    /// If `Ok` is returned, `self` will have been modified
+    /// in-place. Otherwise, no modifications will have been
+    /// made.
+    pub fn write_i32(&mut self, offset: Offset, val: i32) -> Result<()> {
+        self.write(
+            offset,
+            val,
+            Box::new(|val| {
+                let mut v = Vec::new();
+                v.write_i32::<LittleEndian>(val)?;
+                Ok(v)
+            }),
+        )
+    }
+
+    /// Internal method to write a `u8` to shared memory.
+    ///
+    /// Currently only used in testing
+    pub fn write_u8(&mut self, offset: Offset, val: u8) -> Result<()> {
+        self.write(
+            offset,
+            val,
+            Box::new(|val| {
+                let mut v = Vec::new();
+                v.write_u8(val)?;
+                Ok(v)
+            }),
+        )
+    }
+
+    fn write<T>(&mut self, offset: Offset, val: T, writer: Writer<T>) -> Result<()> {
+        bounds_check!(offset, self.mem_size());
+        bounds_check!(offset + size_of::<T>(), self.mem_size());
+        let slc = unsafe { self.as_mut_slice() };
+        let target = writer(val)?;
+        for (idx, elt) in target.iter().enumerate() {
+            let slc_idx: usize = (offset + idx).try_into()?;
+            slc[slc_idx] = *elt;
+        }
+        Ok(())
+    }
+
+    unsafe fn as_mut_slice(&mut self) -> &mut [u8] {
+        // inspired by https://docs.rs/mmap-rs/0.3.0/src/mmap_rs/lib.rs.html#309
+        std::slice::from_raw_parts_mut(self.raw_ptr() as *mut u8, self.mem_size())
+    }
+
+    unsafe fn as_slice(&self) -> &[u8] {
+        std::slice::from_raw_parts(self.raw_ptr() as *const u8, self.mem_size())
+    }
 }
 
 #[cfg(test)]
@@ -374,11 +413,12 @@ mod tests {
     use crate::mem::ptr_offset::Offset;
 
     use super::SharedMemory;
+    use crate::mem::shared_mem_tests::read_write_test_suite;
     use anyhow::Result;
     #[cfg(target_os = "linux")]
     use libc::{mmap, munmap};
+    use proptest::prelude::*;
     use std::ffi::c_void;
-    use std::mem::size_of;
     #[cfg(target_os = "windows")]
     use windows::Win32::System::Memory::{
         VirtualAlloc, VirtualFree, MEM_COMMIT, MEM_DECOMMIT, PAGE_EXECUTE_READWRITE,
@@ -518,94 +558,43 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    pub fn read_write_i32() -> Result<()> {
-        let mem_size: usize = 4096;
-        let mut gm = SharedMemory::new(mem_size)?;
-        let val: i32 = 42;
-        // write the value to the memory at the beginning.
-        gm.write_i32(Offset::zero(), val)?;
-        // read the value back from the memory at the beginning.
-        let read_val = gm.read_i32(Offset::zero())?;
-        assert_eq!(val, read_val);
-
-        let offset = Offset::try_from(mem_size - size_of::<i32>()).unwrap();
-        // write the value to the memory at the end.
-        gm.write_i32(offset, val)?;
-        // read the value back from the memory at the end.
-        let read_val = gm.read_i32(offset)?;
-        assert_eq!(val, read_val);
-
-        let offset = Offset::try_from(mem_size / 2).unwrap();
-        // write the value to the memory at the middle.
-        gm.write_i32(offset, val)?;
-        // read the value back from the memory at the middle.
-        let read_val = gm.read_i32(offset)?;
-        assert_eq!(val, read_val);
-
-        // try and read a value from the memory at an invalid offset.
-        let result = gm.read_i32(Offset::try_from(mem_size * 2).unwrap());
-        assert!(result.is_err());
-
-        // try and write the value to the memory at an invalid offset.
-        let result = gm.write_i32(Offset::try_from(mem_size * 2).unwrap(), val);
-        assert!(result.is_err());
-
-        // try and read a value from the memory beyond the end of the memory.
-        let result = gm.read_i32(Offset::try_from(mem_size).unwrap());
-        assert!(result.is_err());
-
-        // try and write the value to the memory beyond the end of the memory.
-        let result = gm.write_i32(Offset::try_from(mem_size).unwrap(), val);
-        assert!(result.is_err());
-
-        Ok(())
+    proptest! {
+        #[test]
+        fn read_write_i32(mem_size in 256_usize..4096_usize, val in -0x1000_i32..0x1000_i32) {
+            read_write_test_suite(
+                mem_size,
+                val,
+                Box::new(SharedMemory::read_i32),
+                Box::new(SharedMemory::write_i32),
+            )
+            .unwrap();
+        }
     }
 
-    #[test]
-    pub fn read_i64_write_u64() {
-        let mem_size: usize = 4096;
-        let mut gm = SharedMemory::new(mem_size).unwrap();
-        let val: i64 = 42;
-        // write the value to the memory at the beginning.
-        gm.write_u64(Offset::zero(), val.try_into().unwrap())
+    proptest! {
+        #[test]
+        fn read_i64_write_u64(mem_size in 256_usize..4096_usize, val in 0_u64..0x1000_u64) {
+            read_write_test_suite(
+                mem_size,
+                val,
+                Box::new(SharedMemory::read_i64),
+                Box::new(SharedMemory::write_u64),
+            )
             .unwrap();
-        // read the value back from the memory at the beginning.
-        let read_val = gm.read_i64(Offset::zero()).unwrap();
-        assert_eq!(val, read_val);
+        }
+    }
 
-        let offset = Offset::try_from(mem_size - size_of::<i64>()).unwrap();
-        // write the value to the memory at the end.
-        gm.write_u64(offset, val.try_into().unwrap()).unwrap();
-        // read the value back from the memory at the end.
-        let read_val = gm.read_i64(offset).unwrap();
-        assert_eq!(val, read_val);
-
-        let offset = Offset::try_from(mem_size / 2).unwrap();
-        // write the value to the memory at the middle.
-        gm.write_u64(offset, val.try_into().unwrap()).unwrap();
-        // read the value back from the memory at the middle.
-        let read_val = gm.read_i64(offset).unwrap();
-        assert_eq!(val, read_val);
-
-        // try and read a value from the memory at an invalid offset.
-        let result = gm.read_i64(Offset::try_from(mem_size * 2).unwrap());
-        assert!(result.is_err());
-
-        // try and write the value to the memory at an invalid offset.
-        let result = gm.write_u64(
-            Offset::try_from(mem_size * 2).unwrap(),
-            val.try_into().unwrap(),
-        );
-        assert!(result.is_err());
-
-        // try and read a value from the memory beyond the end of the memory.
-        let result = gm.read_i64(Offset::try_from(mem_size).unwrap());
-        assert!(result.is_err());
-
-        // try and write the value to the memory beyond the end of the memory.
-        let result = gm.write_u64(Offset::try_from(mem_size).unwrap(), val.try_into().unwrap());
-        assert!(result.is_err());
+    proptest! {
+        #[test]
+        fn read_write_u8(mem_size in 256_usize..0x1000_usize, val in b'\0'..b'z') {
+            read_write_test_suite(
+                mem_size,
+                val,
+                Box::new(SharedMemory::read_u8),
+                Box::new(SharedMemory::write_u8),
+            )
+            .unwrap()
+        }
     }
 
     #[test]
