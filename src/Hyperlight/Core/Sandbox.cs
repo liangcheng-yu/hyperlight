@@ -1,10 +1,10 @@
 using System;
-using System.Collections.Concurrent;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
+using Hyperlight.Generated;
 using Hyperlight.Core;
 using Hyperlight.Hypervisors;
 using Hyperlight.Native;
@@ -19,6 +19,7 @@ namespace Hyperlight
         Log = 99,
         WriteOutput = 100,
         CallFunction = 101,
+        Abort = 102,
     }
 
     [Flags]
@@ -293,13 +294,13 @@ namespace Hyperlight
 
         public void CheckForGuestError()
         {
-            (GuestErrorCode ErrorCode, string? Message) guestError = sandboxMemoryManager.GetGuestError();
+            (ErrorCode ErrorCode, string? Message) guestError = sandboxMemoryManager.GetGuestError();
 
             switch (guestError.ErrorCode)
             {
-                case GuestErrorCode.NO_ERROR:
+                case ErrorCode.NoError:
                     break;
-                case GuestErrorCode.OUTB_ERROR:
+                case ErrorCode.OutbError:
                     {
                         var exception = sandboxMemoryManager.GetHostException();
                         if (exception != null)
@@ -316,7 +317,7 @@ namespace Hyperlight
                         HyperlightException.LogAndThrowException("OutB Error", GetType().Name);
                         break;
                     }
-                case GuestErrorCode.STACK_OVERFLOW:
+                case ErrorCode.StackOverflow:
                     {
                         HyperlightException.LogAndThrowException<StackOverflowException>($"Guest Error", GetType().Name);
                         break;
@@ -694,6 +695,13 @@ namespace Hyperlight
                             var guestLogData = sandboxMemoryManager.ReadGuestLogData();
                             HyperlightLogger.Log(guestLogData.LogLevel, guestLogData.Message, guestLogData.Source, null, guestLogData.Caller, guestLogData.SourceFile, guestLogData.Line);
                             break;
+                        }
+                    case OutBAction.Abort:
+                        {
+                            // TODO we should do something different here , maybe change the function to return a value to indicate that the guest aborted
+                            // throwing an exception here will cause the host to write an outb exception and this results in the guest being invoked again when it should not be
+                            // as an abort signals that the guest should not be used again.
+                            throw new HyperlightException("Guest Aborted");
                         }
                 }
             }

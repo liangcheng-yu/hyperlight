@@ -1,11 +1,19 @@
 
 alias build-rust-debug := build-rust
 set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
-
+bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
+fb-cmake-option:= if os() == "windows" { "Visual Studio 10" } else { "Unix Makefiles" }
 default-target:= "debug"
 
 init:
     git submodule update --init --recursive
+
+install-vcpkg:
+    cd .. && git clone https://github.com/Microsoft/vcpkg.git || cd -
+    cd ../vcpkg && ./bootstrap-vcpkg{{ bin-suffix }} && ./vcpkg integrate install || cd -
+
+install-flatbuffers-with-vcpkg: install-vcpkg
+    cd ../vcpkg && ./vcpkg install flatbuffers || cd -
 
 update-dlmalloc:
     curl -Lv -o src/HyperlightGuest/third_party/dlmalloc/malloc.h https://gee.cs.oswego.edu/pub/misc/malloc.h

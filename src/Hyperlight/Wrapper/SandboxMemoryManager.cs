@@ -2,6 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Text;
 using Hyperlight.Core;
+using Hyperlight.Generated;
 using Newtonsoft.Json;
 
 namespace Hyperlight.Wrapper
@@ -419,6 +420,28 @@ namespace Hyperlight.Wrapper
             HyperlightLogger.LogError($"Exception occurred in outb", GetType().Name, ex);
         }
 
+        internal (ErrorCode ErrorCode, string? Message) GetGuestError()
+        {
+
+            using var resultHdlWrapper = new Handle(
+                this.ctxWrapper,
+                 mem_mgr_get_guest_error(
+                    this.ctxWrapper.ctx,
+                    this.hdlMemManagerWrapper.handle,
+                    this.SandboxMemoryLayoutWrapper.rawHandle,
+                    this.SharedMemoryWrapper.handleWrapper.handle),
+                true
+            );
+
+            if (!resultHdlWrapper.IsGuestError())
+            {
+                throw new HyperlightException("mem_mgr_get_guest_error did not return a GuestError");
+            }
+            var guestError = resultHdlWrapper.GetGuestError();
+            return (guestError.Code, guestError.Message);
+
+        }
+
         /// <summary>
         /// A function for subclasses to implement if they want to implement
         /// any Dispose logic of their own.
@@ -635,6 +658,15 @@ namespace Hyperlight.Wrapper
             NativeHandle sharedMemHdl,
             NativeHandle guestErrorMsgHdl,
             NativeHandle hostExceptionDataHdl
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_get_guest_error(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            NativeHandle layoutHdl,
+            NativeHandle guestMemHdl
         );
 
 #pragma warning restore CA1707 // Remove the underscores from member name

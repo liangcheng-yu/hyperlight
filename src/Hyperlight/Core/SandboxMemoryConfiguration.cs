@@ -17,7 +17,7 @@ namespace Hyperlight.Core
         /// <summary>
         /// defines the maximum size of the guest error message field.
         /// </summary>
-        public ulong GuestErrorMessageSize { get; init; }
+        public ulong GuestErrorBufferSize { get; init; }
 
         /// <summary>
         /// defines the size of the memory buffer that is made available for Guest Function Definitions
@@ -95,7 +95,7 @@ namespace Hyperlight.Core
                 OutputDataSize = this.OutputDataSize,
                 HostFunctionDefinitionSize = this.HostFunctionDefinitionSize,
                 HostExceptionSize = this.HostExceptionSize,
-                GuestErrorMessageSize = this.GuestErrorMessageSize
+                GuestErrorBufferSize = this.GuestErrorBufferSize
             };
         }
 
@@ -107,7 +107,7 @@ namespace Hyperlight.Core
                 OutputDataSize = size,
                 HostFunctionDefinitionSize = this.HostFunctionDefinitionSize,
                 HostExceptionSize = this.HostExceptionSize,
-                GuestErrorMessageSize = this.GuestErrorMessageSize
+                GuestErrorBufferSize = this.GuestErrorBufferSize
             };
         }
 
@@ -119,7 +119,7 @@ namespace Hyperlight.Core
                 OutputDataSize = this.OutputDataSize,
                 HostFunctionDefinitionSize = size,
                 HostExceptionSize = this.HostExceptionSize,
-                GuestErrorMessageSize = this.GuestErrorMessageSize
+                GuestErrorBufferSize = this.GuestErrorBufferSize
             };
         }
 
@@ -131,11 +131,11 @@ namespace Hyperlight.Core
                 OutputDataSize = this.OutputDataSize,
                 HostFunctionDefinitionSize = this.HostFunctionDefinitionSize,
                 HostExceptionSize = size,
-                GuestErrorMessageSize = this.GuestErrorMessageSize
+                GuestErrorBufferSize = this.GuestErrorBufferSize
             };
         }
 
-        public SandboxMemoryConfiguration WithGuestErrorMessageSize(ulong size)
+        public SandboxMemoryConfiguration WithGuestErrorBufferSize(ulong size)
         {
             return new SandboxMemoryConfiguration()
             {
@@ -143,7 +143,7 @@ namespace Hyperlight.Core
                 OutputDataSize = this.OutputDataSize,
                 HostFunctionDefinitionSize = this.HostFunctionDefinitionSize,
                 HostExceptionSize = this.HostExceptionSize,
-                GuestErrorMessageSize = size
+                GuestErrorBufferSize = size
             };
         }
 
@@ -156,7 +156,7 @@ namespace Hyperlight.Core
             ulong outputSize,
             ulong hostFunctionDefinitionSize,
             ulong hostExceptionSize,
-            ulong GuestErrorMessageSize
+            ulong guestErrorBufferSize
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]

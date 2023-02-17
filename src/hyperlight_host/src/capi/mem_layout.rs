@@ -90,7 +90,7 @@ pub unsafe extern "C" fn mem_layout_new(
     validate_context!(ctx);
 
     match std::panic::catch_unwind(|| {
-        let _ = mem_cfg.guest_error_message_size;
+        let _ = mem_cfg.guest_error_buffer_size;
         let _ = mem_cfg.host_function_definition_size;
         let _ = mem_cfg.host_exception_size;
         let _ = mem_cfg.input_data_size;
@@ -144,8 +144,7 @@ macro_rules! mem_layout_get_address_using_field {
 }
 
 mem_layout_get_address_using_field!(code_and_outb_pointer);
-mem_layout_get_address_using_field!(guest_error);
-mem_layout_get_address_using_field!(guest_error_message_buffer);
+mem_layout_get_address_using_field!(guest_error_buffer);
 mem_layout_get_address_using_field!(host_function_definitions);
 mem_layout_get_address_using_field!(input_data_buffer);
 mem_layout_get_address_using_field!(output_data_buffer);
@@ -188,8 +187,8 @@ macro_rules! mem_layout_get_address_using_method {
 
 mem_layout_get_address_using_method!(code_pointer);
 mem_layout_get_address_using_method!(dispatch_function_pointer);
-mem_layout_get_address_using_method!(guest_error_message_size);
-mem_layout_get_address_using_method!(guest_error_message_pointer);
+mem_layout_get_address_using_method!(guest_error_buffer_size);
+mem_layout_get_address_using_method!(guest_error_buffer_pointer);
 mem_layout_get_address_using_method!(heap_size);
 mem_layout_get_address_using_method!(host_exception);
 mem_layout_get_address_using_method!(host_exception_size);

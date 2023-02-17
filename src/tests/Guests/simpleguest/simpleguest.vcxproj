@@ -82,6 +82,7 @@
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <AdditionalLibraryDirectories>$(SolutionDir)$(Platform)\$(Configuration.toLower())\</AdditionalLibraryDirectories>
       <AdditionalOptions>/ignore:4108 %(AdditionalOptions)</AdditionalOptions>
+      <LinkErrorReporting Condition="'$(Configuration)|$(Platform)'=='release|x64'">NoErrorReport</LinkErrorReporting>
     </Link>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>

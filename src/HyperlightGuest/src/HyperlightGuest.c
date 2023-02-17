@@ -5,6 +5,10 @@
 #include "hyperlight_peb.h"
 #include <setjmp.h>
 #include <string.h>
+#include "guest_error_builder.h"
+#include "guest_error_reader.h"
+
+#define ns(x) FLATBUFFERS_WRAP_NAMESPACE(Hyperlight_Generated, x) 
 
 extern int _fltused = 0;
 uintptr_t __security_cookie;
@@ -22,7 +26,7 @@ void RegisterFunction(const char* FunctionName, guestFunc pFunction, int paramCo
         snprintf(message, 100, "Function Table Limit is %d.", funcTable->size);
         setError(TOO_MANY_GUEST_FUNCTIONS, message);
     }
-    FuncEntry* funcEntry = (FuncEntry*)calloc(1,sizeof(FuncEntry));
+    FuncEntry* funcEntry = (FuncEntry*)calloc(1, sizeof(FuncEntry));
     if (NULL == funcEntry)
     {
         setError(MALLOC_FAILED, NULL);
@@ -59,9 +63,20 @@ void InitialiseFunctionTable(int size)
 
 void checkForHostError()
 {
-    if (pPeb->guestError.errorNo != 0)
+    size_t size;
+    void* buffer = flatbuffers_read_size_prefix(pPeb->pGuestErrorBuffer, &size);
+    assert(NULL != buffer);
+    // No need to free buffer as its just a pointer to an offset in the message buffer in the PEB
+    ns(GuestError_table_t guestError = ns(GuestError_as_root(buffer)));
+    if (size > 0)
     {
-        setError(pPeb->guestError.errorNo, pPeb->guestError.message);
+        ns(GuestError_table_t guestError = ns(GuestError_as_root(buffer)));
+        if (ns(GuestError_code(guestError) != ns(ErrorCode_NoError)))
+        {
+            memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
+            *(uint32_t*)pPeb->outputdata.outputDataBuffer = -1;
+            longjmp(jmpbuf, 1);
+        }
     }
 }
 
@@ -90,6 +105,14 @@ void outb(uint16_t port, uint8_t value)
         //setrsi(rsi);
         //setrdi(rdi);
     }
+
+    // TODO: The following code should be uncommented when OUTB_ABORT is handled correctly in the Host.
+
+    // If we are aborting just exit
+    /*if (port != OUTB_ABORT)
+    {
+        longjmp(jmpbuf, 1);  
+    }*/
     checkForHostError();
 }
 
@@ -106,35 +129,52 @@ void halt()
 
 #pragma optimize("", on)
 
+void writeError(uint64_t errorCode, char* message)
+{
+    // Create a flatbuffer builder object
+    flatcc_builder_t builder;
+
+    // Initialize the builder object.
+    flatcc_builder_init(&builder);
+
+    // Validate the error code
+
+    ns(ErrorCode_enum_t) code = ns(ErrorCode_UnknownError);
+
+    if (ns(ErrorCode_is_known_value((ns(ErrorCode_enum_t))errorCode)))
+    {
+        code = ((ns(ErrorCode_enum_t))errorCode);
+    }
+
+    // Create the flatbuffer
+    ns(GuestError_start_as_root_with_size(&builder));
+    ns(GuestError_code_add(&builder, code));
+    if (NULL != message)
+    {
+        ns(GuestError_message_create(&builder, message, strlen(message)));
+    }
+    ns(GuestError_end_as_root(&builder));
+
+    size_t flatb_size = flatcc_builder_get_buffer_size(&builder);
+    assert(flatb_size <= pPeb->guestErrorBufferSize);
+
+    // Write the flatbuffer to the guest error buffer
+
+    assert(flatcc_builder_copy_buffer(&builder, (void*)pPeb->pGuestErrorBuffer, flatb_size));
+}
+
 void resetError()
 {
-    pPeb->guestError.errorNo = 0;
-    *pPeb->guestError.message = '\0';
+    writeError(0, NULL);
 }
 
 // SetError sets the specified error and message in memory and then halts execution by returning the the point that setjmp was called
 
 void setError(uint64_t errorCode, char* message)
 {
-    pPeb->guestError.errorNo = errorCode;
-    size_t length = NULL == message ? 0 : strlen(message);
-    if (length >= pPeb->guestError.messageSize)
-    {
-        length = pPeb->guestError.messageSize - 1;
-    }
-
-    if (NULL == message)
-    {
-        *pPeb->guestError.message = '\0';
-    }
-    else
-    {
-#pragma warning(suppress : 4996)
-        strncpy(pPeb->guestError.message, (char*)message, length);
-    }
+    writeError(errorCode, message);
     memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
     *(uint32_t*)pPeb->outputdata.outputDataBuffer = -1;
-
     longjmp(jmpbuf, 1);
 }
 
@@ -236,8 +276,6 @@ unsigned long long GetHostReturnValueAsULongLong()
 {
     return *((unsigned long long*)pPeb->inputdata.inputDataBuffer);
 }
-
-
 
 int CallGuestFunction(GuestFunctionDetails* guestfunctionDetails)
 {
@@ -368,8 +406,8 @@ void DispatchFunction()
                 {
                 case (string):
                     // Length + 1 as we need to make sure the string is null terminated
-                    size_t length = strlen((char*)guestArgument.argv)+1;
-                    void* ptr = (void *)calloc(1,length);
+                    size_t length = strlen((char*)guestArgument.argv) + 1;
+                    void* ptr = (void*)calloc(1, length);
                     if (NULL == ptr)
                     {
                         setError(MALLOC_FAILED, NULL);
@@ -409,7 +447,7 @@ void DispatchFunction()
 
         int result = CallGuestFunction(guestFunctionDetails);
         memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
-        *( (uint32_t*)(pPeb->outputdata.outputDataBuffer) ) = result;
+        *((uint32_t*)(pPeb->outputdata.outputDataBuffer)) = result;
 
         for (int32_t i = 0; i < guestFunctionDetails->paramc; i++)
         {
@@ -453,7 +491,7 @@ void _putchar(char c)
         ptr[index++] = c;
         return;
     }
-    
+
     ptr[index++] = c;
     ptr[index] = '\0';
 
@@ -485,19 +523,25 @@ char* CheckAndCopyString(const char* source, char* dest)
 
 }
 
-void Log(LogLevel logLevel, const char* message, const char* source, const char* caller, const char* sourceFile, int32_t line)
+void WriteLogData(LogLevel logLevel, const char* message, const char* source, const char* caller, const char* sourceFile, int32_t line)
 {
     memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
     LogData* logData = (LogData*)pPeb->outputdata.outputDataBuffer;
     logData->Message = (char*)pPeb->outputdata.outputDataBuffer + sizeof(LogData);
     logData->Source = CheckAndCopyString(message, logData->Message);
-    logData->Level = logLevel;  
+    logData->Level = logLevel;
     logData->Caller = CheckAndCopyString(source, logData->Source);
     logData->SourceFile = CheckAndCopyString(caller, logData->Caller);
     CheckAndCopyString(sourceFile, logData->SourceFile);
     logData->Line = line;
+}
+
+void Log(LogLevel logLevel, const char* message, const char* source, const char* caller, const char* sourceFile, int32_t line)
+{
+    WriteLogData(logLevel, message, source, caller, sourceFile, line);
     outb(OUTB_LOG, 0);
 }
+
 
 // this is called when /Gs check fails
 
@@ -508,9 +552,41 @@ void report_gsfailure()
 
 // Called by dlmalloc using ABORT
 
+// TODO: Once we update the host to deal with aborts correctly we should update these handlers so that they return a code to explain what caused the abort
+// i.e. they should be updated to call abort_with_code(ERROR_CODE) instead of abort()
+
 void dlmalloc_abort()
 {
-    setError(FAILURE_IN_DLMALLOC, NULL);
+    WriteLogData(CRTICAL, "dlmalloc_abort", "HyperLightGuest", __FUNCTION__, __FILE__, __LINE__);
+    abort();
+}
+
+void __assert_fail(const char* expr, const char* file, int line, const char* func)
+{
+    size_t message_size = 256;
+    char message[256] = { '0' };
+    snprintf(message, message_size, "Assertion failed: %s ", expr);
+    WriteLogData(CRTICAL, message, "HyperLightGuest", func, file, line);
+    abort();
+}
+
+// Called by dlmalloc using ABORT
+
+void dlmalloc_failure()
+{
+    Log(CRTICAL, "dlmalloc_failure", "HyperLightGuest", __FUNCTION__, __FILE__, __LINE__);
+    abort();
+}
+
+
+void abort_with_code(uint32_t code)
+{
+    outb(OUTB_ABORT, code);
+}
+
+void abort()
+{
+    abort_with_code(0);
 }
 
 // this function is called by dlmalloc to allocate heap memory.
@@ -575,7 +651,7 @@ HostFunctionDetails* GetHostFunctionDetails()
 #pragma warning(suppress:6011)
     hostFunctionDetails->CountOfFunctions = functionCount;
 #pragma warning(suppress:6305) 
-    hostFunctionDetails->HostFunctionDefinitions = (HostFunctionDefinition*)(&pPeb->hostFunctionDefinitions.functionDefinitions + sizeof(HostFunctionHeader));
+    hostFunctionDetails->HostFunctionDefinitions = (HostFunctionDefinition*)((char*)pPeb->hostFunctionDefinitions.functionDefinitions + sizeof(HostFunctionHeader));
 
     return hostFunctionDetails;
 }
@@ -589,10 +665,8 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int f
     {
         return -1;
     }
-
     __security_init_cookie();
-    resetError();
-
+  
     // setjmp is used to capture state so that if an error occurs then lngjmp is called in setError and control returns to this point , the if returns false and the program exits/halts
     if (!setjmp(jmpbuf))
     {
@@ -604,6 +678,8 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int f
         pFuncs->header.DispatchFunction = (uint64_t)DispatchFunction;
 
         dlmalloc_set_footprint_limit(pPeb->guestheapData.guestHeapSize);
+
+        resetError();
 
         //TODO: Pass FunctionTablesize in entryPoint.
 

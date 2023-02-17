@@ -61,7 +61,7 @@ namespace Hyperlight.Wrapper
         {
             var len = byte_array_len(this.ctxWrapper.ctx, this.handleWrapper.handle);
             var arr_ptr = byte_array_get_raw(this.ctxWrapper.ctx, this.handleWrapper.handle);
-            
+
             if (arr_ptr == null)
             {
                 // TODO: How do I get the error from the context and throw it?

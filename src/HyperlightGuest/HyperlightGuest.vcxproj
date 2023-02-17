@@ -29,6 +29,11 @@
     <ClInclude Include=".\include\hyperlight_error.h" />
     <ClInclude Include=".\include\hyperlight_guest.h" />
     <ClInclude Include=".\include\hyperlight_peb.h" />
+    <ClInclude Include="include\flatbuffers\generated\flatbuffers_common_builder.h" />
+    <ClInclude Include="include\flatbuffers\generated\flatbuffers_common_reader.h" />
+    <ClInclude Include="include\flatbuffers\generated\guest_error_builder.h" />
+    <ClInclude Include="include\flatbuffers\generated\guest_error_reader.h" />
+    <ClInclude Include="include\flatbuffers\generated\guest_error_verifier.h" />
     <ClInclude Include="include\hyperlight.h" />
   </ItemGroup>
   <ItemGroup>
@@ -41,6 +46,9 @@
       <DisableSpecificWarnings Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">5105;4133;4047;6297;26450;28182;6285;6237;</DisableSpecificWarnings>
     </ClCompile>
     <ClCompile Include=".\third_party\printf\printf.c" />
+    <ClCompile Include="third_party\flatcc\src\runtime\builder.c" />
+    <ClCompile Include="third_party\flatcc\src\runtime\emitter.c" />
+    <ClCompile Include="third_party\flatcc\src\runtime\refmap.c" />
     <ClCompile Include="third_party\libc\musl\src\ctype\isalnum.c" />
     <ClCompile Include="third_party\libc\musl\src\ctype\isalpha.c" />
     <ClCompile Include="third_party\libc\musl\src\ctype\isdigit.c" />
@@ -107,6 +115,8 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='debug|x64'" />
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='release|x64'" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
     <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.props" />
@@ -140,17 +150,16 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)third_party\libc\musl\src\include;$(ProjectDir)third_party\libc\musl\include;$(ProjectDir)third_party\libc\musl\src\internal;$(ProjectDir)third_party\libc\musl\arch\generic;$(ProjectDir)third_party\libc\musl\arch\x86_64;$(ProjectDir)third_party\dlmalloc;$(ProjectDir)\include;$(ProjectDir)third_party\printf
-      </AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\libc\musl\src\include;$(ProjectDir)third_party\libc\musl\include;$(ProjectDir)third_party\libc\musl\src\internal;$(ProjectDir)third_party\libc\musl\arch\generic;$(ProjectDir)third_party\libc\musl\arch\x86_64;$(ProjectDir)third_party\dlmalloc;$(ProjectDir)\include;$(ProjectDir)third_party\flatcc\include;$(ProjectDir)third_party\printf;$(ProjectDir)\include\flatbuffers\generated</AdditionalIncludeDirectories>
       <WarningLevel>Level3</WarningLevel>
-      <SDLCheck>true</SDLCheck>
+      <SDLCheck>false</SDLCheck>
       <ConformanceMode>Default</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <IntrinsicFunctions>false</IntrinsicFunctions>
       <ShowIncludes>true</ShowIncludes>
-      <PreprocessorDefinitions>HAVE_MMAP=0;HAVE_MORECORE=1;MORECORE=hyperlightMoreCore;MORECORE_CANNOT_TRIM=1;MORECORE_CONTIGUOUS=1;USE_DL_PREFIX;NO_MALLOC_STATS;ABORT=dlmalloc_abort();HYPERLIGHT;HYPERLIGHT_PAGESIZE=4096;HYPERLIGHT_GRANULARITYSIZE=65536;__x86_64__;LACKS_SYS_TYPES_H;LACKS_UNISTD_H;__DEFINED_va_list;__DEFINED___isoc_va_list;hidden=;MMAP_CLEARS=0;__FLT_EVAL_METHOD__=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>HAVE_MMAP=0;HAVE_MORECORE=1;MORECORE=hyperlightMoreCore;MORECORE_CANNOT_TRIM=1;MORECORE_CONTIGUOUS=1;USE_DL_PREFIX;NO_MALLOC_STATS;ABORT=dlmalloc_abort();HYPERLIGHT;HYPERLIGHT_PAGESIZE=4096;HYPERLIGHT_GRANULARITYSIZE=65536;__x86_64__;LACKS_SYS_TYPES_H;LACKS_UNISTD_H;__DEFINED_va_list;__DEFINED___isoc_va_list;hidden=;MMAP_CLEARS=0;__FLT_EVAL_METHOD__=1;__LITTLE_ENDIAN__;calloc=dlcalloc;free=dlfree;malloc=dlmalloc;realloc=dlrealloc;FLATCC_USE_GENERIC_ALIGNED_ALLOC=0;MALLOC_FAILURE_ACTION=dlmalloc_failure();%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UseStandardPreprocessor>
       </UseStandardPreprocessor>
       <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='debug|x64'">ProgramDatabase</DebugInformationFormat>
@@ -166,17 +175,16 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)third_party\libc\musl\src\include;$(ProjectDir)third_party\libc\musl\include;$(ProjectDir)third_party\libc\musl\src\internal;$(ProjectDir)third_party\libc\musl\arch\generic;$(ProjectDir)third_party\libc\musl\arch\x86_64;$(ProjectDir)third_party\dlmalloc;$(ProjectDir)\include;$(ProjectDir)third_party\printf
-      </AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\libc\musl\src\include;$(ProjectDir)third_party\libc\musl\include;$(ProjectDir)third_party\libc\musl\src\internal;$(ProjectDir)third_party\libc\musl\arch\generic;$(ProjectDir)third_party\libc\musl\arch\x86_64;$(ProjectDir)third_party\dlmalloc;$(ProjectDir)\include;$(ProjectDir)third_party\flatcc\include;$(ProjectDir)third_party\printf;$(ProjectDir)\include\flatbuffers\generated</AdditionalIncludeDirectories>
       <WarningLevel>Level3</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
-      <SDLCheck>true</SDLCheck>
+      <SDLCheck>false</SDLCheck>
       <ConformanceMode>Default</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <IntrinsicFunctions>
       </IntrinsicFunctions>
-      <PreprocessorDefinitions>HAVE_MMAP=0;HAVE_MORECORE=1;MORECORE=hyperlightMoreCore;MORECORE_CANNOT_TRIM=1;MORECORE_CONTIGUOUS=1;USE_DL_PREFIX;NO_MALLOC_STATS;ABORT=dlmalloc_abort();HYPERLIGHT;HYPERLIGHT_PAGESIZE=4096;HYPERLIGHT_GRANULARITYSIZE=65536;__x86_64__;LACKS_SYS_TYPES_H;LACKS_UNISTD_H;__DEFINED_va_list;__DEFINED___isoc_va_list;hidden=;MMAP_CLEARS=0;__FLT_EVAL_METHOD__=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>HAVE_MMAP=0;HAVE_MORECORE=1;MORECORE=hyperlightMoreCore;MORECORE_CANNOT_TRIM=1;MORECORE_CONTIGUOUS=1;USE_DL_PREFIX;NO_MALLOC_STATS;ABORT=dlmalloc_abort();HYPERLIGHT;HYPERLIGHT_PAGESIZE=4096;HYPERLIGHT_GRANULARITYSIZE=65536;__x86_64__;LACKS_SYS_TYPES_H;LACKS_UNISTD_H;__DEFINED_va_list;__DEFINED___isoc_va_list;hidden=;MMAP_CLEARS=0;__FLT_EVAL_METHOD__=1;__LITTLE_ENDIAN__;calloc=dlcalloc;free=dlfree;malloc=dlmalloc;realloc=dlrealloc;FLATCC_USE_GENERIC_ALIGNED_ALLOC=0;MALLOC_FAILURE_ACTION=dlmalloc_failure();%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UseStandardPreprocessor>
       </UseStandardPreprocessor>
       <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='release|x64'">

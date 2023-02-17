@@ -44,6 +44,12 @@
     <Filter Include="Source Files\third_party\libc\errno">
       <UniqueIdentifier>{b8257a7f-f943-41f8-bc0c-87ed5ab5b4fc}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\third_party\flatcc">
+      <UniqueIdentifier>{a353cf2b-28fd-4baf-a4e1-e515f10ddf20}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\flatbuffers">
+      <UniqueIdentifier>{d59dea4b-8900-4b83-bd8d-10a5b437ffe1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include=".\include\hyperlight_error.h">
@@ -57,6 +63,21 @@
     </ClInclude>
     <ClInclude Include="include\hyperlight.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\flatbuffers\generated\flatbuffers_common_builder.h">
+      <Filter>Header Files\flatbuffers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\flatbuffers\generated\flatbuffers_common_reader.h">
+      <Filter>Header Files\flatbuffers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\flatbuffers\generated\guest_error_builder.h">
+      <Filter>Header Files\flatbuffers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\flatbuffers\generated\guest_error_reader.h">
+      <Filter>Header Files\flatbuffers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\flatbuffers\generated\guest_error_verifier.h">
+      <Filter>Header Files\flatbuffers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -200,6 +221,15 @@
     </ClCompile>
     <ClCompile Include="third_party\libc\musl\src\ctype\isdigit.c">
       <Filter>Source Files\third_party\libc\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\flatcc\src\runtime\builder.c">
+      <Filter>Source Files\third_party\flatcc</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\flatcc\src\runtime\emitter.c">
+      <Filter>Source Files\third_party\flatcc</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\flatcc\src\runtime\refmap.c">
+      <Filter>Source Files\third_party\flatcc</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

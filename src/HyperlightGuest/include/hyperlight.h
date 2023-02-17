@@ -133,7 +133,7 @@ typedef struct
 
 } HostFunctionDetails;
 
-typedef enum
+typedef enum LogLevel
 {
     TRACE = 0,
     DEBUG = 1,

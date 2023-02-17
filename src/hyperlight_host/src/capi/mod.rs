@@ -24,6 +24,8 @@ pub mod context;
 pub mod err;
 ///! C-compatible APIs to manipulate paths to files.
 pub mod filepath;
+///! C-compatible API functions to manage guest errors.
+pub mod guest_error;
 ///! C-compatible API functions to manage `Handle` structures,
 ///! which are specialized pointers purpose-built for the Hyperlight
 ///! C API.

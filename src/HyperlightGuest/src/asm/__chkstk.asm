@@ -27,12 +27,12 @@ __chkstk PROC
     lea         r10,[rsp+18h]                       ; get the current stack address
     sub         r10,rax                             ; calculate the new stack address
     mov         r11,qword ptr [pPeb]                ; get the minimum allowed stack address 
-    mov         r11,qword ptr [r11+78h] 
+    mov         r11,qword ptr [r11+70h]             ; Make sure to update this address if the PEB structure changes
     cmp         r10,r11                             ; check if this allocation would exceed top of stack.
     jae         csret
     xor         edx,edx                             ; if the allocation would call stack overflow set the parameters for set error and call it
     mov         ecx,9                               ; guest error code 9 is stack overflow see hyperlight_error.h
-    call        setError
+    call        setError                            ; TODO add some context to the message
 call_chk_inproc:
     call        __chkstk_in_proc 
 csret:

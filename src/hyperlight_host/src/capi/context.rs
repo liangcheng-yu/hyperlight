@@ -4,6 +4,7 @@ use crate::capi::mem_access_handler::MemAccessHandlerWrapper;
 use crate::capi::outb_handler::OutbHandlerWrapper;
 use crate::func::args::Val;
 use crate::func::def::HostFunc;
+use crate::guest::guest_error::GuestError;
 #[cfg(target_os = "linux")]
 use crate::hypervisor::hyperv_linux::HypervLinuxDriver;
 #[cfg(target_os = "linux")]
@@ -100,6 +101,8 @@ pub struct Context {
     pub outb_handler_funcs: HashMap<Key, OutbHandlerWrapper>,
     /// The memory access handler functions stored in this context
     pub mem_access_handler_funcs: HashMap<Key, MemAccessHandlerWrapper>,
+    /// All the `GuestMemory`s stored in this context
+    pub guest_errors: HashMap<Key, GuestError>,
 }
 
 impl Context {
@@ -229,6 +232,7 @@ impl Context {
                     Hdl::MemAccessHandlerFunc(key) => {
                         self.mem_access_handler_funcs.remove(&key).is_some()
                     }
+                    Hdl::GuestError(key) => self.guest_errors.remove(&key).is_some(),
                 }
             }
             Err(_) => false,

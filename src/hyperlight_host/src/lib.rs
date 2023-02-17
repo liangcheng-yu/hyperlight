@@ -91,3 +91,9 @@ pub mod mem;
 ///! The main sandbox implementation.
 #[deny(dead_code, missing_docs, unused_mut)]
 pub mod sandbox;
+
+///! Types used to pass data to/from the guest.
+#[deny(dead_code, missing_docs, unused_mut)]
+pub mod guest;
+
+pub mod flatbuffers;

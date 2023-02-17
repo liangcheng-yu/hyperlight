@@ -91,3 +91,37 @@ To update the subtree to a new version, run the following:
 git fetch musllibc
 git subtree pull --prefix src/HyperlightGuest/third_party/libc/musl musllibc VERSION --squash
 ```
+
+## flatcc
+
+flatcc is used for both C code generation from flatbuffers schemas and runtime reading and building of buffers. The current version is [v0.6.1](https://github.com/dvidelabs/flatcc/releases/tag/v0.6.1).
+
+The code is included as a git sub tree[here](./flatcc), you can initialise and update it as follows:
+
+```console
+ git remote add -f flatcc https://github.com/dvidelabs/flatcc.git
+ ```
+
+ ```console
+  git subtree add --prefix src/HyperlightGuest/third_party/flatcc flatcc v0.6.1 --squash
+ ```
+
+ We only need a few files from flatcc for compilaton so most of the files can be deleted
+
+ ```console
+rm -r .\src\HyperlightGuest\third_party\flatcc\config 
+rm -r .\src\HyperlightGuest\third_party\flatcc\doc   
+rm -r .\src\HyperlightGuest\third_party\flatcc\external
+rm -r .\src\HyperlightGuest\third_party\flatcc\reflection
+rm -r .\src\HyperlightGuest\third_party\flatcc\samples
+rm -r .\src\HyperlightGuest\third_party\flatcc\scripts
+rm -r .\src\HyperlightGuest\third_party\flatcc\test 
+rm -r .\src\HyperlightGuest\third_party\flatcc\src\cli
+rm -r .\src\HyperlightGuest\third_party\flatcc\src\compiler
+rm -r .\src\HyperlightGuest\third_party\flatcc\.travis.yml
+rm -r .\src\HyperlightGuest\third_party\flatcc\appveyor.yml
+rm -r .\src\HyperlightGuest\third_party\flatcc\CMakeLists.txt
+rm -r .\src\HyperlightGuest\third_party\flatcc\src\runtime\CMakeLists.txt
+rm -r .\src\HyperlightGuest\third_party\flatcc\include\flatcc\support
+rm -r .\src\HyperlightGuest\third_party\flatcc\include\flatcc\reflection
+ ```

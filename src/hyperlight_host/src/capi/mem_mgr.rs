@@ -661,7 +661,6 @@ pub unsafe extern "C" fn mem_mgr_get_host_exception_data(
 ///
 /// `ctx` must be created by `context_new`, owned by the caller, and
 /// not yet freed by `context_free`.
-/// `exception_data_ptr` must be a valid pointer to a buffer of size `exception_data_len`, this buffer is owned and managed by the client.
 #[no_mangle]
 pub unsafe extern "C" fn mem_mgr_write_outb_exception(
     ctx: *mut Context,
@@ -695,6 +694,41 @@ pub unsafe extern "C" fn mem_mgr_write_outb_exception(
 
     match mgr.write_outb_exception(&layout, guest_mem, guest_error_msg, host_exception_data) {
         Ok(_) => Handle::from(Hdl::Empty()),
+        Err(e) => (*ctx).register_err(e),
+    }
+}
+
+/// Use `SandboxMemoryManager` in `ctx` referenced by `mgr_hdl` to get guest error details from shared memory.
+///
+///
+/// Returns an Empty `Handle` to a `GuestError` or a `Handle` referencing an error.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_guest_error(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+    layout_hdl: Handle,
+    guest_mem_hdl: Handle,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let guest_mem = match get_shared_memory_mut(&mut *ctx, guest_mem_hdl) {
+        Ok(g) => g,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let layout = match get_mem_layout(&*ctx, layout_hdl) {
+        Ok(l) => l,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    match mgr.get_guest_error(&layout, guest_mem) {
+        Ok(output) => Context::register(output, &mut (*ctx).guest_errors, Hdl::GuestError),
         Err(e) => (*ctx).register_err(e),
     }
 }

@@ -74,6 +74,8 @@ pub enum Hdl {
     OutbHandlerFunc(Key),
     /// A reference to a memory access handler function
     MemAccessHandlerFunc(Key),
+    /// A reference to a `GuestError`.
+    GuestError(Key),
 }
 
 impl Hdl {
@@ -113,6 +115,7 @@ impl Hdl {
     const MEM_MGR_TYPE_ID: TypeID = 124;
     const UINT_64_TYPE_ID: TypeID = 125;
     const BOOLEAN_TYPE_ID: TypeID = 126;
+    const GUEST_ERROR_TYPE_ID: TypeID = 127;
 
     /// Get the `TypeID` associated with `self`.
     ///
@@ -155,6 +158,7 @@ impl Hdl {
             Hdl::HypervLinuxDriver(_) => Self::HYPER_V_LINUX_DRIVER_TYPE_ID,
             Hdl::OutbHandlerFunc(_) => Self::OUTB_HANDLER_FUNC_TYPE_ID,
             Hdl::MemAccessHandlerFunc(_) => Self::MEM_ACCESS_HANDLER_FUNC_TYPE_ID,
+            Hdl::GuestError(_) => Self::GUEST_ERROR_TYPE_ID,
         }
     }
 
@@ -200,6 +204,7 @@ impl Hdl {
             Hdl::HypervLinuxDriver(key) => *key,
             Hdl::OutbHandlerFunc(key) => *key,
             Hdl::MemAccessHandlerFunc(key) => *key,
+            Hdl::GuestError(key) => *key,
         }
     }
 }
@@ -243,6 +248,7 @@ impl std::fmt::Display for Hdl {
             Hdl::HypervLinuxDriver(key) => write!(f, "HypervLinuxDriver({})", key),
             Hdl::OutbHandlerFunc(key) => write!(f, "OutbHandlerFunc({})", key),
             Hdl::MemAccessHandlerFunc(key) => write!(f, "MemAccessHandlerFunc({})", key),
+            Hdl::GuestError(key) => write!(f, "GuestErrorHandlerFunc({})", key),
         }
     }
 }
@@ -291,6 +297,7 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::HYPER_V_LINUX_DRIVER_TYPE_ID => Ok(Hdl::HypervLinuxDriver(key)),
             Self::OUTB_HANDLER_FUNC_TYPE_ID => Ok(Hdl::OutbHandlerFunc(key)),
             Self::MEM_ACCESS_HANDLER_FUNC_TYPE_ID => Ok(Hdl::MemAccessHandlerFunc(key)),
+            Self::GUEST_ERROR_TYPE_ID => Ok(Hdl::GuestError(key)),
             _ => bail!("invalid handle type {}", hdl.type_id()),
         }
     }

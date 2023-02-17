@@ -31,8 +31,5 @@ namespace Hyperlight.Wrapper
         private static extern bool handle_get_boolean(NativeContext ctx, NativeHandle hdl);
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
 #pragma warning restore CA1707
-
-
-
     }
 }

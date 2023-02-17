@@ -5,10 +5,10 @@ use super::ptr_offset::Offset;
 use super::shared_mem_snapshot::SharedMemorySnapshot;
 use super::{config::SandboxMemoryConfiguration, ptr_addr_space::HostAddressSpace};
 use super::{ptr_addr_space::GuestAddressSpace, shared_mem::SharedMemory};
+use crate::guest::guest_error::{Code, GuestError};
 use anyhow::{anyhow, bail, Result};
 use core::mem::size_of;
 use std::cmp::Ordering;
-
 /// Whether or not the 64-bit page directory entry (PDE) record is
 /// present.
 ///
@@ -331,24 +331,9 @@ impl SandboxMemoryManager {
         guest_error_msg: &Vec<u8>,
         host_exception_data: &Vec<u8>,
     ) -> Result<()> {
-        const OUTB_ERROR: u64 = 7;
-        let err_code_offset = Offset::try_from(layout.guest_error_offset)?;
-
-        // write the error code to memory
-        guest_mem.write_u64(err_code_offset, OUTB_ERROR)?;
-
-        let err_code_size_offset = Offset::try_from(layout.get_guest_error_message_size_offset())?;
-        let max_err_msg_size = guest_mem.read_u64(err_code_size_offset)?;
-        if guest_error_msg.len() as u64 > max_err_msg_size {
-            bail!(
-                "Guest error message is too large. Max size is {} Got {}",
-                max_err_msg_size,
-                guest_error_msg.len()
-            );
-        }
-
-        let err_msg_offset = Offset::try_from(layout.guest_error_message_buffer_offset)?;
-        guest_mem.copy_from_slice(guest_error_msg, err_msg_offset)?;
+        let message = String::from_utf8(guest_error_msg.to_owned()).map_err(|e| anyhow!(e))?;
+        let ge = GuestError::new(Code::OutbError, message);
+        ge.write_to_memory(guest_mem, layout)?;
 
         let host_exception_offset = Offset::try_from(layout.get_host_exception_offset())?;
         let host_exception_size_offset = Offset::try_from(layout.get_host_exception_size_offset())?;
@@ -371,5 +356,14 @@ impl SandboxMemoryManager {
         )?;
 
         Ok(())
+    }
+
+    /// Get the guest error data
+    pub fn get_guest_error(
+        &self,
+        layout: &SandboxMemoryLayout,
+        guest_mem: &SharedMemory,
+    ) -> Result<GuestError> {
+        GuestError::try_from((guest_mem, layout))
     }
 }

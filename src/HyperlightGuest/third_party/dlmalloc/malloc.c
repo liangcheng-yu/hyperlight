@@ -26,6 +26,7 @@ extern void* hyperlightMoreCore(size_t);
 extern void dlmalloc_abort();
 extern long  GetHyperLightTickCount();
 extern unsigned int GetOSPageSize();
+extern void dlmalloc_failure();
 #endif /* HYPERLIGHT */
 
 /*

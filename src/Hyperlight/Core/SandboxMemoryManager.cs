@@ -101,35 +101,6 @@ namespace Hyperlight.Core
             return new HyperlightPEB(sandboxMemoryLayout.GetFunctionDefinitionAddress(SourceAddress), (int)this.sandboxMemoryConfiguration.HostFunctionDefinitionSize, offset);
         }
 
-        internal (GuestErrorCode ErrorCode, string? Message) GetGuestError()
-        {
-            var guestErrorOffset = sandboxMemoryLayout!.guestErrorOffset;
-            var error = this.sharedMemoryWrapper!.ReadInt64(
-                (UIntPtr)guestErrorOffset
-            );
-            var guestErrorCode = error switch
-            {
-                var e when Enum.IsDefined(typeof(GuestErrorCode), e) => (GuestErrorCode)error,
-                _ => GuestErrorCode.UNKNOWN_ERROR,
-            };
-
-            if (guestErrorCode == GuestErrorCode.NO_ERROR)
-            {
-                return (GuestErrorCode.NO_ERROR, null);
-            }
-
-            var guestErrorMessagePointerAddress = sandboxMemoryLayout.GetGuestErrorMessagePointerAddress(SourceAddress);
-            var guestErrorMessageAddress = GetHostAddressFromPointer(Marshal.ReadInt64(guestErrorMessagePointerAddress));
-            var errorMessage = Marshal.PtrToStringAnsi(guestErrorMessageAddress);
-
-            if (guestErrorCode == GuestErrorCode.UNKNOWN_ERROR)
-            {
-                errorMessage += $":Error Code:{error}";
-            }
-
-            return (guestErrorCode, errorMessage);
-        }
-
         internal void WriteGuestFunctionCallDetails(string functionName, object[] args)
         {
             // The number of parameters to a guest function is fixed as serialisation of an array to memory

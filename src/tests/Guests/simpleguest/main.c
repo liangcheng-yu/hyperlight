@@ -156,7 +156,7 @@ int bufferOverrun(const char* str)
     return (int) (17 - length);
 }
 
-// If the following two fucntions are compiled with /O2 then they get optimised away and the tests fail.s
+// If the following two functions are compiled with /O2 then they get optimised away and the tests fail.s
 #pragma optimize("",off)
 #pragma warning(suppress:6262)
 int stackOverflow(int i)
@@ -168,7 +168,6 @@ int stackOverflow(int i)
     }
     return i;
 }
-
 
 #pragma warning(suppress:6262)
 int largeVar()

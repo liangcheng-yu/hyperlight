@@ -22,7 +22,7 @@ namespace Hyperlight.Wrapper
             long base_addr
         )
         {
-            return fn(this.ctxWrapper.ctx, this.handleWrapper.handle, base_addr);
+            return fn(this.ctxWrapper.ctx, this.HandleWrapper.handle, base_addr);
         }
 
         private long addrToOffset(
@@ -35,7 +35,7 @@ namespace Hyperlight.Wrapper
         // TODO: Remove this when port to rust is done and the test is no longer needed.
         long stackSize => (long)mem_layout_get_stack_size(
             this.ctxWrapper.ctx,
-            this.handleWrapper.handle
+            this.HandleWrapper.handle
         );
 #pragma warning restore IDE0051 // Member is Unused
 
@@ -81,7 +81,7 @@ namespace Hyperlight.Wrapper
 
         public long PEBAddress => mem_layout_get_peb_address(
             this.ctxWrapper.ctx,
-            this.handleWrapper.handle
+            this.HandleWrapper.handle
         );
 
         public long guestErrorAddressOffset => this.addrToOffset(
@@ -90,19 +90,19 @@ namespace Hyperlight.Wrapper
 
 #pragma warning disable IDE0051 // Member is Unused - this is only used by tests
         // TODO: Remove this when port to rust is done and the test is no longer needed.
-        private IntPtr GetGuestErrorMessageSizeAddress(IntPtr address)
+        private IntPtr GetGuestErrorBufferSizeAddress(IntPtr address)
         {
             return new IntPtr(this.callAddrFn(
-                mem_layout_get_guest_error_message_size_address,
+                mem_layout_get_guest_error_buffer_size_address,
                 address.ToInt64()
             ));
         }
 #pragma warning restore IDE0051 // Member is Unused
 
-        public IntPtr GetGuestErrorMessagePointerAddress(IntPtr address)
+        public IntPtr GetGuestErrorBufferPointerAddress(IntPtr address)
         {
             return new IntPtr(this.callAddrFn(
-                mem_layout_get_guest_error_message_pointer_address,
+                mem_layout_get_guest_error_buffer_pointer_address,
                 address.ToInt64()
             ));
         }
@@ -201,8 +201,8 @@ namespace Hyperlight.Wrapper
         }
 
         readonly Wrapper.Context ctxWrapper;
-        readonly Wrapper.Handle handleWrapper;
-        public NativeHandle rawHandle => handleWrapper.handle;
+        public readonly Wrapper.Handle HandleWrapper;
+        public NativeHandle rawHandle => HandleWrapper.handle;
 
         private bool disposed;
         internal SandboxMemoryLayout(
@@ -221,8 +221,8 @@ namespace Hyperlight.Wrapper
                 stackSize,
                 heapSize
             );
-            this.handleWrapper = new Wrapper.Handle(ctxWrapper, rawHandle);
-            NativeHandleWrapperErrorExtensions.ThrowIfError(this.handleWrapper);
+            this.HandleWrapper = new Wrapper.Handle(ctxWrapper, rawHandle);
+            NativeHandleWrapperErrorExtensions.ThrowIfError(this.HandleWrapper);
             var memSize = mem_layout_get_memory_size(
                 ctxWrapper.ctx,
                 rawHandle
@@ -237,7 +237,7 @@ namespace Hyperlight.Wrapper
         {
             return mem_layout_get_memory_size(
                 this.ctxWrapper.ctx,
-                this.handleWrapper.handle
+                this.HandleWrapper.handle
             );
 
         }
@@ -250,7 +250,7 @@ namespace Hyperlight.Wrapper
         {
             var hdlRes = mem_layout_write_memory_layout(
                 this.ctxWrapper.ctx,
-                this.handleWrapper.handle,
+                this.HandleWrapper.handle,
                 sharedMemoryWrapper.handleWrapper.handle,
                 (ulong)guestAddress.ToInt64(),
                 size
@@ -271,7 +271,7 @@ namespace Hyperlight.Wrapper
             {
                 if (disposing)
                 {
-                    this.handleWrapper.Dispose();
+                    this.HandleWrapper.Dispose();
                 }
                 this.disposed = true;
             }
@@ -368,14 +368,14 @@ namespace Hyperlight.Wrapper
         );
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern long mem_layout_get_guest_error_message_size_address(
+        private static extern long mem_layout_get_guest_error_buffer_size_address(
             NativeContext ctx,
             NativeHandle mem_layout_handle,
             long base_addr
         );
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern long mem_layout_get_guest_error_message_pointer_address(
+        private static extern long mem_layout_get_guest_error_buffer_pointer_address(
             NativeContext ctx,
             NativeHandle mem_layout_handle,
             long address

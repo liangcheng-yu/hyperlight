@@ -40,9 +40,10 @@ struct HostExceptionData {
 
 #[repr(C)]
 struct GuestError {
-    guest_error_code: u64,
-    max_message_size: u64,
-    message: usize,
+    // This is a pointer to a buffer that contains the details of any guest error that occurred.
+    guest_error_buffer: u64,
+    // This is the size of the buffer that contains the details of any guest error that occurred.
+    guest_error_buffer_size: u64,
 }
 
 #[repr(C)]
@@ -79,7 +80,7 @@ struct GuestStack {
 // Host Function definitions - length sandboxMemoryConfiguration.HostFunctionDefinitionSize
 // Host Exception Details - length sandboxMemoryConfiguration.HostExceptionSize , this contains details of any Host Exception that occurred in outb function
 // it contains a 32 bit length following by a json serialisation of any error that occurred.
-// Guest Error Details - length sandboxMemoryConfiguration.GuestErrorMessageSize this contains an error message string for any guest error that occurred.
+// Guest Error Buffer - length sandboxMemoryConfiguration.GuestErrorBufferSize this contains the details of any guest error that occurre, it is serialised and deserialised using flatbuffers.
 // Input Data Buffer - length sandboxMemoryConfiguration.InputDataSize this is a buffer that is used for input data to the host program
 // Output Data Buffer - length sandboxMemoryConfiguration.OutputDataSize this is a buffer that is used for output data from host program
 // Guest Heap - length heapSize this is a memory buffer provided to the guest to be used as heap memory.
@@ -99,8 +100,8 @@ struct GuestStack {
 /// serialisation of any error that occurred. the length of this field is
 /// `HostExceptionSize` from` `SandboxMemoryConfiguration`
 ///
-/// - `GuestError` - contains an error message string for any guest error that occurred.
-/// the length of this field is `GuestErrorMessageSize` from `SandboxMemoryConfiguration`
+/// - `GuestError` - contains an buffer for any guest error that occurred.
+/// the length of this field is `GuestErrorBufferSize` from `SandboxMemoryConfiguration`
 ///
 /// - `InputData` -  this is a buffer that is used for input data to the host program.
 /// the length of this field is `InputDataSize` from `SandboxMemoryConfiguration`
@@ -132,8 +133,10 @@ pub struct SandboxMemoryLayout {
     pub host_functions_offset: usize,
     /// The offset to the start of host exceptions within this sandbox.
     pub host_exception_offset: usize,
-    /// The offset to the start of guest errors within this sandbox.
-    pub guest_error_offset: usize,
+    /// The offset to the pointer to the guest error buffer within this sandbox.
+    pub guest_error_buffer_pointer_offset: usize,
+    /// The offset to the size of the guest error buffer within this sandbox.
+    pub guest_error_buffer_size_offset: usize,
     /// The offset to the start of both code and the outb function
     /// pointers within this sandbox.
     pub code_and_outb_pointer_offset: usize,
@@ -154,7 +157,7 @@ pub struct SandboxMemoryLayout {
     /// this sandbox.
     pub host_exception_buffer_offset: usize,
     /// The offset to the start of guest errors inside this sandbox.
-    pub guest_error_message_buffer_offset: usize,
+    pub guest_error_buffer_offset: usize,
     /// The offset to the start of the input data buffer inside this
     /// sandbox.
     pub input_data_buffer_offset: usize,
@@ -216,8 +219,11 @@ impl SandboxMemoryLayout {
         let host_functions_offset =
             guest_security_cookie_seed_offset + size_of::<GuestSecurityCookie>();
         let host_exception_offset = host_functions_offset + size_of::<HostFunctions>();
-        let guest_error_message_offset = host_exception_offset + size_of::<HostExceptionData>();
-        let code_and_outb_pointer_offset = guest_error_message_offset + size_of::<GuestError>();
+        let guest_error_buffer_pointer_offset =
+            host_exception_offset + size_of::<HostExceptionData>();
+        let guest_error_buffer_size_offset = guest_error_buffer_pointer_offset + size_of::<u64>();
+        let code_and_outb_pointer_offset =
+            guest_error_buffer_pointer_offset + size_of::<GuestError>();
         let input_data_offset = code_and_outb_pointer_offset + size_of::<CodeAndOutBPointers>();
         let output_data_offset = input_data_offset + size_of::<InputData>();
         let heap_data_offset = output_data_offset + size_of::<OutputData>();
@@ -226,10 +232,8 @@ impl SandboxMemoryLayout {
         let host_function_definitions_offset = stack_data_offset + size_of::<GuestStack>();
         let host_exception_buffer_offset =
             host_function_definitions_offset + cfg.host_function_definition_size;
-        let guest_error_message_buffer_offset =
-            host_exception_buffer_offset + cfg.host_exception_size;
-        let input_data_buffer_offset =
-            guest_error_message_buffer_offset + cfg.guest_error_message_size;
+        let guest_error_buffer_offset = host_exception_buffer_offset + cfg.host_exception_size;
+        let input_data_buffer_offset = guest_error_buffer_offset + cfg.guest_error_buffer_size;
         let output_data_buffer_offset = input_data_buffer_offset + cfg.input_data_size;
         let guest_heap_buffer_offset = output_data_buffer_offset + cfg.output_data_size;
         let guest_stack_buffer_offset = guest_heap_buffer_offset + heap_size;
@@ -239,7 +243,8 @@ impl SandboxMemoryLayout {
             heap_size,
             host_functions_offset,
             host_exception_offset,
-            guest_error_offset: guest_error_message_offset,
+            guest_error_buffer_pointer_offset,
+            guest_error_buffer_size_offset,
             code_and_outb_pointer_offset,
             input_data_offset,
             output_data_offset,
@@ -249,7 +254,7 @@ impl SandboxMemoryLayout {
             code_size,
             host_function_definitions_offset,
             host_exception_buffer_offset,
-            guest_error_message_buffer_offset,
+            guest_error_buffer_offset,
             input_data_buffer_offset,
             output_data_buffer_offset,
             guest_heap_buffer_offset,
@@ -266,21 +271,20 @@ impl SandboxMemoryLayout {
         self.host_exception_offset
     }
 
-    /// Get the offset in guest memory to the max size field in the
-    /// `GuestError` structure.
-    pub fn get_guest_error_message_size_offset(&self) -> usize {
-        // This is the field after the `guest_error_code` field,
-        // which is a `u64`
-        self.guest_error_offset + size_of::<u64>()
+    /// Get the 'SandboxMemoryConfiguration' for this `SandboxMemoryLayout`.
+    pub fn get_sandbox_memory_config(&self) -> &SandboxMemoryConfiguration {
+        &self.sandbox_memory_config
     }
 
-    /// Get the offset in guest memory to the error message pointer in the
-    /// `GuestError` structure.
-    pub fn get_guest_error_message_pointer_offset(&self) -> usize {
-        // This offset is after the message size, which is a `u64`.
-        self.get_guest_error_message_size_offset() + size_of::<u64>()
+    /// Get the offset in guest memory to the max size of the guest error buffer
+    pub fn get_guest_error_buffer_size_offset(&self) -> usize {
+        self.guest_error_buffer_size_offset
     }
 
+    /// Get the offset in guest memory to the error message buffer pointer
+    pub fn get_guest_error_buffer_pointer_offset(&self) -> usize {
+        self.guest_error_buffer_pointer_offset
+    }
     /// Get the offset in guest memory to the output data size
     pub fn get_output_data_size_offset(&self) -> usize {
         // The size field is the first field in the `OutputData` struct
@@ -393,7 +397,7 @@ impl SandboxMemoryLayout {
             + self.sandbox_memory_config.input_data_size
             + self.sandbox_memory_config.output_data_size
             + self.sandbox_memory_config.host_exception_size
-            + self.sandbox_memory_config.guest_error_message_size
+            + self.sandbox_memory_config.guest_error_buffer_size
             + size_of::<HostFunctions>()
             + size_of::<HostExceptionData>()
             + size_of::<GuestError>()
@@ -462,16 +466,16 @@ impl SandboxMemoryLayout {
             ));
         }
 
-        // Set up Guest Error Header
+        // Set up Guest Error Fields
         shared_mem.write_u64(
-            Offset::try_from(self.get_guest_error_message_size_offset())?,
-            self.sandbox_memory_config.guest_error_message_size as u64,
+            Offset::try_from(self.get_guest_error_buffer_size_offset())?,
+            self.sandbox_memory_config.guest_error_buffer_size as u64,
         )?;
 
-        let addr = get_address!(guest_error_message_buffer);
+        let addr = get_address!(guest_error_buffer);
 
         shared_mem.write_u64(
-            Offset::try_from(self.get_guest_error_message_pointer_offset())?,
+            Offset::try_from(self.get_guest_error_buffer_pointer_offset())?,
             addr,
         )?;
 

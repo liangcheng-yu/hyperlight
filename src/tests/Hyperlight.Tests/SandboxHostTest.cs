@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Hyperlight.Core;
 using HyperlightDependencies;
 using Microsoft.Extensions.Logging;
+using Microsoft.VisualStudio.TestPlatform.CommunicationUtilities;
 using Moq;
 using Xunit;
 using Xunit.Abstractions;
@@ -851,7 +852,7 @@ namespace Hyperlight.Tests
                     });
                     Assert.NotNull(ex);
                     Assert.IsType<Hyperlight.Core.HyperlightException>(ex);
-                    Assert.Equal($"GS_CHECK_FAILED: CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+                    Assert.Equal($"GsCheckFailed: CorrelationId: {correlationId} Source: Sandbox", ex.Message);
                 }
                 using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, null, null, GetSandboxMemoryConfiguration()))
                 {
@@ -1031,7 +1032,7 @@ namespace Hyperlight.Tests
                                 + sandboxMemoryConfiguration.InputDataSize
                                 + sandboxMemoryConfiguration.OutputDataSize
                                 + sandboxMemoryConfiguration.HostExceptionSize
-                                + sandboxMemoryConfiguration.GuestErrorMessageSize
+                                + sandboxMemoryConfiguration.GuestErrorBufferSize
                                 + headerSize);
 
             var rem = totalSize % 4096;
@@ -1076,11 +1077,11 @@ namespace Hyperlight.Tests
                     .WithRunOptions(option)
                     .WithConfig(
                         new SandboxMemoryConfiguration()
-                            .WithGuestErrorMessageSize((ulong)size)
+                            .WithGuestErrorBufferSize((ulong)size)
                     );
                 using (var sandbox = bld.Build())
                 {
-                    CheckSize((int)size, sandbox, "GetGuestErrorMessageSizeAddress");
+                    CheckSize((int)size, sandbox, "GetGuestErrorBufferSizeAddress");
                 }
             }
         }
@@ -1167,13 +1168,13 @@ namespace Hyperlight.Tests
             ulong minOutputSize = 0x2000;
             ulong minHostFunctionDefinitionSize = 0x400;
             ulong minHostExceptionSize = 0x4000;
-            ulong minGuestErrorMessageSize = 0x80;
+            ulong minGuestErrorBufferSize = 0x80;
             var sandboxMemoryConfiguration = new SandboxMemoryConfiguration(0, 0, 0, 0, 0);
             Assert.Equal(minInputSize, sandboxMemoryConfiguration.InputDataSize);
             Assert.Equal(minOutputSize, sandboxMemoryConfiguration.OutputDataSize);
             Assert.Equal(minHostFunctionDefinitionSize, sandboxMemoryConfiguration.HostFunctionDefinitionSize);
             Assert.Equal(minHostExceptionSize, sandboxMemoryConfiguration.HostExceptionSize);
-            Assert.Equal(minGuestErrorMessageSize, sandboxMemoryConfiguration.GuestErrorMessageSize);
+            Assert.Equal(minGuestErrorBufferSize, sandboxMemoryConfiguration.GuestErrorBufferSize);
         }
 
         [Fact]
@@ -1247,7 +1248,7 @@ namespace Hyperlight.Tests
                     });
                     Assert.NotNull(ex);
                     Assert.IsType<HyperlightException>(ex);
-                    Assert.Equal($"GUEST_FUNCTION_NOT_FOUND:FunctionDoesntExist CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+                    Assert.Equal($"GuestFunctionNotFound:FunctionDoesntExist CorrelationId: {correlationId} Source: Sandbox", ex.Message);
                 }
             }
         }
@@ -1361,7 +1362,7 @@ namespace Hyperlight.Tests
                     });
                     Assert.NotNull(ex);
                     Assert.IsType<HyperlightException>(ex);
-                    Assert.Equal($"GUEST_FUNCTION_PARAMETER_TYPE_MISMATCH:Function GuestMethod3 parameter 1. CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+                    Assert.Equal($"GuestFunctionParameterTypeMismatch:Function GuestMethod3 parameter 1. CorrelationId: {correlationId} Source: Sandbox", ex.Message);
                 }
             }
         }
@@ -1387,7 +1388,7 @@ namespace Hyperlight.Tests
                     });
                     Assert.NotNull(ex);
                     Assert.IsType<HyperlightException>(ex);
-                    Assert.Equal($"GUEST_FUNCTION_INCORRECT_NO_OF_PARAMETERS:Called function GuestMethod2 with 0 parameters but it takes 1. CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+                    Assert.Equal($"GuestFunctionIncorrecNoOfParameters:Called function GuestMethod2 with 0 parameters but it takes 1. CorrelationId: {correlationId} Source: Sandbox", ex.Message);
                 }
             }
         }
@@ -1409,13 +1410,21 @@ namespace Hyperlight.Tests
             Assert.True(heapSize >= 131072);
             foreach (var option in options)
             {
+                var logFunctions = new LoggingTests();
+                var mockLogger = new Mock<ILogger>();
+                mockLogger.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
                 var correlationId = Guid.NewGuid().ToString("N");
+                var builder = new SandboxBuilder()
+                    .WithCorrelationId(correlationId)
+                    .WithConfig(GetSandboxMemoryConfiguration())
+                    .WithRunOptions(option)
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithErrorMessageLogger(mockLogger.Object);
                 var mallocSize = heapSize + 65536;
-                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxMemoryConfiguration()))
+                using (var sandbox = builder.Build())
                 {
                     var functions = new MallocTests();
                     sandbox.BindGuestFunction("CallMalloc", functions);
-
                     output.WriteLine($"Testing CallMalloc with GuestHeapSize:{heapSize} MallocSize:{mallocSize} option: {option}");
                     var ex = Record.Exception(() =>
                     {
@@ -1423,7 +1432,17 @@ namespace Hyperlight.Tests
                     });
                     Assert.NotNull(ex);
                     Assert.IsType<HyperlightException>(ex);
-                    Assert.Equal($"GUEST_ERROR:Malloc Failed CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+
+                    // TODO: Once Abort is fixed so that it does not cause recursion this should be updated to check abort details.
+                    Assert.Equal($"Guest Aborted", ex.Message);
+                    mockLogger.Verify(
+                        l => l.Log<It.IsAnyType>(
+                        LogLevel.Critical,
+                        It.IsAny<EventId>(),
+                        It.Is<It.IsAnyType>((v, t) => v.ToString()!.StartsWith($"ErrorMessage: dlmalloc_failure CorrelationId: {correlationId} Source: HyperLightGuest")),
+                        null,
+                        It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
+                        Times.AtLeastOnce);
                 }
             }
             foreach (var option in options)
@@ -2212,7 +2231,7 @@ namespace Hyperlight.Tests
                 });
                 Assert.NotNull(ex);
                 Assert.IsType<HyperlightException>(ex);
-                Assert.Equal($"GUEST_ERROR:Host Function Not Found: HostMethod CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+                Assert.Equal($"GuestError:Host Function Not Found: HostMethod CorrelationId: {correlationId} Source: Sandbox", ex.Message);
             }
             else
             {

@@ -5,8 +5,8 @@ use std::cmp::max;
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct SandboxMemoryConfiguration {
-    /// The maximum size of the guest error message field.
-    pub guest_error_message_size: usize,
+    /// The maximum size of the guest error buffer.
+    pub guest_error_buffer_size: usize,
     /// The size of the memory buffer that is made available for Guest Function Definitions
     pub host_function_definition_size: usize,
     /// The size of the memory buffer that is made available for serialising Host Exceptions
@@ -31,8 +31,8 @@ impl SandboxMemoryConfiguration {
     const DEFAULT_HOST_EXCEPTION_SIZE: usize = 0x4000;
     const MIN_HOST_EXCEPTION_SIZE: usize = 0x4000;
     /// The default size for guest error messages
-    const DEFAULT_GUEST_ERROR_MESSAGE_SIZE: usize = 0x100;
-    const MIN_GUEST_ERROR_MESSAGE_SIZE: usize = 0x80;
+    const DEFAULT_GUEST_ERROR_BUFFER_SIZE: usize = 0x100;
+    const MIN_GUEST_ERROR_BUFFER_SIZE: usize = 0x80;
 
     /// Create a new configuration for a sandbox with the given sizes.
     pub fn new(
@@ -40,7 +40,7 @@ impl SandboxMemoryConfiguration {
         output_data_size: usize,
         function_definition_size: usize,
         host_exception_size: usize,
-        guest_error_message_size: usize,
+        guest_error_buffer_size: usize,
     ) -> Self {
         Self {
             input_data_size: max(input_data_size, Self::MIN_INPUT_SIZE),
@@ -50,9 +50,9 @@ impl SandboxMemoryConfiguration {
                 Self::MIN_HOST_FUNCTION_DEFINITION_SIZE,
             ),
             host_exception_size: max(host_exception_size, Self::MIN_HOST_EXCEPTION_SIZE),
-            guest_error_message_size: max(
-                guest_error_message_size,
-                Self::MIN_GUEST_ERROR_MESSAGE_SIZE,
+            guest_error_buffer_size: max(
+                guest_error_buffer_size,
+                Self::MIN_GUEST_ERROR_BUFFER_SIZE,
             ),
         }
     }
@@ -61,7 +61,7 @@ impl SandboxMemoryConfiguration {
 impl Default for SandboxMemoryConfiguration {
     fn default() -> Self {
         Self {
-            guest_error_message_size: Self::DEFAULT_GUEST_ERROR_MESSAGE_SIZE,
+            guest_error_buffer_size: Self::DEFAULT_GUEST_ERROR_BUFFER_SIZE,
             host_function_definition_size: Self::DEFAULT_HOST_FUNCTION_DEFINITION_SIZE,
             host_exception_size: Self::DEFAULT_HOST_EXCEPTION_SIZE,
             input_data_size: Self::DEFAULT_INPUT_SIZE,

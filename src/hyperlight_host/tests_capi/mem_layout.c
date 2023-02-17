@@ -13,7 +13,7 @@ MunitResult test_mem_layout_getters(void)
 
     struct Context *ctx = context_new();
     struct SandboxMemoryConfiguration mem_cfg = {
-        .guest_error_message_size = 1,
+        .guest_error_buffer_size = 1,
         .host_function_definition_size = 2,
         .input_data_size = 3,
         .output_data_size = 4,

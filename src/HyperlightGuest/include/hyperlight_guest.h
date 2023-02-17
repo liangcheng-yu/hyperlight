@@ -50,5 +50,6 @@ void hloutb(uint16_t port, uint8_t value);
 #define OUTB_LOG 99
 #define OUTB_WRITE_OUTPUT 100
 #define OUTB_CALL_FUNCTION 101
+#define OUTB_ABORT 102
 
 void __security_init_cookie(void);

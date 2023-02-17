@@ -4,14 +4,6 @@
 
 typedef struct
 {
-    uint64_t errorNo;
-    uint64_t messageSize;
-    char*  message;
-
-} GuestError;
-
-typedef struct
-{
     uint64_t functionDefinitionSize;
     void* functionDefinitions;
 } HostFunctionDefinitions;
@@ -53,7 +45,8 @@ typedef struct
     uint64_t security_cookie_seed;
     HostFunctionDefinitions hostFunctionDefinitions;
     HostException hostException;
-    GuestError guestError;
+    void* pGuestErrorBuffer;
+    uint64_t guestErrorBufferSize;
     char* pCode;
     void* pOutb;
     InputData inputdata;
