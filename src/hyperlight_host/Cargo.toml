@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 cty = { version="0.2.2" }
-goblin = { version = "0.6.0" }
+goblin = { version = "0.6.1" }
 anyhow = { version = "1.0.69" }
 byteorder = { version = "1.4.3" }
 rand = { version = "0.8.5" }
