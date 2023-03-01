@@ -151,11 +151,10 @@ pub unsafe extern "C" fn byte_array_get_raw(ctx: *mut Context, handle: Handle) -
 
     match impls::get(&*ctx, handle) {
         Ok(vec) => {
-            let mut copy = vec.clone();
-            copy.shrink_to_fit();
-            let copy_ptr = copy.as_mut_ptr();
-            std::mem::forget(copy);
-            copy_ptr
+            // copy the vec and move it into a RawVec,
+            // then convert that RawVec to a pointer.
+            let raw_vec = RawVec::from(vec.clone());
+            raw_vec.to_ptr().0
         }
         Err(e) => {
             (*ctx).register_err(e);
