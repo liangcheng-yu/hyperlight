@@ -2,11 +2,11 @@ use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::{
+    capi::arrays::borrowed_slice::borrow_ptr_as_slice_mut,
     mem::{ptr_offset::Offset, shared_mem::SharedMemory},
     validate_context, validate_context_or_panic,
 };
 use anyhow::{anyhow, Result};
-use std::panic::catch_unwind;
 
 mod impls {
     use crate::{capi::handle::Handle, mem::shared_mem::SharedMemory};
@@ -402,28 +402,14 @@ pub unsafe extern "C" fn shared_memory_copy_to_byte_array(
         return (*ctx).register_err(anyhow!("Invalid length"));
     };
 
-    let did_it_panic = catch_unwind(|| {
-        let buffer: &mut [u8] = std::slice::from_raw_parts_mut(byte_array, length);
-        buffer
-    });
-
-    let buffer = match did_it_panic {
-        Ok(result) => result,
-        Err(_) => {
-            return (*ctx).register_err(anyhow::anyhow!(
-                "failed to get slice from pointer and length in file {} line number {} ",
-                file!(),
-                line!()
-            ))
-        }
-    };
-
     let offset_val = match Offset::try_from(offset) {
         Ok(offs) => offs,
         Err(e) => return (*ctx).register_err(e),
     };
 
-    match impls::copy_to_byte_array(&mut *ctx, shared_mem_hdl, buffer, offset_val) {
+    match borrow_ptr_as_slice_mut(byte_array, length, |buffer| {
+        impls::copy_to_byte_array(&mut *ctx, shared_mem_hdl, buffer, offset_val)
+    }) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
