@@ -1,17 +1,16 @@
 use super::mem_layout::get_mem_layout;
 use super::shared_mem::{get_shared_memory, get_shared_memory_mut};
 use super::{byte_array::get_byte_array, context::Context, handle::Handle, hdl::Hdl};
+use crate::{capi::int::register_u64, capi::strings::register_string, validate_context};
 use crate::{
-    capi::int::register_i32,
+    capi::{arrays::borrowed_slice::borrow_ptr_as_slice_mut, int::register_i32},
     mem::{
         config::SandboxMemoryConfiguration,
         mgr::SandboxMemoryManager,
         ptr::{GuestPtr, HostPtr, RawPtr},
     },
 };
-use crate::{capi::int::register_u64, capi::strings::register_string, validate_context};
 use anyhow::{anyhow, Result};
-use std::slice;
 
 fn get_mem_mgr(ctx: &Context, hdl: Handle) -> Result<&SandboxMemoryManager> {
     Context::get(hdl, &ctx.mem_mgrs, |h| matches!(h, Hdl::MemMgr(_))).map_err(|e| anyhow!(e))
@@ -638,10 +637,18 @@ pub unsafe extern "C" fn mem_mgr_get_host_exception_data(
     if exception_data_len == 0 {
         return (*ctx).register_err(anyhow!("Exception data length is zero"));
     }
-    let slice =
-        slice::from_raw_parts_mut(exception_data_ptr, exception_data_len as usize) as &mut [u8];
-
-    match mgr.get_host_exception_data(&layout, guest_mem, slice) {
+    let exception_data_len_usize = match usize::try_from(exception_data_len) {
+        Ok(l) => l,
+        Err(_) => {
+            return (*ctx).register_err(anyhow!(
+                "converting exception_data_len ({:?}) to usize",
+                exception_data_len
+            ))
+        }
+    };
+    match borrow_ptr_as_slice_mut(exception_data_ptr, exception_data_len_usize, |slice| {
+        mgr.get_host_exception_data(&layout, guest_mem, slice)
+    }) {
         Ok(_) => Handle::from(Hdl::Empty()),
         Err(e) => (*ctx).register_err(e),
     }
