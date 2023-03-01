@@ -1,18 +1,18 @@
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
-use super::Addr;
-use crate::mem::{config::SandboxMemoryConfiguration, layout::SandboxMemoryLayout};
+use crate::mem::{
+    config::SandboxMemoryConfiguration, layout::SandboxMemoryLayout, ptr_offset::Offset,
+};
 use crate::{validate_context, validate_context_or_panic};
 use anyhow::anyhow;
 
 mod impls {
-    use crate::capi::handle::Handle;
     use crate::capi::hdl::Hdl;
     use crate::capi::shared_mem::get_shared_memory_mut;
-    use crate::capi::Addr;
     use crate::mem::layout::SandboxMemoryLayout;
     use crate::{capi::context::Context, mem::config::SandboxMemoryConfiguration};
+    use crate::{capi::handle::Handle, mem::ptr_offset::Offset};
     use anyhow::{anyhow, Result};
 
     pub fn new(
@@ -21,25 +21,22 @@ mod impls {
         stack_size: usize,
         heap_size: usize,
     ) -> Result<SandboxMemoryLayout> {
-        Ok(SandboxMemoryLayout::new(
-            mem_cfg, code_size, stack_size, heap_size,
-        ))
+        SandboxMemoryLayout::new(mem_cfg, code_size, stack_size, heap_size)
     }
 
     /// Fetch the memory layout in `ctx` referenced by `layout_ref`,
     /// then convert call `fetcher_fn` with that layout and add the
     /// result with `base`, and finally return the result of that
     /// addition.
-    pub fn calculate_address<F: FnOnce(&SandboxMemoryLayout) -> Result<usize>>(
+    pub fn calculate_address<F: FnOnce(&SandboxMemoryLayout) -> Result<Offset>>(
         ctx: &Context,
         layout_ref: Handle,
         base: i64,
         fetcher_fn: F,
     ) -> Result<i64> {
         let layout = get_mem_layout(ctx, layout_ref)?;
-        let base = Addr::from_i64(base)?;
         let offset = fetcher_fn(&layout)?;
-        base.add_usize(offset).as_i64()
+        i64::try_from(Offset::try_from(base)? + offset)
     }
 
     pub fn get_memory_size(ctx: &Context, mem_layout_ref: Handle) -> Result<usize> {
@@ -133,7 +130,6 @@ macro_rules! mem_layout_get_address_using_field {
                 base_addr: i64,
             ) -> i64 {
                 validate_context_or_panic!(ctx);
-
                 impls::calculate_address(&*ctx, mem_layout_ref, base_addr, |l| {
                     Ok(l.[< $something _offset >])
                 })
@@ -249,7 +245,10 @@ pub unsafe extern "C" fn mem_layout_get_peb_address(
     // NOTE: using calculate_address here for the safe conversions
     // from usize -> i64, but not for calculating offsets, as we
     // do in most of the other functions herein.
-    impls::calculate_address(&*ctx, mem_layout_ref, 0, |l| Ok(l.peb_address)).unwrap_or(0)
+    impls::calculate_address(&*ctx, mem_layout_ref, 0, |l| {
+        Offset::try_from(l.peb_address)
+    })
+    .unwrap_or(0)
 }
 
 /// Get the VMs base address from the `SandboxMemoryLayout`.
@@ -293,9 +292,12 @@ pub extern "C" fn mem_layout_get_page_table_size() -> usize {
 /// - A valid base memory address
 #[no_mangle]
 pub unsafe extern "C" fn mem_layout_get_host_code_address(base_addr: i64) -> i64 {
-    Addr::from_i64(base_addr)
-        .map(|addr| addr.add_usize(SandboxMemoryLayout::CODE_OFFSET))
-        .and_then(|addr| addr.as_i64())
+    Offset::try_from(SandboxMemoryLayout::CODE_OFFSET)
+        .and_then(|code_offset| {
+            let base_addr_u64 = u64::try_from(base_addr)?;
+            Ok(code_offset + base_addr_u64)
+        })
+        .and_then(i64::try_from)
         .unwrap_or(0)
 }
 

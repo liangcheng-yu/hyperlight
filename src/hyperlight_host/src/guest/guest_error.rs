@@ -3,7 +3,6 @@ use crate::flatbuffers::generated::guest_error_generated::hyperlight::generated:
     size_prefixed_root_as_guest_error, ErrorCode, GuestError as GuestErrorFb, GuestErrorArgs,
 };
 use crate::mem::layout::SandboxMemoryLayout;
-use crate::mem::ptr_offset::Offset;
 use crate::mem::shared_mem::SharedMemory;
 use anyhow::{anyhow, bail, Result};
 use readonly;
@@ -32,8 +31,8 @@ impl GuestError {
         guest_mem: &SharedMemory,
         layout: &SandboxMemoryLayout,
     ) -> Result<u64> {
-        let err_buffer_size_offset = layout.get_guest_error_buffer_size_offset() as u64;
-        let max_err_buffer_size = guest_mem.read_u64(Offset::try_from(err_buffer_size_offset)?)?;
+        let err_buffer_size_offset = layout.get_guest_error_buffer_size_offset();
+        let max_err_buffer_size = guest_mem.read_u64(err_buffer_size_offset)?;
         Ok(max_err_buffer_size)
     }
 
@@ -51,7 +50,7 @@ impl GuestError {
         }
         guest_mem.copy_from_slice(
             guest_error_buffer.as_slice(),
-            Offset::try_from(layout.guest_error_buffer_offset)?,
+            layout.guest_error_buffer_offset,
         )?;
         Ok(())
     }
@@ -63,10 +62,9 @@ impl TryFrom<(&SharedMemory, &SandboxMemoryLayout)> for GuestError {
         let max_err_buffer_size = Self::get_memory_buffer_max_size(value.0, value.1)?;
         let mut guest_error_buffer = vec![b'0'; usize::try_from(max_err_buffer_size)?];
         let err_msg_offset = value.1.guest_error_buffer_offset;
-        value.0.copy_to_slice(
-            guest_error_buffer.as_mut_slice(),
-            Offset::try_from(err_msg_offset)?,
-        )?;
+        value
+            .0
+            .copy_to_slice(guest_error_buffer.as_mut_slice(), err_msg_offset)?;
         GuestError::try_from(guest_error_buffer.as_slice())
     }
 }

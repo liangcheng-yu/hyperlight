@@ -124,56 +124,56 @@ struct GuestStack {
 pub struct SandboxMemoryLayout {
     sandbox_memory_config: SandboxMemoryConfiguration,
     /// The peb offset into this sandbox.
-    pub peb_offset: usize,
+    pub peb_offset: Offset,
     /// The stack size of this sandbox.
     pub stack_size: usize,
     /// The heap size of this sandbox.
     pub heap_size: usize,
     /// The offset to the start of host functions within this sandbox.
-    pub host_functions_offset: usize,
+    pub host_functions_offset: Offset,
     /// The offset to the start of host exceptions within this sandbox.
-    pub host_exception_offset: usize,
+    pub host_exception_offset: Offset,
     /// The offset to the pointer to the guest error buffer within this sandbox.
-    pub guest_error_buffer_pointer_offset: usize,
+    pub guest_error_buffer_pointer_offset: Offset,
     /// The offset to the size of the guest error buffer within this sandbox.
-    pub guest_error_buffer_size_offset: usize,
+    pub guest_error_buffer_size_offset: Offset,
     /// The offset to the start of both code and the outb function
     /// pointers within this sandbox.
-    pub code_and_outb_pointer_offset: usize,
+    pub code_and_outb_pointer_offset: Offset,
     /// The offset to the start of input data within this sandbox.
-    pub input_data_offset: usize,
+    pub input_data_offset: Offset,
     /// The offset to the start of output data within this sandbox.
-    pub output_data_offset: usize,
+    pub output_data_offset: Offset,
     /// The offset to the start of the guest heap within this sandbox.
-    pub heap_data_offset: usize,
+    pub heap_data_offset: Offset,
     /// The offset to the start of the guest stack within this sandbox.
-    pub stack_data_offset: usize,
+    pub stack_data_offset: Offset,
     /// The size of code inside this sandbox.
     pub code_size: usize,
     /// The offset to the start of the definitions of host functions inside
     /// this sandbox.
-    pub host_function_definitions_offset: usize,
+    pub host_function_definitions_offset: Offset,
     /// The offset to the start of the buffer for host exceptions inside
     /// this sandbox.
-    pub host_exception_buffer_offset: usize,
+    pub host_exception_buffer_offset: Offset,
     /// The offset to the start of guest errors inside this sandbox.
-    pub guest_error_buffer_offset: usize,
+    pub guest_error_buffer_offset: Offset,
     /// The offset to the start of the input data buffer inside this
     /// sandbox.
-    pub input_data_buffer_offset: usize,
+    pub input_data_buffer_offset: Offset,
     /// The offset to the start of the output data buffer inside this
     /// sandbox.
-    pub output_data_buffer_offset: usize,
+    pub output_data_buffer_offset: Offset,
     /// The offset to the start of the guest heap buffer inside this
     /// sandbox.
-    pub guest_heap_buffer_offset: usize,
+    pub guest_heap_buffer_offset: Offset,
     /// The offset to the start of the guest stack buffer inside this
     /// sandbox.
-    pub guest_stack_buffer_offset: usize,
+    pub guest_stack_buffer_offset: Offset,
     /// The peb address inside this sandbox.
     pub peb_address: usize,
     /// The offset to the guest security cookie
-    pub guest_security_cookie_seed_offset: usize,
+    pub guest_security_cookie_seed_offset: Offset,
 }
 impl SandboxMemoryLayout {
     /// Four Kilobytes (16^3 bytes) - used to round the total amount of memory
@@ -213,9 +213,10 @@ impl SandboxMemoryLayout {
         code_size: usize,
         stack_size: usize,
         heap_size: usize,
-    ) -> Self {
-        let peb_offset = Self::PAGE_TABLE_SIZE + code_size;
-        let guest_security_cookie_seed_offset = Self::PAGE_TABLE_SIZE + code_size;
+    ) -> Result<Self> {
+        let peb_offset = Offset::try_from(Self::PAGE_TABLE_SIZE + code_size)?;
+        let guest_security_cookie_seed_offset =
+            Offset::try_from(Self::PAGE_TABLE_SIZE + code_size)?;
         let host_functions_offset =
             guest_security_cookie_seed_offset + size_of::<GuestSecurityCookie>();
         let host_exception_offset = host_functions_offset + size_of::<HostFunctions>();
@@ -228,7 +229,7 @@ impl SandboxMemoryLayout {
         let output_data_offset = input_data_offset + size_of::<InputData>();
         let heap_data_offset = output_data_offset + size_of::<OutputData>();
         let stack_data_offset = heap_data_offset + size_of::<GuestHeap>();
-        let peb_address = Self::BASE_ADDRESS + peb_offset;
+        let peb_address = usize::try_from(Self::BASE_ADDRESS + peb_offset)?;
         let host_function_definitions_offset = stack_data_offset + size_of::<GuestStack>();
         let host_exception_buffer_offset =
             host_function_definitions_offset + cfg.host_function_definition_size;
@@ -237,7 +238,7 @@ impl SandboxMemoryLayout {
         let output_data_buffer_offset = input_data_buffer_offset + cfg.input_data_size;
         let guest_heap_buffer_offset = output_data_buffer_offset + cfg.output_data_size;
         let guest_stack_buffer_offset = guest_heap_buffer_offset + heap_size;
-        Self {
+        Ok(Self {
             peb_offset,
             stack_size,
             heap_size,
@@ -261,12 +262,12 @@ impl SandboxMemoryLayout {
             guest_stack_buffer_offset,
             peb_address,
             guest_security_cookie_seed_offset,
-        }
+        })
     }
 
     /// Get the offset in guest memory to the size field in the
     /// `HostExceptionData` structure.
-    pub fn get_host_exception_size_offset(&self) -> usize {
+    pub fn get_host_exception_size_offset(&self) -> Offset {
         // The size field is the first field in the `HostExceptionData` struct
         self.host_exception_offset
     }
@@ -277,54 +278,54 @@ impl SandboxMemoryLayout {
     }
 
     /// Get the offset in guest memory to the max size of the guest error buffer
-    pub fn get_guest_error_buffer_size_offset(&self) -> usize {
+    pub fn get_guest_error_buffer_size_offset(&self) -> Offset {
         self.guest_error_buffer_size_offset
     }
 
     /// Get the offset in guest memory to the error message buffer pointer
-    pub fn get_guest_error_buffer_pointer_offset(&self) -> usize {
+    pub fn get_guest_error_buffer_pointer_offset(&self) -> Offset {
         self.guest_error_buffer_pointer_offset
     }
     /// Get the offset in guest memory to the output data size
-    pub fn get_output_data_size_offset(&self) -> usize {
+    pub fn get_output_data_size_offset(&self) -> Offset {
         // The size field is the first field in the `OutputData` struct
         self.output_data_offset
     }
 
     /// Get the offset in guest memory to the host function definitions
     /// size
-    pub fn get_host_function_definitions_size_offset(&self) -> usize {
+    pub fn get_host_function_definitions_size_offset(&self) -> Offset {
         // The size field is the first field in the `HostFunctions` struct
         self.host_functions_offset
     }
 
     /// Get the offset in guest memory to the host function definitions
     /// pointer.
-    pub fn get_host_function_definitions_pointer_offset(&self) -> usize {
+    pub fn get_host_function_definitions_pointer_offset(&self) -> Offset {
         // The size field is the field after the size field in the `HostFunctions` struct which is a u64
         self.get_host_function_definitions_size_offset() + size_of::<u64>()
     }
 
     /// Get the offset in guest memory to the minimum guest stack address.
-    pub fn get_min_guest_stack_address_offset(&self) -> usize {
+    pub fn get_min_guest_stack_address_offset(&self) -> Offset {
         // The minimum guest stack address is the start of the guest stack
         self.stack_data_offset
     }
 
     /// Get the offset in guest memory to the start of host exceptions
-    pub fn get_host_exception_offset(&self) -> usize {
+    pub fn get_host_exception_offset(&self) -> Offset {
         self.host_exception_buffer_offset
     }
 
     /// Get the offset in guest memory to the OutB pointer.
-    pub fn get_out_b_pointer_offset(&self) -> usize {
+    pub fn get_out_b_pointer_offset(&self) -> Offset {
         // The outb pointer is immediately after the code pointer
         // in the `CodeAndOutBPointers` struct which is a u64
         self.code_and_outb_pointer_offset + size_of::<u64>()
     }
 
     /// Get the offset in guest memory to the output data pointer.
-    pub fn get_output_data_pointer_offset(&self) -> usize {
+    pub fn get_output_data_pointer_offset(&self) -> Offset {
         // This field is immedaitely after the output data size field,
         // which is a `u64`.
         self.get_output_data_size_offset() + size_of::<u64>()
@@ -334,25 +335,25 @@ impl SandboxMemoryLayout {
     ///
     /// This function exists to accommodate the macro that generates C API
     /// compatible functions.
-    pub fn get_output_data_offset(&self) -> usize {
+    pub fn get_output_data_offset(&self) -> Offset {
         self.output_data_buffer_offset
     }
 
     /// Get the offset in guest memory to the input data size.
-    pub fn get_input_data_size_offset(&self) -> usize {
+    pub fn get_input_data_size_offset(&self) -> Offset {
         // The input data size is the first field in the `InputData` struct
         self.input_data_offset
     }
 
     /// Get the offset in guest memory to the input data pointer.
-    pub fn get_input_data_pointer_offset(&self) -> usize {
+    pub fn get_input_data_pointer_offset(&self) -> Offset {
         // The input data pointer is immediately after the input
         // data size field in the `InputData` struct which is a `u64`.
         self.get_input_data_size_offset() + size_of::<u64>()
     }
 
     /// Get the offset in guest memory to the code pointer
-    pub fn get_code_pointer_offset(&self) -> usize {
+    pub fn get_code_pointer_offset(&self) -> Offset {
         // The code pointer is the first field
         // in the `CodeAndOutBPointers` struct which is a u64
         self.code_and_outb_pointer_offset
@@ -360,31 +361,31 @@ impl SandboxMemoryLayout {
 
     /// Get the offset in guest memory to the dispatch function
     /// pointer.
-    pub fn get_dispatch_function_pointer_offset(&self) -> usize {
+    pub fn get_dispatch_function_pointer_offset(&self) -> Offset {
         // The dispatch function pointer is the field aftter the count of functions
         // in the host function definitions struct which is a u64
         self.host_function_definitions_offset + size_of::<u64>()
     }
 
     /// Get the offset in guest memory to the PEB address
-    pub fn get_in_process_peb_offset(&self) -> usize {
+    pub fn get_in_process_peb_offset(&self) -> Offset {
         self.peb_offset
     }
 
     /// Get the offset in guest memory to the heap size
-    pub fn get_heap_size_offset(&self) -> usize {
+    pub fn get_heap_size_offset(&self) -> Offset {
         self.heap_data_offset
     }
 
     /// Get the offset of the heap pointer in guest memory,
-    pub fn get_heap_pointer_offset(&self) -> usize {
+    pub fn get_heap_pointer_offset(&self) -> Offset {
         // The heap pointer is immediately after the
         // heap size field in the `GuestHeap` struct which is a `u64`.
         self.get_heap_size_offset() + size_of::<u64>()
     }
 
     /// Get the offset to the top of the stack in guest memory
-    pub fn get_top_of_stack_offset(&self) -> usize {
+    pub fn get_top_of_stack_offset(&self) -> Offset {
         self.guest_stack_buffer_offset
     }
 
@@ -449,10 +450,11 @@ impl SandboxMemoryLayout {
                 paste! {
                     if guest_offset == 0 {
                         let offset = Offset::try_from(self.[<$something _offset>])?;
-                        shared_mem.calculate_address(offset)?
+                        let calculated_addr = shared_mem.calculate_address(offset)?;
+                        u64::try_from(calculated_addr)?
                     } else {
-                        guest_offset +  self.[<$something _offset>]
-                    } as u64
+                        u64::from(guest_offset +  self.[<$something _offset>])
+                    }
                 }
             };
         }
@@ -468,74 +470,61 @@ impl SandboxMemoryLayout {
 
         // Set up Guest Error Fields
         shared_mem.write_u64(
-            Offset::try_from(self.get_guest_error_buffer_size_offset())?,
-            self.sandbox_memory_config.guest_error_buffer_size as u64,
+            self.get_guest_error_buffer_size_offset(),
+            u64::try_from(self.sandbox_memory_config.guest_error_buffer_size)?,
         )?;
 
         let addr = get_address!(guest_error_buffer);
 
-        shared_mem.write_u64(
-            Offset::try_from(self.get_guest_error_buffer_pointer_offset())?,
-            addr,
-        )?;
+        shared_mem.write_u64(self.get_guest_error_buffer_pointer_offset(), addr)?;
 
         // Set up Host Exception Header
         shared_mem.write_u64(
-            Offset::try_from(self.get_host_exception_size_offset())?,
-            self.sandbox_memory_config.host_exception_size as u64,
+            self.get_host_exception_size_offset(),
+            self.sandbox_memory_config.host_exception_size.try_into()?,
         )?;
 
         // Set up input buffer pointer
         shared_mem.write_u64(
-            Offset::try_from(self.get_input_data_size_offset())?,
-            self.sandbox_memory_config.input_data_size as u64,
+            self.get_input_data_size_offset(),
+            self.sandbox_memory_config.input_data_size.try_into()?,
         )?;
 
         let addr = get_address!(input_data_buffer);
 
-        shared_mem.write_u64(
-            Offset::try_from(self.get_input_data_pointer_offset())?,
-            addr,
-        )?;
+        shared_mem.write_u64(self.get_input_data_pointer_offset(), addr)?;
 
         // Set up output buffer pointer
         shared_mem.write_u64(
-            Offset::try_from(self.get_output_data_size_offset())?,
-            self.sandbox_memory_config.output_data_size as u64,
+            self.get_output_data_size_offset(),
+            self.sandbox_memory_config.output_data_size.try_into()?,
         )?;
 
         let addr = get_address!(output_data_buffer);
 
-        shared_mem.write_u64(
-            Offset::try_from(self.get_output_data_pointer_offset())?,
-            addr,
-        )?;
+        shared_mem.write_u64(self.get_output_data_pointer_offset(), addr)?;
 
         let addr = get_address!(guest_heap_buffer);
 
         // Set up heap buffer pointer
-        shared_mem.write_u64(
-            Offset::try_from(self.get_heap_size_offset())?,
-            self.heap_size as u64,
-        )?;
-        shared_mem.write_u64(Offset::try_from(self.get_heap_pointer_offset())?, addr)?;
+        shared_mem.write_u64(self.get_heap_size_offset(), self.heap_size.try_into()?)?;
+        shared_mem.write_u64(self.get_heap_pointer_offset(), addr)?;
 
         let addr = get_address!(host_function_definitions);
 
         // Set up Host Function Definition
         shared_mem.write_u64(
-            Offset::try_from(self.get_host_function_definitions_size_offset())?,
-            self.sandbox_memory_config.host_function_definition_size as u64,
+            self.get_host_function_definitions_size_offset(),
+            self.sandbox_memory_config
+                .host_function_definition_size
+                .try_into()?,
         )?;
-        shared_mem.write_u64(
-            Offset::try_from(self.get_host_function_definitions_pointer_offset())?,
-            addr,
-        )?;
+        shared_mem.write_u64(self.get_host_function_definitions_pointer_offset(), addr)?;
 
         // Set up Min Guest Stack Address
         shared_mem.write_u64(
-            Offset::try_from(self.get_min_guest_stack_address_offset())?,
-            (guest_offset + (size - self.stack_size)) as u64,
+            self.get_min_guest_stack_address_offset(),
+            (guest_offset + (size - self.stack_size)).try_into()?,
         )?;
 
         // Set up the security cookie seed
@@ -545,7 +534,7 @@ impl SandboxMemoryLayout {
 
         shared_mem.copy_from_slice(
             &security_cookie_seed,
-            Offset::try_from(self.guest_security_cookie_seed_offset)?,
+            self.guest_security_cookie_seed_offset,
         )?;
 
         Ok(())

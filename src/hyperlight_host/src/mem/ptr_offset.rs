@@ -12,9 +12,16 @@ pub struct Offset(u64);
 impl Offset {
     /// Get the offset representing `0`
     pub fn zero() -> Self {
+        Self::default()
+    }
+}
+
+impl Default for Offset {
+    fn default() -> Self {
         Offset::from(0_u64)
     }
 }
+
 impl From<u64> for Offset {
     fn from(val: u64) -> Self {
         Self(val)
@@ -33,11 +40,27 @@ impl From<Offset> for u64 {
     }
 }
 
+impl TryFrom<Offset> for i64 {
+    type Error = anyhow::Error;
+    fn try_from(val: Offset) -> Result<i64> {
+        i64::try_from(val.0).map_err(|_| anyhow!("couldn't convert Offset ({:?}) to i64", val))
+    }
+}
+
+impl TryFrom<i64> for Offset {
+    type Error = anyhow::Error;
+    fn try_from(val: i64) -> Result<Offset> {
+        let val_u64 = u64::try_from(val)?;
+        Ok(Offset::from(val_u64))
+    }
+}
+
 impl TryFrom<usize> for Offset {
     type Error = anyhow::Error;
     fn try_from(val: usize) -> Result<Offset> {
-        let val_u64 = u64::try_from(val)?;
-        Ok(Offset::from(val_u64))
+        u64::try_from(val)
+            .map(Offset::from)
+            .map_err(|_| anyhow!("couldn't convert usize ({:?}) to Offset", val))
     }
 }
 
@@ -127,6 +150,50 @@ impl PartialOrd<u64> for Offset {
             true => Some(Ordering::Greater),
             false if lhs == *rhs => Some(Ordering::Equal),
             false => Some(Ordering::Less),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Offset;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn i64_roundtrip(i64_val in (i64::MIN..i64::MAX)) {
+            let offset_res = Offset::try_from(i64_val);
+
+            if i64_val < 0 {
+                assert!(offset_res.is_err());
+            } else {
+                assert!(offset_res.is_ok());
+                let offset = offset_res.unwrap();
+                let ret_i64_val = {
+                    let res = offset.try_into();
+                    assert!(res.is_ok());
+                    res.unwrap()
+                };
+                assert_eq!(i64_val, ret_i64_val);
+            }
+        }
+        #[test]
+        fn usize_roundtrip(val in (usize::MIN..usize::MAX)) {
+            let offset = Offset::try_from(val).unwrap();
+            assert_eq!(val, usize::try_from(offset).unwrap());
+        }
+
+        #[test]
+        fn add_numeric_types(usize_val in (usize::MIN..usize::MAX), u64_val in (u64::MIN..u64::MAX)) {
+            let start = Offset::default();
+            {
+                // add usize to offset
+                assert_eq!(usize_val, usize::try_from(start + usize_val).unwrap());
+            }
+            {
+                // add u64 to offset
+                assert_eq!(u64_val, u64::from(start + u64_val));
+            }
         }
     }
 }

@@ -190,7 +190,10 @@ pub unsafe extern "C" fn mem_mgr_get_peb_address(
         Ok(l) => l,
         Err(e) => return (*ctx).register_err(e),
     };
-    let addr = mgr.get_peb_address(&layout, mem_start_addr);
+    let addr = match mgr.get_peb_address(&layout, mem_start_addr) {
+        Ok(a) => a,
+        Err(e) => return (*ctx).register_err(e),
+    };
     Context::register(addr, &mut (*ctx).uint64s, Hdl::UInt64)
 }
 

@@ -17,18 +17,20 @@ mod impls {
     use anyhow::{bail, Result};
     use std::cell::RefCell;
 
+    /// Get the starting address of the shared memory in `ctx` referenced by `hdl`
     pub fn get_address(ctx: &Context, hdl: Handle) -> Result<usize> {
         let shared_mem = super::get_shared_memory(ctx, hdl)?;
         Ok(shared_mem.base_addr())
     }
 
+    /// Read an `i64` from the memory location at `offset`
     pub fn read_int_64(ctx: &Context, hdl: Handle, offset: Offset) -> Result<i64> {
         let shared_mem = super::get_shared_memory(ctx, hdl)?;
         (*shared_mem).read_i64(offset)
     }
 
-    /// Read an `i64` from the memory location at `offset`
-    pub fn write_int_64(ctx: &mut Context, hdl: Handle, offset: Offset, val: usize) -> Result<()> {
+    /// Write an `i64` to the memory location at `offset`
+    pub fn write_int_64(ctx: &mut Context, hdl: Handle, offset: Offset, val: i64) -> Result<()> {
         let shared_mem = super::get_shared_memory_mut(ctx, hdl)?;
         (*shared_mem).write_u64(offset, val as u64)
     }
@@ -472,7 +474,7 @@ pub unsafe extern "C" fn shared_memory_write_int_64(
     ctx: *mut Context,
     hdl: Handle,
     offset: usize,
-    val: usize,
+    val: i64,
 ) -> Handle {
     validate_context!(ctx);
 
