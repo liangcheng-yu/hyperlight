@@ -1,6 +1,6 @@
-use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
+use super::{arrays::raw_vec::RawVec, context::Context};
 use crate::guest::guest_error::GuestError;
 use crate::validate_context_or_panic;
 use anyhow::Result;
@@ -19,9 +19,10 @@ pub unsafe extern "C" fn handle_is_guest_error(ctx: *const Context, hdl: Handle)
     get_guest_error(&*ctx, hdl).is_ok()
 }
 
-/// Return the value of the `GuestError` in `ctx` referenced by `hdl` as ptr. The ptr references a `flatbuffer`
-/// serialistion of a `GuestError`. If `hdl` does not reference a `GuestError` in `ctx`, the return value is
-/// an nullptr;.
+/// Return the value of the `GuestError` in `ctx` referenced by `hdl` as ptr.
+/// The ptr references a `flatbuffer` serialistion of a `GuestError`.
+/// If `hdl` does not reference a `GuestError` in `ctx`, the return value is
+/// NULL.
 ///
 /// # Safety
 ///
@@ -48,13 +49,21 @@ pub unsafe extern "C" fn handle_get_guest_error_flatbuffer(
         Ok(guest_error) => {
             match Vec::try_from(guest_error) {
                 Ok(fb_bytes) => {
-                    // Prevent the memory from being freed when the vector goes out of scope
-                    // This means that the memory must be freed by the caller invoking `guest_error_flatbuffer_free`
-                    // The returned Vec is a size prefixed flatbuffer, this means the first 4 bytes are the size of the buffer
-                    // and the capacity of the Vec is the same as the size of the buffer + 4 bytes for the size field
-                    // therefore `guest_error_flatbuffer_free` can safely reconstruct the Vec and drop it
-                    let mut fb_bytes = mem::ManuallyDrop::new(fb_bytes);
-                    fb_bytes.as_mut_ptr()
+                    // Move the fb_bytes vec into a RawVec, then return the
+                    // pointer to that underlying RawVec.
+                    //
+                    // This means that the memory must be freed by the caller
+                    // invoking `guest_error_flatbuffer_free`.
+                    //
+                    // The returned Vec is a size prefixed flatbuffer, which
+                    // means the first 4 bytes are the size of the buffer
+                    // and the capacity of the Vec is the same as the size of
+                    // the buffer + 4 bytes for the size field.
+                    // therefore `guest_error_flatbuffer_free` can safely
+                    // reconstruct the Vec, bring it back into a RawVec, and
+                    // then drop it.
+                    let raw_vec = RawVec::from(fb_bytes);
+                    raw_vec.to_ptr().0
                 }
                 Err(e) => {
                     (*ctx).register_err(e);
@@ -81,9 +90,9 @@ pub unsafe extern "C" fn guest_error_flatbuffer_free(ptr: *mut u8) -> bool {
     // the size of the memory is placed in the first 4 bytes of the memory for a size prefixed flatbuffer
     // the size does not include the size of the size field, so we need to add 4 to the size
     // the capacity of the Vec is the same as the size of the buffer
-    // TODO: check is little endian -possibly dont need this if we use RawVec Wrapper instead?
     let len = std::ptr::read(ptr as *const u32) as usize + mem::size_of::<u32>();
-    drop(std::vec::Vec::from_raw_parts(ptr, len, len));
+    let raw_vec = RawVec::from_ptr(ptr, len);
+    drop(raw_vec);
     true
 }
 
