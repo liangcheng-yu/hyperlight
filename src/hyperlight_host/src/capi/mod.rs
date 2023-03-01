@@ -76,22 +76,3 @@ pub mod strings;
 pub mod uint;
 ///! C-compatible API functions for managing `Val` structures.
 pub mod val_ref;
-
-/// Create a `Vec<i8>` from all the memory from `arr_ptr` to `arr_ptr + arr_len`
-/// inclusive of `arr_len`.
-///
-/// # Safety
-///
-/// `arr_ptr` must point to the start of a memory block you exclusively own,
-/// and you must own all the memory from `arr_ptr` through `arr_ptr + arr_len`
-/// inclusive. Ensure that no part of this memory is modified while this
-/// function is executing.
-///
-/// This function makes a _copy_ of the memory you pass, so make sure you
-/// clean it up afterward.
-unsafe fn fill_vec<T>(arr_ptr: *const T, arr_len: usize) -> Vec<T> {
-    let mut vec = Vec::<T>::with_capacity(arr_len);
-    std::ptr::copy(arr_ptr, vec.as_mut_ptr(), arr_len);
-    vec.set_len(arr_len);
-    vec
-}

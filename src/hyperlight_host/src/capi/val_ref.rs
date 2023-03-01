@@ -10,9 +10,8 @@ use anyhow::Result;
 use std::boxed::Box;
 
 mod impls {
-    use super::super::fill_vec;
     use super::super::handle::Handle;
-    use crate::capi::context::Context;
+    use crate::capi::{arrays::raw_vec::RawVec, context::Context};
     use crate::func::args::Val;
     use crate::func::SerializationType;
 
@@ -21,8 +20,8 @@ mod impls {
         arr_len: usize,
         ser_type: SerializationType,
     ) -> Box<Val> {
-        let vec = fill_vec(arr_ptr, arr_len);
-        Box::new(Val::new(vec, ser_type))
+        let raw_vec = RawVec::copy_from_ptr(arr_ptr as *mut i8, arr_len);
+        Box::new(Val::new(raw_vec.into(), ser_type))
     }
 
     pub fn val_ref_get(ctx: &Context, val_hdl: Handle) -> Box<Val> {
