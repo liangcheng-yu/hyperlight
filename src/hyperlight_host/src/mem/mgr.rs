@@ -5,7 +5,10 @@ use super::ptr_offset::Offset;
 use super::shared_mem_snapshot::SharedMemorySnapshot;
 use super::{config::SandboxMemoryConfiguration, ptr_addr_space::HostAddressSpace};
 use super::{ptr_addr_space::GuestAddressSpace, shared_mem::SharedMemory};
-use crate::guest::guest_error::{Code, GuestError};
+use crate::{
+    capi::arrays::raw_vec::RawVec,
+    guest::guest_error::{Code, GuestError},
+};
 use anyhow::{anyhow, bail, Result};
 use core::mem::size_of;
 use std::cmp::Ordering;
@@ -215,9 +218,8 @@ impl SandboxMemoryManager {
         if self.run_from_process_memory {
             let addr = host_ptr.absolute()?;
             let str_len = unsafe { libc::strlen(addr as *const i8) };
-            let str_vec =
-                unsafe { std::slice::from_raw_parts(addr as *const u8, str_len).to_vec() };
-            String::from_utf8(str_vec).map_err(|e| anyhow!(e))
+            let str_raw_vec = unsafe { RawVec::copy_from_ptr(addr as *mut u8, str_len) };
+            String::from_utf8(str_raw_vec.into()).map_err(|e| anyhow!(e))
         } else {
             guest_mem.read_string(host_ptr.offset())
         }
