@@ -5,6 +5,8 @@
 pub mod api;
 ///! C-compatible API functions to manipulate guest and host functions.
 pub mod api_funcs;
+///! C-compatible adapters for converting `Vec`s to/from raw pointers
+pub mod arrays;
 ///! C-compatible functions for manipulating booleans in `Handle`s
 pub mod bool;
 ///! C-compatible API functions to manage plain byte arrays.

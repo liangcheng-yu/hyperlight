@@ -1,8 +1,7 @@
-use super::context::Context;
-use super::fill_vec;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::strings::{to_string, RawCString};
+use super::{arrays::raw_vec::RawVec, context::Context};
 use crate::{validate_context, validate_context_or_panic};
 use anyhow::Result;
 use anyhow::{anyhow, Error};
@@ -45,9 +44,11 @@ pub fn get_byte_array(ctx: &Context, handle: Handle) -> Result<&Vec<u8>> {
     Context::get(handle, &ctx.byte_arrays, |b| matches!(b, Hdl::ByteArray(_)))
 }
 
-/// Copy all the memory from `arr_ptr` to `arr_ptr + arr_len` into a new
-/// byte array, register the new byte array's memory with the given `ctx`,
-/// and return a `Handle` that references it.
+/// Copy all the memory in the range
+/// `[ arr_ptr, arr_ptr + (arr_len * sizeof(u8)) )`
+/// (noting the right side of the range is exclusive) into a
+/// new byte array, register it with the given `ctx`, and return a new
+/// `Handle` referencing it.
 ///
 /// # Safety
 ///
@@ -69,8 +70,8 @@ pub unsafe extern "C" fn byte_array_new(
         let err = Error::msg("array pointer passed to byte_array_new is NULL");
         return (*ctx).register_err(err);
     }
-    let vec = fill_vec(arr_ptr, arr_len);
-    Context::register(vec, &mut (*ctx).byte_arrays, Hdl::ByteArray)
+    let raw_vec = RawVec::copy_from_ptr(arr_ptr as *mut u8, arr_len);
+    Context::register(raw_vec.into(), &mut (*ctx).byte_arrays, Hdl::ByteArray)
 }
 
 /// Read the entire contents of the file at `file_name` into
@@ -118,15 +119,15 @@ pub unsafe extern "C" fn byte_array_len(ctx: *const Context, handle: Handle) -> 
     }
 }
 
-/// Get a copy of the byte array referenced by `handle`, returning a
-/// pointer to the copy.
+/// Get the byte array referenced by `handle`, copy the backing memory,
+/// and return a pointer to the copy, transfering ownership of that memory
+/// to the caller.
 ///
 /// The length of the memory referenced by the returned pointer is
 /// equal to the value returned from `byte_array_len(ctx, handle)`.
 ///
 /// If no such byte array exists for the given `handle`, `NULL`
 /// will be returned.
-///
 ///
 /// # Safety
 ///
@@ -171,7 +172,7 @@ pub unsafe extern "C" fn byte_array_get_raw(ctx: *mut Context, handle: Handle) -
 /// call it after you're done using `ptr`.
 #[no_mangle]
 pub unsafe extern "C" fn byte_array_raw_free(ptr: *mut u8, len: usize) -> bool {
-    drop(std::vec::Vec::from_raw_parts(ptr, len, len));
+    RawVec::from_ptr(ptr, len);
     true
 }
 
