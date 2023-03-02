@@ -20,11 +20,13 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <WarningLevel>5</WarningLevel>
   </PropertyGroup>
+
   <PropertyGroup>
     <MinVerDefaultPreReleasePhase>preview</MinVerDefaultPreReleasePhase>
     <MinVerMinimumMajorMinor>0.1</MinVerMinimumMajorMinor>
+    <MinVerTagPrefix>v</MinVerTagPrefix>
   </PropertyGroup>
-
+ 
   <PropertyGroup Condition=" '$(Configuration.toLower())' != 'release'">
     <WarningsNotAsErrors>IDE0055</WarningsNotAsErrors>
   </PropertyGroup>
