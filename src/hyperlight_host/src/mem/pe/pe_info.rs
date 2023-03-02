@@ -1,10 +1,8 @@
 use crate::mem::pe::base_relocations;
 use anyhow::{anyhow, bail, Result};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use goblin::pe::{optional_header::OptionalHeader, section_table::SectionTable, PE};
+use goblin::pe::{optional_header::OptionalHeader, PE};
 use std::io::Cursor;
-
-use super::section_table::calculate_offset_from_rva;
 
 const IMAGE_REL_BASED_DIR64: u8 = 10;
 const IMAGE_REL_BASED_ABSOLUTE: u8 = 0;
@@ -19,7 +17,6 @@ const CHARACTERISTICS_EXECUTABLE_IMAGE: u16 = 0x0002;
 /// symbol resolution, and actually execute it within a `Sandbox`.
 pub struct PEInfo {
     optional_header: OptionalHeader,
-    sections: Vec<SectionTable>,
 }
 
 impl PEInfo {
@@ -56,10 +53,7 @@ impl PEInfo {
             bail!("unsupported PE file, relocations have been removed")
         }
 
-        Ok(Self {
-            optional_header,
-            sections: pe.sections,
-        })
+        Ok(Self { optional_header })
     }
 
     /// Get the entry point offset from the PE file's optional COFF
@@ -148,12 +142,7 @@ impl PEInfo {
                 // 64-bit field at offset"
                 // see: https://docs.microsoft.com/en-us/windows/win32/debug/pe-format#base-relocation-types
                 IMAGE_REL_BASED_DIR64 => {
-                    let reloc_rva = reloc.page_base_rva as u64 + (reloc.page_offset as u64);
-
-                    // figure out where to find the rva in the PE file so that we can update it
-                    let offset = calculate_offset_from_rva(self.sections.as_slice(), reloc_rva).expect(
-                        "could not determine the offset for rva {reloc_rva} in the PE file. No sections contain that address.",
-                    );
+                    let offset = reloc.page_base_rva as u64 + (reloc.page_offset as u64);
 
                     // Read the virtual address stored in reloc_offset as a 64bit value
                     let mut cur = Cursor::new(payload);

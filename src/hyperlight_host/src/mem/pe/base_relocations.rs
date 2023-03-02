@@ -119,6 +119,10 @@ pub fn get_base_relocations(
             r.page_base_rva = page_virtual_address;
             base_relocations.push(r);
         }
+        // goblin::pe::data_directories::DataDirectory::parse above will update next_block_offset
+        // by the size of a DtataDirectory, which is 8 bytes so we need to advance the offset by the size of the
+        // block header less the 8 bytes that DataDirectory::parse already advanced the offset by
+        next_block_offset += (block_header.size - 8) as usize;
     }
     Ok(base_relocations)
 }
