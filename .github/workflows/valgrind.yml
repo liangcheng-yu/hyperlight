@@ -1,4 +1,4 @@
-name: Rust Tests and Lints
+name: Valgrind tests (Linux only)
 
 on:
   push:
@@ -14,14 +14,10 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        build: [ubuntu-20.04-debug, windows-2022-debug, linux-kvm-debug, linux-hyperv-debug, ubuntu-20.04-release, windows-2022-release, linux-kvm-release, linux-hyperv-release]
+        build: [ubuntu-20.04-debug, linux-kvm-debug, linux-hyperv-debug, ubuntu-20.04-release, linux-kvm-release, linux-hyperv-release]
         include:
           - build: ubuntu-20.04-debug
             os: ubuntu-20.04
-            hypervisor: none
-            config: debug
-          - build: windows-2022-debug
-            os: windows-2022
             hypervisor: none
             config: debug
           - build: linux-kvm-debug
@@ -34,10 +30,6 @@ jobs:
             config: debug
           - build: ubuntu-20.04-release
             os: ubuntu-20.04
-            hypervisor: none
-            config: release
-          - build: windows-2022-release
-            os: windows-2022
             hypervisor: none
             config: release
           - build: linux-kvm-release
@@ -55,40 +47,37 @@ jobs:
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
-      - name: fmt
-        run: cargo fmt --all -- --check
-      - name: clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Install Just
         uses: extractions/setup-just@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           just-version: '1.5.0' # optional semver specification, otherwise latest
-      - name: Build
-        working-directory: src/hyperlight_host
-        run:  just build ${{ matrix.config }}
       - name: Set up env vars for hyperv-linux tests
-        if: ${{ (matrix.hypervisor == 'hyperv') && (runner.os == 'Linux') }}
+        if: ${{ (matrix.hypervisor == 'hyperv') }}
         run: |
           echo "HYPERV_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
           echo "SHOULD_HAVE_STABLE_API=false" >> $GITHUB_ENV
       - name: Set up env vars for kvm-linux tests
-        if: ${{ (matrix.hypervisor == 'kvm') && (runner.os == 'Linux') }}
+        if: ${{ (matrix.hypervisor == 'kvm') }}
         run: |
           echo "KVM_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
-      - name: Run Rust tests
-        working-directory: src/hyperlight_host
-        run: just build-test-rust ${{ matrix.config }}
       - name: Set up munit
         working-directory: src/hyperlight_host/tests_capi
         run: |
           git submodule init
           git submodule update
-      - name: Run C Tests 
+      # Script to install Valgrind does not work on Mariner or on the kvm 
+      # runner. Valgrind has been installed manually on the runners.
+      - name: Install Valgrind (Not on hyperv)
+        if: ${{ (matrix.hypervisor != 'hyperv') && (matrix.hypervisor != 'kvm') }}
+        run: ./install_valgrind.sh
+        working-directory: ./scripts
+      - name: Install cargo-valgrind
+        run: cargo install cargo-valgrind
+      - name: Valgrind Rust tests
+        run: cargo valgrind test
+      - name: Valgrind C tests
         working-directory: src/hyperlight_host
-        run: |
-          echo "testdata:"
-          ls testdata
-          just run-tests-capi  ${{ matrix.config }}
+        run: just valgrind-tests-capi  ${{ matrix.config }}
 

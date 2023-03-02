@@ -418,7 +418,6 @@ mod tests {
     #[cfg(target_os = "linux")]
     use libc::{mmap, munmap};
     use proptest::prelude::*;
-    use std::ffi::c_void;
     #[cfg(target_os = "windows")]
     use windows::Win32::System::Memory::{
         VirtualAlloc, VirtualFree, MEM_COMMIT, MEM_DECOMMIT, PAGE_EXECUTE_READWRITE,
@@ -655,12 +654,9 @@ mod tests {
 
     #[test]
     pub fn test_drop() -> Result<()> {
-        let addr: *mut c_void;
-        let size: usize;
-        {
-            let gm = SharedMemory::new(MIN_SIZE)?;
-            addr = gm.raw_ptr();
-            size = gm.mem_size();
+        let (addr, size) = {
+            let mem = SharedMemory::new(MIN_SIZE)?;
+            (mem.raw_ptr(), mem.mem_size())
         };
 
         // guest memory should be dropped at this point,
@@ -672,14 +668,16 @@ mod tests {
                 // on Linux, mmap only takes the address (first param)
                 // as a hint, but only guarantees that it'll not
                 // return NULL if the call succeeded.
-                let mmap_addr = unsafe {mmap(
-                    addr,
-                    size,
-                    libc::PROT_READ | libc::PROT_WRITE,
-                    libc::MAP_ANONYMOUS | libc::MAP_SHARED | libc::MAP_NORESERVE,
-                    -1,
-                    0,
-                )};
+                let mmap_addr = unsafe {
+                    mmap(
+                        addr,
+                        size,
+                        libc::PROT_READ | libc::PROT_WRITE,
+                        libc::MAP_ANONYMOUS | libc::MAP_SHARED | libc::MAP_NORESERVE,
+                        -1,
+                        0,
+                    )
+                };
                 assert_ne!(std::ptr::null_mut(), mmap_addr);
                 assert_eq!(0, unsafe{munmap(addr, size)});
             } else if #[cfg(windows)] {

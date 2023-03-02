@@ -316,6 +316,8 @@ mod tests {
                     // Check that the original payload is unchanged because there are no relocations
                     assert_eq!(relocated_payload, pe_file_bytes, "expected the relocated payload contents to be the same because {pe_file_name} has no relocations");
                 }
+
+                byte_array::byte_array_raw_free(relocated_payload_ptr, relocated_payload_len);
             };
         }
     }

@@ -142,5 +142,7 @@ mod tests {
         let cstr = to_c_string(orig).unwrap();
         let str = unsafe { to_string(cstr) };
         assert_eq!(orig, str);
+        // prevent `cstr` from leaking
+        unsafe { Box::from_raw(cstr as *mut u8) };
     }
 }
