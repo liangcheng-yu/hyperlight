@@ -8,7 +8,7 @@ on:
 jobs:
   cleanup:
     name: CLean up old pre-releases and packages
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       # https://github.com/marketplace/actions/delete-package-versions
       - name: Delete old 'DeisLabs.Hyperlight' package versions

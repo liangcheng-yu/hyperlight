@@ -178,7 +178,7 @@ jobs:
   build-rust-ubuntu:
     # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
     if:  ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev') }} || github.event_name == 'workflow_dispatch' 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
       - uses: Swatinem/rust-cache@v2
