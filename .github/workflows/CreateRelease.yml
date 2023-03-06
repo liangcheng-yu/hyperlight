@@ -6,12 +6,15 @@
 name: Create a Release
 
 on:
+  create:
   workflow_dispatch:
   push:
-    branches: [ release/* ]
+    branches: [ release/*, dev ]
 
 jobs:
   publish:
+    # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
+    if:  ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev') }} || github.event_name == 'workflow_dispatch' 
     runs-on: windows-2022
     needs: [build-rust-ubuntu, build-rust-windows]
     env:
@@ -103,6 +106,8 @@ jobs:
       working-directory: src/HyperlightDependencies
       shell: pwsh
     - name: Publish Github Packages
+      # Only publish if we are on a release branch
+      if: ${{ contains(github.ref, 'refs/heads/release/') }} 
       run: |
           for nupkg in $(find . -name *.nupkg)
           do
@@ -123,7 +128,30 @@ jobs:
       run: ls -lR target/
       shell: bash
     # Publish the native guests so that its possible to use Hyperlight without building it.
+    - name: Create Release 
+      # Only create a release from tag if we are on a release branch
+      if: ${{ contains(github.ref, 'refs/heads/release/') }} 
+      uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        prerelease: true
+        title: "Release v${{ env.HYPERLIGHT_VERSION }}"
+        files: |
+          src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe
+          src/tests/Guests/simpleguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/simpleguest.exe
+          src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
+          src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz
+          ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib
+          src/HyperlightGuest/include/hyperlight.h
+          src/HyperlightGuest/third_party/printf/printf.h
+          hyperlight_host.h
+          libhyperlight_host.so
+          libhyperlight_host.d
+          hyperlight_host.dll
+          hyperlight_host.pdb
     - name: Create Release (latest)
+      # Only create a latest release if we are on the dev branch
+      if: ${{ github.ref=='refs/heads/dev') }}
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -143,28 +171,13 @@ jobs:
           libhyperlight_host.d
           hyperlight_host.dll
           hyperlight_host.pdb
-    - name: Create Release (shortened SHA)
-      uses: "marvinpinto/action-automatic-releases@latest"
-      with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        prerelease: true
-        automatic_release_tag: "${{ env.HYPERLIGHT_VERSION }}"
-        title: "Release ${{ env.HYPERLIGHT_VERSION }}"
-        files: |
-          src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe
-          src/tests/Guests/simpleguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/simpleguest.exe
-          src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
-          src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz
-          ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib
-          src/HyperlightGuest/include/hyperlight.h
-          src/HyperlightGuest/third_party/printf/printf.h
-          hyperlight_host.h
-          libhyperlight_host.so
-          libhyperlight_host.d
-          hyperlight_host.dll
-          hyperlight_host.pdb
-
+          src/Hyperlight/bin/x64/Debug/Deislabs.Hyperlight.*.nupkg
+          src/Hyperlight/bin/x64/Debug/Deislabs.Hyperlight.*.snupkg
+          src/HyperlightDependencies/bin/x64/Debug/Deislabs.HyperlightDependencies.*.nupkg
+          src/HyperlightDependencies/bin/x64/Debug/Deislabs.HyperlightDependencies.*.snupkg
   build-rust-ubuntu:
+    # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
+    if:  ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev') }} || github.event_name == 'workflow_dispatch' 
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -198,6 +211,8 @@ jobs:
           name: hyperlight_host.h
           path: src/hyperlight_host/include/hyperlight_host.h
   build-rust-windows:
+    # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
+    if:  ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev') }} || github.event_name == 'workflow_dispatch' 
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v3
