@@ -8,6 +8,9 @@ on:
     branches: [ main, dev ]
   
 jobs:
+  #####
+  # start build-host-library
+  #####
   build-host-library:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -61,9 +64,24 @@ jobs:
         path: |
           target/${{ matrix.config }}/libhyperlight_host.so
           target/${{ matrix.config }}/libhyperlight_host.d
-  build-on-windows:
+  #####
+  # end build-host-library
+  #####
+
+  #####
+  # start build-guest-binaries
+  #
+  # building simpleguest.exe and callbackguest.exe are the guests
+  # in question. both need to be PE files, which currently requires
+  # we build on windows using the MSVC toolchain
+  #
+  # https://github.com/deislabs/hyperlight/issues/56 tracks the work
+  # needed to allow us to build these PE files with clang, which would
+  # help enable us to build on Linux
+  #####
+  build-guest-binaries:
     runs-on: ${{ matrix.os }}
-    needs: [build-host-library]
+    needs: [ build-host-library ]
     strategy:
       fail-fast: true
       matrix:
@@ -126,6 +144,83 @@ jobs:
       with:
         name: guest-binaries-${{ matrix.config }}
         path: src\tests\Guests\*\${{ matrix.platform }}\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']
+  #####
+  # end build-guest-binaries
+  #####
+
+  #####
+  # start build-on-windows
+  #####
+  build-on-windows:
+    runs-on: ${{ matrix.os }}
+    needs: [build-host-library, build-guest-binaries]
+    strategy:
+      fail-fast: true
+      matrix:
+        build: [ windows-debug, windows-release]
+        include:
+          - build: windows-debug
+            os: [self-hosted, Windows, X64, whp]
+            config: debug
+            platform: x64
+          - build: windows-release
+            os: [self-hosted, Windows, X64, whp]
+            config: release
+            platform: x64
+    env:
+      DOTNET_INSTALL_DIR: "./.dotnet"
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    # this is a workaround for the issue described at https://github.com/dotnet/sourcelink/issues/675 , it supresses the warning about the sourcelink package not being found.
+    - name: Remove Submodule
+      run: git rm munit
+      shell: pwsh   
+      working-directory: src/hyperlight_host/tests_capi
+    - name: Setup dotnet
+      uses: actions/setup-dotnet@v3.0.3
+      with:
+        dotnet-version: | 
+          6.0.x 
+    - uses: actions/cache@v3
+      with:
+        path: ~/.nuget/packages
+        # Look to see if there is a cache hit for the corresponding requirements file
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget
+    - name: Restore
+      run: dotnet restore
+      shell: pwsh
+    - name: Add msbuild to PATH
+      uses: microsoft/setup-msbuild@v1.3
+      with:
+        msbuild-architecture: x64
+    - name: Download hyperlight_host.dll
+      uses: actions/download-artifact@v3
+      with:
+        name: ${{ matrix.config}}_assets 
+        path: target/${{ matrix.config }}
+    - name: Fetch printf
+      working-directory: src/HyperlightGuest/third_party/printf
+      run: git submodule update --init
+    - name: Set up WHP_SHOULD_BE_PRESENT Env Var
+      run: |
+        echo "WHP_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
+    - name: Build Solution
+      run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
+      shell: pwsh
+    - name: Download Guest Binaries
+      uses: actions/download-artifact@v3
+      with:
+        name: guest-binaries-${{ matrix.config }}
+        path: src/tests/Guests/
+    # - name: Upload Binary Artifacts
+    #   uses: actions/upload-artifact@v3
+    #   with:
+    #     name: guest-binaries-${{ matrix.config }}
+    #     path: src\tests\Guests\*\${{ matrix.platform }}\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']
     - name: Test
       shell: pwsh
       run: dotnet test -c ${{ matrix.config }} --logger "trx;verbosity=detailed;LogFilePrefix=win-${{ matrix.config }}" --blame
@@ -143,8 +238,15 @@ jobs:
       with:
         name: test-results-${{ matrix.config }}
         path: src\tests\Hyperlight.Tests\TestResults\*.trx
+  #####
+  # end build-on-windows
+  #####
+  
+  #####
+  # start build-on-linux
+  #####
   build-on-linux:
-    needs: [ build-on-windows ]
+    needs: [ build-host-library, build-guest-binaries ]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
@@ -195,7 +297,7 @@ jobs:
     - name: Restore
       run: dotnet restore
       shell: bash
-    - name: Download Artifacts
+    - name: Download Guest Binaries
       uses: actions/download-artifact@v3
       with:
         name: guest-binaries-${{ matrix.config }}
@@ -203,7 +305,7 @@ jobs:
     - name: Download libhyperlight_host.so
       uses: actions/download-artifact@v3
       with:
-        name: ${{ matrix.config}}_assets
+        name: ${{ matrix.config }}_assets
         path: target/${{ matrix.config }}
     - name: List downloaded artificats
       run: ls -lR target/
@@ -242,3 +344,6 @@ jobs:
       with:
         name: test-results-${{ matrix.config }}-${{ matrix.hypervisor }}
         path: src/tests/Hyperlight.Tests/TestResults/*.trx
+  #####
+  # end build-on-linux
+  #####
