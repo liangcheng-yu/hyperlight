@@ -9,6 +9,7 @@ namespace Hyperlight.Core
     internal class SandboxMemoryManager : Wrapper.SandboxMemoryManager
     {
         private bool disposedValue;
+        private LoadLibrary? loadedLib;
 
         internal SandboxMemoryManager(
             Context ctx,
@@ -38,12 +39,12 @@ namespace Hyperlight.Core
             this.size = sandboxMemoryLayout.GetMemorySize();
             this.sharedMemoryWrapper = new SharedMemory(this.ContextWrapper, this.Size);
 
-            loadAddress = OS.LoadLibrary(guestBinaryPath);
+            this.loadedLib = new LoadLibrary(guestBinaryPath);
 
             // Mark first byte as 'J' so we know we are running in hyperlight VM and not as real windows exe
-            Marshal.WriteByte(loadAddress, (byte)'J');
+            Marshal.WriteByte(this.loadedLib.LoadAddr, (byte)'J');
 
-            EntryPoint = (ulong)loadAddress + headers.EntryPointOffset;
+            EntryPoint = (ulong)this.loadedLib.LoadAddr + headers.EntryPointOffset;
 
             this.sourceAddress = this.sharedMemoryWrapper.Address;
 
@@ -55,7 +56,7 @@ namespace Hyperlight.Core
             // Write a pointer to code so that guest exe can check that it is running in Hyperlight
             this.sharedMemoryWrapper.WriteInt64(
                 (IntPtr)sandboxMemoryLayout.codePointerAddressOffset,
-                (ulong)loadAddress
+                (ulong)this.loadedLib.LoadAddr
             );
         }
         internal void LoadGuestBinaryIntoMemory(PEInfo peInfo)
@@ -271,11 +272,7 @@ namespace Hyperlight.Core
                 {
                     this.sandboxMemoryLayout?.Dispose();
                     this.sharedMemoryWrapper!.Dispose();
-                }
-
-                if (IntPtr.Zero != loadAddress)
-                {
-                    OS.FreeLibrary(loadAddress);
+                    this.loadedLib?.Dispose();
                 }
 
                 disposedValue = true;

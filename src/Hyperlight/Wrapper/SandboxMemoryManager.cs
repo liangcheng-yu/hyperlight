@@ -17,7 +17,6 @@ namespace Hyperlight.Wrapper
         internal SharedMemory? sharedMemoryWrapper;
         internal SandboxMemoryLayout? sandboxMemoryLayout;
 
-        internal IntPtr loadAddress = IntPtr.Zero;
         internal readonly bool runFromProcessMemory;
         internal readonly SandboxMemoryConfiguration sandboxMemoryConfiguration;
         internal ulong size;
