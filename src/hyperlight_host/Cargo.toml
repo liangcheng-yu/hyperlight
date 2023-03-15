@@ -19,7 +19,7 @@ byteorder = { version = "1.4.3" }
 rand = { version = "0.8.5" }
 cfg-if = { version = "1.0.0" }
 libc = { version = "0.2.140" }
-windows = { version = "0.44.0", features = [
+windows = { version = "0.46.0", features = [
     "Win32_System_Memory",
     "Win32_Foundation"
 ] }
