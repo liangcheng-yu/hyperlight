@@ -1,9 +1,9 @@
 use super::layout::SandboxMemoryLayout;
 use super::ptr::RawPtr;
 use super::ptr::{GuestPtr, HostPtr};
+use super::ptr_addr_space::HostAddressSpace;
 use super::ptr_offset::Offset;
 use super::shared_mem_snapshot::SharedMemorySnapshot;
-use super::{config::SandboxMemoryConfiguration, ptr_addr_space::HostAddressSpace};
 use super::{ptr_addr_space::GuestAddressSpace, shared_mem::SharedMemory};
 use crate::{
     capi::arrays::raw_vec::RawVec,
@@ -30,20 +30,31 @@ const PDE64_PS: u64 = 1 << 7;
 /// A struct that is responsible for laying out and managing the memory
 /// for a given `Sandbox`.
 pub struct SandboxMemoryManager {
-    _cfg: SandboxMemoryConfiguration,
     /// Whether or not to run a sandbox in-process
     pub run_from_process_memory: bool,
     mem_snapshot: Option<SharedMemorySnapshot>,
+    shared_mem: SharedMemory,
+    layout: SandboxMemoryLayout,
 }
 
 impl SandboxMemoryManager {
     /// Create a new `SandboxMemoryManager` with the given parameters
-    pub fn new(_cfg: SandboxMemoryConfiguration, run_from_process_memory: bool) -> Self {
+    pub fn new(
+        layout: SandboxMemoryLayout,
+        shared_mem: SharedMemory,
+        run_from_process_memory: bool,
+    ) -> Self {
         Self {
-            _cfg,
             run_from_process_memory,
             mem_snapshot: None,
+            layout,
+            shared_mem,
         }
+    }
+
+    /// Get the `SharedMemory` associated with `self`
+    pub fn get_shared_mem(&self) -> &SharedMemory {
+        &self.shared_mem
     }
 
     /// Set the stack guard to `cookie` using `layout` to calculate
@@ -54,23 +65,15 @@ impl SandboxMemoryManager {
     /// reference to a `SandboxMemoryLayout` and `SharedMemory`,
     /// remove the `layout` and `shared_mem` parameters, and use
     /// the `&self` to access them instead.
-    pub fn set_stack_guard(
-        &self,
-        layout: &SandboxMemoryLayout,
-        shared_mem: &mut SharedMemory,
-        cookie: &Vec<u8>,
-    ) -> Result<()> {
-        let stack_offset = layout.get_top_of_stack_offset();
-        shared_mem.copy_from_slice(cookie.as_slice(), stack_offset)
+    pub fn set_stack_guard(&mut self, cookie: &Vec<u8>) -> Result<()> {
+        let stack_offset = self.layout.get_top_of_stack_offset();
+        self.shared_mem
+            .copy_from_slice(cookie.as_slice(), stack_offset)
     }
 
     /// Set up the hypervisor partition in the given `SharedMemory` parameter
     /// `shared_mem`, with the given memory size `mem_size`
-    pub fn set_up_hypervisor_partition(
-        &self,
-        shared_mem: &mut SharedMemory,
-        mem_size: u64,
-    ) -> Result<u64> {
+    pub fn set_up_hypervisor_partition(&mut self, mem_size: u64) -> Result<u64> {
         // Add 0x200000 because that's the start of mapped memory
         // For MSVC, move rsp down by 0x28.  This gives the called 'main'
         // function the appearance that rsp was was 16 byte aligned before
@@ -86,11 +89,11 @@ impl SandboxMemoryManager {
         let rsp = mem_size + SandboxMemoryLayout::BASE_ADDRESS as u64 - 0x28;
 
         // Create pagetable
-        shared_mem.write_u64(
+        self.shared_mem.write_u64(
             Offset::try_from(SandboxMemoryLayout::PML4_OFFSET)?,
             PDE64_PRESENT | PDE64_RW | PDE64_USER | SandboxMemoryLayout::PDPT_GUEST_ADDRESS as u64,
         )?;
-        shared_mem.write_u64(
+        self.shared_mem.write_u64(
             Offset::try_from(SandboxMemoryLayout::PDPT_OFFSET)?,
             PDE64_PRESENT | PDE64_RW | PDE64_USER | SandboxMemoryLayout::PD_GUEST_ADDRESS as u64,
         )?;
@@ -101,7 +104,7 @@ impl SandboxMemoryManager {
             // map each VA to physical memory 2 megs lower
             let val_to_write: u64 =
                 (i << 21) as u64 + (PDE64_PRESENT | PDE64_RW | PDE64_USER | PDE64_PS);
-            shared_mem.write_u64(offset, val_to_write)?;
+            self.shared_mem.write_u64(offset, val_to_write)?;
         }
         Ok(rsp)
     }
@@ -118,15 +121,11 @@ impl SandboxMemoryManager {
     /// This method could be an associated function instead. See
     /// documentation at the bottom `set_stack_guard` for description
     /// of why it isn't.
-    pub fn check_stack_guard(
-        &self,
-        layout: &SandboxMemoryLayout,
-        shared_mem: &SharedMemory,
-        cookie: &Vec<u8>,
-    ) -> Result<bool> {
-        let offset = layout.get_top_of_stack_offset();
+    pub fn check_stack_guard(&self, cookie: &Vec<u8>) -> Result<bool> {
+        let offset = self.layout.get_top_of_stack_offset();
         let mut test_cookie = vec![b'\0'; cookie.len()];
-        shared_mem.copy_to_slice(test_cookie.as_mut_slice(), offset)?;
+        self.shared_mem
+            .copy_to_slice(test_cookie.as_mut_slice(), offset)?;
 
         let cmp_res = cookie.iter().cmp(test_cookie.iter());
         Ok(cmp_res == Ordering::Equal)
@@ -139,13 +138,15 @@ impl SandboxMemoryManager {
     /// For more details on PEBs, please see the following link:
     ///
     /// https://en.wikipedia.org/wiki/Process_Environment_Block
-    pub fn get_peb_address(&self, layout: &SandboxMemoryLayout, start_addr: u64) -> Result<u64> {
+    pub fn get_peb_address(&self, start_addr: u64) -> Result<u64> {
         match self.run_from_process_memory {
-            true => Ok(u64::from(layout.get_in_process_peb_offset() + start_addr)),
-            false => u64::try_from(layout.peb_address).map_err(|_| {
+            true => Ok(u64::from(
+                self.layout.get_in_process_peb_offset() + start_addr,
+            )),
+            false => u64::try_from(self.layout.peb_address).map_err(|_| {
                 anyhow!(
                     "get_peb_address: failed to convert peb_address ({}) to u64",
-                    layout.peb_address
+                    self.layout.peb_address
                 )
             }),
         }
@@ -154,12 +155,12 @@ impl SandboxMemoryManager {
     /// Create a new memory snapshot of the given `SharedMemory` and
     /// store it internally. Return an `Ok(())` if the snapshot
     /// operation succeeded, and an `Err` otherwise.
-    pub fn snapshot_state(&mut self, shared_mem: &SharedMemory) -> Result<()> {
+    pub fn snapshot_state(&mut self) -> Result<()> {
         let snap = &mut self.mem_snapshot;
         if let Some(snapshot) = snap {
             snapshot.replace_snapshot()
         } else {
-            let new_snapshot = SharedMemorySnapshot::new(shared_mem.clone())?;
+            let new_snapshot = SharedMemorySnapshot::new(self.shared_mem.clone())?;
             self.mem_snapshot = Some(new_snapshot);
             Ok(())
         }
@@ -179,39 +180,26 @@ impl SandboxMemoryManager {
 
     /// Get the return value of an executable that ran, or an `Err`
     /// if no such return value was present.
-    pub fn get_return_value(
-        &self,
-        shared_mem: &SharedMemory,
-        layout: &SandboxMemoryLayout,
-    ) -> Result<i32> {
-        let offset = layout.output_data_buffer_offset;
-        shared_mem.read_i32(offset)
+    pub fn get_return_value(&self) -> Result<i32> {
+        let offset = self.layout.output_data_buffer_offset;
+        self.shared_mem.read_i32(offset)
     }
 
     /// Sets `addr` to the correct offset in the memory referenced by
     /// `shared_mem` to indicate the address of the outb pointer
-    pub fn set_outb_address(
-        &self,
-        shared_mem: &mut SharedMemory,
-        layout: &SandboxMemoryLayout,
-        addr: u64,
-    ) -> Result<()> {
-        let offset = layout.get_out_b_pointer_offset();
-        shared_mem.write_u64(offset, addr)
+    pub fn set_outb_address(&mut self, addr: u64) -> Result<()> {
+        let offset = self.layout.get_out_b_pointer_offset();
+        self.shared_mem.write_u64(offset, addr)
     }
 
     /// Get the name of the method called by the host
-    pub fn get_host_call_method_name(
-        &self,
-        guest_mem: &SharedMemory,
-        layout: &SandboxMemoryLayout,
-    ) -> Result<String> {
-        let output_data_offset = layout.output_data_buffer_offset;
-        let str_addr = guest_mem.read_u64(output_data_offset)?;
+    pub fn get_host_call_method_name(&self) -> Result<String> {
+        let output_data_offset = self.layout.output_data_buffer_offset;
+        let str_addr = self.shared_mem.read_u64(output_data_offset)?;
         let host_ptr = GuestPtr::try_from((RawPtr::from(str_addr), self.run_from_process_memory))
             .and_then(|gp| {
             gp.to_foreign_ptr(HostAddressSpace::new(
-                guest_mem,
+                &self.shared_mem,
                 self.run_from_process_memory,
             ))
         })?;
@@ -221,7 +209,7 @@ impl SandboxMemoryManager {
             let str_raw_vec = unsafe { RawVec::copy_from_ptr(addr as *mut u8, str_len) };
             String::from_utf8(str_raw_vec.into()).map_err(|e| anyhow!(e))
         } else {
-            guest_mem.read_string(host_ptr.offset())
+            self.shared_mem.read_string(host_ptr.offset())
         }
     }
 
@@ -235,17 +223,13 @@ impl SandboxMemoryManager {
 
     /// Convert a pointer in the guest's address space to a pointer in the
     /// host's.
-    pub fn get_host_address_from_ptr(
-        &self,
-        guest_ptr: GuestPtr,
-        shared_mem: &SharedMemory,
-    ) -> Result<HostPtr> {
+    pub fn get_host_address_from_ptr(&self, guest_ptr: GuestPtr) -> Result<HostPtr> {
         // to translate a pointer from the guest address space,
         // we need to get the offset (which is already taken care of in
         // guest_ptr) and then add it to the host base address, which is
         // the base address of shared memory.
         guest_ptr.to_foreign_ptr(HostAddressSpace::new(
-            shared_mem,
+            &self.shared_mem,
             self.run_from_process_memory,
         ))
     }
@@ -261,59 +245,39 @@ impl SandboxMemoryManager {
     }
 
     /// Get the address of the dispatch function in memory
-    pub fn get_pointer_to_dispatch_function(
-        &self,
-        shared_mem: &SharedMemory,
-        layout: &SandboxMemoryLayout,
-    ) -> Result<u64> {
-        shared_mem.read_u64(layout.get_dispatch_function_pointer_offset())
+    pub fn get_pointer_to_dispatch_function(&self) -> Result<u64> {
+        self.shared_mem
+            .read_u64(self.layout.get_dispatch_function_pointer_offset())
     }
 
     /// Get output from the guest as a `String`
-    pub fn get_string_output(
-        &self,
-        layout: &SandboxMemoryLayout,
-        shared_mem: &SharedMemory,
-    ) -> Result<String> {
-        let offset = layout.get_output_data_offset();
-        shared_mem.read_string(offset)
+    pub fn get_string_output(&self) -> Result<String> {
+        let offset = self.layout.get_output_data_offset();
+        self.shared_mem.read_string(offset)
     }
 
     /// Get the length of the host exception
-    pub fn get_host_exception_length(
-        &self,
-        layout: &SandboxMemoryLayout,
-        guest_mem: &SharedMemory,
-    ) -> Result<i32> {
-        let offset = layout.get_host_exception_offset();
+    pub fn get_host_exception_length(&self) -> Result<i32> {
+        let offset = self.layout.get_host_exception_offset();
         // The host exception field is expected to contain a 32-bit length followed by the exception data.
-        guest_mem.read_i32(offset)
+        self.shared_mem.read_i32(offset)
     }
 
     /// Get a bool indicating if there is a host exception
-    pub fn has_host_exception(
-        &self,
-        layout: &SandboxMemoryLayout,
-        guest_mem: &SharedMemory,
-    ) -> Result<bool> {
-        let offset = layout.get_host_exception_offset();
+    pub fn has_host_exception(&self) -> Result<bool> {
+        let offset = self.layout.get_host_exception_offset();
         // The host exception field is expected to contain a 32-bit length followed by the exception data.
-        let len = guest_mem.read_i32(offset)?;
+        let len = self.shared_mem.read_i32(offset)?;
         Ok(len != 0)
     }
 
     /// Get the exception data that was written by the Hyperlight Host
     /// Returns a `Result` containing 'Unit' or an error.
     /// Writes the exception data to the buffer at `exception_data_ptr`.
-    pub fn get_host_exception_data(
-        &self,
-        layout: &SandboxMemoryLayout,
-        guest_mem: &SharedMemory,
-        exception_data_slc: &mut [u8],
-    ) -> Result<()> {
-        let offset = layout.get_host_exception_offset();
+    pub fn get_host_exception_data(&self, exception_data_slc: &mut [u8]) -> Result<()> {
+        let offset = self.layout.get_host_exception_offset();
         // The host exception field is expected to contain a 32-bit length followed by the exception data.
-        let len = guest_mem.read_i32(offset)?;
+        let len = self.shared_mem.read_i32(offset)?;
         let exception_data_slc_len = exception_data_slc.len();
         if exception_data_slc_len != len as usize {
             bail!(
@@ -323,27 +287,26 @@ impl SandboxMemoryManager {
             );
         }
         // The host exception field is expected to contain a 32-bit length followed by the exception data.
-        guest_mem.copy_to_slice(exception_data_slc, offset + size_of::<i32>())?;
+        self.shared_mem
+            .copy_to_slice(exception_data_slc, offset + size_of::<i32>())?;
         Ok(())
     }
 
     /// This function writes an exception to guest memory and is intended to be used when an exception occurs
     /// handling an outb call from the guest
     pub fn write_outb_exception(
-        &self,
-        layout: &SandboxMemoryLayout,
-        guest_mem: &mut SharedMemory,
+        &mut self,
         guest_error_msg: &Vec<u8>,
         host_exception_data: &Vec<u8>,
     ) -> Result<()> {
         let message = String::from_utf8(guest_error_msg.to_owned()).map_err(|e| anyhow!(e))?;
         let ge = GuestError::new(Code::OutbError, message);
-        ge.write_to_memory(guest_mem, layout)?;
+        ge.write_to_memory(&mut self.shared_mem, &self.layout)?;
 
-        let host_exception_offset = layout.get_host_exception_offset();
-        let host_exception_size_offset = layout.get_host_exception_size_offset();
+        let host_exception_offset = self.layout.get_host_exception_offset();
+        let host_exception_size_offset = self.layout.get_host_exception_size_offset();
         let max_host_exception_size = {
-            let size_u64 = guest_mem.read_u64(host_exception_size_offset)?;
+            let size_u64 = self.shared_mem.read_u64(host_exception_size_offset)?;
             usize::try_from(size_u64)
         }?;
 
@@ -357,8 +320,9 @@ impl SandboxMemoryManager {
             );
         }
 
-        guest_mem.write_i32(host_exception_offset, host_exception_data.len() as i32)?;
-        guest_mem.copy_from_slice(
+        self.shared_mem
+            .write_i32(host_exception_offset, host_exception_data.len() as i32)?;
+        self.shared_mem.copy_from_slice(
             host_exception_data,
             host_exception_offset + size_of::<i32>(),
         )?;
@@ -367,11 +331,7 @@ impl SandboxMemoryManager {
     }
 
     /// Get the guest error data
-    pub fn get_guest_error(
-        &self,
-        layout: &SandboxMemoryLayout,
-        guest_mem: &SharedMemory,
-    ) -> Result<GuestError> {
-        GuestError::try_from((guest_mem, layout))
+    pub fn get_guest_error(&self) -> Result<GuestError> {
+        GuestError::try_from((&self.shared_mem, &self.layout))
     }
 }

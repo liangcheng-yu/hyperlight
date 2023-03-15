@@ -23,13 +23,17 @@ Handle guest_mem_ref;
 
 void setup_memory(Context *ctx)
 {
+    // create mem layout and shared mem
     mem_layout_ref = mem_layout_new(ctx, mem_cfg, CODE_SIZE, STACK_SIZE, HEAP_SIZE);
     handle_assert_no_error(ctx, mem_layout_ref);
-    mem_mgr_ref = mem_mgr_new(ctx, mem_cfg, true);
-    handle_assert_no_error(ctx, mem_mgr_ref);
     guest_mem_size = mem_layout_get_memory_size(ctx, mem_layout_ref);
     guest_mem_ref = shared_memory_new(ctx, guest_mem_size);
     handle_assert_no_error(ctx, guest_mem_ref);
+
+    // create mem manager
+    mem_mgr_ref = mem_mgr_new(ctx, guest_mem_ref, mem_layout_ref, true);
+    handle_assert_no_error(ctx, mem_mgr_ref);
+
     uintptr_t address = shared_memory_get_address(ctx, guest_mem_ref);
     Handle offset_ref = mem_mgr_get_address_offset(ctx, mem_mgr_ref, address);
     handle_assert_no_error(ctx, offset_ref);
@@ -45,7 +49,7 @@ MunitResult test_has_host_exception()
     Context *ctx = context_new();
     setup_memory(ctx);
 
-    Handle host_exception_ref = mem_mgr_has_host_exception(ctx, mem_mgr_ref, mem_layout_ref, guest_mem_ref);
+    Handle host_exception_ref = mem_mgr_has_host_exception(ctx, mem_mgr_ref);
     handle_assert_no_error(ctx, host_exception_ref);
     bool has_host_exception = handle_get_boolean(ctx, host_exception_ref);
     munit_assert_false(has_host_exception);
@@ -59,10 +63,10 @@ MunitResult test_has_host_exception()
     Handle byte_array_2_ref = byte_array_new(ctx, (const uint8_t *)exception_data, strlen(exception_data));
     handle_assert_no_error(ctx, byte_array_2_ref);
 
-    Handle result_ref = mem_mgr_write_outb_exception(ctx, mem_mgr_ref, mem_layout_ref, guest_mem_ref, byte_array_1_ref, byte_array_2_ref);
+    Handle result_ref = mem_mgr_write_outb_exception(ctx, mem_mgr_ref, byte_array_1_ref, byte_array_2_ref);
     handle_assert_no_error(ctx, result_ref);
 
-    host_exception_ref = mem_mgr_has_host_exception(ctx, mem_mgr_ref, mem_layout_ref, guest_mem_ref);
+    host_exception_ref = mem_mgr_has_host_exception(ctx, mem_mgr_ref);
     handle_assert_no_error(ctx, host_exception_ref);
     has_host_exception = handle_get_boolean(ctx, host_exception_ref);
     munit_assert_true(has_host_exception);
@@ -85,7 +89,7 @@ MunitResult test_host_exception_length()
     Context *ctx = context_new();
     setup_memory(ctx);
 
-    Handle host_exception_length_ref = mem_mgr_get_host_exception_length(ctx, mem_mgr_ref, mem_layout_ref, guest_mem_ref);
+    Handle host_exception_length_ref = mem_mgr_get_host_exception_length(ctx, mem_mgr_ref);
     handle_assert_no_error(ctx, host_exception_length_ref);
     int32_t host_exception_length = handle_get_int_32(ctx, host_exception_length_ref);
     munit_assert_int32(host_exception_length, ==, 0);
@@ -99,10 +103,10 @@ MunitResult test_host_exception_length()
     Handle byte_array_2_ref = byte_array_new(ctx, (const uint8_t *)exception_data, strlen(exception_data));
     handle_assert_no_error(ctx, byte_array_2_ref);
 
-    Handle result_ref = mem_mgr_write_outb_exception(ctx, mem_mgr_ref, mem_layout_ref, guest_mem_ref, byte_array_1_ref, byte_array_2_ref);
+    Handle result_ref = mem_mgr_write_outb_exception(ctx, mem_mgr_ref, byte_array_1_ref, byte_array_2_ref);
     handle_assert_no_error(ctx, result_ref);
 
-    host_exception_length_ref = mem_mgr_get_host_exception_length(ctx, mem_mgr_ref, mem_layout_ref, guest_mem_ref);
+    host_exception_length_ref = mem_mgr_get_host_exception_length(ctx, mem_mgr_ref);
     handle_assert_no_error(ctx, host_exception_length_ref);
     host_exception_length = handle_get_int_32(ctx, host_exception_length_ref);
     munit_assert_int32(host_exception_length, ==, strlen(exception_data));
@@ -133,7 +137,7 @@ MunitResult test_long_data_causes_errors()
     Handle byte_array_2_ref = byte_array_new(ctx, (const uint8_t *)exception_data, strlen(exception_data));
     handle_assert_no_error(ctx, byte_array_2_ref);
 
-    Handle result_ref = mem_mgr_write_outb_exception(ctx, mem_mgr_ref, mem_layout_ref, guest_mem_ref, byte_array_1_ref, byte_array_2_ref);
+    Handle result_ref = mem_mgr_write_outb_exception(ctx, mem_mgr_ref, byte_array_1_ref, byte_array_2_ref);
     handle_assert_error(ctx, result_ref);
 
     handle_free(ctx, byte_array_1_ref);
@@ -147,7 +151,7 @@ MunitResult test_long_data_causes_errors()
     byte_array_2_ref = byte_array_new(ctx, (const uint8_t *)exception_data, strlen(exception_data));
     handle_assert_no_error(ctx, byte_array_2_ref);
 
-    result_ref = mem_mgr_write_outb_exception(ctx, mem_mgr_ref, mem_layout_ref, guest_mem_ref, byte_array_1_ref, byte_array_2_ref);
+    result_ref = mem_mgr_write_outb_exception(ctx, mem_mgr_ref, byte_array_1_ref, byte_array_2_ref);
     handle_assert_error(ctx, result_ref);
 
     guest_mem_size = 0;
@@ -175,10 +179,10 @@ MunitResult test_host_exception_data_round_trip()
     Handle byte_array_2_ref = byte_array_new(ctx, (const uint8_t *)exception_data, strlen(exception_data));
     handle_assert_no_error(ctx, byte_array_2_ref);
 
-    Handle result_ref = mem_mgr_write_outb_exception(ctx, mem_mgr_ref, mem_layout_ref, guest_mem_ref, byte_array_1_ref, byte_array_2_ref);
+    Handle result_ref = mem_mgr_write_outb_exception(ctx, mem_mgr_ref, byte_array_1_ref, byte_array_2_ref);
     handle_assert_no_error(ctx, result_ref);
 
-    Handle host_exception_length_ref = mem_mgr_get_host_exception_length(ctx, mem_mgr_ref, mem_layout_ref, guest_mem_ref);
+    Handle host_exception_length_ref = mem_mgr_get_host_exception_length(ctx, mem_mgr_ref);
     handle_assert_no_error(ctx, host_exception_length_ref);
     int32_t host_exception_length = handle_get_int_32(ctx, host_exception_length_ref);
 
@@ -187,7 +191,7 @@ MunitResult test_host_exception_data_round_trip()
     unsigned char *exception_data1 = (unsigned char *)malloc(host_exception_length + 1);
     memset(exception_data1, 0, host_exception_length + 1);
 
-    result_ref = mem_mgr_get_host_exception_data(ctx, mem_mgr_ref, mem_layout_ref, guest_mem_ref, exception_data1, host_exception_length);
+    result_ref = mem_mgr_get_host_exception_data(ctx, mem_mgr_ref, exception_data1, host_exception_length);
     handle_assert_no_error(ctx, result_ref);
 
     munit_assert_string_equal((const char *)exception_data1, exception_data);

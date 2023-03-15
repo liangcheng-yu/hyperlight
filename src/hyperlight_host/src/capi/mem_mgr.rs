@@ -1,11 +1,13 @@
-use super::mem_layout::get_mem_layout;
-use super::shared_mem::{get_shared_memory, get_shared_memory_mut};
+use super::shared_mem::get_shared_memory;
 use super::{byte_array::get_byte_array, context::Context, handle::Handle, hdl::Hdl};
-use crate::{capi::int::register_u64, capi::strings::register_string, validate_context};
+use crate::{
+    capi::int::register_u64,
+    capi::{mem_layout::get_mem_layout, strings::register_string},
+    validate_context,
+};
 use crate::{
     capi::{arrays::borrowed_slice::borrow_ptr_as_slice_mut, int::register_i32},
     mem::{
-        config::SandboxMemoryConfiguration,
         mgr::SandboxMemoryManager,
         ptr::{GuestPtr, HostPtr, RawPtr},
     },
@@ -34,11 +36,21 @@ fn get_mem_mgr_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut SandboxMemoryM
 #[no_mangle]
 pub unsafe extern "C" fn mem_mgr_new(
     ctx: *mut Context,
-    cfg: SandboxMemoryConfiguration,
+    shared_mem_hdl: Handle,
+    layout_hdl: Handle,
     run_from_process_mem: bool,
 ) -> Handle {
     validate_context!(ctx);
-    let mgr = SandboxMemoryManager::new(cfg, run_from_process_mem);
+    let layout = match get_mem_layout(&*ctx, layout_hdl) {
+        Ok(l) => l,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let shared_mem = match get_shared_memory(&*ctx, shared_mem_hdl) {
+        Ok(s) => s,
+        Err(e) => return (*ctx).register_err(e),
+    };
+
+    let mgr = SandboxMemoryManager::new(layout, shared_mem.clone(), run_from_process_mem);
     Context::register(mgr, &mut (*ctx).mem_mgrs, Hdl::MemMgr)
 }
 
@@ -59,28 +71,18 @@ pub unsafe extern "C" fn mem_mgr_new(
 pub unsafe extern "C" fn mem_mgr_set_stack_guard(
     ctx: *mut Context,
     mgr_hdl: Handle,
-    layout_hdl: Handle,
-    shared_mem_hdl: Handle,
     cookie_hdl: Handle,
 ) -> Handle {
     validate_context!(ctx);
-    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
+    let mgr = match get_mem_mgr_mut(&mut *ctx, mgr_hdl) {
         Ok(m) => m,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let layout = match get_mem_layout(&*ctx, layout_hdl) {
-        Ok(l) => l,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let shared_mem = match get_shared_memory_mut(&mut *ctx, shared_mem_hdl) {
-        Ok(gm) => gm,
         Err(e) => return (*ctx).register_err(e),
     };
     let cookie = match get_byte_array(&*ctx, cookie_hdl) {
         Ok(c) => c,
         Err(e) => return (*ctx).register_err(e),
     };
-    match mgr.set_stack_guard(&layout, shared_mem, cookie) {
+    match mgr.set_stack_guard(cookie) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
@@ -99,19 +101,14 @@ pub unsafe extern "C" fn mem_mgr_set_stack_guard(
 pub unsafe extern "C" fn mem_mgr_set_up_hypervisor_partition(
     ctx: *mut Context,
     mgr_hdl: Handle,
-    shared_mem_hdl: Handle,
     mem_size: u64,
 ) -> Handle {
     validate_context!(ctx);
-    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
+    let mgr = match get_mem_mgr_mut(&mut *ctx, mgr_hdl) {
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
     };
-    let shared_mem = match get_shared_memory_mut(&mut *ctx, shared_mem_hdl) {
-        Ok(gm) => gm,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    match mgr.set_up_hypervisor_partition(shared_mem, mem_size) {
+    match mgr.set_up_hypervisor_partition(mem_size) {
         Ok(rsp) => Context::register(rsp, &mut (*ctx).uint64s, Hdl::UInt64),
         Err(e) => (*ctx).register_err(e),
     }
@@ -137,8 +134,6 @@ pub unsafe extern "C" fn mem_mgr_set_up_hypervisor_partition(
 pub unsafe extern "C" fn mem_mgr_check_stack_guard(
     ctx: *mut Context,
     mgr_hdl: Handle,
-    layout_hdl: Handle,
-    shared_mem_hdl: Handle,
     cookie_hdl: Handle,
 ) -> Handle {
     validate_context!(ctx);
@@ -146,19 +141,11 @@ pub unsafe extern "C" fn mem_mgr_check_stack_guard(
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
     };
-    let layout = match get_mem_layout(&*ctx, layout_hdl) {
-        Ok(l) => l,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let shared_mem = match get_shared_memory(&*ctx, shared_mem_hdl) {
-        Ok(gm) => gm,
-        Err(e) => return (*ctx).register_err(e),
-    };
     let cookie = match get_byte_array(&*ctx, cookie_hdl) {
         Ok(c) => c,
         Err(e) => return (*ctx).register_err(e),
     };
-    match mgr.check_stack_guard(&layout, shared_mem, cookie) {
+    match mgr.check_stack_guard(cookie) {
         Ok(res) => Context::register(res, &mut (*ctx).booleans, Hdl::Boolean),
         Err(e) => (*ctx).register_err(e),
     }
@@ -177,7 +164,6 @@ pub unsafe extern "C" fn mem_mgr_check_stack_guard(
 pub unsafe extern "C" fn mem_mgr_get_peb_address(
     ctx: *mut Context,
     mem_mgr_hdl: Handle,
-    mem_layout_hdl: Handle,
     mem_start_addr: u64,
 ) -> Handle {
     validate_context!(ctx);
@@ -185,11 +171,7 @@ pub unsafe extern "C" fn mem_mgr_get_peb_address(
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
     };
-    let layout = match get_mem_layout(&*ctx, mem_layout_hdl) {
-        Ok(l) => l,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let addr = match mgr.get_peb_address(&layout, mem_start_addr) {
+    let addr = match mgr.get_peb_address(mem_start_addr) {
         Ok(a) => a,
         Err(e) => return (*ctx).register_err(e),
     };
@@ -206,22 +188,13 @@ pub unsafe extern "C" fn mem_mgr_get_peb_address(
 /// `ctx` must be created by `context_new`, owned by the caller, and
 /// not yet freed by `context_free`.
 #[no_mangle]
-pub unsafe extern "C" fn mem_mgr_snapshot_state(
-    ctx: *mut Context,
-    mgr_hdl: Handle,
-    shared_mem_hdl: Handle,
-) -> Handle {
+pub unsafe extern "C" fn mem_mgr_snapshot_state(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
     validate_context!(ctx);
     let mgr = match get_mem_mgr_mut(&mut *ctx, mgr_hdl) {
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
     };
-    let shared_mem = match get_shared_memory(&*ctx, shared_mem_hdl) {
-        Ok(g) => g,
-        Err(e) => return (*ctx).register_err(e),
-    };
-
-    match mgr.snapshot_state(shared_mem) {
+    match mgr.snapshot_state() {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
@@ -258,26 +231,13 @@ pub unsafe extern "C" fn mem_mgr_restore_state(ctx: *mut Context, mgr_hdl: Handl
 /// `ctx` must be created by `context_new`, owned by the caller, and
 /// not yet freed by `context_free`.
 #[no_mangle]
-pub unsafe extern "C" fn mem_mgr_get_return_value(
-    ctx: *mut Context,
-    mgr_hdl: Handle,
-    shared_mem_hdl: Handle,
-    layout_hdl: Handle,
-) -> Handle {
+pub unsafe extern "C" fn mem_mgr_get_return_value(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
     validate_context!(ctx);
     let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
     };
-    let shared_mem = match get_shared_memory(&*ctx, shared_mem_hdl) {
-        Ok(g) => g,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let layout = match get_mem_layout(&*ctx, layout_hdl) {
-        Ok(l) => l,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let ret_val = match mgr.get_return_value(shared_mem, &layout) {
+    let ret_val = match mgr.get_return_value() {
         Ok(v) => v,
         Err(e) => return (*ctx).register_err(e),
     };
@@ -298,24 +258,14 @@ pub unsafe extern "C" fn mem_mgr_get_return_value(
 pub unsafe extern "C" fn mem_mgr_set_outb_address(
     ctx: *mut Context,
     mgr_hdl: Handle,
-    shared_mem_hdl: Handle,
-    layout_hdl: Handle,
     addr: u64,
 ) -> Handle {
     validate_context!(ctx);
-    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
+    let mgr = match get_mem_mgr_mut(&mut *ctx, mgr_hdl) {
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
     };
-    let shared_mem = match get_shared_memory_mut(&mut *ctx, shared_mem_hdl) {
-        Ok(g) => g,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let layout = match get_mem_layout(&*ctx, layout_hdl) {
-        Ok(l) => l,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    match mgr.set_outb_address(shared_mem, &layout, addr) {
+    match mgr.set_outb_address(addr) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
@@ -334,24 +284,14 @@ pub unsafe extern "C" fn mem_mgr_set_outb_address(
 pub unsafe extern "C" fn mem_mgr_get_host_call_method_name(
     ctx: *mut Context,
     mgr_hdl: Handle,
-    guest_mem_hdl: Handle,
-    layout_hdl: Handle,
 ) -> Handle {
     validate_context!(ctx);
     let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
     };
-    let guest_mem = match get_shared_memory(&*ctx, guest_mem_hdl) {
-        Ok(g) => g,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let layout = match get_mem_layout(&*ctx, layout_hdl) {
-        Ok(l) => l,
-        Err(e) => return (*ctx).register_err(e),
-    };
 
-    match mgr.get_host_call_method_name(guest_mem, &layout) {
+    match mgr.get_host_call_method_name() {
         Ok(method_name) => register_string(&mut *ctx, method_name),
         Err(e) => (*ctx).register_err(e),
     }
@@ -392,7 +332,6 @@ pub unsafe extern "C" fn mem_mgr_get_address_offset(
 pub unsafe extern "C" fn mem_mgr_get_host_address_from_pointer(
     ctx: *mut Context,
     mgr_hdl: Handle,
-    shared_mem_hdl: Handle,
     addr: u64,
 ) -> Handle {
     validate_context!(ctx);
@@ -400,15 +339,11 @@ pub unsafe extern "C" fn mem_mgr_get_host_address_from_pointer(
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
     };
-    let shared_mem = match get_shared_memory(&*ctx, shared_mem_hdl) {
-        Ok(g) => g,
-        Err(e) => return (*ctx).register_err(e),
-    };
     let guest_ptr = match GuestPtr::try_from((RawPtr::from(addr), mgr.run_from_process_memory)) {
         Ok(g) => g,
         Err(e) => return (*ctx).register_err(e),
     };
-    match mgr.get_host_address_from_ptr(guest_ptr, shared_mem) {
+    match mgr.get_host_address_from_ptr(guest_ptr) {
         Ok(addr_ptr) => match addr_ptr.absolute() {
             Ok(addr) => register_u64(&mut *ctx, addr),
             Err(e) => (*ctx).register_err(e),
@@ -428,7 +363,6 @@ pub unsafe extern "C" fn mem_mgr_get_host_address_from_pointer(
 pub unsafe extern "C" fn mem_mgr_get_guest_address_from_pointer(
     ctx: *mut Context,
     mgr_hdl: Handle,
-    shared_mem_hdl: Handle,
     addr: u64,
 ) -> Handle {
     validate_context!(ctx);
@@ -436,16 +370,15 @@ pub unsafe extern "C" fn mem_mgr_get_guest_address_from_pointer(
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
     };
-    let shared_mem = match get_shared_memory(&*ctx, shared_mem_hdl) {
-        Ok(g) => g,
+
+    let host_ptr = match HostPtr::try_from((
+        RawPtr::from(addr),
+        mgr.get_shared_mem(),
+        mgr.run_from_process_memory,
+    )) {
+        Ok(p) => p,
         Err(e) => return (*ctx).register_err(e),
     };
-
-    let host_ptr =
-        match HostPtr::try_from((RawPtr::from(addr), shared_mem, mgr.run_from_process_memory)) {
-            Ok(p) => p,
-            Err(e) => return (*ctx).register_err(e),
-        };
     match mgr.get_guest_address_from_ptr(host_ptr) {
         Ok(addr_ptr) => match addr_ptr.absolute() {
             Ok(addr) => register_u64(&mut *ctx, addr),
@@ -469,23 +402,13 @@ pub unsafe extern "C" fn mem_mgr_get_guest_address_from_pointer(
 pub unsafe extern "C" fn mem_mgr_get_pointer_to_dispatch_function(
     ctx: *mut Context,
     mgr_hdl: Handle,
-    shared_mem_hdl: Handle,
-    layout_hdl: Handle,
 ) -> Handle {
     validate_context!(ctx);
     let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
     };
-    let shared_mem = match get_shared_memory(&*ctx, shared_mem_hdl) {
-        Ok(g) => g,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let layout = match get_mem_layout(&*ctx, layout_hdl) {
-        Ok(l) => l,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    match mgr.get_pointer_to_dispatch_function(shared_mem, &layout) {
+    match mgr.get_pointer_to_dispatch_function() {
         Ok(ptr) => register_u64(&mut *ctx, ptr),
         Err(e) => (*ctx).register_err(e),
     }
@@ -501,27 +424,14 @@ pub unsafe extern "C" fn mem_mgr_get_pointer_to_dispatch_function(
 /// `ctx` must be created by `context_new`, owned by the caller, and
 /// not yet freed by `context_free`.
 #[no_mangle]
-pub unsafe extern "C" fn mem_mgr_read_string_output(
-    ctx: *mut Context,
-    mgr_hdl: Handle,
-    layout_hdl: Handle,
-    shared_mem_hdl: Handle,
-) -> Handle {
+pub unsafe extern "C" fn mem_mgr_read_string_output(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
     validate_context!(ctx);
     let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
     };
-    let shared_mem = match get_shared_memory_mut(&mut *ctx, shared_mem_hdl) {
-        Ok(g) => g,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let layout = match get_mem_layout(&*ctx, layout_hdl) {
-        Ok(l) => l,
-        Err(e) => return (*ctx).register_err(e),
-    };
 
-    match mgr.get_string_output(&layout, shared_mem) {
+    match mgr.get_string_output() {
         Ok(output) => register_string(&mut *ctx, output),
         Err(e) => (*ctx).register_err(e),
     }
@@ -536,26 +446,13 @@ pub unsafe extern "C" fn mem_mgr_read_string_output(
 /// `ctx` must be created by `context_new`, owned by the caller, and
 /// not yet freed by `context_free`.
 #[no_mangle]
-pub unsafe extern "C" fn mem_mgr_has_host_exception(
-    ctx: *mut Context,
-    mgr_hdl: Handle,
-    layout_hdl: Handle,
-    guest_mem_hdl: Handle,
-) -> Handle {
+pub unsafe extern "C" fn mem_mgr_has_host_exception(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
     validate_context!(ctx);
     let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
     };
-    let guest_mem = match get_shared_memory_mut(&mut *ctx, guest_mem_hdl) {
-        Ok(g) => g,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let layout = match get_mem_layout(&*ctx, layout_hdl) {
-        Ok(l) => l,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    match mgr.has_host_exception(&layout, guest_mem) {
+    match mgr.has_host_exception() {
         Ok(output) => Context::register(output, &mut (*ctx).booleans, Hdl::Boolean),
         Err(e) => (*ctx).register_err(e),
     }
@@ -573,23 +470,13 @@ pub unsafe extern "C" fn mem_mgr_has_host_exception(
 pub unsafe extern "C" fn mem_mgr_get_host_exception_length(
     ctx: *mut Context,
     mgr_hdl: Handle,
-    layout_hdl: Handle,
-    guest_mem_hdl: Handle,
 ) -> Handle {
     validate_context!(ctx);
     let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
     };
-    let guest_mem = match get_shared_memory_mut(&mut *ctx, guest_mem_hdl) {
-        Ok(g) => g,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let layout = match get_mem_layout(&*ctx, layout_hdl) {
-        Ok(l) => l,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    match mgr.get_host_exception_length(&layout, guest_mem) {
+    match mgr.get_host_exception_length() {
         Ok(output) => Context::register(output, &mut (*ctx).int32s, Hdl::Int32),
         Err(e) => (*ctx).register_err(e),
     }
@@ -613,22 +500,12 @@ pub unsafe extern "C" fn mem_mgr_get_host_exception_length(
 pub unsafe extern "C" fn mem_mgr_get_host_exception_data(
     ctx: *mut Context,
     mgr_hdl: Handle,
-    layout_hdl: Handle,
-    guest_mem_hdl: Handle,
     exception_data_ptr: *mut u8,
     exception_data_len: i32,
 ) -> Handle {
     validate_context!(ctx);
     let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
         Ok(m) => m,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let guest_mem = match get_shared_memory_mut(&mut *ctx, guest_mem_hdl) {
-        Ok(g) => g,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let layout = match get_mem_layout(&*ctx, layout_hdl) {
-        Ok(l) => l,
         Err(e) => return (*ctx).register_err(e),
     };
     if exception_data_ptr.is_null() {
@@ -647,7 +524,7 @@ pub unsafe extern "C" fn mem_mgr_get_host_exception_data(
         }
     };
     match borrow_ptr_as_slice_mut(exception_data_ptr, exception_data_len_usize, |slice| {
-        mgr.get_host_exception_data(&layout, guest_mem, slice)
+        mgr.get_host_exception_data(slice)
     }) {
         Ok(_) => Handle::from(Hdl::Empty()),
         Err(e) => (*ctx).register_err(e),
@@ -675,22 +552,12 @@ pub unsafe extern "C" fn mem_mgr_get_host_exception_data(
 pub unsafe extern "C" fn mem_mgr_write_outb_exception(
     ctx: *mut Context,
     mgr_hdl: Handle,
-    layout_hdl: Handle,
-    guest_mem_hdl: Handle,
     guest_error_msg_hdl: Handle,
     host_exception_data_hdl: Handle,
 ) -> Handle {
     validate_context!(ctx);
-    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
+    let mgr = match get_mem_mgr_mut(&mut *ctx, mgr_hdl) {
         Ok(m) => m,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let guest_mem = match get_shared_memory_mut(&mut *ctx, guest_mem_hdl) {
-        Ok(g) => g,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let layout = match get_mem_layout(&*ctx, layout_hdl) {
-        Ok(l) => l,
         Err(e) => return (*ctx).register_err(e),
     };
     let guest_error_msg = match get_byte_array(&*ctx, guest_error_msg_hdl) {
@@ -702,7 +569,7 @@ pub unsafe extern "C" fn mem_mgr_write_outb_exception(
         Err(e) => return (*ctx).register_err(e),
     };
 
-    match mgr.write_outb_exception(&layout, guest_mem, guest_error_msg, host_exception_data) {
+    match mgr.write_outb_exception(guest_error_msg, host_exception_data) {
         Ok(_) => Handle::from(Hdl::Empty()),
         Err(e) => (*ctx).register_err(e),
     }
@@ -718,26 +585,13 @@ pub unsafe extern "C" fn mem_mgr_write_outb_exception(
 /// `ctx` must be created by `context_new`, owned by the caller, and
 /// not yet freed by `context_free`.
 #[no_mangle]
-pub unsafe extern "C" fn mem_mgr_get_guest_error(
-    ctx: *mut Context,
-    mgr_hdl: Handle,
-    layout_hdl: Handle,
-    guest_mem_hdl: Handle,
-) -> Handle {
+pub unsafe extern "C" fn mem_mgr_get_guest_error(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
     validate_context!(ctx);
     let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
     };
-    let guest_mem = match get_shared_memory_mut(&mut *ctx, guest_mem_hdl) {
-        Ok(g) => g,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let layout = match get_mem_layout(&*ctx, layout_hdl) {
-        Ok(l) => l,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    match mgr.get_guest_error(&layout, guest_mem) {
+    match mgr.get_guest_error() {
         Ok(output) => Context::register(output, &mut (*ctx).guest_errors, Hdl::GuestError),
         Err(e) => (*ctx).register_err(e),
     }

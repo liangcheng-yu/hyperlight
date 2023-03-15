@@ -243,7 +243,7 @@ namespace Hyperlight.Wrapper
         }
 
         internal void WriteMemoryLayout(
-            Wrapper.SharedMemory sharedMemoryWrapper,
+            SharedMemory sharedMemoryWrapper,
             IntPtr guestAddress,
             ulong size
         )

@@ -1,11 +1,13 @@
 using System;
+using System.Collections.Immutable;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
-using Hyperlight.Generated;
 using Hyperlight.Core;
+using Hyperlight.Generated;
 using Hyperlight.Hypervisors;
 using Hyperlight.Native;
 using Hyperlight.Wrapper;
@@ -182,14 +184,20 @@ namespace Hyperlight
             }
 
             this.guestInterfaceGlue = new HyperlightGuestInterfaceGlue(this);
-            this.sandboxMemoryManager = new Core.SandboxMemoryManager(
-                this.context,
-                memCfg,
-                runFromProcessMemory
-            );
+
 
             HyperlightLogger.SetLogger(errorMessageLogger);
-            LoadGuestBinary();
+            {
+                var (mgr, didRunFromGuestBinary) = LoadGuestBinary(
+                    this.context,
+                    memCfg,
+                    guestBinaryPath,
+                    runFromProcessMemory,
+                    runFromGuestBinary
+                );
+                this.sandboxMemoryManager = mgr;
+                this.didRunFromGuestBinary = didRunFromGuestBinary;
+            }
             SetUpHyperLightPEB();
             SetUpStackGuard();
             rsp = 0;
@@ -331,10 +339,16 @@ namespace Hyperlight
             }
         }
 
-        void LoadGuestBinary()
+        private static (Core.SandboxMemoryManager, bool) LoadGuestBinary(
+            Context ctx,
+            SandboxMemoryConfiguration memCfg,
+            string guestBinaryPath,
+            bool runFromProcessMemory,
+            bool runFromGuestBinary
+        )
         {
-            var peInfo = new PEInfo(this.context, guestBinaryPath);
-
+            var peInfo = new PEInfo(ctx, guestBinaryPath);
+            bool didRunFromGuestBinary = false;
             try
             {
                 if (runFromGuestBinary)
@@ -342,7 +356,10 @@ namespace Hyperlight
                     if (!IsWindows)
                     {
                         // If not on Windows runFromBinary doesn't mean anything because we cannot use LoadLibrary.
-                        HyperlightException.LogAndThrowException<NotSupportedException>("RunFromBinary is only supported on Windows", GetType().Name);
+                        HyperlightException.LogAndThrowException<NotSupportedException>(
+                            "RunFromBinary is only supported on Windows",
+                            MethodBase.GetCurrentMethod()!.DeclaringType!.Name
+                        );
                     }
 
                     // LoadLibrary does not support multiple independent instances of a binary beng loaded 
@@ -353,14 +370,29 @@ namespace Hyperlight
                     }
                     else
                     {
-                        HyperlightException.LogAndThrowException("Only one instance of Sandbox is allowed when running from guest binary", GetType().Name);
+                        HyperlightException.LogAndThrowException(
+                            "Only one instance of Sandbox is allowed when running from guest binary",
+                            MethodBase.GetCurrentMethod()!.DeclaringType!.Name
+                        );
                     }
 
-                    sandboxMemoryManager.LoadGuestBinaryUsingLoadLibrary(guestBinaryPath, peInfo);
+                    var memMgr = Core.SandboxMemoryManager.LoadGuestBinaryUsingLoadLibrary(
+                        ctx,
+                        memCfg,
+                        guestBinaryPath,
+                        runFromProcessMemory
+                    );
+                    return (memMgr, didRunFromGuestBinary);
                 }
                 else
                 {
-                    sandboxMemoryManager.LoadGuestBinaryIntoMemory(peInfo);
+                    var memMgr = Core.SandboxMemoryManager.LoadGuestBinaryIntoMemory(
+                        ctx,
+                        memCfg,
+                        guestBinaryPath,
+                        runFromProcessMemory
+                    );
+                    return (memMgr, didRunFromGuestBinary);
                 }
             }
             finally
@@ -445,6 +477,21 @@ namespace Hyperlight
         {
             var rsp = sandboxMemoryManager.SetUpHyperVisorPartition();
 
+            var memSize = this.sandboxMemoryManager.Size;
+            var baseAddr = SandboxMemoryLayout.BaseAddress;
+            var pml4Addr = SandboxMemoryLayout.PML4GuestAddress;
+            var entryPoint = this.sandboxMemoryManager.EntryPoint;
+
+            // ensure PML4 < entry point < stack pointer
+            checkSequence(
+                memSize,
+                baseAddr,
+                new (string, ulong)[]{
+                        ("PML4Addr", pml4Addr),
+                        ("EntryPoint", entryPoint),
+                        ("RSP", rsp)
+                }.ToImmutableList()
+            );
             if (IsLinux)
             {
                 if (LinuxHyperV.IsHypervisorPresent())
@@ -452,9 +499,9 @@ namespace Hyperlight
                     hyperVisor = new HyperVOnLinux(
                         this.context,
                         sandboxMemoryManager.SourceAddress,
-                        SandboxMemoryLayout.PML4GuestAddress,
-                        sandboxMemoryManager.Size,
-                        sandboxMemoryManager.EntryPoint,
+                        pml4Addr,
+                        memSize,
+                        entryPoint,
                         rsp,
                         HandleOutb,
                         HandleMMIOExit
@@ -462,7 +509,15 @@ namespace Hyperlight
                 }
                 else if (LinuxKVM.IsHypervisorPresent())
                 {
-                    hyperVisor = new KVM(sandboxMemoryManager.SourceAddress, SandboxMemoryLayout.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, HandleMMIOExit);
+                    hyperVisor = new KVM(
+                        sandboxMemoryManager.SourceAddress,
+                        pml4Addr,
+                        memSize,
+                        entryPoint,
+                        rsp,
+                        HandleOutb,
+                        HandleMMIOExit
+                    );
                 }
                 else
                 {
@@ -472,7 +527,15 @@ namespace Hyperlight
             }
             else if (IsWindows)
             {
-                hyperVisor = new HyperV(sandboxMemoryManager.SourceAddress, SandboxMemoryLayout.PML4GuestAddress, sandboxMemoryManager.Size, sandboxMemoryManager.EntryPoint, rsp, HandleOutb, HandleMMIOExit);
+                hyperVisor = new HyperV(
+                    sandboxMemoryManager.SourceAddress,
+                    pml4Addr,
+                    memSize,
+                    entryPoint,
+                    rsp,
+                    HandleOutb,
+                    HandleMMIOExit
+                );
             }
             else
             {
@@ -779,6 +842,53 @@ namespace Hyperlight
                 return WindowsHypervisorPlatform.IsHypervisorPresent();
             }
             return false;
+        }
+
+        private static ulong checkGuestAddr(ulong memSize, ulong baseAddr, string addrName, ulong addr)
+        {
+            if (addr < baseAddr)
+            {
+                HyperlightException.LogAndThrowException(
+                    $"{addrName} {addr} < baseAddr {baseAddr}",
+                    MethodBase.GetCurrentMethod()!.DeclaringType!.Name
+                );
+            }
+            var offset = addr - baseAddr;
+            if (offset > memSize)
+            {
+                HyperlightException.LogAndThrowException(
+                    $"{addrName} {addr} (offset = {offset}) > total shared mem size {memSize}",
+                    MethodBase.GetCurrentMethod()!.DeclaringType!.Name
+                );
+            }
+            return addr;
+        }
+
+        /// <summary>
+        /// Ensure each address in a list is greater than all the 
+        /// previous list entries, is greater than the given base address,
+        /// and its offset (address - baseAddr) is less than the given
+        /// memory size.
+        /// </summary>
+        /// <param name="memSize">the total memory size</param>
+        /// <param name="baseAddr">the base address</param>
+        /// <param name="addrs">the list of addresses to check</param>
+        private static void checkSequence(ulong memSize, ulong baseAddr, ImmutableList<(string, ulong)> addrs)
+        {
+            var _ = addrs.Aggregate((prev, cur) =>
+            {
+                var (prevName, prevAddr) = prev;
+                var (curName, curAddr) = cur;
+                checkGuestAddr(memSize, baseAddr, curName, curAddr);
+                if (prevAddr >= curAddr)
+                {
+                    HyperlightException.LogAndThrowException(
+                    message: $"address {prevName} ({prevAddr}) >= address {curName} ({curAddr})",
+                    MethodBase.GetCurrentMethod()!.DeclaringType!.Name
+                );
+                }
+                return cur;
+            });
         }
 
         protected virtual void Dispose(bool disposing)
