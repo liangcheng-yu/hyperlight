@@ -85,14 +85,14 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        build: [ windows-debug, windows-release]
+        build: [windows-2022-debug, windows-2022-release]
         include:
-          - build: windows-debug
-            os: [self-hosted, Windows, X64, whp]
+          - build: windows-2022-debug
+            os: windows-2022
             config: debug
             platform: x64
-          - build: windows-release
-            os: [self-hosted, Windows, X64, whp]
+          - build: windows-2022-release
+            os: windows-2022
             config: release
             platform: x64
     env:
