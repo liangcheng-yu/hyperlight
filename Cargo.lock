@@ -481,13 +481,13 @@ dependencies = [
 
 [[package]]
 name = "readonly"
-version = "0.2.5"
+version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c75a383c2bcaa4139436e9826a2e606fac946406cf635f5b2363b86f95c3b756"
+checksum = "c5f0bfb7149f888f75e2bc9f43e8347895d7071752bd4cc9f9b7bb4ebbf524c0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.104",
+ "syn 2.0.2",
 ]
 
 [[package]]
