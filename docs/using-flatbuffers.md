@@ -20,7 +20,9 @@ Follow instructions in the links above to build/or install the tools. On Windows
 Once you have the tools installed, you can generate the code by running as follows:
 
 ```console
-flatc -r -o .\src\hyperlight_host\src\flatbuffers\generated\ .\src\schema\guest_error.fbs
+flatc -r --rust-module-root-file --gen-all -o ./src/hyperlight_host/src/flatbuffers/ ./src/schema/guest_error.fbs 
 flatc -n -o .\src\Hyperlight\flatbuffers  .\src\schema\guest_error.fbs
 flatcc.exe -a -o .\src\HyperlightGuest\include\flatbuffers\generated .\src\schema\guest_error.fbs
 ```
+
+NOTE: when generating the rust code a mod.rs file will be generated in `./src/hyperlight_host/src/flatbuffers`. This will only contain module definitions for the types in the schema file passed as an argument (and any included schema files), if you use this file you will overwrite existing module definitons for other types previousy generated from flatbuffers. Do not use this file, instead manually update `./src/hyperlight_host/src/flatbuffers/mod.rs` with details of new modules. Whilst flatc does support passing multiple schema files (e.g. it is possible to pass `.\src\schema\*.fbs`). so we could regenerate all the files each time a change was made this does not generate the correct code ( see [here](https://github.com/google/flatbuffers/issues/6800) for details).

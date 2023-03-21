@@ -1,5 +1,7 @@
 use super::shared_mem::get_shared_memory;
-use super::{byte_array::get_byte_array, context::Context, handle::Handle, hdl::Hdl};
+use super::{
+    arrays::raw_vec::RawVec, byte_array::get_byte_array, context::Context, handle::Handle, hdl::Hdl,
+};
 use crate::{
     capi::int::register_u64,
     capi::{mem_layout::get_mem_layout, strings::register_string},
@@ -13,6 +15,8 @@ use crate::{
     },
 };
 use anyhow::{anyhow, Result};
+
+use std::ptr::slice_from_raw_parts;
 
 fn get_mem_mgr(ctx: &Context, hdl: Handle) -> Result<&SandboxMemoryManager> {
     Context::get(hdl, &ctx.mem_mgrs, |h| matches!(h, Hdl::MemMgr(_))).map_err(|e| anyhow!(e))
@@ -593,6 +597,53 @@ pub unsafe extern "C" fn mem_mgr_get_guest_error(ctx: *mut Context, mgr_hdl: Han
     };
     match mgr.get_guest_error() {
         Ok(output) => Context::register(output, &mut (*ctx).guest_errors, Hdl::GuestError),
+        Err(e) => (*ctx).register_err(e),
+    }
+}
+
+/// Writes the data pointed to by `fb_guest_function_call_ptr` as a `GuestFunctionCall` flatbuffer to the guest function call section of shared memory.
+/// The buffer should contain a valid size prefixed GuestFunctionCall flatbuffer
+///
+/// Return an empty `Handle` on success, and a `Handle` referencing
+/// an error otherwise.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+///
+/// `mem_mgr_hdl` must be a valid `Handle` returned by `mem_mgr_new` and associated with the `ctx`
+///
+/// `fb_guest_function_call_ptr` must be a pointer to a valid size prefixed flatbuffer containing a `GuestFunctionCall` flatbuffer , it is owned by the caller.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_write_guest_function_call(
+    ctx: *mut Context,
+    mem_mgr_hdl: Handle,
+    fb_guest_function_call_ptr: *const u8,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = match get_mem_mgr_mut(&mut *ctx, mem_mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+
+    if fb_guest_function_call_ptr.is_null() {
+        return (*ctx).register_err(anyhow!("guest fuction call buffer pointer is NULL"));
+    }
+
+    // fb_guest_function_call_ptr is a pointer to a size prefixed flatbuffer , get the size and then copy from it.
+
+    let raw_vec = match std::panic::catch_unwind(|| {
+        let slice = slice_from_raw_parts(fb_guest_function_call_ptr, 4);
+        let len = flatbuffers::read_scalar::<i32>(&*slice) + 4;
+        RawVec::copy_from_ptr(fb_guest_function_call_ptr as *mut u8, len as usize)
+    }) {
+        Ok(rawvec) => rawvec,
+        Err(_) => return (*ctx).register_err(anyhow!("fb_guest_function_call_ptr is invalid")),
+    };
+
+    match mgr.write_guest_function_call(raw_vec.as_slice()) {
+        Ok(_) => Handle::from(Hdl::Empty()),
         Err(e) => (*ctx).register_err(e),
     }
 }

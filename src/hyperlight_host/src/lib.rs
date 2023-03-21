@@ -96,4 +96,5 @@ pub mod sandbox;
 #[deny(dead_code, missing_docs, unused_mut)]
 pub mod guest;
 
+#[allow(non_camel_case_types)]
 pub mod flatbuffers;

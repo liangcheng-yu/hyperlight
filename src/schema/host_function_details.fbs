@@ -1,0 +1,10 @@
+inlcude "host_function_definition.fbs"
+
+namespace Hyperlight.Generated;
+
+table HostFunctionDetails {
+    dispatch_function:long;
+    functions:[HostFunctionDefinition](required);
+}
+
+root_type HostFunctionDetails;

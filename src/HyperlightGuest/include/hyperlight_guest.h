@@ -1,5 +1,10 @@
 #pragma once
 #include "hyperlight_error.h"
+#include "guest_error_builder.h"
+#include "guest_error_reader.h"
+#include "guest_function_details_builder.h"
+#include "guest_function_details_reader.h"
+
 // dlmalloc defines
 
 #define MAX_SIZE_T           (~(size_t)0)
@@ -14,9 +19,7 @@
 #define GUEST_STACK_SIZE 32768
 #endif
 
-#define DEFAULT_FUNC_TABLE_SIZE 20;
-
-typedef int (*guestFunc)(Parameter* params);
+typedef int (*guestFunc)(ns(FunctionCall_table_t) functionCall);
 
 void HyperlightMainDefault() {}
 
@@ -24,22 +27,16 @@ void HyperlightMainDefault() {}
 
 #pragma comment(linker, "/alternatename:HyperlightMain=HyperlightMainDefault")  
 
-int GuestDispatchFunctionDefault(GuestFunctionDetails* guestfunctionDetails)
+int GuestDispatchFunctionDefault(ns(FunctionCall_table_t) functionCall)
 {
-    setError(GUEST_FUNCTION_NOT_FOUND, guestfunctionDetails->functionName);
+    char * functionName = (char *)ns(FunctionCall_function_name(functionCall));
+    setError(GUEST_FUNCTION_NOT_FOUND, functionName);
     return 0;
 }
 
 // If the guest does not define a GuestDispatchFunction use the default GuestDispatchFunctionDefault instead
 
 #pragma comment(linker, "/alternatename:GuestDispatchFunction=GuestDispatchFunctionDefault")  
-
-typedef struct FuncTable
-{
-    int size;
-    int next;
-    FuncEntry** funcEntry;
-} FuncTable;
 
 uint64_t getrsi();
 uint64_t getrdi();

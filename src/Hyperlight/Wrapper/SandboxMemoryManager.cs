@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
+using Google.FlatBuffers;
 using Hyperlight.Core;
 using Hyperlight.Generated;
 using Newtonsoft.Json;
@@ -407,6 +408,107 @@ namespace Hyperlight.Wrapper
 
         }
 
+        internal void WriteGuestFunctionCallDetails(string functionName, object[] args)
+        {
+
+            var builder = new FlatBufferBuilder(1024);
+            var funcName = builder.CreateString(functionName);
+            var nextArgShouldBeArrayLength = false;
+            var nextArgLength = 0;
+            var parameters = new Offset<Parameter>[args.Length];
+            for (var i = 0; i < args.Length; i++)
+            {
+                if (nextArgShouldBeArrayLength)
+                {
+                    if (args[i].GetType() == typeof(int))
+                    {
+                        var val = (int)args[i];
+                        if (nextArgLength != val)
+                        {
+                            HyperlightException.LogAndThrowException<ArgumentException>($"Array length {val} does not match expected length {nextArgLength}.", GetType().Name);
+                        }
+                        var pValue = hlint.Createhlint(builder, val);
+                        parameters[i] = Parameter.CreateParameter(builder, ParameterValue.hlint, pValue.Value);
+                        nextArgShouldBeArrayLength = false;
+                        nextArgLength = 0;
+                    }
+                    else
+                    {
+                        HyperlightException.LogAndThrowException<ArgumentException>($"Argument {i} is not an int, the length of the array must follow the array itself", GetType().Name);
+                    }
+                }
+                else
+                {
+                    if (args[i].GetType() == typeof(int))
+                    {
+                        var val = (int)args[i];
+                        var pValue = hlint.Createhlint(builder, val);
+                        parameters[i] = Parameter.CreateParameter(builder, ParameterValue.hlint, pValue.Value);
+                    }
+                    else if (args[i].GetType() == typeof(long))
+                    {
+                        var val = (long)args[i];
+                        var pValue = hllong.Createhllong(builder, val);
+                        parameters[i] = Parameter.CreateParameter(builder, ParameterValue.hllong, pValue.Value);
+                    }
+                    else if (args[i].GetType() == typeof(string))
+                    {
+                        var val = builder.CreateString((string)args[i]);
+                        var pValue = hlstring.Createhlstring(builder, val);
+                        parameters[i] = Parameter.CreateParameter(builder, ParameterValue.hlstring, pValue.Value);
+                    }
+                    else if (args[i].GetType() == typeof(bool))
+                    {
+                        var val = (bool)args[i];
+                        var pValue = hlbool.Createhlbool(builder, val);
+                        parameters[i] = Parameter.CreateParameter(builder, ParameterValue.hlbool, pValue.Value);
+                    }
+                    else if (args[i].GetType() == typeof(byte[]))
+                    {
+                        var val = (byte[])args[i];
+                        var vec = hlvecbytes.CreateValueVector(builder, val);
+                        var pValue = hlvecbytes.Createhlvecbytes(builder, vec);
+                        parameters[i] = Parameter.CreateParameter(builder, ParameterValue.hlvecbytes, pValue.Value);
+                        nextArgShouldBeArrayLength = true;
+                        nextArgLength = val.Length;
+                    }
+                    else
+                    {
+                        HyperlightException.LogAndThrowException<ArgumentException>("Unsupported parameter type", GetType().Name);
+                    }
+                }
+            }
+
+
+            if (nextArgShouldBeArrayLength)
+            {
+                HyperlightException.LogAndThrowException<ArgumentException>("Array length must be specified", GetType().Name);
+            }
+
+            var parametersVector = FunctionCall.CreateParametersVector(builder, parameters);
+            var guestFunctionCall = FunctionCall.CreateFunctionCall(builder, funcName, parametersVector);
+            FunctionCall.FinishSizePrefixedFunctionCallBuffer(builder, guestFunctionCall);
+            var buffer = builder.SizedByteArray();
+
+            unsafe
+            {
+                fixed (byte* guestFunctionCallBuffferPtr = buffer)
+                {
+                    using var resultHdlWrapper = new Handle(
+                        this.ctxWrapper,
+                        mem_mgr_write_guest_function_call(
+                            this.ctxWrapper.ctx,
+                            this.memMgrHdl.handle,
+                            (IntPtr)guestFunctionCallBuffferPtr
+                        ),
+                        true
+                    );
+                }
+            }
+
+
+        }
+
         /// <summary>
         /// A function for subclasses to implement if they want to implement
         /// any Dispose logic of their own.
@@ -606,6 +708,15 @@ namespace Hyperlight.Wrapper
             NativeHandle mgrHdl
         );
 
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+
+        private static extern NativeHandle mem_mgr_write_guest_function_call(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            IntPtr guestFunctionCallBuffferPtr
+        );
 #pragma warning restore CA1707 // Remove the underscores from member name
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
 

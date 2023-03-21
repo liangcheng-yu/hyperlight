@@ -1,5 +1,5 @@
 extern crate flatbuffers;
-use crate::flatbuffers::generated::guest_error_generated::hyperlight::generated::{
+use crate::flatbuffers::hyperlight::generated::{
     size_prefixed_root_as_guest_error, ErrorCode, GuestError as GuestErrorFb, GuestErrorArgs,
 };
 use crate::mem::layout::SandboxMemoryLayout;
@@ -103,8 +103,10 @@ impl TryFrom<&GuestError> for Vec<u8> {
         // 2. the capacity of the vector should be the same as the size of the buffer (frm the size prefix) + 4 bytes (the size of the size prefix field is not included in the size)
 
         let length = unsafe { flatbuffers::read_scalar::<i32>(&res[..4]) };
-        assert_eq!(res.capacity(), res.len());
-        assert_eq!(res.capacity(), length as usize + 4);
+
+        if res.capacity() != res.len() || res.capacity() != length as usize + 4 {
+            anyhow::bail!("The capacity of the vector is for GuestError is incorrect");
+        }
 
         Ok(res)
     }

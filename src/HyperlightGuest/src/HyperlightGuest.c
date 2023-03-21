@@ -5,60 +5,69 @@
 #include "hyperlight_peb.h"
 #include <setjmp.h>
 #include <string.h>
-#include "guest_error_builder.h"
-#include "guest_error_reader.h"
-
-#define ns(x) FLATBUFFERS_WRAP_NAMESPACE(Hyperlight_Generated, x) 
 
 extern int _fltused = 0;
 uintptr_t __security_cookie;
 jmp_buf jmpbuf;
 HyperlightPEB* pPeb;
-FuncTable* funcTable;
+flatcc_builder_t GuestFunctionBuilder;
+ns(GuestFunctionDetails_table_t) GuestFunctions;
+
 bool runningInHyperlight = true;
 void (*outb_ptr)(uint16_t port, uint8_t value) = NULL;
 
-void RegisterFunction(const char* FunctionName, guestFunc pFunction, int paramCount, ParameterKind parameterKind[])
+
+ns(GuestFunctionDefinition_ref_t) CreateFunctionDefinition(const char* functionName, guestFunc pFunction, int paramCount, ns(ParameterType_enum_t) parameterKind[])
 {
-    if (funcTable->next > funcTable->size)
+    flatbuffers_string_ref_t name = flatbuffers_string_create_str(&GuestFunctionBuilder, functionName);
+
+    ns(ParameterType_vec_start(&GuestFunctionBuilder));
+
+    for (int i = 0; i < paramCount; i++)
     {
-        char message[100] = { 0 };
-        snprintf(message, 100, "Function Table Limit is %d.", funcTable->size);
-        setError(TOO_MANY_GUEST_FUNCTIONS, message);
-    }
-    FuncEntry* funcEntry = (FuncEntry*)calloc(1, sizeof(FuncEntry));
-    if (NULL == funcEntry)
-    {
-        setError(MALLOC_FAILED, NULL);
+        ns(ParameterType_vec_push(&GuestFunctionBuilder, &parameterKind[i]));
     }
 
-#pragma warning(suppress:6011)
-    funcEntry->FunctionName = FunctionName;
-    funcEntry->pFunction = pFunction;
-    funcEntry->paramCount = paramCount;
-    funcEntry->parameterKind = parameterKind;
+    ns(ParameterType_vec_ref_t) parameters = ns(ParameterType_vec_end(&GuestFunctionBuilder));
 
-    funcTable->funcEntry[funcTable->next] = funcEntry;
-    funcTable->next++;
+    // TODO Set the return type correctly
+
+    ns(ReturnType_enum_t) returnType = ns(ReturnType_hlint);
+
+    return ns(GuestFunctionDefinition_create(&GuestFunctionBuilder, name, parameters, returnType, (int64_t)pFunction));
 }
 
-void InitialiseFunctionTable(int size)
+void RegisterFunction(ns(GuestFunctionDefinition_ref_t) functionDefinition)
 {
-    size = size > 0 ? size : DEFAULT_FUNC_TABLE_SIZE;
-    funcTable = (FuncTable*)calloc(1, sizeof(FuncTable));
-    if (NULL == funcTable)
-    {
-        setError(MALLOC_FAILED, NULL);
-    }
+    ns(GuestFunctionDetails_functions_push(&GuestFunctionBuilder, functionDefinition));
+}
 
-#pragma warning(suppress:6011)
-    funcTable->next = 0;
-    funcTable->size = size;
-    funcTable->funcEntry = (FuncEntry**)(calloc(size, sizeof(FuncEntry*)));
-    if (NULL == funcTable->funcEntry)
-    {
-        setError(MALLOC_FAILED, NULL);
-    }
+void InitialiseFunctionTable()
+{
+    flatcc_builder_init(&GuestFunctionBuilder);
+    ns(GuestFunctionDetails_start_as_root(&GuestFunctionBuilder));
+    ns(GuestFunctionDetails_functions_start(&GuestFunctionBuilder));
+}
+
+void FinaliseFunctionTable()
+{
+
+    // Finalise the Guest Function Details table and then get a mutable vec of GuestFunctionDefinitions and sort it by name so that
+    // the function definitons in the table are in name order - this is required for find to work.
+
+    ns(GuestFunctionDetails_functions_end(&GuestFunctionBuilder));
+    ns(GuestFunctionDetails_end_as_root(&GuestFunctionBuilder));
+    size_t size;
+    void* buffer = flatcc_builder_finalize_buffer(&GuestFunctionBuilder, &size);
+    assert(buffer);
+    GuestFunctions = ns(GuestFunctionDetails_as_root(buffer));
+    assert(GuestFunctions);
+    ns(GuestFunctionDefinition_vec_t) guestFunctionDefinitions = ns(GuestFunctionDetails_functions(GuestFunctions));
+    assert(guestFunctionDefinitions);
+    ns(GuestFunctionDefinition_mutable_vec_t) mutableGuestFunctionDefinitions = (ns(GuestFunctionDefinition_mutable_vec_t))guestFunctionDefinitions;
+    ns(GuestFunctionDefinition_vec_sort_by_function_name(mutableGuestFunctionDefinitions));
+
+    // Dont free the buffer here as we are storing the GuestFunctionDetails flatbuffer for the lifetime of the guest. If we free it here then the GuestFunctionDetails flatbuffer is destroyed.
 }
 
 void checkForHostError()
@@ -67,7 +76,6 @@ void checkForHostError()
     void* buffer = flatbuffers_read_size_prefix(pPeb->pGuestErrorBuffer, &size);
     assert(NULL != buffer);
     // No need to free buffer as its just a pointer to an offset in the message buffer in the PEB
-    ns(GuestError_table_t guestError = ns(GuestError_as_root(buffer)));
     if (size > 0)
     {
         ns(GuestError_table_t guestError = ns(GuestError_as_root(buffer)));
@@ -111,7 +119,7 @@ void outb(uint16_t port, uint8_t value)
     // If we are aborting just exit
     /*if (port != OUTB_ABORT)
     {
-        longjmp(jmpbuf, 1);  
+        longjmp(jmpbuf, 1);
     }*/
     checkForHostError();
 }
@@ -277,190 +285,180 @@ unsigned long long GetHostReturnValueAsULongLong()
     return *((unsigned long long*)pPeb->inputdata.inputDataBuffer);
 }
 
-int CallGuestFunction(GuestFunctionDetails* guestfunctionDetails)
+void GetFunctionCallParameters(ns(FunctionCall_table_t) functionCall, Parameter parameterValues[])
 {
-    guestFunc pFunction = NULL;
-    int requiredParameterCount = 0;
-    ParameterKind* parameterKind = NULL;
+    ns(Parameter_vec_t) parameters = ns(FunctionCall_parameters(functionCall));
+    size_t actualParameterCount = ns(Parameter_vec_len(parameters));
 
-    for (int i = 0; i < funcTable->next; i++)
+    for (int i = 0; i < actualParameterCount; i++)
     {
-        if (strcmp(guestfunctionDetails->functionName, funcTable->funcEntry[i]->FunctionName) == 0)
+        ns(Parameter_table_t) parameter = ns(Parameter_vec_at(parameters, i));
+        ns(ParameterValue_union_type_t) parameterType = ns(Parameter_value_type(parameter));
+
+        switch (parameterType)
         {
-            pFunction = funcTable->funcEntry[i]->pFunction;
-            requiredParameterCount = funcTable->funcEntry[i]->paramCount;
-            parameterKind = funcTable->funcEntry[i]->parameterKind;
+        case ns(ParameterValue_hlint):
+            parameterValues[i].kind = hlint;
+            ns(hlint_table_t) hlintTable = ns(Parameter_value(parameter));
+            parameterValues[i].value.hlint = ns(hlint_value(hlintTable));
+            break;
+        case ns(ParameterValue_hllong):
+            parameterValues[i].kind = hllong;
+            ns(hllong_table_t) hllongTable = ns(Parameter_value(parameter));
+            parameterValues[i].value.hllong = ns(hllong_value(hllongTable));
+            break;
+        case ns(ParameterValue_hlstring):
+            parameterValues[i].kind = hlstring;
+            ns(hlstring_table_t) hlstringTable = ns(Parameter_value(parameter));
+            parameterValues[i].value.hlstring = ns(hlstring_value(hlstringTable));
+            break;
+        case ns(ParameterValue_hlbool):
+            parameterValues[i].kind = hlbool;
+            ns(hlbool_table_t) hlboolTable = ns(Parameter_value(parameter));
+            parameterValues[i].value.hlbool = ns(hlbool_value(hlboolTable));
+            break;
+        case ns(ParameterValue_hlvecbytes):
+            parameterValues[i].kind = hlvecbytes;
+            ns(hlvecbytes_table_t) hlvecbytesTable = ns(Parameter_value(parameter));
+            parameterValues[i].value.hlvecbytes = ns(hlvecbytes_value(hlvecbytesTable));
+            break;
+        default:
+            // This should be impossible as we have validated that the correct parameter types are present.
             break;
         }
     }
+}
 
-    if (NULL == pFunction)
+int CallGuestFunction(ns(FunctionCall_table_t) functionCall)
+{
+    guestFunc pFunction = NULL;
+    ns(Parameter_vec_t) parameters = ns(FunctionCall_parameters(functionCall));
+    size_t actualParameterCount = ns(Parameter_vec_len(parameters));
+    flatbuffers_string_t functionName = ns(FunctionCall_function_name(functionCall));
+
+    // this should not be able to happen
+
+    if (NULL == functionName)
+    {
+        setError(GUEST_FUNCTION_NAME_NOT_PROVIDED, NULL);
+    }
+
+    ns(GuestFunctionDefinition_vec_t) guestFunctionDefinitions = ns(GuestFunctionDetails_functions(GuestFunctions));
+
+    size_t key = ns(GuestFunctionDefinition_vec_find_by_function_name(guestFunctionDefinitions, functionName));
+
+    if (flatbuffers_not_found == key)
     {
         // If the function was not found call the GuestDispatchFunction method optionally provided by the guest program.
         // This allows functions exposed by a guest runtime (e.g. WASM) to be called.
-        return GuestDispatchFunction(guestfunctionDetails);
+        return GuestDispatchFunction(functionCall);
     }
 
-    if (requiredParameterCount != guestfunctionDetails->paramc)
+    ns(GuestFunctionDefinition_table_t) functionDefiniton = ns(GuestFunctionDefinition_vec_at(guestFunctionDefinitions, key));
+
+    pFunction = (guestFunc)ns(GuestFunctionDefinition_function_pointer(functionDefiniton));
+    ns(ParameterType_vec_t) parameterTypes = ns(GuestFunctionDefinition_parameters(functionDefiniton));
+    size_t requiredParameterCount = ns(ParameterType_vec_len(parameterTypes));
+
+    if (requiredParameterCount != actualParameterCount)
     {
         char message[100] = { 0 };
-        snprintf(message, 100, "Called function %s with %d parameters but it takes %d.", guestfunctionDetails->functionName, guestfunctionDetails->paramc, requiredParameterCount);
+        snprintf(message, 100, "Called function %s with %d parameters but it takes %d.", functionName, actualParameterCount, requiredParameterCount);
         setError(GUEST_FUNCTION_INCORRECT_NO_OF_PARAMETERS, message);
     }
 
+    // Get the parameter types from the function call so we can check that the types align and also check for length parsmetet when parameter type is ParameterType_hlvecbytes.
+    // The latter check really shouldnt be in the runtime but we dont have anywhere else to put it at the moment.
+
+    ns(ParameterType_enum_t*) parameterKind = (ns(ParameterType_enum_t*))calloc(requiredParameterCount, sizeof(ns(ParameterType_enum_t)));
+    bool nextParamIsLength = false;
+
     for (int i = 0; i < requiredParameterCount; i++)
     {
-        if (guestfunctionDetails->paramv[i].kind != parameterKind[i])
+        ns(Parameter_table_t) parameter = ns(Parameter_vec_at(parameters, i));
+        ns(ParameterValue_union_type_t) parameterType = ns(Parameter_value_type(parameter));
+        if (nextParamIsLength)
         {
+            // The parameter should be a length parameter
+            if (parameterType != ns(ParameterValue_hlint))
+            {
+                char message[15];
+                snprintf(message, 15, "Parameter %d", i);
+                setError(ARRAY_LENGTH_PARAM_IS_MISSING, message);
+            }
+            nextParamIsLength = false;
+        }
+
+        switch (parameterType)
+        {
+        case ns(ParameterValue_hlint):
+            parameterKind[i] = ns(ParameterType_hlint);
+            break;
+        case ns(ParameterValue_hllong):
+            parameterKind[i] = ns(ParameterType_hllong);
+            break;
+        case ns(ParameterValue_hlstring):
+            parameterKind[i] = ns(ParameterType_hlstring);
+            break;
+        case ns(ParameterValue_hlbool):
+            parameterKind[i] = ns(ParameterType_hlbool);
+            break;
+        case ns(ParameterValue_hlvecbytes):
+            parameterKind[i] = ns(ParameterType_hlvecbytes);
+            // Its required that the next parameter is the length of the array.
+            nextParamIsLength = true;
+            break;
+        default:
+            // This should not happen unless additional types are added to the schema and guest code is not udpated to take account of it.
             char message[100] = { 0 };
-            snprintf(message, 100, "Function %s parameter %d.", guestfunctionDetails->functionName, guestfunctionDetails->paramc);
-            setError(GUEST_FUNCTION_PARAMETER_TYPE_MISMATCH, message);
+            snprintf(message, 100, "Unexpected Parameter Type %d in Function %s", parameterType, functionName);
+            setError(UNSUPPORTED_PARAMETER_TYPE, message);
         }
     }
 
-    return pFunction(guestfunctionDetails->paramv);
+    // If the last parameter was a  ParameterValue_hlvecbytes then it should have been followed by a ParameterValue_hlint
+
+    if (nextParamIsLength)
+    {
+        setError(ARRAY_LENGTH_PARAM_IS_MISSING, "Last parameter should be the length of the array");
+    }
+
+    // Check that the parameter types match the expected types.
+
+    for (int i = 0; i < requiredParameterCount; i++)
+    {
+        if (parameterKind[i] != ns(ParameterType_vec_at(parameterTypes, i)))
+        {
+            char message[100] = { 0 };
+            snprintf(message, 100, "Function %s parameter %d.", functionName, i);
+            setError(GUEST_FUNCTION_PARAMETER_TYPE_MISMATCH, message);
+        }
+    }
+    free(parameterKind);
+
+    // call the function
+
+    return pFunction(functionCall);
 }
 
 void DispatchFunction()
 {
-    GuestFunctionDetails* guestFunctionDetails = NULL;
-    Parameter* paramv = NULL;
-    uint64_t* parg_to_free = NULL;
     // setjmp is used to capture state so that if an error occurs then lngjmp is called in setError and control returns to this point , the if returns false and the program exits/halts
     if (!setjmp(jmpbuf))
     {
         resetError();
-        GuestFunctionCall* funcCall = (GuestFunctionCall*)pPeb->outputdata.outputDataBuffer;
 
-        if (NULL == funcCall->FunctionName)
-        {
-            setError(GUEST_FUNCTION_NAME_NOT_PROVIDED, NULL);
-        }
+        // read the Function Call FlatBuffer from memory
 
-        guestFunctionDetails = (GuestFunctionDetails*)calloc(1, sizeof(GuestFunctionDetails));
-
-        if (NULL == guestFunctionDetails)
-        {
-            setError(MALLOC_FAILED, NULL);
-        }
-
-#pragma warning(suppress:6011)
-        guestFunctionDetails->functionName = funcCall->FunctionName;
-        guestFunctionDetails->paramc = (int32_t)funcCall->argc;
-
-        if (0 == guestFunctionDetails->paramc)
-        {
-            guestFunctionDetails->paramv = NULL;
-        }
-        else
-        {
-            paramv = (Parameter*)calloc(guestFunctionDetails->paramc, sizeof(Parameter));
-            if (NULL == paramv)
-            {
-                setError(MALLOC_FAILED, NULL);
-            }
-            guestFunctionDetails->paramv = paramv;
-        }
-
-        parg_to_free = calloc(guestFunctionDetails->paramc, sizeof(uint64_t));
-        if (NULL == parg_to_free)
-        {
-            setError(MALLOC_FAILED, NULL);
-        }
-
-        bool nextParamIsLength = false;
-        for (int32_t i = 0; i < guestFunctionDetails->paramc; i++)
-        {
-#pragma warning(suppress:6011)
-            parg_to_free[i] = 0;
-            GuestArgument guestArgument = funcCall->guestArguments[i];
-            if (nextParamIsLength)
-            {
-                if (guestArgument.argt != i32)
-                {
-                    char message[15];
-                    snprintf(message, 15, "Parameter %d", i);
-                    setError(ARRAY_LENGTH_PARAM_IS_MISSING, message);
-                }
-                else
-                {
-                    uint32_t len = (uint32_t)guestArgument.argv;
-                    void* ptr = calloc(1, len);
-                    if (NULL == ptr)
-                    {
-                        setError(MALLOC_FAILED, NULL);
-                    }
-                    int32_t byteArrayIndex = i - 1;
-                    GuestArgument  byteArrayArgument = funcCall->guestArguments[byteArrayIndex];
-                    parg_to_free[i] = (uint64_t)ptr;
-                    memcpy(ptr, (void*)byteArrayArgument.argv, (size_t)len);
-                    guestFunctionDetails->paramv[byteArrayIndex].value.bytearray = (void*)ptr;
-                    guestFunctionDetails->paramv[i].value.i32 = len;
-                    guestFunctionDetails->paramv[i].kind = i32;
-                    nextParamIsLength = false;
-                }
-            }
-            else
-            {
-                switch (guestArgument.argt)
-                {
-                case (string):
-                    // Length + 1 as we need to make sure the string is null terminated
-                    size_t length = strlen((char*)guestArgument.argv) + 1;
-                    void* ptr = (void*)calloc(1, length);
-                    if (NULL == ptr)
-                    {
-                        setError(MALLOC_FAILED, NULL);
-                    }
-                    parg_to_free[i] = (uint64_t)ptr;
-                    strncpy((char*)ptr, (char*)guestArgument.argv, length);
-#pragma warning(suppress:28182)
-                    guestFunctionDetails->paramv[i].value.string = (char*)ptr;
-                    guestFunctionDetails->paramv[i].kind = string;
-                    break;
-                case (i32):
-                    guestFunctionDetails->paramv[i].value.i32 = (uint32_t)guestArgument.argv;
-                    guestFunctionDetails->paramv[i].kind = i32;
-                    break;
-                case (i64):
-                    guestFunctionDetails->paramv[i].value.i64 = (uint64_t)guestArgument.argv;
-                    guestFunctionDetails->paramv[i].kind = i64;
-                    break;
-                case (boolean):
-                    guestFunctionDetails->paramv[i].value.boolean = (bool)guestArgument.argv;
-                    guestFunctionDetails->paramv[i].kind = boolean;
-                    break;
-                case (bytearray):
-                    guestFunctionDetails->paramv[i].kind = bytearray;
-                    nextParamIsLength = true;
-                    break;
-                default:
-                    setError(GUEST_FUNCTION_PARAMETER_TYPE_MISMATCH, NULL);
-                    break;
-                }
-            }
-        }
-        if (nextParamIsLength)
-        {
-            setError(ARRAY_LENGTH_PARAM_IS_MISSING, "Last parameter should be the length of the array");
-        }
-
-        int result = CallGuestFunction(guestFunctionDetails);
+        size_t size;
+        void* buffer = flatbuffers_read_size_prefix(pPeb->inputdata.inputDataBuffer, &size);
+        assert(NULL != buffer);
+        // No need to free buffer as its just a pointer to an offset in the message buffer in the PEB
+        ns(FunctionCall_table_t functionCall = ns(FunctionCall_as_root(buffer)));
+        int result = CallGuestFunction(functionCall);
         memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
         *((uint32_t*)(pPeb->outputdata.outputDataBuffer)) = result;
-
-        for (int32_t i = 0; i < guestFunctionDetails->paramc; i++)
-        {
-            if (parg_to_free[i])
-            {
-                free((void*)parg_to_free[i]);
-            }
-        }
-        free(parg_to_free);
     }
-
-    free(guestFunctionDetails);
-    free(paramv);
 
     halt();  // This is a nop if we were just loaded into memory
 }
@@ -666,7 +664,7 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int f
         return -1;
     }
     __security_init_cookie();
-  
+
     // setjmp is used to capture state so that if an error occurs then lngjmp is called in setError and control returns to this point , the if returns false and the program exits/halts
     if (!setjmp(jmpbuf))
     {
@@ -681,13 +679,16 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int f
 
         resetError();
 
-        //TODO: Pass FunctionTablesize in entryPoint.
-
-        InitialiseFunctionTable(0);
+        InitialiseFunctionTable();
 
         // Call Hyperlightmain in the Guest , the guest can use this to register functions that can be called from the host.
 
         HyperlightMain();
+
+        // Once the guest has added all the functions it wants to expose to the host, call this function to finalise the function table. 
+        // This is done as the we are using flatbuffers to serialise the function table and its easier and faster than trying to mutate the tabel each ime it is updated.
+
+        FinaliseFunctionTable();
 
         // Setup return values
         memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);

@@ -49,6 +49,18 @@
     <Content Include="..\HyperlightGuest\third_party\libc\musl\arch\x86_64\bits\*.h" Pack="true" PackagePath="include\libc\musl\arch\x86_64\bits">
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </Content>
+    <Content Include="..\HyperlightGuest\third_party\flatcc\LICENSE" Pack="true" PackagePath="include\flatcc\">
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </Content>
+    <Content Include="..\HyperlightGuest\third_party\flatcc\include\*.h" Pack="true" PackagePath="include\flatcc\include">
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </Content>
+    <Content Include="..\HyperlightGuest\include\flatbuffers\generated\guest_function_definition*.h" Pack="true" PackagePath="include\flatbuffers\generated">
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </Content>
+    <Content Include="..\HyperlightGuest\include\flatbuffers\generated\function_*.h" Pack="true" PackagePath="include\flatbuffers\generated">
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </Content>
     <Content Include="..\..\x64\$(Configuration.toLower())\HyperlightGuest.lib" Pack="true" PackagePath="native">
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </Content>

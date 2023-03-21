@@ -31,9 +31,16 @@
     <ClInclude Include=".\include\hyperlight_peb.h" />
     <ClInclude Include="include\flatbuffers\generated\flatbuffers_common_builder.h" />
     <ClInclude Include="include\flatbuffers\generated\flatbuffers_common_reader.h" />
+    <ClInclude Include="include\flatbuffers\generated\function_call_builder.h" />
+    <ClInclude Include="include\flatbuffers\generated\function_call_reader.h" />
+    <ClInclude Include="include\flatbuffers\generated\function_types_builder.h" />
+    <ClInclude Include="include\flatbuffers\generated\function_types_reader.h" />
     <ClInclude Include="include\flatbuffers\generated\guest_error_builder.h" />
     <ClInclude Include="include\flatbuffers\generated\guest_error_reader.h" />
-    <ClInclude Include="include\flatbuffers\generated\guest_error_verifier.h" />
+    <ClInclude Include="include\flatbuffers\generated\guest_function_definition_builder.h" />
+    <ClInclude Include="include\flatbuffers\generated\guest_function_definition_reader.h" />
+    <ClInclude Include="include\flatbuffers\generated\guest_function_details_builder.h" />
+    <ClInclude Include="include\flatbuffers\generated\guest_function_details_reader.h" />
     <ClInclude Include="include\hyperlight.h" />
   </ItemGroup>
   <ItemGroup>
@@ -138,6 +145,8 @@
     <LibraryWPath />
     <SourcePath />
     <ExcludePath />
+    <RunCodeAnalysis>true</RunCodeAnalysis>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='release|x64'">
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
@@ -147,6 +156,8 @@
     <LibraryWPath />
     <SourcePath />
     <ExcludePath />
+    <RunCodeAnalysis>true</RunCodeAnalysis>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">
     <ClCompile>
@@ -166,6 +177,7 @@
       <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='debug|x64'">Disabled</InlineFunctionExpansion>
       <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='debug|x64'" />
       <IgnoreStandardIncludePath Condition="'$(Configuration)|$(Platform)'=='debug|x64'">true</IgnoreStandardIncludePath>
+      <EnablePREfast Condition="'$(Configuration)|$(Platform)'=='debug|x64'">true</EnablePREfast>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -193,6 +205,7 @@
       <Optimization Condition="'$(Configuration)|$(Platform)'=='release|x64'">MaxSpeed</Optimization>
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='release|x64'">false</WholeProgramOptimization>
       <IgnoreStandardIncludePath Condition="'$(Configuration)|$(Platform)'=='release|x64'">true</IgnoreStandardIncludePath>
+      <EnablePREfast Condition="'$(Configuration)|$(Platform)'=='release|x64'">true</EnablePREfast>
     </ClCompile>
     <Link>
       <SubSystem>

@@ -14,10 +14,10 @@
 #include "int.h"
 #include "shared_mem.h"
 #include "err.h"
-#include "munit/munit.h"
 #include "outb_handler.h"
 #include "mem_access_handler.h"
 #include "string_tests.h"
+#include "guest_func_tests.h"
 
 static MunitSuite test_suites[] = {
     /* {name, tests, suites, iterations, options} */
@@ -41,6 +41,7 @@ static MunitSuite test_suites[] = {
     {"/sandbox_tests", sandbox_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/val_ref_tests", val_ref_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/string_tests", string_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
+    {"/guest_func_tests", guest_func_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {NULL, NULL, NULL, 0, MUNIT_SUITE_OPTION_NONE}};
 
 static const MunitSuite sandbox_test = {

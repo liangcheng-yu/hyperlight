@@ -205,43 +205,43 @@ int mallocAndFree(int size)
     return size;
 }
 
-GENERATE_FUNCTION(simpleprintOutput, 1, string);
-GENERATE_FUNCTION(stackAllocate, 1, i32);
-GENERATE_FUNCTION(stackOverflow, 1, i32);
-GENERATE_FUNCTION(bufferOverrun, 1, string);
+GENERATE_FUNCTION(simpleprintOutput,1,hlstring);
+GENERATE_FUNCTION(stackAllocate, 1, hlint);
+GENERATE_FUNCTION(stackOverflow, 1, hlint);
+GENERATE_FUNCTION(bufferOverrun, 1, hlstring);
 GENERATE_FUNCTION(largeVar, 0);
 GENERATE_FUNCTION(smallVar, 0);
-GENERATE_FUNCTION(callMalloc, 1, i32);
-GENERATE_FUNCTION(mallocAndFree, 1, i32);
-GENERATE_FUNCTION(printTwoArgs, 2, string, i32);
-GENERATE_FUNCTION(printThreeArgs, 3, string, i32, i64);
-GENERATE_FUNCTION(printFourArgs, 4, string, i32, i64, string);
-GENERATE_FUNCTION(printFiveArgs, 5, string, i32, i64, string, string);
-GENERATE_FUNCTION(printSixArgs, 6, string, i32, i64, string, string, boolean);
-GENERATE_FUNCTION(printSevenArgs, 7, string, i32, i64, string, string, boolean, boolean);
-GENERATE_FUNCTION(printEightArgs, 8, string, i32, i64, string, string, boolean, boolean, string);
-GENERATE_FUNCTION(printNineArgs, 9, string, i32, i64, string, string, boolean, boolean, string, i64);
-GENERATE_FUNCTION(printTenArgs, 10, string, i32, i64, string, string, boolean, boolean, string, i64, i32);
-GENERATE_FUNCTION(setByteArrayToZero, 2, bytearray, i32);
+GENERATE_FUNCTION(callMalloc, 1, hlint);
+GENERATE_FUNCTION(mallocAndFree, 1, hlint);
+GENERATE_FUNCTION(printTwoArgs, 2, hlstring, hlint);
+GENERATE_FUNCTION(printThreeArgs, 3, hlstring, hlint, hllong);
+GENERATE_FUNCTION(printFourArgs, 4, hlstring, hlint, hllong, hlstring);
+GENERATE_FUNCTION(printFiveArgs, 5, hlstring, hlint, hllong, hlstring, hlstring);
+GENERATE_FUNCTION(printSixArgs, 6, hlstring, hlint, hllong, hlstring, hlstring, hlbool);
+GENERATE_FUNCTION(printSevenArgs, 7, hlstring, hlint, hllong, hlstring, hlstring, hlbool, hlbool);
+GENERATE_FUNCTION(printEightArgs, 8, hlstring, hlint, hllong, hlstring, hlstring, hlbool, hlbool, hlstring);
+GENERATE_FUNCTION(printNineArgs, 9, hlstring, hlint, hllong, hlstring, hlstring, hlbool, hlbool, hlstring, hllong);
+GENERATE_FUNCTION(printTenArgs, 10, hlstring, hlint, hllong, hlstring, hlstring, hlbool, hlbool, hlstring, hllong, hlint);
+GENERATE_FUNCTION(setByteArrayToZero, 2, hlvecbytes, hlint);
 
 void HyperlightMain()
 {
-    RegisterFunction("PrintOutput", FUNCTIONDETAILS(simpleprintOutput));
-    RegisterFunction("StackAllocate", FUNCTIONDETAILS(stackAllocate));
-    RegisterFunction("StackOverflow", FUNCTIONDETAILS(stackOverflow));
-    RegisterFunction("BufferOverrun", FUNCTIONDETAILS(bufferOverrun));
-    RegisterFunction("LargeVar", FUNCTIONDETAILS(largeVar));
-    RegisterFunction("SmallVar", FUNCTIONDETAILS(smallVar));
-    RegisterFunction("CallMalloc", FUNCTIONDETAILS(callMalloc));
-    RegisterFunction("MallocAndFree", FUNCTIONDETAILS(mallocAndFree)); 
-    RegisterFunction("PrintTwoArgs", FUNCTIONDETAILS(printTwoArgs));
-    RegisterFunction("PrintThreeArgs", FUNCTIONDETAILS(printThreeArgs));
-    RegisterFunction("PrintFourArgs", FUNCTIONDETAILS(printFourArgs));
-    RegisterFunction("PrintFiveArgs", FUNCTIONDETAILS(printFiveArgs));
-    RegisterFunction("PrintSixArgs", FUNCTIONDETAILS(printSixArgs));
-    RegisterFunction("PrintSevenArgs", FUNCTIONDETAILS(printSevenArgs));
-    RegisterFunction("PrintEightArgs", FUNCTIONDETAILS(printEightArgs));
-    RegisterFunction("PrintNineArgs", FUNCTIONDETAILS(printNineArgs));
-    RegisterFunction("PrintTenArgs", FUNCTIONDETAILS(printTenArgs));
-    RegisterFunction("SetByteArrayToZero", FUNCTIONDETAILS(setByteArrayToZero));
+    RegisterFunction(FUNCTIONDETAILS("PrintOutput", simpleprintOutput));
+    RegisterFunction(FUNCTIONDETAILS("StackAllocate", stackAllocate));
+    RegisterFunction(FUNCTIONDETAILS("StackOverflow", stackOverflow));
+    RegisterFunction(FUNCTIONDETAILS("BufferOverrun", bufferOverrun));
+    RegisterFunction(FUNCTIONDETAILS("LargeVar", largeVar));
+    RegisterFunction(FUNCTIONDETAILS("SmallVar", smallVar));
+    RegisterFunction(FUNCTIONDETAILS("CallMalloc", callMalloc));
+    RegisterFunction(FUNCTIONDETAILS("MallocAndFree", mallocAndFree));
+    RegisterFunction(FUNCTIONDETAILS("PrintTwoArgs", printTwoArgs));
+    RegisterFunction(FUNCTIONDETAILS("PrintThreeArgs", printThreeArgs));
+    RegisterFunction(FUNCTIONDETAILS("PrintFourArgs", printFourArgs));
+    RegisterFunction(FUNCTIONDETAILS("PrintFiveArgs", printFiveArgs));
+    RegisterFunction(FUNCTIONDETAILS("PrintSixArgs", printSixArgs));
+    RegisterFunction(FUNCTIONDETAILS("PrintSevenArgs", printSevenArgs));
+    RegisterFunction(FUNCTIONDETAILS("PrintEightArgs", printEightArgs));
+    RegisterFunction(FUNCTIONDETAILS("PrintNineArgs", printNineArgs));
+    RegisterFunction(FUNCTIONDETAILS("PrintTenArgs", printTenArgs));
+    RegisterFunction(FUNCTIONDETAILS("SetByteArrayToZero", setByteArrayToZero));
 }

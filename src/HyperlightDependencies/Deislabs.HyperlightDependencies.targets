@@ -25,6 +25,15 @@
   <ItemGroup>
     <MUSLX8664IncludeFiles Include="$(MSBuildThisFileDirectory)..\include\libc\musl\arch\x86_64\bits\*.h" />
   </ItemGroup>
+  <ItemGroup>
+    <FlatBufffersIncludeFiles Include="$(MSBuildThisFileDirectory)..\include\flatcc\include\*.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <FlatBuffferslicense Include="$(MSBuildThisFileDirectory)..\include\flatcc\LICENSE" />
+  </ItemGroup>
+   <ItemGroup>
+    <FlatBuffersGenerated Include="$(MSBuildThisFileDirectory)..\include\flatbuffers\generated\*.h" />
+  </ItemGroup>
   
   <Target Name="include" BeforeTargets="Build">
     <MakeDir Condition="!Exists('include')" Directories="include"/>
@@ -41,6 +50,13 @@
     <Copy SourceFiles="@(MUSLArchIncludeFiles)" DestinationFolder="include\libc\musl\arch\generic" SkipUnchangedFiles="true"/>
     <MakeDir Condition="!Exists('include\libc\musl\arch\x86_64\bits')" Directories="include\libc\musl\arch\x86_64\bits"/>
     <Copy SourceFiles="@(MUSLX8664IncludeFiles)" DestinationFolder="include\libc\musl\arch\x86_64\bits" SkipUnchangedFiles="true"/>
+    <MakeDir Condition="!Exists('include\flatcc')" Directories="include\flatcc"/>
+    <Copy SourceFiles="@(FlatBuffferslicense)" DestinationFolder="include\flatcc" SkipUnchangedFiles="true"/>
+    <MakeDir Condition="!Exists('include\flatcc\include')" Directories="include\flatcc\include"/>
+    <Copy SourceFiles="@(FlatBufffersIncludeFiles)" DestinationFolder="include\flatcc\include" SkipUnchangedFiles="true"/>
+    <MakeDir Condition="!Exists('include\flatbuffers\generated')" Directories="include\flatbuffers\generated"/>
+    <Copy SourceFiles="@(FlatBuffersGenerated)" DestinationFolder="include\flatbuffers\generated" SkipUnchangedFiles="true"/>
+    
   </Target>
   <Target Name="native" BeforeTargets="Build">
     <MakeDir Condition="!Exists('native')" Directories="native"/>

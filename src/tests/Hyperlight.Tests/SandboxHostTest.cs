@@ -1362,7 +1362,7 @@ namespace Hyperlight.Tests
                     });
                     Assert.NotNull(ex);
                     Assert.IsType<HyperlightException>(ex);
-                    Assert.Equal($"GuestFunctionParameterTypeMismatch:Function GuestMethod3 parameter 1. CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+                    Assert.Equal($"GuestFunctionParameterTypeMismatch:Function GuestMethod3 parameter 0. CorrelationId: {correlationId} Source: Sandbox", ex.Message);
                 }
             }
         }

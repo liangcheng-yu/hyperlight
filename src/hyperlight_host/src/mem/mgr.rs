@@ -8,6 +8,7 @@ use super::{ptr_addr_space::GuestAddressSpace, shared_mem::SharedMemory};
 use crate::{
     capi::arrays::raw_vec::RawVec,
     guest::guest_error::{Code, GuestError},
+    guest::guest_function_call::GuestFunctionCall,
 };
 use anyhow::{anyhow, bail, Result};
 use core::mem::size_of;
@@ -55,6 +56,11 @@ impl SandboxMemoryManager {
     /// Get the `SharedMemory` associated with `self`
     pub fn get_shared_mem(&self) -> &SharedMemory {
         &self.shared_mem
+    }
+
+    /// Get mutable `SharedMemory` associated with `self`
+    fn get_shared_mem_mut(&mut self) -> &mut SharedMemory {
+        &mut self.shared_mem
     }
 
     /// Set the stack guard to `cookie` using `layout` to calculate
@@ -333,5 +339,13 @@ impl SandboxMemoryManager {
     /// Get the guest error data
     pub fn get_guest_error(&self) -> Result<GuestError> {
         GuestError::try_from((&self.shared_mem, &self.layout))
+    }
+
+    /// Writes a guest function call to memory
+
+    pub fn write_guest_function_call(&mut self, buffer: &[u8]) -> Result<()> {
+        let guest_function_call = GuestFunctionCall::try_from(buffer)?;
+        let layout = self.layout;
+        guest_function_call.write_to_memory(self.get_shared_mem_mut(), &layout)
     }
 }

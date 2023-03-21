@@ -1,0 +1,14 @@
+include "function_types.fbs";
+
+namespace Hyperlight.Generated;
+
+table Parameter {
+    value:ParameterValue(required);
+}
+
+table FunctionCall {
+    function_name:string(required, key);
+    parameters:[Parameter];
+}
+
+root_type FunctionCall;

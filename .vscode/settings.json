@@ -10,6 +10,8 @@
         "functional": "c",
         "hyperv_linux.h": "c",
         "stdint.h": "c",
-        "guest_mem.h": "c"
+        "guest_mem.h": "c",
+        "host_func_tests.h": "c",
+        "guest_func_tests.h": "c"
     }
 }

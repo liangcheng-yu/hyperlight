@@ -82,21 +82,21 @@ int callErrorMethod(const char* message)
     return sendMessagetoHostMethod("ErrorMethod", guestMessage, message);
 }
 
-GENERATE_FUNCTION(printOutput, 1, string);
-GENERATE_FUNCTION(guestFunction, 1, string);
-GENERATE_FUNCTION(guestFunction1, 1, string);
-GENERATE_FUNCTION(guestFunction2, 1, string); 
-GENERATE_FUNCTION(guestFunction3, 1, string);
-GENERATE_FUNCTION(logMessage, 3, string, string, i32);
-GENERATE_FUNCTION(callErrorMethod, 1, string);
+GENERATE_FUNCTION(printOutput, 1, hlstring);
+GENERATE_FUNCTION(guestFunction, 1, hlstring);
+GENERATE_FUNCTION(guestFunction1, 1, hlstring);
+GENERATE_FUNCTION(guestFunction2, 1, hlstring);
+GENERATE_FUNCTION(guestFunction3, 1, hlstring);
+GENERATE_FUNCTION(logMessage, 3, hlstring, hlstring, hlint);
+GENERATE_FUNCTION(callErrorMethod, 1, hlstring);
 
 void HyperlightMain()
 {
-    RegisterFunction("PrintOutput", FUNCTIONDETAILS(printOutput));
-    RegisterFunction("GuestMethod", FUNCTIONDETAILS(guestFunction));
-    RegisterFunction("GuestMethod1", FUNCTIONDETAILS(guestFunction1));    
-    RegisterFunction("GuestMethod2", FUNCTIONDETAILS(guestFunction2));
-    RegisterFunction("GuestMethod3", FUNCTIONDETAILS(guestFunction3));
-    RegisterFunction("LogMessage", FUNCTIONDETAILS(logMessage));
-    RegisterFunction("CallErrorMethod", FUNCTIONDETAILS(callErrorMethod));
+    RegisterFunction(FUNCTIONDETAILS("PrintOutput", printOutput));
+    RegisterFunction(FUNCTIONDETAILS("GuestMethod", guestFunction));
+    RegisterFunction(FUNCTIONDETAILS("GuestMethod1", guestFunction1));
+    RegisterFunction(FUNCTIONDETAILS("GuestMethod2", guestFunction2));
+    RegisterFunction(FUNCTIONDETAILS("GuestMethod3", guestFunction3));
+    RegisterFunction(FUNCTIONDETAILS("LogMessage", logMessage));
+    RegisterFunction(FUNCTIONDETAILS("CallErrorMethod", callErrorMethod));
 }

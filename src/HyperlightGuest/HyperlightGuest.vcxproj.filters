@@ -76,7 +76,28 @@
     <ClInclude Include="include\flatbuffers\generated\guest_error_reader.h">
       <Filter>Header Files\flatbuffers</Filter>
     </ClInclude>
-    <ClInclude Include="include\flatbuffers\generated\guest_error_verifier.h">
+    <ClInclude Include="include\flatbuffers\generated\function_call_builder.h">
+      <Filter>Header Files\flatbuffers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\flatbuffers\generated\function_call_reader.h">
+      <Filter>Header Files\flatbuffers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\flatbuffers\generated\guest_function_definition_builder.h">
+      <Filter>Header Files\flatbuffers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\flatbuffers\generated\guest_function_definition_reader.h">
+      <Filter>Header Files\flatbuffers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\flatbuffers\generated\guest_function_details_builder.h">
+      <Filter>Header Files\flatbuffers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\flatbuffers\generated\guest_function_details_reader.h">
+      <Filter>Header Files\flatbuffers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\flatbuffers\generated\function_types_builder.h">
+      <Filter>Header Files\flatbuffers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\flatbuffers\generated\function_types_reader.h">
       <Filter>Header Files\flatbuffers</Filter>
     </ClInclude>
   </ItemGroup>
