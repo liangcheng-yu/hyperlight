@@ -65,9 +65,15 @@ mod impls {
             Err(e) => Err(anyhow!(e)),
         }
     }
+
+    /// Store `layout` in `ctx` and return the `Handle` referencing it.
+    pub fn register_mem_layout(ctx: &mut Context, layout: SandboxMemoryLayout) -> Handle {
+        Context::register(layout, &mut ctx.mem_layouts, Hdl::MemLayout)
+    }
 }
 
 pub use impls::get_mem_layout;
+pub use impls::register_mem_layout;
 
 /// Create a new memory layout within `ctx` with the given parameters and
 /// return a reference to it.
@@ -100,7 +106,7 @@ pub unsafe extern "C" fn mem_layout_new(
     };
 
     match impls::new(mem_cfg, code_size, stack_size, heap_size) {
-        Ok(layout) => Context::register(layout, &mut (*ctx).mem_layouts, Hdl::MemLayout),
+        Ok(layout) => register_mem_layout(&mut *ctx, layout),
         Err(e) => (*ctx).register_err(e),
     }
 }

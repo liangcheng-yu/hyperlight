@@ -1,31 +1,10 @@
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
-use crate::capi::handle::handle_new_empty;
+use crate::mem::pe::headers::PEHeaders;
+use crate::{capi::handle::handle_new_empty, mem::pe::pe_info::PEInfo};
 use crate::{validate_context, validate_context_or_panic};
-
-/// An immutable set of PE File headers.
-#[repr(C)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct PEHeaders {
-    /// Stack reserve size.
-    pub stack_reserve: u64,
-
-    /// Stack commit size.
-    pub stack_commit: u64,
-
-    /// Heap reserve size.
-    pub heap_reserve: u64,
-
-    /// Heap commit size.
-    pub heap_commit: u64,
-
-    /// Entrypoint offset.
-    pub entrypoint_offset: u64,
-
-    /// Preferred load address.
-    pub preferred_load_address: u64,
-}
+use anyhow::Result;
 
 /// Wrapper around a PEFile that is stored in the context.
 #[repr(C)]
@@ -48,7 +27,7 @@ mod impls {
     use crate::mem::pe::pe_info::PEInfo;
     use anyhow::Result;
 
-    use super::PEHeaders;
+    use crate::mem::pe::headers::PEHeaders;
 
     /// Updates the PE File contents to relocate it to the specified load address.
     /// If no relocations are required, the payload is not modified.
@@ -70,7 +49,7 @@ mod impls {
         }
 
         // Modify the payload and apply the patches
-        pe_info.apply_relocation_patches(payload, reloc_patches)?;
+        PEInfo::apply_relocation_patches(payload, reloc_patches)?;
         Ok(())
     }
 
@@ -82,21 +61,22 @@ mod impls {
     }
 
     pub fn pe_get_headers(ctx: &Context, pe_info_hdl: Handle) -> Result<PEHeaders> {
-        let pe_info = Context::get(pe_info_hdl, &ctx.pe_infos, |p| matches!(p, Hdl::PEInfo(_)))?;
-
-        let hdrs = PEHeaders {
-            entrypoint_offset: pe_info.entry_point_offset(),
-            stack_reserve: pe_info.stack_reserve(),
-            stack_commit: pe_info.stack_commit(),
-            heap_reserve: pe_info.heap_reserve(),
-            heap_commit: pe_info.heap_commit(),
-            preferred_load_address: pe_info.preferred_load_address(),
-        };
-
-        Ok(hdrs)
+        let pe_info = super::get_pe_info(ctx, pe_info_hdl)?;
+        Ok(PEHeaders::from(pe_info))
     }
 }
 
+/// Get a reference to the `PEInfo` in `ctx` referenced
+/// by `hdl`
+pub fn get_pe_info(ctx: &Context, hdl: Handle) -> Result<&PEInfo> {
+    Context::get(hdl, &ctx.pe_infos, |p| matches!(p, Hdl::PEInfo(_)))
+}
+
+/// Get a mutable reference to the `PEInfo` in `ctx` referenced
+/// by `hdl`
+pub fn get_pe_info_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut PEInfo> {
+    Context::get_mut(hdl, &mut ctx.pe_infos, |p| matches!(p, Hdl::PEInfo(_)))
+}
 /// Parse a PE file from a byte array.
 ///
 /// # Safety

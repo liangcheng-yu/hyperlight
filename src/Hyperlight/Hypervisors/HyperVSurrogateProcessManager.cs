@@ -9,7 +9,7 @@ using Microsoft.Win32.SafeHandles;
 
 namespace Hyperlight.Hypervisors
 {
-    internal class SurrogateProcess
+    internal sealed class SurrogateProcess
     {
         public SafeProcessHandle SafeProcessHandle { get; private set; }
         public IntPtr SourceAddress { get; private set; }

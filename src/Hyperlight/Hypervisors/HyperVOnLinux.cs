@@ -6,7 +6,7 @@ using Hyperlight.Wrapper;
 
 namespace Hyperlight.Hypervisors
 {
-    internal class HyperVOnLinux : Hypervisor, IDisposable
+    internal sealed class HyperVOnLinux : Hypervisor, IDisposable
     {
         private bool disposedValue;
         readonly Context ctxWrapper;
@@ -123,7 +123,7 @@ namespace Hyperlight.Hypervisors
             hdlWrapper.ThrowIfError();
         }
 
-        protected virtual void Dispose(bool disposing)
+        private void Dispose(bool disposing)
         {
             if (!disposedValue)
             {

@@ -7,7 +7,7 @@ using Hyperlight.Wrapper;
 
 namespace Hyperlight.Hypervisors
 {
-    internal class KVM : Hypervisor, IDisposable
+    internal sealed class KVM : Hypervisor, IDisposable
     {
         readonly int kvm = -1;
         readonly IntPtr pRun = IntPtr.Zero;
@@ -214,7 +214,7 @@ namespace Hyperlight.Hypervisors
             ExecuteUntilHalt();
         }
 
-        protected virtual void Dispose(bool disposing)
+        private void Dispose(bool disposing)
         {
             if (!disposedValue)
             {

@@ -1,10 +1,12 @@
 using System;
+using System.Reflection;
+
 using System.Runtime.InteropServices;
 using Hyperlight.Core;
 
 namespace Hyperlight.Wrapper
 {
-    internal class SandboxMemoryLayout : IDisposable
+    internal sealed class SandboxMemoryLayout : IDisposable
     {
         static readonly ulong pageTableSize = mem_layout_get_page_table_size();
         public static ulong PML4Offset = mem_layout_get_pml4_offset();
@@ -205,7 +207,29 @@ namespace Hyperlight.Wrapper
         public NativeHandle rawHandle => HandleWrapper.handle;
 
         private bool disposed;
-        internal SandboxMemoryLayout(
+
+        /// <summary>
+        /// Create a new SandboxMemoryLayout wrapper from an existing 
+        /// layout in ctx referenced by hdl
+        /// </summary>
+        /// <param name="ctx">
+        /// the location within which the pre-existing SandboxMemoryLayout exists
+        /// </param>
+        /// <param name="hdl">
+        /// the reference to the pre-existing SandboxMemoryLayout in ctx
+        /// </param>
+        private SandboxMemoryLayout(
+            Context ctx,
+            Handle hdl
+        )
+        {
+            HyperlightException.ThrowIfNull(ctx, nameof(ctx), GetType().Name);
+            HyperlightException.ThrowIfNull(hdl, nameof(hdl), GetType().Name);
+            this.ctxWrapper = ctx;
+            this.HandleWrapper = hdl;
+        }
+
+        internal static SandboxMemoryLayout FromPieces(
             Context ctx,
             SandboxMemoryConfiguration sandboxMemoryConfiguration,
             ulong codeSize,
@@ -213,24 +237,27 @@ namespace Hyperlight.Wrapper
             ulong heapSize
         )
         {
-            this.ctxWrapper = ctx;
             var rawHandle = mem_layout_new(
-                ctxWrapper.ctx,
+                ctx.ctx,
                 sandboxMemoryConfiguration,
                 codeSize,
                 stackSize,
                 heapSize
             );
-            this.HandleWrapper = new Wrapper.Handle(ctxWrapper, rawHandle);
-            NativeHandleWrapperErrorExtensions.ThrowIfError(this.HandleWrapper);
-            var memSize = mem_layout_get_memory_size(
-                ctxWrapper.ctx,
-                rawHandle
+            var hdl = new Handle(
+                ctx,
+                rawHandle,
+                true
             );
-            if (memSize == 0)
-            {
-                HyperlightException.LogAndThrowException("Memory requested exceeds maximum size allowed", GetType().Name);
-            }
+            return new SandboxMemoryLayout(ctx, hdl);
+        }
+
+        public static SandboxMemoryLayout FromHandle(
+            Context ctx,
+            Handle hdl
+        )
+        {
+            return new SandboxMemoryLayout(ctx, hdl);
         }
 
         internal ulong GetMemorySize()
@@ -255,8 +282,11 @@ namespace Hyperlight.Wrapper
                 (ulong)guestAddress.ToInt64(),
                 size
             );
-            using var hdlWrapper = new Handle(this.ctxWrapper, hdlRes);
-            hdlWrapper.ThrowIfError();
+            using var hdlWrapper = new Handle(
+                this.ctxWrapper,
+                hdlRes,
+                true
+            );
         }
 
         public void Dispose()
@@ -265,7 +295,7 @@ namespace Hyperlight.Wrapper
             GC.SuppressFinalize(this);
         }
 
-        protected virtual void Dispose(bool disposing)
+        private void Dispose(bool disposing)
         {
             if (!this.disposed)
             {

@@ -778,9 +778,9 @@ namespace Hyperlight.Tests
                 Assert.NotNull(fieldInfo);
                 var sandboxMemoryManager = fieldInfo!.GetValue(sandbox);
                 Assert.NotNull(sandboxMemoryManager);
-                fieldInfo = sandboxMemoryManager!.GetType().GetField("sandboxMemoryLayout", bindingFlags);
+                var layoutPropertyInfo = sandboxMemoryManager!.GetType().GetProperty("sandboxMemoryLayout", bindingFlags);
                 Assert.NotNull(fieldInfo);
-                var sandboxMemoryLayout = fieldInfo!.GetValue(sandboxMemoryManager);
+                var sandboxMemoryLayout = layoutPropertyInfo!.GetValue(sandboxMemoryManager);
                 Assert.NotNull(sandboxMemoryLayout);
                 var propInfo = sandboxMemoryLayout!.GetType().GetProperty("stackSize", bindingFlags);
                 Assert.NotNull(propInfo);
@@ -1001,7 +1001,7 @@ namespace Hyperlight.Tests
             });
             Assert.NotNull(ex);
             Assert.IsType<HyperlightException>(ex);
-            Assert.Equal($"Memory requested exceeds maximum size allowed CorrelationId: {correlationId} Source: SandboxMemoryLayout", ex.Message);
+            Assert.Equal($"Memory requested exceeds maximum size allowed CorrelationId: {correlationId} Source: NativeHandleWrapperErrorExtensions", ex.Message);
         }
 
         private ulong GetExpectedMemorySize(SandboxMemoryConfiguration sandboxMemoryConfiguration, string guestBinaryPath, SandboxRunOptions option)
@@ -1050,9 +1050,9 @@ namespace Hyperlight.Tests
             Assert.NotNull(fieldInfo);
             var sandboxMemoryManager = fieldInfo!.GetValue(sandbox);
             Assert.NotNull(sandboxMemoryManager);
-            fieldInfo = sandboxMemoryManager!.GetType().GetField("sandboxMemoryLayout", bindingFlags);
+            var layoutPropertyInfo = sandboxMemoryManager!.GetType().GetProperty("sandboxMemoryLayout", bindingFlags);
             Assert.NotNull(fieldInfo);
-            var sandboxMemoryLayout = fieldInfo!.GetValue(sandboxMemoryManager);
+            var sandboxMemoryLayout = layoutPropertyInfo!.GetValue(sandboxMemoryManager);
             Assert.NotNull(sandboxMemoryLayout);
             var methodInfo = sandboxMemoryLayout!.GetType().GetMethod("GetMemorySize", bindingFlags);
             Assert.NotNull(methodInfo);
@@ -1209,9 +1209,9 @@ namespace Hyperlight.Tests
             Assert.NotNull(fieldInfo);
             var sandboxMemoryManager = fieldInfo!.GetValue(sandbox);
             Assert.NotNull(sandboxMemoryManager);
-            fieldInfo = sandboxMemoryManager!.GetType().GetField("sandboxMemoryLayout", bindingFlags);
+            var layoutPropertyInfo = sandboxMemoryManager!.GetType().GetProperty("sandboxMemoryLayout", bindingFlags);
             Assert.NotNull(fieldInfo);
-            var sandboxMemoryLayout = fieldInfo!.GetValue(sandboxMemoryManager);
+            var sandboxMemoryLayout = layoutPropertyInfo!.GetValue(sandboxMemoryManager);
             Assert.NotNull(sandboxMemoryLayout);
             var propInfo = sandboxMemoryManager!.GetType().GetProperty("SourceAddress", bindingFlags);
             Assert.NotNull(propInfo);

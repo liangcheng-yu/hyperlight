@@ -1,7 +1,6 @@
 using System;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using Hyperlight.Native;
 using Hyperlight.Wrapper;
 
 namespace Hyperlight.Core
@@ -13,22 +12,19 @@ namespace Hyperlight.Core
 
         private SandboxMemoryManager(
             Context ctx,
-            SandboxMemoryConfiguration memCfg,
-            SandboxMemoryLayout memLayout,
-            SharedMemory sharedMem,
-            IntPtr loadAddr,
-            ulong entrypointOffset,
-            bool runFromProcessMemory
-        ) : base(
-            ctx,
-            memCfg,
-            memLayout,
-            sharedMem,
-            loadAddr,
-            entrypointOffset,
-            runFromProcessMemory
+            Handle hdl
+        ) : base(ctx, hdl)
+        {
+        }
+
+        public static SandboxMemoryManager FromHandle(
+            Context ctx,
+            Handle hdl
         )
-        { }
+        {
+            hdl.ThrowIfError();
+            return new SandboxMemoryManager(ctx, hdl);
+        }
 
         private SandboxMemoryManager(
             Context ctx,
@@ -75,7 +71,7 @@ namespace Hyperlight.Core
             );
             using var peInfo = new PEInfo(ctx, guestBinaryPath);
             var headers = peInfo.GetHeaders();
-            var sandboxMemoryLayout = new SandboxMemoryLayout(
+            var sandboxMemoryLayout = SandboxMemoryLayout.FromPieces(
                 ctx,
                 memCfg,
                 0,
@@ -117,82 +113,18 @@ namespace Hyperlight.Core
                 runFromProcessMemory
             );
         }
-        internal static SandboxMemoryManager LoadGuestBinaryIntoMemory(
-            Context ctx,
-            SandboxMemoryConfiguration memCfg,
-            string guestBinaryPath,
-            bool runFromProcessMemory
-        )
-        {
-            HyperlightException.ThrowIfNull(
-                ctx,
-                nameof(ctx),
-                MethodBase.GetCurrentMethod()!.DeclaringType!.Name
-            );
-            HyperlightException.ThrowIfNull(
-                memCfg,
-                nameof(memCfg),
-                MethodBase.GetCurrentMethod()!.DeclaringType!.Name
-            );
-            HyperlightException.ThrowIfNull(
-                guestBinaryPath,
-                nameof(guestBinaryPath),
-                MethodBase.GetCurrentMethod()!.DeclaringType!.Name
-            );
-            using var peInfo = new PEInfo(ctx, guestBinaryPath);
 
-            var headers = peInfo.GetHeaders();
-            var sandboxMemoryLayout = new SandboxMemoryLayout(
-                ctx,
-                memCfg,
-                (ulong)peInfo.PayloadLength,
-                (ulong)headers.StackReserve,
-                (ulong)headers.HeapReserve
-            );
-            var memSize = sandboxMemoryLayout.GetMemorySize();
-            var sharedMemoryWrapper = new SharedMemory(ctx, memSize);
-            var sourceAddress = sharedMemoryWrapper.Address;
-
-            // If we are running in the host process, then the entry point will be relative to the host memory.
-            // If we are running in a hypervisor, then it's relative the guest memory.
-            var addressToLoadAt = SandboxMemoryLayout.GuestCodeAddress;
-            if (runFromProcessMemory)
-            {
-                addressToLoadAt = (ulong)SandboxMemoryLayout.GetHostCodeAddress(
-                    sourceAddress
-                );
-            }
-            var entrypointOffset = headers.EntryPointOffset;
-
-            // Copy the PE file, applying relocations if required
-            var relocatedPayload = peInfo.Relocate(addressToLoadAt);
-            sharedMemoryWrapper.CopyFromByteArray(
-                relocatedPayload,
-                (IntPtr)SandboxMemoryLayout.CodeOffSet
-            );
-
-            // Write a pointer to code so that guest exe can check that it is running in Hyperlight
-            sharedMemoryWrapper.WriteInt64(
-                (IntPtr)sandboxMemoryLayout.codePointerAddressOffset,
-                addressToLoadAt
-            );
-
-            return new SandboxMemoryManager(
-                ctx,
-                memCfg,
-                sandboxMemoryLayout,
-                sharedMemoryWrapper,
-                new IntPtr((long)addressToLoadAt),
-                entrypointOffset,
-                runFromProcessMemory
-            );
-        }
 
         internal HyperlightPEB SetUpHyperLightPEB()
         {
+            var addr = GetGuestAddressFromPointer(SourceAddress);
+            if (this.RunFromProcessMemory)
+            {
+                addr = SourceAddress;
+            }
             this.sandboxMemoryLayout.WriteMemoryLayout(
                 this.SharedMem,
-                GetGuestAddressFromPointer(SourceAddress),
+                addr,
                 Size
             );
             var offset = GetAddressOffset();
@@ -203,19 +135,30 @@ namespace Hyperlight.Core
 
         internal object[] GetHostCallArgs(ParameterInfo[] parameters)
         {
-            long strPtr;
             var args = new object[parameters.Length];
-            var outputDataAddress = (UIntPtr)this.sandboxMemoryLayout.outputDataBufferOffset;
+            var outputDataOffset = (UIntPtr)this.sandboxMemoryLayout.outputDataBufferOffset;
             for (var i = 0; i < parameters.Length; i++)
             {
                 if (parameters[i].ParameterType == typeof(int))
                 {
-                    args[i] = this.SharedMem.ReadInt32(outputDataAddress + 8 * (i + 1));
+                    args[i] = this.SharedMem.ReadInt32(outputDataOffset + 8 * (i + 1));
                 }
                 else if (parameters[i].ParameterType == typeof(string))
                 {
-                    strPtr = this.SharedMem.ReadInt64(outputDataAddress + 8 * (i + 1));
-                    var arg = Marshal.PtrToStringAnsi(GetHostAddressFromPointer(strPtr));
+                    var strPtrI64 = this.SharedMem.ReadInt64(outputDataOffset + 8 * (i + 1));
+                    var strPtr = new IntPtr((long)strPtrI64);
+                    if (!this.RunFromProcessMemory)
+                    {
+                        // if we're _not_ running with in-memory mode,
+                        // the guest has written to shared memory a pointer to
+                        // its address space, and not the host's.
+                        //
+                        // in this case, we need to translate the pointer
+                        // from shared memory into a pointer to the host's
+                        // address space.
+                        strPtr = GetHostAddressFromPointer(strPtrI64);
+                    }
+                    var arg = Marshal.PtrToStringAnsi(strPtr);
                     HyperlightException.ThrowIfNull(arg, nameof(arg), GetType().Name);
                     args[i] = arg;
                 }

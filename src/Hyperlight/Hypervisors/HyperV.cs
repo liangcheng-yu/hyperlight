@@ -10,7 +10,7 @@ using Hyperlight.Wrapper;
 
 namespace Hyperlight.Hypervisors
 {
-    internal class HyperV : Hypervisor, IDisposable
+    internal sealed class HyperV : Hypervisor, IDisposable
     {
         readonly SurrogateProcess surrogateProcess;
         bool disposedValue;
@@ -160,7 +160,7 @@ namespace Hyperlight.Hypervisors
             ExecuteUntilHalt();
         }
 
-        protected virtual void Dispose(bool disposing)
+        private void Dispose(bool disposing)
         {
             if (!disposedValue)
             {

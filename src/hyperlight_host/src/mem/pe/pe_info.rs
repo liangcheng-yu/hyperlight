@@ -16,6 +16,8 @@ const CHARACTERISTICS_EXECUTABLE_IMAGE: u16 = 0x0002;
 /// PE file, but rather just enough to be able to do relocations,
 /// symbol resolution, and actually execute it within a `Sandbox`.
 pub struct PEInfo {
+    payload: Vec<u8>,
+    payload_len: usize,
     optional_header: OptionalHeader,
 }
 
@@ -53,7 +55,25 @@ impl PEInfo {
             bail!("unsupported PE file, relocations have been removed")
         }
 
-        Ok(Self { optional_header })
+        Ok(Self {
+            payload: Vec::from(pe_bytes),
+            optional_header,
+            payload_len: pe_bytes.len(),
+        })
+    }
+
+    /// Get a reference to the payload contained within `self`
+    pub fn get_payload(&self) -> &[u8] {
+        &self.payload
+    }
+
+    /// Get a mutable reference to the payload contained within `self`
+    pub fn get_payload_mut(&mut self) -> &mut [u8] {
+        &mut self.payload
+    }
+    /// Get the length of the entire PE file payload
+    pub fn get_payload_len(&self) -> usize {
+        self.payload_len
     }
 
     /// Get the entry point offset from the PE file's optional COFF
@@ -87,9 +107,9 @@ impl PEInfo {
         self.optional_header.windows_fields.size_of_heap_commit
     }
 
-    /// Modify the specified array with relocation patches.
+    /// Apply the list of `RelocationPatch`es in `patches` to the given
+    /// `payload` and return the number of patches applied.
     pub fn apply_relocation_patches(
-        &self,
         payload: &mut [u8],
         patches: Vec<RelocationPatch>,
     ) -> Result<usize> {

@@ -386,7 +386,7 @@ namespace Hyperlight
                 }
                 else
                 {
-                    var memMgr = Core.SandboxMemoryManager.LoadGuestBinaryIntoMemory(
+                    var memMgr = SandboxMemoryManagerLoader.LoadGuestBinaryIntoMemory(
                         ctx,
                         memCfg,
                         guestBinaryPath,
@@ -857,7 +857,7 @@ namespace Hyperlight
             if (offset > memSize)
             {
                 HyperlightException.LogAndThrowException(
-                    $"{addrName} {addr} (offset = {offset}) > total shared mem size {memSize}",
+                    $"{addrName} {addr} (offset = {offset}, baseAddr = {baseAddr}) > total shared mem size {memSize}",
                     MethodBase.GetCurrentMethod()!.DeclaringType!.Name
                 );
             }

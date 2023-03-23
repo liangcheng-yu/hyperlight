@@ -4,8 +4,14 @@ use super::{
 };
 use crate::{
     capi::int::register_u64,
-    capi::{mem_layout::get_mem_layout, strings::register_string},
-    validate_context,
+    capi::{
+        bool::register_boolean,
+        mem_layout::{get_mem_layout, register_mem_layout},
+        shared_mem::register_shared_mem,
+    },
+    capi::{pe::get_pe_info_mut, strings::register_string},
+    mem::{config::SandboxMemoryConfiguration, ptr_offset::Offset},
+    validate_context, validate_context_or_panic,
 };
 use crate::{
     capi::{arrays::borrowed_slice::borrow_ptr_as_slice_mut, int::register_i32},
@@ -27,6 +33,22 @@ fn get_mem_mgr_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut SandboxMemoryM
         .map_err(|e| anyhow!(e))
 }
 
+fn register_mem_mgr(ctx: &mut Context, mgr: SandboxMemoryManager) -> Handle {
+    Context::register(mgr, &mut ctx.mem_mgrs, Hdl::MemMgr)
+}
+
+/// Macro to either get a `SandboxMemoryManager` from a `Handle` and
+/// `Context`, or return a `Handle` referencing an error in the
+/// same `Context`.
+macro_rules! get_mgr {
+    ($ctx:ident, $hdl: ident) => {
+        match get_mem_mgr(&*$ctx, $hdl) {
+            Ok(m) => m,
+            Err(e) => return (*$ctx).register_err(e),
+        }
+    };
+}
+
 /// Create a new `SandboxMemoryManager` from the given `run_from_process`
 /// memory and the `SandboxMemoryConfiguration` stored in `ctx` referenced by
 /// `cfg_hdl`. Then, store it in `ctx`, and return a new `Handle` referencing
@@ -40,9 +62,12 @@ fn get_mem_mgr_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut SandboxMemoryM
 #[no_mangle]
 pub unsafe extern "C" fn mem_mgr_new(
     ctx: *mut Context,
+    mem_cfg: SandboxMemoryConfiguration,
     shared_mem_hdl: Handle,
     layout_hdl: Handle,
     run_from_process_mem: bool,
+    load_addr: u64,
+    entrypoint_offset: u64,
 ) -> Handle {
     validate_context!(ctx);
     let layout = match get_mem_layout(&*ctx, layout_hdl) {
@@ -54,7 +79,14 @@ pub unsafe extern "C" fn mem_mgr_new(
         Err(e) => return (*ctx).register_err(e),
     };
 
-    let mgr = SandboxMemoryManager::new(layout, shared_mem.clone(), run_from_process_mem);
+    let mgr = SandboxMemoryManager::new(
+        mem_cfg,
+        layout,
+        shared_mem.clone(),
+        run_from_process_mem,
+        RawPtr::from(load_addr),
+        Offset::from(entrypoint_offset),
+    );
     Context::register(mgr, &mut (*ctx).mem_mgrs, Hdl::MemMgr)
 }
 
@@ -141,10 +173,7 @@ pub unsafe extern "C" fn mem_mgr_check_stack_guard(
     cookie_hdl: Handle,
 ) -> Handle {
     validate_context!(ctx);
-    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
-        Ok(m) => m,
-        Err(e) => return (*ctx).register_err(e),
-    };
+    let mgr = get_mgr!(ctx, mgr_hdl);
     let cookie = match get_byte_array(&*ctx, cookie_hdl) {
         Ok(c) => c,
         Err(e) => return (*ctx).register_err(e),
@@ -171,10 +200,7 @@ pub unsafe extern "C" fn mem_mgr_get_peb_address(
     mem_start_addr: u64,
 ) -> Handle {
     validate_context!(ctx);
-    let mgr = match get_mem_mgr(&*ctx, mem_mgr_hdl) {
-        Ok(m) => m,
-        Err(e) => return (*ctx).register_err(e),
-    };
+    let mgr = get_mgr!(ctx, mem_mgr_hdl);
     let addr = match mgr.get_peb_address(mem_start_addr) {
         Ok(a) => a,
         Err(e) => return (*ctx).register_err(e),
@@ -237,10 +263,7 @@ pub unsafe extern "C" fn mem_mgr_restore_state(ctx: *mut Context, mgr_hdl: Handl
 #[no_mangle]
 pub unsafe extern "C" fn mem_mgr_get_return_value(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
     validate_context!(ctx);
-    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
-        Ok(m) => m,
-        Err(e) => return (*ctx).register_err(e),
-    };
+    let mgr = get_mgr!(ctx, mgr_hdl);
     let ret_val = match mgr.get_return_value() {
         Ok(v) => v,
         Err(e) => return (*ctx).register_err(e),
@@ -290,10 +313,7 @@ pub unsafe extern "C" fn mem_mgr_get_host_call_method_name(
     mgr_hdl: Handle,
 ) -> Handle {
     validate_context!(ctx);
-    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
-        Ok(m) => m,
-        Err(e) => return (*ctx).register_err(e),
-    };
+    let mgr = get_mgr!(ctx, mgr_hdl);
 
     match mgr.get_host_call_method_name() {
         Ok(method_name) => register_string(&mut *ctx, method_name),
@@ -317,10 +337,7 @@ pub unsafe extern "C" fn mem_mgr_get_address_offset(
     source_addr: u64,
 ) -> Handle {
     validate_context!(ctx);
-    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
-        Ok(m) => m,
-        Err(e) => return (*ctx).register_err(e),
-    };
+    let mgr = get_mgr!(ctx, mgr_hdl);
     let val = mgr.get_address_offset(source_addr);
     register_u64(&mut *ctx, val)
 }
@@ -339,11 +356,8 @@ pub unsafe extern "C" fn mem_mgr_get_host_address_from_pointer(
     addr: u64,
 ) -> Handle {
     validate_context!(ctx);
-    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
-        Ok(m) => m,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let guest_ptr = match GuestPtr::try_from((RawPtr::from(addr), mgr.run_from_process_memory)) {
+    let mgr = get_mgr!(ctx, mgr_hdl);
+    let guest_ptr = match GuestPtr::try_from(RawPtr::from(addr)) {
         Ok(g) => g,
         Err(e) => return (*ctx).register_err(e),
     };
@@ -370,16 +384,9 @@ pub unsafe extern "C" fn mem_mgr_get_guest_address_from_pointer(
     addr: u64,
 ) -> Handle {
     validate_context!(ctx);
-    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
-        Ok(m) => m,
-        Err(e) => return (*ctx).register_err(e),
-    };
+    let mgr = get_mgr!(ctx, mgr_hdl);
 
-    let host_ptr = match HostPtr::try_from((
-        RawPtr::from(addr),
-        mgr.get_shared_mem(),
-        mgr.run_from_process_memory,
-    )) {
+    let host_ptr = match HostPtr::try_from((RawPtr::from(addr), &mgr.shared_mem)) {
         Ok(p) => p,
         Err(e) => return (*ctx).register_err(e),
     };
@@ -408,10 +415,7 @@ pub unsafe extern "C" fn mem_mgr_get_pointer_to_dispatch_function(
     mgr_hdl: Handle,
 ) -> Handle {
     validate_context!(ctx);
-    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
-        Ok(m) => m,
-        Err(e) => return (*ctx).register_err(e),
-    };
+    let mgr = get_mgr!(ctx, mgr_hdl);
     match mgr.get_pointer_to_dispatch_function() {
         Ok(ptr) => register_u64(&mut *ctx, ptr),
         Err(e) => (*ctx).register_err(e),
@@ -430,10 +434,7 @@ pub unsafe extern "C" fn mem_mgr_get_pointer_to_dispatch_function(
 #[no_mangle]
 pub unsafe extern "C" fn mem_mgr_read_string_output(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
     validate_context!(ctx);
-    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
-        Ok(m) => m,
-        Err(e) => return (*ctx).register_err(e),
-    };
+    let mgr = get_mgr!(ctx, mgr_hdl);
 
     match mgr.get_string_output() {
         Ok(output) => register_string(&mut *ctx, output),
@@ -452,10 +453,7 @@ pub unsafe extern "C" fn mem_mgr_read_string_output(ctx: *mut Context, mgr_hdl: 
 #[no_mangle]
 pub unsafe extern "C" fn mem_mgr_has_host_exception(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
     validate_context!(ctx);
-    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
-        Ok(m) => m,
-        Err(e) => return (*ctx).register_err(e),
-    };
+    let mgr = get_mgr!(ctx, mgr_hdl);
     match mgr.has_host_exception() {
         Ok(output) => Context::register(output, &mut (*ctx).booleans, Hdl::Boolean),
         Err(e) => (*ctx).register_err(e),
@@ -476,10 +474,7 @@ pub unsafe extern "C" fn mem_mgr_get_host_exception_length(
     mgr_hdl: Handle,
 ) -> Handle {
     validate_context!(ctx);
-    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
-        Ok(m) => m,
-        Err(e) => return (*ctx).register_err(e),
-    };
+    let mgr = get_mgr!(ctx, mgr_hdl);
     match mgr.get_host_exception_length() {
         Ok(output) => Context::register(output, &mut (*ctx).int32s, Hdl::Int32),
         Err(e) => (*ctx).register_err(e),
@@ -508,10 +503,7 @@ pub unsafe extern "C" fn mem_mgr_get_host_exception_data(
     exception_data_len: i32,
 ) -> Handle {
     validate_context!(ctx);
-    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
-        Ok(m) => m,
-        Err(e) => return (*ctx).register_err(e),
-    };
+    let mgr = get_mgr!(ctx, mgr_hdl);
     if exception_data_ptr.is_null() {
         return (*ctx).register_err(anyhow!("Exception data ptr is null"));
     }
@@ -591,14 +583,174 @@ pub unsafe extern "C" fn mem_mgr_write_outb_exception(
 #[no_mangle]
 pub unsafe extern "C" fn mem_mgr_get_guest_error(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
     validate_context!(ctx);
-    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
-        Ok(m) => m,
-        Err(e) => return (*ctx).register_err(e),
-    };
+    let mgr = get_mgr!(ctx, mgr_hdl);
     match mgr.get_guest_error() {
         Ok(output) => Context::register(output, &mut (*ctx).guest_errors, Hdl::GuestError),
         Err(e) => (*ctx).register_err(e),
     }
+}
+
+/// Get the `PEInfo` in `ctx` referenced by `pe_info_hdl`, then create
+/// a new `SandboxMemoryManager` by loading the guest binary represented
+/// by that `PEInfo` into memory.
+///
+/// On success, return a `Handle` referencing the new
+/// `SandboxMemoryManager`. On failure, return a `Handle` referencing
+/// an error in `ctx`
+///
+/// Because the `load_guest_binary_into_memory` method modifies
+/// the `PEInfo` in-place, the `PEInfo` referenced by `pe_info_hdl` may be
+/// modified, regardless of whether this function succeeds or fails.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_load_guest_binary_into_memory(
+    ctx: *mut Context,
+    cfg: SandboxMemoryConfiguration,
+    pe_info_hdl: Handle,
+    run_from_process_mem: bool,
+) -> Handle {
+    validate_context!(ctx);
+    let pe_info = match get_pe_info_mut(&mut *ctx, pe_info_hdl) {
+        Ok(p) => p,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    match SandboxMemoryManager::load_guest_binary_into_memory(cfg, pe_info, run_from_process_mem) {
+        Ok(mgr) => register_mem_mgr(&mut *ctx, mgr),
+        Err(e) => (*ctx).register_err(e),
+    }
+}
+
+/// Get the offset to the entrypoint in the `SandboxMemoryManager` in
+/// `ctx` referenced by `mgr_hdl`.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_entrypoint_offset(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = get_mgr!(ctx, mgr_hdl);
+    let val = mgr.entrypoint_offset;
+    register_u64(&mut *ctx, val.into())
+}
+
+/// Get a new `Handle` referencing the `SharedMemory` in `ctx` referenced
+/// by the given `mgr_hdl`
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_shared_memory(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
+    validate_context!(ctx);
+    let mgr = get_mgr!(ctx, mgr_hdl);
+    let val = mgr.shared_mem.clone();
+    register_shared_mem(&mut *ctx, val)
+}
+
+/// Get a new `Handle` referencing the uint64 load address for the
+/// `SandboxMemoryManager` in `ctx` referenced by the given `mgr_hdl`
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_load_addr(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
+    validate_context!(ctx);
+    let mgr = get_mgr!(ctx, mgr_hdl);
+    let val = &mgr.load_addr;
+    register_u64(&mut *ctx, val.into())
+}
+
+/// Get a new `Handle` referencing the `SandboxMemoryLayout` for the
+/// `SandboxMemoryManager` in `ctx` referenced by the given `mgr_hdl`
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_sandbox_memory_layout(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = get_mgr!(ctx, mgr_hdl);
+    register_mem_layout(&mut *ctx, mgr.layout)
+}
+
+/// Get a new `Handle` referencing the bool indicating whether to
+/// run the binary from process memory or not for the
+/// `SandboxMemoryManager` in `ctx` referenced by the given `mgr_hdl`
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_run_from_process_memory(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = get_mgr!(ctx, mgr_hdl);
+    register_boolean(&mut *ctx, mgr.run_from_process_memory)
+}
+
+/// Get the `SandboxMemoryConfiguration` for the `SandboxMemoryManager`
+/// in `ctx` referenced by the given `mgr_hdl`
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_config(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+) -> SandboxMemoryConfiguration {
+    validate_context_or_panic!(ctx);
+    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(_) => panic!("mem_mgr_get_config invalid handle"),
+    };
+    mgr.mem_cfg
+}
+
+/// Get a new `Handle` referencing the uint64 memory size for the
+/// `SandboxMemoryManager` in `ctx` referenced by the given `mgr_hdl`
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_mem_size(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
+    validate_context!(ctx);
+    let mgr = get_mgr!(ctx, mgr_hdl);
+    let val_usize = mgr.shared_mem.mem_size();
+    let val = match u64::try_from(val_usize) {
+        Ok(s) => s,
+        Err(_) => {
+            return (*ctx).register_err(anyhow!(
+                "mem_mgr_get_mem_size couldn't convert usize mem size ({}) to u64",
+                val_usize,
+            ))
+        }
+    };
+    register_u64(&mut *ctx, val)
 }
 
 /// Writes the data pointed to by `fb_guest_function_call_ptr` as a `GuestFunctionCall` flatbuffer to the guest function call section of shared memory.

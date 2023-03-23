@@ -1,9 +1,10 @@
-use super::layout::SandboxMemoryLayout;
-use super::ptr::RawPtr;
+use super::config::SandboxMemoryConfiguration;
 use super::ptr::{GuestPtr, HostPtr};
 use super::ptr_addr_space::HostAddressSpace;
 use super::ptr_offset::Offset;
 use super::shared_mem_snapshot::SharedMemorySnapshot;
+use super::{layout::SandboxMemoryLayout, pe::pe_info::PEInfo};
+use super::{pe::headers::PEHeaders, ptr::RawPtr};
 use super::{ptr_addr_space::GuestAddressSpace, shared_mem::SharedMemory};
 use crate::{
     capi::arrays::raw_vec::RawVec,
@@ -12,6 +13,7 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Result};
 use core::mem::size_of;
+use readonly;
 use std::cmp::Ordering;
 /// Whether or not the 64-bit page directory entry (PDE) record is
 /// present.
@@ -30,32 +32,37 @@ const PDE64_PS: u64 = 1 << 7;
 
 /// A struct that is responsible for laying out and managing the memory
 /// for a given `Sandbox`.
+#[readonly::make]
 pub struct SandboxMemoryManager {
+    pub mem_cfg: SandboxMemoryConfiguration,
     /// Whether or not to run a sandbox in-process
     pub run_from_process_memory: bool,
     mem_snapshot: Option<SharedMemorySnapshot>,
-    shared_mem: SharedMemory,
-    layout: SandboxMemoryLayout,
+    pub shared_mem: SharedMemory,
+    pub layout: SandboxMemoryLayout,
+    pub load_addr: RawPtr,
+    pub entrypoint_offset: Offset,
 }
 
 impl SandboxMemoryManager {
     /// Create a new `SandboxMemoryManager` with the given parameters
     pub fn new(
+        mem_cfg: SandboxMemoryConfiguration,
         layout: SandboxMemoryLayout,
         shared_mem: SharedMemory,
         run_from_process_memory: bool,
+        load_addr: RawPtr,
+        entrypoint_offset: Offset,
     ) -> Self {
         Self {
+            mem_cfg,
             run_from_process_memory,
             mem_snapshot: None,
             layout,
             shared_mem,
+            load_addr,
+            entrypoint_offset,
         }
-    }
-
-    /// Get the `SharedMemory` associated with `self`
-    pub fn get_shared_mem(&self) -> &SharedMemory {
-        &self.shared_mem
     }
 
     /// Get mutable `SharedMemory` associated with `self`
@@ -146,9 +153,10 @@ impl SandboxMemoryManager {
     /// https://en.wikipedia.org/wiki/Process_Environment_Block
     pub fn get_peb_address(&self, start_addr: u64) -> Result<u64> {
         match self.run_from_process_memory {
-            true => Ok(u64::from(
-                self.layout.get_in_process_peb_offset() + start_addr,
-            )),
+            true => {
+                let updated_offset = self.layout.get_in_process_peb_offset() + start_addr;
+                Ok(u64::from(updated_offset))
+            }
             false => u64::try_from(self.layout.peb_address).map_err(|_| {
                 anyhow!(
                     "get_peb_address: failed to convert peb_address ({}) to u64",
@@ -202,20 +210,17 @@ impl SandboxMemoryManager {
     pub fn get_host_call_method_name(&self) -> Result<String> {
         let output_data_offset = self.layout.output_data_buffer_offset;
         let str_addr = self.shared_mem.read_u64(output_data_offset)?;
-        let host_ptr = GuestPtr::try_from((RawPtr::from(str_addr), self.run_from_process_memory))
-            .and_then(|gp| {
-            gp.to_foreign_ptr(HostAddressSpace::new(
-                &self.shared_mem,
-                self.run_from_process_memory,
-            ))
-        })?;
         if self.run_from_process_memory {
-            let addr = host_ptr.absolute()?;
-            let str_len = unsafe { libc::strlen(addr as *const i8) };
-            let str_raw_vec = unsafe { RawVec::copy_from_ptr(addr as *mut u8, str_len) };
+            // if we're running in-process, the string method name starts directly
+            // at the absolute in-memory address str_addr
+            let str_len = unsafe { libc::strlen(str_addr as *const i8) };
+            let str_raw_vec = unsafe { RawVec::copy_from_ptr(str_addr as *mut u8, str_len) };
             String::from_utf8(str_raw_vec.into()).map_err(|e| anyhow!(e))
         } else {
-            self.shared_mem.read_string(host_ptr.offset())
+            // if we're running in the VM, the string method name starts at offset
+            // str_addr - BASE_ADDRESS. We can calculate that offset using GuestPtr
+            let str_guest_ptr = GuestPtr::try_from(RawPtr::from(str_addr))?;
+            self.shared_mem.read_string(str_guest_ptr.offset())
         }
     }
 
@@ -234,10 +239,7 @@ impl SandboxMemoryManager {
         // we need to get the offset (which is already taken care of in
         // guest_ptr) and then add it to the host base address, which is
         // the base address of shared memory.
-        guest_ptr.to_foreign_ptr(HostAddressSpace::new(
-            &self.shared_mem,
-            self.run_from_process_memory,
-        ))
+        guest_ptr.to_foreign_ptr(HostAddressSpace::new(&self.shared_mem)?)
     }
 
     /// Convert a pointer in the host's address space to a pointer in the
@@ -247,7 +249,7 @@ impl SandboxMemoryManager {
         // offset (which is already done inside host_ptr) and then
         // add it to the base address inside guest memory, which is
         // below.
-        host_ptr.to_foreign_ptr(GuestAddressSpace::new(self.run_from_process_memory))
+        host_ptr.to_foreign_ptr(GuestAddressSpace::new()?)
     }
 
     /// Get the address of the dispatch function in memory
@@ -341,8 +343,86 @@ impl SandboxMemoryManager {
         GuestError::try_from((&self.shared_mem, &self.layout))
     }
 
-    /// Writes a guest function call to memory
+    /// Load the binary represented by `pe_info` into memory, ensuring
+    /// all necessary relocations are made prior to completing the load
+    /// operation, then create a new `SharedMemory` to store the new PE
+    /// file and a `SandboxMemoryLayout` to describe the layout of that
+    /// new `SharedMemory`.
+    ///
+    /// Returns the following:
+    ///
+    /// - The newly-created `SharedMemory`
+    /// - The `SandboxMemoryLayout` describing that `SharedMemory`
+    /// - The offset to the entrypoint. This value means something different
+    /// depending on whether we're using in-process mode or not:
+    ///     - If we're using in-process mode, this value will be into
+    ///     host memory
+    ///     - If we're not running with in-memory mode, this value will be
+    ///     into guest memory
+    pub fn load_guest_binary_into_memory(
+        cfg: SandboxMemoryConfiguration,
+        pe_info: &mut PEInfo,
+        run_from_process_memory: bool,
+    ) -> Result<Self> {
+        let layout = SandboxMemoryLayout::new(
+            cfg,
+            pe_info.get_payload_len(),
+            usize::try_from(pe_info.stack_reserve())?,
+            usize::try_from(pe_info.heap_reserve())?,
+        )?;
+        let mem_size = layout.get_memory_size()?;
+        let mut shared_mem = SharedMemory::new(mem_size)?;
 
+        let load_addr = if run_from_process_memory {
+            // if we're running in-process, load_addr is the absolute
+            // address to the start of shared memory, plus the offset to
+            // code
+            shared_mem.base_addr() + SandboxMemoryLayout::CODE_OFFSET
+        } else {
+            // otherwise, we're running in a VM, so load_addr
+            // is the base address in a VM plus the code
+            // offset
+            SandboxMemoryLayout::GUEST_CODE_ADDRESS
+        };
+
+        let entrypoint_offset = Offset::from({
+            // we have to create this intermediate variable to ensure
+            // we have an _immutable_ reference to a `PEInfo`, which
+            // is what the PEHeaders::from expects
+            let pe_info_immut: &PEInfo = pe_info;
+            let pe_headers = PEHeaders::from(pe_info_immut);
+            pe_headers.entrypoint_offset
+        });
+
+        let relocation_patches =
+            pe_info.get_exe_relocation_patches(pe_info.get_payload(), load_addr)?;
+
+        {
+            // Apply relocations to the PE file (if necessary), then copy
+            // the PE file into shared memory
+            PEInfo::apply_relocation_patches(pe_info.get_payload_mut(), relocation_patches)?;
+            let code_offset = Offset::try_from(SandboxMemoryLayout::CODE_OFFSET)?;
+            shared_mem.copy_from_slice(pe_info.get_payload(), code_offset)
+        }?;
+
+        // Write a pointer to code so that guest exe can check it's running
+        // in Hyperlight
+        {
+            let offset = layout.get_code_pointer_offset();
+            let load_addr_u64: u64 = load_addr.try_into()?;
+            shared_mem.write_u64(offset, load_addr_u64)?;
+        }
+        Ok(Self::new(
+            cfg,
+            layout,
+            shared_mem,
+            run_from_process_memory,
+            RawPtr::try_from(load_addr)?,
+            entrypoint_offset,
+        ))
+    }
+
+    /// Writes a guest function call to memory
     pub fn write_guest_function_call(&mut self, buffer: &[u8]) -> Result<()> {
         let guest_function_call = GuestFunctionCall::try_from(buffer)?;
         let layout = self.layout;

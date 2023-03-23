@@ -1,4 +1,5 @@
 use super::{layout::SandboxMemoryLayout, shared_mem::SharedMemory};
+use anyhow::Result;
 
 /// A representation of a specific address space
 pub trait AddressSpace {
@@ -7,17 +8,13 @@ pub trait AddressSpace {
 }
 
 /// The address space for the guest executable
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct GuestAddressSpace(u64);
 impl GuestAddressSpace {
     /// Create a new instance of a `GuestAddressSpace`
-    pub fn new(is_in_memory: bool) -> Self {
-        let base_addr = if is_in_memory {
-            0
-        } else {
-            SandboxMemoryLayout::BASE_ADDRESS as u64
-        };
-        Self(base_addr)
+    pub fn new() -> Result<Self> {
+        let base_addr = u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?;
+        Ok(Self(base_addr))
     }
 }
 impl AddressSpace for GuestAddressSpace {
@@ -27,18 +24,14 @@ impl AddressSpace for GuestAddressSpace {
 }
 
 /// The address space for the host executable
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct HostAddressSpace(u64);
 impl HostAddressSpace {
     /// Create a new instance of a `HostAddressSpace`, using the given
     /// `SharedMemory` as the base address.
-    pub fn new(shared_mem: &SharedMemory, is_in_memory: bool) -> Self {
-        let base = if is_in_memory {
-            0
-        } else {
-            shared_mem.base_addr() as u64
-        };
-        Self(base)
+    pub fn new(shared_mem: &SharedMemory) -> Result<Self> {
+        let base = u64::try_from(shared_mem.base_addr())?;
+        Ok(Self(base))
     }
 }
 impl AddressSpace for HostAddressSpace {
@@ -56,22 +49,13 @@ mod tests {
     #[test]
     fn host_addr_space_base() {
         let gm = SharedMemory::new(10).unwrap();
-        let space = HostAddressSpace::new(&gm, false);
+        let space = HostAddressSpace::new(&gm).unwrap();
         assert_eq!(gm.base_addr() as u64, space.base());
     }
 
     #[test]
     fn guest_addr_space_base() {
-        let space = GuestAddressSpace::new(false);
+        let space = GuestAddressSpace::new().unwrap();
         assert_eq!(SandboxMemoryLayout::BASE_ADDRESS as u64, space.base());
-    }
-
-    #[test]
-    fn in_memory() {
-        let gm = SharedMemory::new(1).unwrap();
-        let host_addr = HostAddressSpace::new(&gm, true);
-        let guest_addr = GuestAddressSpace::new(true);
-        assert_eq!(0, host_addr.base());
-        assert_eq!(0, guest_addr.base());
     }
 }

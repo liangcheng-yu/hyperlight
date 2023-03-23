@@ -1,6 +1,6 @@
 use crate::mem::ptr_offset::Offset;
 
-use super::{config::SandboxMemoryConfiguration, shared_mem::SharedMemory};
+use super::{config::SandboxMemoryConfiguration, ptr::HostPtr, shared_mem::SharedMemory};
 use anyhow::{anyhow, Result};
 use paste::paste;
 use rand::rngs::OsRng;
@@ -317,6 +317,14 @@ impl SandboxMemoryLayout {
         self.host_exception_buffer_offset
     }
 
+    /// Get the address of the code section on the host, given `share_mem`'s
+    /// base address and whether or not Hyperlight is executing with in-memory
+    /// mode enabled.
+    pub fn get_host_code_address(shared_mem: &SharedMemory) -> Result<HostPtr> {
+        let code_offset: Offset = Self::CODE_OFFSET.try_into()?;
+        HostPtr::try_from((code_offset, shared_mem))
+    }
+
     /// Get the offset in guest memory to the OutB pointer.
     pub fn get_out_b_pointer_offset(&self) -> Offset {
         // The outb pointer is immediately after the code pointer
@@ -424,11 +432,7 @@ impl SandboxMemoryLayout {
         // 0x3FEF0000 physical total memory)
 
         if size > Self::MAX_MEMORY_SIZE {
-            Err(anyhow!(
-                "Total memory size {} exceeds limit of {}",
-                size,
-                Self::MAX_MEMORY_SIZE,
-            ))
+            Err(anyhow!("Memory requested exceeds maximum size allowed"))
         } else {
             Ok(size)
         }
@@ -538,5 +542,23 @@ impl SandboxMemoryLayout {
         )?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::mem::{ptr_offset::Offset, shared_mem::SharedMemory};
+
+    use super::SandboxMemoryLayout;
+
+    #[test]
+    fn get_host_code_address() {
+        let sm = SharedMemory::new(100).unwrap();
+        let hca_in_proc = SandboxMemoryLayout::get_host_code_address(&sm).unwrap();
+        let hca_in_vm = SandboxMemoryLayout::get_host_code_address(&sm).unwrap();
+        let code_offset: Offset = SandboxMemoryLayout::CODE_OFFSET.try_into().unwrap();
+        assert_eq!(hca_in_proc.offset(), code_offset);
+        assert_eq!(hca_in_vm.offset(), code_offset);
+        assert_eq!(hca_in_proc, hca_in_vm);
     }
 }

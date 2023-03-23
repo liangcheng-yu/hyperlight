@@ -35,3 +35,8 @@ pub unsafe extern "C" fn handle_get_boolean(ctx: *const Context, hdl: Handle) ->
 fn get_boolean(ctx: &Context, hdl: Handle) -> Result<bool> {
     Context::get(hdl, &ctx.booleans, |hdl| matches!(hdl, Hdl::Boolean(_))).map(|b| *b)
 }
+
+/// Store `val` in `ctx` and return a new `Handle` referencing it
+pub fn register_boolean(ctx: &mut Context, val: bool) -> Handle {
+    Context::register(val, &mut ctx.booleans, Hdl::Boolean)
+}

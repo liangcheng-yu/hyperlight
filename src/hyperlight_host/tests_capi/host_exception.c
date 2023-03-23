@@ -31,7 +31,14 @@ void setup_memory(Context *ctx)
     handle_assert_no_error(ctx, guest_mem_ref);
 
     // create mem manager
-    mem_mgr_ref = mem_mgr_new(ctx, guest_mem_ref, mem_layout_ref, true);
+    mem_mgr_ref = mem_mgr_new(
+        ctx,
+        mem_cfg,
+        guest_mem_ref,
+        mem_layout_ref,
+        true,
+        0x2000,
+        0x100);
     handle_assert_no_error(ctx, mem_mgr_ref);
 
     uintptr_t address = shared_memory_get_address(ctx, guest_mem_ref);

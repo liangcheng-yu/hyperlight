@@ -2,7 +2,7 @@ use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::{
-    capi::arrays::borrowed_slice::borrow_ptr_as_slice_mut,
+    capi::{arrays::borrowed_slice::borrow_ptr_as_slice_mut, int::register_u64},
     mem::{ptr_offset::Offset, shared_mem::SharedMemory},
     validate_context, validate_context_or_panic,
 };
@@ -274,6 +274,12 @@ pub fn get_shared_memory_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut Shar
     })
 }
 
+/// Store the given `shared_mem` in `ctx` and return a new `Handle`
+/// referencing it.
+pub fn register_shared_mem(ctx: &mut Context, shared_mem: SharedMemory) -> Handle {
+    Context::register(shared_mem, &mut ctx.shared_mems, Hdl::SharedMemory)
+}
+
 /// Create a new instance of shared memory with `min_size` bytes.
 ///
 /// Guest memory is shared memory intended to be shared with a
@@ -291,7 +297,7 @@ pub unsafe extern "C" fn shared_memory_new(ctx: *mut Context, min_size: u64) -> 
     validate_context!(ctx);
 
     match SharedMemory::new(min_size as usize) {
-        Ok(shared_mem) => Context::register(shared_mem, &mut (*ctx).shared_mems, Hdl::SharedMemory),
+        Ok(shared_mem) => register_shared_mem(&mut *ctx, shared_mem),
         Err(e) => (*ctx).register_err(e),
     }
 }
@@ -311,6 +317,38 @@ pub unsafe extern "C" fn shared_memory_get_address(ctx: *const Context, hdl: Han
     validate_context_or_panic!(ctx);
 
     impls::get_address(&*ctx, hdl).unwrap_or(0)
+}
+
+/// Get the size of the shared memory in `ctx` referenced by `hdl`, then
+/// return a new `Handle` referencing the `uint64` size in `ctx`.
+///
+/// If there was any error, return a `Handle` referencing that error in `ctx`
+/// instead.
+///
+/// # Safety
+///
+/// You must call this function with a `Context*` that has been:
+///
+/// - Created with `context_new`
+/// - Not yet freed with `context_free`
+/// - Not modified, except by calling functions in the Hyperlight C API
+#[no_mangle]
+pub unsafe extern "C" fn shared_memory_get_size(ctx: *mut Context, hdl: Handle) -> Handle {
+    validate_context_or_panic!(ctx);
+    let sm = match get_shared_memory(&*ctx, hdl) {
+        Ok(s) => s,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let size = match u64::try_from(sm.mem_size()) {
+        Ok(s) => s,
+        Err(_) => {
+            return (*ctx).register_err(anyhow!(
+                "shared_memory_get_size: couldn't convert usize memory size value ({:?}) to u64",
+                sm.mem_size()
+            ))
+        }
+    };
+    register_u64(&mut *ctx, size)
 }
 
 /// Fetch the following two strutures:
@@ -537,6 +575,7 @@ pub unsafe extern "C" fn shared_memory_write_int_32(
 #[cfg(test)]
 mod tests {
     use super::impls::copy_byte_array;
+    use super::register_shared_mem;
     use crate::{capi::handle::Handle, mem::ptr_offset::Offset};
     use crate::{
         capi::{context::Context, hdl::Hdl},
@@ -569,8 +608,8 @@ mod tests {
             };
             let barr_hdl = Context::register(barr_vec, &mut ctx.byte_arrays, Hdl::ByteArray);
             let shared_mem_hdl = {
-                let gm = SharedMemory::new(shared_mem_size).unwrap();
-                Context::register(gm, &mut ctx.shared_mems, Hdl::SharedMemory)
+                let sm = SharedMemory::new(shared_mem_size).unwrap();
+                register_shared_mem(&mut ctx, sm)
             };
             Ok(Self {
                 ctx: Box::new(ctx),

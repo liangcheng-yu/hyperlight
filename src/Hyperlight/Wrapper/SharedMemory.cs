@@ -7,6 +7,7 @@ namespace Hyperlight.Wrapper
     public class SharedMemory : IDisposable
     {
         private readonly ulong size;
+        internal ulong Size => size;
         private readonly Context ctxWrapper;
         public Handle handleWrapper { get; private set; }
         private bool disposed;
@@ -21,6 +22,12 @@ namespace Hyperlight.Wrapper
                 return (IntPtr)addr;
             }
         }
+
+        /// <summary>
+        /// Create a new SharedMemory instance with the given size
+        /// </summary>
+        /// <param name="ctx">the Context with which to do the create</param>
+        /// <param name="size">the desired memory size</param>
         public SharedMemory(
             Context ctx,
             ulong size
@@ -36,6 +43,49 @@ namespace Hyperlight.Wrapper
                 )
             );
             this.handleWrapper.ThrowIfError();
+        }
+
+        /// <summary>
+        /// Create a new wrapper class for an existing SharedMemory handle
+        /// </summary>
+        /// <param name="ctx">
+        /// the context inside which the SharedMemory is stored
+        /// </param>
+        /// <param name="getterFn">
+        /// the function to get the raw Handle to the SharedMemory
+        /// </param>
+        /// <exception cref="HyperlightException">
+        /// if any given parameters are null, or there was an error creating
+        /// the new SharedMemory
+        /// </exception>
+        internal SharedMemory(
+            Context ctx,
+            Func<Context, NativeHandle> getterFn
+        )
+        {
+
+            HyperlightException.ThrowIfNull(
+                ctx,
+                nameof(ctx),
+                GetType().Name
+            );
+            HyperlightException.ThrowIfNull(
+                getterFn,
+                nameof(getterFn),
+                GetType().Name
+            );
+            this.ctxWrapper = ctx;
+            this.handleWrapper = new Handle(ctx, getterFn(ctx), true);
+            var sizeRawHdl = shared_memory_get_size(ctx.ctx, this.handleWrapper.handle);
+            using var sizeHdl = new Handle(ctx, sizeRawHdl, true);
+            if (!sizeHdl.IsUInt64())
+            {
+                throw new HyperlightException(
+                    "couldn't get the size of given shared memory handle"
+                );
+            }
+            var size = sizeHdl.GetUInt64();
+            this.size = size;
         }
 
         // TODO: make this a long rather than ulong
@@ -204,6 +254,13 @@ namespace Hyperlight.Wrapper
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         public static extern ulong shared_memory_get_address(
+            NativeContext ctx,
+            NativeHandle hdl
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        public static extern ulong shared_memory_get_size(
             NativeContext ctx,
             NativeHandle hdl
         );

@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using Google.FlatBuffers;
@@ -11,33 +12,174 @@ namespace Hyperlight.Wrapper
     internal abstract class SandboxMemoryManager : IDisposable
     {
         private readonly Context ctxWrapper;
+        private readonly Handle memMgrHdl;
+        private bool disposedValue;
         protected Context ContextWrapper => ctxWrapper;
 
-        protected readonly IntPtr LoadAddr;
-        private readonly ulong entryPointOffsetVal;
-        public ulong EntryPointOffset => entryPointOffsetVal;
+        /// <summary>
+        /// Get the offset, from the start of memory (loadAddr), to the entrypoint
+        /// </summary>
+        private ulong entryPointOffset
+        {
+            get
+            {
+                var rawHdl = mem_mgr_get_entrypoint_offset(
+                    this.ctxWrapper.ctx,
+                    this.memMgrHdl.handle
+                );
+                using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
+                if (!hdl.IsUInt64())
+                {
+                    throw new HyperlightException(
+                        "mem_mgr_get_entrypoint_offset did not return a uint64"
+                    );
+                }
+                return hdl.GetUInt64();
+            }
+        }
+
+        /// <summary>
+        /// Get the address of the start of memory on the  host.
+        /// </summary>
+        private IntPtr loadAddr
+        {
+            get
+            {
+                var rawHdl = mem_mgr_get_load_addr(
+                    this.ctxWrapper.ctx,
+                    this.memMgrHdl.handle
+                );
+                using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
+                if (!hdl.IsUInt64())
+                {
+                    throw new HyperlightException(
+                        "mem_mgr_get_load_addr did not return a uint64"
+                    );
+                }
+                return new IntPtr((long)hdl.GetUInt64());
+            }
+        }
 
         public ulong EntryPoint => (ulong)IntPtr.Add(
-            LoadAddr,
-            (int)EntryPointOffset
+            this.loadAddr,
+            (int)this.entryPointOffset
         ).ToInt64();
 
-        private bool disposedValue;
 
-        private readonly Handle memMgrHdl;
 
-        protected readonly SharedMemory SharedMem;
+        protected SharedMemory SharedMem
+        {
+            get
+            {
+                return new SharedMemory(
+                    this.ctxWrapper,
+                    ctx => mem_mgr_get_shared_memory(
+                        ctx.ctx,
+                        this.memMgrHdl.handle
+                    )
+                );
+            }
+        }
         public IntPtr SourceAddress => this.SharedMem.Address;
 
-        protected readonly SandboxMemoryLayout sandboxMemoryLayout;
+        protected SandboxMemoryLayout sandboxMemoryLayout
+        {
+            get
+            {
+                var rawHdl = mem_mgr_get_sandbox_memory_layout(
+                    this.ctxWrapper.ctx,
+                    this.memMgrHdl.handle
+                );
+                return SandboxMemoryLayout.FromHandle(
+                    this.ctxWrapper,
+                    new Handle(this.ctxWrapper, rawHdl, true)
+                );
+            }
+        }
 
-        protected readonly bool RunFromProcessMemory;
-        protected readonly SandboxMemoryConfiguration MemConfig;
-        private readonly ulong sizeVal;
-        public ulong Size => this.sizeVal;
+        protected bool RunFromProcessMemory
+        {
+            get
+            {
+                var rawHdl = mem_mgr_get_run_from_process_memory(
+                    this.ctxWrapper.ctx,
+                    this.memMgrHdl.handle
+                );
+                using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
+                if (!hdl.IsBoolean())
+                {
+                    throw new HyperlightException(
+                        "mem_mgr_get_run_from_process_memory did not return a bool"
+                    );
+                }
+                return hdl.GetBoolean();
+            }
+        }
+        protected SandboxMemoryConfiguration MemConfig
+        {
+            get
+            {
+                return mem_mgr_get_config(
+                    this.ctxWrapper.ctx,
+                    this.memMgrHdl.handle
+                );
+            }
+        }
+        public ulong Size
+        {
+            get
+            {
+                var rawHdl = mem_mgr_get_mem_size(
+                    this.ctxWrapper.ctx,
+                    this.memMgrHdl.handle
+                );
+                using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
+                if (!hdl.IsUInt64())
+                {
+                    throw new HyperlightException(
+                        "mem_mgr_get_mem_size did not return a uint64"
+                    );
+                }
+                return hdl.GetUInt64();
+            }
+        }
 
-        internal SandboxMemoryManager(
-            Context ctxWrapper,
+        protected SandboxMemoryManager(
+            Context ctx,
+            Handle hdl
+        )
+        {
+            this.ctxWrapper = ctx;
+            hdl.ThrowIfError();
+            this.memMgrHdl = hdl;
+        }
+
+        /// <summary>
+        /// Create a new SandboxMemoryManager from its parts
+        /// </summary>
+        /// <param name="ctx">
+        /// the Context from which to create the new manager
+        /// </param>
+        /// <param name="memCfg">
+        /// the SandboxMemoryConfiguration from which to create the new manager
+        /// </param>
+        /// <param name="layout">
+        /// the SandboxMemoryLayout from which to create the new manager
+        /// </param>
+        /// <param name="sharedMemWrapper">
+        /// the SharedMemory from which to create the new manager
+        /// </param>
+        /// <param name="loadAddr">
+        /// the base address of memory
+        /// </param>
+        /// <param name="entrypointOffset">
+        /// the offset from loadAddr at which the entrypoint exists
+        /// </param>
+        /// <param name="runFromProcessMemory">
+        /// whether or not to run in-process
+        /// </param>
+        protected SandboxMemoryManager(
+            Context ctx,
             SandboxMemoryConfiguration memCfg,
             SandboxMemoryLayout layout,
             SharedMemory sharedMemWrapper,
@@ -46,27 +188,24 @@ namespace Hyperlight.Wrapper
             bool runFromProcessMemory
         )
         {
-            this.MemConfig = memCfg;
-            this.sandboxMemoryLayout = layout;
-            this.SharedMem = sharedMemWrapper;
-            this.entryPointOffsetVal = entrypointOffset;
-            this.RunFromProcessMemory = runFromProcessMemory;
             HyperlightException.ThrowIfNull(
-                ctxWrapper,
+                ctx,
                 nameof(ctxWrapper),
-                GetType().Name
+                MethodBase.GetCurrentMethod()!.DeclaringType!.Name
             );
-            this.ctxWrapper = ctxWrapper;
-            this.LoadAddr = loadAddr;
-            this.sizeVal = layout.GetMemorySize();
 
             var rawHdl = mem_mgr_new(
-                ctxWrapper.ctx,
+                ctx.ctx,
+                memCfg,
                 sharedMemWrapper.handleWrapper.handle,
                 layout.HandleWrapper.handle,
-                runFromProcessMemory
+                runFromProcessMemory,
+                (ulong)loadAddr.ToInt64(),
+                entrypointOffset
             );
-            this.memMgrHdl = new Handle(ctxWrapper, rawHdl, true);
+            var hdl = new Handle(ctx, rawHdl, true);
+            this.ctxWrapper = ctx;
+            this.memMgrHdl = hdl;
         }
 
         internal void SetStackGuard(byte[] cookie)
@@ -557,9 +696,12 @@ namespace Hyperlight.Wrapper
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle mem_mgr_new(
             NativeContext ctx,
+            SandboxMemoryConfiguration memCfg,
             NativeHandle sharedMemHdl,
             NativeHandle memLayoutHdl,
-            [MarshalAs(UnmanagedType.U1)] bool runFromProcessMemory
+            [MarshalAs(UnmanagedType.U1)] bool runFromProcessMemory,
+            ulong loadAddr,
+            ulong entrypointOffset
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
@@ -708,6 +850,46 @@ namespace Hyperlight.Wrapper
             NativeHandle mgrHdl
         );
 
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_get_entrypoint_offset(
+            NativeContext ctx,
+            NativeHandle memMgrHdl
+        );
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_get_shared_memory(
+            NativeContext ctx,
+            NativeHandle memMgrHdl
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_get_load_addr(
+            NativeContext ctx,
+            NativeHandle memMgrHdl
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_get_sandbox_memory_layout(
+            NativeContext ctx,
+            NativeHandle memMgrHdl
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_get_run_from_process_memory(
+            NativeContext ctx,
+            NativeHandle memMgrHdl
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern SandboxMemoryConfiguration mem_mgr_get_config(
+            NativeContext ctx,
+            NativeHandle memMgrHdl
+        );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
@@ -717,9 +899,15 @@ namespace Hyperlight.Wrapper
             NativeHandle mgrHdl,
             IntPtr guestFunctionCallBuffferPtr
         );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_get_mem_size(
+            NativeContext ctx,
+            NativeHandle memMgrHdl
+        );
+
 #pragma warning restore CA1707 // Remove the underscores from member name
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
-
-
     }
 }

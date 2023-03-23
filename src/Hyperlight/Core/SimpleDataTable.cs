@@ -7,7 +7,7 @@ using Hyperlight.Core;
 namespace Hyperlight
 {
 
-    class SimpleDataTable
+    sealed class SimpleDataTable
     {
         IntPtr ptrCurrent;
         readonly IntPtr ptrEnd;

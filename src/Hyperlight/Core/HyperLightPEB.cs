@@ -6,7 +6,7 @@ using Hyperlight.Core;
 
 namespace Hyperlight
 {
-    public class FunctionDetails
+    public sealed class FunctionDetails
     {
         public string? FunctionName { get; set; }
         public string? FunctionSignature { get; set; }
@@ -14,7 +14,7 @@ namespace Hyperlight
 
     }
 
-    class HyperlightPEB
+    sealed class HyperlightPEB
     {
         struct Header
         {

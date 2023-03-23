@@ -156,7 +156,7 @@ namespace Hyperlight.Native
         // Windows Job and Process management structures and functions
 
         [StructLayout(LayoutKind.Sequential)]
-        public class SecurityAttributes
+        public sealed class SecurityAttributes
         {
             public int nLength;
             public IntPtr lpSecurityDescriptor = IntPtr.Zero;
@@ -222,7 +222,7 @@ namespace Hyperlight.Native
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        public class StartupInfo
+        public sealed class StartupInfo
         {
             public int cb;
             public IntPtr lpReserved = IntPtr.Zero;

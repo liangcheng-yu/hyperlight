@@ -178,8 +178,8 @@ mod tests {
         let pres = super::is_present().is_ok();
         match (should_be_present(), pres) {
             (true, true) => (),
-            (false, true) => panic!("KVM was present but should not be"),
-            (true, false) => panic!("KVM was not present but should be"),
+            (false, true) => panic!("KVM was present but should not be. set the {:?} env variable if KVM should be present", SHOULD_BE_PRESENT_VAR),
+            (true, false) => panic!("KVM was not present but should be. remove the {:?} env variable if KVM should not be present", SHOULD_BE_PRESENT_VAR),
             (false, false) => (),
         }
     }
