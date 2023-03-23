@@ -8,6 +8,9 @@ use std::panic::catch_unwind;
 /// the result. Otherwise, return an `Err`. If `run` was called, the slice's
 /// backing memory will not be dropped.
 ///
+/// This function's immutable sibling, `borrow_ptr_as_slice`, should be
+/// used wherever possible, rather than this.
+///
 /// # When to use
 ///
 /// `borrow_ptr_as_slice_mut` should generally only be used in situations where
@@ -70,7 +73,11 @@ use std::panic::catch_unwind;
 ///
 /// Finally, this function only borrows the memory behind `ptr`. Thus,
 /// it is the caller's responsibilty to ensure that memory is dropped.
-pub unsafe fn borrow_ptr_as_slice_mut<'a, T, U, F>(ptr: *mut T, len: usize, run: F) -> Result<U>
+pub(crate) unsafe fn borrow_ptr_as_slice_mut<'a, T, U, F>(
+    ptr: *mut T,
+    len: usize,
+    run: F,
+) -> Result<U>
 where
     F: FnOnce(&'a mut [T]) -> Result<U>,
     T: std::panic::RefUnwindSafe + 'a,
@@ -84,12 +91,59 @@ where
     }
 }
 
+/// Equivalent to borrow_ptr_as_slice_mut, except for dealing with immutable
+/// pointers and slices rather than mutable ones. This function should be used
+/// rather than the mutable version wherever possible.
+///
+/// # Safety
+///
+/// The same safety concerns as borrow_ptr_as_slice_mut apply here.
+pub(crate) unsafe fn borrow_ptr_as_slice<'a, T, U, F>(
+    ptr: *const T,
+    len: usize,
+    run: F,
+) -> Result<U>
+where
+    F: FnOnce(&'a [T]) -> Result<U>,
+    T: std::panic::RefUnwindSafe + 'a,
+{
+    match catch_unwind(|| std::slice::from_raw_parts(ptr, len)) {
+        Ok(slc) => run(slc),
+        Err(e) => bail!(
+            "borrow_ptr_as_slice: panic converting (ptr, len) to slice ({:?})",
+            e
+        ),
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::borrow_ptr_as_slice_mut;
+    use super::{borrow_ptr_as_slice, borrow_ptr_as_slice_mut};
 
     #[test]
-    fn many_borrows() {
+    fn simple_immut_borrow() {
+        let init_vec: Vec<u64> = vec![1, 2, 3, 4, 5];
+        let len = init_vec.len();
+        let ptr = init_vec.as_ptr();
+        unsafe {
+            assert!(borrow_ptr_as_slice(ptr, len, |slc| {
+                assert_eq!(len, slc.len());
+                // we want to assert the underlying addresses are the same,
+                // which helps us ensure no copy is made
+                assert_eq!(init_vec.as_slice(), slc);
+                // then, assert all the data are the same to ensure no
+                // modifications are made inline
+                for idx in 0..len {
+                    assert_eq!(init_vec[idx], slc[idx]);
+                }
+                Ok(())
+            })
+            .is_ok());
+        }
+    }
+
+    #[test]
+    fn many_mut_borrows() {
         let mut init_vec: Vec<u64> = vec![1, 2, 3, 4, 5];
         let len = init_vec.len();
         let ptr = init_vec.as_mut_ptr();

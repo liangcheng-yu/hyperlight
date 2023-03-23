@@ -1,10 +1,9 @@
 use super::shared_mem::get_shared_memory;
-use super::{
-    arrays::raw_vec::RawVec, byte_array::get_byte_array, context::Context, handle::Handle, hdl::Hdl,
-};
+use super::{byte_array::get_byte_array, context::Context, handle::Handle, hdl::Hdl};
 use crate::{
     capi::int::register_u64,
     capi::{
+        arrays::borrowed_slice::borrow_ptr_as_slice,
         bool::register_boolean,
         mem_layout::{get_mem_layout, register_mem_layout},
         shared_mem::register_shared_mem,
@@ -21,8 +20,6 @@ use crate::{
     },
 };
 use anyhow::{anyhow, Result};
-
-use std::ptr::slice_from_raw_parts;
 
 fn get_mem_mgr(ctx: &Context, hdl: Handle) -> Result<&SandboxMemoryManager> {
     Context::get(hdl, &ctx.mem_mgrs, |h| matches!(h, Hdl::MemMgr(_))).map_err(|e| anyhow!(e))
@@ -784,18 +781,16 @@ pub unsafe extern "C" fn mem_mgr_write_guest_function_call(
     }
 
     // fb_guest_function_call_ptr is a pointer to a size prefixed flatbuffer , get the size and then copy from it.
-
-    let raw_vec = match std::panic::catch_unwind(|| {
-        let slice = slice_from_raw_parts(fb_guest_function_call_ptr, 4);
-        let len = flatbuffers::read_scalar::<i32>(&*slice) + 4;
-        RawVec::copy_from_ptr(fb_guest_function_call_ptr as *mut u8, len as usize)
+    match borrow_ptr_as_slice(fb_guest_function_call_ptr, 4, |slice| {
+        Ok(flatbuffers::read_scalar::<i32>(slice) + 4)
+    })
+    .and_then(|len| {
+        let len_usize = usize::try_from(len)?;
+        borrow_ptr_as_slice(fb_guest_function_call_ptr, len_usize, |slice| {
+            mgr.write_guest_function_call(slice)
+        })
     }) {
-        Ok(rawvec) => rawvec,
-        Err(_) => return (*ctx).register_err(anyhow!("fb_guest_function_call_ptr is invalid")),
-    };
-
-    match mgr.write_guest_function_call(raw_vec.as_slice()) {
-        Ok(_) => Handle::from(Hdl::Empty()),
+        Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
 }
