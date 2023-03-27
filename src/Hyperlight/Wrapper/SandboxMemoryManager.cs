@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -634,17 +635,112 @@ namespace Hyperlight.Wrapper
                 fixed (byte* guestFunctionCallBuffferPtr = buffer)
                 {
                     using var resultHdlWrapper = new Handle(
-                        this.ctxWrapper,
-                        mem_mgr_write_guest_function_call(
-                            this.ctxWrapper.ctx,
-                            this.memMgrHdl.handle,
-                            (IntPtr)guestFunctionCallBuffferPtr
-                        ),
+                    this.ctxWrapper,
+                    mem_mgr_write_guest_function_call(
+                        this.ctxWrapper.ctx,
+                        this.memMgrHdl.handle,
+                        (IntPtr)guestFunctionCallBuffferPtr),
                         true
                     );
                 }
             }
 
+
+        }
+
+        internal void WriteHostFunctionDetails(Dictionary<string, HostMethodInfo> hostFunctionInfo)
+        {
+            FlatBufferBuilder builder = new(1024);
+            var hostFunctionDefinitions = new Offset<HostFunctionDefinition>[hostFunctionInfo.Count];
+            var i = 0;
+
+            foreach (var hostFunction in hostFunctionInfo)
+            {
+                var methodInfo = hostFunction.Value.methodInfo;
+
+                var functionName = builder.CreateString(hostFunction.Key);
+
+                var returnType = ReturnType.hlint;
+                // TODO: Add support for additional return types
+                if (methodInfo.ReturnType == typeof(int) || methodInfo.ReturnType == typeof(uint))
+                {
+                    returnType = ReturnType.hlint;
+                }
+                else if (methodInfo.ReturnType == typeof(long) || methodInfo.ReturnType == typeof(IntPtr))
+                {
+                    returnType = ReturnType.hllong;
+                }
+                else
+                {
+                    HyperlightException.LogAndThrowException<ArgumentException>($"Only int long or IntPtr return types are supported: Name {hostFunction.Key} Return Type {methodInfo.ReturnType.Name} ", GetType().Name);
+                }
+
+                VectorOffset parameterTypeVec = new();
+
+                if (methodInfo.GetParameters().Length > 0)
+                {
+                    var parameterTypes = new ParameterType[methodInfo.GetParameters().Length];
+                    ParameterType? parameterType = null;
+                    var p = 0;
+                    // TODO: add support for additional types.
+                    foreach (var parameterInfo in methodInfo.GetParameters())
+                    {
+                        switch (parameterInfo.ParameterType.Name)
+                        {
+                            case "Int32":
+                                parameterType = ParameterType.hlint;
+                                break;
+                            case "String":
+                                parameterType = ParameterType.hlstring;
+                                break;
+                            default:
+                                HyperlightException.LogAndThrowException<ArgumentException>($"Only int and string parameters are supported: Name {hostFunction.Key} Parameter Type {parameterInfo.ParameterType.Name} ", GetType().Name);
+                                break;
+                        }
+                        parameterTypes[p] = parameterType!.Value;
+                        p++;
+                    }
+                    parameterTypeVec = HostFunctionDefinition.CreateParametersVector(builder, parameterTypes);
+                }
+
+                var hostFunctionDefinition = HostFunctionDefinition.CreateHostFunctionDefinition(builder, functionName, parameterTypeVec, returnType);
+                hostFunctionDefinitions[i] = hostFunctionDefinition;
+                i++;
+            }
+            var hostFunctionDefinitionsVector = HostFunctionDefinition.CreateSortedVectorOfHostFunctionDefinition(builder, hostFunctionDefinitions);
+            var hostFunctionDetails = HostFunctionDetails.CreateHostFunctionDetails(builder, hostFunctionDefinitionsVector);
+            builder.FinishSizePrefixed(hostFunctionDetails.Value);
+            var buffer = builder.SizedByteArray();
+
+            unsafe
+            {
+                fixed (byte* hostFunctionDetailsBuffferPtr = buffer)
+                {
+                    using var resultHdlWrapper = new Handle(
+                    this.ctxWrapper,
+                    mem_mgr_write_host_function_details(
+                        this.ctxWrapper.ctx,
+                        this.memMgrHdl.handle,
+                        (IntPtr)hostFunctionDetailsBuffferPtr),
+                        true
+                    );
+                }
+            }
+
+        }
+
+        internal void WriteMemoryLayout()
+        {
+            var addr = GetGuestAddressFromPointer(SourceAddress);
+            if (this.RunFromProcessMemory)
+            {
+                addr = SourceAddress;
+            }
+            this.sandboxMemoryLayout.WriteMemoryLayout(
+                this.SharedMem,
+                addr,
+                Size
+            );
 
         }
 
@@ -898,6 +994,15 @@ namespace Hyperlight.Wrapper
             NativeContext ctx,
             NativeHandle mgrHdl,
             IntPtr guestFunctionCallBuffferPtr
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+
+        private static extern NativeHandle mem_mgr_write_host_function_details(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            IntPtr hostFunctionDetailsBuffferPtr
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]

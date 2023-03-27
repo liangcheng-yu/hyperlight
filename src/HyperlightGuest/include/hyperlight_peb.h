@@ -4,8 +4,8 @@
 
 typedef struct
 {
-    uint64_t functionDefinitionSize;
-    void* functionDefinitions;
+    uint64_t fbHostFunctionDetailsSize;
+    void* fbHostFunctionDetails;
 } HostFunctionDefinitions;
 
 typedef struct
@@ -43,6 +43,7 @@ typedef struct
 typedef struct
 {
     uint64_t security_cookie_seed;
+    uint64_t guest_function_dispatch_ptr;
     HostFunctionDefinitions hostFunctionDefinitions;
     HostException hostException;
     void* pGuestErrorBuffer;
@@ -54,32 +55,6 @@ typedef struct
     GuestHeapData guestheapData;
     GuestStackData gueststackData;
 } HyperlightPEB;
-
-typedef struct
-{
-    uint64_t CountOfFunctions;
-    uint64_t DispatchFunction;
-} HostFunctionHeader;
-
-typedef struct
-{
-    HostFunctionHeader header;
-} HostFunctions;
-
-typedef struct
-{
-    ParameterKind argt;
-    uint64_t argv;
-
-} GuestArgument;
-
-typedef struct
-{
-    char* FunctionName;
-    uint64_t argc;
-    GuestArgument guestArguments[];
-
-} GuestFunctionCall;
 
 typedef struct
 {

@@ -2,6 +2,9 @@ include "function_types.fbs";
 
 namespace Hyperlight.Generated;
 
+// Flatbuffers rust generator doesn't support vectors of unions so we have to wrap them in a table
+// see https://github.com/google/flatbuffers/issues/5024
+
 table Parameter {
     value:ParameterValue(required);
 }

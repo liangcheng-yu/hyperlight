@@ -41,6 +41,10 @@
     <ClInclude Include="include\flatbuffers\generated\guest_function_definition_reader.h" />
     <ClInclude Include="include\flatbuffers\generated\guest_function_details_builder.h" />
     <ClInclude Include="include\flatbuffers\generated\guest_function_details_reader.h" />
+    <ClInclude Include="include\flatbuffers\generated\host_function_definition_builder.h" />
+    <ClInclude Include="include\flatbuffers\generated\host_function_definition_reader.h" />
+    <ClInclude Include="include\flatbuffers\generated\host_function_details_builder.h" />
+    <ClInclude Include="include\flatbuffers\generated\host_function_details_reader.h" />
     <ClInclude Include="include\hyperlight.h" />
   </ItemGroup>
   <ItemGroup>

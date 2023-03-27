@@ -6,39 +6,53 @@ int sendMessagetoHostMethod(char* methodName, char* guestMessage, const char* me
 #pragma warning(suppress:4244)
     char* messageToHost = strncat(guestMessage, message, strlen(message));
 
-    HostFunctionDetails* hostfunctionDetails = GetHostFunctionDetails();
+    Hyperlight_Generated_HostFunctionDetails_table_t hostfunctionDetails = GetHostFunctionDetails();
     if (NULL == hostfunctionDetails)
     { 
         setError(GUEST_ERROR, "No host functions found");
     }
 
-    HostFunctionDefinition* hostFunctionDefinition = NULL;
+    ns(HostFunctionDefinition_vec_t) hostFunctionDefinitions = ns(HostFunctionDetails_functions(hostfunctionDetails));
 
-#pragma warning(suppress:6011)
-    for (int i = 0; i < hostfunctionDetails->CountOfFunctions; i++)
-    {
-        if (strcmp(methodName, hostfunctionDetails->HostFunctionDefinitions[i].FunctionName) == 0)
-        {
-            hostFunctionDefinition = &hostfunctionDetails->HostFunctionDefinitions[i];
-            break;
-        }
-    }
+    size_t key = ns(HostFunctionDefinition_vec_find_by_function_name(hostFunctionDefinitions, methodName));
 
-    if (NULL == hostFunctionDefinition)
+    if (flatbuffers_not_found == key)
     {
         char message[100];
         snprintf(message, 100, "Host Function Not Found: %s", methodName);
         setError(GUEST_ERROR, message);
     }
-#pragma warning(suppress:6011)
-    if (strcmp(hostFunctionDefinition->FunctionSignature, "($)i") != 0)
+
+    ns(HostFunctionDefinition_table_t) hostFunctionDefiniton = ns(HostFunctionDefinition_vec_at(hostFunctionDefinitions, key));
+
+    Hyperlight_Generated_ReturnType_enum_t returnValueType = Hyperlight_Generated_HostFunctionDefinition_return_type(hostFunctionDefiniton);
+
+    if (returnValueType != Hyperlight_Generated_ReturnType_hlint)
     {
         char message[100];
-        snprintf(message, 100, "Host Function  %s has unexpected signature %s", methodName, hostFunctionDefinition->FunctionSignature);
+        snprintf(message, 100, "Host Function  %s has unexpected return type %d", methodName, returnValueType);
         setError(GUEST_ERROR, message);
     }
 
-    free(hostfunctionDetails);
+    Hyperlight_Generated_ParameterType_vec_t parameterTypes =  Hyperlight_Generated_HostFunctionDefinition_parameters(hostFunctionDefiniton);
+    size_t numParams = Hyperlight_Generated_ParameterType_vec_len(parameterTypes);
+    
+    if (numParams != 1)
+    {
+        char message[100];
+        snprintf(message, 100, "Host Function  %s has unexpected number of parameters %d", methodName, numParams);
+        setError(GUEST_ERROR, message);
+    }
+
+    Hyperlight_Generated_ParameterType_enum_t paramType = Hyperlight_Generated_ParameterType_vec_at(parameterTypes,0);
+
+    if (paramType != Hyperlight_Generated_ParameterType_hlstring)
+    {
+        char message[100];
+        snprintf(message, 100, "Host Function  %s has unexpected parameter type %d", methodName, paramType);
+        setError(GUEST_ERROR, message);
+    }
+    
     return native_symbol_thunk_returning_int(methodName, messageToHost);
 }
 

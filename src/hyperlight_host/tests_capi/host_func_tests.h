@@ -4,6 +4,7 @@
 MunitResult test_create_host_func_null();
 MunitResult test_create_host_func();
 MunitResult test_call_host_func();
+MunitResult test_write_host_function_details();
 
 static MunitTest host_func_tests[] = {
     {
@@ -28,4 +29,12 @@ static MunitTest host_func_tests[] = {
      NULL,
      MUNIT_TEST_OPTION_NONE,
      NULL},
+    {
+        "/ test_write_host_function_details", /* name */
+        test_write_host_function_details,    /* test */
+        NULL,                     /* setup */
+        NULL,                     /* tear_down */
+        MUNIT_TEST_OPTION_NONE,   /* options */
+        NULL                      /* parameters */
+    },
     {NULL, NULL, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL}};

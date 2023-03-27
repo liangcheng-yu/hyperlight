@@ -114,25 +114,6 @@ namespace Hyperlight.Core
             );
         }
 
-
-        internal HyperlightPEB SetUpHyperLightPEB()
-        {
-            var addr = GetGuestAddressFromPointer(SourceAddress);
-            if (this.RunFromProcessMemory)
-            {
-                addr = SourceAddress;
-            }
-            this.sandboxMemoryLayout.WriteMemoryLayout(
-                this.SharedMem,
-                addr,
-                Size
-            );
-            var offset = GetAddressOffset();
-            return new HyperlightPEB(
-                this.sandboxMemoryLayout.GetFunctionDefinitionAddress(SourceAddress),
-                (int)this.MemConfig.HostFunctionDefinitionSize, offset);
-        }
-
         internal object[] GetHostCallArgs(ParameterInfo[] parameters)
         {
             var args = new object[parameters.Length];

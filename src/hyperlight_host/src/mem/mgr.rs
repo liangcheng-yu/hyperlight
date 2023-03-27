@@ -6,6 +6,7 @@ use super::shared_mem_snapshot::SharedMemorySnapshot;
 use super::{layout::SandboxMemoryLayout, pe::pe_info::PEInfo};
 use super::{pe::headers::PEHeaders, ptr::RawPtr};
 use super::{ptr_addr_space::GuestAddressSpace, shared_mem::SharedMemory};
+use crate::guest::host_function_details::HostFunctionDetails;
 use crate::{
     capi::arrays::raw_vec::RawVec,
     guest::guest_error::{Code, GuestError},
@@ -254,8 +255,16 @@ impl SandboxMemoryManager {
 
     /// Get the address of the dispatch function in memory
     pub fn get_pointer_to_dispatch_function(&self) -> Result<u64> {
-        self.shared_mem
-            .read_u64(self.layout.get_dispatch_function_pointer_offset())
+        let guest_dispatch_function_ptr = self
+            .shared_mem
+            .read_u64(self.layout.get_dispatch_function_pointer_offset())?;
+
+        // This pointer is written by the guest library but is accessible to the guest engine so we should bounds check it before we return it.
+        // in the In VM case there is no danger from the guest manipulating this as the only addresses that are valid are in its own address space
+        // but in the in process case maniulating this pointer could cause the host to execut arbitary functions.
+
+        let guest_ptr = GuestPtr::try_from(RawPtr::from(guest_dispatch_function_ptr))?;
+        guest_ptr.absolute()
     }
 
     /// Get output from the guest as a `String`
@@ -427,5 +436,13 @@ impl SandboxMemoryManager {
         let guest_function_call = GuestFunctionCall::try_from(buffer)?;
         let layout = self.layout;
         guest_function_call.write_to_memory(self.get_shared_mem_mut(), &layout)
+    }
+
+    /// Writes host function details to memory
+
+    pub fn write_host_function_details(&mut self, buffer: &[u8]) -> Result<()> {
+        let host_function_details = HostFunctionDetails::try_from(buffer)?;
+        let layout = self.layout;
+        host_function_details.write_to_memory(self.get_shared_mem_mut(), &layout)
     }
 }

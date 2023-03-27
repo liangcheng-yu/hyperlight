@@ -1,6 +1,14 @@
 use super::shared_mem::get_shared_memory;
 use super::{byte_array::get_byte_array, context::Context, handle::Handle, hdl::Hdl};
 use crate::{
+    capi::arrays::borrowed_slice::borrow_ptr_as_slice_mut,
+    capi::int::register_i32,
+    mem::{
+        mgr::SandboxMemoryManager,
+        ptr::{GuestPtr, HostPtr, RawPtr},
+    },
+};
+use crate::{
     capi::int::register_u64,
     capi::{
         arrays::borrowed_slice::borrow_ptr_as_slice,
@@ -11,13 +19,6 @@ use crate::{
     capi::{pe::get_pe_info_mut, strings::register_string},
     mem::{config::SandboxMemoryConfiguration, ptr_offset::Offset},
     validate_context, validate_context_or_panic,
-};
-use crate::{
-    capi::{arrays::borrowed_slice::borrow_ptr_as_slice_mut, int::register_i32},
-    mem::{
-        mgr::SandboxMemoryManager,
-        ptr::{GuestPtr, HostPtr, RawPtr},
-    },
 };
 use anyhow::{anyhow, Result};
 
@@ -792,5 +793,48 @@ pub unsafe extern "C" fn mem_mgr_write_guest_function_call(
     }) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
+    }
+}
+
+/// Writes the data pointed to by `fb_host_function_details_ptr` as a `HostFunctionDetails` flatbuffer to the host function details section of shared memory.
+/// The buffer should contain a valid size prefixed HostFunctionDetails flatbuffer
+///
+/// Return an empty `Handle` on success, and a `Handle` referencing
+/// an error otherwise.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+///
+/// `mem_mgr_hdl` must be a valid `Handle` returned by `mem_mgr_new` and associated with the `ctx`
+///
+/// `fb_host_function_details_ptr` must be a pointer to a valid size prefixed flatbuffer containing a `HostFunctionDetails` flatbuffer , it is owned by the caller.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_write_host_function_details(
+    ctx: *mut Context,
+    mem_mgr_hdl: Handle,
+    fb_host_function_details_ptr: *const u8,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = match get_mem_mgr_mut(&mut *ctx, mem_mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+
+    if fb_host_function_details_ptr.is_null() {
+        return (*ctx).register_err(anyhow!("host function details buffer pointer is NULL"));
+    }
+
+    // fb_host_function_details_ptr is a pointer to a size prefixed flatbuffer , get the size and then copy from it.
+
+    match borrow_ptr_as_slice(fb_host_function_details_ptr, 4, |outer_slc| {
+        let len = usize::try_from(flatbuffers::read_scalar::<i32>(outer_slc) + 4)?;
+        borrow_ptr_as_slice(fb_host_function_details_ptr as *mut u8, len, |inner_slc| {
+            mgr.write_host_function_details(inner_slc)
+        })
+    }) {
+        Ok(_) => Handle::new_empty(),
+        Err(_) => (*ctx).register_err(anyhow!("fb_host_function_details_ptr is invalid")),
     }
 }

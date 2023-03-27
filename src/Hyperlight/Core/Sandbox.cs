@@ -58,7 +58,6 @@ namespace Hyperlight
         readonly StringWriter? writer;
         readonly HyperlightGuestInterfaceGlue guestInterfaceGlue;
         private bool disposedValue; // To detect redundant calls
-        HyperlightPEB? hyperlightPEB;
 
         unsafe delegate* unmanaged<IntPtr, ulong, int> callEntryPoint;
 
@@ -198,7 +197,7 @@ namespace Hyperlight
                 this.sandboxMemoryManager = mgr;
                 this.didRunFromGuestBinary = didRunFromGuestBinary;
             }
-            SetUpHyperLightPEB();
+            sandboxMemoryManager.WriteMemoryLayout();
             SetUpStackGuard();
             rsp = 0;
             // If we are NOT running from process memory, we have to setup a Hypervisor partition
@@ -410,67 +409,6 @@ namespace Hyperlight
         bool CheckStackGuard()
         {
             return sandboxMemoryManager.CheckStackGuard(stackGuard);
-        }
-
-        void SetUpHyperLightPEB()
-        {
-            hyperlightPEB = sandboxMemoryManager.SetUpHyperLightPEB();
-            CreateHyperlightPEBInMemory();
-        }
-
-        private void CreateHyperlightPEBInMemory()
-        {
-            UpdateFunctionMap();
-            hyperlightPEB!.Create();
-        }
-
-        private void UpdateHyperlightPEBInMemory()
-        {
-            UpdateFunctionMap();
-            hyperlightPEB!.Update();
-        }
-
-        private void UpdateFunctionMap()
-        {
-            foreach (var mi in guestInterfaceGlue.MapHostFunctionNamesToMethodInfo.Values)
-            {
-
-                // Dont add functions that already exist in the PEB
-                // TODO: allow overloaded functions
-
-                if (hyperlightPEB!.FunctionExists(mi.methodInfo.Name))
-                {
-                    continue;
-                }
-
-                string returntype = string.Empty;
-                // TODO: Add support for void return types
-                if (mi.methodInfo.ReturnType == typeof(int) || mi.methodInfo.ReturnType == typeof(uint))
-                {
-                    returntype = "i";
-                }
-                else if (mi.methodInfo.ReturnType == typeof(long) || mi.methodInfo.ReturnType == typeof(IntPtr))
-                {
-                    returntype = "I";
-                }
-                else
-                {
-                    HyperlightException.LogAndThrowException<ArgumentException>("Only int long or IntPtr return types are supported", GetType().Name);
-                }
-
-                var parameterSignature = "";
-                foreach (var pi in mi.methodInfo.GetParameters())
-                {
-                    if (pi.ParameterType == typeof(int))
-                        parameterSignature += "i";
-                    else if (pi.ParameterType == typeof(string))
-                        parameterSignature += "$";
-                    else
-                        HyperlightException.LogAndThrowException<ArgumentException>("Only int and string parameters are supported", GetType().Name);
-                }
-
-                hyperlightPEB.AddFunction(mi.methodInfo.Name, $"({parameterSignature}){returntype}", 0);
-            }
         }
 
         public ulong SetUpHyperVisorPartition()
@@ -788,14 +726,14 @@ namespace Hyperlight
         {
             HyperlightException.ThrowIfNull(type, nameof(type), GetType().Name);
             guestInterfaceGlue.ExposeAndBindMembers(type);
-            UpdateHyperLightPEB();
+            WriteHostFunctionDetails();
         }
 
         public void ExposeAndBindMembers(object instance)
         {
             HyperlightException.ThrowIfNull(instance, nameof(instance), GetType().Name);
             guestInterfaceGlue.ExposeAndBindMembers(instance);
-            UpdateHyperLightPEB();
+            WriteHostFunctionDetails();
         }
 
         public void BindGuestFunction(string delegateName, object instance)
@@ -808,23 +746,23 @@ namespace Hyperlight
         {
             HyperlightException.ThrowIfNull(instance, nameof(instance), GetType().Name);
             guestInterfaceGlue.ExposeHostMethod(methodName, instance);
-            UpdateHyperLightPEB();
+            WriteHostFunctionDetails();
         }
 
         public void ExposeHostMethod(string methodName, Type type)
         {
             HyperlightException.ThrowIfNull(type, nameof(type), GetType().Name);
             guestInterfaceGlue.ExposeHostMethod(methodName, type);
-            UpdateHyperLightPEB();
+            WriteHostFunctionDetails();
         }
 
-        private void UpdateHyperLightPEB()
+        private void WriteHostFunctionDetails()
         {
             if (recycleAfterRun && initialised)
             {
                 sandboxMemoryManager.RestoreState();
             }
-            UpdateHyperlightPEBInMemory();
+            sandboxMemoryManager.WriteHostFunctionDetails(guestInterfaceGlue.MapHostFunctionNamesToMethodInfo);
             if (recycleAfterRun && initialised)
             {
                 sandboxMemoryManager.SnapshotState();

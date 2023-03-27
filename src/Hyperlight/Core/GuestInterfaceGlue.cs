@@ -112,6 +112,7 @@ namespace Hyperlight
             }
         }
 
+        // TODO: Enable methods to be exposed with names that are different to their method names (e.g. by adding a property to the ExposeToGuestAttribute, this would allow for methods with the same name in different classses to be exposed and for method names to be changed without breaking the guest code )
         private void ExposeHostMethod(MethodInfo methodInfo, object? target = null, bool exposeMembers = true)
         {
             // Validate that we support parameter list and return type

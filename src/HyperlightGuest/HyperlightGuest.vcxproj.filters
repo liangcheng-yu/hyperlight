@@ -100,6 +100,18 @@
     <ClInclude Include="include\flatbuffers\generated\function_types_reader.h">
       <Filter>Header Files\flatbuffers</Filter>
     </ClInclude>
+    <ClInclude Include="include\flatbuffers\generated\host_function_definition_builder.h">
+      <Filter>Header Files\flatbuffers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\flatbuffers\generated\host_function_definition_reader.h">
+      <Filter>Header Files\flatbuffers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\flatbuffers\generated\host_function_details_builder.h">
+      <Filter>Header Files\flatbuffers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\flatbuffers\generated\host_function_details_reader.h">
+      <Filter>Header Files\flatbuffers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include=".\src\HyperlightGuest.c">

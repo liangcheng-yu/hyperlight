@@ -31,5 +31,9 @@ pub mod hyperlight {
         pub use self::error_code_generated::*;
         mod guest_error_generated;
         pub use self::guest_error_generated::*;
+        mod host_function_definition_generated;
+        pub use self::host_function_definition_generated::*;
+        mod host_function_details_generated;
+        pub use self::host_function_details_generated::*;
     }
 }

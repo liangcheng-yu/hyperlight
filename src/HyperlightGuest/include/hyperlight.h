@@ -9,6 +9,10 @@
 #include "function_types_reader.h"
 #include "guest_function_definition_builder.h"
 #include "guest_function_definition_reader.h"
+#include "host_function_definition_builder.h"
+#include "host_function_definition_reader.h"
+#include "host_function_details_builder.h"
+#include "host_function_details_reader.h"
 
 #define ns(x) FLATBUFFERS_WRAP_NAMESPACE(Hyperlight_Generated, x) 
 
@@ -203,7 +207,7 @@ size_t dlmalloc_set_footprint_limit(size_t bytes);
 
 void RegisterFunction(ns(GuestFunctionDefinition_ref_t));
 
-HostFunctionDetails* GetHostFunctionDetails();
+Hyperlight_Generated_HostFunctionDetails_table_t GetHostFunctionDetails();
 
 int GuestDispatchFunction(ns(FunctionCall_table_t));
 

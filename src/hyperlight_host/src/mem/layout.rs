@@ -28,6 +28,11 @@ struct GuestSecurityCookie {
 }
 
 #[repr(C)]
+struct GuestDispatchFunctionPointer {
+    ptr: u64,
+}
+
+#[repr(C)]
 struct HostFunctions {
     host_function_definitions_size: u64,
     host_function_definitions: u64,
@@ -174,6 +179,8 @@ pub struct SandboxMemoryLayout {
     pub peb_address: usize,
     /// The offset to the guest security cookie
     pub guest_security_cookie_seed_offset: Offset,
+    /// The offset to the guest dispatch function pointer
+    pub guest_dispatch_function_ptr_offset: Offset,
 }
 impl SandboxMemoryLayout {
     /// Four Kilobytes (16^3 bytes) - used to round the total amount of memory
@@ -217,8 +224,10 @@ impl SandboxMemoryLayout {
         let peb_offset = Offset::try_from(Self::PAGE_TABLE_SIZE + code_size)?;
         let guest_security_cookie_seed_offset =
             Offset::try_from(Self::PAGE_TABLE_SIZE + code_size)?;
-        let host_functions_offset =
+        let guest_dispatch_function_ptr_offset =
             guest_security_cookie_seed_offset + size_of::<GuestSecurityCookie>();
+        let host_functions_offset =
+            guest_dispatch_function_ptr_offset + size_of::<GuestDispatchFunctionPointer>();
         let host_exception_offset = host_functions_offset + size_of::<HostFunctions>();
         let guest_error_buffer_pointer_offset =
             host_exception_offset + size_of::<HostExceptionData>();
@@ -262,6 +271,7 @@ impl SandboxMemoryLayout {
             guest_stack_buffer_offset,
             peb_address,
             guest_security_cookie_seed_offset,
+            guest_dispatch_function_ptr_offset,
         })
     }
 
@@ -367,12 +377,10 @@ impl SandboxMemoryLayout {
         self.code_and_outb_pointer_offset
     }
 
-    /// Get the offset in guest memory to the dispatch function
+    /// Get the offset in guest memory to the guest dispatch function
     /// pointer.
     pub fn get_dispatch_function_pointer_offset(&self) -> Offset {
-        // The dispatch function pointer is the field aftter the count of functions
-        // in the host function definitions struct which is a u64
-        self.host_function_definitions_offset + size_of::<u64>()
+        self.guest_dispatch_function_ptr_offset
     }
 
     /// Get the offset in guest memory to the PEB address
@@ -407,6 +415,8 @@ impl SandboxMemoryLayout {
             + self.sandbox_memory_config.output_data_size
             + self.sandbox_memory_config.host_exception_size
             + self.sandbox_memory_config.guest_error_buffer_size
+            + size_of::<GuestSecurityCookie>()
+            + size_of::<GuestDispatchFunctionPointer>()
             + size_of::<HostFunctions>()
             + size_of::<HostExceptionData>()
             + size_of::<GuestError>()

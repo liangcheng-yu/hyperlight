@@ -61,6 +61,10 @@
     <Content Include="..\HyperlightGuest\include\flatbuffers\generated\function_*.h" Pack="true" PackagePath="include\flatbuffers\generated">
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </Content>
+    <Content Include="..\HyperlightGuest\include\flatbuffers\generated\host_function_de*.h" Pack="true" PackagePath="include\flatbuffers\generated">
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </Content>
+ 
     <Content Include="..\..\x64\$(Configuration.toLower())\HyperlightGuest.lib" Pack="true" PackagePath="native">
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </Content>

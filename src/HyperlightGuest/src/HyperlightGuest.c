@@ -630,26 +630,15 @@ void* hyperlightMoreCore(size_t size)
     }
 }
 
-HostFunctionDetails* GetHostFunctionDetails()
+Hyperlight_Generated_HostFunctionDetails_table_t GetHostFunctionDetails()
 {
 
-    HostFunctionHeader* hostFunctionHeader = (HostFunctionHeader*)pPeb->hostFunctionDefinitions.functionDefinitions;
-    size_t functionCount = hostFunctionHeader->CountOfFunctions;
-    if (functionCount == 0)
-    {
-        return NULL;
-    }
+    // read the Host Fuction Details flatbuffer from memory
 
-    HostFunctionDetails* hostFunctionDetails = (HostFunctionDetails*)calloc(1, sizeof(HostFunctionDetails));
-    if (NULL == hostFunctionDetails)
-    {
-        setError(MALLOC_FAILED, NULL);
-    }
-
-#pragma warning(suppress:6011)
-    hostFunctionDetails->CountOfFunctions = functionCount;
-#pragma warning(suppress:6305) 
-    hostFunctionDetails->HostFunctionDefinitions = (HostFunctionDefinition*)((char*)pPeb->hostFunctionDefinitions.functionDefinitions + sizeof(HostFunctionHeader));
+    size_t size;
+    void* buffer = flatbuffers_read_size_prefix(pPeb->hostFunctionDefinitions.fbHostFunctionDetails, &size);
+    assert(NULL != buffer);
+    Hyperlight_Generated_HostFunctionDetails_table_t hostFunctionDetails = Hyperlight_Generated_HostFunctionDetails_as_root(buffer);
 
     return hostFunctionDetails;
 }
@@ -672,8 +661,8 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int f
         outb_ptr = (void(*)(uint16_t, uint8_t))pPeb->pOutb;
         if (outb_ptr)
             runningInHyperlight = false;
-        HostFunctions* pFuncs = (HostFunctions*)pPeb->hostFunctionDefinitions.functionDefinitions;
-        pFuncs->header.DispatchFunction = (uint64_t)DispatchFunction;
+
+        pPeb->guest_function_dispatch_ptr = (uint64_t)DispatchFunction;
 
         dlmalloc_set_footprint_limit(pPeb->guestheapData.guestHeapSize);
 
