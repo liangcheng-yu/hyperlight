@@ -1,10 +1,13 @@
 use super::config::SandboxMemoryConfiguration;
+#[cfg(target_os = "windows")]
+use super::loaded_lib::LoadedLib;
+use super::pe::headers::PEHeaders;
+use super::ptr::RawPtr;
 use super::ptr::{GuestPtr, HostPtr};
 use super::ptr_addr_space::HostAddressSpace;
 use super::ptr_offset::Offset;
 use super::shared_mem_snapshot::SharedMemorySnapshot;
 use super::{layout::SandboxMemoryLayout, pe::pe_info::PEInfo};
-use super::{pe::headers::PEHeaders, ptr::RawPtr};
 use super::{ptr_addr_space::GuestAddressSpace, shared_mem::SharedMemory};
 use crate::guest::host_function_details::HostFunctionDetails;
 use crate::{
@@ -16,6 +19,7 @@ use anyhow::{anyhow, bail, Result};
 use core::mem::size_of;
 use readonly;
 use std::cmp::Ordering;
+
 /// Whether or not the 64-bit page directory entry (PDE) record is
 /// present.
 ///
@@ -43,6 +47,8 @@ pub struct SandboxMemoryManager {
     pub layout: SandboxMemoryLayout,
     pub load_addr: RawPtr,
     pub entrypoint_offset: Offset,
+    #[cfg(target_os = "windows")]
+    lib: Option<LoadedLib>,
 }
 
 impl SandboxMemoryManager {
@@ -54,6 +60,7 @@ impl SandboxMemoryManager {
         run_from_process_memory: bool,
         load_addr: RawPtr,
         entrypoint_offset: Offset,
+        #[cfg(target_os = "windows")] lib: Option<LoadedLib>,
     ) -> Self {
         Self {
             mem_cfg,
@@ -63,6 +70,8 @@ impl SandboxMemoryManager {
             shared_mem,
             load_addr,
             entrypoint_offset,
+            #[cfg(target_os = "windows")]
+            lib,
         }
     }
 
@@ -368,43 +377,29 @@ impl SandboxMemoryManager {
     ///     host memory
     ///     - If we're not running with in-memory mode, this value will be
     ///     into guest memory
-    pub fn load_guest_binary_into_memory(
+    pub(crate) fn load_guest_binary_into_memory(
         cfg: SandboxMemoryConfiguration,
         pe_info: &mut PEInfo,
         run_from_process_memory: bool,
     ) -> Result<Self> {
-        let layout = SandboxMemoryLayout::new(
-            cfg,
-            pe_info.get_payload_len(),
-            usize::try_from(pe_info.stack_reserve())?,
-            usize::try_from(pe_info.heap_reserve())?,
-        )?;
-        let mem_size = layout.get_memory_size()?;
-        let mut shared_mem = SharedMemory::new(mem_size)?;
+        let (layout, mut shared_mem, load_addr, entrypoint_offset) =
+            load_guest_binary_common(cfg, pe_info, pe_info.get_payload_len(), |shared_mem| {
+                let addr_usize = if run_from_process_memory {
+                    // if we're running in-process, load_addr is the absolute
+                    // address to the start of shared memory, plus the offset to
+                    // code
+                    shared_mem.base_addr() + SandboxMemoryLayout::CODE_OFFSET
+                } else {
+                    // otherwise, we're running in a VM, so load_addr
+                    // is the base address in a VM plus the code
+                    // offset
+                    SandboxMemoryLayout::GUEST_CODE_ADDRESS
+                };
+                RawPtr::try_from(addr_usize)
+            })?;
 
-        let load_addr = if run_from_process_memory {
-            // if we're running in-process, load_addr is the absolute
-            // address to the start of shared memory, plus the offset to
-            // code
-            shared_mem.base_addr() + SandboxMemoryLayout::CODE_OFFSET
-        } else {
-            // otherwise, we're running in a VM, so load_addr
-            // is the base address in a VM plus the code
-            // offset
-            SandboxMemoryLayout::GUEST_CODE_ADDRESS
-        };
-
-        let entrypoint_offset = Offset::from({
-            // we have to create this intermediate variable to ensure
-            // we have an _immutable_ reference to a `PEInfo`, which
-            // is what the PEHeaders::from expects
-            let pe_info_immut: &PEInfo = pe_info;
-            let pe_headers = PEHeaders::from(pe_info_immut);
-            pe_headers.entrypoint_offset
-        });
-
-        let relocation_patches =
-            pe_info.get_exe_relocation_patches(pe_info.get_payload(), load_addr)?;
+        let relocation_patches = pe_info
+            .get_exe_relocation_patches(pe_info.get_payload(), load_addr.clone().try_into()?)?;
 
         {
             // Apply relocations to the PE file (if necessary), then copy
@@ -414,21 +409,54 @@ impl SandboxMemoryManager {
             shared_mem.copy_from_slice(pe_info.get_payload(), code_offset)
         }?;
 
-        // Write a pointer to code so that guest exe can check it's running
-        // in Hyperlight
-        {
-            let offset = layout.get_code_pointer_offset();
-            let load_addr_u64: u64 = load_addr.try_into()?;
-            shared_mem.write_u64(offset, load_addr_u64)?;
-        }
         Ok(Self::new(
             cfg,
             layout,
             shared_mem,
             run_from_process_memory,
-            RawPtr::try_from(load_addr)?,
+            load_addr,
             entrypoint_offset,
+            #[cfg(target_os = "windows")]
+            None,
         ))
+    }
+
+    /// Similar to load_guest_binary_into_memory, except only works on Windows
+    /// and uses the
+    /// [`LoadLibraryA`](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibrarya)
+    /// function.
+    pub(crate) fn load_guest_binary_using_load_library(
+        cfg: SandboxMemoryConfiguration,
+        guest_bin_path: &str,
+        pe_info: &mut PEInfo,
+        run_from_process_memory: bool,
+    ) -> Result<Self> {
+        #[cfg(target_os = "windows")]
+        {
+            let lib = LoadedLib::try_from(guest_bin_path)?;
+            let (layout, shared_mem, load_addr, entrypoint_offset) =
+                load_guest_binary_common(cfg, pe_info, 0, |_| lib.base_addr())?;
+            Ok(Self::new(
+                cfg,
+                layout,
+                shared_mem,
+                run_from_process_memory,
+                load_addr,
+                entrypoint_offset,
+                Some(lib),
+            ))
+        }
+        #[cfg(target_os = "linux")]
+        {
+            // these assignments to nothing prevent clippy from complaining,
+            // on non-windows systems, that this function's parameters
+            // are unused
+            let _ = cfg;
+            let _ = guest_bin_path;
+            let _ = pe_info;
+            let _ = run_from_process_memory;
+            panic!("load_guest_binary_using_load_library is only available on Windows")
+        }
     }
 
     /// Writes a guest function call to memory
@@ -445,4 +473,45 @@ impl SandboxMemoryManager {
         let layout = self.layout;
         host_function_details.write_to_memory(self.get_shared_mem_mut(), &layout)
     }
+}
+
+/// Common setup functionality for the
+/// `load_guest_binary_{into_memory, using_load_library}` functions
+fn load_guest_binary_common<F>(
+    cfg: SandboxMemoryConfiguration,
+    pe_info: &PEInfo,
+    code_size: usize,
+    load_addr_fn: F,
+) -> Result<(SandboxMemoryLayout, SharedMemory, RawPtr, Offset)>
+where
+    F: FnOnce(&SharedMemory) -> Result<RawPtr>,
+{
+    let layout = SandboxMemoryLayout::new(
+        cfg,
+        code_size,
+        usize::try_from(pe_info.stack_reserve())?,
+        usize::try_from(pe_info.heap_reserve())?,
+    )?;
+    let mut shared_mem = SharedMemory::new(layout.get_memory_size()?)?;
+
+    let load_addr = load_addr_fn(&shared_mem)?;
+
+    let entrypoint_offset = Offset::from({
+        // we have to create this intermediate variable to ensure
+        // we have an _immutable_ reference to a `PEInfo`, which
+        // is what the PEHeaders::from expects
+        let pe_info_immut: &PEInfo = pe_info;
+        let pe_headers = PEHeaders::from(pe_info_immut);
+        pe_headers.entrypoint_offset
+    });
+
+    let offset = layout.get_code_pointer_offset();
+
+    {
+        // write the code pointer to shared memory
+        let load_addr_u64: u64 = load_addr.clone().try_into()?;
+        shared_mem.write_u64(offset, load_addr_u64)?;
+    }
+
+    Ok((layout, shared_mem, load_addr, entrypoint_offset))
 }

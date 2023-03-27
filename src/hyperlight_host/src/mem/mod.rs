@@ -2,6 +2,10 @@
 pub mod config;
 ///! Functionality to establish a sandbox's memory layout.
 pub mod layout;
+///! Safe wrapper around an HINSTANCE created by the windows
+///! `LoadLibrary` call
+#[cfg(target_os = "windows")]
+pub(crate) mod loaded_lib;
 ///! Functionality taht wraps a `SandboxMemoryLayout` and a
 ///! `SandboxMemoryConfig` to mutate a sandbox's memory as necessary.
 pub mod mgr;

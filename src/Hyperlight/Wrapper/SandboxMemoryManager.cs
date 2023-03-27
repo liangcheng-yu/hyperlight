@@ -155,60 +155,6 @@ namespace Hyperlight.Wrapper
             this.memMgrHdl = hdl;
         }
 
-        /// <summary>
-        /// Create a new SandboxMemoryManager from its parts
-        /// </summary>
-        /// <param name="ctx">
-        /// the Context from which to create the new manager
-        /// </param>
-        /// <param name="memCfg">
-        /// the SandboxMemoryConfiguration from which to create the new manager
-        /// </param>
-        /// <param name="layout">
-        /// the SandboxMemoryLayout from which to create the new manager
-        /// </param>
-        /// <param name="sharedMemWrapper">
-        /// the SharedMemory from which to create the new manager
-        /// </param>
-        /// <param name="loadAddr">
-        /// the base address of memory
-        /// </param>
-        /// <param name="entrypointOffset">
-        /// the offset from loadAddr at which the entrypoint exists
-        /// </param>
-        /// <param name="runFromProcessMemory">
-        /// whether or not to run in-process
-        /// </param>
-        protected SandboxMemoryManager(
-            Context ctx,
-            SandboxMemoryConfiguration memCfg,
-            SandboxMemoryLayout layout,
-            SharedMemory sharedMemWrapper,
-            IntPtr loadAddr,
-            ulong entrypointOffset,
-            bool runFromProcessMemory
-        )
-        {
-            HyperlightException.ThrowIfNull(
-                ctx,
-                nameof(ctxWrapper),
-                MethodBase.GetCurrentMethod()!.DeclaringType!.Name
-            );
-
-            var rawHdl = mem_mgr_new(
-                ctx.ctx,
-                memCfg,
-                sharedMemWrapper.handleWrapper.handle,
-                layout.HandleWrapper.handle,
-                runFromProcessMemory,
-                (ulong)loadAddr.ToInt64(),
-                entrypointOffset
-            );
-            var hdl = new Handle(ctx, rawHdl, true);
-            this.ctxWrapper = ctx;
-            this.memMgrHdl = hdl;
-        }
-
         internal void SetStackGuard(byte[] cookie)
         {
             HyperlightException.ThrowIfNull(
@@ -787,18 +733,6 @@ namespace Hyperlight.Wrapper
 
 #pragma warning disable CA1707 // Remove the underscores from member name
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
-
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle mem_mgr_new(
-            NativeContext ctx,
-            SandboxMemoryConfiguration memCfg,
-            NativeHandle sharedMemHdl,
-            NativeHandle memLayoutHdl,
-            [MarshalAs(UnmanagedType.U1)] bool runFromProcessMemory,
-            ulong loadAddr,
-            ulong entrypointOffset
-        );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]

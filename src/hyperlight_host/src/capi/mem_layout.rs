@@ -354,7 +354,7 @@ pub unsafe extern "C" fn mem_layout_write_memory_layout(
     ctx: *mut Context,
     mem_layout_ref: Handle,
     shared_mem_ref: Handle,
-    guest_address: usize,
+    guest_offset: usize,
     size: usize,
 ) -> Handle {
     validate_context!(ctx);
@@ -363,7 +363,7 @@ pub unsafe extern "C" fn mem_layout_write_memory_layout(
         &mut *ctx,
         mem_layout_ref,
         shared_mem_ref,
-        guest_address,
+        guest_offset,
         size,
     ) {
         Ok(_) => Handle::from(Hdl::Empty()),

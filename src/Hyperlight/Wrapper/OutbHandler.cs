@@ -6,9 +6,9 @@ using Hyperlight.Core;
 namespace Hyperlight.Wrapper
 {
     [StructLayout(LayoutKind.Sequential)]
-    struct OutbHandlerCallback
+    readonly struct OutbHandlerCallback
     {
-        IntPtr func;
+        readonly IntPtr func;
 
         OutbHandlerCallback(IntPtr func)
         {

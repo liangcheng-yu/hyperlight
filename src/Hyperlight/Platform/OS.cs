@@ -63,19 +63,7 @@ namespace Hyperlight.Native
         [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         public static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, IntPtr lpBuffer, IntPtr nSize, out IntPtr lpNumberOfBytesWritten);
 
-        [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Ansi)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-#pragma warning disable CA2101 // Specify marshaling for P/Invoke string arguments
-        public static extern IntPtr LoadLibrary([MarshalAs(UnmanagedType.LPStr)] string lpFileName);
-#pragma warning restore CA2101 // Specify marshaling for P/Invoke string arguments
 
-        [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Ansi)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-        public static extern IntPtr FreeLibrary(IntPtr hModule);
-
-        [DllImport("kernel32.dll")]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-        public static extern bool VirtualProtect(IntPtr lpAddress, UIntPtr dwSize, OS.MemoryProtection flNewProtect, out OS.MemoryProtection lpflOldProtect);
 
 
         //////////////////////////////////////////////////////////////////////
@@ -98,60 +86,6 @@ namespace Hyperlight.Native
         [DllImport("libc", SetLastError = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
         public static extern IntPtr munmap(IntPtr addr, ulong length);
-
-        // Memory allocation/free functions
-
-        public static IntPtr Allocate(IntPtr addr, ulong size)
-        {
-            IntPtr memPtr = IntPtr.Zero;
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                memPtr = OS.mmap(addr, size, OS.PROT_READ | OS.PROT_WRITE | OS.PROT_EXEC, OS.MAP_SHARED | OS.MAP_ANONYMOUS, -1, 0);
-            }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                memPtr = OS.VirtualAlloc(addr, (IntPtr)size, OS.AllocationType.Commit | OS.AllocationType.Reserve, OS.MemoryProtection.EXECUTE_READWRITE);
-            }
-            else
-            {
-                HyperlightException.LogAndThrowException<NotSupportedException>($"Hyperlight is only supported on Windows and Linux", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
-            }
-
-            if (IntPtr.Zero == memPtr)
-            {
-                var err = Marshal.GetLastWin32Error();
-                HyperlightException.LogAndThrowException($"Failed to allocate memory. Error code: {err}", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
-            }
-
-            return memPtr;
-        }
-
-        public static void Free(IntPtr addr, ulong size)
-        {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                OS.munmap(addr, size);
-            }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                // according to the following link, nonzero return
-                // values indicate success.
-                // https://docs.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualfree
-                //
-                // Note: practically speaking, this seems to always return
-                // a strictly positive value, but we're taking the
-                // documentation about "nonzero" literally here.
-                Syscall.CheckReturnVal(
-                    "Free virtual memory",
-                    () => OS.VirtualFree(addr, IntPtr.Zero, (uint)AllocationType.Release),
-                    (int retVal) => retVal != 0
-                );
-            }
-            else
-            {
-                HyperlightException.LogAndThrowException<NotSupportedException>($"Hyperlight is only supported on Windows and Linux", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
-            }
-        }
 
         // Windows Job and Process management structures and functions
 

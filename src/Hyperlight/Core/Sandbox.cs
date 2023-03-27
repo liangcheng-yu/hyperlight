@@ -375,7 +375,7 @@ namespace Hyperlight
                         );
                     }
 
-                    var memMgr = Core.SandboxMemoryManager.LoadGuestBinaryUsingLoadLibrary(
+                    var memMgr = SandboxMemoryManagerLoader.LoadGuestBinaryUsingLoadLibrary(
                         ctx,
                         memCfg,
                         guestBinaryPath,

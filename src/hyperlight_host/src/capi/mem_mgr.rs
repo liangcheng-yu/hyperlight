@@ -15,6 +15,7 @@ use crate::{
         bool::register_boolean,
         mem_layout::{get_mem_layout, register_mem_layout},
         shared_mem::register_shared_mem,
+        strings::get_string,
     },
     capi::{pe::get_pe_info_mut, strings::register_string},
     mem::{config::SandboxMemoryConfiguration, ptr_offset::Offset},
@@ -52,6 +53,11 @@ macro_rules! get_mgr {
 /// `cfg_hdl`. Then, store it in `ctx`, and return a new `Handle` referencing
 /// it.
 ///
+/// This function should only be used for testing purposes.
+///
+/// TODO: delete this function after removing the entire C API
+/// for SandboxMemoryManager.
+///
 /// # Safety
 ///
 /// The called must pass a `ctx` to this function that was created
@@ -84,6 +90,8 @@ pub unsafe extern "C" fn mem_mgr_new(
         run_from_process_mem,
         RawPtr::from(load_addr),
         Offset::from(entrypoint_offset),
+        #[cfg(target_os = "windows")]
+        None,
     );
     Context::register(mgr, &mut (*ctx).mem_mgrs, Hdl::MemMgr)
 }
@@ -617,6 +625,40 @@ pub unsafe extern "C" fn mem_mgr_load_guest_binary_into_memory(
         Err(e) => return (*ctx).register_err(e),
     };
     match SandboxMemoryManager::load_guest_binary_into_memory(cfg, pe_info, run_from_process_mem) {
+        Ok(mgr) => register_mem_mgr(&mut *ctx, mgr),
+        Err(e) => (*ctx).register_err(e),
+    }
+}
+
+/// Similar to `load_guest_binary_into_memory`, except uses the Windows
+/// `LoadLibrary` call rather than manually loading the binary.
+///
+/// # Safety
+///
+/// The safety requirements of `load_guest_binary_into_memory` also apply here.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_load_guest_binary_using_load_library(
+    ctx: *mut Context,
+    cfg: SandboxMemoryConfiguration,
+    guest_bin_name_hdl: Handle,
+    pe_info_hdl: Handle,
+    run_from_process_mem: bool,
+) -> Handle {
+    validate_context!(ctx);
+    let guest_bin_path = match get_string(&*ctx, guest_bin_name_hdl) {
+        Ok(s) => s,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let pe_info = match get_pe_info_mut(&mut *ctx, pe_info_hdl) {
+        Ok(p) => p,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    match SandboxMemoryManager::load_guest_binary_using_load_library(
+        cfg,
+        guest_bin_path,
+        pe_info,
+        run_from_process_mem,
+    ) {
         Ok(mgr) => register_mem_mgr(&mut *ctx, mgr),
         Err(e) => (*ctx).register_err(e),
     }

@@ -271,7 +271,7 @@ namespace Hyperlight.Wrapper
 
         internal void WriteMemoryLayout(
             SharedMemory sharedMemoryWrapper,
-            IntPtr guestAddress,
+            IntPtr guestOffset,
             ulong size
         )
         {
@@ -279,7 +279,7 @@ namespace Hyperlight.Wrapper
                 this.ctxWrapper.ctx,
                 this.HandleWrapper.handle,
                 sharedMemoryWrapper.handleWrapper.handle,
-                (ulong)guestAddress.ToInt64(),
+                (ulong)guestOffset.ToInt64(),
                 size
             );
             using var hdlWrapper = new Handle(
