@@ -42,6 +42,8 @@ Here is the quickest way to try out Hyperlight:
 
 Note: You can also run the linux version using WSL2 on Windows. At present their is no version available for macOS.
 
+To use KVM on Linux, ensure you have it installed. If you don't, follow instructions [here](https://help.ubuntu.com/community/KVM/Installation).
+
 To use mshv on Linux follow the instructions [here][mariner].
 
 The code for the NativeHost application is available [here](https://github.com/deislabs/hyperlight/blob/main/src/examples/NativeHost/Program.cs).
