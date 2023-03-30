@@ -21,7 +21,7 @@ One primary scenario is to run WebAssembly (WASM) modules. A sibling project cal
 This repo contains Hyperlight along with a couple of sample guest applications that can be used to either test or try it out:
 
 - [src/Hyperlight](./src/Hyperlight) - This is the "host", which launches binaries within a Hypervisor partition.
-- [src/HyperlightGuest](./src/HyperLightGuest) - This is a library to make it easy to write Hyperlight Guest programs.
+- [src/HyperlightGuest](./src/HyperlightGuest) - This is a library to make it easy to write Hyperlight Guest programs.
 - [src/NativeHost](./src/examples/NativeHost) - This is a "driver" program used for testing. It knows how to run the Hyperlight Guest programs applications that live within the `src/test/Guests` directory (see below) within sandboxes. If you are developing Hyperlight itself, you'll need this program, but if you're using the library to build your own applications, you won't need this project.
 - [src/HyperlightSurrogate](./src/HyperlightSurrogate) - This is a tiny application that is simply used as a sub-process for the host. When the host runs on Windows with the Windows Hypervisor Platform (WHP, e.g. Hyper-V), it launches several of these surrogates, assigns memory to them, and then launches partitions from there.
   - The use of surrogates is a temporary workaround on Windows until WHP allows us to create more than one partition per running process.
