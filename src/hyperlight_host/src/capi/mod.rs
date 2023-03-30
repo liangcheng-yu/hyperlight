@@ -76,3 +76,11 @@ pub mod strings;
 pub mod uint;
 ///! C-compatible API functions for managing `Val` structures.
 pub mod val_ref;
+
+/// Return `Some(val)` when `cond == true`. Otherwise, return `None`
+pub(crate) fn option_when<T>(val: T, cond: bool) -> Option<T> {
+    match cond {
+        true => Some(val),
+        false => None,
+    }
+}

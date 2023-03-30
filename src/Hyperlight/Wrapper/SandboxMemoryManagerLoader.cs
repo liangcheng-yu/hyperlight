@@ -5,11 +5,39 @@ namespace Hyperlight.Wrapper;
 
 internal static class SandboxMemoryManagerLoader
 {
+    /// <summary>
+    /// Load the guest binary at guestBinaryPath on disk into memory
+    /// </summary>
+    /// <param name="ctx">
+    /// The Rust context to use to execute the load operation
+    /// </param>
+    /// <param name="memCfg">
+    /// The memory configuration with which to configure guest memory
+    /// </param>
+    /// <param name="guestBinaryPath">
+    /// The path on disk to the guest binary
+    /// </param>
+    /// <param name="runFromProcessMemory">
+    /// Whether or not to run in-process
+    /// </param>
+    /// <param name="stackSizeOverride">
+    /// The value to override the stack size specified in the guest binary's
+    /// PE file header. Pass 0 to use the PE file value
+    /// </param>
+    /// <param name="heapSizeOverride">
+    /// The value to override the heap size specified in the guest binary's
+    /// PE file header. Pass 0 to use the PE file value
+    /// </param>
+    /// <returns>
+    /// A new SandboxMemoryManager containing the loaded binary
+    /// </returns>
     internal static Core.SandboxMemoryManager LoadGuestBinaryIntoMemory(
         Context ctx,
         SandboxMemoryConfiguration memCfg,
         string guestBinaryPath,
-        bool runFromProcessMemory
+        bool runFromProcessMemory,
+        ulong stackSizeOverride = 0,
+        ulong heapSizeOverride = 0
     )
     {
         using var peInfo = new PEInfo(ctx, guestBinaryPath);
@@ -17,7 +45,9 @@ internal static class SandboxMemoryManagerLoader
             ctx.ctx,
             memCfg,
             peInfo.handleWrapper.handle,
-            runFromProcessMemory
+            runFromProcessMemory,
+            stackSizeOverride,
+            heapSizeOverride
         );
         return Core.SandboxMemoryManager.FromHandle(
             ctx,
@@ -25,11 +55,42 @@ internal static class SandboxMemoryManagerLoader
         );
     }
 
+    /// <summary>
+    /// Load the given guest binary into memory using the windows LoadLibraryA
+    /// call. 
+    /// 
+    /// WARNING: Calling this method crashes the process on Linux
+    /// </summary>
+    /// <param name="ctx">
+    /// The Rust context to use to execute the load operation
+    /// </param>
+    /// <param name="memCfg">
+    /// The memory configuration with which to configure guest memory
+    /// </param>
+    /// <param name="guestBinaryPath">
+    /// The path on disk to the guest binary
+    /// </param>
+    /// <param name="runFromProcessMemory">
+    /// Whether or not to run in-process
+    /// </param>
+    /// <param name="stackSizeOverride">
+    /// The value to override the stack size specified in the guest binary's
+    /// PE file header. Pass 0 to use the PE file value
+    /// </param>
+    /// <param name="heapSizeOverride">
+    /// The value to override the heap size specified in the guest binary's
+    /// PE file header. Pass 0 to use the PE file value
+    /// </param>
+    /// <returns>
+    /// A new SandboxMemoryManager containing the loaded binary
+    /// </returns>
     internal static Core.SandboxMemoryManager LoadGuestBinaryUsingLoadLibrary(
         Context ctx,
         SandboxMemoryConfiguration memCfg,
         string guestBinaryPath,
-        bool runFromProcessMemory
+        bool runFromProcessMemory,
+        ulong stackSizeOverride = 0,
+        ulong heapSizeOverride = 0
     )
     {
         using var peInfo = new PEInfo(ctx, guestBinaryPath);
@@ -39,7 +100,9 @@ internal static class SandboxMemoryManagerLoader
             memCfg,
             guestBinPathHdl.HandleWrapper.handle,
             peInfo.handleWrapper.handle,
-            runFromProcessMemory
+            runFromProcessMemory,
+            stackSizeOverride,
+            heapSizeOverride
         );
         return Core.SandboxMemoryManager.FromHandle(
             ctx,
@@ -58,7 +121,9 @@ internal static class SandboxMemoryManagerLoader
         NativeContext ctx,
         SandboxMemoryConfiguration memCfg,
         NativeHandle peInfoHdl,
-        [MarshalAs(UnmanagedType.U1)] bool runFromProcessMemory
+        [MarshalAs(UnmanagedType.U1)] bool runFromProcessMemory,
+        ulong stackSizeOverride,
+        ulong heapSizeOverride
     );
 
     [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
@@ -68,7 +133,9 @@ internal static class SandboxMemoryManagerLoader
         SandboxMemoryConfiguration memCfg,
         NativeHandle guestBinNameHdl,
         NativeHandle peInfoHdl,
-        [MarshalAs(UnmanagedType.U1)] bool runFromProcessMemory
+        [MarshalAs(UnmanagedType.U1)] bool runFromProcessMemory,
+        ulong stackSizeOverride,
+        ulong heapSizeOverride
     );
 #pragma warning restore CA1707 // Remove the underscores from member name
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

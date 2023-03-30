@@ -96,5 +96,12 @@ pub mod sandbox;
 #[deny(dead_code, missing_docs, unused_mut)]
 pub mod guest;
 
+///! FlatBuffers-related utilities and (mostly) generated code
 #[allow(non_camel_case_types)]
 pub mod flatbuffers;
+
+///! Utilities for testing including interacting with `simpleguest.exe`
+/// and `callbackguest.exe`, our two most basic guest binaries for testing
+#[deny(dead_code, missing_docs, unused_mut)]
+#[cfg(test)]
+pub(crate) mod testing;
