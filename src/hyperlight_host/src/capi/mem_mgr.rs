@@ -2,7 +2,7 @@ use super::shared_mem::get_shared_memory;
 use super::{byte_array::get_byte_array, context::Context, handle::Handle, hdl::Hdl};
 use crate::{
     capi::arrays::borrowed_slice::borrow_ptr_as_slice_mut,
-    capi::int::register_i32,
+    capi::{int::register_i32, option_when},
     mem::{
         mgr::SandboxMemoryManager,
         ptr::{GuestPtr, HostPtr, RawPtr},
@@ -618,13 +618,21 @@ pub unsafe extern "C" fn mem_mgr_load_guest_binary_into_memory(
     cfg: SandboxMemoryConfiguration,
     pe_info_hdl: Handle,
     run_from_process_mem: bool,
+    stack_size_override: u64,
+    heap_size_override: u64,
 ) -> Handle {
     validate_context!(ctx);
     let pe_info = match get_pe_info_mut(&mut *ctx, pe_info_hdl) {
         Ok(p) => p,
         Err(e) => return (*ctx).register_err(e),
     };
-    match SandboxMemoryManager::load_guest_binary_into_memory(cfg, pe_info, run_from_process_mem) {
+    match SandboxMemoryManager::load_guest_binary_into_memory(
+        cfg,
+        pe_info,
+        run_from_process_mem,
+        option_when(stack_size_override, stack_size_override > 0),
+        option_when(heap_size_override, heap_size_override > 0),
+    ) {
         Ok(mgr) => register_mem_mgr(&mut *ctx, mgr),
         Err(e) => (*ctx).register_err(e),
     }
@@ -643,6 +651,8 @@ pub unsafe extern "C" fn mem_mgr_load_guest_binary_using_load_library(
     guest_bin_name_hdl: Handle,
     pe_info_hdl: Handle,
     run_from_process_mem: bool,
+    stack_size_override: u64,
+    heap_size_override: u64,
 ) -> Handle {
     validate_context!(ctx);
     let guest_bin_path = match get_string(&*ctx, guest_bin_name_hdl) {
@@ -658,6 +668,8 @@ pub unsafe extern "C" fn mem_mgr_load_guest_binary_using_load_library(
         guest_bin_path,
         pe_info,
         run_from_process_mem,
+        option_when(stack_size_override, stack_size_override > 0),
+        option_when(heap_size_override, heap_size_override > 0),
     ) {
         Ok(mgr) => register_mem_mgr(&mut *ctx, mgr),
         Err(e) => (*ctx).register_err(e),
