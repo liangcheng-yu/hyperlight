@@ -196,12 +196,13 @@ namespace Hyperlight.Hypervisors
             );
         }
 
-        internal override void Initialise(IntPtr pebAddress, ulong seed)
+        internal override void Initialise(IntPtr pebAddress, ulong seed, uint pageSize)
         {
             var regs = new LinuxKVM.KVM_REGS()
             {
                 rip = EntryPoint,
                 rsp = rsp,
+                r8 = (ulong)pageSize,
                 rdx = seed,
                 rcx = (ulong)pebAddress,
                 rflags = 0x0002,

@@ -50,6 +50,7 @@ namespace Hyperlight.Hypervisors
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRflags, 0x0002, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRip, entryPoint, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRsp, rsp, 0);
+            AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterR8, 0, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRdx, 0, 0);
             AddRegister(WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRcx, 0, 0);
 
@@ -150,12 +151,14 @@ namespace Hyperlight.Hypervisors
             WindowsHypervisorPlatform.WHvSetVirtualProcessorRegisters(hPartition, 0, rspName, 1, rspValue);
         }
 
-        internal override void Initialise(IntPtr pebAddress, ulong seed)
+        internal override void Initialise(IntPtr pebAddress, ulong seed, uint pageSize)
         {
             Debug.Assert(registerNames[^1] == WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRcx);
             registerValues[^1].low = (ulong)pebAddress;
             Debug.Assert(registerNames[^2] == WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterRdx);
             registerValues[^2].low = seed;
+            Debug.Assert(registerNames[^3] == WindowsHypervisorPlatform.WHV_REGISTER_NAME.WHvX64RegisterR8);
+            registerValues[^3].low = pageSize;
             WindowsHypervisorPlatform.WHvSetVirtualProcessorRegisters(hPartition, 0, registerNames, (uint)registerNames.Length, registerValues);
             ExecuteUntilHalt();
         }

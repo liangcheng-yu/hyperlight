@@ -107,7 +107,7 @@ namespace Hyperlight.Hypervisors
             hdlWrapper.ThrowIfError();
         }
 
-        internal override void Initialise(IntPtr pebAddress, ulong seed)
+        internal override void Initialise(IntPtr pebAddress, ulong seed, uint pageSize)
         {
             using var hdlWrapper = new Handle(
                 this.ctxWrapper,
@@ -117,7 +117,8 @@ namespace Hyperlight.Hypervisors
                     this.outbFnHdlWrapper.handle,
                     this.memAccessFnHdlWrapper.handle,
                     (ulong)pebAddress.ToInt64(),
-                    seed
+                    seed,
+                    pageSize
                 )
             );
             hdlWrapper.ThrowIfError();
@@ -191,7 +192,8 @@ namespace Hyperlight.Hypervisors
             NativeHandle outb_handle_fn_hdl,
             NativeHandle mem_access_fn_hdl,
             ulong peb_addr,
-            ulong seed
+            ulong seed,
+            uint page_size
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]

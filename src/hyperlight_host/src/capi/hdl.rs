@@ -76,6 +76,8 @@ pub enum Hdl {
     MemAccessHandlerFunc(Key),
     /// A reference to a `GuestError`.
     GuestError(Key),
+    /// A reference to a `FunctionCall` representing a HostFunctionCall.
+    HostFunctionCall(Key),
 }
 
 impl Hdl {
@@ -116,6 +118,7 @@ impl Hdl {
     const UINT_64_TYPE_ID: TypeID = 125;
     const BOOLEAN_TYPE_ID: TypeID = 126;
     const GUEST_ERROR_TYPE_ID: TypeID = 127;
+    const HOST_FUNCTION_CALL_TYPE_ID: TypeID = 128;
 
     /// Get the `TypeID` associated with `self`.
     ///
@@ -159,6 +162,7 @@ impl Hdl {
             Hdl::OutbHandlerFunc(_) => Self::OUTB_HANDLER_FUNC_TYPE_ID,
             Hdl::MemAccessHandlerFunc(_) => Self::MEM_ACCESS_HANDLER_FUNC_TYPE_ID,
             Hdl::GuestError(_) => Self::GUEST_ERROR_TYPE_ID,
+            Hdl::HostFunctionCall(_) => Self::HOST_FUNCTION_CALL_TYPE_ID,
         }
     }
 
@@ -205,6 +209,7 @@ impl Hdl {
             Hdl::OutbHandlerFunc(key) => *key,
             Hdl::MemAccessHandlerFunc(key) => *key,
             Hdl::GuestError(key) => *key,
+            Hdl::HostFunctionCall(key) => *key,
         }
     }
 }
@@ -249,6 +254,7 @@ impl std::fmt::Display for Hdl {
             Hdl::OutbHandlerFunc(key) => write!(f, "OutbHandlerFunc({})", key),
             Hdl::MemAccessHandlerFunc(key) => write!(f, "MemAccessHandlerFunc({})", key),
             Hdl::GuestError(key) => write!(f, "GuestErrorHandlerFunc({})", key),
+            Hdl::HostFunctionCall(key) => write!(f, "HostFunctionCallHandlerFunc({})", key),
         }
     }
 }
@@ -298,6 +304,7 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::OUTB_HANDLER_FUNC_TYPE_ID => Ok(Hdl::OutbHandlerFunc(key)),
             Self::MEM_ACCESS_HANDLER_FUNC_TYPE_ID => Ok(Hdl::MemAccessHandlerFunc(key)),
             Self::GUEST_ERROR_TYPE_ID => Ok(Hdl::GuestError(key)),
+            Self::HOST_FUNCTION_CALL_TYPE_ID => Ok(Hdl::HostFunctionCall(key)),
             _ => bail!("invalid handle type {}", hdl.type_id()),
         }
     }

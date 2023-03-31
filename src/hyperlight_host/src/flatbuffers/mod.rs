@@ -27,6 +27,8 @@ pub mod hyperlight {
         pub use self::parameter_generated::*;
         mod function_call_generated;
         pub use self::function_call_generated::*;
+        mod function_call_type_generated;
+        pub use self::function_call_type_generated::*;
         mod error_code_generated;
         pub use self::error_code_generated::*;
         mod guest_error_generated;

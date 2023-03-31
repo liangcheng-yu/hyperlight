@@ -210,6 +210,7 @@ pub unsafe extern "C" fn hyperv_linux_initialise(
     mem_access_func_hdl: Handle,
     peb_addr: u64,
     seed: u64,
+    page_size: u32,
 ) -> Handle {
     validate_context!(ctx);
     let driver = match get_driver_mut(&mut *ctx, driver_hdl) {
@@ -221,7 +222,7 @@ pub unsafe extern "C" fn hyperv_linux_initialise(
             Ok(tup) => tup,
             Err(e) => return (*ctx).register_err(e),
         };
-    let init_res = (*driver).initialise(peb_addr, seed, outb_func, mem_access_func);
+    let init_res = (*driver).initialise(peb_addr, seed, page_size, outb_func, mem_access_func);
     match init_res {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),

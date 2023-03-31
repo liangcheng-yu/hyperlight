@@ -252,6 +252,7 @@ impl HypervLinuxDriver {
         &mut self,
         peb_addr: u64,
         seed: u64,
+        page_size: u32,
         outb_handle_fn: OutbHandlerWrapper,
         mem_access_fn: MemAccessHandlerWrapper,
     ) -> Result<()> {
@@ -262,6 +263,10 @@ impl HypervLinuxDriver {
         self.registers.insert(
             hv_register_name::HV_X64_REGISTER_RDX,
             hv_register_value { reg64: seed },
+        );
+        self.registers.insert(
+            hv_register_name::HV_X64_REGISTER_R8,
+            hv_register_value { reg32: page_size },
         );
         self.apply_registers()?;
         self.execute_until_halt(outb_handle_fn, mem_access_fn)

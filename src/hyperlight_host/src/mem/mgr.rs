@@ -1,19 +1,21 @@
-use super::config::SandboxMemoryConfiguration;
 #[cfg(target_os = "windows")]
 use super::loaded_lib::LoadedLib;
-use super::pe::headers::PEHeaders;
-use super::ptr::RawPtr;
-use super::ptr::{GuestPtr, HostPtr};
-use super::ptr_addr_space::HostAddressSpace;
-use super::ptr_offset::Offset;
-use super::shared_mem_snapshot::SharedMemorySnapshot;
-use super::{layout::SandboxMemoryLayout, pe::pe_info::PEInfo};
-use super::{ptr_addr_space::GuestAddressSpace, shared_mem::SharedMemory};
-use crate::guest::host_function_details::HostFunctionDetails;
-use crate::{
-    capi::arrays::raw_vec::RawVec,
-    guest::guest_error::{Code, GuestError},
-    guest::guest_function_call::GuestFunctionCall,
+use super::{
+    config::SandboxMemoryConfiguration,
+    layout::SandboxMemoryLayout,
+    pe::{headers::PEHeaders, pe_info::PEInfo},
+    ptr::{GuestPtr, HostPtr, RawPtr},
+    ptr_addr_space::{GuestAddressSpace, HostAddressSpace},
+    ptr_offset::Offset,
+    shared_mem::SharedMemory,
+    shared_mem_snapshot::SharedMemorySnapshot,
+};
+use crate::guest::{
+    function_call::{FunctionCall, ReadFunctionCallFromMemory, WriteFunctionCallToMemory},
+    guest_error::{Code, GuestError},
+    guest_function_call::GuestFunctionCall,
+    host_function_call::HostFunctionCall,
+    host_function_details::HostFunctionDetails,
 };
 use anyhow::{anyhow, bail, Result};
 use core::mem::size_of;
@@ -78,6 +80,11 @@ impl SandboxMemoryManager {
     /// Get mutable `SharedMemory` associated with `self`
     fn get_shared_mem_mut(&mut self) -> &mut SharedMemory {
         &mut self.shared_mem
+    }
+
+    /// Get  `SharedMemory` associated with `self`
+    fn get_shared_mem(&mut self) -> &SharedMemory {
+        &self.shared_mem
     }
 
     /// Set the stack guard to `cookie` using `layout` to calculate
@@ -214,24 +221,6 @@ impl SandboxMemoryManager {
     pub fn set_outb_address(&mut self, addr: u64) -> Result<()> {
         let offset = self.layout.get_out_b_pointer_offset();
         self.shared_mem.write_u64(offset, addr)
-    }
-
-    /// Get the name of the method called by the host
-    pub fn get_host_call_method_name(&self) -> Result<String> {
-        let output_data_offset = self.layout.output_data_buffer_offset;
-        let str_addr = self.shared_mem.read_u64(output_data_offset)?;
-        if self.run_from_process_memory {
-            // if we're running in-process, the string method name starts directly
-            // at the absolute in-memory address str_addr
-            let str_len = unsafe { libc::strlen(str_addr as *const i8) };
-            let str_raw_vec = unsafe { RawVec::copy_from_ptr(str_addr as *mut u8, str_len) };
-            String::from_utf8(str_raw_vec.into()).map_err(|e| anyhow!(e))
-        } else {
-            // if we're running in the VM, the string method name starts at offset
-            // str_addr - BASE_ADDRESS. We can calculate that offset using GuestPtr
-            let str_guest_ptr = GuestPtr::try_from(RawPtr::from(str_addr))?;
-            self.shared_mem.read_string(str_guest_ptr.offset())
-        }
     }
 
     /// Get the offset to use when calculating addresses
@@ -461,9 +450,9 @@ impl SandboxMemoryManager {
 
     /// Writes a guest function call to memory
     pub fn write_guest_function_call(&mut self, buffer: &[u8]) -> Result<()> {
-        let guest_function_call = GuestFunctionCall::try_from(buffer)?;
+        let guest_function_call = GuestFunctionCall {};
         let layout = self.layout;
-        guest_function_call.write_to_memory(self.get_shared_mem_mut(), &layout)
+        guest_function_call.write(buffer, self.get_shared_mem_mut(), &layout)
     }
 
     /// Writes host function details to memory
@@ -472,6 +461,21 @@ impl SandboxMemoryManager {
         let host_function_details = HostFunctionDetails::try_from(buffer)?;
         let layout = self.layout;
         host_function_details.write_to_memory(self.get_shared_mem_mut(), &layout)
+    }
+
+    /// Writes a host function call to memory
+    pub fn write_host_function_call(&mut self, buffer: &[u8]) -> Result<()> {
+        let host_function_call = HostFunctionCall {};
+        let layout = self.layout;
+        host_function_call.write(buffer, self.get_shared_mem_mut(), &layout)
+    }
+
+    /// Reads a host function call from memory
+    pub fn get_host_function_call(&mut self) -> Result<FunctionCall> {
+        let host_function_call = HostFunctionCall {};
+        let layout = self.layout;
+        let buffer = host_function_call.read(self.get_shared_mem(), &layout)?;
+        FunctionCall::try_from(buffer.as_slice())
     }
 }
 

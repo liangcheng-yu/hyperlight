@@ -21,7 +21,7 @@ use crate::{
     mem::{config::SandboxMemoryConfiguration, ptr_offset::Offset},
     validate_context, validate_context_or_panic,
 };
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 
 fn get_mem_mgr(ctx: &Context, hdl: Handle) -> Result<&SandboxMemoryManager> {
     Context::get(hdl, &ctx.mem_mgrs, |h| matches!(h, Hdl::MemMgr(_))).map_err(|e| anyhow!(e))
@@ -46,6 +46,23 @@ macro_rules! get_mgr {
             Err(e) => return (*$ctx).register_err(e),
         }
     };
+}
+
+/// Validate a pointer to a flatbuffer points to a valid length-prefixed buffer and
+/// then return a slice that points to the buffer.
+
+fn validate_flatbuffer(fb_ptr: *const u8) -> Result<Vec<u8>> {
+    if fb_ptr.is_null() {
+        bail!("flat buffer pointer is NULL")
+    }
+
+    unsafe {
+        borrow_ptr_as_slice(fb_ptr, 4, |outer_slice| {
+            let len = usize::try_from(flatbuffers::read_scalar::<i32>(outer_slice) + 4)?;
+            Ok(len)
+        })
+        .and_then(|len| borrow_ptr_as_slice(fb_ptr, len, |inner_slice| Ok(inner_slice.to_vec())))
+    }
 }
 
 /// Create a new `SandboxMemoryManager` from the given `run_from_process`
@@ -300,29 +317,6 @@ pub unsafe extern "C" fn mem_mgr_set_outb_address(
     };
     match mgr.set_outb_address(addr) {
         Ok(_) => Handle::new_empty(),
-        Err(e) => (*ctx).register_err(e),
-    }
-}
-
-/// Get the name of the method called by the host.
-///
-/// Return a `Handle` referencing a `string` with the method name,
-/// or a `Handle` referencing an error if something went wrong.
-///
-/// # Safety
-///
-/// `ctx` must be created by `context_new`, owned by the caller, and
-/// not yet freed by `context_free`.
-#[no_mangle]
-pub unsafe extern "C" fn mem_mgr_get_host_call_method_name(
-    ctx: *mut Context,
-    mgr_hdl: Handle,
-) -> Handle {
-    validate_context!(ctx);
-    let mgr = get_mgr!(ctx, mgr_hdl);
-
-    match mgr.get_host_call_method_name() {
-        Ok(method_name) => register_string(&mut *ctx, method_name),
         Err(e) => (*ctx).register_err(e),
     }
 }
@@ -793,8 +787,8 @@ pub unsafe extern "C" fn mem_mgr_get_mem_size(ctx: *mut Context, mgr_hdl: Handle
     register_u64(&mut *ctx, val)
 }
 
-/// Writes the data pointed to by `fb_guest_function_call_ptr` as a `GuestFunctionCall` flatbuffer to the guest function call section of shared memory.
-/// The buffer should contain a valid size prefixed GuestFunctionCall flatbuffer
+/// Writes the data pointed to by `fb_guest_function_call_ptr` as a `FunctionCall` flatbuffer to shared memory.
+/// The buffer should contain a valid size prefixed FunctionCall flatbuffer representing a Guest Function Call.
 ///
 /// Return an empty `Handle` on success, and a `Handle` referencing
 /// an error otherwise.
@@ -806,7 +800,7 @@ pub unsafe extern "C" fn mem_mgr_get_mem_size(ctx: *mut Context, mgr_hdl: Handle
 ///
 /// `mem_mgr_hdl` must be a valid `Handle` returned by `mem_mgr_new` and associated with the `ctx`
 ///
-/// `fb_guest_function_call_ptr` must be a pointer to a valid size prefixed flatbuffer containing a `GuestFunctionCall` flatbuffer , it is owned by the caller.
+/// `fb_guest_function_call_ptr` must be a pointer to a valid size prefixed flatbuffer containing a `FunctionCall` flatbuffer , the FunctionCall buffer should represent a Guest FunctionCall, it is owned by the caller.
 #[no_mangle]
 pub unsafe extern "C" fn mem_mgr_write_guest_function_call(
     ctx: *mut Context,
@@ -818,27 +812,16 @@ pub unsafe extern "C" fn mem_mgr_write_guest_function_call(
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
     };
-
-    if fb_guest_function_call_ptr.is_null() {
-        return (*ctx).register_err(anyhow!("guest fuction call buffer pointer is NULL"));
-    }
-
-    // fb_guest_function_call_ptr is a pointer to a size prefixed flatbuffer , get the size and then copy from it.
-    match borrow_ptr_as_slice(fb_guest_function_call_ptr, 4, |slice| {
-        Ok(flatbuffers::read_scalar::<i32>(slice) + 4)
-    })
-    .and_then(|len| {
-        let len_usize = usize::try_from(len)?;
-        borrow_ptr_as_slice(fb_guest_function_call_ptr, len_usize, |slice| {
-            mgr.write_guest_function_call(slice)
-        })
-    }) {
-        Ok(_) => Handle::new_empty(),
+    match validate_flatbuffer(fb_guest_function_call_ptr) {
+        Ok(vec) => match mgr.write_guest_function_call(&vec) {
+            Ok(_) => Handle::new_empty(),
+            Err(e) => (*ctx).register_err(e),
+        },
         Err(e) => (*ctx).register_err(e),
     }
 }
 
-/// Writes the data pointed to by `fb_host_function_details_ptr` as a `HostFunctionDetails` flatbuffer to the host function details section of shared memory.
+/// Writes the data pointed to by `fb_host_function_details_ptr` as a `HostFunctionDetails` flatbuffer to shared memory.
 /// The buffer should contain a valid size prefixed HostFunctionDetails flatbuffer
 ///
 /// Return an empty `Handle` on success, and a `Handle` referencing
@@ -864,19 +847,79 @@ pub unsafe extern "C" fn mem_mgr_write_host_function_details(
         Err(e) => return (*ctx).register_err(e),
     };
 
-    if fb_host_function_details_ptr.is_null() {
-        return (*ctx).register_err(anyhow!("host function details buffer pointer is NULL"));
+    match validate_flatbuffer(fb_host_function_details_ptr) {
+        Ok(vec) => match mgr.write_host_function_details(&vec) {
+            Ok(_) => Handle::new_empty(),
+            Err(e) => (*ctx).register_err(e),
+        },
+        Err(e) => (*ctx).register_err(e),
     }
+}
 
-    // fb_host_function_details_ptr is a pointer to a size prefixed flatbuffer , get the size and then copy from it.
+/// Writes the data pointed to by `fb_host_function_call_ptr` as a `FunctionCall` flatbuffer to shared memory.
+/// The buffer should contain a valid size prefixed FunctionCall flatbuffer representing a Host Function Call.
+///
+/// Return an empty `Handle` on success, and a `Handle` referencing
+/// an error otherwise.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+///
+/// `mem_mgr_hdl` must be a valid `Handle` returned by `mem_mgr_new` and associated with the `ctx`
+///
+/// `fb_host_function_call_ptr` must be a pointer to a valid size prefixed flatbuffer containing a `FunctionCall` flatbuffer , the FunctionCall buffer should represent a Host FunctionCall, it is owned by the caller.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_write_host_function_call(
+    ctx: *mut Context,
+    mem_mgr_hdl: Handle,
+    fb_host_function_call_ptr: *const u8,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = match get_mem_mgr_mut(&mut *ctx, mem_mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    match validate_flatbuffer(fb_host_function_call_ptr) {
+        Ok(vec) => match mgr.write_host_function_call(&vec) {
+            Ok(_) => Handle::new_empty(),
+            Err(e) => (*ctx).register_err(e),
+        },
+        Err(e) => (*ctx).register_err(e),
+    }
+}
 
-    match borrow_ptr_as_slice(fb_host_function_details_ptr, 4, |outer_slc| {
-        let len = usize::try_from(flatbuffers::read_scalar::<i32>(outer_slc) + 4)?;
-        borrow_ptr_as_slice(fb_host_function_details_ptr as *mut u8, len, |inner_slc| {
-            mgr.write_host_function_details(inner_slc)
-        })
-    }) {
-        Ok(_) => Handle::new_empty(),
-        Err(_) => (*ctx).register_err(anyhow!("fb_host_function_details_ptr is invalid")),
+/// Writes the data pointed to by `fb_host_function_call_ptr` as a `FunctionCall` flatbuffer to shared memory.
+/// The buffer should contain a valid size prefixed FunctionCall flatbuffer representing a Host Function Call.
+///
+/// Return an empty `Handle` on success, and a `Handle` referencing
+/// an error otherwise.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+///
+/// `mem_mgr_hdl` must be a valid `Handle` returned by `mem_mgr_new` and associated with the `ctx`
+///
+/// `fb_host_function_call_ptr` must be a pointer to a valid size prefixed flatbuffer containing a `FunctionCall` flatbuffer , the FunctionCall buffer should represent a Host FunctionCall, it is owned by the caller.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_host_function_call(
+    ctx: *mut Context,
+    mem_mgr_hdl: Handle,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = match get_mem_mgr_mut(&mut *ctx, mem_mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    match mgr.get_host_function_call() {
+        Ok(output) => Context::register(
+            output,
+            &mut (*ctx).host_function_calls,
+            Hdl::HostFunctionCall,
+        ),
+        Err(e) => (*ctx).register_err(e),
     }
 }

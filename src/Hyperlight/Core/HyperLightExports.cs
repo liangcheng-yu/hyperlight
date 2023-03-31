@@ -11,12 +11,8 @@ namespace Hyperlight.Core
     public sealed class HyperLightExports
     {
         private static readonly DateTimeOffset epoch = new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        /// <summary>
-        /// This is required by dlmalloc in HyperlightGuest
-        /// </summary>
-#pragma warning disable CA1024 // Use properties where appropriate - Intentional as properties cannot be exposed to guest
 
-        public static long GetTickCount() => Stopwatch.GetTimestamp();
+#pragma warning disable CA1024 // Use properties where appropriate - Intentional as properties cannot be exposed to guest
 
         /// <summary>
         /// This is required by os_thread_get_stack_boundary() in WAMR (which is needed to handle AOT compiled WASM)
@@ -41,12 +37,6 @@ namespace Hyperlight.Core
             return new IntPtr(low.ToInt64() + (long)page_size * 5);
 
         }
-
-        /// <summary>
-        /// This is required by os_getpagesize() in WAMR (which is needed to handle AOT compiled WASM)
-        /// It is also used by dlmalloc 
-        /// </summary>
-        public static uint GetOSPageSize() => OS.GetPageSize();
 
         /// <summary>
         /// This is required by os_time_get_boot_microsecond() in WAMR 

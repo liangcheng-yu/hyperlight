@@ -29,6 +29,7 @@ impl<'a> flatbuffers::Follow<'a> for FunctionCall<'a> {
 impl<'a> FunctionCall<'a> {
     pub const VT_FUNCTION_NAME: flatbuffers::VOffsetT = 4;
     pub const VT_PARAMETERS: flatbuffers::VOffsetT = 6;
+    pub const VT_FUNCTION_CALL_TYPE: flatbuffers::VOffsetT = 8;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -46,6 +47,7 @@ impl<'a> FunctionCall<'a> {
         if let Some(x) = args.function_name {
             builder.add_function_name(x);
         }
+        builder.add_function_call_type(args.function_call_type);
         builder.finish()
     }
 
@@ -83,6 +85,20 @@ impl<'a> FunctionCall<'a> {
             >>(FunctionCall::VT_PARAMETERS, None)
         }
     }
+    #[inline]
+    pub fn function_call_type(&self) -> FunctionCallType {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab
+                .get::<FunctionCallType>(
+                    FunctionCall::VT_FUNCTION_CALL_TYPE,
+                    Some(FunctionCallType::none),
+                )
+                .unwrap()
+        }
+    }
 }
 
 impl flatbuffers::Verifiable for FunctionCall<'_> {
@@ -101,6 +117,11 @@ impl flatbuffers::Verifiable for FunctionCall<'_> {
             .visit_field::<flatbuffers::ForwardsUOffset<
                 flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<Parameter>>,
             >>("parameters", Self::VT_PARAMETERS, false)?
+            .visit_field::<FunctionCallType>(
+                "function_call_type",
+                Self::VT_FUNCTION_CALL_TYPE,
+                false,
+            )?
             .finish();
         Ok(())
     }
@@ -112,6 +133,7 @@ pub struct FunctionCallArgs<'a> {
             flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Parameter<'a>>>,
         >,
     >,
+    pub function_call_type: FunctionCallType,
 }
 impl<'a> Default for FunctionCallArgs<'a> {
     #[inline]
@@ -119,6 +141,7 @@ impl<'a> Default for FunctionCallArgs<'a> {
         FunctionCallArgs {
             function_name: None, // required field
             parameters: None,
+            function_call_type: FunctionCallType::none,
         }
     }
 }
@@ -146,6 +169,14 @@ impl<'a: 'b, 'b> FunctionCallBuilder<'a, 'b> {
             .push_slot_always::<flatbuffers::WIPOffset<_>>(FunctionCall::VT_PARAMETERS, parameters);
     }
     #[inline]
+    pub fn add_function_call_type(&mut self, function_call_type: FunctionCallType) {
+        self.fbb_.push_slot::<FunctionCallType>(
+            FunctionCall::VT_FUNCTION_CALL_TYPE,
+            function_call_type,
+            FunctionCallType::none,
+        );
+    }
+    #[inline]
     pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> FunctionCallBuilder<'a, 'b> {
         let start = _fbb.start_table();
         FunctionCallBuilder {
@@ -167,6 +198,7 @@ impl core::fmt::Debug for FunctionCall<'_> {
         let mut ds = f.debug_struct("FunctionCall");
         ds.field("function_name", &self.function_name());
         ds.field("parameters", &self.parameters());
+        ds.field("function_call_type", &self.function_call_type());
         ds.finish()
     }
 }

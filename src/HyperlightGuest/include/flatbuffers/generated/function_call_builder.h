@@ -20,6 +20,10 @@
 #define flatbuffers_extension "bin"
 #endif
 
+#define __Hyperlight_Generated_FunctionCallType_formal_args , Hyperlight_Generated_FunctionCallType_enum_t v0
+#define __Hyperlight_Generated_FunctionCallType_call_args , v0
+__flatbuffers_build_scalar(flatbuffers_, Hyperlight_Generated_FunctionCallType, Hyperlight_Generated_FunctionCallType_enum_t)
+
 static const flatbuffers_voffset_t __Hyperlight_Generated_Parameter_required[] = { 1, 0 };
 typedef flatbuffers_ref_t Hyperlight_Generated_Parameter_ref_t;
 static Hyperlight_Generated_Parameter_ref_t Hyperlight_Generated_Parameter_clone(flatbuffers_builder_t *B, Hyperlight_Generated_Parameter_table_t t);
@@ -28,15 +32,15 @@ __flatbuffers_build_table(flatbuffers_, Hyperlight_Generated_Parameter, 2)
 static const flatbuffers_voffset_t __Hyperlight_Generated_FunctionCall_required[] = { 0, 0 };
 typedef flatbuffers_ref_t Hyperlight_Generated_FunctionCall_ref_t;
 static Hyperlight_Generated_FunctionCall_ref_t Hyperlight_Generated_FunctionCall_clone(flatbuffers_builder_t *B, Hyperlight_Generated_FunctionCall_table_t t);
-__flatbuffers_build_table(flatbuffers_, Hyperlight_Generated_FunctionCall, 2)
+__flatbuffers_build_table(flatbuffers_, Hyperlight_Generated_FunctionCall, 3)
 
 #define __Hyperlight_Generated_Parameter_formal_args , Hyperlight_Generated_ParameterValue_union_ref_t v1
 #define __Hyperlight_Generated_Parameter_call_args , v1
 static inline Hyperlight_Generated_Parameter_ref_t Hyperlight_Generated_Parameter_create(flatbuffers_builder_t *B __Hyperlight_Generated_Parameter_formal_args);
 __flatbuffers_build_table_prolog(flatbuffers_, Hyperlight_Generated_Parameter, Hyperlight_Generated_Parameter_file_identifier, Hyperlight_Generated_Parameter_type_identifier)
 
-#define __Hyperlight_Generated_FunctionCall_formal_args , flatbuffers_string_ref_t v0, Hyperlight_Generated_Parameter_vec_ref_t v1
-#define __Hyperlight_Generated_FunctionCall_call_args , v0, v1
+#define __Hyperlight_Generated_FunctionCall_formal_args , flatbuffers_string_ref_t v0, Hyperlight_Generated_Parameter_vec_ref_t v1, Hyperlight_Generated_FunctionCallType_enum_t v2
+#define __Hyperlight_Generated_FunctionCall_call_args , v0, v1, v2
 static inline Hyperlight_Generated_FunctionCall_ref_t Hyperlight_Generated_FunctionCall_create(flatbuffers_builder_t *B __Hyperlight_Generated_FunctionCall_formal_args);
 __flatbuffers_build_table_prolog(flatbuffers_, Hyperlight_Generated_FunctionCall, Hyperlight_Generated_FunctionCall_file_identifier, Hyperlight_Generated_FunctionCall_type_identifier)
 
@@ -69,12 +73,14 @@ static Hyperlight_Generated_Parameter_ref_t Hyperlight_Generated_Parameter_clone
 
 __flatbuffers_build_string_field(0, flatbuffers_, Hyperlight_Generated_FunctionCall_function_name, Hyperlight_Generated_FunctionCall)
 __flatbuffers_build_table_vector_field(1, flatbuffers_, Hyperlight_Generated_FunctionCall_parameters, Hyperlight_Generated_Parameter, Hyperlight_Generated_FunctionCall)
+__flatbuffers_build_scalar_field(2, flatbuffers_, Hyperlight_Generated_FunctionCall_function_call_type, Hyperlight_Generated_FunctionCallType, Hyperlight_Generated_FunctionCallType_enum_t, 1, 1, UINT8_C(0), Hyperlight_Generated_FunctionCall)
 
 static inline Hyperlight_Generated_FunctionCall_ref_t Hyperlight_Generated_FunctionCall_create(flatbuffers_builder_t *B __Hyperlight_Generated_FunctionCall_formal_args)
 {
     if (Hyperlight_Generated_FunctionCall_start(B)
         || Hyperlight_Generated_FunctionCall_function_name_add(B, v0)
-        || Hyperlight_Generated_FunctionCall_parameters_add(B, v1)) {
+        || Hyperlight_Generated_FunctionCall_parameters_add(B, v1)
+        || Hyperlight_Generated_FunctionCall_function_call_type_add(B, v2)) {
         return 0;
     }
     return Hyperlight_Generated_FunctionCall_end(B);
@@ -85,7 +91,8 @@ static Hyperlight_Generated_FunctionCall_ref_t Hyperlight_Generated_FunctionCall
     __flatbuffers_memoize_begin(B, t);
     if (Hyperlight_Generated_FunctionCall_start(B)
         || Hyperlight_Generated_FunctionCall_function_name_pick(B, t)
-        || Hyperlight_Generated_FunctionCall_parameters_pick(B, t)) {
+        || Hyperlight_Generated_FunctionCall_parameters_pick(B, t)
+        || Hyperlight_Generated_FunctionCall_function_call_type_pick(B, t)) {
         return 0;
     }
     __flatbuffers_memoize_end(B, t, Hyperlight_Generated_FunctionCall_end(B));

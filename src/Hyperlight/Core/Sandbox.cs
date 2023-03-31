@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Immutable;
+using System.ComponentModel.Design;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -59,7 +60,7 @@ namespace Hyperlight
         readonly HyperlightGuestInterfaceGlue guestInterfaceGlue;
         private bool disposedValue; // To detect redundant calls
 
-        unsafe delegate* unmanaged<IntPtr, ulong, int> callEntryPoint;
+        unsafe delegate* unmanaged<IntPtr, ulong, uint, int> callEntryPoint;
 
         // Platform dependent delegate for callbacks from native code when native code is calling 'outb' functionality
         // On Linux, delegates passed from .NET core to native code expect arguments to be passed RDI, RSI, RDX, RCX.
@@ -521,7 +522,7 @@ namespace Hyperlight
                     var callOutB = new CallOutb_Linux((_, _, value, port) => HandleOutb(port, value));
                     gCHandle = GCHandle.Alloc(callOutB);
                     sandboxMemoryManager.SetOutBAddress((long)Marshal.GetFunctionPointerForDelegate<CallOutb_Linux>(callOutB));
-                    CallEntryPoint(pebAddress, seed);
+                    CallEntryPoint(pebAddress, seed, OS.GetPageSize());
 #pragma warning restore CS0162 // Unreachable code detected
 
                 }
@@ -531,7 +532,7 @@ namespace Hyperlight
 
                     gCHandle = GCHandle.Alloc(callOutB);
                     sandboxMemoryManager.SetOutBAddress((long)Marshal.GetFunctionPointerForDelegate<CallOutb_Windows>(callOutB));
-                    CallEntryPoint(pebAddress, seed);
+                    CallEntryPoint(pebAddress, seed, OS.GetPageSize());
                 }
                 else
                 {
@@ -541,7 +542,7 @@ namespace Hyperlight
             }
             else
             {
-                hyperVisor!.Initialise(pebAddress, seed);
+                hyperVisor!.Initialise(pebAddress, seed, OS.GetPageSize());
             }
 
             if (!CheckStackGuard())
@@ -558,10 +559,10 @@ namespace Hyperlight
             }
         }
 
-        unsafe void CallEntryPoint(IntPtr pebAddress, ulong seed)
+        unsafe void CallEntryPoint(IntPtr pebAddress, ulong seed, uint pageSize)
         {
-            callEntryPoint = (delegate* unmanaged<IntPtr, ulong, int>)sandboxMemoryManager.EntryPoint;
-            _ = callEntryPoint(pebAddress, seed);
+            callEntryPoint = (delegate* unmanaged<IntPtr, ulong, uint, int>)sandboxMemoryManager.EntryPoint;
+            _ = callEntryPoint(pebAddress, seed, pageSize);
         }
 
         /// <summary>
@@ -658,19 +659,18 @@ namespace Hyperlight
                 {
                     case OutBAction.CallFunction:
                         {
+                            var hostFunctionCall = sandboxMemoryManager.GetHostFunctionCall();
+                            HyperlightException.ThrowIfNull(hostFunctionCall.FunctionName, GetType().Name);
 
-                            var methodName = sandboxMemoryManager.GetHostCallMethodName();
-                            HyperlightException.ThrowIfNull(methodName, GetType().Name);
-
-                            if (!guestInterfaceGlue.MapHostFunctionNamesToMethodInfo.ContainsKey(methodName))
+                            if (!guestInterfaceGlue.MapHostFunctionNamesToMethodInfo.ContainsKey(hostFunctionCall.FunctionName))
                             {
-                                HyperlightException.LogAndThrowException<ArgumentException>($"{methodName}, Could not find host method name.", GetType().Name);
+                                HyperlightException.LogAndThrowException<ArgumentException>($"{hostFunctionCall.FunctionName}, Could not find host method name.", GetType().Name);
                             }
 
-                            var mi = guestInterfaceGlue.MapHostFunctionNamesToMethodInfo[methodName];
+                            var mi = guestInterfaceGlue.MapHostFunctionNamesToMethodInfo[hostFunctionCall.FunctionName];
                             var parameters = mi.methodInfo.GetParameters();
-                            var args = sandboxMemoryManager.GetHostCallArgs(parameters);
-                            var returnFromHost = guestInterfaceGlue.DispatchCallFromGuest(methodName, args);
+                            var args = GetHostCallArgs(parameters, hostFunctionCall);
+                            var returnFromHost = guestInterfaceGlue.DispatchCallFromGuest(hostFunctionCall.FunctionName, args);
                             sandboxMemoryManager.WriteResponseFromHostMethodCall(mi.methodInfo.ReturnType, returnFromHost);
                             break;
 
@@ -720,6 +720,80 @@ namespace Hyperlight
                     sandboxMemoryManager.WriteOutbException(ex, port);
                 }
             }
+        }
+
+        object[] GetHostCallArgs(ParameterInfo[] parameters, FunctionCall hostFunctionCall)
+        {
+            // Host functions which have a byte array as a parameter are expected to call the function with the length of the array as the parameter after the array
+            // There is no need for this value to be specified in dotnet as we can get the length of the array from the byte array itself
+            // So to make the APIs in dotnet more natural we remove the length parameter from the array of parameters passed to the host function
+            var expectedParameterLength = hostFunctionCall.ParametersLength;
+            var nextArgIsLength = false;
+            var args = new object[parameters.Length];
+
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                if (nextArgIsLength)
+                {
+                    nextArgIsLength = false;
+                    expectedParameterLength--;
+                    continue;
+                }
+                var parameterValue = hostFunctionCall.Parameters(i);
+                if (!parameterValue.HasValue)
+                {
+                    HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is null", GetType().Name);
+                }
+
+                switch (parameterValue.Value.ValueType)
+                {
+                    case ParameterValue.hlint:
+                        if (!typeof(int).IsAssignableFrom(parameters[i].ParameterType))
+                        {
+                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compataible with hlint", GetType().Name);
+                        }
+                        args[i] = parameterValue.Value.ValueAshlint().Value;
+                        break;
+                    case ParameterValue.hlstring:
+                        if (!typeof(string).IsAssignableFrom(parameters[i].ParameterType))
+                        {
+                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compataible with hlstring", GetType().Name);
+                        }
+                        args[i] = parameterValue.Value.ValueAshlstring().Value;
+                        break;
+                    case ParameterValue.hllong:
+                        if (!typeof(long).IsAssignableFrom(parameters[i].ParameterType))
+                        {
+                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compataible with hllong", GetType().Name);
+                        }
+                        args[i] = parameterValue.Value.ValueAshllong().Value;
+                        break;
+                    case ParameterValue.hlbool:
+                        if (!typeof(bool).IsAssignableFrom(parameters[i].ParameterType))
+                        {
+                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compataible with hlbool", GetType().Name);
+                        }
+                        args[i] = parameterValue.Value.ValueAshlbool().Value;
+                        break;
+                    case ParameterValue.hlvecbytes:
+                        if (!typeof(byte[]).IsAssignableFrom(parameters[i].ParameterType))
+                        {
+                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compataible with hlvecbytes", GetType().Name);
+                        }
+                        nextArgIsLength = true;
+                        args[i] = parameterValue.Value.ValueAshlvecbytes().ByteBuffer.ToFullArray();
+                        break;
+                    default:
+                        HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not supported", GetType().Name);
+                        break;
+                }
+            }
+
+            if (parameters.Length != expectedParameterLength)
+            {
+                HyperlightException.LogAndThrowException<ArgumentException>($"The number of arguments ({hostFunctionCall.ParametersLength}) passed to the host function {hostFunctionCall.FunctionName} does not match the number of arguments ({parameters.Length}) expected by the host function", GetType().Name);
+            }
+            return args;
         }
 
         public void ExposeHostMethods(Type type)

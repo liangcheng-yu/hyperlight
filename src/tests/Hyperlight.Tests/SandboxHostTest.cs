@@ -25,7 +25,7 @@ namespace Hyperlight.Tests
         public const int NUMBER_OF_ITERATIONS = 10;
         public const int NUMBER_OF_PARALLEL_TESTS = 10;
         // These are the host functions that are exposed automatically by Hyperlight
-        private readonly string[] internalFunctions = { "GetTickCount", "GetStackBoundary", "GetOSPageSize", "GetTimeSinceBootMicrosecond" };
+        private readonly string[] internalFunctions = { "GetStackBoundary", "GetTimeSinceBootMicrosecond" };
 
         public SandboxHostTest(ITestOutputHelper output)
         {

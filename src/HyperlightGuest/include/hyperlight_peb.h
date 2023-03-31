@@ -55,10 +55,3 @@ typedef struct
     GuestHeapData guestheapData;
     GuestStackData gueststackData;
 } HyperlightPEB;
-
-typedef struct
-{
-    char* FunctionName;
-    uint64_t* argv;
-
-} HostFunctionCall;

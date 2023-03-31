@@ -284,20 +284,6 @@ namespace Hyperlight.Wrapper
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
         }
 
-        internal string? GetHostCallMethodName()
-        {
-            var rawHdl = mem_mgr_get_host_call_method_name(
-                this.ContextWrapper.ctx,
-                this.memMgrHdl.handle
-            );
-            using var hdl = new Handle(this.ContextWrapper, rawHdl, true);
-            if (!hdl.IsString())
-            {
-                throw new HyperlightException("mem_mgr_get_host_call_method_name did not return a Handle referencing a string");
-            }
-            return hdl.GetString();
-        }
-
         internal long GetAddressOffset()
         {
             var rawHdl = mem_mgr_get_address_offset(
@@ -572,7 +558,8 @@ namespace Hyperlight.Wrapper
             }
 
             var parametersVector = FunctionCall.CreateParametersVector(builder, parameters);
-            var guestFunctionCall = FunctionCall.CreateFunctionCall(builder, funcName, parametersVector);
+            var functionCallType = FunctionCallType.guest;
+            var guestFunctionCall = FunctionCall.CreateFunctionCall(builder, funcName, parametersVector, functionCallType);
             FunctionCall.FinishSizePrefixedFunctionCallBuffer(builder, guestFunctionCall);
             var buffer = builder.SizedByteArray();
 
@@ -687,7 +674,24 @@ namespace Hyperlight.Wrapper
                 addr,
                 Size
             );
+        }
 
+        internal FunctionCall GetHostFunctionCall()
+        {
+            using var resultHdlWrapper = new Handle(
+                this.ctxWrapper,
+                mem_mgr_get_host_function_call(
+                    this.ctxWrapper.ctx,
+                    this.memMgrHdl.handle
+                ),
+                true
+            );
+
+            if (!resultHdlWrapper.IsHostFunctionCall())
+            {
+                throw new HyperlightException("mem_mgr_get_host_function_call did not return a FunctionCall");
+            }
+            return resultHdlWrapper.GetHostFunctionCall();
         }
 
         /// <summary>
@@ -795,12 +799,6 @@ namespace Hyperlight.Wrapper
             ulong addr
         );
 
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle mem_mgr_get_host_call_method_name(
-            NativeContext ctx,
-            NativeHandle mgrHdl
-        );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
@@ -944,6 +942,13 @@ namespace Hyperlight.Wrapper
         private static extern NativeHandle mem_mgr_get_mem_size(
             NativeContext ctx,
             NativeHandle memMgrHdl
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_get_host_function_call(
+            NativeContext ctx,
+            NativeHandle mgrHdl
         );
 
 #pragma warning restore CA1707 // Remove the underscores from member name

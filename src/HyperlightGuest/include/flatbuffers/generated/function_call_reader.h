@@ -55,6 +55,32 @@ typedef flatbuffers_uoffset_t *Hyperlight_Generated_FunctionCall_mutable_vec_t;
 #define Hyperlight_Generated_FunctionCall_file_extension "bin"
 #endif
 
+typedef uint8_t Hyperlight_Generated_FunctionCallType_enum_t;
+__flatbuffers_define_integer_type(Hyperlight_Generated_FunctionCallType, Hyperlight_Generated_FunctionCallType_enum_t, 8)
+#define Hyperlight_Generated_FunctionCallType_none ((Hyperlight_Generated_FunctionCallType_enum_t)UINT8_C(0))
+#define Hyperlight_Generated_FunctionCallType_guest ((Hyperlight_Generated_FunctionCallType_enum_t)UINT8_C(1))
+#define Hyperlight_Generated_FunctionCallType_host ((Hyperlight_Generated_FunctionCallType_enum_t)UINT8_C(2))
+
+static inline const char *Hyperlight_Generated_FunctionCallType_name(Hyperlight_Generated_FunctionCallType_enum_t value)
+{
+    switch (value) {
+    case Hyperlight_Generated_FunctionCallType_none: return "none";
+    case Hyperlight_Generated_FunctionCallType_guest: return "guest";
+    case Hyperlight_Generated_FunctionCallType_host: return "host";
+    default: return "";
+    }
+}
+
+static inline int Hyperlight_Generated_FunctionCallType_is_known_value(Hyperlight_Generated_FunctionCallType_enum_t value)
+{
+    switch (value) {
+    case Hyperlight_Generated_FunctionCallType_none: return 1;
+    case Hyperlight_Generated_FunctionCallType_guest: return 1;
+    case Hyperlight_Generated_FunctionCallType_host: return 1;
+    default: return 0;
+    }
+}
+
 
 
 struct Hyperlight_Generated_Parameter_table { uint8_t unused__; };
@@ -82,6 +108,7 @@ __flatbuffers_define_default_find_by_string_field(Hyperlight_Generated_FunctionC
 __flatbuffers_define_default_scan_by_string_field(Hyperlight_Generated_FunctionCall, function_name)
 #define Hyperlight_Generated_FunctionCall_vec_sort Hyperlight_Generated_FunctionCall_vec_sort_by_function_name
 __flatbuffers_define_vector_field(1, Hyperlight_Generated_FunctionCall, parameters, Hyperlight_Generated_Parameter_vec_t, 0)
+__flatbuffers_define_scalar_field(2, Hyperlight_Generated_FunctionCall, function_call_type, Hyperlight_Generated_FunctionCallType, Hyperlight_Generated_FunctionCallType_enum_t, UINT8_C(0))
 
 
 #include "flatcc/flatcc_epilogue.h"

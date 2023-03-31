@@ -1,5 +1,5 @@
 
-#include "hyperlight.h" 
+#include "hyperlight.h"
 #include "hyperlight_guest.h"
 #include "hyperlight_error.h"
 #include "hyperlight_peb.h"
@@ -9,15 +9,35 @@
 extern int _fltused = 0;
 uintptr_t __security_cookie;
 jmp_buf jmpbuf;
-HyperlightPEB* pPeb;
+HyperlightPEB *pPeb;
 flatcc_builder_t GuestFunctionBuilder;
 ns(GuestFunctionDetails_table_t) GuestFunctions;
+unsigned int OSPageSize=0;
 
 bool runningInHyperlight = true;
 void (*outb_ptr)(uint16_t port, uint8_t value) = NULL;
 
+/// <summary>
+/// This function is required by dlmalloc, its used to get a pseudo radom number , its only called once when malloc is initialized.
+/// as such we can use the security cookie seed from the peb as a random number.
+/// We do this rather than calling GetTickCount() in the host as malloc is used when making a host call so we want to avoid recursion.
+/// </summary>
+long long GetHyperLightTickCount()
+{
+    return pPeb->security_cookie_seed;
+}
 
-ns(GuestFunctionDefinition_ref_t) CreateFunctionDefinition(const char* functionName, guestFunc pFunction, int paramCount, ns(ParameterType_enum_t) parameterKind[])
+
+/// <summary>
+/// This is required by os_getpagesize() in WAMR (which is needed to handle AOT compiled WASM)
+/// its also used  by dlmalloc
+/// </summary>
+unsigned int GetOSPageSize()
+{
+    return OSPageSize;
+}
+
+ns(GuestFunctionDefinition_ref_t) CreateFunctionDefinition(const char *functionName, guestFunc pFunction, int paramCount, ns(ParameterType_enum_t) parameterKind[])
 {
     flatbuffers_string_ref_t name = flatbuffers_string_create_str(&GuestFunctionBuilder, functionName);
 
@@ -44,7 +64,10 @@ void RegisterFunction(ns(GuestFunctionDefinition_ref_t) functionDefinition)
 
 void InitialiseFunctionTable()
 {
-    flatcc_builder_init(&GuestFunctionBuilder);
+    if (flatcc_builder_init(&GuestFunctionBuilder))
+    {
+        setError(GUEST_ERROR, "Failed to initialize flatcc Guest Function Builder");
+    }
     ns(GuestFunctionDetails_start_as_root(&GuestFunctionBuilder));
     ns(GuestFunctionDetails_functions_start(&GuestFunctionBuilder));
 }
@@ -58,7 +81,7 @@ void FinaliseFunctionTable()
     ns(GuestFunctionDetails_functions_end(&GuestFunctionBuilder));
     ns(GuestFunctionDetails_end_as_root(&GuestFunctionBuilder));
     size_t size;
-    void* buffer = flatcc_builder_finalize_buffer(&GuestFunctionBuilder, &size);
+    void *buffer = flatcc_builder_finalize_buffer(&GuestFunctionBuilder, &size);
     assert(buffer);
     GuestFunctions = ns(GuestFunctionDetails_as_root(buffer));
     assert(GuestFunctions);
@@ -73,7 +96,7 @@ void FinaliseFunctionTable()
 void checkForHostError()
 {
     size_t size;
-    void* buffer = flatbuffers_read_size_prefix(pPeb->pGuestErrorBuffer, &size);
+    void *buffer = flatbuffers_read_size_prefix(pPeb->pGuestErrorBuffer, &size);
     assert(NULL != buffer);
     // No need to free buffer as its just a pointer to an offset in the message buffer in the PEB
     if (size > 0)
@@ -82,7 +105,7 @@ void checkForHostError()
         if (ns(GuestError_code(guestError) != ns(ErrorCode_NoError)))
         {
             memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
-            *(uint32_t*)pPeb->outputdata.outputDataBuffer = -1;
+            *(uint32_t *)pPeb->outputdata.outputDataBuffer = -1;
             longjmp(jmpbuf, 1);
         }
     }
@@ -107,11 +130,11 @@ void outb(uint16_t port, uint8_t value)
         // This code is not needed at present as in process calls are disabled on Linux.
         // However, it is left here in case we need to re-enable in process calls in future.
         // TODO: Enable if Linux in process is supported.
-        //uint64_t rsi = getrsi();
-        //uint64_t rdi = getrdi();
+        // uint64_t rsi = getrsi();
+        // uint64_t rdi = getrdi();
         outb_ptr(port, value);
-        //setrsi(rsi);
-        //setrdi(rdi);
+        // setrsi(rsi);
+        // setrdi(rdi);
     }
 
     // TODO: The following code should be uncommented when OUTB_ABORT is handled correctly in the Host.
@@ -137,13 +160,17 @@ void halt()
 
 #pragma optimize("", on)
 
-void writeError(uint64_t errorCode, char* message)
+void writeError(uint64_t errorCode, char *message)
 {
     // Create a flatbuffer builder object
     flatcc_builder_t builder;
 
     // Initialize the builder object.
-    flatcc_builder_init(&builder);
+    
+    if (flatcc_builder_init(&builder))
+    {
+        setError(GUEST_ERROR, "Failed to initialize flatcc Guest Error Builder");
+    }
 
     // Validate the error code
 
@@ -168,7 +195,7 @@ void writeError(uint64_t errorCode, char* message)
 
     // Write the flatbuffer to the guest error buffer
 
-    assert(flatcc_builder_copy_buffer(&builder, (void*)pPeb->pGuestErrorBuffer, flatb_size));
+    assert(flatcc_builder_copy_buffer(&builder, (void *)pPeb->pGuestErrorBuffer, flatb_size));
 }
 
 void resetError()
@@ -178,35 +205,204 @@ void resetError()
 
 // SetError sets the specified error and message in memory and then halts execution by returning the the point that setjmp was called
 
-void setError(uint64_t errorCode, char* message)
+void setError(uint64_t errorCode, char *message)
 {
     writeError(errorCode, message);
     memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
-    *(uint32_t*)pPeb->outputdata.outputDataBuffer = -1;
+    *(uint32_t *)pPeb->outputdata.outputDataBuffer = -1;
     longjmp(jmpbuf, 1);
 }
 
-void CallHostFunction(char* functionName, va_list ap)
+void ValidateHostFunctionCall(flatcc_builder_t* HostFunctionCallBuilder, char* functionName, va_list ap)
 {
-    memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
-    HostFunctionCall* functionCall = (HostFunctionCall*)pPeb->outputdata.outputDataBuffer;
-    functionCall->FunctionName = functionName;
-    uint64_t** ptr = &functionCall->argv;
-
-    uint64_t* arg;
-
-    while ((arg = va_arg(ap, uint64_t*)))
+    Hyperlight_Generated_HostFunctionDetails_table_t hostfunctionDetails = GetHostFunctionDetails();
+    if (NULL == hostfunctionDetails)
     {
-        *ptr++ = arg;
+        setError(GUEST_ERROR, "No host functions found");
     }
 
+    ns(HostFunctionDefinition_vec_t) hostFunctionDefinitions = ns(HostFunctionDetails_functions(hostfunctionDetails));
+
+    size_t key = ns(HostFunctionDefinition_vec_find_by_function_name(hostFunctionDefinitions, functionName));
+
+    if (flatbuffers_not_found == key)
+    {
+        char message[100];
+        snprintf(message, 100, "Host Function Not Found: %s", functionName);
+        setError(GUEST_ERROR, message);
+    }
+
+    ns(HostFunctionDefinition_table_t) hostFunctionDefiniton = ns(HostFunctionDefinition_vec_at(hostFunctionDefinitions, key));
+
+    Hyperlight_Generated_ParameterType_vec_t parameterTypes = Hyperlight_Generated_HostFunctionDefinition_parameters(hostFunctionDefiniton);
+    size_t numParams = Hyperlight_Generated_ParameterType_vec_len(parameterTypes);
+    Hyperlight_Generated_Parameter_vec_start(HostFunctionCallBuilder);
+
+    // If the parameter is of type then the following parameter must be its length Hyperlight_Generated_ParameterType_hlvecbytes
+    bool nextParamShouldBeLength = false;
+
+    for (int i = 0; i < numParams; i++)
+    {
+        Hyperlight_Generated_ParameterType_enum_t paramType = Hyperlight_Generated_ParameterType_vec_at(parameterTypes, i);
+
+        if (nextParamShouldBeLength)
+        {
+            if (paramType != Hyperlight_Generated_ParameterType_hlint)
+            {
+                char message[100];
+                snprintf(message, 100, "Host Function %s: Parameter %d should be length of buffer for parameter %d", functionName, i, i-1);
+                setError(GUEST_ERROR, message);
+            }
+            int32_t value;
+            if (value = va_arg(ap, int32_t))
+            {
+                Hyperlight_Generated_hlint_ref_t val = Hyperlight_Generated_hlint_create(HostFunctionCallBuilder, value);
+                Hyperlight_Generated_ParameterValue_union_ref_t pValue = Hyperlight_Generated_ParameterValue_as_hlint(val);
+                Hyperlight_Generated_Parameter_ref_t param = Hyperlight_Generated_Parameter_create(HostFunctionCallBuilder, pValue);
+                Hyperlight_Generated_FunctionCall_vec_push(HostFunctionCallBuilder, param);
+                nextParamShouldBeLength = false;
+                continue;
+            }
+            char message[100];
+            snprintf(message, 100, "Failed to get int32 parameter: %d for host function: %s", i, functionName);
+            setError(GUEST_ERROR, message);
+        }
+
+        switch (paramType)
+        {
+            case Hyperlight_Generated_ParameterType_hlint:
+            {
+                int32_t value;
+                if (value = va_arg(ap, int32_t))
+                {
+                    Hyperlight_Generated_hlint_ref_t val = Hyperlight_Generated_hlint_create(HostFunctionCallBuilder, value);
+                    Hyperlight_Generated_ParameterValue_union_ref_t pValue = Hyperlight_Generated_ParameterValue_as_hlint(val);
+                    Hyperlight_Generated_Parameter_ref_t param = Hyperlight_Generated_Parameter_create(HostFunctionCallBuilder, pValue);
+                    Hyperlight_Generated_FunctionCall_vec_push(HostFunctionCallBuilder, param);
+                    break;
+                }
+                char message[100];
+                snprintf(message, 100, "Failed to get int32 parameter: %d for host function: %s", i, functionName);
+                setError(GUEST_ERROR, message);
+            }
+            case Hyperlight_Generated_ParameterType_hllong:
+            {
+                int64_t value;
+                if (value = va_arg(ap, int64_t))
+                {
+                    Hyperlight_Generated_hllong_ref_t val = Hyperlight_Generated_hllong_create(HostFunctionCallBuilder, value);
+                    Hyperlight_Generated_ParameterValue_union_ref_t pValue = Hyperlight_Generated_ParameterValue_as_hllong(val);
+                    Hyperlight_Generated_Parameter_ref_t param = Hyperlight_Generated_Parameter_create(HostFunctionCallBuilder, pValue);
+                    Hyperlight_Generated_FunctionCall_vec_push(HostFunctionCallBuilder, param);
+                    break;
+                }
+                char message[100];
+                snprintf(message, 100, "Failed to get int64 parameter: %d for host function: %s", i, functionName);
+                setError(GUEST_ERROR, message);
+            }
+            case Hyperlight_Generated_ParameterType_hlstring:
+            {
+                char* value;
+                if (value = va_arg(ap, char*))
+                {
+                    flatbuffers_string_ref_t fb_string_ref = flatbuffers_string_create_str(HostFunctionCallBuilder, value);
+                    Hyperlight_Generated_hlstring_ref_t val = Hyperlight_Generated_hlstring_create(HostFunctionCallBuilder, fb_string_ref);
+                    Hyperlight_Generated_ParameterValue_union_ref_t pValue = Hyperlight_Generated_ParameterValue_as_hlstring(val);
+                    Hyperlight_Generated_Parameter_ref_t param = Hyperlight_Generated_Parameter_create(HostFunctionCallBuilder, pValue);
+                    Hyperlight_Generated_FunctionCall_vec_push(HostFunctionCallBuilder, param);
+                    break;
+                }
+                char message[100];
+                snprintf(message, 100, "Failed to get string parameter: %d for host function: %s", i, functionName);
+                setError(GUEST_ERROR, message);
+            }
+            case Hyperlight_Generated_ParameterType_hlbool:
+            {
+                bool value;
+                if (value = va_arg(ap, bool))
+                {
+                    Hyperlight_Generated_hlbool_ref_t val = Hyperlight_Generated_hlbool_create(HostFunctionCallBuilder, value);
+                    Hyperlight_Generated_ParameterValue_union_ref_t pValue = Hyperlight_Generated_ParameterValue_as_hlbool(val);
+                    Hyperlight_Generated_Parameter_ref_t param = Hyperlight_Generated_Parameter_create(HostFunctionCallBuilder, pValue);
+                    Hyperlight_Generated_FunctionCall_vec_push(HostFunctionCallBuilder, param);
+                    break;
+                }
+                char message[100];
+                snprintf(message, 100, "Failed to get bool parameter: %d for host function: %s", i, functionName);
+                setError(GUEST_ERROR, message);
+            }
+            case Hyperlight_Generated_ParameterType_hlvecbytes:
+            {
+                nextParamShouldBeLength = true;
+                void* value;
+                if (value = va_arg(ap, void*))
+                {
+                    Hyperlight_Generated_hlvecbytes_ref_t val = Hyperlight_Generated_hlvecbytes_create(HostFunctionCallBuilder, value);
+                    Hyperlight_Generated_ParameterValue_union_ref_t pValue = Hyperlight_Generated_ParameterValue_as_hlvecbytes(val);
+                    Hyperlight_Generated_Parameter_ref_t param = Hyperlight_Generated_Parameter_create(HostFunctionCallBuilder, pValue);
+                    Hyperlight_Generated_FunctionCall_vec_push(HostFunctionCallBuilder, param);
+                    break;
+                }
+                char message[100];
+                snprintf(message, 100, "Failed to get vecbytes parameter: %d for host function: %s", i, functionName);
+                setError(GUEST_ERROR, message);
+            }
+            default:
+            {
+                char message[100];
+                snprintf(message, 100, "Unexpected parameter type: %d for host function: %s", paramType, functionName);
+                setError(GUEST_ERROR, message);
+            }
+        }
+    }
+
+    if (nextParamShouldBeLength)
+    {
+        char message[100];
+        snprintf(message, 100, "Host Function %s: Last parameter should be length of buffer for current last parameter", functionName);
+        setError(GUEST_ERROR, message);
+    }
+
+    Hyperlight_Generated_Parameter_vec_ref_t params_vec = Hyperlight_Generated_Parameter_vec_end(HostFunctionCallBuilder);
+    Hyperlight_Generated_FunctionCall_parameters_add(HostFunctionCallBuilder, params_vec);
+}
+
+void CallHostFunction(char *functionName, va_list ap)
+{
+    memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
+    flatcc_builder_t hostFunctionCallBuilder;
+    if (flatcc_builder_init(&hostFunctionCallBuilder))
+    {
+        setError(GUEST_ERROR, "Failed to initialize flatcc Host Function Call builder");
+    }
+
+    ns(FunctionCall_start_as_root_with_size(&hostFunctionCallBuilder));
+    ns(FunctionCall_function_name_create(&hostFunctionCallBuilder, functionName, strlen(functionName)));
+    ns(FunctionCall_function_call_type_add(&hostFunctionCallBuilder, ns(FunctionCallType_host)));
+
+    ValidateHostFunctionCall(&hostFunctionCallBuilder, functionName, ap);
+
+    ns(FunctionCall_end_as_root(&hostFunctionCallBuilder));
+
+    size_t size;
+    void *buffer = flatcc_builder_finalize_buffer(&hostFunctionCallBuilder, &size);
+    assert(buffer);
+
+    if (size > pPeb->outputdata.outputDataSize)
+    {
+        char message[100];
+        snprintf(message, 100, "Host Function Call Buffer is too big (%d) for output data (%d) Function Name: %s",size,  pPeb->outputdata.outputDataSize, functionName);
+        setError(GUEST_ERROR, message);
+    }
+    memcpy(pPeb->outputdata.outputDataBuffer, buffer, size);
+    free(buffer);
     outb(OUTB_CALL_FUNCTION, 0);
 }
 
 // TODO: Make these functions generic.
 
 // Calls a Host Function that returns an int
-int native_symbol_thunk_returning_int(char* functionName, ...)
+int native_symbol_thunk_returning_int(char *functionName, ...)
 {
 
     va_list ap = NULL;
@@ -222,11 +418,11 @@ int native_symbol_thunk_returning_int(char* functionName, ...)
 
 int GetHostReturnValueAsInt()
 {
-    return *((int*)pPeb->inputdata.inputDataBuffer);
+    return *((int *)pPeb->inputdata.inputDataBuffer);
 }
 
 // Calls a Host Function that returns an int
-unsigned int native_symbol_thunk_returning_uint(char* functionName, ...)
+unsigned int native_symbol_thunk_returning_uint(char *functionName, ...)
 {
 
     va_list ap = NULL;
@@ -242,11 +438,11 @@ unsigned int native_symbol_thunk_returning_uint(char* functionName, ...)
 
 unsigned int GetHostReturnValueAsUInt()
 {
-    return *((unsigned int*)pPeb->inputdata.inputDataBuffer);
+    return *((unsigned int *)pPeb->inputdata.inputDataBuffer);
 }
 
 // Calls a Host Function that returns an long long
-long long native_symbol_thunk_returning_longlong(char* functionName, ...)
+long long native_symbol_thunk_returning_longlong(char *functionName, ...)
 {
 
     va_list ap = NULL;
@@ -257,16 +453,16 @@ long long native_symbol_thunk_returning_longlong(char* functionName, ...)
 
     va_end(ap);
 
-    return  GetHostReturnValueAsLongLong();
+    return GetHostReturnValueAsLongLong();
 }
 
 long long GetHostReturnValueAsLongLong()
 {
-    return *((long long*)pPeb->inputdata.inputDataBuffer);
+    return *((long long *)pPeb->inputdata.inputDataBuffer);
 }
 
 // Calls a Host Function that returns an ulong long
-unsigned long long native_symbol_thunk_returning_ulonglong(char* functionName, ...)
+unsigned long long native_symbol_thunk_returning_ulonglong(char *functionName, ...)
 {
 
     va_list ap = NULL;
@@ -277,12 +473,12 @@ unsigned long long native_symbol_thunk_returning_ulonglong(char* functionName, .
 
     va_end(ap);
 
-    return  GetHostReturnValueAsULongLong();
+    return GetHostReturnValueAsULongLong();
 }
 
 unsigned long long GetHostReturnValueAsULongLong()
 {
-    return *((unsigned long long*)pPeb->inputdata.inputDataBuffer);
+    return *((unsigned long long *)pPeb->inputdata.inputDataBuffer);
 }
 
 void GetFunctionCallParameters(ns(FunctionCall_table_t) functionCall, Parameter parameterValues[])
@@ -362,7 +558,7 @@ int CallGuestFunction(ns(FunctionCall_table_t) functionCall)
 
     if (requiredParameterCount != actualParameterCount)
     {
-        char message[100] = { 0 };
+        char message[100] = {0};
         snprintf(message, 100, "Called function %s with %d parameters but it takes %d.", functionName, actualParameterCount, requiredParameterCount);
         setError(GUEST_FUNCTION_INCORRECT_NO_OF_PARAMETERS, message);
     }
@@ -370,7 +566,7 @@ int CallGuestFunction(ns(FunctionCall_table_t) functionCall)
     // Get the parameter types from the function call so we can check that the types align and also check for length parsmetet when parameter type is ParameterType_hlvecbytes.
     // The latter check really shouldnt be in the runtime but we dont have anywhere else to put it at the moment.
 
-    ns(ParameterType_enum_t*) parameterKind = (ns(ParameterType_enum_t*))calloc(requiredParameterCount, sizeof(ns(ParameterType_enum_t)));
+    ns(ParameterType_enum_t *) parameterKind = (ns(ParameterType_enum_t *))calloc(requiredParameterCount, sizeof(ns(ParameterType_enum_t)));
     bool nextParamIsLength = false;
 
     for (int i = 0; i < requiredParameterCount; i++)
@@ -410,7 +606,7 @@ int CallGuestFunction(ns(FunctionCall_table_t) functionCall)
             break;
         default:
             // This should not happen unless additional types are added to the schema and guest code is not udpated to take account of it.
-            char message[100] = { 0 };
+            char message[100] = {0};
             snprintf(message, 100, "Unexpected Parameter Type %d in Function %s", parameterType, functionName);
             setError(UNSUPPORTED_PARAMETER_TYPE, message);
         }
@@ -429,7 +625,7 @@ int CallGuestFunction(ns(FunctionCall_table_t) functionCall)
     {
         if (parameterKind[i] != ns(ParameterType_vec_at(parameterTypes, i)))
         {
-            char message[100] = { 0 };
+            char message[100] = {0};
             snprintf(message, 100, "Function %s parameter %d.", functionName, i);
             setError(GUEST_FUNCTION_PARAMETER_TYPE_MISMATCH, message);
         }
@@ -451,16 +647,21 @@ void DispatchFunction()
         // read the Function Call FlatBuffer from memory
 
         size_t size;
-        void* buffer = flatbuffers_read_size_prefix(pPeb->inputdata.inputDataBuffer, &size);
+        void *buffer = flatbuffers_read_size_prefix(pPeb->inputdata.inputDataBuffer, &size);
         assert(NULL != buffer);
         // No need to free buffer as its just a pointer to an offset in the message buffer in the PEB
         ns(FunctionCall_table_t functionCall = ns(FunctionCall_as_root(buffer)));
+        // Validate this is a Guest Function Call
+        if (ns(FunctionCall_function_call_type(functionCall)) != ns(FunctionCallType_guest))
+        {
+            setError(GUEST_ERROR, "Invalid Function Call Type");
+        }
         int result = CallGuestFunction(functionCall);
         memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
-        *((uint32_t*)(pPeb->outputdata.outputDataBuffer)) = result;
+        *((uint32_t *)(pPeb->outputdata.outputDataBuffer)) = result;
     }
 
-    halt();  // This is a nop if we were just loaded into memory
+    halt(); // This is a nop if we were just loaded into memory
 }
 
 // this is required by print functions to write output.
@@ -474,7 +675,7 @@ void _putchar(char c)
     {
         memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
     }
-    char* ptr = pPeb->outputdata.outputDataBuffer;
+    char *ptr = pPeb->outputdata.outputDataBuffer;
 
     if (index >= pPeb->outputdata.outputDataSize)
     {
@@ -497,12 +698,12 @@ void _putchar(char c)
     index = 0;
 }
 
-bool CheckOutputBufferSize(char* dest, size_t size)
+bool CheckOutputBufferSize(char *dest, size_t size)
 {
     return (uint64_t)dest - (uint64_t)pPeb->outputdata.outputDataBuffer + size > pPeb->outputdata.outputDataSize;
 }
 
-char* CheckAndCopyString(const char* source, char* dest)
+char *CheckAndCopyString(const char *source, char *dest)
 {
     size_t length = NULL == source ? 0 : strlen(source);
 
@@ -517,15 +718,14 @@ char* CheckAndCopyString(const char* source, char* dest)
     }
 
 #pragma warning(suppress : 4996)
-    return strncpy(dest, (char*)source, length) + length;
-
+    return strncpy(dest, (char *)source, length) + length;
 }
 
-void WriteLogData(LogLevel logLevel, const char* message, const char* source, const char* caller, const char* sourceFile, int32_t line)
+void WriteLogData(LogLevel logLevel, const char *message, const char *source, const char *caller, const char *sourceFile, int32_t line)
 {
     memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
-    LogData* logData = (LogData*)pPeb->outputdata.outputDataBuffer;
-    logData->Message = (char*)pPeb->outputdata.outputDataBuffer + sizeof(LogData);
+    LogData *logData = (LogData *)pPeb->outputdata.outputDataBuffer;
+    logData->Message = (char *)pPeb->outputdata.outputDataBuffer + sizeof(LogData);
     logData->Source = CheckAndCopyString(message, logData->Message);
     logData->Level = logLevel;
     logData->Caller = CheckAndCopyString(source, logData->Source);
@@ -534,12 +734,11 @@ void WriteLogData(LogLevel logLevel, const char* message, const char* source, co
     logData->Line = line;
 }
 
-void Log(LogLevel logLevel, const char* message, const char* source, const char* caller, const char* sourceFile, int32_t line)
+void Log(LogLevel logLevel, const char *message, const char *source, const char *caller, const char *sourceFile, int32_t line)
 {
     WriteLogData(logLevel, message, source, caller, sourceFile, line);
     outb(OUTB_LOG, 0);
 }
-
 
 // this is called when /Gs check fails
 
@@ -559,10 +758,10 @@ void dlmalloc_abort()
     abort();
 }
 
-void __assert_fail(const char* expr, const char* file, int line, const char* func)
+void __assert_fail(const char *expr, const char *file, int line, const char *func)
 {
     size_t message_size = 256;
-    char message[256] = { '0' };
+    char message[256] = {'0'};
     snprintf(message, message_size, "Assertion failed: %s ", expr);
     WriteLogData(CRTICAL, message, "HyperLightGuest", func, file, line);
     abort();
@@ -576,7 +775,6 @@ void dlmalloc_failure()
     abort();
 }
 
-
 void abort_with_code(uint32_t code)
 {
     outb(OUTB_ABORT, code);
@@ -589,40 +787,40 @@ void abort()
 
 // this function is called by dlmalloc to allocate heap memory.
 
-void* hyperlightMoreCore(size_t size)
+void *hyperlightMoreCore(size_t size)
 {
-    void* ptr = NULL;
-    static void* unusedHeapBufferPointer = 0;
+    void *ptr = NULL;
+    static void *unusedHeapBufferPointer = 0;
     static size_t allocated = 0;
     if (size > 0)
     {
         // Trying to use more memory than is available.
-        // This should not happen if dlmalloc_set_footprint_limit was called with pPeb->guestheapData.guestHeapSize. 
+        // This should not happen if dlmalloc_set_footprint_limit was called with pPeb->guestheapData.guestHeapSize.
 
         if (allocated + size > pPeb->guestheapData.guestHeapSize)
         {
             // TODO: Set an error message
-            return (void*)MFAIL;
+            return (void *)MFAIL;
         }
 
         if (0 == unusedHeapBufferPointer)
         {
-            ptr = (char*)pPeb->guestheapData.guestHeapBuffer;
+            ptr = (char *)pPeb->guestheapData.guestHeapBuffer;
         }
         else
         {
-            ptr = (char*)unusedHeapBufferPointer;
+            ptr = (char *)unusedHeapBufferPointer;
         }
 
         allocated += size;
-        unusedHeapBufferPointer = (char*)ptr + size;
+        unusedHeapBufferPointer = (char *)ptr + size;
         return ptr;
     }
     else if (size < 0)
     {
-        // This should not happen according to dlmalloc docs as MORECORE_CANNOT_TRIM is set. 
+        // This should not happen according to dlmalloc docs as MORECORE_CANNOT_TRIM is set.
         // TODO: Set an error message
-        return (void*)MFAIL;
+        return (void *)MFAIL;
     }
     else
     {
@@ -636,18 +834,19 @@ Hyperlight_Generated_HostFunctionDetails_table_t GetHostFunctionDetails()
     // read the Host Fuction Details flatbuffer from memory
 
     size_t size;
-    void* buffer = flatbuffers_read_size_prefix(pPeb->hostFunctionDefinitions.fbHostFunctionDetails, &size);
+    void *buffer = flatbuffers_read_size_prefix(pPeb->hostFunctionDefinitions.fbHostFunctionDetails, &size);
     assert(NULL != buffer);
     Hyperlight_Generated_HostFunctionDetails_table_t hostFunctionDetails = Hyperlight_Generated_HostFunctionDetails_as_root(buffer);
 
     return hostFunctionDetails;
 }
 
-__declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int functionTableSize)
+
+__declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int osPageSize)
 {
 
     // TODO: We should try and write to stderr here in case the program was started from the command line, note that we dont link against the CRT so we cant use printf
-    pPeb = (HyperlightPEB*)pebAddress;
+    pPeb = (HyperlightPEB *)pebAddress;
     if (NULL == pPeb)
     {
         return -1;
@@ -657,8 +856,9 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int f
     // setjmp is used to capture state so that if an error occurs then lngjmp is called in setError and control returns to this point , the if returns false and the program exits/halts
     if (!setjmp(jmpbuf))
     {
+        OSPageSize = (unsigned int)osPageSize;
         // Either in WHP partition (hyperlight) or in memory.  If in memory, outb_ptr will be non-NULL
-        outb_ptr = (void(*)(uint16_t, uint8_t))pPeb->pOutb;
+        outb_ptr = (void (*)(uint16_t, uint8_t))pPeb->pOutb;
         if (outb_ptr)
             runningInHyperlight = false;
 
@@ -674,14 +874,14 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int f
 
         HyperlightMain();
 
-        // Once the guest has added all the functions it wants to expose to the host, call this function to finalise the function table. 
+        // Once the guest has added all the functions it wants to expose to the host, call this function to finalise the function table.
         // This is done as the we are using flatbuffers to serialise the function table and its easier and faster than trying to mutate the tabel each ime it is updated.
 
         FinaliseFunctionTable();
 
         // Setup return values
         memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
-        *(int32_t*)pPeb->outputdata.outputDataBuffer = 0;
+        *(int32_t *)pPeb->outputdata.outputDataBuffer = 0;
     }
 
     halt(); // This is a nop if we were just loaded into memory
@@ -692,7 +892,6 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int f
 // The following functions expose functionality provided by the Host.
 //
 
-
 /// <summary>
 /// printOutput exposes functionaility to print a message to the console or a stringwriter via the host
 /// the function is handled in the host via a specific outb message rather than a host function call.
@@ -700,7 +899,7 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int f
 /// <param name="message">The message to be printed.</param>
 /// <returns>The length of the message printed.</returns>
 
-int printOutput(const char* message)
+int printOutput(const char *message)
 {
     size_t result = strlen(message);
     if (result >= pPeb->outputdata.outputDataSize)
@@ -710,27 +909,18 @@ int printOutput(const char* message)
     memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
 
 #pragma warning(suppress : 4996)
-    strncpy((char*)pPeb->outputdata.outputDataBuffer, (char*)message, result);
+    strncpy((char *)pPeb->outputdata.outputDataBuffer, (char *)message, result);
     outb(OUTB_WRITE_OUTPUT, 0);
     return (int)result;
 }
 
-
 // The following host functions are defined in the Sandbox Host in Core/HyperLightExports.cs
 
 /// <summary>
-/// This function is required by dlmalloc
-/// </summary>
-long long GetHyperLightTickCount()
-{
-    return native_symbol_thunk_returning_longlong("GetTickCount");
-}
-
-/// <summary>
-/// This function is required/called by WAMR function os_thread_get_stack_boundary() 
+/// This function is required/called by WAMR function os_thread_get_stack_boundary()
 /// which is needed for AOT WASM Module execution
 /// </summary>
-uint8_t* GetStackBoundary()
+uint8_t *GetStackBoundary()
 {
     static unsigned __int64 thread_stack_boundary = 0;
     // If we are not running in Hyperlight then we need to get this information in the host
@@ -745,19 +935,11 @@ uint8_t* GetStackBoundary()
             thread_stack_boundary = pPeb->gueststackData.minStackAddress;
         }
     }
-    return (uint8_t*)thread_stack_boundary;
+    return (uint8_t *)thread_stack_boundary;
 }
 
 /// <summary>
-/// This function is required by dlmalloc
-/// </summary>
-unsigned int GetOSPageSize()
-{
-    return native_symbol_thunk_returning_uint("GetOSPageSize");
-}
-
-/// <summary>
-/// This is required by os_time_get_boot_microsecond() in WAMR 
+/// This is required by os_time_get_boot_microsecond() in WAMR
 /// </summary>
 long long GetTimeSinceBootMicrosecond()
 {
