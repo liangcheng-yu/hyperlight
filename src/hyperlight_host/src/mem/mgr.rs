@@ -381,16 +381,9 @@ impl SandboxMemoryManager {
         cfg: SandboxMemoryConfiguration,
         pe_info: &mut PEInfo,
         run_from_process_memory: bool,
-        stack_size_override: Option<u64>,
-        heap_size_override: Option<u64>,
     ) -> Result<Self> {
-        let (layout, mut shared_mem, load_addr, entrypoint_offset) = load_guest_binary_common(
-            cfg,
-            pe_info,
-            pe_info.get_payload_len(),
-            stack_size_override,
-            heap_size_override,
-            |shared_mem| {
+        let (layout, mut shared_mem, load_addr, entrypoint_offset) =
+            load_guest_binary_common(cfg, pe_info, pe_info.get_payload_len(), |shared_mem| {
                 let addr_usize = if run_from_process_memory {
                     // if we're running in-process, load_addr is the absolute
                     // address to the start of shared memory, plus the offset to
@@ -403,8 +396,7 @@ impl SandboxMemoryManager {
                     SandboxMemoryLayout::GUEST_CODE_ADDRESS
                 };
                 RawPtr::try_from(addr_usize)
-            },
-        )?;
+            })?;
 
         let relocation_patches = pe_info
             .get_exe_relocation_patches(pe_info.get_payload(), load_addr.clone().try_into()?)?;
@@ -438,20 +430,12 @@ impl SandboxMemoryManager {
         guest_bin_path: &str,
         pe_info: &mut PEInfo,
         run_from_process_memory: bool,
-        stack_size_override: Option<u64>,
-        heap_size_override: Option<u64>,
     ) -> Result<Self> {
         #[cfg(target_os = "windows")]
         {
             let lib = LoadedLib::try_from(guest_bin_path)?;
-            let (layout, shared_mem, load_addr, entrypoint_offset) = load_guest_binary_common(
-                cfg,
-                pe_info,
-                0,
-                stack_size_override,
-                heap_size_override,
-                |_| lib.base_addr(),
-            )?;
+            let (layout, shared_mem, load_addr, entrypoint_offset) =
+                load_guest_binary_common(cfg, pe_info, 0, |_| lib.base_addr())?;
             Ok(Self::new(
                 cfg,
                 layout,
@@ -471,8 +455,6 @@ impl SandboxMemoryManager {
             let _ = guest_bin_path;
             let _ = pe_info;
             let _ = run_from_process_memory;
-            let _ = stack_size_override;
-            let _ = heap_size_override;
             panic!("load_guest_binary_using_load_library is only available on Windows")
         }
     }
@@ -503,20 +485,16 @@ fn load_guest_binary_common<F>(
     cfg: SandboxMemoryConfiguration,
     pe_info: &PEInfo,
     code_size: usize,
-    stack_size_override: Option<u64>,
-    heap_size_override: Option<u64>,
     load_addr_fn: F,
 ) -> Result<(SandboxMemoryLayout, SharedMemory, RawPtr, Offset)>
 where
     F: FnOnce(&SharedMemory) -> Result<RawPtr>,
 {
-    let heap_size = heap_size_override.unwrap_or_else(|| pe_info.heap_reserve());
-    let stack_size = stack_size_override.unwrap_or_else(|| pe_info.stack_reserve());
     let layout = SandboxMemoryLayout::new(
         cfg,
         code_size,
-        usize::try_from(stack_size)?,
-        usize::try_from(heap_size)?,
+        usize::try_from(cfg.get_stack_size(pe_info))?,
+        usize::try_from(cfg.get_heap_size(pe_info))?,
     )?;
     let mut shared_mem = SharedMemory::new(layout.get_memory_size()?)?;
 
@@ -557,20 +535,16 @@ mod tests {
             let pe_info = PEInfo::new(guest_bytes.as_slice()).unwrap();
             let stack_size_override = 0x3000;
             let heap_size_override = 0x10000;
-            let (layout, shared_mem, _, _) = super::load_guest_binary_common(
-                SandboxMemoryConfiguration::default(),
-                &pe_info,
-                100,
-                Some(stack_size_override),
-                Some(heap_size_override),
-                |_| Ok(RawPtr::from(100)),
-            )
-            .unwrap();
-            assert_eq!(
+            let cfg = SandboxMemoryConfiguration {
                 stack_size_override,
-                u64::try_from(layout.stack_size).unwrap()
-            );
-            assert_eq!(heap_size_override, u64::try_from(layout.heap_size).unwrap());
+                heap_size_override,
+                ..Default::default()
+            };
+            let (layout, shared_mem, _, _) =
+                super::load_guest_binary_common(cfg, &pe_info, 100, |_| Ok(RawPtr::from(100)))
+                    .unwrap();
+            assert_eq!(stack_size_override, layout.stack_size.try_into().unwrap());
+            assert_eq!(heap_size_override, layout.heap_size.try_into().unwrap());
             assert_eq!(layout.get_memory_size().unwrap(), shared_mem.mem_size());
         }
     }

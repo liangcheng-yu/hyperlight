@@ -35,9 +35,7 @@ internal static class SandboxMemoryManagerLoader
         Context ctx,
         SandboxMemoryConfiguration memCfg,
         string guestBinaryPath,
-        bool runFromProcessMemory,
-        ulong stackSizeOverride = 0,
-        ulong heapSizeOverride = 0
+        bool runFromProcessMemory
     )
     {
         using var peInfo = new PEInfo(ctx, guestBinaryPath);
@@ -45,9 +43,7 @@ internal static class SandboxMemoryManagerLoader
             ctx.ctx,
             memCfg,
             peInfo.handleWrapper.handle,
-            runFromProcessMemory,
-            stackSizeOverride,
-            heapSizeOverride
+            runFromProcessMemory
         );
         return Core.SandboxMemoryManager.FromHandle(
             ctx,
@@ -88,9 +84,7 @@ internal static class SandboxMemoryManagerLoader
         Context ctx,
         SandboxMemoryConfiguration memCfg,
         string guestBinaryPath,
-        bool runFromProcessMemory,
-        ulong stackSizeOverride = 0,
-        ulong heapSizeOverride = 0
+        bool runFromProcessMemory
     )
     {
         using var peInfo = new PEInfo(ctx, guestBinaryPath);
@@ -100,9 +94,7 @@ internal static class SandboxMemoryManagerLoader
             memCfg,
             guestBinPathHdl.HandleWrapper.handle,
             peInfo.handleWrapper.handle,
-            runFromProcessMemory,
-            stackSizeOverride,
-            heapSizeOverride
+            runFromProcessMemory
         );
         return Core.SandboxMemoryManager.FromHandle(
             ctx,
@@ -121,9 +113,7 @@ internal static class SandboxMemoryManagerLoader
         NativeContext ctx,
         SandboxMemoryConfiguration memCfg,
         NativeHandle peInfoHdl,
-        [MarshalAs(UnmanagedType.U1)] bool runFromProcessMemory,
-        ulong stackSizeOverride,
-        ulong heapSizeOverride
+        [MarshalAs(UnmanagedType.U1)] bool runFromProcessMemory
     );
 
     [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
@@ -133,9 +123,7 @@ internal static class SandboxMemoryManagerLoader
         SandboxMemoryConfiguration memCfg,
         NativeHandle guestBinNameHdl,
         NativeHandle peInfoHdl,
-        [MarshalAs(UnmanagedType.U1)] bool runFromProcessMemory,
-        ulong stackSizeOverride,
-        ulong heapSizeOverride
+        [MarshalAs(UnmanagedType.U1)] bool runFromProcessMemory
     );
 #pragma warning restore CA1707 // Remove the underscores from member name
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

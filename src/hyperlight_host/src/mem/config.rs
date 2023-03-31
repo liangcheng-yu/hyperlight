@@ -1,5 +1,9 @@
 use std::cmp::max;
 
+use crate::capi::option_when;
+
+use super::pe::pe_info::PEInfo;
+
 /// The complete set of configuration needed to create a guest
 /// memory region.
 #[derive(Copy, Clone, Debug)]
@@ -7,14 +11,32 @@ use std::cmp::max;
 pub struct SandboxMemoryConfiguration {
     /// The maximum size of the guest error buffer.
     pub guest_error_buffer_size: usize,
-    /// The size of the memory buffer that is made available for Guest Function Definitions
+    /// The size of the memory buffer that is made available for Guest Function
+    /// Definitions
     pub host_function_definition_size: usize,
-    /// The size of the memory buffer that is made available for serialising Host Exceptions
+    /// The size of the memory buffer that is made available for serialising
+    /// Host Exceptions
     pub host_exception_size: usize,
-    /// The size of the memory buffer that is made available for input to the Guest Binary
+    /// The size of the memory buffer that is made available for input to the
+    /// Guest Binary
     pub input_data_size: usize,
-    /// The size of the memory buffer that is made available for input to the Guest Binary
+    /// The size of the memory buffer that is made available for input to the
+    /// Guest Binary
     pub output_data_size: usize,
+    /// The stack size to use in the guest sandbox. If set to 0, the stack
+    /// size will be determined from the PE file header
+    ///
+    /// Note: this is a C-compatible struct, so even though this optional
+    /// field should be represented as an `Option`, that type is not
+    /// FFI-safe, so it cannot be.
+    pub stack_size_override: u64,
+    /// The heap size to use in the guest sandbox. If set to 0, the heap
+    /// size will be determined from the PE file header
+    ///
+    /// Note: this is a C-compatible struct, so even though this optional
+    /// field should be represented as an `Option`, that type is not
+    /// FFI-safe, so it cannot be.
+    pub heap_size_override: u64,
 }
 
 impl SandboxMemoryConfiguration {
@@ -41,6 +63,8 @@ impl SandboxMemoryConfiguration {
         function_definition_size: usize,
         host_exception_size: usize,
         guest_error_buffer_size: usize,
+        stack_size_override: Option<u64>,
+        heap_size_override: Option<u64>,
     ) -> Self {
         Self {
             input_data_size: max(input_data_size, Self::MIN_INPUT_SIZE),
@@ -54,18 +78,77 @@ impl SandboxMemoryConfiguration {
                 guest_error_buffer_size,
                 Self::MIN_GUEST_ERROR_BUFFER_SIZE,
             ),
+            stack_size_override: stack_size_override.unwrap_or(0),
+            heap_size_override: heap_size_override.unwrap_or(0),
         }
+    }
+
+    fn stack_size_override_opt(&self) -> Option<u64> {
+        option_when(self.stack_size_override, self.stack_size_override > 0)
+    }
+
+    fn heap_size_override_opt(&self) -> Option<u64> {
+        option_when(self.heap_size_override, self.heap_size_override > 0)
+    }
+
+    /// If self.stack_size is non-zero, return it. Otherwise,
+    /// return pe_info.stack_reserve()
+    pub fn get_stack_size(&self, pe_info: &PEInfo) -> u64 {
+        self.stack_size_override_opt()
+            .unwrap_or_else(|| pe_info.stack_reserve())
+    }
+
+    /// If self.heap_size_override is non-zero, return it. Otherwise,
+    /// return pe_info.heap_reserve()
+    pub fn get_heap_size(&self, pe_info: &PEInfo) -> u64 {
+        self.heap_size_override_opt()
+            .unwrap_or_else(|| pe_info.heap_reserve())
     }
 }
 
 impl Default for SandboxMemoryConfiguration {
     fn default() -> Self {
-        Self {
-            guest_error_buffer_size: Self::DEFAULT_GUEST_ERROR_BUFFER_SIZE,
-            host_function_definition_size: Self::DEFAULT_HOST_FUNCTION_DEFINITION_SIZE,
-            host_exception_size: Self::DEFAULT_HOST_EXCEPTION_SIZE,
-            input_data_size: Self::DEFAULT_INPUT_SIZE,
-            output_data_size: Self::DEFAULT_OUTPUT_SIZE,
+        Self::new(
+            Self::DEFAULT_GUEST_ERROR_BUFFER_SIZE,
+            Self::DEFAULT_HOST_FUNCTION_DEFINITION_SIZE,
+            Self::DEFAULT_HOST_EXCEPTION_SIZE,
+            Self::DEFAULT_INPUT_SIZE,
+            Self::DEFAULT_OUTPUT_SIZE,
+            None,
+            None,
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        mem::config::SandboxMemoryConfiguration,
+        testing::{callback_guest_pe_info, simple_guest_pe_info},
+    };
+
+    #[test]
+    fn overrides() {
+        const STACK_SIZE_OVERRIDE: u64 = 0x10000;
+        const HEAP_SIZE_OVERRIDE: u64 = 0x50000;
+        let cfg = SandboxMemoryConfiguration::new(
+            10,
+            10,
+            10,
+            10,
+            10,
+            Some(STACK_SIZE_OVERRIDE),
+            Some(HEAP_SIZE_OVERRIDE),
+        );
+        let pe_infos = vec![
+            simple_guest_pe_info().unwrap(),
+            callback_guest_pe_info().unwrap(),
+        ];
+        for pe_info in pe_infos {
+            let stack_size = cfg.get_stack_size(&pe_info);
+            let heap_size = cfg.get_heap_size(&pe_info);
+            assert_eq!(STACK_SIZE_OVERRIDE, stack_size);
+            assert_eq!(HEAP_SIZE_OVERRIDE, heap_size);
         }
     }
 }

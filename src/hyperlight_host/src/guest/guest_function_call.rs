@@ -322,7 +322,7 @@ mod tests {
     fn write_to_memory() -> Result<()> {
         let test_data = get_test_data();
         let function_call = GuestFunctionCall::try_from(test_data.as_slice())?;
-        let memory_config = SandboxMemoryConfiguration::new(0, 0, 0, 0, 0);
+        let memory_config = SandboxMemoryConfiguration::new(0, 0, 0, 0, 0, None, None);
         let mut shared_memory = SharedMemory::new(32768)?;
         let memory_layout = SandboxMemoryLayout::new(memory_config, 4096, 4096, 4096)?;
         let result = function_call.write_to_memory(&mut shared_memory, &memory_layout);
@@ -333,7 +333,7 @@ mod tests {
         );
 
         let function_call = GuestFunctionCall::try_from(test_data.as_slice())?;
-        let memory_config = SandboxMemoryConfiguration::new(1024, 0, 0, 0, 0);
+        let memory_config = SandboxMemoryConfiguration::new(1024, 0, 0, 0, 0, None, None);
         let memory_layout = SandboxMemoryLayout::new(memory_config, 4096, 4096, 4096)?;
         let mem_size = memory_layout.get_memory_size()?;
         let mut shared_memory = SharedMemory::new(mem_size)?;

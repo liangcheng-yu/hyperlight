@@ -40,6 +40,20 @@ namespace Hyperlight.Core
         public ulong OutputDataSize { get; init; }
 
         /// <summary>
+        /// defines the stack size to be allocated for the guest.
+        /// if set to 0 or not defined, the stack size will be determined
+        /// from the guest executable's PE file header
+        /// </summary>
+        public ulong StackSizeOverride { get; init; }
+
+        /// <summary>
+        /// defines the heap size to be allocated for the guest.
+        /// if set to 0 or not defined, the heap size will be determined
+        /// from the guest executable's PE file header
+        /// </summary>
+        public ulong HeapSizeOverride { get; init; }
+
+        /// <summary>
         /// Create a new SandboxMemoryConfiguration, with default
         /// values.
         /// 
@@ -75,7 +89,9 @@ namespace Hyperlight.Core
             ulong outputDataSize,
             ulong hostFunctionDefinitionSize,
             ulong hostExceptionSize,
-            ulong guestErrorMessageSize
+            ulong guestErrorMessageSize,
+            ulong stackSizeOverride = 0,
+            ulong heapSizeOverride = 0
         )
         {
             this = mem_config_new(
@@ -83,7 +99,9 @@ namespace Hyperlight.Core
                 outputDataSize,
                 hostFunctionDefinitionSize,
                 hostExceptionSize,
-                guestErrorMessageSize
+                guestErrorMessageSize,
+                stackSizeOverride,
+                heapSizeOverride
             );
         }
 
@@ -156,7 +174,9 @@ namespace Hyperlight.Core
             ulong outputSize,
             ulong hostFunctionDefinitionSize,
             ulong hostExceptionSize,
-            ulong guestErrorBufferSize
+            ulong guestErrorBufferSize,
+            ulong stackSizeOverride,
+            ulong heapSizeOverride
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
