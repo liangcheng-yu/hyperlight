@@ -1,9 +1,10 @@
 ///! Data and functionality for representing and manipulating
 ///! arguments to guest and host functions.
 pub mod args;
-
 ///! Definitions of both host and guest functions.
 pub mod def;
+///! Definitions for common functions to be exposed in the guest
+pub(crate) mod exports;
 
 use std::fmt::Debug;
 

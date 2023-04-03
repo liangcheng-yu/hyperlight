@@ -22,13 +22,15 @@ libc = { version = "0.2.140" }
 windows = { version = "0.46.0", features = [
     "Win32_System_Memory",
     "Win32_Foundation",
-    "Win32_System_LibraryLoader"
+    "Win32_System_LibraryLoader",
+    "Win32_System_Threading"
 ] }
 paste = "1.0"
 quote = "1.0"
 scroll = { version = "0.11", default_features = false }
 readonly = { version = "0.2" }
 flatbuffers = "23.1.21"
+page_size = "0.5.0"
 
 [target.'cfg(unix)'.dependencies]
 mshv-bindings = {git = "https://github.com/rust-vmm/mshv", rev="1a9ca01" }

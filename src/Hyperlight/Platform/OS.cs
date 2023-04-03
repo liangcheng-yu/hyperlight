@@ -64,7 +64,7 @@ namespace Hyperlight.Native
         public static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, IntPtr lpBuffer, IntPtr nSize, out IntPtr lpNumberOfBytesWritten);
 
 
-
+        public static uint GetPageSize() => exports_get_os_page_size();
 
         //////////////////////////////////////////////////////////////////////
         // Linux memory management functions
@@ -212,66 +212,15 @@ namespace Hyperlight.Native
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool CloseHandle(IntPtr hObject);
 
-        [StructLayout(LayoutKind.Sequential)]
-        private struct SYSTEM_INFO
-        {
-            public ushort wProcessorArchitecture;
-            public ushort wReserved;
-            public uint dwPageSize;
-            public IntPtr lpMinimumApplicationAddress;
-            public IntPtr lpMaximumApplicationAddress;
-            public UIntPtr dwActiveProcessorMask;
-            public uint dwNumberOfProcessors;
-            public uint dwProcessorType;
-            public uint dwAllocationGranularity;
-            public ushort wProcessorLevel;
-            public ushort wProcessorRevision;
-        };
-        [DllImport("libc", SetLastError = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
-        public static extern uint getpagesize();
+#pragma warning disable CA1707 // Remove the underscores from member name
+#pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
 
-        [DllImport("kernel32.dll", SetLastError = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-        private static extern void GetNativeSystemInfo(ref SYSTEM_INFO lpSystemInfo);
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern uint exports_get_os_page_size();
 
-        public static uint GetPageSize()
-        {
-            uint pageSize = 0;
-
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                var sysInfo = new SYSTEM_INFO();
-
-                GetNativeSystemInfo(ref sysInfo);
-
-                int error;
-                if ((error = Marshal.GetLastPInvokeError()) != 0)
-                {
-                    HyperlightException.LogAndThrowException($"GetNativeSystemInfo:Pinvoke Last Error:{error}", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
-                }
-
-                pageSize = sysInfo.dwPageSize;
-            }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                pageSize = Syscall.CheckReturnVal(
-                    "Get PageSize",
-                    () => getpagesize(),
-                    (uint retVal) => retVal != 0
-                );
-            }
-            else
-            {
-                HyperlightException.LogAndThrowException<NotSupportedException>($"Hyperlight is only supported on Windows and Linux", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
-            }
-
-            return pageSize;
-        }
-
-        [DllImport("kernel32.dll")]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-        public static extern void GetCurrentThreadStackLimits(out IntPtr lowLimit, out IntPtr highLimit);
+#pragma warning restore CA1707 // Remove the underscores from member name
+#pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
 
     }
 }

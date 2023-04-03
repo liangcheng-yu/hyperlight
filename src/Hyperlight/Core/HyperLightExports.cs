@@ -1,17 +1,24 @@
 using System;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using HyperlightDependencies;
-using Hyperlight.Native;
-using System.Reflection;
-using System.Diagnostics;
 
 namespace Hyperlight.Core
 {
+    [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
+#pragma warning disable CA1815 // Override equals and operator equals on value types
+    public readonly struct Duration
+    {
+        // Do not change the ordering of these struct fields
+        // without also changing the ordering of the fields
+        // of the Rust U128 struct.
+        public readonly ulong Seconds;
+        public readonly uint Nanoseconds;
+    }
+#pragma warning restore CA1815 // Override equals and operator equals on value types
     [ExposeToGuest(true)]
     public sealed class HyperLightExports
     {
-        private static readonly DateTimeOffset epoch = new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero);
-
 #pragma warning disable CA1024 // Use properties where appropriate - Intentional as properties cannot be exposed to guest
 
         /// <summary>
@@ -24,18 +31,7 @@ namespace Hyperlight.Core
             {
                 HyperlightException.LogAndThrowException<NotSupportedException>($"Hyperlight only supports in process execution on Windows.", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             }
-
-            // This implementation mirrors the implementation in WAMR at 
-            // https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/core/shared/platform/windows/win_thread.c#L665
-
-            OS.GetCurrentThreadStackLimits(out var low, out var _);
-            var page_size = OS.GetPageSize();
-
-            // 4 pages are set unaccessible by system, we reserved
-            // one more page at least for safety 
-
-            return new IntPtr(low.ToInt64() + (long)page_size * 5);
-
+            return new IntPtr((long)exports_get_stack_boundary());
         }
 
         /// <summary>
@@ -46,7 +42,28 @@ namespace Hyperlight.Core
         /// So using DateTime.UtcNow as its unlikely clock adjustment is going to be an issue for short lived VMs
         /// </summary>
         /// <returns>microseconds since Unix epoch</returns>
-        public static long GetTimeSinceBootMicrosecond() => (DateTimeOffset.UtcNow - epoch).Ticks / 10;
+        public static long GetTimeSinceBootMicrosecond()
+        {
+            var dur = exports_nanos_since_epoch();
+            var nanos = dur.Nanoseconds + (dur.Seconds * 1_000_000_000);
+            return (long)(nanos / 1000);
+        }
 #pragma warning restore CA1024 // Use properties where appropriate  
+
+#pragma warning disable CA1707 // Remove the underscores from member name
+#pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern ulong exports_get_stack_boundary();
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern Duration exports_nanos_since_epoch();
+
+#pragma warning restore CA1707 // Remove the underscores from member name
+#pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
+
+
     }
 }
