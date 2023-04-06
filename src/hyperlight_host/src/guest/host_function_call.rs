@@ -26,7 +26,9 @@ impl WriteFunctionCallToMemory for HostFunctionCall {
 
         if function_call_buffer.len() > buffer_size {
             return Err(anyhow!(
-                "Host function call buffer is too big for the output data buffer"
+                "Host function call buffer {} is too big for the output data buffer {}",
+                function_call_buffer.len(),
+                buffer_size
             ));
         }
 
@@ -84,7 +86,11 @@ mod tests {
         let result = host_function_call.write(&test_data, &mut shared_memory, &memory_layout);
         assert!(result.is_err());
         assert_eq!(
-            "Host function call buffer is too big for the output data buffer",
+            format!(
+                "Host function call buffer {} is too big for the output data buffer {}",
+                test_data.len(),
+                0
+            ),
             result.err().unwrap().to_string()
         );
 

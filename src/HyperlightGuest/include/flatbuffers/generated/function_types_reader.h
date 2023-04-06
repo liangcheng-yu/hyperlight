@@ -39,6 +39,10 @@ typedef const struct Hyperlight_Generated_hlvecbytes_table *Hyperlight_Generated
 typedef struct Hyperlight_Generated_hlvecbytes_table *Hyperlight_Generated_hlvecbytes_mutable_table_t;
 typedef const flatbuffers_uoffset_t *Hyperlight_Generated_hlvecbytes_vec_t;
 typedef flatbuffers_uoffset_t *Hyperlight_Generated_hlvecbytes_mutable_vec_t;
+typedef const struct Hyperlight_Generated_hlsizeprefixedbuffer_table *Hyperlight_Generated_hlsizeprefixedbuffer_table_t;
+typedef struct Hyperlight_Generated_hlsizeprefixedbuffer_table *Hyperlight_Generated_hlsizeprefixedbuffer_mutable_table_t;
+typedef const flatbuffers_uoffset_t *Hyperlight_Generated_hlsizeprefixedbuffer_vec_t;
+typedef flatbuffers_uoffset_t *Hyperlight_Generated_hlsizeprefixedbuffer_mutable_vec_t;
 typedef const struct Hyperlight_Generated_hlvoid_table *Hyperlight_Generated_hlvoid_table_t;
 typedef struct Hyperlight_Generated_hlvoid_table *Hyperlight_Generated_hlvoid_mutable_table_t;
 typedef const flatbuffers_uoffset_t *Hyperlight_Generated_hlvoid_vec_t;
@@ -103,6 +107,18 @@ typedef flatbuffers_uoffset_t *Hyperlight_Generated_hlvoid_mutable_vec_t;
 #ifndef Hyperlight_Generated_hlvecbytes_file_extension
 #define Hyperlight_Generated_hlvecbytes_file_extension "bin"
 #endif
+#ifndef Hyperlight_Generated_hlsizeprefixedbuffer_file_identifier
+#define Hyperlight_Generated_hlsizeprefixedbuffer_file_identifier 0
+#endif
+/* deprecated, use Hyperlight_Generated_hlsizeprefixedbuffer_file_identifier */
+#ifndef Hyperlight_Generated_hlsizeprefixedbuffer_identifier
+#define Hyperlight_Generated_hlsizeprefixedbuffer_identifier 0
+#endif
+#define Hyperlight_Generated_hlsizeprefixedbuffer_type_hash ((flatbuffers_thash_t)0xd9c77508)
+#define Hyperlight_Generated_hlsizeprefixedbuffer_type_identifier "\x08\x75\xc7\xd9"
+#ifndef Hyperlight_Generated_hlsizeprefixedbuffer_file_extension
+#define Hyperlight_Generated_hlsizeprefixedbuffer_file_extension "bin"
+#endif
 #ifndef Hyperlight_Generated_hlvoid_file_identifier
 #define Hyperlight_Generated_hlvoid_file_identifier 0
 #endif
@@ -155,6 +171,7 @@ __flatbuffers_define_integer_type(Hyperlight_Generated_ReturnType, Hyperlight_Ge
 #define Hyperlight_Generated_ReturnType_hlstring ((Hyperlight_Generated_ReturnType_enum_t)UINT8_C(2))
 #define Hyperlight_Generated_ReturnType_hlbool ((Hyperlight_Generated_ReturnType_enum_t)UINT8_C(3))
 #define Hyperlight_Generated_ReturnType_hlvoid ((Hyperlight_Generated_ReturnType_enum_t)UINT8_C(4))
+#define Hyperlight_Generated_ReturnType_hlsizeprefixedbuffer ((Hyperlight_Generated_ReturnType_enum_t)UINT8_C(5))
 
 static inline const char *Hyperlight_Generated_ReturnType_name(Hyperlight_Generated_ReturnType_enum_t value)
 {
@@ -164,6 +181,7 @@ static inline const char *Hyperlight_Generated_ReturnType_name(Hyperlight_Genera
     case Hyperlight_Generated_ReturnType_hlstring: return "hlstring";
     case Hyperlight_Generated_ReturnType_hlbool: return "hlbool";
     case Hyperlight_Generated_ReturnType_hlvoid: return "hlvoid";
+    case Hyperlight_Generated_ReturnType_hlsizeprefixedbuffer: return "hlsizeprefixedbuffer";
     default: return "";
     }
 }
@@ -176,6 +194,7 @@ static inline int Hyperlight_Generated_ReturnType_is_known_value(Hyperlight_Gene
     case Hyperlight_Generated_ReturnType_hlstring: return 1;
     case Hyperlight_Generated_ReturnType_hlbool: return 1;
     case Hyperlight_Generated_ReturnType_hlvoid: return 1;
+    case Hyperlight_Generated_ReturnType_hlsizeprefixedbuffer: return 1;
     default: return 0;
     }
 }
@@ -232,6 +251,17 @@ __flatbuffers_table_as_root(Hyperlight_Generated_hlvecbytes)
 
 __flatbuffers_define_vector_field(0, Hyperlight_Generated_hlvecbytes, value, flatbuffers_uint8_vec_t, 0)
 
+struct Hyperlight_Generated_hlsizeprefixedbuffer_table { uint8_t unused__; };
+
+static inline size_t Hyperlight_Generated_hlsizeprefixedbuffer_vec_len(Hyperlight_Generated_hlsizeprefixedbuffer_vec_t vec)
+__flatbuffers_vec_len(vec)
+static inline Hyperlight_Generated_hlsizeprefixedbuffer_table_t Hyperlight_Generated_hlsizeprefixedbuffer_vec_at(Hyperlight_Generated_hlsizeprefixedbuffer_vec_t vec, size_t i)
+__flatbuffers_offset_vec_at(Hyperlight_Generated_hlsizeprefixedbuffer_table_t, vec, i, 0)
+__flatbuffers_table_as_root(Hyperlight_Generated_hlsizeprefixedbuffer)
+
+__flatbuffers_define_scalar_field(0, Hyperlight_Generated_hlsizeprefixedbuffer, size, flatbuffers_int32, int32_t, INT32_C(0))
+__flatbuffers_define_vector_field(1, Hyperlight_Generated_hlsizeprefixedbuffer, value, flatbuffers_uint8_vec_t, 0)
+
 struct Hyperlight_Generated_hlvoid_table { uint8_t unused__; };
 
 static inline size_t Hyperlight_Generated_hlvoid_vec_len(Hyperlight_Generated_hlvoid_vec_t vec)
@@ -285,6 +315,7 @@ __flatbuffers_define_union(flatbuffers_, Hyperlight_Generated_ReturnValue)
 #define Hyperlight_Generated_ReturnValue_hlstring ((Hyperlight_Generated_ReturnValue_union_type_t)UINT8_C(3))
 #define Hyperlight_Generated_ReturnValue_hlbool ((Hyperlight_Generated_ReturnValue_union_type_t)UINT8_C(4))
 #define Hyperlight_Generated_ReturnValue_hlvoid ((Hyperlight_Generated_ReturnValue_union_type_t)UINT8_C(5))
+#define Hyperlight_Generated_ReturnValue_hlsizeprefixedbuffer ((Hyperlight_Generated_ReturnValue_union_type_t)UINT8_C(6))
 
 static inline const char *Hyperlight_Generated_ReturnValue_type_name(Hyperlight_Generated_ReturnValue_union_type_t type)
 {
@@ -295,6 +326,7 @@ static inline const char *Hyperlight_Generated_ReturnValue_type_name(Hyperlight_
     case Hyperlight_Generated_ReturnValue_hlstring: return "hlstring";
     case Hyperlight_Generated_ReturnValue_hlbool: return "hlbool";
     case Hyperlight_Generated_ReturnValue_hlvoid: return "hlvoid";
+    case Hyperlight_Generated_ReturnValue_hlsizeprefixedbuffer: return "hlsizeprefixedbuffer";
     default: return "";
     }
 }
@@ -308,6 +340,7 @@ static inline int Hyperlight_Generated_ReturnValue_is_known_type(Hyperlight_Gene
     case Hyperlight_Generated_ReturnValue_hlstring: return 1;
     case Hyperlight_Generated_ReturnValue_hlbool: return 1;
     case Hyperlight_Generated_ReturnValue_hlvoid: return 1;
+    case Hyperlight_Generated_ReturnValue_hlsizeprefixedbuffer: return 1;
     default: return 0;
     }
 }

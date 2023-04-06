@@ -890,11 +890,10 @@ pub unsafe extern "C" fn mem_mgr_write_host_function_call(
     }
 }
 
-/// Writes the data pointed to by `fb_host_function_call_ptr` as a `FunctionCall` flatbuffer to shared memory.
-/// The buffer should contain a valid size prefixed FunctionCall flatbuffer representing a Host Function Call.
+/// Use `SandboxMemoryManager` in `ctx` referenced by `mgr_hdl` to get host function call details from shared memory.
 ///
-/// Return an empty `Handle` on success, and a `Handle` referencing
-/// an error otherwise.
+///
+/// Returns a `Handle` to a `FunctionCall` or a `Handle` referencing an error.
 ///
 /// # Safety
 ///
@@ -902,8 +901,6 @@ pub unsafe extern "C" fn mem_mgr_write_host_function_call(
 /// not yet freed by `context_free`.
 ///
 /// `mem_mgr_hdl` must be a valid `Handle` returned by `mem_mgr_new` and associated with the `ctx`
-///
-/// `fb_host_function_call_ptr` must be a pointer to a valid size prefixed flatbuffer containing a `FunctionCall` flatbuffer , the FunctionCall buffer should represent a Host FunctionCall, it is owned by the caller.
 #[no_mangle]
 pub unsafe extern "C" fn mem_mgr_get_host_function_call(
     ctx: *mut Context,
@@ -919,6 +916,36 @@ pub unsafe extern "C" fn mem_mgr_get_host_function_call(
             output,
             &mut (*ctx).host_function_calls,
             Hdl::HostFunctionCall,
+        ),
+        Err(e) => (*ctx).register_err(e),
+    }
+}
+
+/// Use `SandboxMemoryManager` in `ctx` referenced by `mgr_hdl` to get function call result details from shared memory.
+///
+/// Returns a `Handle` to a `FunctionCallResult` or a `Handle` referencing an error.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+///
+/// `mem_mgr_hdl` must be a valid `Handle` returned by `mem_mgr_new` and associated with the `ctx`
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_function_call_result(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = match get_mem_mgr_mut(&mut *ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    match mgr.get_function_call_result() {
+        Ok(output) => Context::register(
+            output,
+            &mut (*ctx).function_call_results,
+            Hdl::FunctionCallResult,
         ),
         Err(e) => (*ctx).register_err(e),
     }

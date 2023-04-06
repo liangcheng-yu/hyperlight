@@ -4,21 +4,22 @@
 // Force an entry in the PE file's relocation table to help us with testing PE file relocation
 static int (*foo)(const char *format, ...) = printf;
 
-int simpleprintOutput(const char *message)
+uint8_t* simpleprintOutput(const char *message)
 {
-    return foo("%s", message);
+    int result = foo("%s", message);
+    return GetFlatBufferResultFromInt(result);
 }
 
-int setByteArrayToZero(void* arrayPtr, int length)
+uint8_t* setByteArrayToZero(const uint8_t* arrayPtr, int length)
 {
     while (length--)
     {
         *((char*)arrayPtr)++ = 0;
     }
-    return length;
+    return GetFlatBufferResultFromInt(length);
 }
 
-int printTwoArgs(const char* arg1, int arg2)
+uint8_t* printTwoArgs(const char* arg1, int arg2)
 {
     size_t length = (size_t)strlen(arg1)  + 35;
     char* message = malloc(length);
@@ -30,7 +31,7 @@ int printTwoArgs(const char* arg1, int arg2)
     return printOutput(message);
 }
 
-int printThreeArgs(const char* arg1, int arg2, int64_t arg3)
+uint8_t* printThreeArgs(const char* arg1, int arg2, int64_t arg3)
 {
     size_t length = (size_t)strlen(arg1) + 61;
     char* message = malloc(length);
@@ -42,7 +43,7 @@ int printThreeArgs(const char* arg1, int arg2, int64_t arg3)
     return printOutput(message);
 }
 
-int printFourArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4)
+uint8_t* printFourArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4)
 {
     size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + 67;
     char* message = malloc(length);
@@ -54,7 +55,7 @@ int printFourArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4)
     return printOutput(message);
 }
 
-int printFiveArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5)
+uint8_t* printFiveArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5)
 {
     size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + 67;
     char* message = malloc(length);
@@ -71,7 +72,7 @@ void LogToHost(char* message, LogLevel level)
     LOG(level, message, "SimpleGuest");
 }
 
-int printSixArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6)
+uint8_t* printSixArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6)
 {
     size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + 79;
     char* message = malloc(length);
@@ -83,7 +84,7 @@ int printSixArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, con
     return printOutput(message);
 }
 
-int printSevenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7)
+uint8_t* printSevenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7)
 {
     size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + 90;
     char* message = malloc(length);
@@ -95,7 +96,7 @@ int printSevenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, c
     return printOutput(message);
 }
 
-int printEightArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, const char* arg8)
+uint8_t* printEightArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, const char* arg8)
 {
     size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + (size_t)strlen(arg8) + 96;
     char* message = malloc(length);
@@ -107,7 +108,7 @@ int printEightArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, c
     return printOutput(message);
 }
 
-int printNineArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, const char* arg8, int64_t arg9)
+uint8_t* printNineArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, const char* arg8, int64_t arg9)
 {
     size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + (size_t)strlen(arg8) + 122;
     char* message = malloc(length);
@@ -119,7 +120,7 @@ int printNineArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, co
     return printOutput(message);
 }
 
-int printTenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, const char* arg8, int64_t arg9, int arg10)
+uint8_t* printTenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, const char* arg8, int64_t arg9, int arg10)
 {
     size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + (size_t)strlen(arg8) + 139;
     char* message = malloc(length);
@@ -131,7 +132,7 @@ int printTenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, con
     return printOutput(message);
 }
 
-int stackAllocate(int length)
+uint8_t* stackAllocate(int length)
 {
     if (0 == length)
     {
@@ -140,10 +141,10 @@ int stackAllocate(int length)
 #pragma warning(suppress:6255)
     void* buffer = _alloca(length);
 
-    return length;
+    return GetFlatBufferResultFromInt(length);;
 }
 
-int bufferOverrun(const char* str)
+uint8_t* bufferOverrun(const char* str)
 {
     char buffer[17];
     size_t length = NULL == str ? 0 : strlen(str);
@@ -153,48 +154,49 @@ int bufferOverrun(const char* str)
     {
         strncpy(buffer, str, length);
     }
-    return (int) (17 - length);
+    int result = (int) (17 - length);
+    return GetFlatBufferResultFromInt(result);
 }
 
 // If the following two functions are compiled with /O2 then they get optimised away and the tests fail.s
 #pragma optimize("",off)
 #pragma warning(suppress:6262)
-int stackOverflow(int i)
+uint8_t* stackOverflow(int i)
 {
     while (i-- != 0)
     {
         char nums[16384] = { i };
         stackOverflow(i);
     }
-    return i;
+    return GetFlatBufferResultFromInt(i);
 }
 
 #pragma warning(suppress:6262)
-int largeVar()
+uint8_t* largeVar()
 {
     char buffer[GUEST_STACK_SIZE + 1] = { 0 };
-    return GUEST_STACK_SIZE + 1;
+    return GetFlatBufferResultFromInt(GUEST_STACK_SIZE + 1);
 }
 
 #pragma optimize("",on)
 
-int smallVar()
+uint8_t* smallVar()
 {
     char buffer[1024] = {0};
-    return 1024;
+    return GetFlatBufferResultFromInt(1024);
 }
 
-int callMalloc(int size)
+uint8_t* callMalloc(int size)
 {
     void* heapMemory = malloc(size);
     if (NULL == heapMemory)
     {
         setError(GUEST_ERROR, "Malloc Failed");
     }
-    return size;
+    return GetFlatBufferResultFromInt(size);
 }
 
-int mallocAndFree(int size)
+uint8_t* mallocAndFree(int size)
 {
     void* heapMemory = malloc(size);
     if (NULL == heapMemory)
@@ -202,8 +204,14 @@ int mallocAndFree(int size)
         setError(GUEST_ERROR, "Malloc Failed");
     }
     free(heapMemory);
-    return size;
+    return GetFlatBufferResultFromInt(size);
 }
+
+uint8_t* echo(const char* msg)
+{
+    return GetFlatBufferResultFromString(msg);
+}
+
 
 GENERATE_FUNCTION(simpleprintOutput,1,hlstring);
 GENERATE_FUNCTION(stackAllocate, 1, hlint);
@@ -223,6 +231,7 @@ GENERATE_FUNCTION(printEightArgs, 8, hlstring, hlint, hllong, hlstring, hlstring
 GENERATE_FUNCTION(printNineArgs, 9, hlstring, hlint, hllong, hlstring, hlstring, hlbool, hlbool, hlstring, hllong);
 GENERATE_FUNCTION(printTenArgs, 10, hlstring, hlint, hllong, hlstring, hlstring, hlbool, hlbool, hlstring, hllong, hlint);
 GENERATE_FUNCTION(setByteArrayToZero, 2, hlvecbytes, hlint);
+GENERATE_FUNCTION(echo, 1, hlstring);
 
 void HyperlightMain()
 {
@@ -244,4 +253,5 @@ void HyperlightMain()
     RegisterFunction(FUNCTIONDETAILS("PrintNineArgs", printNineArgs));
     RegisterFunction(FUNCTIONDETAILS("PrintTenArgs", printTenArgs));
     RegisterFunction(FUNCTIONDETAILS("SetByteArrayToZero", setByteArrayToZero));
+    RegisterFunction(FUNCTIONDETAILS("Echo", echo));
 }

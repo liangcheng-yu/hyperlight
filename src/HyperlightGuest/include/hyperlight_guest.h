@@ -18,16 +18,13 @@
 #pragma message("GUEST_STACK_SIZE is not defined.")
 #define GUEST_STACK_SIZE 32768
 #endif
-
-typedef int (*guestFunc)(ns(FunctionCall_table_t) functionCall);
-
 void HyperlightMainDefault() {}
 
 // If the guest does not define a GuestInitFunction use the empty GuestInitDefault instead see https://devblogs.microsoft.com/oldnewthing/20200731-00/?p=104024
 
 #pragma comment(linker, "/alternatename:HyperlightMain=HyperlightMainDefault")  
 
-int GuestDispatchFunctionDefault(ns(FunctionCall_table_t) functionCall)
+uint8_t* GuestDispatchFunctionDefault(ns(FunctionCall_table_t) functionCall)
 {
     char * functionName = (char *)ns(FunctionCall_function_name(functionCall));
     setError(GUEST_FUNCTION_NOT_FOUND, functionName);

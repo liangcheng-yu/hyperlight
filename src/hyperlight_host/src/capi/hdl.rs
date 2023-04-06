@@ -78,6 +78,8 @@ pub enum Hdl {
     GuestError(Key),
     /// A reference to a `FunctionCall` representing a HostFunctionCall.
     HostFunctionCall(Key),
+    /// A reference to a `FunctionCallResult` representing a result from a function call.
+    FunctionCallResult(Key),
 }
 
 impl Hdl {
@@ -119,6 +121,7 @@ impl Hdl {
     const BOOLEAN_TYPE_ID: TypeID = 126;
     const GUEST_ERROR_TYPE_ID: TypeID = 127;
     const HOST_FUNCTION_CALL_TYPE_ID: TypeID = 128;
+    const FUNCTION_CALL_RESULT_TYPE_ID: TypeID = 129;
 
     /// Get the `TypeID` associated with `self`.
     ///
@@ -163,6 +166,7 @@ impl Hdl {
             Hdl::MemAccessHandlerFunc(_) => Self::MEM_ACCESS_HANDLER_FUNC_TYPE_ID,
             Hdl::GuestError(_) => Self::GUEST_ERROR_TYPE_ID,
             Hdl::HostFunctionCall(_) => Self::HOST_FUNCTION_CALL_TYPE_ID,
+            Hdl::FunctionCallResult(_) => Self::FUNCTION_CALL_RESULT_TYPE_ID,
         }
     }
 
@@ -210,6 +214,7 @@ impl Hdl {
             Hdl::MemAccessHandlerFunc(key) => *key,
             Hdl::GuestError(key) => *key,
             Hdl::HostFunctionCall(key) => *key,
+            Hdl::FunctionCallResult(key) => *key,
         }
     }
 }
@@ -255,6 +260,7 @@ impl std::fmt::Display for Hdl {
             Hdl::MemAccessHandlerFunc(key) => write!(f, "MemAccessHandlerFunc({})", key),
             Hdl::GuestError(key) => write!(f, "GuestErrorHandlerFunc({})", key),
             Hdl::HostFunctionCall(key) => write!(f, "HostFunctionCallHandlerFunc({})", key),
+            Hdl::FunctionCallResult(key) => write!(f, "FunctionCallResultHandlerFunc({})", key),
         }
     }
 }
@@ -305,6 +311,7 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::MEM_ACCESS_HANDLER_FUNC_TYPE_ID => Ok(Hdl::MemAccessHandlerFunc(key)),
             Self::GUEST_ERROR_TYPE_ID => Ok(Hdl::GuestError(key)),
             Self::HOST_FUNCTION_CALL_TYPE_ID => Ok(Hdl::HostFunctionCall(key)),
+            Self::FUNCTION_CALL_RESULT_TYPE_ID => Ok(Hdl::FunctionCallResult(key)),
             _ => bail!("invalid handle type {}", hdl.type_id()),
         }
     }

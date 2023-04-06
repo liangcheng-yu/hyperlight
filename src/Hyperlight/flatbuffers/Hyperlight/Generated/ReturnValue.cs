@@ -13,6 +13,7 @@ public enum ReturnValue : byte
   hlstring = 3,
   hlbool = 4,
   hlvoid = 5,
+  hlsizeprefixedbuffer = 6,
 };
 
 

@@ -260,7 +260,7 @@ namespace Hyperlight
             }
             CorrelationId.Value = result;
         }
-        internal object DispatchCallFromHost(string functionName, object[] args)
+        internal object DispatchCallFromHost(string functionName, RuntimeTypeHandle returnType, object[] args)
         {
             var pDispatchFunction = sandboxMemoryManager.GetPointerToDispatchFunction();
 
@@ -269,7 +269,7 @@ namespace Hyperlight
                 HyperlightException.LogAndThrowException<ArgumentException>($"{nameof(pDispatchFunction)} is null", GetType().Name);
             }
 
-            sandboxMemoryManager.WriteGuestFunctionCallDetails(functionName, args);
+            sandboxMemoryManager.WriteGuestFunctionCallDetails(functionName, args, returnType);
 
             if (runFromProcessMemory)
             {
@@ -550,7 +550,7 @@ namespace Hyperlight
                 HyperlightException.LogAndThrowException<StackOverflowException>("Init Function Failed", GetType().Name);
             }
 
-            returnValue = sandboxMemoryManager.GetReturnValue();
+            returnValue = sandboxMemoryManager.GetInitReturnValue();
 
             if (returnValue != 0)
             {

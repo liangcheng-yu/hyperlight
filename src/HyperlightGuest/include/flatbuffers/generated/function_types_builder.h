@@ -56,6 +56,11 @@ typedef flatbuffers_ref_t Hyperlight_Generated_hlvecbytes_ref_t;
 static Hyperlight_Generated_hlvecbytes_ref_t Hyperlight_Generated_hlvecbytes_clone(flatbuffers_builder_t *B, Hyperlight_Generated_hlvecbytes_table_t t);
 __flatbuffers_build_table(flatbuffers_, Hyperlight_Generated_hlvecbytes, 1)
 
+static const flatbuffers_voffset_t __Hyperlight_Generated_hlsizeprefixedbuffer_required[] = { 0 };
+typedef flatbuffers_ref_t Hyperlight_Generated_hlsizeprefixedbuffer_ref_t;
+static Hyperlight_Generated_hlsizeprefixedbuffer_ref_t Hyperlight_Generated_hlsizeprefixedbuffer_clone(flatbuffers_builder_t *B, Hyperlight_Generated_hlsizeprefixedbuffer_table_t t);
+__flatbuffers_build_table(flatbuffers_, Hyperlight_Generated_hlsizeprefixedbuffer, 2)
+
 static const flatbuffers_voffset_t __Hyperlight_Generated_hlvoid_required[] = { 0 };
 typedef flatbuffers_ref_t Hyperlight_Generated_hlvoid_ref_t;
 static Hyperlight_Generated_hlvoid_ref_t Hyperlight_Generated_hlvoid_clone(flatbuffers_builder_t *B, Hyperlight_Generated_hlvoid_table_t t);
@@ -85,6 +90,11 @@ __flatbuffers_build_table_prolog(flatbuffers_, Hyperlight_Generated_hlbool, Hype
 #define __Hyperlight_Generated_hlvecbytes_call_args , v0
 static inline Hyperlight_Generated_hlvecbytes_ref_t Hyperlight_Generated_hlvecbytes_create(flatbuffers_builder_t *B __Hyperlight_Generated_hlvecbytes_formal_args);
 __flatbuffers_build_table_prolog(flatbuffers_, Hyperlight_Generated_hlvecbytes, Hyperlight_Generated_hlvecbytes_file_identifier, Hyperlight_Generated_hlvecbytes_type_identifier)
+
+#define __Hyperlight_Generated_hlsizeprefixedbuffer_formal_args , int32_t v0, flatbuffers_uint8_vec_ref_t v1
+#define __Hyperlight_Generated_hlsizeprefixedbuffer_call_args , v0, v1
+static inline Hyperlight_Generated_hlsizeprefixedbuffer_ref_t Hyperlight_Generated_hlsizeprefixedbuffer_create(flatbuffers_builder_t *B __Hyperlight_Generated_hlsizeprefixedbuffer_formal_args);
+__flatbuffers_build_table_prolog(flatbuffers_, Hyperlight_Generated_hlsizeprefixedbuffer, Hyperlight_Generated_hlsizeprefixedbuffer_file_identifier, Hyperlight_Generated_hlsizeprefixedbuffer_type_identifier)
 
 #define __Hyperlight_Generated_hlvoid_formal_args 
 #define __Hyperlight_Generated_hlvoid_call_args 
@@ -129,6 +139,8 @@ static inline Hyperlight_Generated_ReturnValue_union_ref_t Hyperlight_Generated_
 { Hyperlight_Generated_ReturnValue_union_ref_t uref; uref.type = Hyperlight_Generated_ReturnValue_hlbool; uref.value = ref; return uref; }
 static inline Hyperlight_Generated_ReturnValue_union_ref_t Hyperlight_Generated_ReturnValue_as_hlvoid(Hyperlight_Generated_hlvoid_ref_t ref)
 { Hyperlight_Generated_ReturnValue_union_ref_t uref; uref.type = Hyperlight_Generated_ReturnValue_hlvoid; uref.value = ref; return uref; }
+static inline Hyperlight_Generated_ReturnValue_union_ref_t Hyperlight_Generated_ReturnValue_as_hlsizeprefixedbuffer(Hyperlight_Generated_hlsizeprefixedbuffer_ref_t ref)
+{ Hyperlight_Generated_ReturnValue_union_ref_t uref; uref.type = Hyperlight_Generated_ReturnValue_hlsizeprefixedbuffer; uref.value = ref; return uref; }
 __flatbuffers_build_union_vector(flatbuffers_, Hyperlight_Generated_ReturnValue)
 
 static Hyperlight_Generated_ReturnValue_union_ref_t Hyperlight_Generated_ReturnValue_clone(flatbuffers_builder_t *B, Hyperlight_Generated_ReturnValue_union_t u)
@@ -139,6 +151,7 @@ static Hyperlight_Generated_ReturnValue_union_ref_t Hyperlight_Generated_ReturnV
     case 3: return Hyperlight_Generated_ReturnValue_as_hlstring(Hyperlight_Generated_hlstring_clone(B, (Hyperlight_Generated_hlstring_table_t)u.value));
     case 4: return Hyperlight_Generated_ReturnValue_as_hlbool(Hyperlight_Generated_hlbool_clone(B, (Hyperlight_Generated_hlbool_table_t)u.value));
     case 5: return Hyperlight_Generated_ReturnValue_as_hlvoid(Hyperlight_Generated_hlvoid_clone(B, (Hyperlight_Generated_hlvoid_table_t)u.value));
+    case 6: return Hyperlight_Generated_ReturnValue_as_hlsizeprefixedbuffer(Hyperlight_Generated_hlsizeprefixedbuffer_clone(B, (Hyperlight_Generated_hlsizeprefixedbuffer_table_t)u.value));
     default: return Hyperlight_Generated_ReturnValue_as_NONE();
     }
 }
@@ -246,6 +259,30 @@ static Hyperlight_Generated_hlvecbytes_ref_t Hyperlight_Generated_hlvecbytes_clo
         return 0;
     }
     __flatbuffers_memoize_end(B, t, Hyperlight_Generated_hlvecbytes_end(B));
+}
+
+__flatbuffers_build_scalar_field(0, flatbuffers_, Hyperlight_Generated_hlsizeprefixedbuffer_size, flatbuffers_int32, int32_t, 4, 4, INT32_C(0), Hyperlight_Generated_hlsizeprefixedbuffer)
+__flatbuffers_build_vector_field(1, flatbuffers_, Hyperlight_Generated_hlsizeprefixedbuffer_value, flatbuffers_uint8, uint8_t, Hyperlight_Generated_hlsizeprefixedbuffer)
+
+static inline Hyperlight_Generated_hlsizeprefixedbuffer_ref_t Hyperlight_Generated_hlsizeprefixedbuffer_create(flatbuffers_builder_t *B __Hyperlight_Generated_hlsizeprefixedbuffer_formal_args)
+{
+    if (Hyperlight_Generated_hlsizeprefixedbuffer_start(B)
+        || Hyperlight_Generated_hlsizeprefixedbuffer_size_add(B, v0)
+        || Hyperlight_Generated_hlsizeprefixedbuffer_value_add(B, v1)) {
+        return 0;
+    }
+    return Hyperlight_Generated_hlsizeprefixedbuffer_end(B);
+}
+
+static Hyperlight_Generated_hlsizeprefixedbuffer_ref_t Hyperlight_Generated_hlsizeprefixedbuffer_clone(flatbuffers_builder_t *B, Hyperlight_Generated_hlsizeprefixedbuffer_table_t t)
+{
+    __flatbuffers_memoize_begin(B, t);
+    if (Hyperlight_Generated_hlsizeprefixedbuffer_start(B)
+        || Hyperlight_Generated_hlsizeprefixedbuffer_size_pick(B, t)
+        || Hyperlight_Generated_hlsizeprefixedbuffer_value_pick(B, t)) {
+        return 0;
+    }
+    __flatbuffers_memoize_end(B, t, Hyperlight_Generated_hlsizeprefixedbuffer_end(B));
 }
 
 

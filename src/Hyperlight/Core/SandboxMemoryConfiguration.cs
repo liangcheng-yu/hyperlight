@@ -94,7 +94,7 @@ namespace Hyperlight.Core
             ulong heapSizeOverride = 0
         )
         {
-            this = mem_config_new(
+            var config = mem_config_new(
                 inputDataSize,
                 outputDataSize,
                 hostFunctionDefinitionSize,
@@ -103,6 +103,13 @@ namespace Hyperlight.Core
                 stackSizeOverride,
                 heapSizeOverride
             );
+            this.GuestErrorBufferSize = config.GuestErrorBufferSize;
+            this.HostFunctionDefinitionSize = config.HostFunctionDefinitionSize;
+            this.HostExceptionSize = config.HostExceptionSize;
+            this.InputDataSize = config.InputDataSize;
+            this.OutputDataSize = config.OutputDataSize;
+            this.HeapSizeOverride = config.HeapSizeOverride;
+            this.StackSizeOverride = config.StackSizeOverride;
         }
 
         public SandboxMemoryConfiguration WithInputDataSize(ulong size)
@@ -113,7 +120,9 @@ namespace Hyperlight.Core
                 OutputDataSize = this.OutputDataSize,
                 HostFunctionDefinitionSize = this.HostFunctionDefinitionSize,
                 HostExceptionSize = this.HostExceptionSize,
-                GuestErrorBufferSize = this.GuestErrorBufferSize
+                GuestErrorBufferSize = this.GuestErrorBufferSize,
+                HeapSizeOverride = this.HeapSizeOverride,
+                StackSizeOverride = this.StackSizeOverride
             };
         }
 
@@ -125,7 +134,9 @@ namespace Hyperlight.Core
                 OutputDataSize = size,
                 HostFunctionDefinitionSize = this.HostFunctionDefinitionSize,
                 HostExceptionSize = this.HostExceptionSize,
-                GuestErrorBufferSize = this.GuestErrorBufferSize
+                GuestErrorBufferSize = this.GuestErrorBufferSize,
+                HeapSizeOverride = this.HeapSizeOverride,
+                StackSizeOverride = this.StackSizeOverride
             };
         }
 
@@ -137,7 +148,9 @@ namespace Hyperlight.Core
                 OutputDataSize = this.OutputDataSize,
                 HostFunctionDefinitionSize = size,
                 HostExceptionSize = this.HostExceptionSize,
-                GuestErrorBufferSize = this.GuestErrorBufferSize
+                GuestErrorBufferSize = this.GuestErrorBufferSize,
+                HeapSizeOverride = this.HeapSizeOverride,
+                StackSizeOverride = this.StackSizeOverride
             };
         }
 
@@ -149,7 +162,9 @@ namespace Hyperlight.Core
                 OutputDataSize = this.OutputDataSize,
                 HostFunctionDefinitionSize = this.HostFunctionDefinitionSize,
                 HostExceptionSize = size,
-                GuestErrorBufferSize = this.GuestErrorBufferSize
+                GuestErrorBufferSize = this.GuestErrorBufferSize,
+                HeapSizeOverride = this.HeapSizeOverride,
+                StackSizeOverride = this.StackSizeOverride
             };
         }
 
@@ -161,7 +176,37 @@ namespace Hyperlight.Core
                 OutputDataSize = this.OutputDataSize,
                 HostFunctionDefinitionSize = this.HostFunctionDefinitionSize,
                 HostExceptionSize = this.HostExceptionSize,
-                GuestErrorBufferSize = size
+                GuestErrorBufferSize = size,
+                HeapSizeOverride = this.HeapSizeOverride,
+                StackSizeOverride = this.StackSizeOverride
+            };
+        }
+
+        public SandboxMemoryConfiguration WithHeapSizeOverride(ulong size)
+        {
+            return new SandboxMemoryConfiguration()
+            {
+                InputDataSize = this.InputDataSize,
+                OutputDataSize = this.OutputDataSize,
+                HostFunctionDefinitionSize = this.HostFunctionDefinitionSize,
+                HostExceptionSize = this.HostExceptionSize,
+                GuestErrorBufferSize = this.GuestErrorBufferSize,
+                HeapSizeOverride = size,
+                StackSizeOverride = this.StackSizeOverride
+            };
+        }
+
+        public SandboxMemoryConfiguration WithStackSizeOverride(ulong size)
+        {
+            return new SandboxMemoryConfiguration()
+            {
+                InputDataSize = this.InputDataSize,
+                OutputDataSize = this.OutputDataSize,
+                HostFunctionDefinitionSize = this.HostFunctionDefinitionSize,
+                HostExceptionSize = this.HostExceptionSize,
+                GuestErrorBufferSize = this.GuestErrorBufferSize,
+                HeapSizeOverride = this.HeapSizeOverride,
+                StackSizeOverride = size
             };
         }
 

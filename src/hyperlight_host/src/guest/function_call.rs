@@ -3,7 +3,7 @@ use crate::flatbuffers::hyperlight::generated::{
     hlbool, hlboolArgs, hlint, hlintArgs, hllong, hllongArgs, hlstring, hlstringArgs, hlvecbytes,
     hlvecbytesArgs, size_prefixed_root_as_function_call, FunctionCall as FBFunctionCall,
     FunctionCallArgs as FBFunctionCallArgs, FunctionCallType as FBFunctionCallType, Parameter,
-    ParameterArgs, ParameterValue,
+    ParameterArgs, ParameterValue, ReturnType,
 };
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::shared_mem::SharedMemory;
@@ -20,6 +20,7 @@ pub struct FunctionCall {
     /// The parameters for the function call.
     pub parameters: Option<Vec<Param>>,
     function_call_type: FunctionCallType,
+    expected_return_type: ExpectedFunctionCallReturnType,
 }
 
 /// This is the type and value of a parameter to the function call.
@@ -45,6 +46,23 @@ pub enum FunctionCallType {
     Host,
 }
 
+/// The expcted return type of the function call.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExpectedFunctionCallReturnType {
+    /// The expected return type is Int.
+    Int,
+    /// The expected return type is Long.
+    Long,
+    /// The expected return type is String.
+    String,
+    /// The expected return type is a vec prefixed with a 4 byte size.
+    SizePrefixedBuffer,
+    /// The expected return type is void.
+    Void,
+    /// The expected return type is a boolean.
+    Bool,
+}
+
 impl TryFrom<&[u8]> for FunctionCall {
     type Error = anyhow::Error;
     fn try_from(value: &[u8]) -> Result<Self> {
@@ -54,6 +72,17 @@ impl TryFrom<&[u8]> for FunctionCall {
         let function_call_type = match guest_function_call_fb.function_call_type() {
             FBFunctionCallType::guest => FunctionCallType::Guest,
             FBFunctionCallType::host => FunctionCallType::Host,
+            _ => {
+                anyhow::bail!("Unknown function call type");
+            }
+        };
+        let expected_return_type = match guest_function_call_fb.expected_return_type() {
+            ReturnType::hlint => ExpectedFunctionCallReturnType::Int,
+            ReturnType::hllong => ExpectedFunctionCallReturnType::Long,
+            ReturnType::hlstring => ExpectedFunctionCallReturnType::String,
+            ReturnType::hlsizeprefixedbuffer => ExpectedFunctionCallReturnType::SizePrefixedBuffer,
+            ReturnType::hlvoid => ExpectedFunctionCallReturnType::Void,
+            ReturnType::hlbool => ExpectedFunctionCallReturnType::Bool,
             _ => {
                 anyhow::bail!("Unknown function call type");
             }
@@ -115,6 +144,7 @@ impl TryFrom<&[u8]> for FunctionCall {
             function_name: function_name.to_string(),
             parameters,
             function_call_type,
+            expected_return_type,
         })
     }
 }
@@ -128,6 +158,15 @@ impl TryFrom<&FunctionCall> for Vec<u8> {
         let function_call_type = match value.function_call_type {
             FunctionCallType::Guest => FBFunctionCallType::guest,
             FunctionCallType::Host => FBFunctionCallType::host,
+        };
+
+        let expected_return_type = match value.expected_return_type {
+            ExpectedFunctionCallReturnType::Int => ReturnType::hlint,
+            ExpectedFunctionCallReturnType::Long => ReturnType::hllong,
+            ExpectedFunctionCallReturnType::String => ReturnType::hlstring,
+            ExpectedFunctionCallReturnType::SizePrefixedBuffer => ReturnType::hlsizeprefixedbuffer,
+            ExpectedFunctionCallReturnType::Void => ReturnType::hlvoid,
+            ExpectedFunctionCallReturnType::Bool => ReturnType::hlbool,
         };
 
         let vec_parameters = match &value.parameters {
@@ -236,6 +275,7 @@ impl TryFrom<&FunctionCall> for Vec<u8> {
                 function_name: Some(function_name),
                 parameters,
                 function_call_type,
+                expected_return_type,
             },
         );
         builder.finish_size_prefixed(function_call, None);
@@ -330,6 +370,7 @@ mod tests {
             function_name: "PrintSevenArgs".to_string(),
             parameters: guest_parameters,
             function_call_type: FunctionCallType::Guest,
+            expected_return_type: ExpectedFunctionCallReturnType::Int,
         };
         let guest_function_call_buffer: Vec<u8> = guest_function_call.try_into()?;
         assert_eq!(
@@ -344,6 +385,7 @@ mod tests {
             function_name: "HostMethod1".to_string(),
             parameters: host_parameters,
             function_call_type: FunctionCallType::Host,
+            expected_return_type: ExpectedFunctionCallReturnType::Int,
         };
         let host_function_call_buffer: Vec<u8> = function_call.try_into()?;
         assert_eq!(

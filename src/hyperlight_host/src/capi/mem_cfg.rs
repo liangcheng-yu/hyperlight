@@ -32,7 +32,7 @@ pub extern "C" fn mem_config_new(
         host_function_definition_size,
         host_exception_size,
         guest_error_message_size,
-        option_when(stack_size_override, stack_size_override == 0),
-        option_when(heap_size_override, heap_size_override == 0),
+        option_when(stack_size_override, stack_size_override > 0),
+        option_when(heap_size_override, heap_size_override > 0),
     )
 }

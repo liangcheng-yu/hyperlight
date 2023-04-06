@@ -150,5 +150,8 @@ mod tests {
             assert_eq!(STACK_SIZE_OVERRIDE, stack_size);
             assert_eq!(HEAP_SIZE_OVERRIDE, heap_size);
         }
+        let cfg = SandboxMemoryConfiguration::new(10, 10, 10, 10, 10, Some(1024), Some(2048));
+        assert_eq!(1024, cfg.stack_size_override);
+        assert_eq!(2048, cfg.heap_size_override);
     }
 }

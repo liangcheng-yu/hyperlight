@@ -12,6 +12,7 @@ use super::{
 };
 use crate::guest::{
     function_call::{FunctionCall, ReadFunctionCallFromMemory, WriteFunctionCallToMemory},
+    function_call_result::FunctionCallResult,
     guest_error::{Code, GuestError},
     guest_function_call::GuestFunctionCall,
     host_function_call::HostFunctionCall,
@@ -476,6 +477,10 @@ impl SandboxMemoryManager {
         let layout = self.layout;
         let buffer = host_function_call.read(self.get_shared_mem(), &layout)?;
         FunctionCall::try_from(buffer.as_slice())
+    }
+    /// Reads a function call result from memory
+    pub fn get_function_call_result(&mut self) -> Result<FunctionCallResult> {
+        FunctionCallResult::try_from((&self.shared_mem, &self.layout))
     }
 }
 

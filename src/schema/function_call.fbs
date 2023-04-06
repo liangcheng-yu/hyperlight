@@ -20,6 +20,14 @@ table FunctionCall {
     function_name:string(required, key);
     parameters:[Parameter];
     function_call_type:FunctionCallType;
+    // For dynamic calls such as WASM functions we need to know the expected return type
+    // as these functions are not registered in the guest then there is no way of knowing what the return type is expected to be 
+    // we could register all the WASM functions in the guest by examining the WASM module 
+    // but even if we did this we would still not know the return type of the function as WASM metadata does not contain this information
+    // so we have to rely on the host to tell us what the return type is
+    // we can also use this to validate what the host expects where we have a statically registered function.
+    // If we ultimately adopt WIT for IDL then we might not need this any longer
+    expected_return_type:ReturnType;
 }
 
 root_type FunctionCall;

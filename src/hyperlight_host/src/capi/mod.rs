@@ -26,6 +26,8 @@ pub mod err;
 pub mod exports;
 ///! C-compatible APIs to manipulate paths to files.
 pub mod filepath;
+///! C-compatible APIs to manage function_call_results.
+pub mod function_call_result;
 ///! C-compatible API functions to manage guest errors.
 pub mod guest_error;
 ///! C-compatible API functions to manage `Handle` structures,

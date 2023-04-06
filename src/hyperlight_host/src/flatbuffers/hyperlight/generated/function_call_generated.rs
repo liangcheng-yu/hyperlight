@@ -30,6 +30,7 @@ impl<'a> FunctionCall<'a> {
     pub const VT_FUNCTION_NAME: flatbuffers::VOffsetT = 4;
     pub const VT_PARAMETERS: flatbuffers::VOffsetT = 6;
     pub const VT_FUNCTION_CALL_TYPE: flatbuffers::VOffsetT = 8;
+    pub const VT_EXPECTED_RETURN_TYPE: flatbuffers::VOffsetT = 10;
 
     #[inline]
     pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -47,6 +48,7 @@ impl<'a> FunctionCall<'a> {
         if let Some(x) = args.function_name {
             builder.add_function_name(x);
         }
+        builder.add_expected_return_type(args.expected_return_type);
         builder.add_function_call_type(args.function_call_type);
         builder.finish()
     }
@@ -99,6 +101,20 @@ impl<'a> FunctionCall<'a> {
                 .unwrap()
         }
     }
+    #[inline]
+    pub fn expected_return_type(&self) -> ReturnType {
+        // Safety:
+        // Created from valid Table for this object
+        // which contains a valid value in this slot
+        unsafe {
+            self._tab
+                .get::<ReturnType>(
+                    FunctionCall::VT_EXPECTED_RETURN_TYPE,
+                    Some(ReturnType::hlint),
+                )
+                .unwrap()
+        }
+    }
 }
 
 impl flatbuffers::Verifiable for FunctionCall<'_> {
@@ -122,6 +138,11 @@ impl flatbuffers::Verifiable for FunctionCall<'_> {
                 Self::VT_FUNCTION_CALL_TYPE,
                 false,
             )?
+            .visit_field::<ReturnType>(
+                "expected_return_type",
+                Self::VT_EXPECTED_RETURN_TYPE,
+                false,
+            )?
             .finish();
         Ok(())
     }
@@ -134,6 +155,7 @@ pub struct FunctionCallArgs<'a> {
         >,
     >,
     pub function_call_type: FunctionCallType,
+    pub expected_return_type: ReturnType,
 }
 impl<'a> Default for FunctionCallArgs<'a> {
     #[inline]
@@ -142,6 +164,7 @@ impl<'a> Default for FunctionCallArgs<'a> {
             function_name: None, // required field
             parameters: None,
             function_call_type: FunctionCallType::none,
+            expected_return_type: ReturnType::hlint,
         }
     }
 }
@@ -177,6 +200,14 @@ impl<'a: 'b, 'b> FunctionCallBuilder<'a, 'b> {
         );
     }
     #[inline]
+    pub fn add_expected_return_type(&mut self, expected_return_type: ReturnType) {
+        self.fbb_.push_slot::<ReturnType>(
+            FunctionCall::VT_EXPECTED_RETURN_TYPE,
+            expected_return_type,
+            ReturnType::hlint,
+        );
+    }
+    #[inline]
     pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> FunctionCallBuilder<'a, 'b> {
         let start = _fbb.start_table();
         FunctionCallBuilder {
@@ -199,6 +230,7 @@ impl core::fmt::Debug for FunctionCall<'_> {
         ds.field("function_name", &self.function_name());
         ds.field("parameters", &self.parameters());
         ds.field("function_call_type", &self.function_call_type());
+        ds.field("expected_return_type", &self.expected_return_type());
         ds.finish()
     }
 }

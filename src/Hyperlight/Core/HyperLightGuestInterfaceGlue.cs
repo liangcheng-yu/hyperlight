@@ -1,3 +1,5 @@
+using System;
+
 namespace Hyperlight
 {
     class HyperlightGuestInterfaceGlue : GuestInterfaceGlue
@@ -8,9 +10,9 @@ namespace Hyperlight
             this.sandbox = sandbox;
         }
 
-        protected override object DispatchCallFromHost(string functionName, object[] args)
+        protected override object DispatchCallFromHost(string functionName, RuntimeTypeHandle returnType, object[] args)
         {
-            return sandbox.DispatchCallFromHost(functionName, args);
+            return sandbox.DispatchCallFromHost(functionName, returnType, args);
         }
         protected override bool EnterDynamicMethod()
         {

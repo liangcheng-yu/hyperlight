@@ -18,18 +18,19 @@ pub const ENUM_MIN_RETURN_TYPE: u8 = 0;
     since = "2.0.0",
     note = "Use associated constants instead. This will no longer be generated in 2021."
 )]
-pub const ENUM_MAX_RETURN_TYPE: u8 = 4;
+pub const ENUM_MAX_RETURN_TYPE: u8 = 5;
 #[deprecated(
     since = "2.0.0",
     note = "Use associated constants instead. This will no longer be generated in 2021."
 )]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RETURN_TYPE: [ReturnType; 5] = [
+pub const ENUM_VALUES_RETURN_TYPE: [ReturnType; 6] = [
     ReturnType::hlint,
     ReturnType::hllong,
     ReturnType::hlstring,
     ReturnType::hlbool,
     ReturnType::hlvoid,
+    ReturnType::hlsizeprefixedbuffer,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -42,15 +43,17 @@ impl ReturnType {
     pub const hlstring: Self = Self(2);
     pub const hlbool: Self = Self(3);
     pub const hlvoid: Self = Self(4);
+    pub const hlsizeprefixedbuffer: Self = Self(5);
 
     pub const ENUM_MIN: u8 = 0;
-    pub const ENUM_MAX: u8 = 4;
+    pub const ENUM_MAX: u8 = 5;
     pub const ENUM_VALUES: &'static [Self] = &[
         Self::hlint,
         Self::hllong,
         Self::hlstring,
         Self::hlbool,
         Self::hlvoid,
+        Self::hlsizeprefixedbuffer,
     ];
     /// Returns the variant's name or "" if unknown.
     pub fn variant_name(self) -> Option<&'static str> {
@@ -60,6 +63,7 @@ impl ReturnType {
             Self::hlstring => Some("hlstring"),
             Self::hlbool => Some("hlbool"),
             Self::hlvoid => Some("hlvoid"),
+            Self::hlsizeprefixedbuffer => Some("hlsizeprefixedbuffer"),
             _ => None,
         }
     }

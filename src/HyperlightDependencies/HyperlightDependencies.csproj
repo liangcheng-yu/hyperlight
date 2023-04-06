@@ -52,13 +52,19 @@
     <Content Include="..\HyperlightGuest\third_party\flatcc\LICENSE" Pack="true" PackagePath="include\flatcc\">
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </Content>
-    <Content Include="..\HyperlightGuest\third_party\flatcc\include\*.h" Pack="true" PackagePath="include\flatcc\include">
+    <Content Include="..\HyperlightGuest\third_party\flatcc\include\flatcc\*.h" Pack="true" PackagePath="include\flatcc\include\flatcc">
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </Content>
+    <Content Include="..\HyperlightGuest\third_party\flatcc\include\flatcc\portable\*.h" Pack="true" PackagePath="include\flatcc\include\flatcc\portable">
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </Content>
     <Content Include="..\HyperlightGuest\include\flatbuffers\generated\guest_function_definition*.h" Pack="true" PackagePath="include\flatbuffers\generated">
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </Content>
     <Content Include="..\HyperlightGuest\include\flatbuffers\generated\function_*.h" Pack="true" PackagePath="include\flatbuffers\generated">
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </Content>
+    <Content Include="..\HyperlightGuest\include\flatbuffers\generated\flatbuffers*.h" Pack="true" PackagePath="include\flatbuffers\generated">
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </Content>
     <Content Include="..\HyperlightGuest\include\flatbuffers\generated\host_function_de*.h" Pack="true" PackagePath="include\flatbuffers\generated">

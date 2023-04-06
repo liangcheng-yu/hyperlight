@@ -1,6 +1,9 @@
 ///! Represents a function call.
 pub mod function_call;
 
+///! Represents the result of a function call.
+pub mod function_call_result;
+
 ///! Represents an error that occured int the guest.
 pub mod guest_error;
 

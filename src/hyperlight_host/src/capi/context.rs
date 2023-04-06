@@ -5,6 +5,7 @@ use crate::capi::outb_handler::OutbHandlerWrapper;
 use crate::func::args::Val;
 use crate::func::def::HostFunc;
 use crate::guest::function_call::FunctionCall;
+use crate::guest::function_call_result::FunctionCallResult;
 use crate::guest::guest_error::GuestError;
 #[cfg(target_os = "linux")]
 use crate::hypervisor::hyperv_linux::HypervLinuxDriver;
@@ -106,6 +107,8 @@ pub struct Context {
     pub guest_errors: HashMap<Key, GuestError>,
     /// All the `FunctionCall`s stored in this context
     pub host_function_calls: HashMap<Key, FunctionCall>,
+    /// All the `FunctionCallResult`s stored in this context
+    pub function_call_results: HashMap<Key, FunctionCallResult>,
 }
 
 impl Context {
@@ -237,6 +240,9 @@ impl Context {
                     }
                     Hdl::GuestError(key) => self.guest_errors.remove(&key).is_some(),
                     Hdl::HostFunctionCall(key) => self.host_function_calls.remove(&key).is_some(),
+                    Hdl::FunctionCallResult(key) => {
+                        self.function_call_results.remove(&key).is_some()
+                    }
                 }
             }
             Err(_) => false,

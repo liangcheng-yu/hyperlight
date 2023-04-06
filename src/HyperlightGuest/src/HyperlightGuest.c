@@ -215,7 +215,7 @@ void setError(uint64_t errorCode, char *message)
 
 void ValidateHostFunctionCall(flatcc_builder_t* HostFunctionCallBuilder, char* functionName, va_list ap)
 {
-    Hyperlight_Generated_HostFunctionDetails_table_t hostfunctionDetails = GetHostFunctionDetails();
+    ns(HostFunctionDetails_table_t) hostfunctionDetails = GetHostFunctionDetails();
     if (NULL == hostfunctionDetails)
     {
         setError(GUEST_ERROR, "No host functions found");
@@ -234,113 +234,111 @@ void ValidateHostFunctionCall(flatcc_builder_t* HostFunctionCallBuilder, char* f
 
     ns(HostFunctionDefinition_table_t) hostFunctionDefiniton = ns(HostFunctionDefinition_vec_at(hostFunctionDefinitions, key));
 
-    Hyperlight_Generated_ParameterType_vec_t parameterTypes = Hyperlight_Generated_HostFunctionDefinition_parameters(hostFunctionDefiniton);
-    size_t numParams = Hyperlight_Generated_ParameterType_vec_len(parameterTypes);
-    Hyperlight_Generated_Parameter_vec_start(HostFunctionCallBuilder);
-
-    // If the parameter is of type then the following parameter must be its length Hyperlight_Generated_ParameterType_hlvecbytes
-    bool nextParamShouldBeLength = false;
+    ns(ParameterType_vec_t) parameterTypes = ns(HostFunctionDefinition_parameters(hostFunctionDefiniton));
+    size_t numParams = ns(ParameterType_vec_len(parameterTypes));
+    ns(Parameter_vec_start(HostFunctionCallBuilder));
 
     for (int i = 0; i < numParams; i++)
     {
-        Hyperlight_Generated_ParameterType_enum_t paramType = Hyperlight_Generated_ParameterType_vec_at(parameterTypes, i);
-
-        if (nextParamShouldBeLength)
-        {
-            if (paramType != Hyperlight_Generated_ParameterType_hlint)
-            {
-                char message[100];
-                snprintf(message, 100, "Host Function %s: Parameter %d should be length of buffer for parameter %d", functionName, i, i-1);
-                setError(GUEST_ERROR, message);
-            }
-            int32_t value;
-            if (value = va_arg(ap, int32_t))
-            {
-                Hyperlight_Generated_hlint_ref_t val = Hyperlight_Generated_hlint_create(HostFunctionCallBuilder, value);
-                Hyperlight_Generated_ParameterValue_union_ref_t pValue = Hyperlight_Generated_ParameterValue_as_hlint(val);
-                Hyperlight_Generated_Parameter_ref_t param = Hyperlight_Generated_Parameter_create(HostFunctionCallBuilder, pValue);
-                Hyperlight_Generated_FunctionCall_vec_push(HostFunctionCallBuilder, param);
-                nextParamShouldBeLength = false;
-                continue;
-            }
-            char message[100];
-            snprintf(message, 100, "Failed to get int32 parameter: %d for host function: %s", i, functionName);
-            setError(GUEST_ERROR, message);
-        }
+        ns(ParameterType_enum_t) paramType = ns(ParameterType_vec_at(parameterTypes, i));
 
         switch (paramType)
         {
-            case Hyperlight_Generated_ParameterType_hlint:
+            case ns(ParameterType_hlint):
             {
                 int32_t value;
                 if (value = va_arg(ap, int32_t))
                 {
-                    Hyperlight_Generated_hlint_ref_t val = Hyperlight_Generated_hlint_create(HostFunctionCallBuilder, value);
-                    Hyperlight_Generated_ParameterValue_union_ref_t pValue = Hyperlight_Generated_ParameterValue_as_hlint(val);
-                    Hyperlight_Generated_Parameter_ref_t param = Hyperlight_Generated_Parameter_create(HostFunctionCallBuilder, pValue);
-                    Hyperlight_Generated_FunctionCall_vec_push(HostFunctionCallBuilder, param);
+                    ns(hlint_ref_t) val = ns(hlint_create(HostFunctionCallBuilder, value));
+                    ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hlint(val));
+                    ns(Parameter_ref_t) param = ns(Parameter_create(HostFunctionCallBuilder, pValue));
+                    ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
                     break;
                 }
                 char message[100];
                 snprintf(message, 100, "Failed to get int32 parameter: %d for host function: %s", i, functionName);
                 setError(GUEST_ERROR, message);
             }
-            case Hyperlight_Generated_ParameterType_hllong:
+            case ns(ParameterType_hllong):
             {
                 int64_t value;
                 if (value = va_arg(ap, int64_t))
                 {
-                    Hyperlight_Generated_hllong_ref_t val = Hyperlight_Generated_hllong_create(HostFunctionCallBuilder, value);
-                    Hyperlight_Generated_ParameterValue_union_ref_t pValue = Hyperlight_Generated_ParameterValue_as_hllong(val);
-                    Hyperlight_Generated_Parameter_ref_t param = Hyperlight_Generated_Parameter_create(HostFunctionCallBuilder, pValue);
-                    Hyperlight_Generated_FunctionCall_vec_push(HostFunctionCallBuilder, param);
+                    ns(hllong_ref_t) val = ns(hllong_create(HostFunctionCallBuilder, value));
+                    ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hllong(val));
+                    ns(Parameter_ref_t) param = ns(Parameter_create(HostFunctionCallBuilder, pValue));
+                    ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
                     break;
                 }
                 char message[100];
                 snprintf(message, 100, "Failed to get int64 parameter: %d for host function: %s", i, functionName);
                 setError(GUEST_ERROR, message);
             }
-            case Hyperlight_Generated_ParameterType_hlstring:
+            case ns(ParameterType_hlstring):
             {
                 char* value;
                 if (value = va_arg(ap, char*))
                 {
                     flatbuffers_string_ref_t fb_string_ref = flatbuffers_string_create_str(HostFunctionCallBuilder, value);
-                    Hyperlight_Generated_hlstring_ref_t val = Hyperlight_Generated_hlstring_create(HostFunctionCallBuilder, fb_string_ref);
-                    Hyperlight_Generated_ParameterValue_union_ref_t pValue = Hyperlight_Generated_ParameterValue_as_hlstring(val);
-                    Hyperlight_Generated_Parameter_ref_t param = Hyperlight_Generated_Parameter_create(HostFunctionCallBuilder, pValue);
-                    Hyperlight_Generated_FunctionCall_vec_push(HostFunctionCallBuilder, param);
+                    ns(hlstring_ref_t) val = ns(hlstring_create(HostFunctionCallBuilder, fb_string_ref));
+                    ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hlstring(val));
+                    ns(Parameter_ref_t) param = ns(Parameter_create(HostFunctionCallBuilder, pValue));
+                    ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
                     break;
                 }
                 char message[100];
                 snprintf(message, 100, "Failed to get string parameter: %d for host function: %s", i, functionName);
                 setError(GUEST_ERROR, message);
             }
-            case Hyperlight_Generated_ParameterType_hlbool:
+            case ns(ParameterType_hlbool):
             {
                 bool value;
                 if (value = va_arg(ap, bool))
                 {
-                    Hyperlight_Generated_hlbool_ref_t val = Hyperlight_Generated_hlbool_create(HostFunctionCallBuilder, value);
-                    Hyperlight_Generated_ParameterValue_union_ref_t pValue = Hyperlight_Generated_ParameterValue_as_hlbool(val);
-                    Hyperlight_Generated_Parameter_ref_t param = Hyperlight_Generated_Parameter_create(HostFunctionCallBuilder, pValue);
-                    Hyperlight_Generated_FunctionCall_vec_push(HostFunctionCallBuilder, param);
+                    ns(hlbool_ref_t) val = ns(hlbool_create(HostFunctionCallBuilder, value));
+                    ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hlbool(val));
+                    ns(Parameter_ref_t) param = ns(Parameter_create(HostFunctionCallBuilder, pValue));
+                    ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
                     break;
                 }
                 char message[100];
                 snprintf(message, 100, "Failed to get bool parameter: %d for host function: %s", i, functionName);
                 setError(GUEST_ERROR, message);
             }
-            case Hyperlight_Generated_ParameterType_hlvecbytes:
+            case ns(ParameterType_hlvecbytes):
             {
-                nextParamShouldBeLength = true;
                 void* value;
                 if (value = va_arg(ap, void*))
                 {
-                    Hyperlight_Generated_hlvecbytes_ref_t val = Hyperlight_Generated_hlvecbytes_create(HostFunctionCallBuilder, value);
-                    Hyperlight_Generated_ParameterValue_union_ref_t pValue = Hyperlight_Generated_ParameterValue_as_hlvecbytes(val);
-                    Hyperlight_Generated_Parameter_ref_t param = Hyperlight_Generated_Parameter_create(HostFunctionCallBuilder, pValue);
-                    Hyperlight_Generated_FunctionCall_vec_push(HostFunctionCallBuilder, param);
+                    // If the parameter is of type then the following parameter must be its length 
+
+                    ns(ParameterType_enum_t) lenParamType = ns(ParameterType_vec_at(parameterTypes, i++));                 
+                    if (lenParamType != ns(ParameterType_hlint))
+                    {
+                        char message[100];
+                        snprintf(message, 100, "Host Function %s: Parameter %d should be length of buffer for parameter %d", functionName, i, i - 1);
+                        setError(GUEST_ERROR, message);
+                    }
+                    int32_t length=0;
+                    ns(Parameter_ref_t) lenParam = (int32_t)0;
+                    if ((length = va_arg(ap, int32_t)) && length > 0)
+                    {
+                        ns(hlint_ref_t) val = ns(hlint_create(HostFunctionCallBuilder, length));
+                        ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hlint(val));
+                        lenParam = ns(Parameter_create(HostFunctionCallBuilder, pValue));
+                    }
+                    else
+                    {
+                        char message[100];
+                        snprintf(message, 100, "Failed to get int32 parameter: %d for host function: %s", i, functionName);
+                        setError(GUEST_ERROR, message);
+                    }
+                    flatbuffers_uint8_vec_ref_t fb_vec_ref = flatbuffers_uint8_vec_create(HostFunctionCallBuilder,  value , length);
+                    ns(hlvecbytes_ref_t) val = ns(hlvecbytes_create(HostFunctionCallBuilder, fb_vec_ref));
+                    ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hlvecbytes(val));
+                    ns(Parameter_ref_t) param = ns(Parameter_create(HostFunctionCallBuilder, pValue));
+                    ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
+                    ns(FunctionCall_vec_push(HostFunctionCallBuilder, lenParam));
                     break;
                 }
                 char message[100];
@@ -355,16 +353,8 @@ void ValidateHostFunctionCall(flatcc_builder_t* HostFunctionCallBuilder, char* f
             }
         }
     }
-
-    if (nextParamShouldBeLength)
-    {
-        char message[100];
-        snprintf(message, 100, "Host Function %s: Last parameter should be length of buffer for current last parameter", functionName);
-        setError(GUEST_ERROR, message);
-    }
-
-    Hyperlight_Generated_Parameter_vec_ref_t params_vec = Hyperlight_Generated_Parameter_vec_end(HostFunctionCallBuilder);
-    Hyperlight_Generated_FunctionCall_parameters_add(HostFunctionCallBuilder, params_vec);
+    ns(Parameter_vec_ref_t) params_vec = ns(Parameter_vec_end(HostFunctionCallBuilder));
+    ns(FunctionCall_parameters_add(HostFunctionCallBuilder, params_vec));
 }
 
 void CallHostFunction(char *functionName, va_list ap)
@@ -525,7 +515,55 @@ void GetFunctionCallParameters(ns(FunctionCall_table_t) functionCall, Parameter 
     }
 }
 
-int CallGuestFunction(ns(FunctionCall_table_t) functionCall)
+uint8_t* GetFlatBufferResult(flatbuffers_builder_t* functionCallResultBuilder, ns(ReturnValue_union_ref_t) returnValue)
+{
+    ns(FunctionCallResult_start_as_root_with_size(functionCallResultBuilder));
+    ns(FunctionCallResult_return_value_add(functionCallResultBuilder, returnValue));
+    ns(FunctionCallResult_end_as_root(functionCallResultBuilder));
+    uint8_t* buffer;
+    size_t size;
+    buffer = (uint8_t*)flatcc_builder_finalize_buffer(functionCallResultBuilder, &size);
+    return buffer;
+}
+
+uint8_t* GetFlatBufferResultFromInt(uint32_t value)
+{
+    flatbuffers_builder_t functionCallResultBuilder;
+    if (flatcc_builder_init(&functionCallResultBuilder))
+    {
+        setError(GUEST_ERROR, "Failed to initialize flatcc Function Call Result Builder");
+    }
+    ns(hlint_ref_t) hlintVal = ns(hlint_create(&functionCallResultBuilder, value));
+    ns(ReturnValue_union_ref_t) returnValue = ns(ReturnValue_as_hlint(hlintVal));
+    return GetFlatBufferResult(&functionCallResultBuilder, returnValue);
+}
+
+uint8_t* GetFlatBufferResultFromVoid()
+{
+    flatbuffers_builder_t functionCallResultBuilder;
+    if (flatcc_builder_init(&functionCallResultBuilder))
+    {
+        setError(GUEST_ERROR, "Failed to initialize flatcc Function Call Result Builder");
+    }
+    ns(hlvoid_ref_t) hlvoidVal = ns(hlvoid_create(&functionCallResultBuilder, 0));
+    ns(ReturnValue_union_ref_t) returnValue = ns(ReturnValue_as_hlvoid(hlvoidVal));
+    return GetFlatBufferResult(&functionCallResultBuilder, returnValue);
+}
+
+uint8_t* GetFlatBufferResultFromString(const char* value)
+{
+    flatbuffers_builder_t functionCallResultBuilder;
+    if (flatcc_builder_init(&functionCallResultBuilder))
+    {
+        setError(GUEST_ERROR, "Failed to initialize flatcc Function Call Result Builder");
+    }
+    flatbuffers_string_ref_t fbstringVal  = flatbuffers_string_create_str(&functionCallResultBuilder, value);
+    ns(hlstring_ref_t) hlstringVal = ns(hlstring_create(&functionCallResultBuilder, fbstringVal));
+    ns(ReturnValue_union_ref_t) returnValue = ns(ReturnValue_as_hlstring(hlstringVal));
+    return GetFlatBufferResult(&functionCallResultBuilder, returnValue);
+}
+
+uint8_t* CallGuestFunction(ns(FunctionCall_table_t) functionCall)
 {
     guestFunc pFunction = NULL;
     ns(Parameter_vec_t) parameters = ns(FunctionCall_parameters(functionCall));
@@ -656,9 +694,12 @@ void DispatchFunction()
         {
             setError(GUEST_ERROR, "Invalid Function Call Type");
         }
-        int result = CallGuestFunction(functionCall);
+        uint8_t* result = CallGuestFunction(functionCall);
+        buffer = flatbuffers_read_size_prefix(result, &size);
+        assert(NULL != buffer);
         memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
-        *((uint32_t *)(pPeb->outputdata.outputDataBuffer)) = result;
+        memcpy(pPeb->outputdata.outputDataBuffer, result, size+4);
+        free(result);
     }
 
     halt(); // This is a nop if we were just loaded into memory
@@ -799,8 +840,9 @@ void *hyperlightMoreCore(size_t size)
 
         if (allocated + size > pPeb->guestheapData.guestHeapSize)
         {
-            // TODO: Set an error message
-            return (void *)MFAIL;
+            char message[100] = { 0 };
+            snprintf(message, 100, "HyperlightMoreCore Failed to allocate memory. Allocated:%d Required:%d HeapSize:%d", allocated, size, pPeb->guestheapData.guestHeapSize);
+            setError(FAILURE_IN_DLMALLOC, message);
         }
 
         if (0 == unusedHeapBufferPointer)
@@ -819,8 +861,9 @@ void *hyperlightMoreCore(size_t size)
     else if (size < 0)
     {
         // This should not happen according to dlmalloc docs as MORECORE_CANNOT_TRIM is set.
-        // TODO: Set an error message
-        return (void *)MFAIL;
+        char message[100] = { 0 };
+        snprintf(message, 100, "HyperlightMoreCore Unexpected Error trim called with size: %d",size);
+        setError(FAILURE_IN_DLMALLOC, message);
     }
     else
     {
@@ -828,7 +871,7 @@ void *hyperlightMoreCore(size_t size)
     }
 }
 
-Hyperlight_Generated_HostFunctionDetails_table_t GetHostFunctionDetails()
+ns(HostFunctionDetails_table_t) GetHostFunctionDetails()
 {
 
     // read the Host Fuction Details flatbuffer from memory
@@ -836,7 +879,7 @@ Hyperlight_Generated_HostFunctionDetails_table_t GetHostFunctionDetails()
     size_t size;
     void *buffer = flatbuffers_read_size_prefix(pPeb->hostFunctionDefinitions.fbHostFunctionDetails, &size);
     assert(NULL != buffer);
-    Hyperlight_Generated_HostFunctionDetails_table_t hostFunctionDetails = Hyperlight_Generated_HostFunctionDetails_as_root(buffer);
+    ns(HostFunctionDetails_table_t) hostFunctionDetails = ns(HostFunctionDetails_as_root(buffer));
 
     return hostFunctionDetails;
 }
@@ -899,7 +942,7 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int o
 /// <param name="message">The message to be printed.</param>
 /// <returns>The length of the message printed.</returns>
 
-int printOutput(const char *message)
+uint8_t* printOutput(const char *message)
 {
     size_t result = strlen(message);
     if (result >= pPeb->outputdata.outputDataSize)
@@ -911,7 +954,7 @@ int printOutput(const char *message)
 #pragma warning(suppress : 4996)
     strncpy((char *)pPeb->outputdata.outputDataBuffer, (char *)message, result);
     outb(OUTB_WRITE_OUTPUT, 0);
-    return (int)result;
+    return GetFlatBufferResultFromInt((int)result);
 }
 
 // The following host functions are defined in the Sandbox Host in Core/HyperLightExports.cs

@@ -176,7 +176,7 @@ namespace Hyperlight
                 //          {
                 //              ResetState();
                 //          }
-                //          return DispatchCallFromHost("GuestFunction", new object[] {o1,o2,o3,o4,o5,o6,o7,o8,o9,o10,o11});
+                //          return DispatchCallFromHost("GuestFunction", invokeMethod.ReturnType.RuntimeTypeHandle, new object[] {o1,o2,o3,o4,o5,o6,o7,o8,o9,o10,o11}));
                 //      }
                 //      finally
                 //      {
@@ -184,7 +184,7 @@ namespace Hyperlight
                 //      }
                 //   }
                 //
-                // We basically want to turn an early bound call that the host defined into a call to DispatchCallFromHost(string functionName, object[] args)
+                // We basically want to turn an early bound call that the host defined into a call to DispatchCallFromHost(string functionName, object[] args, Type returnType)
                 // where the early bound parameters are passed as an object[], boxing if necessary
                 // the calls to EnterDyamicMethod and ExitDynamicMethod perform the checks to see if this Sandbox has been used already,
                 // if it has, then it check to see if it can it be recycled and it can performs the recycle. If the Sandbox has been used and it cannot be recycled
@@ -237,6 +237,10 @@ namespace Hyperlight
 
                 // Second parameter to DispatchCallFromHost is the name of the function being called
                 il.Emit(OpCodes.Ldstr, fieldInfo.Name);
+
+                // Third Parameter is the RuntimeTypeHandle of the return type of the function
+
+                il.Emit(OpCodes.Ldtoken, invokeMethod.ReturnType);
 
                 // Local helper function that does an Emit of Ldc_I4_0/Ldc_I4_1/Ldc_I4_2/.../Ldc_I4_3, or "Ldarg_s "i if 'i' is greater than 8
                 void EmitLoadInt(byte i)
@@ -435,7 +439,7 @@ namespace Hyperlight
             return hostMethodInfo.methodInfo.Invoke(hostMethodInfo.target, args);
         }
 
-        protected abstract object DispatchCallFromHost(string functionName, object[] args);
+        protected abstract object DispatchCallFromHost(string functionName, RuntimeTypeHandle returnType, object[] args);
 
         protected abstract bool EnterDynamicMethod();
 

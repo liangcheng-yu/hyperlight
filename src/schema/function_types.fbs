@@ -21,7 +21,7 @@ table hlstring{
     value:string;
 }
 
-// hlbool is a boolean
+// hlbool is a C99 boolean
 
 table hlbool {
     value:bool;
@@ -30,6 +30,13 @@ table hlbool {
 // hlvecbytes is a vector of bytes
 
 table hlvecbytes {
+    value:[ubyte];
+}
+
+// hlsizeprefixedbuffer is a vector of bytes prefixed with a 32 bit integer
+
+table hlsizeprefixedbuffer {
+    size:int;
     value:[ubyte];
 }
 
@@ -64,6 +71,7 @@ enum ReturnType : ubyte {
     hlstring,
     hlbool,
     hlvoid,
+    hlsizeprefixedbuffer,
 }
 
 union ReturnValue {
@@ -72,4 +80,5 @@ union ReturnValue {
     hlstring,
     hlbool,
     hlvoid,
+    hlsizeprefixedbuffer,
 }

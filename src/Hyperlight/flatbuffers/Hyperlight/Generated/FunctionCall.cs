@@ -29,19 +29,22 @@ public struct FunctionCall : IFlatbufferObject
   public Hyperlight.Generated.Parameter? Parameters(int j) { int o = __p.__offset(6); return o != 0 ? (Hyperlight.Generated.Parameter?)(new Hyperlight.Generated.Parameter()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
   public int ParametersLength { get { int o = __p.__offset(6); return o != 0 ? __p.__vector_len(o) : 0; } }
   public Hyperlight.Generated.FunctionCallType FunctionCallType { get { int o = __p.__offset(8); return o != 0 ? (Hyperlight.Generated.FunctionCallType)__p.bb.Get(o + __p.bb_pos) : Hyperlight.Generated.FunctionCallType.none; } }
+  public Hyperlight.Generated.ReturnType ExpectedReturnType { get { int o = __p.__offset(10); return o != 0 ? (Hyperlight.Generated.ReturnType)__p.bb.Get(o + __p.bb_pos) : Hyperlight.Generated.ReturnType.hlint; } }
 
   public static Offset<Hyperlight.Generated.FunctionCall> CreateFunctionCall(FlatBufferBuilder builder,
       StringOffset function_nameOffset = default(StringOffset),
       VectorOffset parametersOffset = default(VectorOffset),
-      Hyperlight.Generated.FunctionCallType function_call_type = Hyperlight.Generated.FunctionCallType.none) {
-    builder.StartTable(3);
+      Hyperlight.Generated.FunctionCallType function_call_type = Hyperlight.Generated.FunctionCallType.none,
+      Hyperlight.Generated.ReturnType expected_return_type = Hyperlight.Generated.ReturnType.hlint) {
+    builder.StartTable(4);
     FunctionCall.AddParameters(builder, parametersOffset);
     FunctionCall.AddFunctionName(builder, function_nameOffset);
+    FunctionCall.AddExpectedReturnType(builder, expected_return_type);
     FunctionCall.AddFunctionCallType(builder, function_call_type);
     return FunctionCall.EndFunctionCall(builder);
   }
 
-  public static void StartFunctionCall(FlatBufferBuilder builder) { builder.StartTable(3); }
+  public static void StartFunctionCall(FlatBufferBuilder builder) { builder.StartTable(4); }
   public static void AddFunctionName(FlatBufferBuilder builder, StringOffset functionNameOffset) { builder.AddOffset(0, functionNameOffset.Value, 0); }
   public static void AddParameters(FlatBufferBuilder builder, VectorOffset parametersOffset) { builder.AddOffset(1, parametersOffset.Value, 0); }
   public static VectorOffset CreateParametersVector(FlatBufferBuilder builder, Offset<Hyperlight.Generated.Parameter>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
@@ -50,6 +53,7 @@ public struct FunctionCall : IFlatbufferObject
   public static VectorOffset CreateParametersVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<Hyperlight.Generated.Parameter>>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartParametersVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static void AddFunctionCallType(FlatBufferBuilder builder, Hyperlight.Generated.FunctionCallType functionCallType) { builder.AddByte(2, (byte)functionCallType, 0); }
+  public static void AddExpectedReturnType(FlatBufferBuilder builder, Hyperlight.Generated.ReturnType expectedReturnType) { builder.AddByte(3, (byte)expectedReturnType, 0); }
   public static Offset<Hyperlight.Generated.FunctionCall> EndFunctionCall(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     builder.Required(o, 4);  // function_name

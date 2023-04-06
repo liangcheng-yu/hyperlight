@@ -13,6 +13,8 @@
 #include "host_function_definition_reader.h"
 #include "host_function_details_builder.h"
 #include "host_function_details_reader.h"
+#include "function_call_result_builder.h"
+#include "function_call_result_reader.h"
 
 #define ns(x) FLATBUFFERS_WRAP_NAMESPACE(Hyperlight_Generated, x) 
 
@@ -25,13 +27,13 @@
 #define GENERATE_FUNCTION(function, paramsc, ... ) GENERATE_FUNCTION_##paramsc(function, __VA_ARGS__)
 
 #define GENERATE_FUNCTION_0(function, ...) \
-int __call_##function(ns(FunctionCall_table_t) functionCall) \
+uint8_t* __call_##function(ns(FunctionCall_table_t) functionCall) \
 { return function();} \
 int __##function##_pcount = 0; \
 ns(ParameterType_enum_t) __##function##_pKind[] = { 0 };
 
 #define GENERATE_FUNCTION_1(function, union0_member) \
-int __call_##function(ns(FunctionCall_table_t) functionCall) \
+uint8_t* __call_##function(ns(FunctionCall_table_t) functionCall) \
 { \
     Parameter params[1] = {0}; \
     GetFunctionCallParameters(functionCall, params);   \
@@ -41,9 +43,9 @@ int __##function##_pcount = 1;\
 ns(ParameterType_enum_t) __##function##_pKind[] = {ns(ParameterType_##union0_member)};
 
 #define GENERATE_FUNCTION_2(function, union0_member, union1_member) \
-int __call_##function(ns(FunctionCall_table_t) functionCall) \
+uint8_t* __call_##function(ns(FunctionCall_table_t) functionCall) \
 { \
-    Parameter params[2] = {0};; \
+    Parameter params[2] = {0}; \
     GetFunctionCallParameters(functionCall, params);   \
     return function(params[0].value.union0_member, params[1].value.union1_member); \
 } \
@@ -51,7 +53,7 @@ int __##function##_pcount = 2;\
 ns(ParameterType_enum_t) __##function##_pKind[] = {ns(ParameterType_##union0_member), ns(ParameterType_##union1_member)};
 
 #define GENERATE_FUNCTION_3(function, union0_member, union1_member, union2_member) \
-int __call_##function(ns(FunctionCall_table_t) functionCall) \
+uint8_t* __call_##function(ns(FunctionCall_table_t) functionCall) \
 { \
     Parameter params[3] = {0}; \
     GetFunctionCallParameters(functionCall, params);   \
@@ -61,7 +63,7 @@ int __##function##_pcount = 3; \
 ns(ParameterType_enum_t) __##function##_pKind[] = {ns(ParameterType_##union0_member), ns(ParameterType_##union1_member), ns(ParameterType_##union2_member)};
 
 #define GENERATE_FUNCTION_4(function, union0_member, union1_member, union2_member, union3_member) \
-int __call_##function(ns(FunctionCall_table_t) functionCall) \
+uint8_t* __call_##function(ns(FunctionCall_table_t) functionCall) \
 { \
     Parameter params[4] = {0}; \
     GetFunctionCallParameters(functionCall, params);   \
@@ -71,7 +73,7 @@ int __##function##_pcount = 4; \
 ns(ParameterType_enum_t) __##function##_pKind[] = {ns(ParameterType_##union0_member),ns(ParameterType_##union1_member), ns(ParameterType_##union2_member), ns(ParameterType_##union3_member)};
 
 #define GENERATE_FUNCTION_5(function, union0_member, union1_member, union2_member, union3_member, union4_member) \
-int __call_##function(ns(FunctionCall_table_t) functionCall) \
+uint8_t* __call_##function(ns(FunctionCall_table_t) functionCall) \
 { \
     Parameter params[5] = {0}; \
     GetFunctionCallParameters(functionCall, params);   \
@@ -81,7 +83,7 @@ int __##function##_pcount = 5; \
 ns(ParameterType_enum_t) __##function##_pKind[] = {ns(ParameterType_##union0_member), ns(ParameterType_##union1_member), ns(ParameterType_##union2_member), ns(ParameterType_##union3_member), ns(ParameterType_##union4_member)};
 
 #define GENERATE_FUNCTION_6(function, union0_member, union1_member, union2_member, union3_member, union4_member, union5_member) \
-int __call_##function(ns(FunctionCall_table_t) functionCall) \
+uint8_t* __call_##function(ns(FunctionCall_table_t) functionCall) \
 { \
     Parameter params[6] = {0}; \
     GetFunctionCallParameters(functionCall, params);   \
@@ -91,7 +93,7 @@ int __##function##_pcount = 6; \
 ns(ParameterType_enum_t) __##function##_pKind[] = {ns(ParameterType_##union0_member), ns(ParameterType_##union1_member), ns(ParameterType_##union2_member), ns(ParameterType_##union3_member), ns(ParameterType_##union4_member), ns(ParameterType_##union5_member)};
 
 #define GENERATE_FUNCTION_7(function, union0_member, union1_member, union2_member, union3_member, union4_member, union5_member, union6_member) \
-int __call_##function(ns(FunctionCall_table_t) functionCall) \
+uint8_t* __call_##function(ns(FunctionCall_table_t) functionCall) \
 { \
     Parameter params[7] = {0}; \
     GetFunctionCallParameters(functionCall, params);   \
@@ -101,7 +103,7 @@ int __##function##_pcount = 7; \
 ns(ParameterType_enum_t) __##function##_pKind[] = {ns(ParameterType_##union0_member), ns(ParameterType_##union1_member), ns(ParameterType_##union2_member), ns(ParameterType_##union3_member), ns(ParameterType_##union4_member), ns(ParameterType_##union5_member), ns(ParameterType_##union6_member)};
 
 #define GENERATE_FUNCTION_8(function, union0_member, union1_member, union2_member, union3_member, union4_member, union5_member, union6_member, union7_member) \
-int __call_##function(ns(FunctionCall_table_t) functionCall) \
+uint8_t* __call_##function(ns(FunctionCall_table_t) functionCall) \
 { \
     Parameter params[8] = {0}; \
     GetFunctionCallParameters(functionCall, params);   \
@@ -111,7 +113,7 @@ int __##function##_pcount = 8; \
 ns(ParameterType_enum_t) __##function##_pKind[] = {ns(ParameterType_##union0_member), ns(ParameterType_##union1_member), ns(ParameterType_##union2_member), ns(ParameterType_##union3_member), ns(ParameterType_##union4_member), ns(ParameterType_##union5_member), ns(ParameterType_##union6_member), ns(ParameterType_##union7_member)};
 
 #define GENERATE_FUNCTION_9(function, union0_member, union1_member, union2_member, union3_member, union4_member, union5_member, union6_member, union7_member, union8_member) \
-int __call_##function(ns(FunctionCall_table_t) functionCall) \
+uint8_t* __call_##function(ns(FunctionCall_table_t) functionCall) \
 { \
     Parameter params[9] = {0}; \
     GetFunctionCallParameters(functionCall, params);   \
@@ -121,7 +123,7 @@ int __##function##_pcount = 9; \
 ns(ParameterType_enum_t) __##function##_pKind[] = {ns(ParameterType_##union0_member), ns(ParameterType_##union1_member), ns(ParameterType_##union2_member), ns(ParameterType_##union3_member), ns(ParameterType_##union4_member), ns(ParameterType_##union5_member), ns(ParameterType_##union6_member), ns(ParameterType_##union7_member), ns(ParameterType_##union8_member)};
 
 #define GENERATE_FUNCTION_10(function, union0_member, union1_member, union2_member, union3_member, union4_member, union5_member, union6_member, union7_member, union8_member, union9_member) \
-int __call_##function(ns(FunctionCall_table_t) functionCall) \
+uint8_t* __call_##function(ns(FunctionCall_table_t) functionCall) \
 { \
     Parameter params[10] = {0}; \
     GetFunctionCallParameters(functionCall, params);   \
@@ -152,22 +154,7 @@ typedef struct
     ParameterKind kind;
 } Parameter;
 
-typedef int (*guestFunc)(ns(FunctionCall_table_t) functionCall);
-
-typedef struct
-{
-    char* FunctionName;
-    char* FunctionSignature;
-    uint64_t Flags;
-} HostFunctionDefinition;
-
-typedef struct
-{
-    uint64_t CountOfFunctions;
-    HostFunctionDefinition* HostFunctionDefinitions;
-
-} HostFunctionDetails;
-
+typedef uint8_t* (*guestFunc)(ns(FunctionCall_table_t) functionCall);
 typedef enum LogLevel
 {
     TRACE = 0,
@@ -189,7 +176,7 @@ typedef struct LogData
     int32_t Line;
 } LogData;
 
-int printOutput(const char*);
+uint8_t* printOutput(const char*);
 
 void HyperlightMain();
 
@@ -207,9 +194,9 @@ size_t dlmalloc_set_footprint_limit(size_t bytes);
 
 void RegisterFunction(ns(GuestFunctionDefinition_ref_t));
 
-Hyperlight_Generated_HostFunctionDetails_table_t GetHostFunctionDetails();
+ns(HostFunctionDetails_table_t) GetHostFunctionDetails();
 
-int GuestDispatchFunction(ns(FunctionCall_table_t));
+uint8_t* GuestDispatchFunction(ns(FunctionCall_table_t));
 
 int native_symbol_thunk_returning_int(char*, ...);
 
@@ -235,6 +222,12 @@ long long GetHyperLightTickCount();
 
 long long GetTimeSinceBootMicrosecond();
 
-ns(GuestFunctionDefinition_ref_t) CreateFunctionDefinition(const char* , guestFunc , int , ns(ParameterType_enum_t[]));
-
 void GetFunctionCallParameters(ns(FunctionCall_table_t) functionCall, Parameter params[]);
+
+uint8_t* GetFlatBufferResultFromInt(uint32_t);
+
+uint8_t* GetFlatBufferResultFromString(const char*);
+
+uint8_t* GetFlatBufferResultFromVoid();
+
+ns(GuestFunctionDefinition_ref_t) CreateFunctionDefinition(const char*, guestFunc, int, ns(ParameterType_enum_t)[]);

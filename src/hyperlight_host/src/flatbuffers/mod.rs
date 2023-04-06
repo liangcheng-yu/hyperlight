@@ -37,5 +37,9 @@ pub mod hyperlight {
         pub use self::host_function_definition_generated::*;
         mod host_function_details_generated;
         pub use self::host_function_details_generated::*;
+        mod hlsizeprefixedbuffer_generated;
+        pub use self::hlsizeprefixedbuffer_generated::*;
+        mod function_call_result_generated;
+        pub use self::function_call_result_generated::*;
     }
 }

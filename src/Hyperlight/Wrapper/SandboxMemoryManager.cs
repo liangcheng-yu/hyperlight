@@ -257,7 +257,36 @@ namespace Hyperlight.Wrapper
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
         }
 
-        internal int GetReturnValue()
+        internal object GetReturnValue()
+        {
+
+            using var resultHdlWrapper = new Handle(
+                this.ctxWrapper,
+                mem_mgr_get_function_call_result(
+                    this.ctxWrapper.ctx,
+                    this.memMgrHdl.handle
+                ),
+                true
+            );
+
+            if (!resultHdlWrapper.IsFunctionCallResult())
+            {
+                throw new HyperlightException("mem_mgr_get_function_call_result did not return a FunctionCallResult");
+            }
+            var functionCallResult = resultHdlWrapper.GetFunctionCallResult();
+            // TODO Handle void return type.
+            return functionCallResult.ReturnValueType switch
+            {
+                ReturnValue.hlint => functionCallResult.ReturnValueAshlint().Value,
+                ReturnValue.hllong => functionCallResult.ReturnValueAshllong().Value,
+                ReturnValue.hlstring => functionCallResult.ReturnValueAshlstring().Value,
+                ReturnValue.hlbool => functionCallResult.ReturnValueAshlbool().Value,
+                ReturnValue.hlsizeprefixedbuffer => functionCallResult.ReturnValueAshlsizeprefixedbuffer().GetValueArray(),
+                _ => throw new HyperlightException($"ReturnValueType {functionCallResult.ReturnValueType} was not expected"),
+            };
+        }
+
+        internal int GetInitReturnValue()
         {
             var rawHdl = mem_mgr_get_return_value(
                 this.ctxWrapper.ctx,
@@ -479,7 +508,7 @@ namespace Hyperlight.Wrapper
 
         }
 
-        internal void WriteGuestFunctionCallDetails(string functionName, object[] args)
+        internal void WriteGuestFunctionCallDetails(string functionName, object[] args, RuntimeTypeHandle returnType)
         {
 
             var builder = new FlatBufferBuilder(1024);
@@ -556,9 +585,40 @@ namespace Hyperlight.Wrapper
                 HyperlightException.LogAndThrowException<ArgumentException>("Array length must be specified", GetType().Name);
             }
 
+            var typeofReturnValue = Type.GetTypeFromHandle(returnType);
+
+            var expectedReturnType = ReturnType.hlvoid;
+
+            // TODO need to figure out how to detect and handle void return type
+
+            if (typeofReturnValue.IsAssignableFrom(typeof(Int32)))
+            {
+                expectedReturnType = ReturnType.hlint;
+            }
+            else if (typeofReturnValue.IsAssignableFrom(typeof(Int64)))
+            {
+                expectedReturnType = ReturnType.hllong;
+            }
+            else if (typeofReturnValue.IsAssignableFrom(typeof(String)))
+            {
+                expectedReturnType = ReturnType.hlstring;
+            }
+            else if (typeofReturnValue.IsAssignableFrom(typeof(Boolean)))
+            {
+                expectedReturnType = ReturnType.hlbool;
+            }
+            else if (typeofReturnValue.IsAssignableFrom(typeof(byte[])))
+            {
+                expectedReturnType = ReturnType.hlsizeprefixedbuffer;
+            }
+            else
+            {
+                HyperlightException.LogAndThrowException<ArgumentException>("Unsupported return type", GetType().Name);
+            }
+
             var parametersVector = FunctionCall.CreateParametersVector(builder, parameters);
             var functionCallType = FunctionCallType.guest;
-            var guestFunctionCall = FunctionCall.CreateFunctionCall(builder, funcName, parametersVector, functionCallType);
+            var guestFunctionCall = FunctionCall.CreateFunctionCall(builder, funcName, parametersVector, functionCallType, expectedReturnType);
             FunctionCall.FinishSizePrefixedFunctionCallBuffer(builder, guestFunctionCall);
             var buffer = builder.SizedByteArray();
 
@@ -946,6 +1006,13 @@ namespace Hyperlight.Wrapper
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle mem_mgr_get_host_function_call(
+            NativeContext ctx,
+            NativeHandle mgrHdl
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_get_function_call_result(
             NativeContext ctx,
             NativeHandle mgrHdl
         );

@@ -22,7 +22,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <MinVerDefaultPreReleasePhase>preview</MinVerDefaultPreReleasePhase>
+    <MinVerDefaultPreReleaseIdentifiers>preview.0</MinVerDefaultPreReleaseIdentifiers>
     <MinVerMinimumMajorMinor>0.1</MinVerMinimumMajorMinor>
     <MinVerTagPrefix>v</MinVerTagPrefix>
   </PropertyGroup>

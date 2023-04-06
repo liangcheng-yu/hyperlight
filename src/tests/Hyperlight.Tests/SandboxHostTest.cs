@@ -12,7 +12,6 @@ using System.Threading.Tasks;
 using Hyperlight.Core;
 using HyperlightDependencies;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestPlatform.CommunicationUtilities;
 using Moq;
 using Xunit;
 using Xunit.Abstractions;
@@ -123,6 +122,7 @@ namespace Hyperlight.Tests
         {
 #pragma warning disable IDE0049 // Simplify Names
             public Func<String, int>? PrintOutput;
+            public Func<String, string>? Echo;
 #pragma warning restore IDE0049 // Simplify Names
         }
 
@@ -1434,15 +1434,7 @@ namespace Hyperlight.Tests
                     Assert.IsType<HyperlightException>(ex);
 
                     // TODO: Once Abort is fixed so that it does not cause recursion this should be updated to check abort details.
-                    Assert.Equal($"Guest Aborted", ex.Message);
-                    mockLogger.Verify(
-                        l => l.Log<It.IsAnyType>(
-                        LogLevel.Critical,
-                        It.IsAny<EventId>(),
-                        It.Is<It.IsAnyType>((v, t) => v.ToString()!.StartsWith($"ErrorMessage: dlmalloc_failure CorrelationId: {correlationId} Source: HyperLightGuest")),
-                        null,
-                        It.IsAny<Func<It.IsAnyType?, Exception?, string>>()),
-                        Times.AtLeastOnce);
+                    Assert.StartsWith("FailureInDlmalloc:HyperlightMoreCore Failed to allocate memory. Allocated:", ex.Message);
                 }
             }
             foreach (var option in options)
@@ -2188,9 +2180,15 @@ namespace Hyperlight.Tests
         {
             var guestMethods = new SimpleTestMembers();
             sandbox.BindGuestFunction("PrintOutput", guestMethods);
-            var result = guestMethods.PrintOutput!(testData.ExpectedOutput);
-            Assert.Equal<int>(testData.ExpectedReturnValue, result);
-            Assert.Equal(testData.ExpectedOutput, builder.ToString());
+            sandbox.BindGuestFunction("Echo", guestMethods);
+            var result1 = sandbox.CallGuest<string>(() =>
+            {
+                var result = guestMethods.PrintOutput!(testData.ExpectedOutput);
+                Assert.Equal<int>(testData.ExpectedReturnValue, result);
+                Assert.Equal(testData.ExpectedOutput, builder.ToString());
+                return guestMethods.Echo!(testData.ExpectedOutput);
+            });
+            Assert.Equal(testData.ExpectedOutput, result1);
         }
 
         private void CallbackTest(Sandbox sandbox, TestData testData, StringWriter output, StringBuilder builder, object? typeorinstance, string correlationId)
