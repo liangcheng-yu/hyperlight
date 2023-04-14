@@ -598,6 +598,36 @@ namespace Hyperlight
         }
 
         /// <summary>
+        /// Enables the host to call multiple functions in the Guest and have the sandbox state reset at the start of the call
+        /// Ensures that only one call can be made concurrently
+        /// </summary>
+        /// <param name="action">The action to be executed</param>
+        /// <exception cref="ArgumentNullException">func is null</exception>
+        /// <exception cref="HyperlightException">a call to the guest is already in progress</exception>
+        public void CallGuest(Action action)
+        {
+            HyperlightException.ThrowIfNull(action, nameof(action), GetType().Name);
+            var shouldRelease = false;
+            try
+            {
+                if (Interlocked.CompareExchange(ref executingGuestCall, 1, 0) != 0)
+                {
+                    HyperlightException.LogAndThrowException("Guest call already in progress", GetType().Name);
+                }
+                shouldRelease = true;
+                ResetState();
+                action();
+            }
+            finally
+            {
+                if (shouldRelease)
+                {
+                    Interlocked.Exchange(ref executingGuestCall, 0);
+                }
+            }
+        }
+
+        /// <summary>
         /// This method is called by DynamicMethods generated to call guest functions.
         /// It first checks to see if the sadnbox has been initialised yet or if there is a CallGuest Method call in progress, if so it just
         /// returns false as there is no need to check state

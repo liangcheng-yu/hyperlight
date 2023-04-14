@@ -1,8 +1,8 @@
 use crate::flatbuffers::hyperlight::generated::{
     hlbool, hlboolArgs, hlint, hlintArgs, hllong, hllongArgs, hlsizeprefixedbuffer,
-    hlsizeprefixedbufferArgs, hlstring, hlstringArgs, size_prefixed_root_as_function_call_result,
-    FunctionCallResult as FBFunctionCallResult, FunctionCallResultArgs as FBFunctionCallResultArgs,
-    ReturnValue,
+    hlsizeprefixedbufferArgs, hlstring, hlstringArgs, hlvoid, hlvoidArgs,
+    size_prefixed_root_as_function_call_result, FunctionCallResult as FBFunctionCallResult,
+    FunctionCallResultArgs as FBFunctionCallResultArgs, ReturnValue,
 };
 use crate::mem::{layout::SandboxMemoryLayout, shared_mem::SharedMemory};
 use anyhow::{anyhow, Result};
@@ -168,10 +168,11 @@ impl TryFrom<&FunctionCallResult> for Vec<u8> {
                 builder.finished_data().to_vec()
             }
             FunctionCallResult::Void => {
+                let hlvoid = hlvoid::create(&mut builder, &hlvoidArgs {});
                 let function_call_result = FBFunctionCallResult::create(
                     &mut builder,
                     &FBFunctionCallResultArgs {
-                        return_value: None,
+                        return_value: Some(hlvoid.as_union_value()),
                         return_value_type: ReturnValue::hlvoid,
                     },
                 );

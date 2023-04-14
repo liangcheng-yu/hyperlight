@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.Eventing.Reader;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -20,13 +22,13 @@ namespace Hyperlight.Tests
 {
     public class SandboxHostTest
     {
-        private readonly ITestOutputHelper output;
+        private readonly ITestOutputHelper testOutput;
         public const int NUMBER_OF_ITERATIONS = 10;
         public const int NUMBER_OF_PARALLEL_TESTS = 10;
         // These are the host functions that are exposed automatically by Hyperlight
         private readonly string[] internalFunctions = { "GetStackBoundary", "GetTimeSinceBootMicrosecond" };
 
-        public SandboxHostTest(ITestOutputHelper output)
+        public SandboxHostTest(ITestOutputHelper testOutput)
         {
             //TODO: implement skip for this
             Assert.True(Sandbox.IsSupportedPlatform, "Hyperlight Sandbox is not supported on this platform.");
@@ -41,7 +43,7 @@ namespace Hyperlight.Tests
                 Assert.True(Sandbox.IsHypervisorPresent(), "HyperVisor not present but expected.");
             }
 
-            this.output = output;
+            this.testOutput = testOutput;
         }
 
         public class TestData
@@ -128,9 +130,18 @@ namespace Hyperlight.Tests
 
         public class CallbackTestMembers
         {
+            readonly StringWriter? output;
             public Func<String, int>? PrintOutput;
             public Func<String, int>? GuestMethod;
             public Func<String, int>? GuestMethod1;
+            public Action? GuestMethod4;
+
+            public CallbackTestMembers() { }
+            public CallbackTestMembers(StringWriter output)
+            {
+                this.output = output;
+            }
+
             public int HostMethod(string msg)
             {
                 return PrintOutput!($"Host Method Received: {msg} from Guest");
@@ -138,6 +149,13 @@ namespace Hyperlight.Tests
             public int HostMethod1(string msg)
             {
                 return PrintOutput!($"Host Method 1 Received: {msg} from Guest");
+            }
+            public void HostMethod4(string msg)
+            {
+                if (output != null)
+                {
+                    output.Write(msg);
+                }
             }
         }
 
@@ -169,7 +187,7 @@ namespace Hyperlight.Tests
         public class ExposeStaticMethodsUsingAttribute
         {
             public void GetNothing() { }
-
+            [ExposeToGuest(true)]
             public static void StaticGetNothing() { }
             [ExposeToGuest(true)]
             public static int StaticGetInt() { return 10; }
@@ -263,7 +281,7 @@ namespace Hyperlight.Tests
 
         public class BinaryArrayTests
         {
-            public Func<byte[], int, int>? SetByteArrayToZero;
+            public Action<byte[], int>? SetByteArrayToZero;
             public Func<byte[], int>? SetByteArrayToZeroNoLength;
         }
 
@@ -289,8 +307,11 @@ namespace Hyperlight.Tests
                     sandbox.BindGuestFunction("SetByteArrayToZero", functions);
                     byte[] bytes = new byte[10];
                     RandomNumberGenerator.Create().GetBytes(bytes);
-                    var result = functions.SetByteArrayToZero!(bytes, 10);
-                    Assert.Equal(-1, result);
+                    var ex = Record.Exception(() =>
+                    {
+                        functions.SetByteArrayToZero!(bytes, 10);
+                    });
+                    Assert.Null(ex);
                 }
 
                 correlationId = Guid.NewGuid().ToString("N");
@@ -1425,7 +1446,7 @@ namespace Hyperlight.Tests
                 {
                     var functions = new MallocTests();
                     sandbox.BindGuestFunction("CallMalloc", functions);
-                    output.WriteLine($"Testing CallMalloc with GuestHeapSize:{heapSize} MallocSize:{mallocSize} option: {option}");
+                    testOutput.WriteLine($"Testing CallMalloc with GuestHeapSize:{heapSize} MallocSize:{mallocSize} option: {option}");
                     var ex = Record.Exception(() =>
                     {
                         functions.CallMalloc!(mallocSize);
@@ -1444,7 +1465,7 @@ namespace Hyperlight.Tests
                 {
                     var functions = new MallocTests();
 
-                    output.WriteLine($"Testing CallMalloc with GuestHeapSize:{heapSize} MallocSize:{mallocSize} option: {option}");
+                    testOutput.WriteLine($"Testing CallMalloc with GuestHeapSize:{heapSize} MallocSize:{mallocSize} option: {option}");
                     sandbox.BindGuestFunction("CallMalloc", functions);
                     var result = functions.CallMalloc!(mallocSize);
                     Assert.Equal<int>(mallocSize, result);
@@ -1457,7 +1478,7 @@ namespace Hyperlight.Tests
                 {
                     var functions = new MallocTests();
 
-                    output.WriteLine($"Testing MallocAndFree with GuestHeapSize:{heapSize} MallocSize:{mallocSize} option: {option}");
+                    testOutput.WriteLine($"Testing MallocAndFree with GuestHeapSize:{heapSize} MallocSize:{mallocSize} option: {option}");
                     sandbox.BindGuestFunction("MallocAndFree", functions);
                     var result = functions.MallocAndFree!(mallocSize);
                     Assert.Equal<int>(mallocSize, result);
@@ -1503,7 +1524,7 @@ namespace Hyperlight.Tests
             {
                 (typeof(NoExposedMembers), new(), new(), new()),
                 (typeof(ExposedMembers), new() { "GetOne", "MethodWithArgs", "HostMethod1" }, new() { "GuestMethod1", "PrintOutput" }, new() { "GetTwo", "StaticMethodWithArgs" }),
-                (typeof(ExposeStaticMethodsUsingAttribute), new(), new(), new() { "StaticGetInt", "HostMethod1" }),
+                (typeof(ExposeStaticMethodsUsingAttribute), new(), new(), new() { "StaticGetInt", "HostMethod1", "StaticGetNothing"}),
                 (typeof(ExposeInstanceMethodsUsingAttribute), new() { "HostMethod", "HostMethod1" }, new() { "GuestMethod" }, new()),
                 (typeof(DontExposeSomeMembersUsingAttribute), new() { "GetOne", "MethodWithArgs" }, new(), new() { "GetTwo", "StaticMethodWithArgs" }),
             };
@@ -1934,7 +1955,7 @@ namespace Hyperlight.Tests
                     }
                 }
                 stopWatch.Stop();
-                output.WriteLine($"RecycleAfterRun Test {numberOfIterations} iterations with options {option} in {stopWatch.Elapsed.TotalMilliseconds} ms");
+                testOutput.WriteLine($"RecycleAfterRun Test {numberOfIterations} iterations with options {option} in {stopWatch.Elapsed.TotalMilliseconds} ms");
             }
         }
 
@@ -2236,7 +2257,17 @@ namespace Hyperlight.Tests
                     }
                     else
                     {
-                        CallGuestMethod1(sandbox, testData, builder);
+                        // This should be updated to call both tests for now it chooses one as RecycleAfterRun may not be set.
+                        if (ShouldCallMethod1())
+                        {
+                            testOutput.WriteLine("Calling GuestMethod1");
+                            CallGuestMethod1(sandbox, testData, builder);
+                        }
+                        else
+                        {
+                            testOutput.WriteLine("Calling GuestMethod4");
+                            CallGuestMethod4(sandbox, testData, builder,output);
+                        }
                     }
                 }
             }
@@ -2252,6 +2283,23 @@ namespace Hyperlight.Tests
                 var result = sandbox.CallGuest<int>(() => { return guestMethods.GuestMethod1!(message); });
                 Assert.Equal<int>(testData.ExpectedReturnValue, result);
                 Assert.Equal(expectedMessage, builder.ToString());
+            }
+
+            static void CallGuestMethod4(Sandbox sandbox, TestData testData, StringBuilder builder, StringWriter output)
+            {
+                var guestMethods = new CallbackTestMembers(output);
+                sandbox.BindGuestFunction("GuestMethod4", guestMethods);
+                sandbox.ExposeHostMethod("HostMethod4", guestMethods);
+                var expectedMessage = "Hello from GuestFunction4";
+                sandbox.CallGuest(() => guestMethods.GuestMethod4!());
+                Assert.Equal(expectedMessage, builder.ToString());
+            }
+            bool ShouldCallMethod1()
+            {
+                var min = 0;
+                var max = 2;
+                var random = new Random();
+                return random.Next(min, max) == 0;
             }
         }
 
@@ -2312,10 +2360,10 @@ namespace Hyperlight.Tests
 
             if (errorMessageSize % 8 == 0 || functionDefinitionSize % 8 == 0 || hostExceptionSize % 8 == 0)
             {
-                output.WriteLine("Using Default Configuration");
+                testOutput.WriteLine("Using Default Configuration");
                 return new SandboxMemoryConfiguration();
             }
-            output.WriteLine($"Using Configuration: guestErrorMessageSize: {errorMessageSize} functionDefinitionSize: {functionDefinitionSize} hostExceptionSize: {hostExceptionSize} inputDataSize: {inputDataSize} outputDataSize: {outputDataSize}");
+            testOutput.WriteLine($"Using Configuration: guestErrorMessageSize: {errorMessageSize} functionDefinitionSize: {functionDefinitionSize} hostExceptionSize: {hostExceptionSize} inputDataSize: {inputDataSize} outputDataSize: {outputDataSize}");
             return new SandboxMemoryConfiguration(
                 guestErrorMessageSize: errorMessageSize,
                 hostFunctionDefinitionSize: functionDefinitionSize,

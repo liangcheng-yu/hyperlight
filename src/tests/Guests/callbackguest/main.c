@@ -32,7 +32,15 @@ uint8_t* guestFunction3(const char* message)
     char guestMessage[256] = "Hello from GuestFunction3, ";
     return sendMessagetoHostMethod("HostMethod1", guestMessage, message);
 }
-// TODO: support void return 
+
+uint8_t* guestFunction4()
+{
+    char guestMessage[256] = "Hello from GuestFunction4";
+    native_symbol_thunk("HostMethod4", guestMessage);
+    return GetFlatBufferResultFromVoid();
+}
+
+// TODO: update to support void return 
 uint8_t* logMessage(const char* message, const char* source, int logLevel)
 {
     if (logLevel < 0 || logLevel > 6)
@@ -55,6 +63,7 @@ GENERATE_FUNCTION(guestFunction, 1, hlstring);
 GENERATE_FUNCTION(guestFunction1, 1, hlstring);
 GENERATE_FUNCTION(guestFunction2, 1, hlstring);
 GENERATE_FUNCTION(guestFunction3, 1, hlstring);
+GENERATE_FUNCTION(guestFunction4, 0);
 GENERATE_FUNCTION(logMessage, 3, hlstring, hlstring, hlint);
 GENERATE_FUNCTION(callErrorMethod, 1, hlstring);
 
@@ -65,6 +74,7 @@ void HyperlightMain()
     RegisterFunction(FUNCTIONDETAILS("GuestMethod1", guestFunction1));
     RegisterFunction(FUNCTIONDETAILS("GuestMethod2", guestFunction2));
     RegisterFunction(FUNCTIONDETAILS("GuestMethod3", guestFunction3));
+    RegisterFunction(FUNCTIONDETAILS("GuestMethod4", guestFunction4));
     RegisterFunction(FUNCTIONDETAILS("LogMessage", logMessage));
     RegisterFunction(FUNCTIONDETAILS("CallErrorMethod", callErrorMethod));
 }

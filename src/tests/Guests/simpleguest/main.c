@@ -16,7 +16,7 @@ uint8_t* setByteArrayToZero(const uint8_t* arrayPtr, int length)
     {
         *((char*)arrayPtr)++ = 0;
     }
-    return GetFlatBufferResultFromInt(length);
+    return GetFlatBufferResultFromVoid();
 }
 
 uint8_t* printTwoArgs(const char* arg1, int arg2)

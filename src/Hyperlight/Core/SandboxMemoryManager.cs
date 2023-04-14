@@ -47,9 +47,13 @@ namespace Hyperlight.Core
                 var result = (ulong)(returnValue is null ? 0 : ((IntPtr)returnValue).ToInt64());
                 this.SharedMem.WriteInt64(inputDataAddress, result);
             }
+            else if (type == typeof(void))
+            {
+                return;
+            }
             else
             {
-                HyperlightException.LogAndThrowException<ArgumentException>($"Unsupported Host Method Return Type {nameof(type)}", GetType().Name);
+                HyperlightException.LogAndThrowException<ArgumentException>($"Unsupported Host Method Return Type {type.FullName}", GetType().Name);
             }
         }
 

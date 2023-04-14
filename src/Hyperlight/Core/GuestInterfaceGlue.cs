@@ -1,9 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
 using Hyperlight.Core;
+using Hyperlight.Generated;
 using HyperlightDependencies;
 
 namespace Hyperlight
@@ -332,15 +333,19 @@ namespace Hyperlight
                 HyperlightException.ThrowIfNull(dispatchCallFromHost, nameof(dispatchCallFromHost), GetType().Name);
                 il.EmitCall(OpCodes.Callvirt, dispatchCallFromHost, null);
 
-                // See if we need to unbox
-                if (invokeMethod.ReturnType.IsValueType)
+
+                if (invokeMethod.ReturnType != typeof(void))
                 {
-                    il.Emit(OpCodes.Unbox_Any, invokeMethod.ReturnType);
+                    // See if we need to unbox
+                    if (invokeMethod.ReturnType.IsValueType)
+                    {
+                        il.Emit(OpCodes.Unbox_Any, invokeMethod.ReturnType);
+                    }
+
+                    //store return value in the second variable defined above
+
+                    il.Emit(OpCodes.Stloc_1);
                 }
-
-                //store return value in the first variable defined above
-
-                il.Emit(OpCodes.Stloc_1);
                 il.Emit(OpCodes.Leave, exceptionBlock);
 
                 // End Try 
@@ -348,7 +353,7 @@ namespace Hyperlight
                 il.BeginFinallyBlock();
 
                 il.Emit(OpCodes.Ldarg_0);
-                // The argument is the return value from EnterDynamicMethod which is stored in the second variable declared above
+                // The argument is the return value from EnterDynamicMethod which is stored in the first variable declared above
                 il.Emit(OpCodes.Ldloc_0);
                 var exitDynamicMethod = typeof(GuestInterfaceGlue).GetMethod("ExitDynamicMethod", BindingFlags.NonPublic | BindingFlags.Instance);
                 HyperlightException.ThrowIfNull(exitDynamicMethod, nameof(exitDynamicMethod), GetType().Name);
@@ -358,9 +363,14 @@ namespace Hyperlight
 
                 //End Finally
 
-                // push the return value from first variable and return
+                if (invokeMethod.ReturnType != typeof(void))
+                {
+                    // push the return value from second variable and return
 
-                il.Emit(OpCodes.Ldloc_1);
+                    il.Emit(OpCodes.Ldloc_1);
+                }
+
+
                 il.Emit(OpCodes.Ret);
 
                 // Get the delegate and assign to the field
@@ -457,6 +467,7 @@ namespace Hyperlight
             var parameters = methodInfo.GetParameters();
 
             // Currently we only support up to 10 parameters
+            // TODO: this can probably be removed now as we dont have this restriction now we are using flatbuffers.
             if (parameters.Length > Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS)
             {
                 HyperlightException.LogAndThrowException($"Method {methodInfo.Name} has too many parameters. Maximum of {Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS} allowed", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
@@ -471,7 +482,7 @@ namespace Hyperlight
                 }
             }
 
-            // Check if return value is a supported type of 'void'
+            // Check if return value is a supported type or 'void'
             if (!(methodInfo.ReturnType == typeof(void)) && !supportedParameterAndReturnTypes.Contains(methodInfo.ReturnType))
             {
                 HyperlightException.LogAndThrowException($"Unsupported Return Type {methodInfo.ReturnType} on method {methodInfo.Name}", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);

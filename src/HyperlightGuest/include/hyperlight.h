@@ -198,6 +198,8 @@ ns(HostFunctionDetails_table_t) GetHostFunctionDetails();
 
 uint8_t* GuestDispatchFunction(ns(FunctionCall_table_t));
 
+void native_symbol_thunk(char*, ...);
+
 int native_symbol_thunk_returning_int(char*, ...);
 
 void CallHostFunction(char* functionName, va_list ap);

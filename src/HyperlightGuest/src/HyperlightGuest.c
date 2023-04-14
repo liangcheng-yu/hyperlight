@@ -411,6 +411,20 @@ int GetHostReturnValueAsInt()
     return *((int *)pPeb->inputdata.inputDataBuffer);
 }
 
+// Calls a Host Function that returns void
+void native_symbol_thunk(char* functionName, ...)
+{
+
+    va_list ap = NULL;
+
+    va_start(ap, functionName);
+
+    CallHostFunction(functionName, ap);
+
+    va_end(ap);
+
+}
+
 // Calls a Host Function that returns an int
 unsigned int native_symbol_thunk_returning_uint(char *functionName, ...)
 {

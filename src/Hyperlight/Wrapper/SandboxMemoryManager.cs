@@ -274,13 +274,14 @@ namespace Hyperlight.Wrapper
                 throw new HyperlightException("mem_mgr_get_function_call_result did not return a FunctionCallResult");
             }
             var functionCallResult = resultHdlWrapper.GetFunctionCallResult();
-            // TODO Handle void return type.
+            
             return functionCallResult.ReturnValueType switch
             {
                 ReturnValue.hlint => functionCallResult.ReturnValueAshlint().Value,
                 ReturnValue.hllong => functionCallResult.ReturnValueAshllong().Value,
                 ReturnValue.hlstring => functionCallResult.ReturnValueAshlstring().Value,
                 ReturnValue.hlbool => functionCallResult.ReturnValueAshlbool().Value,
+                ReturnValue.hlvoid => functionCallResult.ReturnValueAshlvoid(),
                 ReturnValue.hlsizeprefixedbuffer => functionCallResult.ReturnValueAshlsizeprefixedbuffer().GetValueArray(),
                 _ => throw new HyperlightException($"ReturnValueType {functionCallResult.ReturnValueType} was not expected"),
             };
@@ -611,9 +612,13 @@ namespace Hyperlight.Wrapper
             {
                 expectedReturnType = ReturnType.hlsizeprefixedbuffer;
             }
+            else if (typeofReturnValue == typeof(void))
+            {
+                expectedReturnType = ReturnType.hlvoid;
+            }
             else
             {
-                HyperlightException.LogAndThrowException<ArgumentException>("Unsupported return type", GetType().Name);
+                HyperlightException.LogAndThrowException<ArgumentException>($"Unsupported return type {typeofReturnValue.Name}", GetType().Name);
             }
 
             var parametersVector = FunctionCall.CreateParametersVector(builder, parameters);
@@ -662,9 +667,13 @@ namespace Hyperlight.Wrapper
                 {
                     returnType = ReturnType.hllong;
                 }
+                else if (methodInfo.ReturnType == typeof(void))
+                {
+                    returnType = ReturnType.hlvoid;
+                }
                 else
                 {
-                    HyperlightException.LogAndThrowException<ArgumentException>($"Only int long or IntPtr return types are supported: Name {hostFunction.Key} Return Type {methodInfo.ReturnType.Name} ", GetType().Name);
+                    HyperlightException.LogAndThrowException<ArgumentException>($"Only void int long or IntPtr return types are supported: Name {hostFunction.Key} Return Type {methodInfo.ReturnType.Name} ", GetType().Name);
                 }
 
                 VectorOffset parameterTypeVec = new();
