@@ -109,11 +109,11 @@ impl SandboxMemoryConfiguration {
 impl Default for SandboxMemoryConfiguration {
     fn default() -> Self {
         Self::new(
-            Self::DEFAULT_GUEST_ERROR_BUFFER_SIZE,
-            Self::DEFAULT_HOST_FUNCTION_DEFINITION_SIZE,
-            Self::DEFAULT_HOST_EXCEPTION_SIZE,
             Self::DEFAULT_INPUT_SIZE,
             Self::DEFAULT_OUTPUT_SIZE,
+            Self::DEFAULT_HOST_FUNCTION_DEFINITION_SIZE,
+            Self::DEFAULT_HOST_EXCEPTION_SIZE,
+            Self::DEFAULT_GUEST_ERROR_BUFFER_SIZE,
             None,
             None,
         )
@@ -131,12 +131,17 @@ mod tests {
     fn overrides() {
         const STACK_SIZE_OVERRIDE: u64 = 0x10000;
         const HEAP_SIZE_OVERRIDE: u64 = 0x50000;
+        const INPUT_DATA_SIZE_OVERRIDE: usize = 0x4000;
+        const OUTPUT_DATA_SIZE_OVERRIDE: usize = 0x4001;
+        const HOST_FUNCTION_DEFINITION_SIZE_OVERRIDE: usize = 0x4002;
+        const HOST_EXCEPTION_SIZE_OVERRIDE: usize = 0x4003;
+        const GUEST_ERROR_BUFFER_SIZE_OVERRIDE: usize = 0x40004;
         let cfg = SandboxMemoryConfiguration::new(
-            10,
-            10,
-            10,
-            10,
-            10,
+            INPUT_DATA_SIZE_OVERRIDE,
+            OUTPUT_DATA_SIZE_OVERRIDE,
+            HOST_FUNCTION_DEFINITION_SIZE_OVERRIDE,
+            HOST_EXCEPTION_SIZE_OVERRIDE,
+            GUEST_ERROR_BUFFER_SIZE_OVERRIDE,
             Some(STACK_SIZE_OVERRIDE),
             Some(HEAP_SIZE_OVERRIDE),
         );
@@ -150,8 +155,27 @@ mod tests {
             assert_eq!(STACK_SIZE_OVERRIDE, stack_size);
             assert_eq!(HEAP_SIZE_OVERRIDE, heap_size);
         }
-        let cfg = SandboxMemoryConfiguration::new(10, 10, 10, 10, 10, Some(1024), Some(2048));
+        let cfg = SandboxMemoryConfiguration::new(
+            INPUT_DATA_SIZE_OVERRIDE,
+            OUTPUT_DATA_SIZE_OVERRIDE,
+            HOST_FUNCTION_DEFINITION_SIZE_OVERRIDE,
+            HOST_EXCEPTION_SIZE_OVERRIDE,
+            GUEST_ERROR_BUFFER_SIZE_OVERRIDE,
+            Some(1024),
+            Some(2048),
+        );
         assert_eq!(1024, cfg.stack_size_override);
         assert_eq!(2048, cfg.heap_size_override);
+        assert_eq!(INPUT_DATA_SIZE_OVERRIDE, cfg.input_data_size);
+        assert_eq!(OUTPUT_DATA_SIZE_OVERRIDE, cfg.output_data_size);
+        assert_eq!(
+            HOST_FUNCTION_DEFINITION_SIZE_OVERRIDE,
+            cfg.host_function_definition_size
+        );
+        assert_eq!(HOST_EXCEPTION_SIZE_OVERRIDE, cfg.host_exception_size);
+        assert_eq!(
+            GUEST_ERROR_BUFFER_SIZE_OVERRIDE,
+            cfg.guest_error_buffer_size
+        );
     }
 }
