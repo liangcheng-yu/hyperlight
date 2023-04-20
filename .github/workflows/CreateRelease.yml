@@ -135,6 +135,7 @@ jobs:
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         prerelease: true
+        automatic_release_tag: v${{ env.HYPERLIGHT_VERSION }}
         title: "Release v${{ env.HYPERLIGHT_VERSION }}"
         files: |
           src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe
