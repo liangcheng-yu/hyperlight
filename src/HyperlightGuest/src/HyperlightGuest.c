@@ -169,7 +169,8 @@ void writeError(uint64_t errorCode, char *message)
     
     if (flatcc_builder_init(&builder))
     {
-        setError(GUEST_ERROR, "Failed to initialize flatcc Guest Error Builder");
+        // do not call setError here, as it will cause an infinite recursion
+        abort();
     }
 
     // Validate the error code
@@ -408,7 +409,33 @@ int native_symbol_thunk_returning_int(char *functionName, ...)
 
 int GetHostReturnValueAsInt()
 {
-    return *((int *)pPeb->inputdata.inputDataBuffer);
+    size_t bufferSize;
+    void* buffer = flatbuffers_read_size_prefix(pPeb->inputdata.inputDataBuffer, &bufferSize);
+    assert(NULL != buffer);
+    // No need to free buffer as its just a pointer to an offset in the message buffer in the PEB
+    if (bufferSize <= 0) {
+        setError(GUEST_ERROR, "Got a 0-size buffer in GetHostReturnValueAsInt");
+        return -1;
+    }
+
+    ns(FunctionCallResult_table_t) funcCallRes = ns(FunctionCallResult_as_root(
+        buffer
+    ));
+
+    ns(ReturnType_enum_t) retValType = ns(FunctionCallResult_return_value_type(
+        funcCallRes
+    ));
+ 
+    if(ns(ReturnValue_hlint) == retValType) {
+        ns(hlint_table_t) hlintTable = (ns(hlint_table_t)) ns(FunctionCallResult_return_value(
+            funcCallRes
+        ));
+        int32_t hlintVal = ns(hlint_value_get(hlintTable));
+        return hlintVal;
+    } else {
+        setError(GUEST_ERROR, "Host return value was not an int as expected");
+        return -1;
+    }
 }
 
 // Calls a Host Function that returns void
@@ -442,7 +469,13 @@ unsigned int native_symbol_thunk_returning_uint(char *functionName, ...)
 
 unsigned int GetHostReturnValueAsUInt()
 {
-    return *((unsigned int *)pPeb->inputdata.inputDataBuffer);
+    int intVal = GetHostReturnValueAsInt();
+    if(intVal < 0) {
+        setError(GUEST_ERROR, "Host return value was not a uint as expected");
+        return 0;
+    } else {
+        return intVal;
+    }
 }
 
 // Calls a Host Function that returns an long long
@@ -462,7 +495,34 @@ long long native_symbol_thunk_returning_longlong(char *functionName, ...)
 
 long long GetHostReturnValueAsLongLong()
 {
-    return *((long long *)pPeb->inputdata.inputDataBuffer);
+    size_t bufferSize;
+    void* buffer = flatbuffers_read_size_prefix(pPeb->inputdata.inputDataBuffer, &bufferSize);
+    assert(NULL != buffer);
+    // No need to free buffer as its just a pointer to an offset in the message buffer in the PEB
+    if (bufferSize <= 0) {
+        setError(GUEST_ERROR, "Got a 0-size buffer in GetHostReturnValueAsLongLong");
+        return -1;
+    }
+
+    ns(FunctionCallResult_table_t) funcCallRes = ns(FunctionCallResult_as_root(
+        buffer
+    ));
+
+    ns(ReturnType_enum_t) retValType = ns(FunctionCallResult_return_value_type(
+        funcCallRes
+    ));
+
+    if (ns(ReturnValue_hllong) == retValType) {
+        ns(hllong_table_t) hllongTable = (ns(hllong_table_t)) ns(FunctionCallResult_return_value(
+            funcCallRes
+        ));
+        int64_t hllongVal = ns(hllong_value_get(hllongTable));
+        return hllongVal;
+    }
+    else {
+        setError(GUEST_ERROR, "Host return value was not an int as expected");
+        return -1;
+    }
 }
 
 // Calls a Host Function that returns an ulong long
@@ -482,7 +542,13 @@ unsigned long long native_symbol_thunk_returning_ulonglong(char *functionName, .
 
 unsigned long long GetHostReturnValueAsULongLong()
 {
-    return *((unsigned long long *)pPeb->inputdata.inputDataBuffer);
+    long long longLongRet = GetHostReturnValueAsLongLong();
+    if(longLongRet < 0) {
+        setError(GUEST_ERROR, "Host return value was not a ulonglong as expected");
+        return 0;
+    } else {
+        return longLongRet;
+    }
 }
 
 void GetFunctionCallParameters(ns(FunctionCall_table_t) functionCall, Parameter parameterValues[])
@@ -559,7 +625,7 @@ uint8_t* GetFlatBufferResultFromVoid()
     {
         setError(GUEST_ERROR, "Failed to initialize flatcc Function Call Result Builder");
     }
-    ns(hlvoid_ref_t) hlvoidVal = ns(hlvoid_create(&functionCallResultBuilder, 0));
+    ns(hlvoid_ref_t) hlvoidVal = ns(hlvoid_create(&functionCallResultBuilder));
     ns(ReturnValue_union_ref_t) returnValue = ns(ReturnValue_as_hlvoid(hlvoidVal));
     return GetFlatBufferResult(&functionCallResultBuilder, returnValue);
 }

@@ -1,8 +1,8 @@
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::{arrays::raw_vec::RawVec, context::Context};
-use crate::guest::function_call_result::FunctionCallResult;
 use crate::validate_context_or_panic;
+use crate::{capi::strings::get_string, guest::function_call_result::FunctionCallResult};
 use anyhow::Result;
 use std::mem;
 
@@ -79,6 +79,75 @@ pub unsafe extern "C" fn handle_get_function_call_result_flatbuffer(
     }
 }
 
+/// Create a new `FunctionCallResult` from the given `i32`, then
+/// return a new `Handle` referencing it in `ctx`.
+///
+/// # Safety
+///
+/// `ctx` must be a valid pointer to a `Context` created with `context_new`,
+/// owned by you, and not yet freed with `context_free`
+#[no_mangle]
+pub unsafe extern "C" fn function_call_result_new_i32(ctx: *mut Context, val: i32) -> Handle {
+    register_function_call_result(&mut *ctx, FunctionCallResult::Int(val))
+}
+
+/// Create a new `FunctionCallResult` from the given `i64`, then
+/// return a new `Handle` referencing it in `ctx`.
+///
+/// # Safety
+///
+/// `ctx` must be a valid pointer to a `Context` created with `context_new`,
+/// owned by you, and not yet freed with `context_free`
+#[no_mangle]
+pub unsafe extern "C" fn function_call_result_new_i64(ctx: *mut Context, val: i64) -> Handle {
+    register_function_call_result(&mut *ctx, FunctionCallResult::Long(val))
+}
+
+/// Create a new `FunctionCallResult` from the given `bool`, then
+/// return a new `Handle` referencing it in `ctx`.
+///
+/// # Safety
+///
+/// `ctx` must be a valid pointer to a `Context` created with `context_new`,
+/// owned by you, and not yet freed with `context_free`
+#[no_mangle]
+pub unsafe extern "C" fn function_call_result_new_bool(ctx: *mut Context, val: bool) -> Handle {
+    register_function_call_result(&mut *ctx, FunctionCallResult::Boolean(val))
+}
+
+/// Fetch the string from `ctx` referenced by `str_hdl`, then create a
+/// new `FunctionCallResult` from it and return a new `Handle` referencing
+/// it in `ctx`
+///
+/// # Safety
+///
+/// `ctx` must be a valid pointer to a `Context` created with `context_new`,
+/// owned by you, and not yet freed with `context_free`
+#[no_mangle]
+pub unsafe extern "C" fn function_call_result_new_string(
+    ctx: *mut Context,
+    str_hdl: Handle,
+) -> Handle {
+    let str = match get_string(&*ctx, str_hdl) {
+        Ok(s) => s,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let res = FunctionCallResult::String(Some(str.clone()));
+    register_function_call_result(&mut *ctx, res)
+}
+
+/// Create a new, void `FunctionCallResult` return a new `Handle` referencing
+/// it in `ctx`
+///
+/// # Safety
+///
+/// `ctx` must be a valid pointer to a `Context` created with `context_new`,
+/// owned by you, and not yet freed with `context_free`
+#[no_mangle]
+pub unsafe extern "C" fn function_call_result_new_void(ctx: *mut Context) -> Handle {
+    register_function_call_result(&mut *ctx, FunctionCallResult::Void)
+}
+
 /// Free the memory associated with the `FunctionCallResult`s `ptr`.
 ///
 /// # Safety
@@ -96,8 +165,14 @@ pub unsafe extern "C" fn function_call_result_flatbuffer_free(ptr: *mut u8) -> b
     true
 }
 
-fn get_function_call_result(ctx: &Context, hdl: Handle) -> Result<&FunctionCallResult> {
+/// Get the `FunctionCallResult` in `ctx` referenced by the given `hdl`,
+/// or an `Err` if no such `FunctionCallResult` exists
+pub(crate) fn get_function_call_result(ctx: &Context, hdl: Handle) -> Result<&FunctionCallResult> {
     Context::get(hdl, &ctx.function_call_results, |hdl| {
         matches!(hdl, Hdl::FunctionCallResult(_))
     })
+}
+
+fn register_function_call_result(ctx: &mut Context, val: FunctionCallResult) -> Handle {
+    Context::register(val, &mut ctx.function_call_results, Hdl::FunctionCallResult)
 }

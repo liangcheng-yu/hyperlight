@@ -274,7 +274,7 @@ namespace Hyperlight.Wrapper
                 throw new HyperlightException("mem_mgr_get_function_call_result did not return a FunctionCallResult");
             }
             var functionCallResult = resultHdlWrapper.GetFunctionCallResult();
-            
+
             return functionCallResult.ReturnValueType switch
             {
                 ReturnValue.hlint => functionCallResult.ReturnValueAshlint().Value,
@@ -727,8 +727,29 @@ namespace Hyperlight.Wrapper
                     );
                 }
             }
-
         }
+
+        internal void WriteResponseFromHostMethodCall(
+            Type type,
+            object? returnValue
+        )
+        {
+            using var funcCallRes = HostFunctionCallResultWrapper.FromObject(
+                this.ctxWrapper,
+                type,
+                returnValue
+            );
+            using var hdl = new Handle(
+                this.ctxWrapper,
+                mem_mgr_write_response_from_host_method_call(
+                    this.ctxWrapper.ctx,
+                    this.memMgrHdl.handle,
+                    funcCallRes.HandleWrapper.handle
+                ),
+                true
+            );
+        }
+
 
         internal void WriteMemoryLayout()
         {
@@ -998,11 +1019,18 @@ namespace Hyperlight.Wrapper
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-
         private static extern NativeHandle mem_mgr_write_host_function_details(
             NativeContext ctx,
             NativeHandle mgrHdl,
             IntPtr hostFunctionDetailsBuffferPtr
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_write_response_from_host_method_call(
+            NativeContext ctx,
+            NativeHandle mgrHdl,
+            NativeHandle typeNameHdl
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]

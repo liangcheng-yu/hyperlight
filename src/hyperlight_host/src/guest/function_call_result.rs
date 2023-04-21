@@ -25,6 +25,18 @@ pub enum FunctionCallResult {
     SizePrefixedBuffer(Option<Vec<u8>>),
 }
 
+impl FunctionCallResult {
+    pub(crate) fn write_to_memory(
+        &self,
+        shared_mem: &mut SharedMemory,
+        layout: &SandboxMemoryLayout,
+    ) -> Result<()> {
+        let input_data_offset = layout.input_data_buffer_offset;
+        let function_call_buffer = Vec::<u8>::try_from(self)?;
+        shared_mem.copy_from_slice(function_call_buffer.as_slice(), input_data_offset)
+    }
+}
+
 impl TryFrom<&[u8]> for FunctionCallResult {
     type Error = anyhow::Error;
     fn try_from(value: &[u8]) -> Result<Self> {

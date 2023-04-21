@@ -93,7 +93,7 @@ impl SharedMemory {
     /// size in bytes.
     ///
     /// Return `Err` if shared memory could not be allocated.
-    pub fn new(min_size_bytes: usize) -> Result<Self> {
+    pub(crate) fn new(min_size_bytes: usize) -> Result<Self> {
         cfg_if::cfg_if! {
             if #[cfg(unix)] {
                 use anyhow::bail;
@@ -153,7 +153,7 @@ impl SharedMemory {
     /// This function should not be used to do pointer artithmetic.
     /// Only use it to get the base address of the memory map so you
     /// can do things like calculate offsets, etc...
-    pub fn base_addr(&self) -> usize {
+    pub(crate) fn base_addr(&self) -> usize {
         self.raw_ptr() as usize
     }
 
@@ -161,7 +161,7 @@ impl SharedMemory {
     /// `[offset, offset + from_bytes.len()]` are valid, copy all
     /// bytes from `from_bytes` in order to `self` and return `Ok`.
     /// Otherwise, return `Err`.
-    pub fn copy_from_slice(&mut self, from_bytes: &[u8], offset: Offset) -> Result<()> {
+    pub(crate) fn copy_from_slice(&mut self, from_bytes: &[u8], offset: Offset) -> Result<()> {
         bounds_check!(offset, self.mem_size());
         bounds_check!(offset + from_bytes.len(), self.mem_size());
         unsafe { self.copy_from_slice_subset(from_bytes, from_bytes.len(), offset) }
@@ -200,7 +200,7 @@ impl SharedMemory {
     /// let mut ret_vec = vec![b'\0'; 20];
     /// shared_mem.copy_to_slice(ret_vec.as_mut_slice(), 0)?
     /// ```
-    pub fn copy_to_slice(&self, slc: &mut [u8], offset: Offset) -> Result<()> {
+    pub(crate) fn copy_to_slice(&self, slc: &mut [u8], offset: Offset) -> Result<()> {
         bounds_check!(offset, self.mem_size());
         bounds_check!(offset + slc.len(), self.mem_size());
         let src_ptr = {
@@ -221,7 +221,7 @@ impl SharedMemory {
     }
 
     /// Copy the entire contents of `self` into a `Vec<u8>`, then return it
-    pub fn copy_all_to_vec(&self) -> Result<Vec<u8>> {
+    pub(crate) fn copy_all_to_vec(&self) -> Result<Vec<u8>> {
         // ensure this vec has _length_ (not just capacity) of self.mem_size()
         // so that the copy_to_slice reads the slice length properly.
         let mut ret_vec = vec![b'\0'; self.mem_size()];
@@ -239,7 +239,7 @@ impl SharedMemory {
     /// within this region, and that they do not attempt to
     /// free any of this memory, since it is owned and will
     /// be cleaned up by `self`.
-    pub fn raw_ptr(&self) -> *mut c_void {
+    pub(crate) fn raw_ptr(&self) -> *mut c_void {
         let (ptr, _) = *self.ptr_and_size;
         ptr
     }
@@ -248,14 +248,14 @@ impl SharedMemory {
     ///
     /// The return value is guaranteed to be the size of memory
     /// of which `self.raw_ptr()` points to the beginning.
-    pub fn mem_size(&self) -> usize {
+    pub(crate) fn mem_size(&self) -> usize {
         let (_, size) = *self.ptr_and_size;
         size
     }
 
     /// Return the address of memory at an offset to this `SharedMemory` checking
     /// that the memory is within the bounds of the `SharedMemory`.
-    pub fn calculate_address(&self, offset: Offset) -> Result<usize> {
+    pub(crate) fn calculate_address(&self, offset: Offset) -> Result<usize> {
         bounds_check!(offset, self.mem_size());
         usize::try_from(self.base_addr() + offset)
     }
@@ -266,7 +266,7 @@ impl SharedMemory {
     /// if the value between `offset` and `offset + <64 bits>`
     /// was successfully decoded to a little-endian `i64`,
     /// and `Err` otherwise.
-    pub fn read_i64(&self, offset: Offset) -> Result<i64> {
+    pub(crate) fn read_i64(&self, offset: Offset) -> Result<i64> {
         self.read(
             offset,
             Box::new(|mut c: ByteSliceCursor| c.read_i64::<LittleEndian>().map_err(|e| anyhow!(e))),
@@ -279,7 +279,7 @@ impl SharedMemory {
     /// if the value between `offset` and `offset + <64 bits>`
     /// was successfully decoded to a little-endian `u64`,
     /// and `Err` otherwise.
-    pub fn read_u64(&self, offset: Offset) -> Result<u64> {
+    pub(crate) fn read_u64(&self, offset: Offset) -> Result<u64> {
         self.read(
             offset,
             Box::new(|mut c| c.read_u64::<LittleEndian>().map_err(|e| anyhow!(e))),
@@ -292,22 +292,10 @@ impl SharedMemory {
     /// if the value between `offset` and `offset + <64 bits>`
     /// was successfully decoded to a little-endian `i64`,
     /// and `Err` otherwise.
-    pub fn read_i32(&self, offset: Offset) -> Result<i32> {
+    pub(crate) fn read_i32(&self, offset: Offset) -> Result<i32> {
         self.read(
             offset,
             Box::new(|mut c| c.read_i32::<LittleEndian>().map_err(|e| anyhow!(e))),
-        )
-    }
-
-    /// Read a `u8` (i.e. a byte) from shared memory starting at `offset`
-    ///
-    /// Return `Ok` with the `u8` value starting at `offset`
-    /// if the value in the range `[offset, offset + 8)`
-    /// was successfully decoded to a `u8`, and `Err` otherwise.
-    pub fn read_u8(&self, offset: Offset) -> Result<u8> {
-        self.read(
-            offset,
-            Box::new(|mut c| c.read_u8().map_err(|e| anyhow!(e))),
         )
     }
 
@@ -317,7 +305,7 @@ impl SharedMemory {
     /// Return `Ok` with the `string` value starting at `offset`
     /// if the value at `offset` was successfully decoded as a string,
     /// and `Err` otherwise.
-    pub fn read_string(&self, offset: Offset) -> Result<String> {
+    pub(crate) fn read_string(&self, offset: Offset) -> Result<String> {
         bounds_check!(offset, self.mem_size());
         let addr: u64 = (self.base_addr() + offset).into();
         unsafe {
@@ -340,9 +328,9 @@ impl SharedMemory {
         reader(c)
     }
 
-    /// Write val into shared memory at the given offset
+    /// Write `val` into shared memory at the given offset
     /// from the start of shared memory
-    pub fn write_u64(&mut self, offset: Offset, val: u64) -> Result<()> {
+    pub(crate) fn write_u64(&mut self, offset: Offset, val: u64) -> Result<()> {
         self.write(
             offset,
             val,
@@ -354,12 +342,12 @@ impl SharedMemory {
         )
     }
 
-    /// Write `val` to `slc` as little-endian at `offset.
+    /// Write `val` to shared memory as little-endian at `offset`.
     ///
     /// If `Ok` is returned, `self` will have been modified
     /// in-place. Otherwise, no modifications will have been
     /// made.
-    pub fn write_i32(&mut self, offset: Offset, val: i32) -> Result<()> {
+    pub(crate) fn write_i32(&mut self, offset: Offset, val: i32) -> Result<()> {
         self.write(
             offset,
             val,
@@ -371,21 +359,15 @@ impl SharedMemory {
         )
     }
 
-    /// Internal method to write a `u8` to shared memory.
+    /// Write `val` to `offset` in `self` by doing the following:
     ///
-    /// Currently only used in testing
-    pub fn write_u8(&mut self, offset: Offset, val: u8) -> Result<()> {
-        self.write(
-            offset,
-            val,
-            Box::new(|val| {
-                let mut v = Vec::new();
-                v.write_u8(val)?;
-                Ok(v)
-            }),
-        )
-    }
-
+    /// 1. call `writer(val)` to get a `Vec<u8>` representation of `val`
+    /// 2. Write the resulting `Vec<u8>` into `self`, starting at `offset`,
+    /// in order
+    ///
+    /// Returns `Ok` iff the call in (1) succeeded, and all the write operations
+    /// in (2) succeeded. Otherwise, returns `Err`. If `Ok` is returned,
+    /// some but not all writes may have been done.
     fn write<T>(&mut self, offset: Offset, val: T, writer: Writer<T>) -> Result<()> {
         bounds_check!(offset, self.mem_size());
         bounds_check!(offset + size_of::<T>(), self.mem_size());
@@ -414,7 +396,8 @@ mod tests {
 
     use super::SharedMemory;
     use crate::mem::shared_mem_tests::read_write_test_suite;
-    use anyhow::Result;
+    use anyhow::{anyhow, Result};
+    use byteorder::ReadBytesExt;
     #[cfg(target_os = "linux")]
     use libc::{mmap, munmap};
     use proptest::prelude::*;
@@ -423,8 +406,20 @@ mod tests {
         VirtualAlloc, VirtualFree, MEM_COMMIT, MEM_DECOMMIT, PAGE_EXECUTE_READWRITE,
     };
 
+    /// Read a `u8` (i.e. a byte) from shared memory starting at `offset`
+    ///
+    /// Return `Ok` with the `u8` value starting at `offset`
+    /// if the value in the range `[offset, offset + 8)`
+    /// was successfully decoded to a `u8`, and `Err` otherwise.
+    fn read_u8(shared_mem: &SharedMemory, offset: Offset) -> Result<u8> {
+        shared_mem.read(
+            offset,
+            Box::new(|mut c| c.read_u8().map_err(|e| anyhow!(e))),
+        )
+    }
+
     #[test]
-    pub fn copy_to_from_slice() {
+    fn copy_to_from_slice() {
         let mem_size: usize = 4096;
         let vec_len = 10;
         let mut gm = SharedMemory::new(mem_size).unwrap();
@@ -494,7 +489,7 @@ mod tests {
     }
 
     #[test]
-    pub fn copy_into_from() -> Result<()> {
+    fn copy_into_from() -> Result<()> {
         let mem_size: usize = 4096;
         let vec_len = 10;
         let mut gm = SharedMemory::new(mem_size)?;
@@ -583,21 +578,8 @@ mod tests {
         }
     }
 
-    proptest! {
-        #[test]
-        fn read_write_u8(mem_size in 256_usize..0x1000_usize, val in b'\0'..b'z') {
-            read_write_test_suite(
-                mem_size,
-                val,
-                Box::new(SharedMemory::read_u8),
-                Box::new(SharedMemory::write_u8),
-            )
-            .unwrap()
-        }
-    }
-
     #[test]
-    pub fn alloc_fail() {
+    fn alloc_fail() {
         let gm = SharedMemory::new(0);
         assert!(gm.is_err());
         let gm = SharedMemory::new(usize::MAX);
@@ -606,7 +588,7 @@ mod tests {
 
     const MIN_SIZE: usize = 123;
     #[test]
-    pub fn clone() {
+    fn clone() {
         let mut gm1 = SharedMemory::new(MIN_SIZE).unwrap();
         let mut gm2 = gm1.clone();
 
@@ -624,8 +606,8 @@ mod tests {
         // offset 0 = 'a', offset 1 = 'b'
         for (raw_offset, expected) in &[(0_u64, b'a'), (1_u64, b'b')] {
             let offset = Offset::from(*raw_offset);
-            assert_eq!(gm1.read_u8(offset).unwrap(), *expected);
-            assert_eq!(gm2.read_u8(offset).unwrap(), *expected);
+            assert_eq!(read_u8(&gm1, offset).unwrap(), *expected);
+            assert_eq!(read_u8(&gm2, offset).unwrap(), *expected);
         }
 
         // after we drop gm1, gm2 should still exist, be valid,
@@ -635,15 +617,15 @@ mod tests {
         // at this point, gm2 should still have offset 0 = 'a', offset 1 = 'b'
         for (raw_offset, expected) in &[(0_u64, b'a'), (1_u64, b'b')] {
             let offset = Offset::from(*raw_offset);
-            assert_eq!(gm2.read_u8(offset).unwrap(), *expected);
+            assert_eq!(read_u8(&gm2, offset).unwrap(), *expected);
         }
         gm2.copy_from_slice(&[b'c'], Offset::from(2_u64)).unwrap();
-        assert_eq!(gm2.read_u8(Offset::from(2_u64)).unwrap(), b'c');
+        assert_eq!(read_u8(&gm2, Offset::from(2_u64)).unwrap(), b'c');
         drop(gm2);
     }
 
     #[test]
-    pub fn copy_all_to_vec() {
+    fn copy_all_to_vec() {
         let data = vec![b'a', b'b', b'c'];
         let mut gm = SharedMemory::new(data.len()).unwrap();
         gm.copy_from_slice(data.as_slice(), Offset::from(0_u64))
@@ -653,7 +635,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_drop() -> Result<()> {
+    fn test_drop() -> Result<()> {
         let (addr, size) = {
             let mem = SharedMemory::new(MIN_SIZE)?;
             (mem.raw_ptr(), mem.mem_size())

@@ -1,5 +1,6 @@
 use super::shared_mem::get_shared_memory;
 use super::{byte_array::get_byte_array, context::Context, handle::Handle, hdl::Hdl};
+use crate::capi::function_call_result::get_function_call_result;
 use crate::{
     capi::arrays::borrowed_slice::borrow_ptr_as_slice_mut,
     capi::int::register_i32,
@@ -886,6 +887,33 @@ pub unsafe extern "C" fn mem_mgr_write_host_function_call(
             Ok(_) => Handle::new_empty(),
             Err(e) => (*ctx).register_err(e),
         },
+        Err(e) => (*ctx).register_err(e),
+    }
+}
+
+/// Write the response from a host function call to memory.
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_write_response_from_host_method_call(
+    ctx: *mut Context,
+    mem_mgr_hdl: Handle,
+    function_call_result_hdl: Handle,
+) -> Handle {
+    let mem_mgr = match get_mem_mgr_mut(&mut *ctx, mem_mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let func_call_res = match get_function_call_result(&*ctx, function_call_result_hdl) {
+        Ok(f) => f,
+        Err(e) => return (*ctx).register_err(e),
+    };
+
+    match mem_mgr.write_response_from_host_method_call(func_call_res) {
+        Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
 }

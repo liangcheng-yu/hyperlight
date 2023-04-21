@@ -161,7 +161,7 @@ namespace Hyperlight.Hypervisors
                         break;
                     case LinuxKVM.KVM_EXIT_MMIO:
                         HandleMemoryAccess();
-                        ThrowExitException(run);
+                        ThrowExitException(run, true);
                         break;
                     default:
                         ThrowExitException(run);
@@ -170,10 +170,23 @@ namespace Hyperlight.Hypervisors
             }
         }
 
-        private static void ThrowExitException(LinuxKVM.KVM_RUN run)
+        private static void ThrowExitException(LinuxKVM.KVM_RUN run, bool known = false)
         {
-            //TODO: Improve exception data;
-            HyperlightException.LogAndThrowException($"Unknown KVM exit_reason = {run.exit_reason}", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+            if (known)
+            {
+                HyperlightException.LogAndThrowException(
+                    $"Known KVM exit_reason = {run.exit_reason}",
+                    MethodBase.GetCurrentMethod()!.DeclaringType!.Name
+                );
+            }
+            else
+            {
+                //TODO: Improve exception data;
+                HyperlightException.LogAndThrowException(
+                    $"Unknown KVM exit_reason = {run.exit_reason}",
+                    MethodBase.GetCurrentMethod()!.DeclaringType!.Name
+                );
+            }
         }
         internal override void ResetRSP(ulong rsp)
         {

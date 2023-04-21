@@ -302,7 +302,7 @@ namespace Hyperlight
 
         public void CheckForGuestError()
         {
-            (ErrorCode ErrorCode, string? Message) guestError = sandboxMemoryManager.GetGuestError();
+            var guestError = sandboxMemoryManager.GetGuestError();
 
             switch (guestError.ErrorCode)
             {
