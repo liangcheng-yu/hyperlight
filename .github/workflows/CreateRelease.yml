@@ -14,7 +14,7 @@ on:
 jobs:
   publish:
     # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
-    if:  ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }} || github.event_name == 'workflow_dispatch' 
+    if:  ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }} 
     runs-on: windows-2022
     needs: [build-rust-ubuntu, build-rust-windows]
     env:
@@ -172,13 +172,13 @@ jobs:
           libhyperlight_host.d
           hyperlight_host.dll
           hyperlight_host.pdb
-          src/Hyperlight/bin/x64/Debug/Deislabs.Hyperlight.*.nupkg
-          src/Hyperlight/bin/x64/Debug/Deislabs.Hyperlight.*.snupkg
+          src/Hyperlight/bin/x64/Debug/Deislabs.HyperLight.*.nupkg
+          src/Hyperlight/bin/x64/Debug/Deislabs.HyperLight.*.snupkg
           src/HyperlightDependencies/bin/x64/Debug/Deislabs.HyperlightDependencies.*.nupkg
           src/HyperlightDependencies/bin/x64/Debug/Deislabs.HyperlightDependencies.*.snupkg
   build-rust-ubuntu:
     # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
-    if:  ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }} || github.event_name == 'workflow_dispatch' 
+    if:  ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }} 
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
@@ -213,7 +213,7 @@ jobs:
           path: src/hyperlight_host/include/hyperlight_host.h
   build-rust-windows:
     # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
-    if:  ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }} || github.event_name == 'workflow_dispatch' 
+    if:  ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }} 
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v3
