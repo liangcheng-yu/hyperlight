@@ -1,6 +1,5 @@
 use super::handle::{new_key, Handle, Key};
 use super::hdl::Hdl;
-use crate::capi::mem_access_handler::MemAccessHandlerWrapper;
 use crate::capi::outb_handler::OutbHandlerWrapper;
 use crate::func::args::Val;
 use crate::func::def::HostFunc;
@@ -19,6 +18,9 @@ use crate::mem::pe::pe_info::PEInfo;
 use crate::mem::shared_mem::SharedMemory;
 use crate::mem::shared_mem_snapshot::SharedMemorySnapshot;
 use crate::sandbox::Sandbox;
+use crate::{
+    capi::mem_access_handler::MemAccessHandlerWrapper, guest::guest_log_data::GuestLogData,
+};
 use anyhow::{bail, Error, Result};
 #[cfg(target_os = "linux")]
 use kvm_ioctls::Kvm;
@@ -109,6 +111,8 @@ pub struct Context {
     pub host_function_calls: HashMap<Key, FunctionCall>,
     /// All the `FunctionCallResult`s stored in this context
     pub function_call_results: HashMap<Key, FunctionCallResult>,
+    /// All the `GuestLogData`s stored in this context
+    pub guest_log_datas: HashMap<Key, GuestLogData>,
 }
 
 impl Context {
@@ -243,6 +247,7 @@ impl Context {
                     Hdl::FunctionCallResult(key) => {
                         self.function_call_results.remove(&key).is_some()
                     }
+                    Hdl::GuestLogData(key) => self.guest_log_datas.remove(&key).is_some(),
                 }
             }
             Err(_) => false,

@@ -842,17 +842,101 @@ char *CheckAndCopyString(const char *source, char *dest)
     return strncpy(dest, (char *)source, length) + length;
 }
 
-void WriteLogData(LogLevel logLevel, const char *message, const char *source, const char *caller, const char *sourceFile, int32_t line)
+void WriteLogData(
+    LogLevel logLevel,
+    const char *message,
+    const char *source,
+    const char *caller,
+    const char *sourceFile,
+    int32_t line
+)
 {
-    memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
-    LogData *logData = (LogData *)pPeb->outputdata.outputDataBuffer;
-    logData->Message = (char *)pPeb->outputdata.outputDataBuffer + sizeof(LogData);
-    logData->Source = CheckAndCopyString(message, logData->Message);
-    logData->Level = logLevel;
-    logData->Caller = CheckAndCopyString(source, logData->Source);
-    logData->SourceFile = CheckAndCopyString(caller, logData->Caller);
-    CheckAndCopyString(sourceFile, logData->SourceFile);
-    logData->Line = line;
+    flatbuffers_builder_t logDataBuilder;
+    if (flatcc_builder_init(&logDataBuilder))
+    {
+        setError(
+            GUEST_ERROR,
+            "Failed to initialize flatcc log data builder"
+        );
+    }
+
+    Hyperlight_Generated_GuestLogData_start_as_root_with_size(&logDataBuilder);
+
+    {
+        // write message
+        Hyperlight_Generated_GuestLogData_message_create(
+            &logDataBuilder,
+            message,
+            strlen(message)
+        );
+    }
+    {
+        // write log level
+        Hyperlight_Generated_LogLevel_enum_t level_fb;
+        if(logLevel == TRACE) {
+            level_fb = Hyperlight_Generated_LogLevel_Trace;
+        } else if(logLevel == DEBUG) {
+            level_fb = Hyperlight_Generated_LogLevel_Debug;
+        } else if(logLevel == INFORMATION) {
+            level_fb = Hyperlight_Generated_LogLevel_Information;
+        } else if(logLevel == WARNING) {
+            level_fb = Hyperlight_Generated_LogLevel_Warning;
+        } else if(logLevel == ERROR) {
+            level_fb = Hyperlight_Generated_LogLevel_Error;
+        } else if(logLevel == CRTICAL) {
+            level_fb = Hyperlight_Generated_LogLevel_Critical;
+        } else {
+            level_fb = Hyperlight_Generated_LogLevel_None;
+        }
+        Hyperlight_Generated_GuestLogData_level_add(
+            &logDataBuilder,
+            level_fb       
+        );
+    }
+    {
+        // write source
+        Hyperlight_Generated_GuestLogData_source_create(
+            &logDataBuilder,
+            source,
+            strlen(source)
+        );
+    }
+    {
+        // write caller
+        Hyperlight_Generated_GuestLogData_caller_create(
+            &logDataBuilder,
+            caller,
+            strlen(caller)
+        );
+    }
+    {
+        // write source file
+        Hyperlight_Generated_GuestLogData_source_file_create(
+            &logDataBuilder,
+            sourceFile,
+            strlen(sourceFile)
+        );
+    }
+    {
+        // write line
+        Hyperlight_Generated_GuestLogData_line_add(
+            &logDataBuilder,
+            line
+        );
+    }
+
+    Hyperlight_Generated_GuestLogData_end_as_root(&logDataBuilder);
+    size_t size;
+    flatcc_builder_finalize_buffer(&logDataBuilder, &size);
+    void * buffer = flatcc_builder_get_direct_buffer(&logDataBuilder, &size);
+    {
+        void * outputBuffer = pPeb->outputdata.outputDataBuffer;
+        memcpy(
+            outputBuffer,
+            buffer,
+            size
+        );
+    }
 }
 
 void Log(LogLevel logLevel, const char *message, const char *source, const char *caller, const char *sourceFile, int32_t line)

@@ -37,7 +37,6 @@ impl GuestError {
     }
 
     /// Write the guest error to the shared memory.
-
     pub fn write_to_memory(
         self,
         guest_mem: &mut SharedMemory,

@@ -30,6 +30,8 @@ pub mod filepath;
 pub mod function_call_result;
 ///! C-compatible API functions to manage guest errors.
 pub mod guest_error;
+///! C-compatible API functions to manipulate `GuestLogData`s
+pub mod guest_log_data;
 ///! C-compatible API functions to manage `Handle` structures,
 ///! which are specialized pointers purpose-built for the Hyperlight
 ///! C API.

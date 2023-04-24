@@ -9,6 +9,7 @@
 #include "function_types_reader.h"
 #include "guest_function_definition_builder.h"
 #include "guest_function_definition_reader.h"
+#include "guest_log_data_builder.h"
 #include "host_function_definition_builder.h"
 #include "host_function_definition_reader.h"
 #include "host_function_details_builder.h"

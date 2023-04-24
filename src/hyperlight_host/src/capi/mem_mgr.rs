@@ -1,5 +1,5 @@
-use super::shared_mem::get_shared_memory;
 use super::{byte_array::get_byte_array, context::Context, handle::Handle, hdl::Hdl};
+use super::{guest_log_data::register_guest_log_data, shared_mem::get_shared_memory};
 use crate::capi::function_call_result::get_function_call_result;
 use crate::{
     capi::arrays::borrowed_slice::borrow_ptr_as_slice_mut,
@@ -977,4 +977,25 @@ pub unsafe extern "C" fn mem_mgr_get_function_call_result(
         ),
         Err(e) => (*ctx).register_err(e),
     }
+}
+
+/// Read the `GuestLogData` from the `SandboxMemoryManager` in `ctx` referenced
+/// by `mgr_hdl`, then return a new `Handle` referencing the new `GuestLogData`.
+/// Return a new `Handle` referencing an error if something went wrong
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_read_guest_log_data(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
+    let mgr = match get_mem_mgr_mut(&mut *ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    let guest_log_data = match mgr.read_guest_log_data() {
+        Ok(g) => g,
+        Err(e) => return (*ctx).register_err(e),
+    };
+    register_guest_log_data(&mut *ctx, guest_log_data)
 }

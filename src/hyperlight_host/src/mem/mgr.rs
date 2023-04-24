@@ -15,6 +15,7 @@ use crate::guest::{
     function_call_result::FunctionCallResult,
     guest_error::{Code, GuestError},
     guest_function_call::GuestFunctionCall,
+    guest_log_data::GuestLogData,
     host_function_call::HostFunctionCall,
     host_function_details::HostFunctionDetails,
 };
@@ -489,6 +490,11 @@ impl SandboxMemoryManager {
     /// Reads a function call result from memory
     pub(crate) fn get_function_call_result(&mut self) -> Result<FunctionCallResult> {
         FunctionCallResult::try_from((&self.shared_mem, &self.layout))
+    }
+
+    /// Read guest log data from the `SharedMemory` contained within `self`
+    pub(crate) fn read_guest_log_data(&self) -> Result<GuestLogData> {
+        GuestLogData::try_from((&self.shared_mem, self.layout))
     }
 }
 

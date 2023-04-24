@@ -41,5 +41,9 @@ pub mod hyperlight {
         pub use self::hlsizeprefixedbuffer_generated::*;
         mod function_call_result_generated;
         pub use self::function_call_result_generated::*;
+        mod log_level_generated;
+        pub use self::log_level_generated::*;
+        mod guest_log_data_generated;
+        pub use self::guest_log_data_generated::*;
     }
 }

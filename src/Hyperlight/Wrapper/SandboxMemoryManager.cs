@@ -65,8 +65,6 @@ namespace Hyperlight.Wrapper
             (int)this.entryPointOffset
         ).ToInt64();
 
-
-
         protected SharedMemory SharedMem
         {
             get
@@ -783,6 +781,28 @@ namespace Hyperlight.Wrapper
             return resultHdlWrapper.GetHostFunctionCall();
         }
 
+        internal GuestLogData ReadGuestLogData()
+        {
+            var rawHdl = mem_mgr_read_guest_log_data(
+                this.ctxWrapper.ctx,
+                this.memMgrHdl.handle
+            );
+            using var hdl = new Handle(
+                this.ctxWrapper,
+                rawHdl,
+                true
+            );
+            if (!hdl.IsGuestLogData())
+            {
+                HyperlightException.LogAndThrowException(
+                    "mem_mgr_read_guest_log_data did not return a Handle referencing a GuestLogData",
+                    GetType().Name
+                );
+            }
+            return hdl.GetGuestLogData();
+        }
+
+
         /// <summary>
         /// A function for subclasses to implement if they want to implement
         /// any Dispose logic of their own.
@@ -1053,6 +1073,14 @@ namespace Hyperlight.Wrapper
             NativeContext ctx,
             NativeHandle mgrHdl
         );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_read_guest_log_data(
+            NativeContext ctx,
+            NativeHandle mgrHdl
+        );
+
 
 #pragma warning restore CA1707 // Remove the underscores from member name
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

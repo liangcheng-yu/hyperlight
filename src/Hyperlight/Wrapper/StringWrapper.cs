@@ -47,6 +47,19 @@ namespace Hyperlight.Wrapper
             );
         }
 
+        public static StringWrapper FromHandle(
+            Context ctxWrapper,
+            NativeHandle hdl
+        )
+        {
+            return new StringWrapper(ctxWrapper, hdl);
+        }
+
+        public string RawString()
+        {
+            return this.HandleWrapper.GetString()!;
+        }
+
         public override string ToString()
         {
             return $"StringWrapper: {this.HandleWrapper.GetString()}";

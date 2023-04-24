@@ -299,6 +299,30 @@ impl SharedMemory {
         )
     }
 
+    /// Read a `u32` from shared memory starting at `offset`
+    ///
+    /// Return `Ok` with the `u32` value starting at `offset`
+    /// if the value in the bit range `[offset, <offset + 32 bits>)`
+    /// was successfully decoded to a `u8`, and `Err` otherwise.
+    pub fn read_u32(&self, offset: Offset) -> Result<u32> {
+        self.read(
+            offset,
+            Box::new(|mut c| c.read_u32::<LittleEndian>().map_err(|e| anyhow!(e))),
+        )
+    }
+
+    /// Read a `u8` (i.e. a byte) from shared memory starting at `offset`
+    ///
+    /// Return `Ok` with the `u8` value starting at `offset`
+    /// if the value in the range `[offset, offset + 8)`
+    /// was successfully decoded to a `u8`, and `Err` otherwise.
+    pub fn read_u8(&self, offset: Offset) -> Result<u8> {
+        self.read(
+            offset,
+            Box::new(|mut c| c.read_u8().map_err(|e| anyhow!(e))),
+        )
+    }
+
     /// Read a `string` written as a c string from shared memory starting at
     /// `offset`.
     ///

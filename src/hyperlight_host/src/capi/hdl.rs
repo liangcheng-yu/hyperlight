@@ -80,6 +80,9 @@ pub enum Hdl {
     HostFunctionCall(Key),
     /// A reference to a `FunctionCallResult` representing a result from a function call.
     FunctionCallResult(Key),
+    /// A reference to a `GuestLogData` representing data from a guest running
+    /// in a VM sandbox
+    GuestLogData(Key),
 }
 
 impl Hdl {
@@ -122,6 +125,7 @@ impl Hdl {
     const GUEST_ERROR_TYPE_ID: TypeID = 127;
     const HOST_FUNCTION_CALL_TYPE_ID: TypeID = 128;
     const FUNCTION_CALL_RESULT_TYPE_ID: TypeID = 129;
+    const GUEST_LOG_DATA_TYPE_ID: TypeID = 130;
 
     /// Get the `TypeID` associated with `self`.
     ///
@@ -167,6 +171,7 @@ impl Hdl {
             Hdl::GuestError(_) => Self::GUEST_ERROR_TYPE_ID,
             Hdl::HostFunctionCall(_) => Self::HOST_FUNCTION_CALL_TYPE_ID,
             Hdl::FunctionCallResult(_) => Self::FUNCTION_CALL_RESULT_TYPE_ID,
+            Hdl::GuestLogData(_) => Self::GUEST_LOG_DATA_TYPE_ID,
         }
     }
 
@@ -215,6 +220,7 @@ impl Hdl {
             Hdl::GuestError(key) => *key,
             Hdl::HostFunctionCall(key) => *key,
             Hdl::FunctionCallResult(key) => *key,
+            Hdl::GuestLogData(key) => *key,
         }
     }
 }
@@ -261,6 +267,7 @@ impl std::fmt::Display for Hdl {
             Hdl::GuestError(key) => write!(f, "GuestErrorHandlerFunc({})", key),
             Hdl::HostFunctionCall(key) => write!(f, "HostFunctionCallHandlerFunc({})", key),
             Hdl::FunctionCallResult(key) => write!(f, "FunctionCallResultHandlerFunc({})", key),
+            Hdl::GuestLogData(key) => write!(f, "GuestLogData({})", key),
         }
     }
 }
@@ -312,6 +319,7 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::GUEST_ERROR_TYPE_ID => Ok(Hdl::GuestError(key)),
             Self::HOST_FUNCTION_CALL_TYPE_ID => Ok(Hdl::HostFunctionCall(key)),
             Self::FUNCTION_CALL_RESULT_TYPE_ID => Ok(Hdl::FunctionCallResult(key)),
+            Self::GUEST_LOG_DATA_TYPE_ID => Ok(Hdl::GuestLogData(key)),
             _ => bail!("invalid handle type {}", hdl.type_id()),
         }
     }

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Immutable;
-using System.ComponentModel.Design;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -14,6 +13,10 @@ using Hyperlight.Native;
 using Hyperlight.Wrapper;
 using HyperlightDependencies;
 using Microsoft.Extensions.Logging;
+// type aliases to easily distinguish between the Flatbuffers-generated
+// LogLevel and the built-in C# LogLevel
+using CoreLogLevel = Microsoft.Extensions.Logging.LogLevel;
+using GenLogLevel = Hyperlight.Generated.LogLevel;
 
 namespace Hyperlight
 {
@@ -724,7 +727,25 @@ namespace Hyperlight
                     case OutBAction.Log:
                         {
                             var guestLogData = sandboxMemoryManager.ReadGuestLogData();
-                            HyperlightLogger.Log(guestLogData.LogLevel, guestLogData.Message, guestLogData.Source, null, guestLogData.Caller, guestLogData.SourceFile, guestLogData.Line);
+                            var logLevel = guestLogData.Level switch
+                            {
+                                GenLogLevel.Trace => CoreLogLevel.Trace,
+                                GenLogLevel.Critical => CoreLogLevel.Critical,
+                                GenLogLevel.Debug => CoreLogLevel.Debug,
+                                GenLogLevel.Error => CoreLogLevel.Error,
+                                GenLogLevel.Information => CoreLogLevel.Information,
+                                GenLogLevel.Warning => CoreLogLevel.Warning,
+                                _ => CoreLogLevel.None
+                            };
+                            HyperlightLogger.Log(
+                            logLevel,
+                            guestLogData.Message,
+                            guestLogData.Source,
+                            null,
+                            guestLogData.Caller,
+                            guestLogData.SourceFile,
+                            (int)guestLogData.Line
+                        );
                             break;
                         }
                     case OutBAction.Abort:
