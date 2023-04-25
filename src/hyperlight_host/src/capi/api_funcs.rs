@@ -1,11 +1,11 @@
+use super::handle::Handle;
+use super::hdl::Hdl;
+use super::strings::{to_string, RawCString};
 /// C-compatible functions for dealing with functions that are called
 /// across the VM boundary. For example, the APIs herein are used
 /// to register functions implemented by the host but called by
 /// the guest, or implemented by the guest but called by the host.
-use super::context::Context;
-use super::handle::Handle;
-use super::hdl::Hdl;
-use super::strings::{to_string, RawCString};
+use super::{c_func::CFunc, context::Context};
 use crate::func::def::HostFunc;
 use crate::validate_context;
 use anyhow::Result;
@@ -166,11 +166,10 @@ pub unsafe extern "C" fn host_func_call(
     name: RawCString,
     arg_hdl: Handle,
 ) -> Handle {
-    validate_context!(ctx);
-
-    let func_name = to_string(name);
-    match impls::call_host_func(&mut (*ctx), sbox_hdl, &func_name, arg_hdl) {
-        Ok(hdl) => hdl,
-        Err(e) => (*ctx).register_err(e),
-    }
+    CFunc::new("host_func_call", ctx)
+        .and_then_mut(|c, _| {
+            let func_name = to_string(name);
+            impls::call_host_func(c, sbox_hdl, &func_name, arg_hdl)
+        })
+        .ok_or_err_hdl()
 }

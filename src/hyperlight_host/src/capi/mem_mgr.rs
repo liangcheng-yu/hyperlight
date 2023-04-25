@@ -3,7 +3,7 @@ use super::{guest_log_data::register_guest_log_data, shared_mem::get_shared_memo
 use crate::capi::function_call_result::get_function_call_result;
 use crate::{
     capi::arrays::borrowed_slice::borrow_ptr_as_slice_mut,
-    capi::int::register_i32,
+    capi::{c_func::CFunc, int::register_i32},
     mem::{
         mgr::SandboxMemoryManager,
         ptr::{GuestPtr, HostPtr, RawPtr},
@@ -337,10 +337,13 @@ pub unsafe extern "C" fn mem_mgr_get_address_offset(
     mgr_hdl: Handle,
     source_addr: u64,
 ) -> Handle {
-    validate_context!(ctx);
-    let mgr = get_mgr!(ctx, mgr_hdl);
-    let val = mgr.get_address_offset(source_addr);
-    register_u64(&mut *ctx, val)
+    CFunc::new("mem_mgr_get_address_offset", ctx)
+        .and_then(|c, _| {
+            let mgr = get_mem_mgr(c, mgr_hdl)?;
+            Ok(mgr.get_address_offset(source_addr))
+        })
+        .map_static_mut(register_u64)
+        .ok_or_err_hdl()
 }
 
 /// Translate `addr` -- a pointer to memory in the guest address space --
@@ -503,29 +506,27 @@ pub unsafe extern "C" fn mem_mgr_get_host_exception_data(
     exception_data_ptr: *mut u8,
     exception_data_len: i32,
 ) -> Handle {
-    validate_context!(ctx);
-    let mgr = get_mgr!(ctx, mgr_hdl);
-    if exception_data_ptr.is_null() {
-        return (*ctx).register_err(anyhow!("Exception data ptr is null"));
-    }
-    if exception_data_len == 0 {
-        return (*ctx).register_err(anyhow!("Exception data length is zero"));
-    }
-    let exception_data_len_usize = match usize::try_from(exception_data_len) {
-        Ok(l) => l,
-        Err(_) => {
-            return (*ctx).register_err(anyhow!(
-                "converting exception_data_len ({:?}) to usize",
-                exception_data_len
-            ))
-        }
-    };
-    match borrow_ptr_as_slice_mut(exception_data_ptr, exception_data_len_usize, |slice| {
-        mgr.get_host_exception_data(slice)
-    }) {
-        Ok(_) => Handle::from(Hdl::Empty()),
-        Err(e) => (*ctx).register_err(e),
-    }
+    CFunc::new("mem_mgr_get_host_exception_data", ctx)
+        .and_then(|c, _| {
+            let mgr = get_mem_mgr(c, mgr_hdl)?;
+            if exception_data_ptr.is_null() {
+                bail!("Exception data ptr is null");
+            }
+            if exception_data_len == 0 {
+                bail!("Exception data length is zero");
+            }
+            let exception_data_len_usize = usize::try_from(exception_data_len).map_err(|_| {
+                anyhow!(
+                    "converting exception_data_len ({:?}) to usize",
+                    exception_data_len
+                )
+            })?;
+            borrow_ptr_as_slice_mut(exception_data_ptr, exception_data_len_usize, |slice| {
+                mgr.get_host_exception_data(slice)
+            })?;
+            Ok(Handle::new_empty())
+        })
+        .ok_or_err_hdl()
 }
 
 /// Use `SandboxMemoryManager` in `ctx` referenced by `mgr_hdl` to write a guest error message and

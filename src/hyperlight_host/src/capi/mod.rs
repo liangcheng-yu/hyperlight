@@ -11,6 +11,8 @@ pub mod arrays;
 pub mod bool;
 ///! C-compatible API functions to manage plain byte arrays.
 pub mod byte_array;
+///! Wrapper utility for creating efficient and correct FFI functions
+pub(crate) mod c_func;
 ///! C-compatible API functions to create, modify, read and delete
 ///! C language function pointers.
 ///!

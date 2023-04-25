@@ -1,5 +1,4 @@
-use crate::{validate_context, validate_context_or_panic};
-
+use super::c_func::CFunc;
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
@@ -45,12 +44,10 @@ mod impls {
 /// after you're done using it.
 #[no_mangle]
 pub unsafe extern "C" fn guest_binary_path(ctx: *mut Context, sbox_hdl: Handle) -> Handle {
-    validate_context!(ctx);
-
-    match impls::guest_binary_path(&(*ctx), sbox_hdl) {
-        Ok(path) => Context::register(path, &mut (*ctx).strings, Hdl::String),
-        Err(e) => (*ctx).register_err(e),
-    }
+    CFunc::new("guest_binary_path", ctx)
+        .and_then(|c, _| impls::guest_binary_path(c, sbox_hdl))
+        .map_mut(|c, path| Context::register(path, &mut c.strings, Hdl::String))
+        .ok_or_err_hdl()
 }
 
 /// Determine whether the hypervisor for use with
@@ -72,8 +69,8 @@ pub unsafe extern "C" fn guest_binary_path(ctx: *mut Context, sbox_hdl: Handle) 
 /// - Not modified, except by calling functions in the Hyperlight C
 /// API
 #[no_mangle]
-pub unsafe extern "C" fn is_hypervisor_present(ctx: *const Context, sbox_hdl: Handle) -> bool {
-    validate_context_or_panic!(ctx);
-
-    impls::is_hypervisor_present(&(*ctx), sbox_hdl).unwrap_or(false)
+pub unsafe extern "C" fn is_hypervisor_present(ctx: *mut Context, sbox_hdl: Handle) -> bool {
+    CFunc::new("is_hypervisor_present", ctx)
+        .and_then(|c, _| impls::is_hypervisor_present(c, sbox_hdl))
+        .ok_or(false)
 }
