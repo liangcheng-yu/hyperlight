@@ -46,7 +46,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.66.1
         with:
           components: clippy, rustfmt
-      - uses: Swatinem/rust-cache@v2
       - name: Install Just
         uses: extractions/setup-just@v1
         env:
