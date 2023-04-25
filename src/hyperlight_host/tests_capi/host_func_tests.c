@@ -35,7 +35,10 @@ MunitResult test_create_host_func()
 MunitResult test_call_host_func()
 {
     Context *ctx = context_new();
-    Handle sbox = sandbox_new(ctx, "some_bin");
+    Handle bin_path_ref = string_new(ctx, "some_bin");
+    Handle sbox = sandbox_new(ctx, bin_path_ref);
+    handle_assert_no_error(ctx, sbox);
+    handle_free(ctx, bin_path_ref);
     const char *host_func_name_1 = "test_func1";
     const char *host_func_name_2 = "test_func2";
     Handle host_func_ref_1 = host_func_create(ctx, test_callback);

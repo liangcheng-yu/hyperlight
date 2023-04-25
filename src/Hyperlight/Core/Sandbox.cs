@@ -40,6 +40,7 @@ namespace Hyperlight
     {
         public static AsyncLocal<string> CorrelationId { get; } = new AsyncLocal<string>();
         readonly Context context;
+        private readonly Handle hdlWrapper;
         readonly string? fixedCorrelationId;
         static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         public static bool IsLinux => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
@@ -47,14 +48,13 @@ namespace Hyperlight
         Hypervisor? hyperVisor;
         GCHandle? gCHandle;
         byte[]? stackGuard;
-        readonly string guestBinaryPath;
         readonly HyperLightExports hyperLightExports;
         readonly Core.SandboxMemoryManager sandboxMemoryManager;
         readonly bool initialised;
         readonly bool recycleAfterRun;
         readonly bool runFromProcessMemory;
         readonly bool runFromGuestBinary;
-        bool didRunFromGuestBinary;
+        readonly bool didRunFromGuestBinary;
         const int IS_RUNNING_FROM_GUEST_BINARY = 1;
         // this is passed as a ref to several functions below,
         // therefore cannot be readonly
@@ -165,6 +165,20 @@ namespace Hyperlight
             {
                 HyperlightException.LogAndThrowException<PlatformNotSupportedException>("Hyperlight is not supported on this platform", GetType().Name);
             }
+            {
+                using var binPathHdl = StringWrapper.FromString(
+                    this.context,
+                    guestBinaryPath
+                );
+
+                this.hdlWrapper = new Handle(
+                    this.context,
+                    sandbox_new(
+                        this.context.ctx,
+                        binPathHdl.HandleWrapper.handle
+                    )
+                );
+            }
 
             runOptions ??= SandboxRunOptions.None;
 
@@ -173,7 +187,6 @@ namespace Hyperlight
                 HyperlightException.LogAndThrowException<ArgumentException>($"Cannot find file {guestBinaryPath} to load into hyperlight", GetType().Name);
             }
             this.writer = writer;
-            this.guestBinaryPath = guestBinaryPath;
 
             this.recycleAfterRun = (runOptions & SandboxRunOptions.RecycleAfterRun) == SandboxRunOptions.RecycleAfterRun;
             this.runFromProcessMemory = (runOptions & SandboxRunOptions.RunInProcess) == SandboxRunOptions.RunInProcess ||
@@ -970,8 +983,10 @@ namespace Hyperlight
                     sandboxMemoryManager?.Dispose();
 
                     hyperVisor?.Dispose();
+                    // not strictly necessary to dispose this, the following
+                    // line will do so.
+                    this.hdlWrapper.Dispose();
                     this.context.Dispose();
-
                 }
 
                 disposedValue = true;
@@ -984,5 +999,19 @@ namespace Hyperlight
             Dispose(true);
             GC.SuppressFinalize(this);
         }
+
+#pragma warning disable CA1707 // Remove the underscores from member name
+#pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle sandbox_new(
+            NativeContext ctx,
+            NativeHandle binPathHdl
+        );
+
+#pragma warning restore CA1707 // Remove the underscores from member name
+#pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
+
     }
 }

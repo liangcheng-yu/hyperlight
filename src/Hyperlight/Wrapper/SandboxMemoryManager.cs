@@ -1081,7 +1081,6 @@ namespace Hyperlight.Wrapper
             NativeHandle mgrHdl
         );
 
-
 #pragma warning restore CA1707 // Remove the underscores from member name
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
     }

@@ -1,9 +1,8 @@
+use super::c_func::CFunc;
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
-use super::strings::{to_string, RawCString};
-use crate::sandbox::Sandbox;
-use crate::validate_context;
+use crate::{capi::strings::get_string, sandbox::Sandbox};
 use anyhow::Result;
 
 /// Create a new `Sandbox` with the given guest binary to execute
@@ -16,18 +15,24 @@ use anyhow::Result;
 /// it's no longer needed (but no sooner). Use `handle_free`
 /// to do so.
 #[no_mangle]
-pub unsafe extern "C" fn sandbox_new(ctx: *mut Context, bin_path: RawCString) -> Handle {
-    validate_context!(ctx);
-
-    let bin_path = to_string(bin_path);
-    let sbox = Sandbox::new(bin_path);
-    Context::register(sbox, &mut (*ctx).sandboxes, Hdl::Sandbox)
+pub unsafe extern "C" fn sandbox_new(ctx: *mut Context, bin_path_hdl: Handle) -> Handle {
+    CFunc::new("sandbox_new", ctx)
+        .and_then_mut(|ctx, _| {
+            let bin_path = get_string(&*ctx, bin_path_hdl)?;
+            let sbox = Sandbox::new(bin_path.to_string());
+            Ok(register_sandbox(ctx, sbox))
+        })
+        .ok_or_err_hdl()
 }
 
 /// Get a read-only reference to a `Sandbox` stored in `ctx` and
 /// pointed to by `handle`.
 pub fn get_sandbox(ctx: &Context, handle: Handle) -> Result<&Sandbox> {
     Context::get(handle, &ctx.sandboxes, |s| matches!(s, Hdl::Sandbox(_)))
+}
+
+fn register_sandbox(ctx: &mut Context, val: Sandbox) -> Handle {
+    Context::register(val, &mut ctx.sandboxes, Hdl::Sandbox)
 }
 
 /// Get a read-and-write capable reference to a `Sandbox` stored in

@@ -1,11 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.Eventing.Reader;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -2266,7 +2264,7 @@ namespace Hyperlight.Tests
                         else
                         {
                             testOutput.WriteLine("Calling GuestMethod4");
-                            CallGuestMethod4(sandbox, testData, builder,output);
+                            CallGuestMethod4(sandbox, testData, builder, output);
                         }
                     }
                 }
