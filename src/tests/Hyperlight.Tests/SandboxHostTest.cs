@@ -123,6 +123,7 @@ namespace Hyperlight.Tests
 #pragma warning disable IDE0049 // Simplify Names
             public Func<String, int>? PrintOutput;
             public Func<String, string>? Echo;
+            public Func<byte[], int, byte[]>? GetSizePrefixedBuffer;
 #pragma warning restore IDE0049 // Simplify Names
         }
 
@@ -2200,11 +2201,15 @@ namespace Hyperlight.Tests
             var guestMethods = new SimpleTestMembers();
             sandbox.BindGuestFunction("PrintOutput", guestMethods);
             sandbox.BindGuestFunction("Echo", guestMethods);
+            sandbox.BindGuestFunction("GetSizePrefixedBuffer", guestMethods);
             var result1 = sandbox.CallGuest<string>(() =>
             {
                 var result = guestMethods.PrintOutput!(testData.ExpectedOutput);
                 Assert.Equal<int>(testData.ExpectedReturnValue, result);
                 Assert.Equal(testData.ExpectedOutput, builder.ToString());
+                var array = new byte[] { 1, 2, 3, 4, 5, 6 };
+                var result2 = guestMethods.GetSizePrefixedBuffer!(array, array.Length);
+                Assert.Equal(result2, array);
                 return guestMethods.Echo!(testData.ExpectedOutput);
             });
             Assert.Equal(testData.ExpectedOutput, result1);

@@ -643,6 +643,19 @@ uint8_t* GetFlatBufferResultFromString(const char* value)
     return GetFlatBufferResult(&functionCallResultBuilder, returnValue);
 }
 
+uint8_t* GetFlatBufferResultFromSizePrefixedBuffer(void* value,int32_t length)
+{
+    flatbuffers_builder_t functionCallResultBuilder;
+    if (flatcc_builder_init(&functionCallResultBuilder))
+    {
+        setError(GUEST_ERROR, "Failed to initialize flatcc Function Call Result Builder");
+    }
+    flatbuffers_uint8_vec_ref_t vecValue = flatbuffers_uint8_vec_create(&functionCallResultBuilder, value, length);
+    ns(hlsizeprefixedbuffer_ref_t) hlsizeprefixedbufferVal = ns(hlsizeprefixedbuffer_create(&functionCallResultBuilder,length,vecValue));
+    ns(ReturnValue_union_ref_t) returnValue = ns(ReturnValue_as_hlsizeprefixedbuffer(hlsizeprefixedbufferVal));
+    return GetFlatBufferResult(&functionCallResultBuilder, returnValue);
+}
+
 uint8_t* CallGuestFunction(ns(FunctionCall_table_t) functionCall)
 {
     guestFunc pFunction = NULL;

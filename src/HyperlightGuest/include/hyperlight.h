@@ -233,4 +233,6 @@ uint8_t* GetFlatBufferResultFromString(const char*);
 
 uint8_t* GetFlatBufferResultFromVoid();
 
+uint8_t* GetFlatBufferResultFromSizePrefixedBuffer(void*, int32_t);
+
 ns(GuestFunctionDefinition_ref_t) CreateFunctionDefinition(const char*, guestFunc, int, ns(ParameterType_enum_t)[]);

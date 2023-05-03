@@ -212,6 +212,11 @@ uint8_t* echo(const char* msg)
     return GetFlatBufferResultFromString(msg);
 }
 
+uint8_t* getSizePrefixedBuffer(const void* data, uint32_t length) 
+{
+    return GetFlatBufferResultFromSizePrefixedBuffer((void*)data,length);
+}
+
 
 GENERATE_FUNCTION(simpleprintOutput,1,hlstring);
 GENERATE_FUNCTION(stackAllocate, 1, hlint);
@@ -232,6 +237,7 @@ GENERATE_FUNCTION(printNineArgs, 9, hlstring, hlint, hllong, hlstring, hlstring,
 GENERATE_FUNCTION(printTenArgs, 10, hlstring, hlint, hllong, hlstring, hlstring, hlbool, hlbool, hlstring, hllong, hlint);
 GENERATE_FUNCTION(setByteArrayToZero, 2, hlvecbytes, hlint);
 GENERATE_FUNCTION(echo, 1, hlstring);
+GENERATE_FUNCTION(getSizePrefixedBuffer, 2, hlvecbytes, hlint);
 
 void HyperlightMain()
 {
@@ -254,4 +260,5 @@ void HyperlightMain()
     RegisterFunction(FUNCTIONDETAILS("PrintTenArgs", printTenArgs));
     RegisterFunction(FUNCTIONDETAILS("SetByteArrayToZero", setByteArrayToZero));
     RegisterFunction(FUNCTIONDETAILS("Echo", echo));
+    RegisterFunction(FUNCTIONDETAILS("GetSizePrefixedBuffer", getSizePrefixedBuffer));
 }

@@ -112,6 +112,9 @@
     <ClInclude Include="include\flatbuffers\generated\host_function_details_reader.h">
       <Filter>Header Files\flatbuffers</Filter>
     </ClInclude>
+    <ClInclude Include="include\flatbuffers\generated\guest_log_data_builder.h">
+      <Filter>Header Files\flatbuffers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include=".\src\HyperlightGuest.c">

@@ -50,31 +50,30 @@ namespace Hyperlight.Wrapper
                 function_call_result_new_i64,
                  ConvertTo<long>(obj)
             ))
-            .Add(typeof(IntPtr), (obj) => From(
+            .Add(typeof(IntPtr), (obj) => From<long>(
                 ctx,
                 function_call_result_new_i64,
                 ConvertTo<long>(obj)
             ))
             .Add(typeof(void), (obj) => FromVoid(ctx));
 
-            if (converters.ContainsKey(type))
+            if (converters.TryGetValue(type, out var converter))
             {
-                var converter = converters[type];
                 return converter(obj);
             }
-            else
-            {
-                var exceptionStr = $"Unsupported Host Method Return Type {type.FullName}";
-                HyperlightException.LogAndThrowException<ArgumentException>(
-                    exceptionStr,
-                    MethodBase.GetCurrentMethod()!.DeclaringType!.Name
-                );
-                // this throw is not necessary at runtime, as the above 
-                // LogAndThrowException call will throw. we include it
-                // to satisfy the compiler that all code paths either return
-                // a value or throw
-                throw new HyperlightException(exceptionStr);
-            }
+
+            var exceptionStr = $"Unsupported Host Method Return Type {type.FullName}";
+            HyperlightException.LogAndThrowException<ArgumentException>(
+                exceptionStr,
+                MethodBase.GetCurrentMethod()!.DeclaringType!.Name
+            );
+
+            // this throw is not necessary at runtime, as the above 
+            // LogAndThrowException call will throw. we include it
+            // to satisfy the compiler that all code paths either return
+            // a value or throw
+            throw new HyperlightException(exceptionStr);
+
         }
         private static HostFunctionCallResultWrapper From<T>(
             Context ctx,
@@ -97,6 +96,15 @@ namespace Hyperlight.Wrapper
                 );
                 throw new ArgumentException(errStr);
             }
+
+            // This is a hack need a better way to do conversions but should do this when adding support for all host return types
+            // This is needed as an InPtr cannot be cast to a long
+
+            if (obj is IntPtr ptr)
+            {
+                obj = ptr.ToInt64();
+            }
+
             return (T)obj;
         }
 
