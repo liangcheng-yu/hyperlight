@@ -104,7 +104,6 @@ void checkForHostError()
         ns(GuestError_table_t guestError = ns(GuestError_as_root(buffer)));
         if (ns(GuestError_code(guestError) != ns(ErrorCode_NoError)))
         {
-            memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
             *(uint32_t *)pPeb->outputdata.outputDataBuffer = -1;
             longjmp(jmpbuf, 1);
         }
@@ -209,7 +208,6 @@ void resetError()
 void setError(uint64_t errorCode, char *message)
 {
     writeError(errorCode, message);
-    memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
     *(uint32_t *)pPeb->outputdata.outputDataBuffer = -1;
     longjmp(jmpbuf, 1);
 }
@@ -360,7 +358,6 @@ void ValidateHostFunctionCall(flatcc_builder_t* HostFunctionCallBuilder, char* f
 
 void CallHostFunction(char *functionName, va_list ap)
 {
-    memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
     flatcc_builder_t hostFunctionCallBuilder;
     if (flatcc_builder_init(&hostFunctionCallBuilder))
     {
@@ -790,7 +787,6 @@ void DispatchFunction()
         uint8_t* result = CallGuestFunction(functionCall);
         buffer = flatbuffers_read_size_prefix(result, &size);
         assert(NULL != buffer);
-        memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
         memcpy(pPeb->outputdata.outputDataBuffer, result, size+4);
         free(result);
     }
@@ -805,10 +801,6 @@ void DispatchFunction()
 void _putchar(char c)
 {
     static int index = 0;
-    if (index == 0)
-    {
-        memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
-    }
     char *ptr = pPeb->outputdata.outputDataBuffer;
 
     if (index >= pPeb->outputdata.outputDataSize)
@@ -1100,7 +1092,6 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int o
         FinaliseFunctionTable();
 
         // Setup return values
-        memset(pPeb->outputdata.outputDataBuffer, 0, pPeb->outputdata.outputDataSize);
         *(int32_t *)pPeb->outputdata.outputDataBuffer = 0;
     }
 

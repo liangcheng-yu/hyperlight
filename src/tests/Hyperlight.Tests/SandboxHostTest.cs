@@ -2090,7 +2090,7 @@ namespace Hyperlight.Tests
             });
         }
 
-        private void RunTests(TestData testData, SandboxRunOptions options, Action<Sandbox, TestData, StringWriter, StringBuilder, object?, string> test)
+        private void RunTests(TestData testData, SandboxRunOptions options, Action<Sandbox, TestData, StringWriter, StringBuilder, object?, string, bool> test)
         {
             if (testData.TestInstanceOrTypes().Length > 0)
             {
@@ -2106,7 +2106,7 @@ namespace Hyperlight.Tests
             }
         }
 
-        private void RunTest(TestData testData, SandboxRunOptions sandboxRunOptions, object? instanceOrType, string correlationId, Action<Sandbox, TestData, StringWriter, StringBuilder, object?, string> test)
+        private void RunTest(TestData testData, SandboxRunOptions sandboxRunOptions, object? instanceOrType, string correlationId, Action<Sandbox, TestData, StringWriter, StringBuilder, object?, string, bool> test)
         {
             using (var output = new StringWriter())
             {
@@ -2133,16 +2133,31 @@ namespace Hyperlight.Tests
                     }
                     var numberOfIterations = sandboxRunOptions.HasFlag(SandboxRunOptions.RecycleAfterRun) ? testData.NumberOfIterations : 1;
                     var builder = output.GetStringBuilder();
+                    var explicitlyReset = false;
                     for (var i = 0; i < numberOfIterations; i++)
                     {
+                        if (numberOfIterations > 0 && i > 0)
+                        {
+                            explicitlyReset = ShouldReset();
+                        }
                         builder.Remove(0, builder.Length);
-                        test(sandbox, testData, output, builder, instanceOrType, correlationId);
+                        test(sandbox, testData, output, builder, instanceOrType, correlationId, explicitlyReset);
                     }
                 }
             }
         }
 
-        private void RunTest(TestData testData, SandboxRunOptions sandboxRunOptions, Action<Sandbox, TestData, StringWriter, StringBuilder, object?, string> test)
+        private bool ShouldReset()
+        {
+            var min = 0;
+            var max = 1000;
+            var random = new Random();
+            var result = random.NextInt64(min, max + 1) % 2 == 0;
+            testOutput.WriteLine($"Explicit Reset: {result}");
+            return result;
+        }
+
+        private void RunTest(TestData testData, SandboxRunOptions sandboxRunOptions, Action<Sandbox, TestData, StringWriter, StringBuilder, object?, string, bool> test)
         {
             using (var output = new StringWriter())
             {
@@ -2158,16 +2173,21 @@ namespace Hyperlight.Tests
                 {
                     var numberOfIterations = sandboxRunOptions.HasFlag(SandboxRunOptions.RecycleAfterRun) ? testData.NumberOfIterations : 1;
                     var builder = output.GetStringBuilder();
+                    var explicitlyReset = false;
                     for (var i = 0; i < numberOfIterations; i++)
                     {
+                        if (numberOfIterations > 0 && i > 0)
+                        {
+                            explicitlyReset = ShouldReset();
+                        }
                         builder.Remove(0, builder.Length);
-                        test(sandbox, testData, output, builder, null, correlationId);
+                        test(sandbox, testData, output, builder, null, correlationId, explicitlyReset);
                     }
                 }
             }
         }
 
-        private void RunTest(TestData testData, object? instanceOrType, Action<Sandbox, TestData, StringWriter, StringBuilder, object?, string> test)
+        private void RunTest(TestData testData, object? instanceOrType, Action<Sandbox, TestData, StringWriter, StringBuilder, object?, string, bool> test)
         {
             using (var output = new StringWriter())
             {
@@ -2191,17 +2211,21 @@ namespace Hyperlight.Tests
                         }
                     }
                     var builder = output.GetStringBuilder();
-                    test(sandbox, testData, output, builder, instanceOrType, correlationId);
+                    test(sandbox, testData, output, builder, instanceOrType, correlationId, false);
                 }
             }
         }
 
-        private void SimpleTest(Sandbox sandbox, TestData testData, StringWriter output, StringBuilder builder, object? _ = null, string correlationId = "")
+        private void SimpleTest(Sandbox sandbox, TestData testData, StringWriter output, StringBuilder builder, object? _ = null, string correlationId = "", bool explicitlyReset = false)
         {
             var guestMethods = new SimpleTestMembers();
             sandbox.BindGuestFunction("PrintOutput", guestMethods);
             sandbox.BindGuestFunction("Echo", guestMethods);
             sandbox.BindGuestFunction("GetSizePrefixedBuffer", guestMethods);
+            if (explicitlyReset)
+            {
+                sandbox.RestoreState();
+            }
             var result1 = sandbox.CallGuest<string>(() =>
             {
                 var result = guestMethods.PrintOutput!(testData.ExpectedOutput);
@@ -2215,7 +2239,7 @@ namespace Hyperlight.Tests
             Assert.Equal(testData.ExpectedOutput, result1);
         }
 
-        private void CallbackTest(Sandbox sandbox, TestData testData, StringWriter output, StringBuilder builder, object? typeorinstance, string correlationId)
+        private void CallbackTest(Sandbox sandbox, TestData testData, StringWriter output, StringBuilder builder, object? typeorinstance, string correlationId, bool explicitlyReset = false)
         {
 
             if (typeorinstance == null)
@@ -2235,7 +2259,7 @@ namespace Hyperlight.Tests
             {
                 if (typeorinstance is Type)
                 {
-                    CallGuestMethod1(sandbox, testData, builder);
+                    CallGuestMethod1(sandbox, testData, builder, explicitlyReset);
                 }
                 else
                 {
@@ -2244,6 +2268,10 @@ namespace Hyperlight.Tests
                     var fieldInfo = GetDelegateFieldInfo(typeorinstance, "GuestMethod1");
                     if (fieldInfo != null)
                     {
+                        if (explicitlyReset)
+                        {
+                            sandbox.RestoreState();
+                        }
                         var fieldValue = fieldInfo.GetValue(typeorinstance);
                         Assert.NotNull(fieldValue);
                         var del = (Delegate)fieldValue!;
@@ -2264,18 +2292,18 @@ namespace Hyperlight.Tests
                         if (ShouldCallMethod1())
                         {
                             testOutput.WriteLine("Calling GuestMethod1");
-                            CallGuestMethod1(sandbox, testData, builder);
+                            CallGuestMethod1(sandbox, testData, builder, explicitlyReset);
                         }
                         else
                         {
                             testOutput.WriteLine("Calling GuestMethod4");
-                            CallGuestMethod4(sandbox, testData, builder, output);
+                            CallGuestMethod4(sandbox, testData, builder, output, explicitlyReset);
                         }
                     }
                 }
             }
 
-            static void CallGuestMethod1(Sandbox sandbox, TestData testData, StringBuilder builder)
+            static void CallGuestMethod1(Sandbox sandbox, TestData testData, StringBuilder builder, bool explicitlyReset)
             {
                 var guestMethods = new CallbackTestMembers();
                 sandbox.BindGuestFunction("GuestMethod1", guestMethods);
@@ -2283,17 +2311,26 @@ namespace Hyperlight.Tests
                 sandbox.ExposeHostMethod("HostMethod1", guestMethods);
                 var message = "Hello from CallbackTest";
                 var expectedMessage = string.Format(testData.ExpectedOutput, message);
+                if (explicitlyReset)
+                {
+                    sandbox.RestoreState();
+                }
                 var result = sandbox.CallGuest<int>(() => { return guestMethods.GuestMethod1!(message); });
                 Assert.Equal<int>(testData.ExpectedReturnValue, result);
                 Assert.Equal(expectedMessage, builder.ToString());
+
             }
 
-            static void CallGuestMethod4(Sandbox sandbox, TestData testData, StringBuilder builder, StringWriter output)
+            static void CallGuestMethod4(Sandbox sandbox, TestData testData, StringBuilder builder, StringWriter output, bool explicitlyReset)
             {
                 var guestMethods = new CallbackTestMembers(output);
                 sandbox.BindGuestFunction("GuestMethod4", guestMethods);
                 sandbox.ExposeHostMethod("HostMethod4", guestMethods);
                 var expectedMessage = "Hello from GuestFunction4";
+                if (explicitlyReset)
+                {
+                    sandbox.RestoreState();
+                }
                 sandbox.CallGuest(() => guestMethods.GuestMethod4!());
                 Assert.Equal(expectedMessage, builder.ToString());
             }

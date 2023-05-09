@@ -63,6 +63,8 @@ namespace Hyperlight
         readonly HyperlightGuestInterfaceGlue guestInterfaceGlue;
         private bool disposedValue; // To detect redundant calls
 
+        private bool needsStateResetting = false;
+
         unsafe delegate* unmanaged<IntPtr, ulong, uint, int> callEntryPoint;
 
         // Platform dependent delegate for callbacks from native code when native code is calling 'outb' functionality
@@ -608,6 +610,7 @@ namespace Hyperlight
             {
                 if (shouldRelease)
                 {
+                    needsStateResetting = true;
                     Interlocked.Exchange(ref executingGuestCall, 0);
                 }
             }
@@ -638,6 +641,7 @@ namespace Hyperlight
             {
                 if (shouldRelease)
                 {
+                    needsStateResetting = true;
                     Interlocked.Exchange(ref executingGuestCall, 0);
                 }
             }
@@ -673,6 +677,20 @@ namespace Hyperlight
             if (shouldRelease)
             {
                 Interlocked.Exchange(ref executingGuestCall, 0);
+                needsStateResetting = true;
+            }
+        }
+
+        public void RestoreState()
+        {
+            if (needsStateResetting)
+            {
+                sandboxMemoryManager.RestoreState();
+                if (!runFromProcessMemory)
+                {
+                    hyperVisor!.ResetRSP(rsp);
+                }
+                needsStateResetting = false;
             }
         }
 
@@ -686,15 +704,10 @@ namespace Hyperlight
 
             if (recycleAfterRun)
             {
-                sandboxMemoryManager.RestoreState();
-                if (!runFromProcessMemory)
-                {
-                    hyperVisor!.ResetRSP(rsp);
-                }
+                RestoreState();
             }
 
             countRunCalls++;
-
         }
 
         internal void HandleOutb(ushort port, byte _)
