@@ -7,6 +7,39 @@ use crate::func::{
     def::{FuncCallError, GuestFunc, HostFunc},
 };
 
+// In case its not obvious why there are separate is_supported_platform and is_hypervisor_present functions its because
+// Hyerplight is designed to be able to run on a host that doesn't have a hypervisor.
+// In that case, the sandbox will be in porcess, we plan on making this a dev only feature and fixing up Linux support
+// so we should review the need for this function at that time.
+
+/// Determine if this is a supported platform for Hyperlight
+///
+/// Returns a boolean indicating whether this is a supported platform.
+///
+pub(crate) fn is_supported_platform() -> bool {
+    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(target_os = "windows"))]
+    return false;
+
+    true
+}
+
+/// Determine whether a suitable hypervisor is available to run
+/// this sandbox.
+///
+//  Returns a boolean indicating whether a suitable hypervisor is present.
+
+// TODO - implement this
+pub(crate) fn is_hypervisor_present() -> bool {
+    #[cfg(target_os = "linux")]
+    return true;
+    #[cfg(target_os = "windows")]
+    return true;
+    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(target_os = "windows"))]
+    false
+}
+
 /// The primary mechanism to interact with VM partitions that
 /// run Hyperlight Sandboxes.
 ///
@@ -58,15 +91,5 @@ impl Sandbox {
                 message: format!("Function {} not found", func_name),
             })?
             .call(args)
-    }
-
-    /// Determine whether a suitable hypervisor is available to run
-    /// this sandbox.
-    ///
-    /// Returns `Ok` with a boolean if it could be determined whether
-    /// an appropriate hypervisor is available, and `Err` otherwise.
-    pub fn is_hypervisor_present(&self) -> Result<bool> {
-        // TODO: implement
-        Ok(true)
     }
 }

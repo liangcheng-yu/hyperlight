@@ -2,7 +2,10 @@ use super::c_func::CFunc;
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
-use crate::{capi::strings::get_string, sandbox::Sandbox};
+use crate::{
+    capi::strings::get_string, sandbox::is_hypervisor_present as check_hypervisor,
+    sandbox::is_supported_platform as check_platform, sandbox::Sandbox,
+};
 use anyhow::Result;
 
 /// Create a new `Sandbox` with the given guest binary to execute
@@ -23,6 +26,18 @@ pub unsafe extern "C" fn sandbox_new(ctx: *mut Context, bin_path_hdl: Handle) ->
             Ok(register_sandbox(ctx, sbox))
         })
         .ok_or_err_hdl()
+}
+
+#[no_mangle]
+/// Checks if the current platform is supported by Hyperlight.
+pub extern "C" fn is_supported_platform() -> bool {
+    check_platform()
+}
+
+#[no_mangle]
+/// Checks if the current platform is supported by Hyperlight.
+pub extern "C" fn is_hypervisor_present() -> bool {
+    check_hypervisor()
 }
 
 /// Get a read-only reference to a `Sandbox` stored in `ctx` and

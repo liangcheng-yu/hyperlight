@@ -19,18 +19,6 @@ mod impls {
             Err(err) => Err(err),
         }
     }
-
-    /// Determine whether the hypervisor is present, as reported by
-    /// the sandbox stored in `ctx` and referenced by `sbox_hdl`.
-    ///
-    /// Returns `Ok` if `sbox_hdl` is valid and it could be determined
-    /// whether the hypervisor was or wasn't present, and `Err` otherwise.
-    pub fn is_hypervisor_present(ctx: &Context, sbox_hdl: Handle) -> Result<bool> {
-        match get_sandbox(ctx, sbox_hdl) {
-            Ok(sbox) => sbox.is_hypervisor_present(),
-            Err(e) => Err(e),
-        }
-    }
 }
 
 /// Returns a `Handle` for the path to the binary that the given
@@ -48,29 +36,4 @@ pub unsafe extern "C" fn guest_binary_path(ctx: *mut Context, sbox_hdl: Handle) 
         .and_then(|c, _| impls::guest_binary_path(c, sbox_hdl))
         .map_mut(|c, path| Context::register(path, &mut c.strings, Hdl::String))
         .ok_or_err_hdl()
-}
-
-/// Determine whether the hypervisor for use with
-/// the given sandbox handle is presently available for use.
-///
-/// Returns false if:
-///
-/// - `sbox_hdl` points to a valid sandbox and the machine on which
-/// this code is running does not have a compatible hypervisor
-/// available for use.
-/// - `sbox_hdl` points to an invalid sandbox
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free`
-/// - Not modified, except by calling functions in the Hyperlight C
-/// API
-#[no_mangle]
-pub unsafe extern "C" fn is_hypervisor_present(ctx: *mut Context, sbox_hdl: Handle) -> bool {
-    CFunc::new("is_hypervisor_present", ctx)
-        .and_then(|c, _| impls::is_hypervisor_present(c, sbox_hdl))
-        .ok_or(false)
 }

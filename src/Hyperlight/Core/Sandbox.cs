@@ -44,7 +44,7 @@ namespace Hyperlight
         readonly string? fixedCorrelationId;
         static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         public static bool IsLinux => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
-        public static bool IsSupportedPlatform => IsLinux || IsWindows;
+        public static bool IsSupportedPlatform => is_supported_platform();
         Hypervisor? hyperVisor;
         GCHandle? gCHandle;
         byte[]? stackGuard;
@@ -63,7 +63,7 @@ namespace Hyperlight
         readonly HyperlightGuestInterfaceGlue guestInterfaceGlue;
         private bool disposedValue; // To detect redundant calls
 
-        private bool needsStateResetting = false;
+        private bool needsStateResetting;
 
         unsafe delegate* unmanaged<IntPtr, ulong, uint, int> callEntryPoint;
 
@@ -1022,6 +1022,12 @@ namespace Hyperlight
             NativeContext ctx,
             NativeHandle binPathHdl
         );
+
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        [return: MarshalAs(UnmanagedType.U1)]
+        private static extern bool is_supported_platform();
 
 #pragma warning restore CA1707 // Remove the underscores from member name
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

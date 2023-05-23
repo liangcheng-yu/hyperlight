@@ -90,10 +90,6 @@ impl<T> CFunc<T> {
     ) -> CFunc<RunRes> {
         self.map_mut(run_fn)
     }
-
-    pub(super) unsafe fn ok_or(self, default: T) -> T {
-        self.other.unwrap_or(default)
-    }
 }
 
 impl CFunc<Handle> {

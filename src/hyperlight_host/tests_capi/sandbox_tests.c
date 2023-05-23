@@ -7,17 +7,8 @@
 
 MunitResult test_is_hypervisor_present()
 {
-    Context *ctx = context_new();
-    munit_assert_not_null(ctx);
-    Handle bin_path_ref = string_new(ctx, "nothing");
-    Handle sbox = sandbox_new(ctx, bin_path_ref);
-    handle_assert_no_error(ctx, sbox);
-    handle_free(ctx, bin_path_ref);
-
-    bool is_present = is_hypervisor_present(ctx, sbox);
+    bool is_present = is_hypervisor_present();
     munit_assert_true(is_present);
-    handle_free(ctx, sbox);
-    context_free(ctx);
     return MUNIT_OK;
 }
 
