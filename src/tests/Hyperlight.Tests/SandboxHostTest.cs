@@ -1776,7 +1776,7 @@ namespace Hyperlight.Tests
                 var ex = Record.Exception(() => sandbox2 = sboxBuilder2.Build());
                 Assert.NotNull(ex);
                 Assert.IsType<HyperlightException>(ex);
-                Assert.Equal($"Only one instance of Sandbox is allowed when running from guest binary CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+                Assert.Equal($"Only one instance of Sandbox is allowed when running from guest binary CorrelationId: {correlationId} Source: NativeHandleWrapperErrorExtensions", ex.Message);
                 sandbox1.Dispose();
                 sandbox2?.Dispose();
                 output1.Dispose();
@@ -1998,7 +1998,10 @@ namespace Hyperlight.Tests
                     var ex = Record.Exception(() => sandbox2 = new Sandbox(testData.GuestBinaryPath, option, null, output2, correlationId2, null, GetSandboxMemoryConfiguration()));
                     Assert.NotNull(ex);
                     Assert.IsType<HyperlightException>(ex);
-                    Assert.Equal($"Only one instance of Sandbox is allowed when running from guest binary CorrelationId: {correlationId2} Source: Sandbox", ex.Message);
+                    Assert.Equal(
+                        $"Only one instance of Sandbox is allowed when running from guest binary CorrelationId: {correlationId2} Source: NativeHandleWrapperErrorExtensions",
+                        ex.Message
+                    );
                     sandbox1.Dispose();
                     sandbox2?.Dispose();
                     output1.Dispose();

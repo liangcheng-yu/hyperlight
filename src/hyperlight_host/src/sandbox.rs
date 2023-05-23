@@ -1,10 +1,14 @@
+use anyhow::anyhow;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::option::Option;
 
-use crate::func::{
-    args::Val,
-    def::{FuncCallError, GuestFunc, HostFunc},
+use crate::{
+    func::{
+        args::Val,
+        def::{FuncCallError, GuestFunc, HostFunc},
+    },
+    mem::{config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager, pe::pe_info::PEInfo},
 };
 
 // In case its not obvious why there are separate is_supported_platform and is_hypervisor_present functions its because
@@ -91,5 +95,84 @@ impl Sandbox {
                 message: format!("Function {} not found", func_name),
             })?
             .call(args)
+    }
+
+    /// Determine whether a suitable hypervisor is available to run
+    /// this sandbox.
+    ///
+    /// Returns `Ok` with a boolean if it could be determined whether
+    /// an appropriate hypervisor is available, and `Err` otherwise.
+    pub fn is_hypervisor_present(&self) -> Result<bool> {
+        // TODO: implement
+        Ok(true)
+    }
+
+    /// Load the file at `bin_path_str` into a PE file, then attempt to
+    /// load the PE file into a `SandboxMemoryManager` and return it.
+    ///
+    /// If `run_from_guest_binary` is passed as `true`, and this code is
+    /// running on windows, this function will call
+    /// `SandboxMemoryManager::load_guest_binary_using_load_library` to
+    /// create the new `SandboxMemoryManager`. If `run_from_guest_binary` is
+    /// passed as `true` and we're not running on windows, this function will
+    /// return an `Err`. Otherwise, if `run_from_guest_binary` is passed
+    /// as `false`, this function calls `SandboxMemoryManager::load_guest_binary_into_memory`.
+    pub(crate) fn load_guest_binary(
+        mem_cfg: SandboxMemoryConfiguration,
+        bin_path_str: &str,
+        run_from_process_memory: bool,
+        run_from_guest_binary: bool,
+    ) -> Result<SandboxMemoryManager> {
+        let mut pe_info = PEInfo::from_file(bin_path_str)?;
+        if run_from_guest_binary {
+            SandboxMemoryManager::load_guest_binary_using_load_library(
+                mem_cfg,
+                bin_path_str,
+                &mut pe_info,
+                run_from_process_memory,
+            )
+            .map_err(|_| {
+                let err_msg =
+                    "Only one instance of Sandbox is allowed when running from guest binary";
+                anyhow!(err_msg)
+            })
+        } else {
+            SandboxMemoryManager::load_guest_binary_into_memory(
+                mem_cfg,
+                &mut pe_info,
+                run_from_process_memory,
+            )
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Sandbox;
+    use crate::{mem::config::SandboxMemoryConfiguration, testing::simple_guest_path};
+
+    #[test]
+    fn test_load_guest_binary_manual() {
+        let cfg = SandboxMemoryConfiguration::default();
+
+        let simple_guest_path = simple_guest_path().unwrap();
+        let mgr =
+            Sandbox::load_guest_binary(cfg, simple_guest_path.as_str(), false, false).unwrap();
+        assert_eq!(cfg, mgr.mem_cfg);
+    }
+
+    #[test]
+    fn test_load_guest_binary_load_lib() {
+        let cfg = SandboxMemoryConfiguration::default();
+        let simple_guest_path = simple_guest_path().unwrap();
+        let mgr_res = Sandbox::load_guest_binary(cfg, simple_guest_path.as_str(), true, true);
+        #[cfg(target_os = "linux")]
+        {
+            assert!(mgr_res.is_err())
+        }
+        #[cfg(target_os = "windows")]
+        {
+            let _ = mgr_res.unwrap();
+        }
     }
 }

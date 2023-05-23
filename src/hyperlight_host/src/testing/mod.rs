@@ -28,6 +28,16 @@ pub(crate) fn simple_guest_buf() -> PathBuf {
     join_to_path(MANIFEST_DIR, vec!["testdata", "simpleguest.exe"])
 }
 
+/// Get a fully qualified OS-specific path to the simpleguest.exe
+/// binary. Convenience method for calling `simple_guest_buf`, then
+/// converting the result into an owned `String`
+pub(crate) fn simple_guest_path() -> Result<String> {
+    let buf = simple_guest_buf();
+    buf.to_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| anyhow!("couldn't convert simple guest PathBuf to string"))
+}
+
 /// Get a new `PathBuf` pointing to `callbackguest.exe`
 pub(crate) fn callback_guest_buf() -> PathBuf {
     join_to_path(MANIFEST_DIR, vec!["testdata", "callbackguest.exe"])

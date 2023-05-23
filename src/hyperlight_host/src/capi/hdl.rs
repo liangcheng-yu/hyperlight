@@ -30,8 +30,6 @@ pub enum Hdl {
     String(Key),
     /// A reference to a `Vec<u8>`.
     ByteArray(Key),
-    /// A reference to a `PEInfo`.
-    PEInfo(Key),
     /// A reference to a `SandboxMemoryLayout`.
     MemLayout(Key),
     /// A reference to a `SandboxMemoryManager`.
@@ -95,7 +93,6 @@ impl Hdl {
     const HOST_FUNC_TYPE_ID: TypeID = 104;
     const STRING_TYPE_ID: TypeID = 105;
     const BYTE_ARRAY_TYPE_ID: TypeID = 106;
-    const PE_INFO_TYPE_ID: TypeID = 107;
     const MEM_LAYOUT_TYPE_ID: TypeID = 109;
     const SHARED_MEMORY_TYPE_ID: TypeID = 110;
     const INT_64_TYPE_ID: TypeID = 111;
@@ -142,7 +139,6 @@ impl Hdl {
             Hdl::HostFunc(_) => Self::HOST_FUNC_TYPE_ID,
             Hdl::String(_) => Self::STRING_TYPE_ID,
             Hdl::ByteArray(_) => Self::BYTE_ARRAY_TYPE_ID,
-            Hdl::PEInfo(_) => Self::PE_INFO_TYPE_ID,
             Hdl::MemLayout(_) => Self::MEM_LAYOUT_TYPE_ID,
             Hdl::MemMgr(_) => Self::MEM_MGR_TYPE_ID,
             Hdl::SharedMemory(_) => Self::SHARED_MEMORY_TYPE_ID,
@@ -191,7 +187,6 @@ impl Hdl {
             Hdl::HostFunc(key) => *key,
             Hdl::String(key) => *key,
             Hdl::ByteArray(key) => *key,
-            Hdl::PEInfo(key) => *key,
             Hdl::MemLayout(key) => *key,
             Hdl::MemMgr(key) => *key,
             Hdl::SharedMemory(key) => *key,
@@ -238,7 +233,6 @@ impl std::fmt::Display for Hdl {
             Hdl::HostFunc(key) => write!(f, "HostFunc({})", key),
             Hdl::String(key) => write!(f, "String({})", key),
             Hdl::ByteArray(key) => write!(f, "ByteArray({})", key),
-            Hdl::PEInfo(key) => write!(f, "PEInfo({})", key),
             Hdl::MemLayout(key) => write!(f, "MemLayout({})", key),
             Hdl::MemMgr(key) => write!(f, "MemMgr({})", key),
             Hdl::SharedMemory(key) => write!(f, "SharedMemory({})", key),
@@ -290,7 +284,6 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::HOST_FUNC_TYPE_ID => Ok(Hdl::HostFunc(key)),
             Self::STRING_TYPE_ID => Ok(Hdl::String(key)),
             Self::BYTE_ARRAY_TYPE_ID => Ok(Hdl::ByteArray(key)),
-            Self::PE_INFO_TYPE_ID => Ok(Hdl::PEInfo(key)),
             Self::MEM_LAYOUT_TYPE_ID => Ok(Hdl::MemLayout(key)),
             Self::MEM_MGR_TYPE_ID => Ok(Hdl::MemMgr(key)),
             Self::SHARED_MEMORY_TYPE_ID => Ok(Hdl::SharedMemory(key)),

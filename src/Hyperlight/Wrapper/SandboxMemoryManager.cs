@@ -9,12 +9,11 @@ using Newtonsoft.Json;
 
 namespace Hyperlight.Wrapper
 {
-    internal abstract class SandboxMemoryManager : IDisposable
+    internal sealed class SandboxMemoryManager : IDisposable
     {
         private readonly Context ctxWrapper;
         private readonly Handle memMgrHdl;
         private bool disposedValue;
-        protected Context ContextWrapper => ctxWrapper;
 
         /// <summary>
         /// Get the offset, from the start of memory (loadAddr), to the entrypoint
@@ -65,7 +64,7 @@ namespace Hyperlight.Wrapper
             (int)this.entryPointOffset
         ).ToInt64();
 
-        protected SharedMemory SharedMem
+        private SharedMemory SharedMem
         {
             get
             {
@@ -80,7 +79,7 @@ namespace Hyperlight.Wrapper
         }
         public IntPtr SourceAddress => this.SharedMem.Address;
 
-        protected SandboxMemoryLayout sandboxMemoryLayout
+        private SandboxMemoryLayout sandboxMemoryLayout
         {
             get
             {
@@ -95,7 +94,7 @@ namespace Hyperlight.Wrapper
             }
         }
 
-        protected bool RunFromProcessMemory
+        private bool RunFromProcessMemory
         {
             get
             {
@@ -113,7 +112,7 @@ namespace Hyperlight.Wrapper
                 return hdl.GetBoolean();
             }
         }
-        protected SandboxMemoryConfiguration MemConfig
+        private SandboxMemoryConfiguration MemConfig
         {
             get
             {
@@ -142,7 +141,7 @@ namespace Hyperlight.Wrapper
             }
         }
 
-        protected SandboxMemoryManager(
+        internal SandboxMemoryManager(
             Context ctx,
             Handle hdl
         )
@@ -802,24 +801,8 @@ namespace Hyperlight.Wrapper
             return hdl.GetGuestLogData();
         }
 
-
-        /// <summary>
-        /// A function for subclasses to implement if they want to implement
-        /// any Dispose logic of their own.
-        /// Subclasses should not re-implement any Dispose(...) functions, nor
-        /// a finalizer. Instead, they should override this method. It will 
-        /// be correctly called during disposal.
-        /// </summary>
-        protected virtual void DisposeHook(bool disposing) { }
-
         private void Dispose(bool disposing)
         {
-            DisposeHook(disposing: disposing);
-            // note that in both ~SandboxMemoryManager and Dispose(),
-            // this method is called, but it's virtual, 
-            // so the derived class's Dispose(disposing) method is
-            // called. the derived method should, in its last line,
-            // call base.Dispose(disposing) to call up to this!
             if (!disposedValue)
             {
                 if (disposing)

@@ -49,16 +49,11 @@ namespace Hyperlight
         GCHandle? gCHandle;
         byte[]? stackGuard;
         readonly HyperLightExports hyperLightExports;
-        readonly Core.SandboxMemoryManager sandboxMemoryManager;
+        readonly SandboxMemoryManager sandboxMemoryManager;
         readonly bool initialised;
         readonly bool recycleAfterRun;
         readonly bool runFromProcessMemory;
         readonly bool runFromGuestBinary;
-        readonly bool didRunFromGuestBinary;
-        const int IS_RUNNING_FROM_GUEST_BINARY = 1;
-        // this is passed as a ref to several functions below,
-        // therefore cannot be readonly
-        static int isRunningFromGuestBinary;
         readonly StringWriter? writer;
         readonly HyperlightGuestInterfaceGlue guestInterfaceGlue;
         private bool disposedValue; // To detect redundant calls
@@ -205,18 +200,14 @@ namespace Hyperlight
 
 
             HyperlightLogger.SetLogger(errorMessageLogger);
-            {
-                var (mgr, didRunFromGuestBinary) = LoadGuestBinary(
-                    this.context,
-                    memCfg,
-                    guestBinaryPath,
-                    runFromProcessMemory,
-                    runFromGuestBinary
-                );
-                this.sandboxMemoryManager = mgr;
-                this.didRunFromGuestBinary = didRunFromGuestBinary;
-            }
-            sandboxMemoryManager.WriteMemoryLayout();
+            this.sandboxMemoryManager = LoadGuestBinary(
+                this.context,
+                memCfg,
+                guestBinaryPath,
+                runFromProcessMemory,
+                runFromGuestBinary
+            );
+            this.sandboxMemoryManager.WriteMemoryLayout();
             SetUpStackGuard();
             rsp = 0;
             // If we are NOT running from process memory, we have to setup a Hypervisor partition
@@ -357,7 +348,7 @@ namespace Hyperlight
             }
         }
 
-        private static (Core.SandboxMemoryManager, bool) LoadGuestBinary(
+        private static SandboxMemoryManager LoadGuestBinary(
             Context ctx,
             SandboxMemoryConfiguration memCfg,
             string guestBinaryPath,
@@ -365,58 +356,23 @@ namespace Hyperlight
             bool runFromGuestBinary
         )
         {
-            var peInfo = new PEInfo(ctx, guestBinaryPath);
-            bool didRunFromGuestBinary = false;
-            try
-            {
-                if (runFromGuestBinary)
-                {
-                    if (!IsWindows)
-                    {
-                        // If not on Windows runFromBinary doesn't mean anything because we cannot use LoadLibrary.
-                        HyperlightException.LogAndThrowException<NotSupportedException>(
-                            "RunFromBinary is only supported on Windows",
-                            MethodBase.GetCurrentMethod()!.DeclaringType!.Name
-                        );
-                    }
-
-                    // LoadLibrary does not support multiple independent instances of a binary beng loaded 
-                    // so we cannot support multiple instances using loadlibrary
-                    if (Interlocked.CompareExchange(ref isRunningFromGuestBinary, IS_RUNNING_FROM_GUEST_BINARY, 0) == 0)
-                    {
-                        didRunFromGuestBinary = true;
-                    }
-                    else
-                    {
-                        HyperlightException.LogAndThrowException(
-                            "Only one instance of Sandbox is allowed when running from guest binary",
-                            MethodBase.GetCurrentMethod()!.DeclaringType!.Name
-                        );
-                    }
-
-                    var memMgr = SandboxMemoryManagerLoader.LoadGuestBinaryUsingLoadLibrary(
-                        ctx,
-                        memCfg,
-                        guestBinaryPath,
-                        runFromProcessMemory
-                    );
-                    return (memMgr, didRunFromGuestBinary);
-                }
-                else
-                {
-                    var memMgr = SandboxMemoryManagerLoader.LoadGuestBinaryIntoMemory(
-                        ctx,
-                        memCfg,
-                        guestBinaryPath,
-                        runFromProcessMemory
-                    );
-                    return (memMgr, didRunFromGuestBinary);
-                }
-            }
-            finally
-            {
-                peInfo.Dispose();
-            }
+            using var guestBinaryPathWrapper = StringWrapper.FromString(
+                ctx,
+                guestBinaryPath
+            );
+            var rawHdl = sandbox_load_guest_binary(
+                ctx.ctx,
+                memCfg,
+                guestBinaryPathWrapper.HandleWrapper.handle,
+                runFromProcessMemory,
+                runFromGuestBinary
+            );
+            var hdl = new Handle(
+                ctx,
+                rawHdl,
+                true
+            );
+            return new SandboxMemoryManager(ctx, hdl);
         }
 
         void SetUpStackGuard()
@@ -986,14 +942,9 @@ namespace Hyperlight
             {
                 if (disposing)
                 {
-                    if (didRunFromGuestBinary)
-                    {
-                        Interlocked.Decrement(ref isRunningFromGuestBinary);
-                    }
-
                     gCHandle?.Free();
 
-                    sandboxMemoryManager?.Dispose();
+                    sandboxMemoryManager.Dispose();
 
                     hyperVisor?.Dispose();
                     // not strictly necessary to dispose this, the following
@@ -1023,6 +974,15 @@ namespace Hyperlight
             NativeHandle binPathHdl
         );
 
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle sandbox_load_guest_binary(
+            NativeContext ctx,
+            SandboxMemoryConfiguration memCfg,
+            NativeHandle guestBinPathRef,
+            [MarshalAs(UnmanagedType.U1)] bool runFromProcessMemory,
+            [MarshalAs(UnmanagedType.U1)] bool runFromGuestBinary
+        );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]

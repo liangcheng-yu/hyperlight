@@ -14,7 +14,6 @@ use crate::hypervisor::kvm;
 use crate::hypervisor::kvm_regs;
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::mgr::SandboxMemoryManager;
-use crate::mem::pe::pe_info::PEInfo;
 use crate::mem::shared_mem::SharedMemory;
 use crate::mem::shared_mem_snapshot::SharedMemorySnapshot;
 use crate::sandbox::Sandbox;
@@ -61,8 +60,6 @@ pub struct Context {
     pub strings: HashMap<Key, String>,
     /// All `Vec<u8>`s stored in this context
     pub byte_arrays: HashMap<Key, Vec<u8>>,
-    /// All `PEInfo`s stored in this context
-    pub pe_infos: HashMap<Key, PEInfo>,
     /// All `SandboxMemoryLayout`s stored in this context
     pub mem_layouts: HashMap<Key, SandboxMemoryLayout>,
     /// All the `SandboxMemoryManager`s stored in this context
@@ -212,7 +209,6 @@ impl Context {
                     Hdl::HostFunc(key) => self.host_funcs.remove(&key).is_some(),
                     Hdl::String(key) => self.strings.remove(&key).is_some(),
                     Hdl::ByteArray(key) => self.byte_arrays.remove(&key).is_some(),
-                    Hdl::PEInfo(key) => self.pe_infos.remove(&key).is_some(),
                     Hdl::MemLayout(key) => self.mem_layouts.remove(&key).is_some(),
                     Hdl::MemMgr(key) => self.mem_mgrs.remove(&key).is_some(),
                     Hdl::SharedMemory(key) => self.shared_mems.remove(&key).is_some(),

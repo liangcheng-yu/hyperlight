@@ -6,7 +6,7 @@ use super::pe::pe_info::PEInfo;
 
 /// The complete set of configuration needed to create a guest
 /// memory region.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(C)]
 pub struct SandboxMemoryConfiguration {
     /// The maximum size of the guest error buffer.
@@ -93,14 +93,14 @@ impl SandboxMemoryConfiguration {
 
     /// If self.stack_size is non-zero, return it. Otherwise,
     /// return pe_info.stack_reserve()
-    pub fn get_stack_size(&self, pe_info: &PEInfo) -> u64 {
+    pub(crate) fn get_stack_size(&self, pe_info: &PEInfo) -> u64 {
         self.stack_size_override_opt()
             .unwrap_or_else(|| pe_info.stack_reserve())
     }
 
     /// If self.heap_size_override is non-zero, return it. Otherwise,
     /// return pe_info.heap_reserve()
-    pub fn get_heap_size(&self, pe_info: &PEInfo) -> u64 {
+    pub(crate) fn get_heap_size(&self, pe_info: &PEInfo) -> u64 {
         self.heap_size_override_opt()
             .unwrap_or_else(|| pe_info.heap_reserve())
     }

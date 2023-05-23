@@ -70,8 +70,6 @@ pub mod mem_mgr;
 ///! C-compatible API functions for manipulating outb handler callback
 ///! functions.
 pub mod outb_handler;
-///! C-compatible API functions to manage `PEInfo` structures.
-pub mod pe;
 ///! C-compatible API functions to manage `Sandbox` structures.
 pub mod sandbox;
 ///! C-compatible API functions to manage guest / shared memory.

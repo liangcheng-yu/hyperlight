@@ -3,6 +3,7 @@ use anyhow::{anyhow, bail, Result};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use goblin::pe::{optional_header::OptionalHeader, PE};
 use std::io::Cursor;
+use std::{fs::File, io::Read};
 
 const IMAGE_REL_BASED_DIR64: u8 = 10;
 const IMAGE_REL_BASED_ABSOLUTE: u8 = 0;
@@ -15,18 +16,24 @@ const CHARACTERISTICS_EXECUTABLE_IMAGE: u16 = 0x0002;
 /// Does not contain comprehensive information about a given
 /// PE file, but rather just enough to be able to do relocations,
 /// symbol resolution, and actually execute it within a `Sandbox`.
-pub struct PEInfo {
+pub(crate) struct PEInfo {
     payload: Vec<u8>,
     payload_len: usize,
     optional_header: OptionalHeader,
 }
 
 impl PEInfo {
+    pub(crate) fn from_file(filename: &str) -> Result<Self> {
+        let mut file = File::open(filename)?;
+        let mut contents = Vec::new();
+        file.read_to_end(&mut contents)?;
+        Self::new(contents.as_slice())
+    }
     /// Create a new `PEInfo` from a slice of bytes.
     ///
     /// Returns `Ok` with the new `PEInfo` if `pe_bytes` is a valid
     /// PE file and could properly be parsed as such, and `Err` if not.
-    pub fn new(pe_bytes: &[u8]) -> Result<Self> {
+    pub(crate) fn new(pe_bytes: &[u8]) -> Result<Self> {
         let pe = PE::parse(pe_bytes).map_err(|e| anyhow!(e))?;
 
         // Validate that the PE file has the expected characteristics up-front

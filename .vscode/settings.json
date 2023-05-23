@@ -22,6 +22,8 @@
     "function_types_reader.h": "c",
     "flatcc_flatbuffers.h": "c",
     "flatcc_prologue.h": "c",
-    "host_function_details_builder.h": "c"
-  }
+    "host_function_details_builder.h": "c",
+    "val_ref_tests.h": "c"
+  },
+  "rust-analyzer.showUnlinkedFileNotification": false
 }

@@ -1,7 +1,6 @@
 #include "munit/munit.h"
 #include "sandbox_tests.h"
 #include "val_ref_tests.h"
-#include "pe_tests.h"
 #include "context_tests.h"
 #include "host_func_tests.h"
 #include "host_exception.h"
@@ -37,7 +36,6 @@ static MunitSuite test_suites[] = {
     {"/mem_access_handler_tests", mem_access_handler_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/mem_layout_tests", mem_layout_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/outb_handler_tests", outb_handler_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-    {"/pe_file_tests", pe_file_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/sandbox_tests", sandbox_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/val_ref_tests", val_ref_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/string_tests", string_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},

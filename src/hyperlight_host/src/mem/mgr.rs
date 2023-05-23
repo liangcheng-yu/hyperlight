@@ -79,12 +79,12 @@ impl SandboxMemoryManager {
         }
     }
 
-    /// Get mutable `SharedMemory` associated with `self`
+    /// Get `SharedMemory` in `self` as a mutable reference
     fn get_shared_mem_mut(&mut self) -> &mut SharedMemory {
         &mut self.shared_mem
     }
 
-    /// Get  `SharedMemory` associated with `self`
+    /// Get the `SharedMemory` in `self` as an immutable reference
     fn get_shared_mem(&mut self) -> &SharedMemory {
         &self.shared_mem
     }
@@ -446,7 +446,7 @@ impl SandboxMemoryManager {
             let _ = guest_bin_path;
             let _ = pe_info;
             let _ = run_from_process_memory;
-            panic!("load_guest_binary_using_load_library is only available on Windows")
+            bail!("load_guest_binary_using_load_library is only available on Windows")
         }
     }
 
@@ -570,5 +570,23 @@ mod tests {
             assert_eq!(heap_size_override, layout.heap_size.try_into().unwrap());
             assert_eq!(layout.get_memory_size().unwrap(), shared_mem.mem_size());
         }
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn load_guest_binary_using_load_library() {
+        use crate::{mem::mgr::SandboxMemoryManager, testing::simple_guest_path};
+
+        let cfg = SandboxMemoryConfiguration::default();
+        let guest_path = simple_guest_buf();
+        let guest_bytes = bytes_for_path(guest_path).unwrap();
+        let mut pe_info = PEInfo::new(guest_bytes.as_slice()).unwrap();
+        let _ = SandboxMemoryManager::load_guest_binary_using_load_library(
+            cfg,
+            simple_guest_path().unwrap().as_str(),
+            &mut pe_info,
+            true,
+        )
+        .unwrap();
     }
 }

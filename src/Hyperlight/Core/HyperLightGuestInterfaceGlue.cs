@@ -2,7 +2,7 @@ using System;
 
 namespace Hyperlight
 {
-    class HyperlightGuestInterfaceGlue : GuestInterfaceGlue
+    sealed class HyperlightGuestInterfaceGlue : GuestInterfaceGlue
     {
         readonly Sandbox sandbox;
         public HyperlightGuestInterfaceGlue(Sandbox sandbox)
