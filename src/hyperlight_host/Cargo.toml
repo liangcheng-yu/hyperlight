@@ -44,7 +44,7 @@ more-asserts = { version = "0.3.1" }
 envy = { version = "0.4.2" }
 once_cell = { version = "1.17.1" }
 serde =  { version = "1.0", features = ["derive"] }
-proptest = "1.0.0"
+proptest = "1.2.0"
 hex-literal = "0.4.1"
 
 [build-dependencies]
