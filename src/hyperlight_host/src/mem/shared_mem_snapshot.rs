@@ -4,6 +4,7 @@ use anyhow::Result;
 
 /// A wrapper around a `SharedMemory` reference and a snapshot
 /// of the memory therein
+#[derive(Clone)]
 pub struct SharedMemorySnapshot {
     snapshot: Vec<u8>,
     shared_mem: SharedMemory,

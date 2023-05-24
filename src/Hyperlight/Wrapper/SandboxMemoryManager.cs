@@ -13,6 +13,11 @@ namespace Hyperlight.Wrapper
     {
         private readonly Context ctxWrapper;
         private readonly Handle memMgrHdl;
+
+        /// <summary>
+        /// Get the Handle backing this SandboxMemoryManager
+        /// </summary>
+        public Handle Handle => memMgrHdl;
         private bool disposedValue;
 
         /// <summary>

@@ -60,8 +60,6 @@ namespace Hyperlight
 
         private bool needsStateResetting;
 
-        unsafe delegate* unmanaged<IntPtr, ulong, uint, int> callEntryPoint;
-
         // Platform dependent delegate for callbacks from native code when native code is calling 'outb' functionality
         // On Linux, delegates passed from .NET core to native code expect arguments to be passed RDI, RSI, RDX, RCX.
         // On Windows, the expected order starts with RCX, RDX.  Our native code assumes this Windows calling convention
@@ -162,20 +160,6 @@ namespace Hyperlight
             {
                 HyperlightException.LogAndThrowException<PlatformNotSupportedException>("Hyperlight is not supported on this platform", GetType().Name);
             }
-            {
-                using var binPathHdl = StringWrapper.FromString(
-                    this.context,
-                    guestBinaryPath
-                );
-
-                this.hdlWrapper = new Handle(
-                    this.context,
-                    sandbox_new(
-                        this.context.ctx,
-                        binPathHdl.HandleWrapper.handle
-                    )
-                );
-            }
 
             runOptions ??= SandboxRunOptions.None;
 
@@ -207,6 +191,23 @@ namespace Hyperlight
                 runFromProcessMemory,
                 runFromGuestBinary
             );
+
+            {
+                using var binPathHdl = StringWrapper.FromString(
+                    this.context,
+                    guestBinaryPath
+                );
+
+                this.hdlWrapper = new Handle(
+                    this.context,
+                    sandbox_new(
+                        this.context.ctx,
+                        binPathHdl.HandleWrapper.handle,
+                        this.sandboxMemoryManager.Handle.handle
+                    )
+                );
+            }
+
             this.sandboxMemoryManager.WriteMemoryLayout();
             SetUpStackGuard();
             rsp = 0;
@@ -535,8 +536,18 @@ namespace Hyperlight
 
         unsafe void CallEntryPoint(IntPtr pebAddress, ulong seed, uint pageSize)
         {
-            callEntryPoint = (delegate* unmanaged<IntPtr, ulong, uint, int>)sandboxMemoryManager.EntryPoint;
-            _ = callEntryPoint(pebAddress, seed, pageSize);
+            var rawHdl = sandbox_call_entry_point(
+                this.context.ctx,
+                this.hdlWrapper.handle,
+                (ulong)pebAddress.ToInt64(),
+                seed,
+                pageSize
+            );
+            using var hdl = new Handle(
+                this.context,
+                rawHdl,
+                true
+            );
         }
 
         /// <summary>
@@ -971,7 +982,18 @@ namespace Hyperlight
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle sandbox_new(
             NativeContext ctx,
-            NativeHandle binPathHdl
+            NativeHandle binPathHdl,
+            NativeHandle memMgrHdl
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle sandbox_call_entry_point(
+            NativeContext ctx,
+            NativeHandle sboxHdl,
+            ulong pebAddress,
+            ulong seed,
+            uint pageSize
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]

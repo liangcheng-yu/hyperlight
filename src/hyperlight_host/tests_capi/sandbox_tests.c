@@ -4,6 +4,7 @@
 #include "callback.h"
 #include "sandbox_tests.h"
 #include "err.h"
+#include "mem_mgr_tests.h"
 
 MunitResult test_is_hypervisor_present()
 {
@@ -18,7 +19,10 @@ MunitResult test_get_binary_path()
     munit_assert_not_null(ctx);
     const char *bin_path = "./test_bin";
     Handle bin_path_ref_arg = string_new(ctx, bin_path);
-    Handle sbox = sandbox_new(ctx, bin_path_ref_arg);
+    Handle mem_mgr_ref = new_mem_mgr(ctx);
+    handle_assert_no_error(ctx, mem_mgr_ref);
+    Handle sbox = sandbox_new(ctx, bin_path_ref_arg, mem_mgr_ref);
+    handle_free(ctx, mem_mgr_ref);
     handle_assert_no_error(ctx, sbox);
     handle_free(ctx, bin_path_ref_arg);
 

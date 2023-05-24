@@ -1,7 +1,7 @@
-use std::ffi::CString;
-
 use super::ptr::RawPtr;
 use anyhow::{bail, Result};
+use std::ffi::CString;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use windows::core::PCSTR;
 use windows::Win32::Foundation::HINSTANCE;
@@ -19,20 +19,21 @@ static IS_RUNNING_FROM_GUEST_BINARY: AtomicBool = AtomicBool::new(false);
 /// [`FreeLibrary`](https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/System/LibraryLoader/fn.FreeLibrary.html).
 ///
 /// Use the `TryFrom` implementation to create a new instance.
+#[derive(Clone)]
 pub(crate) struct LoadedLib {
-    h_instance: HINSTANCE,
-    file_name_c_str: *mut u8,
+    data: Rc<(HINSTANCE, *mut u8)>,
 }
 
 impl LoadedLib {
     pub(crate) fn base_addr(&self) -> Result<RawPtr> {
-        let h_inst_u64: u64 = self.h_instance.0.try_into()?;
+        let h_inst = self.data.0;
+        let h_inst_u64: u64 = h_inst.0.try_into()?;
         Ok(RawPtr::from(h_inst_u64))
     }
 }
 
-/// frees h_inst, using FreeLibrary, then file_name_c_str, using the standard CString drop
-/// functionality, in that order
+/// frees `h_inst` using `FreeLibrary`, then frees `file_name_c_str` using
+/// the standard `CString` drop functionality, in that order
 unsafe fn free_and_drop(h_inst: HINSTANCE, file_name_c_str: *mut u8) {
     FreeLibrary(h_inst);
     drop(CString::from_raw(file_name_c_str as *mut i8));
@@ -40,10 +41,15 @@ unsafe fn free_and_drop(h_inst: HINSTANCE, file_name_c_str: *mut u8) {
 
 impl Drop for LoadedLib {
     fn drop(&mut self) {
+        // if the ref count is greater than 1, this particular LoadedLib
+        // has been cloned, so we don't want to free stuff yet
+        if Rc::strong_count(&self.data) > 1 {
+            return;
+        }
         // the library, referenced by self.h_instance, owns
         // self.file_name. make sure they're freed in reverse order
         unsafe {
-            free_and_drop(self.h_instance, self.file_name_c_str);
+            free_and_drop(self.data.0, self.data.1);
         }
         if !set_guest_binary_boolean(false) {
             // should never get here, in place just to catch bugs
@@ -58,6 +64,7 @@ impl TryFrom<&str> for LoadedLib {
         let cstr = CString::new(file_name)?.into_raw() as *mut u8;
         let file_name_pc_str = PCSTR::from_raw(cstr as *const u8);
         let h_instance = unsafe { LoadLibraryA(file_name_pc_str) }?;
+
         // ensure we set the atomic bool to true here _before_ creating
         // the actual instance, because the instance's drop will always
         // set the boolean to false.
@@ -68,9 +75,9 @@ impl TryFrom<&str> for LoadedLib {
             }
             bail!("LoadedLib: could not set global guest binary boolean to true");
         }
+
         Ok(Self {
-            h_instance,
-            file_name_c_str: cstr,
+            data: Rc::new((h_instance, cstr)),
         })
     }
 }
@@ -92,25 +99,40 @@ fn set_guest_binary_boolean(val: bool) -> bool {
 mod tests {
     use super::set_guest_binary_boolean;
     use super::LoadedLib;
-    use crate::testing::simple_guest_path;
+    use crate::testing::{simple_guest_buf, simple_guest_path};
 
+    /// universal test for all LoadedLib-related functionality. It's necessary
+    /// to put everything into a single test because LoadedLib relies on global
+    /// state.
     #[test]
-    fn test_set_guest_binary_boolean() {
-        // should not be running, so mark running
-        assert!(set_guest_binary_boolean(true));
-        // should already be running, so marking running should return false
-        assert!(!set_guest_binary_boolean(true));
-        // now should be running, so mark not running
-        assert!(set_guest_binary_boolean(false));
-        // should not be running, so marking not running should return false
-        assert!(!set_guest_binary_boolean(false));
-    }
-
-    #[test]
-    fn test_load_and_unload() {
-        // a test to just ensure we can load and unload (when dropped)
-        // a library using LoadLibraryA and FreeLibrary, respectively
-        let path = simple_guest_path().unwrap();
-        let _ = LoadedLib::try_from(path.as_str()).unwrap();
+    fn test_universal() {
+        // first, test the basic set_guest_binary_boolean
+        {
+            // should not be running, so mark running
+            assert!(set_guest_binary_boolean(true));
+            // should already be running, so marking running should return false
+            assert!(!set_guest_binary_boolean(true));
+            // now should be running, so mark not running
+            assert!(set_guest_binary_boolean(false));
+            // should not be running, so marking not running should return false
+            assert!(!set_guest_binary_boolean(false));
+        }
+        // next, test basic load/unload functionality
+        {
+            // a test to just ensure we can load and unload (when dropped)
+            // a library using LoadLibraryA and FreeLibrary, respectively
+            let path = simple_guest_path().unwrap();
+            let _ = LoadedLib::try_from(path.as_str()).unwrap();
+        }
+        // finally, actually test loading a library from a real compiled
+        // binary
+        {
+            let lib_name = simple_guest_buf();
+            let lib = LoadedLib::try_from(lib_name.to_str().unwrap()).unwrap();
+            for _ in 0..9 {
+                let l = lib.clone();
+                assert_eq!(lib.base_addr().unwrap(), l.base_addr().unwrap());
+            }
+        }
     }
 }

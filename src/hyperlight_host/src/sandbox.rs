@@ -1,8 +1,4 @@
-use anyhow::anyhow;
-use anyhow::Result;
-use std::collections::HashMap;
-use std::option::Option;
-
+use crate::mem::ptr::RawPtr;
 use crate::{
     func::{
         args::Val,
@@ -10,6 +6,12 @@ use crate::{
     },
     mem::{config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager, pe::pe_info::PEInfo},
 };
+use anyhow::anyhow;
+use anyhow::Result;
+use std::collections::HashMap;
+use std::ffi::c_void;
+use std::ops::Add;
+use std::option::Option;
 
 // In case its not obvious why there are separate is_supported_platform and is_hypervisor_present functions its because
 // Hyerplight is designed to be able to run on a host that doesn't have a hypervisor.
@@ -58,16 +60,18 @@ pub struct Sandbox {
     /// The functions that are implemented within the guest and are
     /// callable by the host.
     pub guest_funcs: HashMap<String, GuestFunc>,
+    mem_mgr: SandboxMemoryManager,
 }
 
 impl Sandbox {
     /// Create a new sandbox configured to run the binary at path
     /// `bin_path`.
-    pub fn new(bin_path: String) -> Self {
+    pub fn new(bin_path: String, mgr: SandboxMemoryManager) -> Self {
         Self {
             bin_path,
             host_funcs: HashMap::new(),
             guest_funcs: HashMap::new(),
+            mem_mgr: mgr,
         }
     }
 
@@ -105,6 +109,28 @@ impl Sandbox {
     pub fn is_hypervisor_present(&self) -> Result<bool> {
         // TODO: implement
         Ok(true)
+    }
+
+    /// Call the entry point inside this `Sandbox`
+    pub(crate) unsafe fn call_entry_point(
+        &self,
+        peb_address: RawPtr,
+        seed: u64,
+        page_size: u32,
+    ) -> Result<()> {
+        type EntryPoint = extern "C" fn(i64, u64, u32) -> i32;
+        let entry_point: EntryPoint = {
+            let addr = {
+                let offset = self.mem_mgr.entrypoint_offset;
+                self.mem_mgr.load_addr.clone().add(offset)
+            };
+
+            let fn_location = u64::from(addr) as *const c_void;
+            std::mem::transmute(fn_location)
+        };
+        let peb_i64 = i64::try_from(u64::from(peb_address))?;
+        entry_point(peb_i64, seed, page_size);
+        Ok(())
     }
 
     /// Load the file at `bin_path_str` into a PE file, then attempt to

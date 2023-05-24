@@ -2,6 +2,7 @@ use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::{c_func::CFunc, mem_mgr::register_mem_mgr};
+use crate::{capi::mem_mgr::get_mem_mgr, mem::ptr::RawPtr};
 use crate::{capi::strings::get_string, mem::config::SandboxMemoryConfiguration, sandbox::Sandbox};
 use crate::{
     sandbox::is_hypervisor_present as check_hypervisor,
@@ -19,12 +20,41 @@ use anyhow::Result;
 /// it's no longer needed (but no sooner). Use `handle_free`
 /// to do so.
 #[no_mangle]
-pub unsafe extern "C" fn sandbox_new(ctx: *mut Context, bin_path_hdl: Handle) -> Handle {
+pub unsafe extern "C" fn sandbox_new(
+    ctx: *mut Context,
+    bin_path_hdl: Handle,
+    mem_mgr_hdl: Handle,
+) -> Handle {
     CFunc::new("sandbox_new", ctx)
         .and_then_mut(|ctx, _| {
             let bin_path = get_string(ctx, bin_path_hdl)?;
-            let sbox = Sandbox::new(bin_path.to_string());
+            let mem_mgr = get_mem_mgr(ctx, mem_mgr_hdl)?;
+            let sbox = Sandbox::new(bin_path.to_string(), mem_mgr.clone());
             Ok(register_sandbox(ctx, sbox))
+        })
+        .ok_or_err_hdl()
+}
+
+/// Call the entrypoint inside the `Sandbox` referenced by `sbox_hdl`
+///
+/// # Safety
+///
+/// The called must pass a `ctx` to this function that was created
+/// by `context_new`, not currently in use in any other function,
+/// and not yet freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn sandbox_call_entry_point(
+    ctx: *mut Context,
+    sbox_hdl: Handle,
+    peb_address: u64,
+    seed: u64,
+    page_size: u32,
+) -> Handle {
+    CFunc::new("sandbox_call_entry_point", ctx)
+        .and_then_mut(|ctx, _| {
+            let sbox = get_sandbox(ctx, sbox_hdl)?;
+            sbox.call_entry_point(RawPtr::from(peb_address), seed, page_size)?;
+            Ok(Handle::new_empty())
         })
         .ok_or_err_hdl()
 }
@@ -75,7 +105,7 @@ pub extern "C" fn is_hypervisor_present() -> bool {
 
 /// Get a read-only reference to a `Sandbox` stored in `ctx` and
 /// pointed to by `handle`.
-pub fn get_sandbox(ctx: &Context, handle: Handle) -> Result<&Sandbox> {
+pub(crate) fn get_sandbox(ctx: &Context, handle: Handle) -> Result<&Sandbox> {
     Context::get(handle, &ctx.sandboxes, |s| matches!(s, Hdl::Sandbox(_)))
 }
 
@@ -85,6 +115,6 @@ fn register_sandbox(ctx: &mut Context, val: Sandbox) -> Handle {
 
 /// Get a read-and-write capable reference to a `Sandbox` stored in
 /// `ctx` and pointed to by `handle`.
-pub fn get_sandbox_mut(ctx: &mut Context, handle: Handle) -> Result<&mut Sandbox> {
+pub(crate) fn get_sandbox_mut(ctx: &mut Context, handle: Handle) -> Result<&mut Sandbox> {
     Context::get_mut(handle, &mut ctx.sandboxes, |s| matches!(s, Hdl::Sandbox(_)))
 }

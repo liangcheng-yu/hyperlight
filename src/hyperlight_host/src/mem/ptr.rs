@@ -7,12 +7,20 @@ use std::ops::Add;
 /// A representation of a raw pointer inside a given address space.
 ///
 /// Use this type to distinguish between an offset and a raw pointer
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RawPtr(u64);
 
 impl From<u64> for RawPtr {
     fn from(val: u64) -> Self {
         Self(val)
+    }
+}
+
+impl Add<Offset> for RawPtr {
+    type Output = RawPtr;
+    fn add(self, rhs: Offset) -> RawPtr {
+        let val = self.0 + u64::from(rhs);
+        RawPtr(val)
     }
 }
 
