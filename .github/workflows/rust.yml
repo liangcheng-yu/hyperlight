@@ -64,6 +64,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           just-version: '1.5.0' # optional semver specification, otherwise latest
+      - name: Add msbuild to PATH
+        if: ${{ (runner.os == 'Windows') }}  
+        uses: microsoft/setup-msbuild@v1.3
+        with:
+          msbuild-architecture: x64
+
+      # This is required to run the tests for the Hyperlight Surrogate Process Manager     
+      - name: Build Solution
+        if: ${{ (runner.os == 'Windows') }}  
+        run: msbuild hyperlight.sln -target:HyperlightSurrogate:Rebuild /p:Configuration=${{ matrix.config }} /p:ContinuousIntegrationBuild=true
+        shell: pwsh
       - name: Build
         working-directory: src/hyperlight_host
         run:  just build ${{ matrix.config }}

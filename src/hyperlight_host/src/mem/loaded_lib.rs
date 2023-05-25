@@ -4,7 +4,7 @@ use std::ffi::CString;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use windows::core::PCSTR;
-use windows::Win32::Foundation::HINSTANCE;
+use windows::Win32::Foundation::HMODULE;
 use windows::Win32::System::LibraryLoader::{FreeLibrary, LoadLibraryA};
 
 static IS_RUNNING_FROM_GUEST_BINARY: AtomicBool = AtomicBool::new(false);
@@ -21,7 +21,7 @@ static IS_RUNNING_FROM_GUEST_BINARY: AtomicBool = AtomicBool::new(false);
 /// Use the `TryFrom` implementation to create a new instance.
 #[derive(Clone)]
 pub(crate) struct LoadedLib {
-    data: Rc<(HINSTANCE, *mut u8)>,
+    data: Rc<(HMODULE, *mut u8)>,
 }
 
 impl LoadedLib {
@@ -34,7 +34,7 @@ impl LoadedLib {
 
 /// frees `h_inst` using `FreeLibrary`, then frees `file_name_c_str` using
 /// the standard `CString` drop functionality, in that order
-unsafe fn free_and_drop(h_inst: HINSTANCE, file_name_c_str: *mut u8) {
+unsafe fn free_and_drop(h_inst: HMODULE, file_name_c_str: *mut u8) {
     FreeLibrary(h_inst);
     drop(CString::from_raw(file_name_c_str as *mut i8));
 }

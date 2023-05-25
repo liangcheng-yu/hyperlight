@@ -13,3 +13,9 @@ pub mod kvm_mem;
 #[cfg(target_os = "linux")]
 ///! KVM register definitions
 pub mod kvm_regs;
+#[cfg(target_os = "windows")]
+///! Hyperlight Surrogate Process
+pub(crate) mod surrogate_process;
+#[cfg(target_os = "windows")]
+///! Hyperlight Surrogate Process
+pub(crate) mod surrogate_process_manager;
