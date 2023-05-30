@@ -58,5 +58,5 @@ windows = { version = "0.48.0", features = [
 ] }
 
 [build-dependencies]
-cbindgen = { version = "0.24.3" }
+cbindgen = { version = "0.24.5" }
 anyhow = { version = "1.0.71"}
