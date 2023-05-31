@@ -5,6 +5,9 @@ bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
 fb-cmake-option:= if os() == "windows" { "Visual Studio 10" } else { "Unix Makefiles" }
 default-target:= "debug"
 
+# make an array with all .fbs files
+fbs-files := `find src -name "*.fbs"`
+
 init:
     git submodule update --init --recursive
 
@@ -57,3 +60,13 @@ fmt:
     cargo fmt
 clippy:
     cargo clippy --all-targets --all-features -- -D warnings
+
+gen-all-fbs-rust-code:
+    echo 
+    for fbs in `find src -name "*.fbs"`; do flatc -r --rust-module-root-file --gen-all -o ./src/hyperlight_host/src/flatbuffers/ $fbs; done
+
+gen-all-fbs-csharp-code:
+    for fbs in `find src -name "*.fbs"`; do flatc -n -o ./src/Hyperlight/flatbuffers $fbs; done
+
+gen-all-fbs-c-code:
+    for fbs in `find src -name "*.fbs"`; do flatcc -a -o ./src/HyperlightGuest/include/flatbuffers/generated $fbs; done
