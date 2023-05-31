@@ -5,9 +5,6 @@ bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
 fb-cmake-option:= if os() == "windows" { "Visual Studio 10" } else { "Unix Makefiles" }
 default-target:= "debug"
 
-# make an array with all .fbs files
-fbs-files := `find src -name "*.fbs"`
-
 init:
     git submodule update --init --recursive
 
