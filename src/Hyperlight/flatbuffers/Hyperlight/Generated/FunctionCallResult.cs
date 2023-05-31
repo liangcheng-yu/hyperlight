@@ -13,9 +13,10 @@ public struct FunctionCallResult : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_3_3(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
   public static FunctionCallResult GetRootAsFunctionCallResult(ByteBuffer _bb) { return GetRootAsFunctionCallResult(_bb, new FunctionCallResult()); }
   public static FunctionCallResult GetRootAsFunctionCallResult(ByteBuffer _bb, FunctionCallResult obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public static bool VerifyFunctionCallResult(ByteBuffer _bb) {Google.FlatBuffers.Verifier verifier = new Google.FlatBuffers.Verifier(_bb); return verifier.VerifyBuffer("", false, FunctionCallResultVerify.Verify); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public FunctionCallResult __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
@@ -49,5 +50,16 @@ public struct FunctionCallResult : IFlatbufferObject
   public static void FinishSizePrefixedFunctionCallResultBuffer(FlatBufferBuilder builder, Offset<Hyperlight.Generated.FunctionCallResult> offset) { builder.FinishSizePrefixed(offset.Value); }
 }
 
+
+static public class FunctionCallResultVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*ReturnValueType*/, 1 /*Hyperlight.Generated.ReturnValue*/, 1, false)
+      && verifier.VerifyUnion(tablePos, 4, 6 /*ReturnValue*/, Hyperlight.Generated.ReturnValueVerify.Verify, true)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }
