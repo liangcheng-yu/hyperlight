@@ -59,11 +59,13 @@ clippy:
     cargo clippy --all-targets --all-features -- -D warnings
 
 gen-all-fbs-rust-code:
-    echo 
     for fbs in `find src -name "*.fbs"`; do flatc -r --rust-module-root-file --gen-all -o ./src/hyperlight_host/src/flatbuffers/ $fbs; done
+    cargo fmt --all
 
 gen-all-fbs-csharp-code:
     for fbs in `find src -name "*.fbs"`; do flatc -n -o ./src/Hyperlight/flatbuffers $fbs; done
 
 gen-all-fbs-c-code:
     for fbs in `find src -name "*.fbs"`; do flatcc -a -o ./src/HyperlightGuest/include/flatbuffers/generated $fbs; done
+
+gen-all-fbs: gen-all-fbs-rust-code gen-all-fbs-c-code gen-all-fbs-csharp-code
