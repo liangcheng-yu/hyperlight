@@ -13,7 +13,7 @@ public struct hlsizeprefixedbuffer : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_3_3(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
   public static hlsizeprefixedbuffer GetRootAshlsizeprefixedbuffer(ByteBuffer _bb) { return GetRootAshlsizeprefixedbuffer(_bb, new hlsizeprefixedbuffer()); }
   public static hlsizeprefixedbuffer GetRootAshlsizeprefixedbuffer(ByteBuffer _bb, hlsizeprefixedbuffer obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
@@ -52,5 +52,16 @@ public struct hlsizeprefixedbuffer : IFlatbufferObject
   }
 }
 
+
+static public class hlsizeprefixedbufferVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*Size*/, 4 /*int*/, 4, false)
+      && verifier.VerifyVectorOfData(tablePos, 6 /*Value*/, 1 /*byte*/, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }
