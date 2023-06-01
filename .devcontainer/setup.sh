@@ -31,6 +31,3 @@ flatcc/scripts/build.sh
 chmod +x ./flatcc/bin/flatcc
 mv ./flatcc/bin/flatcc /usr/bin/flatcc
 rm -rf flatcc
-
-# Setup git
-git config --global core.editor "code --wait"
