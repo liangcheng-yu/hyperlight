@@ -13,7 +13,7 @@ public struct Parameter : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_3_3(); }
   public static Parameter GetRootAsParameter(ByteBuffer _bb) { return GetRootAsParameter(_bb, new Parameter()); }
   public static Parameter GetRootAsParameter(ByteBuffer _bb, Parameter obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
@@ -46,16 +46,5 @@ public struct Parameter : IFlatbufferObject
   }
 }
 
-
-static public class ParameterVerify
-{
-  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
-  {
-    return verifier.VerifyTableStart(tablePos)
-      && verifier.VerifyField(tablePos, 4 /*ValueType*/, 1 /*Hyperlight.Generated.ParameterValue*/, 1, false)
-      && verifier.VerifyUnion(tablePos, 4, 6 /*Value*/, Hyperlight.Generated.ParameterValueVerify.Verify, true)
-      && verifier.VerifyTableEnd(tablePos);
-  }
-}
 
 }

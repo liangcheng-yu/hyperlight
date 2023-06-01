@@ -13,7 +13,7 @@ public struct hlint : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_3_3(); }
   public static hlint GetRootAshlint(ByteBuffer _bb) { return GetRootAshlint(_bb, new hlint()); }
   public static hlint GetRootAshlint(ByteBuffer _bb, hlint obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
@@ -36,15 +36,5 @@ public struct hlint : IFlatbufferObject
   }
 }
 
-
-static public class hlintVerify
-{
-  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
-  {
-    return verifier.VerifyTableStart(tablePos)
-      && verifier.VerifyField(tablePos, 4 /*Value*/, 4 /*int*/, 4, false)
-      && verifier.VerifyTableEnd(tablePos);
-  }
-}
 
 }
