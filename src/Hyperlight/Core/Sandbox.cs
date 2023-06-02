@@ -55,7 +55,7 @@ namespace Hyperlight
         readonly bool runFromProcessMemory;
         readonly bool runFromGuestBinary;
         readonly StringWriter? writer;
-        readonly HyperlightGuestInterfaceGlue guestInterfaceGlue;
+        readonly GuestInterfaceGlue guestInterfaceGlue;
         private bool disposedValue; // To detect redundant calls
 
         private bool needsStateResetting;
@@ -180,7 +180,7 @@ namespace Hyperlight
                 HyperlightException.LogAndThrowException<ArgumentException>("Cannot run from guest binary and recycle after run at the same time", GetType().Name);
             }
 
-            this.guestInterfaceGlue = new HyperlightGuestInterfaceGlue(this);
+            this.guestInterfaceGlue = new GuestInterfaceGlue(this, this.context);
 
 
             HyperlightLogger.SetLogger(errorMessageLogger);

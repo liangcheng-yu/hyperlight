@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using Hyperlight.Core;
 using Hyperlight.Generated;
+using Hyperlight.Wrapper;
 using HyperlightDependencies;
 
 namespace Hyperlight
@@ -14,14 +15,22 @@ namespace Hyperlight
         public object? target;
         public MethodInfo methodInfo;
     }
-    abstract class GuestInterfaceGlue
+    sealed class GuestInterfaceGlue
     {
 
         // Currently we will support int, Int64, bool, byte[] and string for parameters and return types of long and int 
         // for the methods between guest and host
         static readonly HashSet<Type> supportedParameterAndReturnTypes = new() { typeof(int), typeof(long), typeof(ulong), typeof(bool), typeof(string), typeof(byte[]), typeof(IntPtr), typeof(UInt32) };
         static readonly ConcurrentDictionary<string, Lazy<DynamicMethod>> dynamicMethods = new();
-        public Dictionary<string, HostMethodInfo> MapHostFunctionNamesToMethodInfo = new();
+        internal Dictionary<string, HostMethodInfo> MapHostFunctionNamesToMethodInfo = new();
+        readonly Sandbox sandbox;
+        readonly Context context;
+
+        public GuestInterfaceGlue(Sandbox sandbox, Context context)
+        {
+            this.sandbox = sandbox;
+            this.context = context;
+        }
 
         public void ExposeAndBindMembers(object guestObjectOrType)
         {
@@ -449,15 +458,26 @@ namespace Hyperlight
             return hostMethodInfo.methodInfo.Invoke(hostMethodInfo.target, args);
         }
 
-        protected abstract object DispatchCallFromHost(string functionName, RuntimeTypeHandle returnType, object[] args);
-
-        protected abstract bool EnterDynamicMethod();
-
-        protected abstract void ExitDynamicMethod(bool shouldRelease);
-
-        protected abstract void ResetState();
-
-        protected abstract void UpdateCorrelationId();
+        internal object DispatchCallFromHost(string functionName, RuntimeTypeHandle returnType, object[] args)
+        {
+            return sandbox.DispatchCallFromHost(functionName, returnType, args);
+        }
+        internal bool EnterDynamicMethod()
+        {
+            return sandbox.EnterDynamicMethod();
+        }
+        internal void ExitDynamicMethod(bool shouldRelease)
+        {
+            sandbox.ExitDynamicMethod(shouldRelease);
+        }
+        internal void ResetState()
+        {
+            sandbox.ResetState();
+        }
+        internal void UpdateCorrelationId()
+        {
+            sandbox.UpdateCorrelationId();
+        }
 
         // Validate that we support the parameter count, parameter types, and return value
         // Throws exception if not supported.  Note that void is supported as a return type
