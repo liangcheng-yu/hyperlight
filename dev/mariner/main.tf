@@ -19,6 +19,7 @@ variable "prefix" {
   default = "hyperlight"
 }
 
+# Note: Choose vmsize that supports Nested Virtualization
 variable "vmsize" {
   default = "Standard_D2_v4"
 }
