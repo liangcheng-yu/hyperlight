@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 
 /// All the types that can be used as parameters or return types for a host function.
 enum SupportedParameterAndReturnTypes {
