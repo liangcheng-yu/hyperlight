@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.InteropServices;
 using Hyperlight.Core;
 using Hyperlight.Generated;
 using Hyperlight.Wrapper;
@@ -128,7 +129,7 @@ namespace Hyperlight
             // Validate that we support parameter list and return type
             if (ShouldExposeMember(methodInfo.GetCustomAttribute<ExposeToGuestAttribute>(), exposeMembers))
             {
-                ValidateMethodSupported(methodInfo);
+                ValidateMethodSupported(methodInfo, this.context);
 
                 // TODO: Add virtual to attribute or use full name to  allow method name clashes.
 
@@ -154,7 +155,7 @@ namespace Hyperlight
                 var invokeMethod = fieldInfo.FieldType.GetMethod("Invoke");
 
                 // Validate that we support parameter list and return type
-                ValidateMethodSupported(invokeMethod);
+                ValidateMethodSupported(invokeMethod, this.context);
 
                 // Build delegate implementation that calls DispatchToGuest the right number of parameters.  This internally calls the abstract DispatchCallsFromHost
                 // where the real work can be done to call into the guest.  We don't directly try to generate a call to DispatchCallsFromHost because
@@ -481,32 +482,38 @@ namespace Hyperlight
 
         // Validate that we support the parameter count, parameter types, and return value
         // Throws exception if not supported.  Note that void is supported as a return type
-        static void ValidateMethodSupported(MethodInfo? methodInfo)
+        static void ValidateMethodSupported(MethodInfo? methodInfo, Context context)
         {
             HyperlightException.ThrowIfNull(methodInfo, nameof(methodInfo), MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             var parameters = methodInfo.GetParameters();
 
-            // Currently we only support up to 10 parameters
-            // TODO: this can probably be removed now as we dont have this restriction now we are using flatbuffers.
-            if (parameters.Length > Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS)
-            {
-                HyperlightException.LogAndThrowException($"Method {methodInfo.Name} has too many parameters. Maximum of {Constants.MAX_NUMBER_OF_GUEST_FUNCTION_PARAMETERS} allowed", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
-            }
-
             // Check if each parameter is a supported type
             foreach (var parameter in parameters)
             {
-                if (!supportedParameterAndReturnTypes.Contains(parameter.ParameterType))
+                if (Handle.IsError(validate_type_supported(context.ctx, StringWrapper.FromString(context, parameter.ParameterType.ToString()).HandleWrapper.handle)))
                 {
                     HyperlightException.LogAndThrowException($"Unsupported Paramter Type {parameter.ParameterType} on parameter {parameter.Name} method {methodInfo.Name}", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
                 }
             }
 
             // Check if return value is a supported type or 'void'
-            if (!(methodInfo.ReturnType == typeof(void)) && !supportedParameterAndReturnTypes.Contains(methodInfo.ReturnType))
+            if (!(methodInfo.ReturnType == typeof(void)) && Handle.IsError(validate_type_supported(context.ctx, StringWrapper.FromString(context, methodInfo.ReturnType.ToString()).HandleWrapper.handle)))
             {
                 HyperlightException.LogAndThrowException($"Unsupported Return Type {methodInfo.ReturnType} on method {methodInfo.Name}", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             }
         }
+
+        #pragma warning disable CA1707 // Remove the underscores from member name
+#pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle validate_type_supported(
+            NativeContext ctx,
+            NativeHandle some_type
+        );
+
+#pragma warning restore CA1707 // Remove the underscores from member name
+#pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
     }
 }
