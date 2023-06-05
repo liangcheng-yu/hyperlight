@@ -18,19 +18,15 @@ namespace Hyperlight
     }
     sealed class GuestInterfaceGlue
     {
-
-        // Currently we will support int, Int64, bool, byte[] and string for parameters and return types of long and int 
-        // for the methods between guest and host
-        static readonly HashSet<Type> supportedParameterAndReturnTypes = new() { typeof(int), typeof(long), typeof(ulong), typeof(bool), typeof(string), typeof(byte[]), typeof(IntPtr), typeof(UInt32) };
         static readonly ConcurrentDictionary<string, Lazy<DynamicMethod>> dynamicMethods = new();
         internal Dictionary<string, HostMethodInfo> MapHostFunctionNamesToMethodInfo = new();
         readonly Sandbox sandbox;
         readonly Context context;
 
-        public GuestInterfaceGlue(Sandbox sandbox, Context context)
+        public GuestInterfaceGlue(Context context, Sandbox sandbox)
         {
-            this.sandbox = sandbox;
             this.context = context;
+            this.sandbox = sandbox;
         }
 
         public void ExposeAndBindMembers(object guestObjectOrType)
@@ -490,14 +486,22 @@ namespace Hyperlight
             // Check if each parameter is a supported type
             foreach (var parameter in parameters)
             {
-                if (Handle.IsError(validate_type_supported(context.ctx, StringWrapper.FromString(context, parameter.ParameterType.ToString()).HandleWrapper.handle)))
+                using var paramStr = StringWrapper.FromString(context, parameter.ParameterType.ToString());
+                var paramRawHdl = validate_type_supported(context.ctx, paramStr.HandleWrapper.handle);
+                using var paramHdl = new Handle(context, paramRawHdl, false);
+
+                if (paramHdl.IsError())
                 {
                     HyperlightException.LogAndThrowException($"Unsupported Paramter Type {parameter.ParameterType} on parameter {parameter.Name} method {methodInfo.Name}", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
                 }
             }
 
+            using var returnStr = StringWrapper.FromString(context, methodInfo.ReturnType.ToString());
+            var returnRawHdl = validate_type_supported(context.ctx, returnStr.HandleWrapper.handle);
+            using var returnHdl = new Handle(context, returnRawHdl, false);
+
             // Check if return value is a supported type or 'void'
-            if (!(methodInfo.ReturnType == typeof(void)) && Handle.IsError(validate_type_supported(context.ctx, StringWrapper.FromString(context, methodInfo.ReturnType.ToString()).HandleWrapper.handle)))
+            if (!(methodInfo.ReturnType == typeof(void)) && returnHdl.IsError())
             {
                 HyperlightException.LogAndThrowException($"Unsupported Return Type {methodInfo.ReturnType} on method {methodInfo.Name}", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             }
