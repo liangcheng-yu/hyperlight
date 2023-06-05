@@ -13,9 +13,10 @@ public struct GuestFunctionDefinition : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_3_3(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
   public static GuestFunctionDefinition GetRootAsGuestFunctionDefinition(ByteBuffer _bb) { return GetRootAsGuestFunctionDefinition(_bb, new GuestFunctionDefinition()); }
   public static GuestFunctionDefinition GetRootAsGuestFunctionDefinition(ByteBuffer _bb, GuestFunctionDefinition obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public static bool VerifyGuestFunctionDefinition(ByteBuffer _bb) {Google.FlatBuffers.Verifier verifier = new Google.FlatBuffers.Verifier(_bb); return verifier.VerifyBuffer("", false, GuestFunctionDefinitionVerify.Verify); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public GuestFunctionDefinition __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
@@ -97,7 +98,70 @@ public struct GuestFunctionDefinition : IFlatbufferObject
     }
     return null;
   }
+  public GuestFunctionDefinitionT UnPack() {
+    var _o = new GuestFunctionDefinitionT();
+    this.UnPackTo(_o);
+    return _o;
+  }
+  public void UnPackTo(GuestFunctionDefinitionT _o) {
+    _o.FunctionName = this.FunctionName;
+    _o.Parameters = new List<Hyperlight.Generated.ParameterType>();
+    for (var _j = 0; _j < this.ParametersLength; ++_j) {_o.Parameters.Add(this.Parameters(_j));}
+    _o.ReturnType = this.ReturnType;
+    _o.FunctionPointer = this.FunctionPointer;
+  }
+  public static Offset<Hyperlight.Generated.GuestFunctionDefinition> Pack(FlatBufferBuilder builder, GuestFunctionDefinitionT _o) {
+    if (_o == null) return default(Offset<Hyperlight.Generated.GuestFunctionDefinition>);
+    var _function_name = _o.FunctionName == null ? default(StringOffset) : builder.CreateString(_o.FunctionName);
+    var _parameters = default(VectorOffset);
+    if (_o.Parameters != null) {
+      var __parameters = _o.Parameters.ToArray();
+      _parameters = CreateParametersVector(builder, __parameters);
+    }
+    return CreateGuestFunctionDefinition(
+      builder,
+      _function_name,
+      _parameters,
+      _o.ReturnType,
+      _o.FunctionPointer);
+  }
 }
 
+public class GuestFunctionDefinitionT
+{
+  public string FunctionName { get; set; }
+  public List<Hyperlight.Generated.ParameterType> Parameters { get; set; }
+  public Hyperlight.Generated.ReturnType ReturnType { get; set; }
+  public long FunctionPointer { get; set; }
+
+  public GuestFunctionDefinitionT() {
+    this.FunctionName = null;
+    this.Parameters = null;
+    this.ReturnType = Hyperlight.Generated.ReturnType.hlint;
+    this.FunctionPointer = 0;
+  }
+  public static GuestFunctionDefinitionT DeserializeFromBinary(byte[] fbBuffer) {
+    return GuestFunctionDefinition.GetRootAsGuestFunctionDefinition(new ByteBuffer(fbBuffer)).UnPack();
+  }
+  public byte[] SerializeToBinary() {
+    var fbb = new FlatBufferBuilder(0x10000);
+    GuestFunctionDefinition.FinishGuestFunctionDefinitionBuffer(fbb, GuestFunctionDefinition.Pack(fbb, this));
+    return fbb.DataBuffer.ToSizedArray();
+  }
+}
+
+
+static public class GuestFunctionDefinitionVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyString(tablePos, 4 /*FunctionName*/, true)
+      && verifier.VerifyVectorOfData(tablePos, 6 /*Parameters*/, 1 /*Hyperlight.Generated.ParameterType*/, true)
+      && verifier.VerifyField(tablePos, 8 /*ReturnType*/, 1 /*Hyperlight.Generated.ReturnType*/, 1, false)
+      && verifier.VerifyField(tablePos, 10 /*FunctionPointer*/, 8 /*long*/, 8, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }

@@ -13,9 +13,10 @@ public struct GuestError : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_3_3(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
   public static GuestError GetRootAsGuestError(ByteBuffer _bb) { return GetRootAsGuestError(_bb, new GuestError()); }
   public static GuestError GetRootAsGuestError(ByteBuffer _bb, GuestError obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public static bool VerifyGuestError(ByteBuffer _bb) {Google.FlatBuffers.Verifier verifier = new Google.FlatBuffers.Verifier(_bb); return verifier.VerifyBuffer("", false, GuestErrorVerify.Verify); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public GuestError __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
@@ -46,7 +47,54 @@ public struct GuestError : IFlatbufferObject
   }
   public static void FinishGuestErrorBuffer(FlatBufferBuilder builder, Offset<Hyperlight.Generated.GuestError> offset) { builder.Finish(offset.Value); }
   public static void FinishSizePrefixedGuestErrorBuffer(FlatBufferBuilder builder, Offset<Hyperlight.Generated.GuestError> offset) { builder.FinishSizePrefixed(offset.Value); }
+  public GuestErrorT UnPack() {
+    var _o = new GuestErrorT();
+    this.UnPackTo(_o);
+    return _o;
+  }
+  public void UnPackTo(GuestErrorT _o) {
+    _o.Code = this.Code;
+    _o.Message = this.Message;
+  }
+  public static Offset<Hyperlight.Generated.GuestError> Pack(FlatBufferBuilder builder, GuestErrorT _o) {
+    if (_o == null) return default(Offset<Hyperlight.Generated.GuestError>);
+    var _message = _o.Message == null ? default(StringOffset) : builder.CreateString(_o.Message);
+    return CreateGuestError(
+      builder,
+      _o.Code,
+      _message);
+  }
 }
 
+public class GuestErrorT
+{
+  public Hyperlight.Generated.ErrorCode Code { get; set; }
+  public string Message { get; set; }
+
+  public GuestErrorT() {
+    this.Code = Hyperlight.Generated.ErrorCode.NoError;
+    this.Message = null;
+  }
+  public static GuestErrorT DeserializeFromBinary(byte[] fbBuffer) {
+    return GuestError.GetRootAsGuestError(new ByteBuffer(fbBuffer)).UnPack();
+  }
+  public byte[] SerializeToBinary() {
+    var fbb = new FlatBufferBuilder(0x10000);
+    GuestError.FinishGuestErrorBuffer(fbb, GuestError.Pack(fbb, this));
+    return fbb.DataBuffer.ToSizedArray();
+  }
+}
+
+
+static public class GuestErrorVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*Code*/, 8 /*Hyperlight.Generated.ErrorCode*/, 8, false)
+      && verifier.VerifyString(tablePos, 6 /*Message*/, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }

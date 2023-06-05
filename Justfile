@@ -2,7 +2,6 @@
 alias build-rust-debug := build-rust
 set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
-fb-cmake-option:= if os() == "windows" { "Visual Studio 10" } else { "Unix Makefiles" }
 default-target:= "debug"
 
 init:
@@ -63,7 +62,7 @@ gen-all-fbs-rust-code:
     cargo fmt --all
 
 gen-all-fbs-csharp-code:
-    for fbs in `find src -name "*.fbs"`; do flatc -n -o ./src/Hyperlight/flatbuffers $fbs; done
+    for fbs in `find src -name "*.fbs"`; do flatc -n  --gen-object-api -o ./src/Hyperlight/flatbuffers $fbs; done
 
 gen-all-fbs-c-code:
     for fbs in `find src -name "*.fbs"`; do flatcc -a -o ./src/HyperlightGuest/include/flatbuffers/generated $fbs; done

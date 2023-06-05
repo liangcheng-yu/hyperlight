@@ -13,7 +13,7 @@ public struct hllong : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_3_3(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
   public static hllong GetRootAshllong(ByteBuffer _bb) { return GetRootAshllong(_bb, new hllong()); }
   public static hllong GetRootAshllong(ByteBuffer _bb, hllong obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
@@ -34,7 +34,40 @@ public struct hllong : IFlatbufferObject
     int o = builder.EndTable();
     return new Offset<Hyperlight.Generated.hllong>(o);
   }
+  public hllongT UnPack() {
+    var _o = new hllongT();
+    this.UnPackTo(_o);
+    return _o;
+  }
+  public void UnPackTo(hllongT _o) {
+    _o.Value = this.Value;
+  }
+  public static Offset<Hyperlight.Generated.hllong> Pack(FlatBufferBuilder builder, hllongT _o) {
+    if (_o == null) return default(Offset<Hyperlight.Generated.hllong>);
+    return Createhllong(
+      builder,
+      _o.Value);
+  }
 }
 
+public class hllongT
+{
+  public long Value { get; set; }
+
+  public hllongT() {
+    this.Value = 0;
+  }
+}
+
+
+static public class hllongVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*Value*/, 8 /*long*/, 8, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }

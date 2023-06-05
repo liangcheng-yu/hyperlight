@@ -13,7 +13,7 @@ public struct hlstring : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_3_3(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
   public static hlstring GetRootAshlstring(ByteBuffer _bb) { return GetRootAshlstring(_bb, new hlstring()); }
   public static hlstring GetRootAshlstring(ByteBuffer _bb, hlstring obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
@@ -40,7 +40,41 @@ public struct hlstring : IFlatbufferObject
     int o = builder.EndTable();
     return new Offset<Hyperlight.Generated.hlstring>(o);
   }
+  public hlstringT UnPack() {
+    var _o = new hlstringT();
+    this.UnPackTo(_o);
+    return _o;
+  }
+  public void UnPackTo(hlstringT _o) {
+    _o.Value = this.Value;
+  }
+  public static Offset<Hyperlight.Generated.hlstring> Pack(FlatBufferBuilder builder, hlstringT _o) {
+    if (_o == null) return default(Offset<Hyperlight.Generated.hlstring>);
+    var _value = _o.Value == null ? default(StringOffset) : builder.CreateString(_o.Value);
+    return Createhlstring(
+      builder,
+      _value);
+  }
 }
 
+public class hlstringT
+{
+  public string Value { get; set; }
+
+  public hlstringT() {
+    this.Value = null;
+  }
+}
+
+
+static public class hlstringVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyString(tablePos, 4 /*Value*/, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }

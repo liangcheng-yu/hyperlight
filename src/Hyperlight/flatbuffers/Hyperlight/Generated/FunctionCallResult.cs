@@ -13,9 +13,10 @@ public struct FunctionCallResult : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_3_3(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
   public static FunctionCallResult GetRootAsFunctionCallResult(ByteBuffer _bb) { return GetRootAsFunctionCallResult(_bb, new FunctionCallResult()); }
   public static FunctionCallResult GetRootAsFunctionCallResult(ByteBuffer _bb, FunctionCallResult obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public static bool VerifyFunctionCallResult(ByteBuffer _bb) {Google.FlatBuffers.Verifier verifier = new Google.FlatBuffers.Verifier(_bb); return verifier.VerifyBuffer("", false, FunctionCallResultVerify.Verify); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public FunctionCallResult __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
@@ -47,7 +48,74 @@ public struct FunctionCallResult : IFlatbufferObject
   }
   public static void FinishFunctionCallResultBuffer(FlatBufferBuilder builder, Offset<Hyperlight.Generated.FunctionCallResult> offset) { builder.Finish(offset.Value); }
   public static void FinishSizePrefixedFunctionCallResultBuffer(FlatBufferBuilder builder, Offset<Hyperlight.Generated.FunctionCallResult> offset) { builder.FinishSizePrefixed(offset.Value); }
+  public FunctionCallResultT UnPack() {
+    var _o = new FunctionCallResultT();
+    this.UnPackTo(_o);
+    return _o;
+  }
+  public void UnPackTo(FunctionCallResultT _o) {
+    _o.ReturnValue = new Hyperlight.Generated.ReturnValueUnion();
+    _o.ReturnValue.Type = this.ReturnValueType;
+    switch (this.ReturnValueType) {
+      default: break;
+      case Hyperlight.Generated.ReturnValue.hlint:
+        _o.ReturnValue.Value = this.ReturnValue<Hyperlight.Generated.hlint>().HasValue ? this.ReturnValue<Hyperlight.Generated.hlint>().Value.UnPack() : null;
+        break;
+      case Hyperlight.Generated.ReturnValue.hllong:
+        _o.ReturnValue.Value = this.ReturnValue<Hyperlight.Generated.hllong>().HasValue ? this.ReturnValue<Hyperlight.Generated.hllong>().Value.UnPack() : null;
+        break;
+      case Hyperlight.Generated.ReturnValue.hlstring:
+        _o.ReturnValue.Value = this.ReturnValue<Hyperlight.Generated.hlstring>().HasValue ? this.ReturnValue<Hyperlight.Generated.hlstring>().Value.UnPack() : null;
+        break;
+      case Hyperlight.Generated.ReturnValue.hlbool:
+        _o.ReturnValue.Value = this.ReturnValue<Hyperlight.Generated.hlbool>().HasValue ? this.ReturnValue<Hyperlight.Generated.hlbool>().Value.UnPack() : null;
+        break;
+      case Hyperlight.Generated.ReturnValue.hlvoid:
+        _o.ReturnValue.Value = this.ReturnValue<Hyperlight.Generated.hlvoid>().HasValue ? this.ReturnValue<Hyperlight.Generated.hlvoid>().Value.UnPack() : null;
+        break;
+      case Hyperlight.Generated.ReturnValue.hlsizeprefixedbuffer:
+        _o.ReturnValue.Value = this.ReturnValue<Hyperlight.Generated.hlsizeprefixedbuffer>().HasValue ? this.ReturnValue<Hyperlight.Generated.hlsizeprefixedbuffer>().Value.UnPack() : null;
+        break;
+    }
+  }
+  public static Offset<Hyperlight.Generated.FunctionCallResult> Pack(FlatBufferBuilder builder, FunctionCallResultT _o) {
+    if (_o == null) return default(Offset<Hyperlight.Generated.FunctionCallResult>);
+    var _return_value_type = _o.ReturnValue == null ? Hyperlight.Generated.ReturnValue.NONE : _o.ReturnValue.Type;
+    var _return_value = _o.ReturnValue == null ? 0 : Hyperlight.Generated.ReturnValueUnion.Pack(builder, _o.ReturnValue);
+    return CreateFunctionCallResult(
+      builder,
+      _return_value_type,
+      _return_value);
+  }
 }
 
+public class FunctionCallResultT
+{
+  public Hyperlight.Generated.ReturnValueUnion ReturnValue { get; set; }
+
+  public FunctionCallResultT() {
+    this.ReturnValue = null;
+  }
+  public static FunctionCallResultT DeserializeFromBinary(byte[] fbBuffer) {
+    return FunctionCallResult.GetRootAsFunctionCallResult(new ByteBuffer(fbBuffer)).UnPack();
+  }
+  public byte[] SerializeToBinary() {
+    var fbb = new FlatBufferBuilder(0x10000);
+    FunctionCallResult.FinishFunctionCallResultBuffer(fbb, FunctionCallResult.Pack(fbb, this));
+    return fbb.DataBuffer.ToSizedArray();
+  }
+}
+
+
+static public class FunctionCallResultVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*ReturnValueType*/, 1 /*Hyperlight.Generated.ReturnValue*/, 1, false)
+      && verifier.VerifyUnion(tablePos, 4, 6 /*ReturnValue*/, Hyperlight.Generated.ReturnValueVerify.Verify, true)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }
