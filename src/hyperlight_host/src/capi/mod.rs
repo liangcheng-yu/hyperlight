@@ -32,7 +32,7 @@ pub mod filepath;
 pub mod function_call_result;
 ///! C-compatible API functions to manage guest errors.
 pub mod guest_error;
-///! DAN:TODO
+///! C-compatible API function for the guest glue interface.
 pub mod guest_interface_glue;
 ///! C-compatible API functions to manipulate `GuestLogData`s
 pub mod guest_log_data;
