@@ -3,7 +3,7 @@ use crate::{capi::hdl::Hdl, guest_interface_glue::validate_type_supported};
 use super::{c_func::CFunc, context::Context, handle::Handle};
 
 /// Validates that the given type is supported by the host interface.
-/// 
+///
 /// # Safety
 /// - This function expects to receive a Handle to a String as the second argument.
 /// - If type is not supported, it will yield an error Handle.
