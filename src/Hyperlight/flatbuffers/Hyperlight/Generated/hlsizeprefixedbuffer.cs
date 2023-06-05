@@ -13,7 +13,7 @@ public struct hlsizeprefixedbuffer : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_3_3(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
   public static hlsizeprefixedbuffer GetRootAshlsizeprefixedbuffer(ByteBuffer _bb) { return GetRootAshlsizeprefixedbuffer(_bb, new hlsizeprefixedbuffer()); }
   public static hlsizeprefixedbuffer GetRootAshlsizeprefixedbuffer(ByteBuffer _bb, hlsizeprefixedbuffer obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
@@ -50,7 +50,51 @@ public struct hlsizeprefixedbuffer : IFlatbufferObject
     int o = builder.EndTable();
     return new Offset<Hyperlight.Generated.hlsizeprefixedbuffer>(o);
   }
+  public hlsizeprefixedbufferT UnPack() {
+    var _o = new hlsizeprefixedbufferT();
+    this.UnPackTo(_o);
+    return _o;
+  }
+  public void UnPackTo(hlsizeprefixedbufferT _o) {
+    _o.Size = this.Size;
+    _o.Value = new List<byte>();
+    for (var _j = 0; _j < this.ValueLength; ++_j) {_o.Value.Add(this.Value(_j));}
+  }
+  public static Offset<Hyperlight.Generated.hlsizeprefixedbuffer> Pack(FlatBufferBuilder builder, hlsizeprefixedbufferT _o) {
+    if (_o == null) return default(Offset<Hyperlight.Generated.hlsizeprefixedbuffer>);
+    var _value = default(VectorOffset);
+    if (_o.Value != null) {
+      var __value = _o.Value.ToArray();
+      _value = CreateValueVector(builder, __value);
+    }
+    return Createhlsizeprefixedbuffer(
+      builder,
+      _o.Size,
+      _value);
+  }
 }
 
+public class hlsizeprefixedbufferT
+{
+  public int Size { get; set; }
+  public List<byte> Value { get; set; }
+
+  public hlsizeprefixedbufferT() {
+    this.Size = 0;
+    this.Value = null;
+  }
+}
+
+
+static public class hlsizeprefixedbufferVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*Size*/, 4 /*int*/, 4, false)
+      && verifier.VerifyVectorOfData(tablePos, 6 /*Value*/, 1 /*byte*/, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }

@@ -16,5 +16,75 @@ public enum ReturnValue : byte
   hlsizeprefixedbuffer = 6,
 };
 
+public class ReturnValueUnion {
+  public ReturnValue Type { get; set; }
+  public object Value { get; set; }
+
+  public ReturnValueUnion() {
+    this.Type = ReturnValue.NONE;
+    this.Value = null;
+  }
+
+  public T As<T>() where T : class { return this.Value as T; }
+  public Hyperlight.Generated.hlintT Ashlint() { return this.As<Hyperlight.Generated.hlintT>(); }
+  public static ReturnValueUnion Fromhlint(Hyperlight.Generated.hlintT _hlint) { return new ReturnValueUnion{ Type = ReturnValue.hlint, Value = _hlint }; }
+  public Hyperlight.Generated.hllongT Ashllong() { return this.As<Hyperlight.Generated.hllongT>(); }
+  public static ReturnValueUnion Fromhllong(Hyperlight.Generated.hllongT _hllong) { return new ReturnValueUnion{ Type = ReturnValue.hllong, Value = _hllong }; }
+  public Hyperlight.Generated.hlstringT Ashlstring() { return this.As<Hyperlight.Generated.hlstringT>(); }
+  public static ReturnValueUnion Fromhlstring(Hyperlight.Generated.hlstringT _hlstring) { return new ReturnValueUnion{ Type = ReturnValue.hlstring, Value = _hlstring }; }
+  public Hyperlight.Generated.hlboolT Ashlbool() { return this.As<Hyperlight.Generated.hlboolT>(); }
+  public static ReturnValueUnion Fromhlbool(Hyperlight.Generated.hlboolT _hlbool) { return new ReturnValueUnion{ Type = ReturnValue.hlbool, Value = _hlbool }; }
+  public Hyperlight.Generated.hlvoidT Ashlvoid() { return this.As<Hyperlight.Generated.hlvoidT>(); }
+  public static ReturnValueUnion Fromhlvoid(Hyperlight.Generated.hlvoidT _hlvoid) { return new ReturnValueUnion{ Type = ReturnValue.hlvoid, Value = _hlvoid }; }
+  public Hyperlight.Generated.hlsizeprefixedbufferT Ashlsizeprefixedbuffer() { return this.As<Hyperlight.Generated.hlsizeprefixedbufferT>(); }
+  public static ReturnValueUnion Fromhlsizeprefixedbuffer(Hyperlight.Generated.hlsizeprefixedbufferT _hlsizeprefixedbuffer) { return new ReturnValueUnion{ Type = ReturnValue.hlsizeprefixedbuffer, Value = _hlsizeprefixedbuffer }; }
+
+  public static int Pack(Google.FlatBuffers.FlatBufferBuilder builder, ReturnValueUnion _o) {
+    switch (_o.Type) {
+      default: return 0;
+      case ReturnValue.hlint: return Hyperlight.Generated.hlint.Pack(builder, _o.Ashlint()).Value;
+      case ReturnValue.hllong: return Hyperlight.Generated.hllong.Pack(builder, _o.Ashllong()).Value;
+      case ReturnValue.hlstring: return Hyperlight.Generated.hlstring.Pack(builder, _o.Ashlstring()).Value;
+      case ReturnValue.hlbool: return Hyperlight.Generated.hlbool.Pack(builder, _o.Ashlbool()).Value;
+      case ReturnValue.hlvoid: return Hyperlight.Generated.hlvoid.Pack(builder, _o.Ashlvoid()).Value;
+      case ReturnValue.hlsizeprefixedbuffer: return Hyperlight.Generated.hlsizeprefixedbuffer.Pack(builder, _o.Ashlsizeprefixedbuffer()).Value;
+    }
+  }
+}
+
+
+
+static public class ReturnValueVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, byte typeId, uint tablePos)
+  {
+    bool result = true;
+    switch((ReturnValue)typeId)
+    {
+      case ReturnValue.hlint:
+        result = Hyperlight.Generated.hlintVerify.Verify(verifier, tablePos);
+        break;
+      case ReturnValue.hllong:
+        result = Hyperlight.Generated.hllongVerify.Verify(verifier, tablePos);
+        break;
+      case ReturnValue.hlstring:
+        result = Hyperlight.Generated.hlstringVerify.Verify(verifier, tablePos);
+        break;
+      case ReturnValue.hlbool:
+        result = Hyperlight.Generated.hlboolVerify.Verify(verifier, tablePos);
+        break;
+      case ReturnValue.hlvoid:
+        result = Hyperlight.Generated.hlvoidVerify.Verify(verifier, tablePos);
+        break;
+      case ReturnValue.hlsizeprefixedbuffer:
+        result = Hyperlight.Generated.hlsizeprefixedbufferVerify.Verify(verifier, tablePos);
+        break;
+      default: result = true;
+        break;
+    }
+    return result;
+  }
+}
+
 
 }

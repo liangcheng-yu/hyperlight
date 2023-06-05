@@ -15,5 +15,69 @@ public enum ParameterValue : byte
   hlvecbytes = 5,
 };
 
+public class ParameterValueUnion {
+  public ParameterValue Type { get; set; }
+  public object Value { get; set; }
+
+  public ParameterValueUnion() {
+    this.Type = ParameterValue.NONE;
+    this.Value = null;
+  }
+
+  public T As<T>() where T : class { return this.Value as T; }
+  public Hyperlight.Generated.hlintT Ashlint() { return this.As<Hyperlight.Generated.hlintT>(); }
+  public static ParameterValueUnion Fromhlint(Hyperlight.Generated.hlintT _hlint) { return new ParameterValueUnion{ Type = ParameterValue.hlint, Value = _hlint }; }
+  public Hyperlight.Generated.hllongT Ashllong() { return this.As<Hyperlight.Generated.hllongT>(); }
+  public static ParameterValueUnion Fromhllong(Hyperlight.Generated.hllongT _hllong) { return new ParameterValueUnion{ Type = ParameterValue.hllong, Value = _hllong }; }
+  public Hyperlight.Generated.hlstringT Ashlstring() { return this.As<Hyperlight.Generated.hlstringT>(); }
+  public static ParameterValueUnion Fromhlstring(Hyperlight.Generated.hlstringT _hlstring) { return new ParameterValueUnion{ Type = ParameterValue.hlstring, Value = _hlstring }; }
+  public Hyperlight.Generated.hlboolT Ashlbool() { return this.As<Hyperlight.Generated.hlboolT>(); }
+  public static ParameterValueUnion Fromhlbool(Hyperlight.Generated.hlboolT _hlbool) { return new ParameterValueUnion{ Type = ParameterValue.hlbool, Value = _hlbool }; }
+  public Hyperlight.Generated.hlvecbytesT Ashlvecbytes() { return this.As<Hyperlight.Generated.hlvecbytesT>(); }
+  public static ParameterValueUnion Fromhlvecbytes(Hyperlight.Generated.hlvecbytesT _hlvecbytes) { return new ParameterValueUnion{ Type = ParameterValue.hlvecbytes, Value = _hlvecbytes }; }
+
+  public static int Pack(Google.FlatBuffers.FlatBufferBuilder builder, ParameterValueUnion _o) {
+    switch (_o.Type) {
+      default: return 0;
+      case ParameterValue.hlint: return Hyperlight.Generated.hlint.Pack(builder, _o.Ashlint()).Value;
+      case ParameterValue.hllong: return Hyperlight.Generated.hllong.Pack(builder, _o.Ashllong()).Value;
+      case ParameterValue.hlstring: return Hyperlight.Generated.hlstring.Pack(builder, _o.Ashlstring()).Value;
+      case ParameterValue.hlbool: return Hyperlight.Generated.hlbool.Pack(builder, _o.Ashlbool()).Value;
+      case ParameterValue.hlvecbytes: return Hyperlight.Generated.hlvecbytes.Pack(builder, _o.Ashlvecbytes()).Value;
+    }
+  }
+}
+
+
+
+static public class ParameterValueVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, byte typeId, uint tablePos)
+  {
+    bool result = true;
+    switch((ParameterValue)typeId)
+    {
+      case ParameterValue.hlint:
+        result = Hyperlight.Generated.hlintVerify.Verify(verifier, tablePos);
+        break;
+      case ParameterValue.hllong:
+        result = Hyperlight.Generated.hllongVerify.Verify(verifier, tablePos);
+        break;
+      case ParameterValue.hlstring:
+        result = Hyperlight.Generated.hlstringVerify.Verify(verifier, tablePos);
+        break;
+      case ParameterValue.hlbool:
+        result = Hyperlight.Generated.hlboolVerify.Verify(verifier, tablePos);
+        break;
+      case ParameterValue.hlvecbytes:
+        result = Hyperlight.Generated.hlvecbytesVerify.Verify(verifier, tablePos);
+        break;
+      default: result = true;
+        break;
+    }
+    return result;
+  }
+}
+
 
 }

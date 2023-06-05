@@ -13,7 +13,7 @@ public struct hlvecbytes : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_3_3(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
   public static hlvecbytes GetRootAshlvecbytes(ByteBuffer _bb) { return GetRootAshlvecbytes(_bb, new hlvecbytes()); }
   public static hlvecbytes GetRootAshlvecbytes(ByteBuffer _bb, hlvecbytes obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
@@ -46,7 +46,46 @@ public struct hlvecbytes : IFlatbufferObject
     int o = builder.EndTable();
     return new Offset<Hyperlight.Generated.hlvecbytes>(o);
   }
+  public hlvecbytesT UnPack() {
+    var _o = new hlvecbytesT();
+    this.UnPackTo(_o);
+    return _o;
+  }
+  public void UnPackTo(hlvecbytesT _o) {
+    _o.Value = new List<byte>();
+    for (var _j = 0; _j < this.ValueLength; ++_j) {_o.Value.Add(this.Value(_j));}
+  }
+  public static Offset<Hyperlight.Generated.hlvecbytes> Pack(FlatBufferBuilder builder, hlvecbytesT _o) {
+    if (_o == null) return default(Offset<Hyperlight.Generated.hlvecbytes>);
+    var _value = default(VectorOffset);
+    if (_o.Value != null) {
+      var __value = _o.Value.ToArray();
+      _value = CreateValueVector(builder, __value);
+    }
+    return Createhlvecbytes(
+      builder,
+      _value);
+  }
 }
 
+public class hlvecbytesT
+{
+  public List<byte> Value { get; set; }
+
+  public hlvecbytesT() {
+    this.Value = null;
+  }
+}
+
+
+static public class hlvecbytesVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyVectorOfData(tablePos, 4 /*Value*/, 1 /*byte*/, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }

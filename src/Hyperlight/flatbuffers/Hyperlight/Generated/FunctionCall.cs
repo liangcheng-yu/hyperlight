@@ -13,9 +13,10 @@ public struct FunctionCall : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_3_3(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
   public static FunctionCall GetRootAsFunctionCall(ByteBuffer _bb) { return GetRootAsFunctionCall(_bb, new FunctionCall()); }
   public static FunctionCall GetRootAsFunctionCall(ByteBuffer _bb, FunctionCall obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public static bool VerifyFunctionCall(ByteBuffer _bb) {Google.FlatBuffers.Verifier verifier = new Google.FlatBuffers.Verifier(_bb); return verifier.VerifyBuffer("", false, FunctionCallVerify.Verify); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public FunctionCall __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
@@ -90,7 +91,71 @@ public struct FunctionCall : IFlatbufferObject
     }
     return null;
   }
+  public FunctionCallT UnPack() {
+    var _o = new FunctionCallT();
+    this.UnPackTo(_o);
+    return _o;
+  }
+  public void UnPackTo(FunctionCallT _o) {
+    _o.FunctionName = this.FunctionName;
+    _o.Parameters = new List<Hyperlight.Generated.ParameterT>();
+    for (var _j = 0; _j < this.ParametersLength; ++_j) {_o.Parameters.Add(this.Parameters(_j).HasValue ? this.Parameters(_j).Value.UnPack() : null);}
+    _o.FunctionCallType = this.FunctionCallType;
+    _o.ExpectedReturnType = this.ExpectedReturnType;
+  }
+  public static Offset<Hyperlight.Generated.FunctionCall> Pack(FlatBufferBuilder builder, FunctionCallT _o) {
+    if (_o == null) return default(Offset<Hyperlight.Generated.FunctionCall>);
+    var _function_name = _o.FunctionName == null ? default(StringOffset) : builder.CreateString(_o.FunctionName);
+    var _parameters = default(VectorOffset);
+    if (_o.Parameters != null) {
+      var __parameters = new Offset<Hyperlight.Generated.Parameter>[_o.Parameters.Count];
+      for (var _j = 0; _j < __parameters.Length; ++_j) { __parameters[_j] = Hyperlight.Generated.Parameter.Pack(builder, _o.Parameters[_j]); }
+      _parameters = CreateParametersVector(builder, __parameters);
+    }
+    return CreateFunctionCall(
+      builder,
+      _function_name,
+      _parameters,
+      _o.FunctionCallType,
+      _o.ExpectedReturnType);
+  }
 }
 
+public class FunctionCallT
+{
+  public string FunctionName { get; set; }
+  public List<Hyperlight.Generated.ParameterT> Parameters { get; set; }
+  public Hyperlight.Generated.FunctionCallType FunctionCallType { get; set; }
+  public Hyperlight.Generated.ReturnType ExpectedReturnType { get; set; }
+
+  public FunctionCallT() {
+    this.FunctionName = null;
+    this.Parameters = null;
+    this.FunctionCallType = Hyperlight.Generated.FunctionCallType.none;
+    this.ExpectedReturnType = Hyperlight.Generated.ReturnType.hlint;
+  }
+  public static FunctionCallT DeserializeFromBinary(byte[] fbBuffer) {
+    return FunctionCall.GetRootAsFunctionCall(new ByteBuffer(fbBuffer)).UnPack();
+  }
+  public byte[] SerializeToBinary() {
+    var fbb = new FlatBufferBuilder(0x10000);
+    FunctionCall.FinishFunctionCallBuffer(fbb, FunctionCall.Pack(fbb, this));
+    return fbb.DataBuffer.ToSizedArray();
+  }
+}
+
+
+static public class FunctionCallVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyString(tablePos, 4 /*FunctionName*/, true)
+      && verifier.VerifyVectorOfTables(tablePos, 6 /*Parameters*/, Hyperlight.Generated.ParameterVerify.Verify, false)
+      && verifier.VerifyField(tablePos, 8 /*FunctionCallType*/, 1 /*Hyperlight.Generated.FunctionCallType*/, 1, false)
+      && verifier.VerifyField(tablePos, 10 /*ExpectedReturnType*/, 1 /*Hyperlight.Generated.ReturnType*/, 1, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }

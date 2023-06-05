@@ -15,7 +15,7 @@ Two tools are required to generate the code:
 * [flatc](https://google.github.io/flatbuffers/flatbuffers_guide_using_schema_compiler.html) - the FlatBuffers schema compiler for all languages except C.
 * [flatcc](https://github.com/dvidelabs/flatcc) - the FlatBuffers schema compiler for C.
 
-Follow instructions in the links above to build/or install the tools. On Windows you can use vcpkg via `just install-flatbuffers-with-vcpkg:`, this will install vcpkg and then install flatc which can thenls be found at `..\vcpkg\installed\x64-windows\tools\flatbuffers\flatc`.
+Follow instructions in the links above to build/or install the tools. You can use vcpkg via `just install-flatbuffers-with-vcpkg:` to install flatc, this will install vcpkg and then install flatc which can then be found at `..\vcpkg\installed\x64-windows\tools\flatbuffers\flatc`  on Windows and `../vcpkg/installed/x64-linux/tools/flatbuffers/flatc` on Linux.. Note that this may not be the latest version.
 
 Once you have the tools installed, you can generate the code by running as follows:
 
@@ -33,7 +33,7 @@ flatc -r --rust-module-root-file --gen-all -o ./src/hyperlight_host/src/flatbuff
 ### Generate C# code
 
 ```console
-flatc -n -o ./src/Hyperlight/flatbuffers  ./src/schema/guest_error.fbs
+flatc -n  --gen-object-api -o ./src/Hyperlight/flatbuffers  ./src/schema/guest_error.fbs
 ```
 
 ### Generate C code
@@ -58,7 +58,7 @@ flatc -r --rust-module-root-file --gen-all -o .\src\hyperlight_host\src\flatbuff
 ### Generate C# code
 
 ```console
-flatc -n -o .\src\Hyperlight\flatbuffers  .\src\schema\guest_error.fbs
+flatc -n  --gen-object-api -o .\src\Hyperlight\flatbuffers  .\src\schema\guest_error.fbs
 ```
 
 ### Generate C code
