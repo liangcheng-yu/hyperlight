@@ -125,7 +125,7 @@ namespace Hyperlight
             // Validate that we support parameter list and return type
             if (ShouldExposeMember(methodInfo.GetCustomAttribute<ExposeToGuestAttribute>(), exposeMembers))
             {
-                ValidateMethodSupported(methodInfo, this.context);
+                ValidateMethodSupported(this.context, methodInfo);
 
                 // TODO: Add virtual to attribute or use full name to  allow method name clashes.
 
@@ -151,7 +151,7 @@ namespace Hyperlight
                 var invokeMethod = fieldInfo.FieldType.GetMethod("Invoke");
 
                 // Validate that we support parameter list and return type
-                ValidateMethodSupported(invokeMethod, this.context);
+                ValidateMethodSupported(this.context, invokeMethod);
 
                 // Build delegate implementation that calls DispatchToGuest the right number of parameters.  This internally calls the abstract DispatchCallsFromHost
                 // where the real work can be done to call into the guest.  We don't directly try to generate a call to DispatchCallsFromHost because
@@ -478,7 +478,7 @@ namespace Hyperlight
 
         // Validate that we support the parameter count, parameter types, and return value
         // Throws exception if not supported.  Note that void is supported as a return type
-        static void ValidateMethodSupported(MethodInfo? methodInfo, Context context)
+        static void ValidateMethodSupported(Context context, MethodInfo? methodInfo)
         {
             HyperlightException.ThrowIfNull(methodInfo, nameof(methodInfo), MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
             var parameters = methodInfo.GetParameters();
