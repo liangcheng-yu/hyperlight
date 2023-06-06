@@ -54,16 +54,16 @@ pub(crate) fn handle_outb(port: u16, byte: u8) -> Result<()> {
     match port.into() {
         OutBAction::Log => {
             // TODO
-        },
+        }
         OutBAction::WriteOutput => {
             // TODO
-        },
+        }
         OutBAction::CallFunction => {
             // TODO
-        },
+        }
         OutBAction::Abort => {
             // TODO
-        },
+        }
         _ => {
             // TODO
         }
