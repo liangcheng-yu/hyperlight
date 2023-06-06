@@ -30,6 +30,47 @@ pub(crate) fn is_supported_platform() -> bool {
     true
 }
 
+enum OutBAction {
+    Log,
+    WriteOutput,
+    CallFunction,
+    Abort,
+}
+
+impl From<u16> for OutBAction {
+    fn from(val: u16) -> Self {
+        match val {
+            99 => OutBAction::Log,
+            100 => OutBAction::WriteOutput,
+            101 => OutBAction::CallFunction,
+            102 => OutBAction::Abort,
+            _ => OutBAction::Log,
+        }
+    }
+}
+
+#[allow(unused)]
+pub(crate) fn handle_outb(port: u16, byte: u8) -> Result<()> {
+    match port.into() {
+        OutBAction::Log => {
+            // TODO
+        },
+        OutBAction::WriteOutput => {
+            // TODO
+        },
+        OutBAction::CallFunction => {
+            // TODO
+        },
+        OutBAction::Abort => {
+            // TODO
+        },
+        _ => {
+            // TODO
+        }
+    }
+    Ok(())
+}
+
 /// Determine whether a suitable hypervisor is available to run
 /// this sandbox.
 ///
