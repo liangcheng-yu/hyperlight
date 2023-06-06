@@ -487,7 +487,7 @@ namespace Hyperlight
             foreach (var parameter in parameters)
             {
                 using var paramStr = StringWrapper.FromString(context, parameter.ParameterType.ToString());
-                var paramRawHdl = validate_type_supported(context.ctx, paramStr.HandleWrapper.handle);
+                var paramRawHdl = guest_interface_glue_validate_type_supported(context.ctx, paramStr.HandleWrapper.handle);
                 using var paramHdl = new Handle(context, paramRawHdl, false);
 
                 if (paramHdl.IsError())
@@ -497,7 +497,7 @@ namespace Hyperlight
             }
 
             using var returnStr = StringWrapper.FromString(context, methodInfo.ReturnType.ToString());
-            var returnRawHdl = validate_type_supported(context.ctx, returnStr.HandleWrapper.handle);
+            var returnRawHdl = guest_interface_glue_validate_type_supported(context.ctx, returnStr.HandleWrapper.handle);
             using var returnHdl = new Handle(context, returnRawHdl, false);
 
             // Check if return value is a supported type or 'void'
@@ -512,7 +512,7 @@ namespace Hyperlight
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle validate_type_supported(
+        private static extern NativeHandle guest_interface_glue_validate_type_supported(
             NativeContext ctx,
             NativeHandle some_type
         );
