@@ -13,9 +13,10 @@ public struct GuestLogData : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_3_3(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
   public static GuestLogData GetRootAsGuestLogData(ByteBuffer _bb) { return GetRootAsGuestLogData(_bb, new GuestLogData()); }
   public static GuestLogData GetRootAsGuestLogData(ByteBuffer _bb, GuestLogData obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public static bool VerifyGuestLogData(ByteBuffer _bb) {Google.FlatBuffers.Verifier verifier = new Google.FlatBuffers.Verifier(_bb); return verifier.VerifyBuffer("", false, GuestLogDataVerify.Verify); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public GuestLogData __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
@@ -80,7 +81,77 @@ public struct GuestLogData : IFlatbufferObject
   }
   public static void FinishGuestLogDataBuffer(FlatBufferBuilder builder, Offset<Hyperlight.Generated.GuestLogData> offset) { builder.Finish(offset.Value); }
   public static void FinishSizePrefixedGuestLogDataBuffer(FlatBufferBuilder builder, Offset<Hyperlight.Generated.GuestLogData> offset) { builder.FinishSizePrefixed(offset.Value); }
+  public GuestLogDataT UnPack() {
+    var _o = new GuestLogDataT();
+    this.UnPackTo(_o);
+    return _o;
+  }
+  public void UnPackTo(GuestLogDataT _o) {
+    _o.Message = this.Message;
+    _o.Source = this.Source;
+    _o.Level = this.Level;
+    _o.Caller = this.Caller;
+    _o.SourceFile = this.SourceFile;
+    _o.Line = this.Line;
+  }
+  public static Offset<Hyperlight.Generated.GuestLogData> Pack(FlatBufferBuilder builder, GuestLogDataT _o) {
+    if (_o == null) return default(Offset<Hyperlight.Generated.GuestLogData>);
+    var _message = _o.Message == null ? default(StringOffset) : builder.CreateString(_o.Message);
+    var _source = _o.Source == null ? default(StringOffset) : builder.CreateString(_o.Source);
+    var _caller = _o.Caller == null ? default(StringOffset) : builder.CreateString(_o.Caller);
+    var _source_file = _o.SourceFile == null ? default(StringOffset) : builder.CreateString(_o.SourceFile);
+    return CreateGuestLogData(
+      builder,
+      _message,
+      _source,
+      _o.Level,
+      _caller,
+      _source_file,
+      _o.Line);
+  }
 }
 
+public class GuestLogDataT
+{
+  public string Message { get; set; }
+  public string Source { get; set; }
+  public Hyperlight.Generated.LogLevel Level { get; set; }
+  public string Caller { get; set; }
+  public string SourceFile { get; set; }
+  public uint Line { get; set; }
+
+  public GuestLogDataT() {
+    this.Message = null;
+    this.Source = null;
+    this.Level = Hyperlight.Generated.LogLevel.Trace;
+    this.Caller = null;
+    this.SourceFile = null;
+    this.Line = 0;
+  }
+  public static GuestLogDataT DeserializeFromBinary(byte[] fbBuffer) {
+    return GuestLogData.GetRootAsGuestLogData(new ByteBuffer(fbBuffer)).UnPack();
+  }
+  public byte[] SerializeToBinary() {
+    var fbb = new FlatBufferBuilder(0x10000);
+    GuestLogData.FinishGuestLogDataBuffer(fbb, GuestLogData.Pack(fbb, this));
+    return fbb.DataBuffer.ToSizedArray();
+  }
+}
+
+
+static public class GuestLogDataVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyString(tablePos, 4 /*Message*/, false)
+      && verifier.VerifyString(tablePos, 6 /*Source*/, false)
+      && verifier.VerifyField(tablePos, 8 /*Level*/, 1 /*Hyperlight.Generated.LogLevel*/, 1, false)
+      && verifier.VerifyString(tablePos, 10 /*Caller*/, false)
+      && verifier.VerifyString(tablePos, 12 /*SourceFile*/, false)
+      && verifier.VerifyField(tablePos, 14 /*Line*/, 4 /*uint*/, 4, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }

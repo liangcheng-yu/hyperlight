@@ -13,7 +13,7 @@ public struct Parameter : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_3_3(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
   public static Parameter GetRootAsParameter(ByteBuffer _bb) { return GetRootAsParameter(_bb, new Parameter()); }
   public static Parameter GetRootAsParameter(ByteBuffer _bb, Parameter obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
@@ -44,7 +44,63 @@ public struct Parameter : IFlatbufferObject
     builder.Required(o, 6);  // value
     return new Offset<Hyperlight.Generated.Parameter>(o);
   }
+  public ParameterT UnPack() {
+    var _o = new ParameterT();
+    this.UnPackTo(_o);
+    return _o;
+  }
+  public void UnPackTo(ParameterT _o) {
+    _o.Value = new Hyperlight.Generated.ParameterValueUnion();
+    _o.Value.Type = this.ValueType;
+    switch (this.ValueType) {
+      default: break;
+      case Hyperlight.Generated.ParameterValue.hlint:
+        _o.Value.Value = this.Value<Hyperlight.Generated.hlint>().HasValue ? this.Value<Hyperlight.Generated.hlint>().Value.UnPack() : null;
+        break;
+      case Hyperlight.Generated.ParameterValue.hllong:
+        _o.Value.Value = this.Value<Hyperlight.Generated.hllong>().HasValue ? this.Value<Hyperlight.Generated.hllong>().Value.UnPack() : null;
+        break;
+      case Hyperlight.Generated.ParameterValue.hlstring:
+        _o.Value.Value = this.Value<Hyperlight.Generated.hlstring>().HasValue ? this.Value<Hyperlight.Generated.hlstring>().Value.UnPack() : null;
+        break;
+      case Hyperlight.Generated.ParameterValue.hlbool:
+        _o.Value.Value = this.Value<Hyperlight.Generated.hlbool>().HasValue ? this.Value<Hyperlight.Generated.hlbool>().Value.UnPack() : null;
+        break;
+      case Hyperlight.Generated.ParameterValue.hlvecbytes:
+        _o.Value.Value = this.Value<Hyperlight.Generated.hlvecbytes>().HasValue ? this.Value<Hyperlight.Generated.hlvecbytes>().Value.UnPack() : null;
+        break;
+    }
+  }
+  public static Offset<Hyperlight.Generated.Parameter> Pack(FlatBufferBuilder builder, ParameterT _o) {
+    if (_o == null) return default(Offset<Hyperlight.Generated.Parameter>);
+    var _value_type = _o.Value == null ? Hyperlight.Generated.ParameterValue.NONE : _o.Value.Type;
+    var _value = _o.Value == null ? 0 : Hyperlight.Generated.ParameterValueUnion.Pack(builder, _o.Value);
+    return CreateParameter(
+      builder,
+      _value_type,
+      _value);
+  }
 }
 
+public class ParameterT
+{
+  public Hyperlight.Generated.ParameterValueUnion Value { get; set; }
+
+  public ParameterT() {
+    this.Value = null;
+  }
+}
+
+
+static public class ParameterVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*ValueType*/, 1 /*Hyperlight.Generated.ParameterValue*/, 1, false)
+      && verifier.VerifyUnion(tablePos, 4, 6 /*Value*/, Hyperlight.Generated.ParameterValueVerify.Verify, true)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }

@@ -13,9 +13,10 @@ public struct GuestFunctionDetails : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_3_3(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
   public static GuestFunctionDetails GetRootAsGuestFunctionDetails(ByteBuffer _bb) { return GetRootAsGuestFunctionDetails(_bb, new GuestFunctionDetails()); }
   public static GuestFunctionDetails GetRootAsGuestFunctionDetails(ByteBuffer _bb, GuestFunctionDetails obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public static bool VerifyGuestFunctionDetails(ByteBuffer _bb) {Google.FlatBuffers.Verifier verifier = new Google.FlatBuffers.Verifier(_bb); return verifier.VerifyBuffer("", false, GuestFunctionDetailsVerify.Verify); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public GuestFunctionDetails __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
@@ -44,7 +45,54 @@ public struct GuestFunctionDetails : IFlatbufferObject
   }
   public static void FinishGuestFunctionDetailsBuffer(FlatBufferBuilder builder, Offset<Hyperlight.Generated.GuestFunctionDetails> offset) { builder.Finish(offset.Value); }
   public static void FinishSizePrefixedGuestFunctionDetailsBuffer(FlatBufferBuilder builder, Offset<Hyperlight.Generated.GuestFunctionDetails> offset) { builder.FinishSizePrefixed(offset.Value); }
+  public GuestFunctionDetailsT UnPack() {
+    var _o = new GuestFunctionDetailsT();
+    this.UnPackTo(_o);
+    return _o;
+  }
+  public void UnPackTo(GuestFunctionDetailsT _o) {
+    _o.Functions = new List<Hyperlight.Generated.GuestFunctionDefinitionT>();
+    for (var _j = 0; _j < this.FunctionsLength; ++_j) {_o.Functions.Add(this.Functions(_j).HasValue ? this.Functions(_j).Value.UnPack() : null);}
+  }
+  public static Offset<Hyperlight.Generated.GuestFunctionDetails> Pack(FlatBufferBuilder builder, GuestFunctionDetailsT _o) {
+    if (_o == null) return default(Offset<Hyperlight.Generated.GuestFunctionDetails>);
+    var _functions = default(VectorOffset);
+    if (_o.Functions != null) {
+      var __functions = new Offset<Hyperlight.Generated.GuestFunctionDefinition>[_o.Functions.Count];
+      for (var _j = 0; _j < __functions.Length; ++_j) { __functions[_j] = Hyperlight.Generated.GuestFunctionDefinition.Pack(builder, _o.Functions[_j]); }
+      _functions = CreateFunctionsVector(builder, __functions);
+    }
+    return CreateGuestFunctionDetails(
+      builder,
+      _functions);
+  }
 }
 
+public class GuestFunctionDetailsT
+{
+  public List<Hyperlight.Generated.GuestFunctionDefinitionT> Functions { get; set; }
+
+  public GuestFunctionDetailsT() {
+    this.Functions = null;
+  }
+  public static GuestFunctionDetailsT DeserializeFromBinary(byte[] fbBuffer) {
+    return GuestFunctionDetails.GetRootAsGuestFunctionDetails(new ByteBuffer(fbBuffer)).UnPack();
+  }
+  public byte[] SerializeToBinary() {
+    var fbb = new FlatBufferBuilder(0x10000);
+    GuestFunctionDetails.FinishGuestFunctionDetailsBuffer(fbb, GuestFunctionDetails.Pack(fbb, this));
+    return fbb.DataBuffer.ToSizedArray();
+  }
+}
+
+static public class GuestFunctionDetailsVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyVectorOfTables(tablePos, 4 /*Functions*/, Hyperlight.Generated.GuestFunctionDefinitionVerify.Verify, true)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }

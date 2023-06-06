@@ -13,7 +13,7 @@ public struct hlbool : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_3_3(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
   public static hlbool GetRootAshlbool(ByteBuffer _bb) { return GetRootAshlbool(_bb, new hlbool()); }
   public static hlbool GetRootAshlbool(ByteBuffer _bb, hlbool obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
@@ -34,7 +34,40 @@ public struct hlbool : IFlatbufferObject
     int o = builder.EndTable();
     return new Offset<Hyperlight.Generated.hlbool>(o);
   }
+  public hlboolT UnPack() {
+    var _o = new hlboolT();
+    this.UnPackTo(_o);
+    return _o;
+  }
+  public void UnPackTo(hlboolT _o) {
+    _o.Value = this.Value;
+  }
+  public static Offset<Hyperlight.Generated.hlbool> Pack(FlatBufferBuilder builder, hlboolT _o) {
+    if (_o == null) return default(Offset<Hyperlight.Generated.hlbool>);
+    return Createhlbool(
+      builder,
+      _o.Value);
+  }
 }
 
+public class hlboolT
+{
+  public bool Value { get; set; }
+
+  public hlboolT() {
+    this.Value = false;
+  }
+}
+
+
+static public class hlboolVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*Value*/, 1 /*bool*/, 1, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }
