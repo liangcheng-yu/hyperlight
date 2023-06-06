@@ -180,7 +180,7 @@ namespace Hyperlight
                 HyperlightException.LogAndThrowException<ArgumentException>("Cannot run from guest binary and recycle after run at the same time", GetType().Name);
             }
 
-            this.guestInterfaceGlue = new GuestInterfaceGlue(this, this.context);
+            this.guestInterfaceGlue = new GuestInterfaceGlue(this.context, this);
 
 
             HyperlightLogger.SetLogger(errorMessageLogger);
