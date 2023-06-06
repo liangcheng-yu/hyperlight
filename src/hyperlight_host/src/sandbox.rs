@@ -32,7 +32,6 @@ pub(crate) fn is_supported_platform() -> bool {
 
 enum OutBAction {
     Log,
-    WriteOutput,
     CallFunction,
     Abort,
 }
@@ -41,7 +40,6 @@ impl From<u16> for OutBAction {
     fn from(val: u16) -> Self {
         match val {
             99 => OutBAction::Log,
-            100 => OutBAction::WriteOutput,
             101 => OutBAction::CallFunction,
             102 => OutBAction::Abort,
             _ => OutBAction::Log,
@@ -53,9 +51,6 @@ impl From<u16> for OutBAction {
 pub(crate) fn handle_outb(port: u16, byte: u8) -> Result<()> {
     match port.into() {
         OutBAction::Log => {
-            // TODO
-        }
-        OutBAction::WriteOutput => {
             // TODO
         }
         OutBAction::CallFunction => {
