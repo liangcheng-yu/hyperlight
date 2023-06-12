@@ -3,8 +3,6 @@
 
 ///! C-compatible API functions for top-level `Sandbox` objects.
 pub mod api;
-///! C-compatible API functions to manipulate guest and host functions.
-pub mod api_funcs;
 ///! C-compatible adapters for converting `Vec`s to/from raw pointers
 pub mod arrays;
 ///! C-compatible functions for manipulating booleans in `Handle`s
@@ -13,11 +11,6 @@ pub mod bool;
 pub mod byte_array;
 ///! Wrapper utility for creating efficient and correct FFI functions
 pub(crate) mod c_func;
-///! C-compatible API functions to create, modify, read and delete
-///! C language function pointers.
-///!
-///! Most often used to create guest functions.
-pub mod callback;
 ///! C-compatible API functions to manage `Context` objects, which
 ///! are used as a specialized memory store for the Hyperlight C API.
 pub mod context;
@@ -83,8 +76,6 @@ pub mod strings;
 ///! C-compatible API functions for converting `Handle`s to various
 /// unsigned integer types.
 pub mod uint;
-///! C-compatible API functions for managing `Val` structures.
-pub mod val_ref;
 
 /// Return `Some(val)` when `cond == true`. Otherwise, return `None`
 pub(crate) fn option_when<T>(val: T, cond: bool) -> Option<T> {

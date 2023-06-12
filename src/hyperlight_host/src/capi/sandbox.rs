@@ -112,9 +112,3 @@ pub(crate) fn get_sandbox(ctx: &Context, handle: Handle) -> Result<&Sandbox> {
 fn register_sandbox(ctx: &mut Context, val: Sandbox) -> Handle {
     Context::register(val, &mut ctx.sandboxes, Hdl::Sandbox)
 }
-
-/// Get a read-and-write capable reference to a `Sandbox` stored in
-/// `ctx` and pointed to by `handle`.
-pub(crate) fn get_sandbox_mut(ctx: &mut Context, handle: Handle) -> Result<&mut Sandbox> {
-    Context::get_mut(handle, &mut ctx.sandboxes, |s| matches!(s, Hdl::Sandbox(_)))
-}

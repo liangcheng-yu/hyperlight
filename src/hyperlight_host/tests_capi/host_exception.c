@@ -1,7 +1,5 @@
 #include "hyperlight_host.h"
 #include "munit/munit.h"
-#include "val_ref.h"
-#include "callback.h"
 #include "host_exception.h"
 #include "err.h"
 #include "stdio.h"

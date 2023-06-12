@@ -1,8 +1,6 @@
 use super::handle::{new_key, Handle, Key};
 use super::hdl::Hdl;
 use crate::capi::outb_handler::OutbHandlerWrapper;
-use crate::func::args::Val;
-use crate::func::def::HostFunc;
 use crate::guest::function_call::FunctionCall;
 use crate::guest::function_call_result::FunctionCallResult;
 use crate::guest::guest_error::GuestError;
@@ -48,10 +46,6 @@ pub struct Context {
     pub booleans: HashMap<Key, bool>,
     /// All `Sandbox`es stored in this context
     pub sandboxes: HashMap<Key, Sandbox>,
-    /// All `Val`s stored in this context
-    pub vals: HashMap<Key, Val>,
-    /// All `HostFunc`s stored in this context
-    pub host_funcs: HashMap<Key, HostFunc>,
     /// All `String`s stored in this context
     pub strings: HashMap<Key, String>,
     /// All `Vec<u8>`s stored in this context
@@ -183,8 +177,6 @@ impl Context {
                     Hdl::Empty() => true,
                     Hdl::Invalid() => true,
                     Hdl::NullContext() => true,
-                    Hdl::Val(key) => self.vals.remove(&key).is_some(),
-                    Hdl::HostFunc(key) => self.host_funcs.remove(&key).is_some(),
                     Hdl::String(key) => self.strings.remove(&key).is_some(),
                     Hdl::ByteArray(key) => self.byte_arrays.remove(&key).is_some(),
                     Hdl::MemLayout(key) => self.mem_layouts.remove(&key).is_some(),
@@ -271,9 +263,6 @@ mod tests {
     use crate::capi::handle::NULL_CONTEXT_KEY;
     use crate::capi::hdl::Hdl;
     use crate::capi::strings::get_string;
-    use crate::capi::val_ref::get_val;
-    use crate::func::args::Val;
-    use crate::func::SerializationType;
     use crate::{validate_context, validate_context_or_panic};
     use anyhow::Result;
 
@@ -284,15 +273,6 @@ mod tests {
         let hdl_res = Context::register(start, &mut ctx.strings, Hdl::String);
         Context::get(hdl_res, &ctx.strings, |s| matches!(s, Hdl::String(_)))?;
         Ok(())
-    }
-
-    #[test]
-    fn round_trip_val() -> Result<()> {
-        let mut ctx = Context::default();
-        let start = Val::new(Vec::new(), SerializationType::Raw);
-        let start_clone = start.clone();
-        let hdl_res = Context::register(start, &mut ctx.vals, Hdl::Val);
-        get_val(&ctx, hdl_res).map(|f| assert_eq!(*f, start_clone))
     }
 
     #[test]

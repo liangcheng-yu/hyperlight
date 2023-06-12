@@ -10,8 +10,6 @@ pub enum Hdl {
     Boolean(Key),
     /// A reference to a `Sandbox`.
     Sandbox(Key),
-    /// A reference to a `Val`.
-    Val(Key),
     /// A reference to a nothing.
     ///
     /// Roughly equivalent to `NULL`.
@@ -24,8 +22,6 @@ pub enum Hdl {
     ///
     /// Indicates that a C api function was passed a null Context.
     NullContext(),
-    /// A reference to a `HostFunc`.
-    HostFunc(Key),
     /// A reference to a `String`.
     String(Key),
     /// A reference to a `Vec<u8>`.
@@ -70,9 +66,7 @@ impl Hdl {
     const NULL_CONTEXT_TYPE_ID: TypeID = 2;
     const ERROR_TYPE_ID: TypeID = 100;
     const SANDBOX_TYPE_ID: TypeID = 101;
-    const VAL_TYPE_ID: TypeID = 102;
     const EMPTY_TYPE_ID: TypeID = 103;
-    const HOST_FUNC_TYPE_ID: TypeID = 104;
     const STRING_TYPE_ID: TypeID = 105;
     const BYTE_ARRAY_TYPE_ID: TypeID = 106;
     const MEM_LAYOUT_TYPE_ID: TypeID = 109;
@@ -102,11 +96,9 @@ impl Hdl {
             Hdl::Err(_) => Self::ERROR_TYPE_ID,
             Hdl::Boolean(_) => Self::BOOLEAN_TYPE_ID,
             Hdl::Sandbox(_) => Self::SANDBOX_TYPE_ID,
-            Hdl::Val(_) => Self::VAL_TYPE_ID,
             Hdl::Empty() => Self::EMPTY_TYPE_ID,
             Hdl::Invalid() => Self::INVALID_TYPE_ID,
             Hdl::NullContext() => Self::NULL_CONTEXT_TYPE_ID,
-            Hdl::HostFunc(_) => Self::HOST_FUNC_TYPE_ID,
             Hdl::String(_) => Self::STRING_TYPE_ID,
             Hdl::ByteArray(_) => Self::BYTE_ARRAY_TYPE_ID,
             Hdl::MemLayout(_) => Self::MEM_LAYOUT_TYPE_ID,
@@ -138,11 +130,9 @@ impl Hdl {
             Hdl::Err(key) => *key,
             Hdl::Boolean(key) => *key,
             Hdl::Sandbox(key) => *key,
-            Hdl::Val(key) => *key,
             Hdl::Empty() => EMPTY_KEY,
             Hdl::Invalid() => INVALID_KEY,
             Hdl::NullContext() => NULL_CONTEXT_KEY,
-            Hdl::HostFunc(key) => *key,
             Hdl::String(key) => *key,
             Hdl::ByteArray(key) => *key,
             Hdl::MemLayout(key) => *key,
@@ -172,11 +162,9 @@ impl std::fmt::Display for Hdl {
             Hdl::Err(key) => write!(f, "Err({})", key),
             Hdl::Boolean(key) => write!(f, "Boolean({})", key),
             Hdl::Sandbox(key) => write!(f, "Sandbox({})", key),
-            Hdl::Val(key) => write!(f, "Val({})", key),
             Hdl::Empty() => write!(f, "Empty()"),
             Hdl::Invalid() => write!(f, "Invalid()"),
             Hdl::NullContext() => write!(f, "NullContext()"),
-            Hdl::HostFunc(key) => write!(f, "HostFunc({})", key),
             Hdl::String(key) => write!(f, "String({})", key),
             Hdl::ByteArray(key) => write!(f, "ByteArray({})", key),
             Hdl::MemLayout(key) => write!(f, "MemLayout({})", key),
@@ -211,11 +199,9 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::ERROR_TYPE_ID => Ok(Hdl::Err(key)),
             Self::BOOLEAN_TYPE_ID => Ok(Hdl::Boolean(key)),
             Self::SANDBOX_TYPE_ID => Ok(Hdl::Sandbox(key)),
-            Self::VAL_TYPE_ID => Ok(Hdl::Val(key)),
             Self::EMPTY_TYPE_ID => Ok(Hdl::Empty()),
             Self::INVALID_TYPE_ID => Ok(Hdl::Invalid()),
             Self::NULL_CONTEXT_TYPE_ID => Ok(Hdl::NullContext()),
-            Self::HOST_FUNC_TYPE_ID => Ok(Hdl::HostFunc(key)),
             Self::STRING_TYPE_ID => Ok(Hdl::String(key)),
             Self::BYTE_ARRAY_TYPE_ID => Ok(Hdl::ByteArray(key)),
             Self::MEM_LAYOUT_TYPE_ID => Ok(Hdl::MemLayout(key)),

@@ -1,6 +1,5 @@
 #include "munit/munit.h"
 #include "sandbox_tests.h"
-#include "val_ref_tests.h"
 #include "context_tests.h"
 #include "host_func_tests.h"
 #include "host_exception.h"
@@ -33,7 +32,6 @@ static MunitSuite test_suites[] = {
     {"/mem_layout_tests", mem_layout_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/outb_handler_tests", outb_handler_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/sandbox_tests", sandbox_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-    {"/val_ref_tests", val_ref_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/string_tests", string_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/guest_func_tests", guest_func_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {NULL, NULL, NULL, 0, MUNIT_SUITE_OPTION_NONE}};

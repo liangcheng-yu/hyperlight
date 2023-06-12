@@ -1,7 +1,5 @@
 #include "hyperlight_host.h"
 #include "munit/munit.h"
-#include "val_ref.h"
-#include "callback.h"
 #include "guest_func_tests.h"
 #include "err.h"
 #include "stdio.h"
@@ -53,7 +51,7 @@ MunitResult test_write_guest_function_call()
     handle_assert_no_error(ctx, result);
     handle_free(ctx, result);
 
-    #ifdef DEBUG
+#ifdef DEBUG
 
     // invalid buffer
 
@@ -66,7 +64,7 @@ MunitResult test_write_guest_function_call()
     handle_assert_error(ctx, result);
     handle_free(ctx, result);
 
-    #endif
+#endif
 
     // null_ptr
 
