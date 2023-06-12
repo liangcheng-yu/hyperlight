@@ -1,12 +1,12 @@
 using System;
-using Hyperlight.Core;
 using System.Runtime.InteropServices;
+using Hyperlight.Core;
 using Hyperlight.Wrapper;
 
 namespace Hyperlight.Hypervisors
 {
     [StructLayout(LayoutKind.Sequential)]
-    public struct HyperVOnLinuxAddrs : IEquatable<HyperVOnLinuxAddrs>
+    public struct HypervisorAddrs : IEquatable<HypervisorAddrs>
     {
         // IMPORTANT: do not change the order of these fields,
         // unless you change them to match in hyperv_linux_mem.rs
@@ -14,7 +14,7 @@ namespace Hyperlight.Hypervisors
         public ulong guestPFN;
         public ulong hostAddr;
         public ulong memSize;
-        public HyperVOnLinuxAddrs(
+        public HypervisorAddrs(
             ulong entrypoint,
             ulong hostAddr,
             ulong memSize
@@ -27,22 +27,22 @@ namespace Hyperlight.Hypervisors
         }
 
         public static bool operator ==(
-            HyperVOnLinuxAddrs a1,
-            HyperVOnLinuxAddrs a2
+            HypervisorAddrs a1,
+            HypervisorAddrs a2
         )
         {
             return a1.Equals(a2);
         }
 
         public static bool operator !=(
-            HyperVOnLinuxAddrs a1,
-            HyperVOnLinuxAddrs a2
+            HypervisorAddrs a1,
+            HypervisorAddrs a2
         )
         {
             return !a1.Equals(a2);
         }
 
-        public bool Equals(HyperVOnLinuxAddrs other)
+        public bool Equals(HypervisorAddrs other)
         {
             return (
                 other.entrypoint == this.entrypoint &&
@@ -51,14 +51,14 @@ namespace Hyperlight.Hypervisors
                 other.memSize == this.memSize
             );
         }
-        public override bool Equals(Object? obj)
+        public override bool Equals(object? obj)
         {
             //Check for null and compare run-time types.
             if ((obj == null) || !this.GetType().Equals(obj.GetType()))
             {
                 return false;
             }
-            HyperVOnLinuxAddrs other = (HyperVOnLinuxAddrs)obj;
+            var other = (HypervisorAddrs)obj;
             return this.Equals(other);
         }
         public override int GetHashCode()

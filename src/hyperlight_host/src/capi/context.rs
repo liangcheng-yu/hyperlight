@@ -9,9 +9,7 @@ use crate::guest::guest_error::GuestError;
 #[cfg(target_os = "linux")]
 use crate::hypervisor::hyperv_linux::HypervLinuxDriver;
 #[cfg(target_os = "linux")]
-use crate::hypervisor::kvm;
-#[cfg(target_os = "linux")]
-use crate::hypervisor::kvm_regs;
+use crate::hypervisor::kvm::KVMDriver;
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::mgr::SandboxMemoryManager;
 use crate::mem::shared_mem::SharedMemory;
@@ -21,8 +19,6 @@ use crate::{
     capi::mem_access_handler::MemAccessHandlerWrapper, guest::guest_log_data::GuestLogData,
 };
 use anyhow::{bail, Error, Result};
-#[cfg(target_os = "linux")]
-use kvm_ioctls::Kvm;
 use std::collections::HashMap;
 
 /// Context is a memory storage mechanism used in the Hyperlight C API
@@ -75,29 +71,11 @@ pub struct Context {
     /// All the `i32`s stored in this context
     pub int32s: HashMap<Key, i32>,
     #[cfg(target_os = "linux")]
-    /// All the `kvm`s stored in this context
-    pub kvms: HashMap<Key, Kvm>,
-    #[cfg(target_os = "linux")]
-    /// All the KVM `VmFd`s stored in this context
-    pub kvm_vmfds: HashMap<Key, kvm_ioctls::VmFd>,
-    #[cfg(target_os = "linux")]
-    /// All the KVM `VcpuFd`s stored in this context
-    pub kvm_vcpufds: HashMap<Key, kvm_ioctls::VcpuFd>,
-    #[cfg(target_os = "linux")]
-    /// All the KVM `kvm_userspace_memory_region`s stored in this context
-    pub kvm_user_mem_regions: HashMap<Key, kvm_bindings::kvm_userspace_memory_region>,
-    #[cfg(target_os = "linux")]
-    /// All the KVM run results stored in this context
-    pub kvm_run_messages: HashMap<Key, kvm::KvmRunMessage>,
-    #[cfg(target_os = "linux")]
-    /// All the KVM registers stored in this context
-    pub kvm_regs: HashMap<Key, kvm_regs::Regs>,
-    #[cfg(target_os = "linux")]
-    /// All the KVM segment registers stored in this context
-    pub kvm_sregs: HashMap<Key, kvm_regs::SRegs>,
-    #[cfg(target_os = "linux")]
     /// The HyperV Linux VM drivers stored in this context
     pub hyperv_linux_drivers: HashMap<Key, HypervLinuxDriver>,
+    #[cfg(target_os = "linux")]
+    /// The KVM Linux VM drivers stored in this context
+    pub kvm_drivers: HashMap<Key, KVMDriver>,
     /// The outb handler functions stored in this context
     pub outb_handler_funcs: HashMap<Key, OutbHandlerWrapper>,
     /// The memory access handler functions stored in this context
@@ -219,21 +197,9 @@ impl Context {
                     Hdl::UInt64(key) => self.uint64s.remove(&key).is_some(),
                     Hdl::Int32(key) => self.int32s.remove(&key).is_some(),
                     #[cfg(target_os = "linux")]
-                    Hdl::Kvm(key) => self.kvms.remove(&key).is_some(),
-                    #[cfg(target_os = "linux")]
-                    Hdl::KvmVmFd(key) => self.kvm_vmfds.remove(&key).is_some(),
-                    #[cfg(target_os = "linux")]
-                    Hdl::KvmVcpuFd(key) => self.kvm_vcpufds.remove(&key).is_some(),
-                    #[cfg(target_os = "linux")]
-                    Hdl::KvmUserMemRegion(key) => self.kvm_user_mem_regions.remove(&key).is_some(),
-                    #[cfg(target_os = "linux")]
-                    Hdl::KvmRunMessage(key) => self.kvm_run_messages.remove(&key).is_some(),
-                    #[cfg(target_os = "linux")]
-                    Hdl::KvmRegisters(key) => self.kvm_regs.remove(&key).is_some(),
-                    #[cfg(target_os = "linux")]
-                    Hdl::KvmSRegisters(key) => self.kvm_sregs.remove(&key).is_some(),
-                    #[cfg(target_os = "linux")]
                     Hdl::HypervLinuxDriver(key) => self.hyperv_linux_drivers.remove(&key).is_some(),
+                    #[cfg(target_os = "linux")]
+                    Hdl::KVMDriver(key) => self.kvm_drivers.remove(&key).is_some(),
                     Hdl::OutbHandlerFunc(key) => self.outb_handler_funcs.remove(&key).is_some(),
                     Hdl::MemAccessHandlerFunc(key) => {
                         self.mem_access_handler_funcs.remove(&key).is_some()

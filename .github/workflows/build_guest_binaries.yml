@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Build Guest Binaries
+
+# this is a workflow intended for use a dependency of other Hyperlight
+# workflows. as such, it does not have any triggers other than "workflow_call"
+#
+# for more details on this trigger, see this link:
+# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onworkflow_call
+
+on:
+  workflow_call:
+
+env:
+  CARGO_TERM_COLOR: always
+  
+jobs:
+  build-host-library:
+    uses: ./.github/workflows/build_host_library.yml
+
+  #####
+  # start build-guest-binaries
+  #
+  # building simpleguest.exe and callbackguest.exe are the guests
+  # in question. both need to be PE files, which currently requires
+  # we build on windows using the MSVC toolchain
+  #
+  # https://github.com/deislabs/hyperlight/issues/56 tracks the work
+  # needed to allow us to build these PE files with clang, which would
+  # help enable us to build on Linux
+  #####
+  build-guest-binaries:
+    runs-on: ${{ matrix.os }}
+    needs: [ build-host-library ]
+    strategy:
+      fail-fast: true
+      matrix:
+        build: [windows-2022-debug, windows-2022-release]
+        include:
+          - build: windows-2022-debug
+            os: windows-2022
+            config: debug
+            platform: x64
+          - build: windows-2022-release
+            os: windows-2022
+            config: release
+            platform: x64
+    env:
+      DOTNET_INSTALL_DIR: "./.dotnet"
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    # this is a workaround for the issue described at https://github.com/dotnet/sourcelink/issues/675 , it supresses the warning about the sourcelink package not being found.
+    - name: Remove Submodule
+      run: git rm munit
+      shell: pwsh   
+      working-directory: src/hyperlight_host/tests_capi
+    - name: Setup dotnet
+      uses: actions/setup-dotnet@v3.2.0
+      with:
+        dotnet-version: | 
+          6.0.x 
+    - uses: actions/cache@v3
+      with:
+        path: ~/.nuget/packages
+        # Look to see if there is a cache hit for the corresponding requirements file
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget
+    - name: Restore
+      run: dotnet restore
+      shell: pwsh
+    - name: Add msbuild to PATH
+      uses: microsoft/setup-msbuild@v1.3
+      with:
+        msbuild-architecture: x64
+    - name: Download hyperlight_host.dll
+      uses: actions/download-artifact@v3
+      with:
+        name: ${{ matrix.config}}_assets 
+        path: target/${{ matrix.config }}
+    - name: Fetch printf
+      working-directory: src/HyperlightGuest/third_party/printf
+      run: git submodule update --init
+    - name: Set up WHP_SHOULD_BE_PRESENT Env Var
+      run: |
+        echo "WHP_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
+    - name: Build Solution
+      run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
+      shell: pwsh
+    - name: Upload Binary Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: guest-binaries-${{ matrix.config }}
+        path: src\tests\Guests\*\${{ matrix.platform }}\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']

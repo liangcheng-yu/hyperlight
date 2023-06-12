@@ -1,47 +1,20 @@
-use super::kvm_regs::{Regs, SRegs};
+use super::{
+    hypervisor_mem::{
+        CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT,
+        CR4_PAE, EFER_LMA, EFER_LME,
+    },
+    Hypervisor,
+};
+use crate::{
+    capi::{mem_access_handler::MemAccessHandlerWrapper, outb_handler::OutbHandlerWrapper},
+    mem::{layout::SandboxMemoryLayout, ptr::RawPtr},
+};
 use anyhow::{anyhow, bail, Result};
+use kvm_bindings::{kvm_segment, kvm_userspace_memory_region};
 use kvm_ioctls::{Cap::UserMemory, Kvm, VcpuExit, VcpuFd, VmFd};
 
-/// The type of the output from a KVM vCPU
-#[repr(C)]
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum KvmRunMessageType {
-    /// IO Output
-    IOOut,
-    /// Halt
-    Halt,
-}
-
-impl<'a> TryFrom<VcpuExit<'a>> for KvmRunMessageType {
-    type Error = anyhow::Error;
-    fn try_from(e: VcpuExit) -> Result<Self> {
-        match e {
-            VcpuExit::Hlt => Ok(KvmRunMessageType::Halt),
-            VcpuExit::IoOut(_, _) => Ok(KvmRunMessageType::IOOut),
-            VcpuExit::InternalError => bail!("KVM internal error"),
-            default => bail!("unsupported message type {:?}", default),
-        }
-    }
-}
-
-/// A description of the results of a KVM vpu execution
-#[repr(C)]
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub struct KvmRunMessage {
-    /// The exit reason of the vCPU. Will be one
-    /// of the KvmMessageType constants.
-    pub message_type: KvmRunMessageType,
-    /// The value of the RAX register.
-    pub rax: u64,
-    /// The value of the RIP register.
-    pub rip: u64,
-    /// The port number when the reason is
-    /// KVM_MESSAGE_TYPE_X64_IO_OUT. Otherwise this is set to 0
-    pub port_number: u16,
-}
-
 /// Return `Ok(())` if the KVM API is available, or `Err` otherwise
-pub fn is_present() -> Result<()> {
+pub(crate) fn is_hypervisor_present() -> Result<()> {
     let kvm = Kvm::new()?;
     let ver = kvm.get_api_version();
     if -1 == ver {
@@ -56,235 +29,357 @@ pub fn is_present() -> Result<()> {
     Ok(())
 }
 
-/// Check if KVM exists on the machine and, if so, open the file
-/// descriptor and return a reference to it. Returns `Err` if there
-/// were any issues during this process.
-pub fn open() -> Result<Kvm> {
-    match is_present() {
-        Ok(_) => Kvm::new().map_err(|e| anyhow!("Failed to open KVM: {}", e)),
-        Err(_) => bail!("KVM is not present"),
+/// A Hypervisor driver for KVM on Linux
+pub struct KVMDriver {
+    // kvm and vm_fd are not used but must be present so they're properly
+    // dropped.
+    // prefix them with underscore so clippy doesn't complain they're unused
+    _kvm: Kvm,
+    _vm_fd: VmFd,
+    vcpu_fd: VcpuFd,
+    entrypoint: u64,
+    rsp: u64,
+}
+
+impl KVMDriver {
+    /// Create a new instance of a `KVMDriver`, with only control registers
+    /// set. Standard registers will not be set, and `initialise` must
+    /// be called to do so.
+    ///
+    /// TODO: when rust rewrite is complete, change `rsp` and `pml4_addr`
+    /// params to be of type `GuestPtr`.
+    pub(crate) fn new(
+        host_addr: u64,
+        pml4_addr: u64,
+        mem_size: u64,
+        entrypoint: u64,
+        rsp: u64,
+    ) -> Result<Self> {
+        match is_hypervisor_present() {
+            Ok(_) => (),
+            Err(e) => bail!(e),
+        };
+        let kvm = Kvm::new()?;
+
+        let vm_fd = kvm.create_vm_with_type(0)?;
+        {
+            // the address _inside the guest_ at which memory should start
+            let guest_phys_addr = u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?;
+            // set memory region
+            let region = kvm_userspace_memory_region {
+                slot: 0,
+                // the starting address of memory in the guest
+                guest_phys_addr,
+                // the total size of guest memory
+                memory_size: mem_size,
+                // the address of the start of memory on the host
+                userspace_addr: host_addr,
+                flags: 0,
+            };
+            unsafe { vm_fd.set_user_memory_region(region) }
+        }?;
+
+        let mut vcpu_fd = vm_fd.create_vcpu(0)?;
+        Self::set_sregs(&mut vcpu_fd, pml4_addr)?;
+
+        Ok(Self {
+            _kvm: kvm,
+            _vm_fd: vm_fd,
+            vcpu_fd,
+            entrypoint,
+            rsp,
+        })
     }
-}
 
-/// Create a new VM using the given `kvm` handle.
-///
-/// Returns `Ok` if the creation was successful, `Err` otherwise.
-pub fn create_vm(kvm: &Kvm) -> Result<VmFd> {
-    kvm.create_vm().map_err(|e| anyhow!(e))
-}
-
-/// Create a new virtual CPU from the given `vmfd`
-pub fn create_vcpu(vmfd: &VmFd) -> Result<VcpuFd> {
-    vmfd.create_vcpu(0).map_err(|e| anyhow!(e))
-}
-
-/// Get the registers from the vcpu referenced by `vcpu_fd`.
-pub fn get_registers(vcpu_fd: &VcpuFd) -> Result<Regs> {
-    vcpu_fd
-        .get_regs()
-        .map(|r| Regs::from(&r))
-        .map_err(|e| anyhow!(e))
-}
-
-/// Get the segment registers from the vcpu referenced by `vcpu_fd`.
-pub fn get_sregisters(vcpu_fd: &VcpuFd) -> Result<SRegs> {
-    vcpu_fd
-        .get_sregs()
-        .map(|r| SRegs::from(&r))
-        .map_err(|e| anyhow!(e))
-}
-
-fn get_port_num(vcpu_exit: &VcpuExit) -> Result<u16> {
-    match vcpu_exit {
-        VcpuExit::IoOut(addr, _) => Ok(*addr),
-        _ => bail!("no port num for VcpuExit {:?}", vcpu_exit),
+    fn set_sreg_segment(seg: &mut kvm_segment, type_: u8, selector: u16) {
+        seg.base = 0;
+        seg.limit = 0xffffffff;
+        seg.selector = selector;
+        seg.present = 1;
+        seg.type_ = type_;
+        seg.dpl = 0;
+        seg.db = 0;
+        seg.s = 1;
+        seg.l = 1;
+        seg.g = 1;
     }
-}
 
-fn get_rax(vcpu_fd: &VcpuFd) -> Result<u64> {
-    vcpu_fd.get_regs().map(|r| r.rax).map_err(|e| anyhow!(e))
-}
+    fn set_sregs(vcpu_fd: &mut VcpuFd, pml4_addr: u64) -> Result<()> {
+        // set up x86 memory segmentation registers.
+        // these are primarily used in Hyperlight for purposes of
+        // a setting up a memory hierarchy using page tables.
+        //
+        // for more on generally how this is done on x86 architectures, see
+        // the below link:
+        // https://en.wikipedia.org/wiki/X86_memory_segmentation
+        //
+        // some of this code in this function is inspired from the code
+        // at the below link:
+        //
+        // https://github.com/rust-vmm/kvm-ioctls/blob/b0a258655e84c7ab2c50cbdae5324216fa530adb/src/lib.rs#L136-L140
+        //
+        let mut sregs = vcpu_fd.get_sregs()?;
+        sregs.cr3 = pml4_addr;
+        sregs.cr4 = CR4_PAE | CR4_OSFXSR | CR4_OSXMMEXCPT;
+        sregs.cr0 = CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG;
+        sregs.efer = EFER_LME | EFER_LMA;
 
-fn get_rip(vcpu_fd: &VcpuFd) -> Result<u64> {
-    vcpu_fd.get_regs().map(|r| r.rip).map_err(|e| anyhow!(e))
-}
-
-/// Run the vcpu referenced by `vcpu_fd` until it exits, and return
-/// a `kvm_run_message` indicating what happened.
-pub fn run_vcpu(vcpu_fd: &VcpuFd) -> Result<KvmRunMessage> {
-    match (vcpu_fd).run() {
-        Ok(vcpu_exit) => {
-            let port_number = get_port_num(&vcpu_exit).unwrap_or(0);
-            let rax = get_rax(vcpu_fd).unwrap_or(0);
-            let rip = get_rip(vcpu_fd).unwrap_or(0);
-            let message_type = KvmRunMessageType::try_from(vcpu_exit)?;
-            Ok(KvmRunMessage {
-                message_type,
-                rax,
-                rip,
-                port_number,
-            })
+        {
+            // set up the code segment
+            // https://en.wikipedia.org/wiki/Code_segment
+            const CS_TYPE: u8 = 11;
+            const CS_SELECTOR: u16 = 1 << 3;
+            Self::set_sreg_segment(&mut sregs.cs, CS_TYPE, CS_SELECTOR);
         }
-        Err(e) => bail!(e),
+        {
+            // set up the data segment
+            // https://en.wikipedia.org/wiki/Data_segment
+            const DS_TYPE: u8 = 3;
+            const DS_SELECTOR: u16 = 2 << 3;
+            Self::set_sreg_segment(&mut sregs.ds, DS_TYPE, DS_SELECTOR);
+        }
+        {
+            // set up the extra segment
+            const ES_TYPE: u8 = 3;
+            const ES_SELECTOR: u16 = 2 << 3;
+            Self::set_sreg_segment(&mut sregs.es, ES_TYPE, ES_SELECTOR);
+        }
+        {
+            // set up the "F" segment. see the below link for a bit more
+            // information.
+            // https://en.wikipedia.org/wiki/I386#Architecture
+            const FS_TYPE: u8 = 3;
+            const FS_SELECTOR: u16 = 2 << 3;
+            Self::set_sreg_segment(&mut sregs.fs, FS_TYPE, FS_SELECTOR);
+        }
+        {
+            // set up the "G" segment. see the below link for a bit more
+            // information.
+            // https://en.wikipedia.org/wiki/I386#Architecture
+            const GS_TYPE: u8 = 3;
+            const GS_SELECTOR: u16 = 2 << 3;
+            Self::set_sreg_segment(&mut sregs.gs, GS_TYPE, GS_SELECTOR);
+        }
+        {
+            // set up the stack segment
+            const SS_TYPE: u8 = 3;
+            const SS_SELECTOR: u16 = 2 << 3;
+            Self::set_sreg_segment(&mut sregs.ss, SS_TYPE, SS_SELECTOR);
+        }
+
+        vcpu_fd
+            .set_sregs(&sregs)
+            .map_err(|e| anyhow!("failed to set segment registers: {:?}", e))
+    }
+
+    fn handle_io(&self, port: u16, data: &[u8], outb_handle_fn: OutbHandlerWrapper) -> Result<()> {
+        let mut regs = self.vcpu_fd.get_regs()?;
+        let orig_rip = regs.rip;
+
+        // the payload param for the outb_handle_fn is the the first byte
+        // of the data array, casted to a u64. thus, we need to make sure
+        // the data array has at least one u8, then convert that to a u64
+        if data.is_empty() {
+            bail!("no data was given in IO interrupt");
+        } else {
+            let payload_u64 = u64::from(data[0]);
+            outb_handle_fn.call(port, payload_u64);
+        }
+
+        //TODO: +1 may be a hack, but it works for now, need to figure out
+        // how to get the instruction length.
+        regs.rip = orig_rip + 1;
+        self.vcpu_fd.set_regs(&regs)?;
+        Ok(())
     }
 }
 
-/// Set the given registers `regs` on the vcpu referenced by `vcpu_fd`.
-///
-/// Return `Ok(())` if the set operation succeeded, or an `Err` if it
-/// failed.
-pub fn set_registers(vcpu_fd: &VcpuFd, regs: &Regs) -> Result<()> {
-    let native_regs = kvm_bindings::kvm_regs::from(regs);
-    vcpu_fd.set_regs(&native_regs).map_err(|e| anyhow!(e))
+impl Hypervisor for KVMDriver {
+    fn dispatch_call_from_host(
+        &mut self,
+        dispatch_func_addr: RawPtr,
+        outb_handle_fn: crate::capi::outb_handler::OutbHandlerWrapper,
+        mem_access_fn: crate::capi::mem_access_handler::MemAccessHandlerWrapper,
+    ) -> Result<()> {
+        // Move rip to the DispatchFunction pointer
+        let mut regs = self.vcpu_fd.get_regs()?;
+        regs.rip = dispatch_func_addr.into();
+        self.vcpu_fd.set_regs(&regs)?;
+        self.execute_until_halt(outb_handle_fn, mem_access_fn)
+    }
+
+    fn execute_until_halt(
+        &mut self,
+        outb_handle_fn: OutbHandlerWrapper,
+        mem_access_fn: MemAccessHandlerWrapper,
+    ) -> Result<()> {
+        loop {
+            let run_res = self.vcpu_fd.run()?;
+            match run_res {
+                VcpuExit::Hlt => {
+                    return Ok(());
+                }
+                VcpuExit::IoOut(port, data) => {
+                    self.handle_io(port, data, outb_handle_fn.clone())?
+                }
+                VcpuExit::MmioRead(addr, data) => {
+                    mem_access_fn.call();
+                    bail!("MMIO read address {:#x}, data {:?}", addr, data);
+                }
+                VcpuExit::MmioWrite(addr, data) => {
+                    mem_access_fn.call();
+                    bail!("MMIO write address 0x{:x}, data {:?}", addr, data);
+                }
+                other => {
+                    bail!("Unexpected KVM message {:?}", other)
+                }
+            }
+        }
+    }
+
+    /// Implementation of initialise for Hypervisor trait.
+    ///
+    /// TODO: when Rust rewrite is complete, change `peb_addr` to be
+    /// of type `GuestPtr`
+    fn initialise(
+        &mut self,
+        peb_addr: RawPtr,
+        seed: u64,
+        page_size: u32,
+        outb_handle_fn: crate::capi::outb_handler::OutbHandlerWrapper,
+        mem_access_fn: crate::capi::mem_access_handler::MemAccessHandlerWrapper,
+    ) -> Result<()> {
+        let mut regs = self.vcpu_fd.get_regs()?;
+        regs.rip = self.entrypoint;
+        regs.rsp = self.rsp;
+        regs.rdx = seed;
+        regs.r8 = u64::from(page_size);
+        regs.rcx = peb_addr.into();
+        regs.rflags = 0x2;
+        self.vcpu_fd.set_regs(&regs)?;
+        self.execute_until_halt(outb_handle_fn, mem_access_fn)
+    }
+
+    fn reset_rsp(&mut self, rsp: u64) -> Result<()> {
+        let mut regs = self.vcpu_fd.get_regs()?;
+        regs.rsp = rsp;
+        self.vcpu_fd.set_regs(&regs).map_err(|e| {
+            anyhow!(
+                "reset_rsp: error setting new registers on KVM vCPU: {:?}",
+                e
+            )
+        })
+    }
 }
 
-/// Set special registers `sregs` on the vcpu referenced by `vcpu_fd`.
-///
-/// Return `Ok(())` if the set operation succeeded, or an `Err` if it
-/// failed.
-pub fn set_sregisters(vcpu_fd: &VcpuFd, sregs: &SRegs) -> Result<()> {
-    let native_regs = kvm_bindings::kvm_sregs::from(sregs);
-    vcpu_fd.set_sregs(&native_regs).map_err(|e| anyhow!(e))
+#[cfg(test)]
+pub(crate) mod test_cfg {
+    use once_cell::sync::Lazy;
+    use serde::Deserialize;
+
+    pub static TEST_CONFIG: Lazy<TestConfig> = Lazy::new(|| match envy::from_env::<TestConfig>() {
+        Ok(config) => config,
+        Err(err) => panic!("error parsing config from env: {}", err),
+    });
+    pub static SHOULD_RUN_TEST: Lazy<bool> = Lazy::new(is_kvm_present);
+
+    fn is_kvm_present() -> bool {
+        println!(
+            "SHOULD_HAVE_STABLE_API is {}",
+            TEST_CONFIG.should_have_stable_api
+        );
+        println!(
+            "KVM_SHOULD_BE_PRESENT is {}",
+            TEST_CONFIG.kvm_should_be_present
+        );
+        let is_present = super::is_hypervisor_present().is_ok();
+        if (is_present && !TEST_CONFIG.kvm_should_be_present)
+            || (!is_present && TEST_CONFIG.kvm_should_be_present)
+        {
+            println!(
+                "WARNING: KVM is-present returned {}, should be present is: {}",
+                is_present, TEST_CONFIG.kvm_should_be_present
+            );
+        }
+        is_present
+    }
+    fn kvm_should_be_present_default() -> bool {
+        false
+    }
+
+    fn should_have_stable_api_default() -> bool {
+        false
+    }
+    #[derive(Deserialize, Debug)]
+    pub struct TestConfig {
+        #[serde(default = "kvm_should_be_present_default")]
+        // Set env var HYPERV_SHOULD_BE_PRESENT to require hyperv to be present for the tests.
+        pub kvm_should_be_present: bool,
+        #[serde(default = "should_have_stable_api_default")]
+        // Set env var SHOULD_HAVE_STABLE_API to require a stable api for the tests.
+        pub should_have_stable_api: bool,
+    }
+
+    #[macro_export]
+    macro_rules! should_run_kvm_linux_test {
+        () => {{
+            if !(*$crate::hypervisor::kvm::test_cfg::SHOULD_RUN_TEST) {
+                println! {"Not Running KVM Test - SHOULD_RUN_TEST is false"}
+                return;
+            }
+            println! {"Running Test - SHOULD_RUN_TEST is true"}
+        }};
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::KVMDriver;
     use crate::{
-        hypervisor::kvm_mem::{
-            map_vm_memory_region, map_vm_memory_region_raw, unmap_vm_memory_region_raw,
+        capi::{
+            mem_access_handler::new_mem_access_handler_wrapper,
+            outb_handler::new_outb_handler_wrapper,
         },
-        hypervisor::kvm_regs,
-        mem::{ptr_offset::Offset, shared_mem::SharedMemory},
+        hypervisor::tests::test_initialise,
+        mem::ptr_offset::Offset,
     };
-    use anyhow::Result;
-    use kvm_ioctls::{Kvm, VcpuFd, VmFd};
+    use crate::{
+        mem::{layout::SandboxMemoryLayout, ptr::GuestPtr},
+        should_run_kvm_linux_test,
+    };
 
-    const SHOULD_BE_PRESENT_VAR: &str = "KVM_SHOULD_BE_PRESENT";
-
-    macro_rules! presence_check {
-        () => {{
-            if !should_be_present() {
-                return;
-            }
-        }};
-    }
-
-    fn should_be_present() -> bool {
-        std::env::var(SHOULD_BE_PRESENT_VAR).is_ok()
-    }
+    extern "C" fn outb_fn(_port: u16, _payload: u64) {}
+    extern "C" fn mem_access_fn() {}
 
     #[test]
-    fn is_present() {
-        let pres = super::is_present().is_ok();
-        match (should_be_present(), pres) {
-            (true, true) => (),
-            (false, true) => panic!("KVM was present but should not be. set the {:?} env variable if KVM should be present", SHOULD_BE_PRESENT_VAR),
-            (true, false) => panic!("KVM was not present but should be. remove the {:?} env variable if KVM should not be present", SHOULD_BE_PRESENT_VAR),
-            (false, false) => (),
-        }
-    }
+    fn test_init() {
+        should_run_kvm_linux_test!();
+        let outb_handler = new_outb_handler_wrapper(outb_fn);
+        let mem_access_handler = new_mem_access_handler_wrapper(mem_access_fn);
+        test_initialise(
+            outb_handler,
+            mem_access_handler,
+            |mgr, rsp_ptr, pml4_ptr| {
+                let host_addr = u64::try_from(mgr.shared_mem.base_addr())?;
+                let rsp = rsp_ptr.absolute()?;
+                let entrypoint = {
+                    let load_addr = mgr.load_addr.clone();
+                    let load_offset_u64 =
+                        u64::from(load_addr) - u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?;
+                    let total_offset = Offset::from(load_offset_u64) + mgr.entrypoint_offset;
+                    GuestPtr::try_from(total_offset)
+                }?;
 
-    #[test]
-    fn create_vm_vcpu() {
-        presence_check!();
-        let kvm = super::open().unwrap();
-        let vm = super::create_vm(&kvm).unwrap();
-        let vcpu = super::create_vcpu(&vm).unwrap();
-        super::get_registers(&vcpu).unwrap();
-        super::get_sregisters(&vcpu).unwrap();
-    }
-
-    const GUEST_PHYS_ADDR: u64 = 0x1000;
-    const SIZE: usize = 0x4000;
-    fn setup_run_vcpu_test() -> Result<(Kvm, VmFd, VcpuFd, SharedMemory)> {
-        #[rustfmt::skip]
-        const CODE: [u8; 12] = [
-            // mov $0x3f8, %dx
-            0xba, 0xf8, 0x03,
-            // add %bl, %al
-            0x00, 0xd8,
-            // add $'0', %al
-            0x04, b'0',
-            // out %al, (%dx)
-            0xee,
-            // mov $'\n', %al
-            0xb0, b'\0',
-            // out %al, (%dx)
-            0xee,
-            // hlt
-            0xf4,
-        ];
-        let kvm = super::open()?;
-        let vm = super::create_vm(&kvm)?;
-        let vcpu = super::create_vcpu(&vm)?;
-        let mut mem = SharedMemory::new(SIZE).unwrap();
-        mem.copy_from_slice(&CODE, Offset::zero()).unwrap();
-        Ok((kvm, vm, vcpu, mem))
-    }
-
-    fn set_vcpu_registers(vcpu_fd: &VcpuFd) -> Result<()> {
-        let regs = kvm_regs::Regs {
-            rip: GUEST_PHYS_ADDR,
-            rax: 2,
-            rbx: 2,
-            rflags: 0x2,
-            rsp: 0,
-            rcx: 0,
-        };
-        super::set_registers(vcpu_fd, &regs)?;
-        let mut sregs = super::get_sregisters(vcpu_fd)?;
-        sregs.cs.base = 0;
-        sregs.cs.selector = 0;
-        super::set_sregisters(vcpu_fd, &sregs)
-    }
-
-    fn run_code(vcpu_fd: &VcpuFd) -> Result<()> {
-        {
-            // first run should be the first IO_OUT
-            let run_res = super::run_vcpu(vcpu_fd)?;
-            assert_eq!(super::KvmRunMessageType::IOOut, run_res.message_type);
-            assert_eq!('4' as u64, run_res.rax);
-            assert_eq!(0x3f8, run_res.port_number);
-            let regs_after = super::get_registers(vcpu_fd)?;
-            assert_eq!(run_res.rip, regs_after.rip);
-        }
-        {
-            // second run should be the second IO_OUT
-            let run_res = super::run_vcpu(vcpu_fd)?;
-            assert_eq!(super::KvmRunMessageType::IOOut, run_res.message_type);
-            assert_eq!(0, run_res.rax);
-            assert_eq!(0x3f8, run_res.port_number);
-        }
-        {
-            // third run should be the HLT
-            let run_res = super::run_vcpu(vcpu_fd)?;
-            assert_eq!(super::KvmRunMessageType::Halt, run_res.message_type);
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn run_vcpu_raw() {
-        presence_check!();
-        let (_kvm, vm_fd, vcpu_fd, mem) = setup_run_vcpu_test().unwrap();
-        let mut mem_region = map_vm_memory_region_raw(
-            &vm_fd,
-            GUEST_PHYS_ADDR,
-            mem.raw_ptr(),
-            mem.mem_size() as u64,
+                let driver = KVMDriver::new(
+                    host_addr,
+                    pml4_ptr.absolute().unwrap(),
+                    u64::try_from(mgr.shared_mem.mem_size()).unwrap(),
+                    entrypoint.absolute().unwrap(),
+                    rsp,
+                )?;
+                Ok(Box::new(driver))
+            },
         )
         .unwrap();
-        set_vcpu_registers(&vcpu_fd).unwrap();
-        run_code(&vcpu_fd).unwrap();
-        unmap_vm_memory_region_raw(&vm_fd, &mut mem_region).unwrap();
-    }
-
-    #[test]
-    fn run_vcpu() {
-        presence_check!();
-        let (_kvm, vm_fd, vcpu_fd, mem) = setup_run_vcpu_test().unwrap();
-        let _mem_region = map_vm_memory_region(&vm_fd, GUEST_PHYS_ADDR, &mem).unwrap();
-        set_vcpu_registers(&vcpu_fd).unwrap();
-        run_code(&vcpu_fd).unwrap();
     }
 }

@@ -90,6 +90,14 @@ impl TryFrom<RawPtr> for GuestPtr {
     }
 }
 
+impl TryFrom<Offset> for GuestPtr {
+    type Error = anyhow::Error;
+    fn try_from(val: Offset) -> Result<Self> {
+        let addr_space = GuestAddressSpace::new()?;
+        Ok(Ptr::from_offset(addr_space, val))
+    }
+}
+
 /// A pointer into a specific `AddressSpace` `T`.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Ptr<T: AddressSpace> {
@@ -114,6 +122,12 @@ impl<T: AddressSpace> Ptr<T> {
             addr_space,
             offset: Offset::from(offset),
         })
+    }
+
+    /// Create a new `Ptr` into the given `addr_space` from the given
+    /// `offset`.
+    pub(crate) fn from_offset(addr_space: T, offset: Offset) -> Ptr<T> {
+        Self { addr_space, offset }
     }
 
     /// Create a new `Ptr<Tgt>` from a source pointer and a target

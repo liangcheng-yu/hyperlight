@@ -54,8 +54,7 @@ pub mod hyperv_linux;
 /// integer types.
 pub mod int;
 #[cfg(target_os = "linux")]
-///! C-compatible API functions for creating and running guests on KVM
-///! on Linux.
+///! Provides a C API for creating and running guests on KVM on Linux.
 pub mod kvm;
 ///! C-compatible API functions for manipulating memory access
 ///! handler callback functions

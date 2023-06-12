@@ -424,6 +424,7 @@ namespace Hyperlight
                 else if (LinuxKVM.IsHypervisorPresent())
                 {
                     hyperVisor = new KVM(
+                        this.context,
                         sandboxMemoryManager.SourceAddress,
                         pml4Addr,
                         memSize,

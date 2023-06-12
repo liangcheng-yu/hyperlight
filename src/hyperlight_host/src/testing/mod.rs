@@ -23,9 +23,59 @@ fn join_to_path(start: &str, v: Vec<&str>) -> PathBuf {
     v.iter().fold(fold_start, fold_closure)
 }
 
+fn test_bin_base() -> PathBuf {
+    let build_dir_selector = if cfg!(debug_assertions) {
+        "debug"
+    } else {
+        "release"
+    };
+
+    join_to_path(
+        MANIFEST_DIR,
+        vec![
+            "..",
+            "tests",
+            "Hyperlight.Tests",
+            "bin",
+            build_dir_selector,
+            "net6.0",
+        ],
+    )
+}
+
+#[cfg(target_os = "linux")]
+pub(crate) fn dummy_guest_buf() -> PathBuf {
+    // $REPO_ROOT/src/tests/Hyperlight.Tests/bin/Debug/net6.0/dummyguest.exe"
+    let mut base = test_bin_base();
+    base.push("dummyguest.exe");
+    base
+}
+
 /// Get a new `PathBuf` pointing to `simpleguest.exe`
 pub(crate) fn simple_guest_buf() -> PathBuf {
-    join_to_path(MANIFEST_DIR, vec!["testdata", "simpleguest.exe"])
+    // $REPO_ROOT/src/tests/Hyperlight.Tests/bin/Debug/net6.0/simpleguest.exe"
+    let mut base = test_bin_base();
+    base.push("simpleguest.exe");
+    base
+}
+
+/// Get a new `PathBuf` pointing to `callbackguest.exe`
+pub(crate) fn callback_guest_buf() -> PathBuf {
+    // $REPO_ROOT/src/tests/Hyperlight.Tests/bin/Debug/net6.0/callbackguest.exe"
+    let mut base = test_bin_base();
+    base.push("callbackguest.exe");
+    base
+}
+
+/// Get a fully qualified OS-specific path to the dummyguest.exe
+/// binary. Convenience method for calling `dummy_guest_buf`, then converting
+/// the result into an owned `String`
+#[cfg(target_os = "linux")]
+pub(crate) fn dummy_guest_path() -> Result<String> {
+    let buf = dummy_guest_buf();
+    buf.to_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| anyhow!("couldn't convert dummy guest PathBuf to string"))
 }
 
 /// Get a fully qualified OS-specific path to the simpleguest.exe
@@ -38,9 +88,14 @@ pub(crate) fn simple_guest_path() -> Result<String> {
         .ok_or_else(|| anyhow!("couldn't convert simple guest PathBuf to string"))
 }
 
-/// Get a new `PathBuf` pointing to `callbackguest.exe`
-pub(crate) fn callback_guest_buf() -> PathBuf {
-    join_to_path(MANIFEST_DIR, vec!["testdata", "callbackguest.exe"])
+/// Get a fully qualified OS-specific path to the callbackguest.exe
+/// binary. Convenience method for calling `callback_guest_buf`, then
+/// converting the result into an owned `String`
+pub(crate) fn callback_guest_path() -> Result<String> {
+    let buf = callback_guest_buf();
+    buf.to_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| anyhow!("couldn't convert callback guest PathBuf to string"))
 }
 
 /// Get a `PEInfo` representing `simpleguest.exe`

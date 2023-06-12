@@ -181,16 +181,15 @@ mod tests {
     use super::super::handle_status::{handle_get_status, HandleStatus};
     use super::super::hdl::Hdl;
     use super::impls;
+    use crate::testing::{callback_guest_path, simple_guest_path};
     use anyhow::Result;
     #[test]
-    fn byte_array_new_from_file() -> Result<()> {
-        let filenames = vec!["./testdata/simpleguest.exe", "./testdata/callbackguest.exe"];
+    fn byte_array_new_from_file() {
+        let filenames = vec![simple_guest_path().unwrap(), callback_guest_path().unwrap()];
         for filename in filenames {
-            let file = impls::new_from_file(filename)?;
+            let file = impls::new_from_file(&filename).unwrap();
             assert!(!file.is_empty())
         }
-
-        Ok(())
     }
 
     #[test]

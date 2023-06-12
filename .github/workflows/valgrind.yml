@@ -10,10 +10,18 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  build-guest-binaries:
+    uses: ./.github/workflows/build_guest_binaries.yml
+
   build:
     strategy:
       fail-fast: true
       matrix:
+        # note: we are not running any release builds in this matrix,
+        # because valgrind doesn't work well with release builds.
+        #
+        # in fact, the `cargo valgrind build` command doesn't have an
+        # easy way to even run against a release build.
         build: [ubuntu-20.04-debug, linux-kvm-debug, linux-hyperv-debug, ubuntu-20.04-release, linux-kvm-release, linux-hyperv-release]
         include:
           - build: ubuntu-20.04-debug
@@ -28,19 +36,8 @@ jobs:
             os: [self-hosted, Linux, X64, hyperv-nov82022]
             hypervisor: hyperv
             config: debug
-          - build: ubuntu-20.04-release
-            os: ubuntu-20.04
-            hypervisor: none
-            config: release
-          - build: linux-kvm-release
-            os: [self-hosted, Linux, X64, kvm2]
-            hypervisor: kvm
-            config: release
-          - build: linux-hyperv-release
-            os: [self-hosted, Linux, X64, hyperv-nov82022]
-            hypervisor: hyperv
-            config: release
     runs-on: ${{ matrix.os }}
+    needs: [build-guest-binaries]
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@1.66.1
@@ -74,6 +71,30 @@ jobs:
         working-directory: ./scripts
       - name: Install cargo-valgrind
         run: cargo install cargo-valgrind
+      # Rust tests require the test binaries (simpleguest.exe, dummyguest.exe, 
+      # etc...) to be in ./src/tests/Hyperlight.Tests/bin/{Release or Debug}/net6.0.
+      # 
+      # We have a dependency on the 'build-guest-binaries' job, which builds 
+      # them and uploads them using the upload-artifact step. we're downloading
+      # them here, then moving them to the right location in the subsequent step
+      - name: Download Guest Binaries
+        uses: actions/download-artifact@v3
+        with:
+          name: guest-binaries-${{ matrix.config }}
+          path: ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0
+      - name: Copy Guest Binaries
+        run: |
+          echo "copying guest binaries for build config ${{ matrix.config }}"
+          cp ./dummyguest/x64/${{ matrix.config }}/dummyguest.exe dummyguest.exe
+          cp ./simpleguest/x64/${{ matrix.config }}/simpleguest.exe simpleguest.exe
+          cp ./callbackguest/x64/${{ matrix.config }}/callbackguest.exe callbackguest.exe
+        working-directory: ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0
+      - name: Display Guest Binaries
+        run: |
+          ls -R ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0
+      - name: Display Guest Binaries in target location (required by Rust tests)
+        run: ls -R
+        working-directory: ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0
       - name: Valgrind Rust tests
         run: cargo valgrind test
       - name: Valgrind C tests

@@ -10,6 +10,9 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  build-guest-binaries:
+    uses: ./.github/workflows/build_guest_binaries.yml
+
   build:
     strategy:
       fail-fast: true
@@ -49,6 +52,7 @@ jobs:
             hypervisor: hyperv
             config: release
     runs-on: ${{ matrix.os }}
+    needs: [build-guest-binaries]
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@1.69.0
@@ -70,6 +74,27 @@ jobs:
         with:
           msbuild-architecture: x64
 
+      # Rust tests require the test binaries (simpleguest.exe, dummyguest.exe, 
+      # etc...) to be in ./src/tests/Hyperlight.Tests/bin/{Release or Debug}/net6.0.
+      # 
+      # We have a dependency on the 'build-guest-binaries' job, which builds 
+      # them and uploads them using the upload-artifact step. we're downloading
+      # them here, then moving them to the right location in the subsequent step
+      - name: Download Guest Binaries
+        uses: actions/download-artifact@v3
+        with:
+          name: guest-binaries-${{ matrix.config }}
+          path: ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0
+      - name: Copy Guest Binaries
+        run: |
+          echo "copying guest binaries for build config ${{ matrix.config }}"
+          cp ./dummyguest/x64/${{ matrix.config }}/dummyguest.exe dummyguest.exe
+          cp ./simpleguest/x64/${{ matrix.config }}/simpleguest.exe simpleguest.exe
+          cp ./callbackguest/x64/${{ matrix.config }}/callbackguest.exe callbackguest.exe
+        working-directory: ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0
+      - name: Display Guest Binaries
+        run: |
+          ls -R ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0
       # This is required to run the tests for the Hyperlight Surrogate Process Manager     
       - name: Build Solution
         if: ${{ (runner.os == 'Windows') }}  
@@ -98,7 +123,5 @@ jobs:
       - name: Run C Tests 
         working-directory: src/hyperlight_host
         run: |
-          echo "testdata:"
-          ls testdata
           just run-tests-capi  ${{ matrix.config }}
 

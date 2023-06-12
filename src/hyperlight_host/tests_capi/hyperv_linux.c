@@ -68,7 +68,7 @@ MunitResult test_hyperv_linux_create_driver(const MunitParameter params[], void 
     const size_t MEM_SIZE = 0x1000;
     Context *ctx = context_new();
     Handle shared_mem_ref = shared_memory_new(ctx, MEM_SIZE);
-    struct HypervLinuxDriverAddrs addrs = {
+    struct HypervisorAddrs addrs = {
         .entrypoint = 0,
         .guest_pfn = 0,
         .host_addr = shared_memory_get_address(ctx, shared_mem_ref),
@@ -118,7 +118,7 @@ MunitResult test_hyperv_linux_execute_until_halt(const MunitParameter params[], 
         handle_free(ctx, barr_ref);
     }
 
-    HypervLinuxDriverAddrs addrs = {
+    HypervisorAddrs addrs = {
         .entrypoint = 0x1000,
         .guest_pfn = 0x1,
         .host_addr = shared_memory_get_address(ctx, shared_mem_ref),

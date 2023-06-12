@@ -11,13 +11,20 @@ pub struct OutbHandlerWrapper {
 
 impl OutbHandlerWrapper {
     /// Call the wrapped handler function
-    pub fn call(&self, port: u16, payload: u64) {
+    pub(crate) fn call(&self, port: u16, payload: u64) {
         (self.func)(port, payload)
     }
 }
 
+/// Create a new `OutbHandlerWrapper` with the given `func`
+#[cfg(test)]
+#[cfg(target_os = "linux")]
+pub(crate) fn new_outb_handler_wrapper(func: extern "C" fn(u16, u64)) -> OutbHandlerWrapper {
+    OutbHandlerWrapper { func }
+}
+
 /// Get a OutbHandlerFunc from the specified handle
-pub fn get_outb_handler_func(ctx: &Context, hdl: Handle) -> Result<&OutbHandlerWrapper> {
+pub(crate) fn get_outb_handler_func(ctx: &Context, hdl: Handle) -> Result<&OutbHandlerWrapper> {
     Context::get(hdl, &ctx.outb_handler_funcs, |h| {
         matches!(h, Hdl::OutbHandlerFunc(_))
     })

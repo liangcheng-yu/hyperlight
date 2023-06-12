@@ -31,7 +31,7 @@ namespace Hyperlight.Hypervisors
             handleMemoryAccess
         )
         {
-            var addrs = new HyperVOnLinuxAddrs(
+            var addrs = new HypervisorAddrs(
                 entryPoint,
                 (ulong)sourceAddress.ToInt64(),
                 size
@@ -81,30 +81,14 @@ namespace Hyperlight.Hypervisors
             // not automatically throw if the raw handle is an error,
             // so we can throw our custom HyperVOnLinuxException
             // here
-            using (var hdl = new Handle(this.ctxWrapper, rawHdl, false))
+            using var hdl = new Handle(this.ctxWrapper, rawHdl, false);
+            if (hdl.IsError())
             {
-                if (hdl.IsError())
-                {
-                    HyperlightException.LogAndThrowException<HyperVOnLinuxException>(
-                        $"Failed setting RSP Error: {hdl.GetErrorMessage()}",
-                        GetType().Name
-                    );
-                }
+                HyperlightException.LogAndThrowException<HyperVOnLinuxException>(
+                    $"Failed setting RSP Error: {hdl.GetErrorMessage()}",
+                    GetType().Name
+                );
             }
-        }
-
-        private void ExecuteUntilHalt()
-        {
-            using var hdlWrapper = new Handle(
-                this.ctxWrapper,
-                hyperv_linux_execute_until_halt(
-                    this.ctxWrapper.ctx,
-                    this.driverHdlWrapper.handle,
-                    this.outbFnHdlWrapper.handle,
-                    this.memAccessFnHdlWrapper.handle
-                )
-            );
-            hdlWrapper.ThrowIfError();
         }
 
         internal override void Initialise(IntPtr pebAddress, ulong seed, uint pageSize)
@@ -160,7 +144,7 @@ namespace Hyperlight.Hypervisors
         private static extern NativeHandle hyperv_linux_create_driver(
             NativeContext ctx,
             [MarshalAs(UnmanagedType.U1)] bool require_stable_api,
-            HyperVOnLinuxAddrs addrs,
+            HypervisorAddrs addrs,
             ulong rsp,
             ulong pml4
         );
@@ -173,15 +157,6 @@ namespace Hyperlight.Hypervisors
             NativeHandle outb_handle_fn_hdl,
             NativeHandle mem_access_fn_hdl,
             ulong dispatch_func_addr
-        );
-
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle hyperv_linux_execute_until_halt(
-            NativeContext ctx,
-            NativeHandle driver_hdl,
-            NativeHandle outb_handle_fn_hdl,
-            NativeHandle mem_access_fn_hdl
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]

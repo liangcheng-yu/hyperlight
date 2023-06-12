@@ -278,14 +278,9 @@ impl SandboxMemoryLayout {
 
     /// Get the offset in guest memory to the size field in the
     /// `HostExceptionData` structure.
-    pub fn get_host_exception_size_offset(&self) -> Offset {
+    pub(crate) fn get_host_exception_size_offset(&self) -> Offset {
         // The size field is the first field in the `HostExceptionData` struct
         self.host_exception_offset
-    }
-
-    /// Get the 'SandboxMemoryConfiguration' for this `SandboxMemoryLayout`.
-    pub fn get_sandbox_memory_config(&self) -> &SandboxMemoryConfiguration {
-        &self.sandbox_memory_config
     }
 
     /// Get the offset in guest memory to the max size of the guest error buffer

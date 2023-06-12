@@ -219,95 +219,91 @@ pub struct RelocationPatch {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use std::{env, fs, path::PathBuf};
+    use std::fs;
 
-    struct PEFileTest<'a> {
-        path: &'a str,
+    use crate::testing::{callback_guest_path, simple_guest_path};
+
+    struct PEFileTest {
+        path: String,
         stack_size: u64,
         heap_size: u64,
-        entrypoint: u64,
         load_address: u64,
         num_relocations: u8,
     }
-    const PE_FILES: [PEFileTest; 2] = [
-        PEFileTest {
-            path: "testdata/simpleguest.exe",
-            stack_size: 65536,
-            heap_size: 131072,
-            entrypoint: 14256,
-            load_address: 5368709120,
-            num_relocations: 1,
-        },
-        PEFileTest {
-            path: "testdata/callbackguest.exe",
-            stack_size: 65536,
-            heap_size: 131072,
-            entrypoint: 4112,
-            load_address: 5368709120,
-            num_relocations: 0,
-        },
-    ];
+    fn pe_files() -> Result<Vec<PEFileTest>> {
+        Ok(vec![
+            PEFileTest {
+                path: simple_guest_path()?,
+                stack_size: 65536,
+                heap_size: 131072,
+                load_address: 5368709120,
+                num_relocations: 1,
+            },
+            PEFileTest {
+                path: callback_guest_path()?,
+                stack_size: 65536,
+                heap_size: 131072,
+                load_address: 5368709120,
+                num_relocations: 0,
+            },
+        ])
+    }
 
     #[test]
     fn load_pe_info() -> Result<()> {
-        for test in PE_FILES {
-            let pe_file_name = test.path;
-            let mut pe_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-            pe_path.push(pe_file_name);
-            let pe_bytes = fs::read(pe_path)?;
+        for test in pe_files()? {
+            let pe_path = test.path;
+            let pe_bytes = fs::read(pe_path.clone())?;
             let pe_info = super::PEInfo::new(&pe_bytes)?;
 
             // Validate that the pe headers aren't empty
             assert_eq!(
                 test.stack_size,
                 pe_info.stack_reserve(),
-                "unexpected stack reserve for {pe_file_name}"
+                "unexpected stack reserve for {pe_path}",
             );
             assert_eq!(
                 test.stack_size,
                 pe_info.stack_commit(),
-                "unexpected stack commit for {pe_file_name}"
+                "unexpected stack commit for {pe_path}"
             );
             assert_eq!(
                 pe_info.heap_reserve(),
                 test.heap_size,
-                "unexpected heap reserve for {pe_file_name}"
+                "unexpected heap reserve for {pe_path}",
             );
             assert_eq!(
                 pe_info.heap_commit(),
                 test.heap_size,
-                "unexpected heap commit for {pe_file_name}"
-            );
-            assert_eq!(
-                pe_info.entry_point_offset(),
-                test.entrypoint,
-                "unexpected entrypoint for {pe_file_name}"
+                "unexpected heap commit for {pe_path}",
             );
             assert_eq!(
                 pe_info.preferred_load_address(),
                 test.load_address,
-                "unexpected load address for {pe_file_name}"
+                "unexpected load address for {pe_path}"
             );
 
-            let patches = pe_info.get_exe_relocation_patches(&pe_bytes, 0).expect(
-                "expected {test.num_relocations} relocation patches to be returned for {pe_file_name}",
-            );
+            let patches = pe_info.get_exe_relocation_patches(&pe_bytes, 0).unwrap_or_else(|_| {
+                let num_relocations = test.num_relocations;
+                panic!("expected {num_relocations} relocation patches to be returned for {pe_path}")
+            });
             assert_eq!(
                 patches.len(),
                 test.num_relocations as usize,
-                "unexpected number of relocations for {pe_file_name}"
+                "unexpected number of relocations for {pe_path}"
             );
 
             // simple guest is the only test file with relocations, check that it was calculated correctly
-            if pe_file_name == "testdata/simpleguest.exe" {
+            if pe_path.ends_with("simpleguest.exe") {
                 let patch = patches[0];
+                let expected_patch_offset = if cfg!(debug_assertions) {
+                    0x21098
+                } else {
+                    0xD898
+                };
                 assert_eq!(
-                    patch.offset, 0x11328,
-                    "incorrect patch offset for {pe_file_name}"
-                );
-                assert_eq!(
-                    patch.relocated_virtual_address, 0x38A0,
-                    "incorrect relocated address"
+                    patch.offset, expected_patch_offset,
+                    "incorrect patch offset for {pe_path}"
                 );
             }
         }

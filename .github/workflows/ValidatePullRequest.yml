@@ -1,6 +1,3 @@
-# TODO: When Github Actions allows Reusable Workflows with strategies then move build test to a reuasble workflow.
-# https://docs.github.com/en/actions/using-workflows/reusing-workflows#limitations
-
 name: Validate Pull Request
 
 on:
@@ -8,152 +5,15 @@ on:
     branches: [ main, dev ]
   
 jobs:
-  #####
-  # start build-host-library
-  #####
-  build-host-library:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: true
-      matrix:
-        build: [ubuntu-20.04-debug, windows-2022-debug, ubuntu-20.04-release, windows-2022-release]
-        include:
-          - build: ubuntu-20.04-debug
-            os: ubuntu-20.04
-            config: debug
-          - build: windows-2022-debug
-            os: windows-2022
-            config: debug
-          - build: ubuntu-20.04-release
-            os: ubuntu-20.04
-            config: release
-          - build: windows-2022-release
-            os: windows-2022
-            config: release
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-    - name: Install Just
-      uses: extractions/setup-just@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        just-version: '1.5.0' # optional semver specification, otherwise latest
-    - name: Build hyperlight_host library
-      working-directory: src/hyperlight_host
-      run: just build ${{ matrix.config }}
-      env:
-        RUST_BACKTRACE: 1
-    - name: upload hyperlight_host.h
-      uses: actions/upload-artifact@v3
-      with:
-        name: hyperlight_host.h
-        path: src/hyperlight_host/include/hyperlight_host.h
-    - name: upload hyperlight_host.dll (Windows only)
-      uses: actions/upload-artifact@v3
-      if: runner.os == 'Windows'
-      with:
-        name: ${{ matrix.config }}_assets
-        path: target/${{ matrix.config }}/hyperlight_host.dll
-    - name: upload libhyperlight_host.so (Linux only)
-      uses: actions/upload-artifact@v3
-      if: runner.os == 'Linux'
-      with:
-        name: ${{ matrix.config }}_assets
-        path: |
-          target/${{ matrix.config }}/libhyperlight_host.so
-          target/${{ matrix.config }}/libhyperlight_host.d
-  #####
-  # end build-host-library
-  #####
-
-  #####
-  # start build-guest-binaries
-  #
-  # building simpleguest.exe and callbackguest.exe are the guests
-  # in question. both need to be PE files, which currently requires
-  # we build on windows using the MSVC toolchain
-  #
-  # https://github.com/deislabs/hyperlight/issues/56 tracks the work
-  # needed to allow us to build these PE files with clang, which would
-  # help enable us to build on Linux
-  #####
   build-guest-binaries:
-    runs-on: ${{ matrix.os }}
-    needs: [ build-host-library ]
-    strategy:
-      fail-fast: true
-      matrix:
-        build: [windows-2022-debug, windows-2022-release]
-        include:
-          - build: windows-2022-debug
-            os: windows-2022
-            config: debug
-            platform: x64
-          - build: windows-2022-release
-            os: windows-2022
-            config: release
-            platform: x64
-    env:
-      DOTNET_INSTALL_DIR: "./.dotnet"
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-    # this is a workaround for the issue described at https://github.com/dotnet/sourcelink/issues/675 , it supresses the warning about the sourcelink package not being found.
-    - name: Remove Submodule
-      run: git rm munit
-      shell: pwsh   
-      working-directory: src/hyperlight_host/tests_capi
-    - name: Setup dotnet
-      uses: actions/setup-dotnet@v3.2.0
-      with:
-        dotnet-version: | 
-          6.0.x 
-    - uses: actions/cache@v3
-      with:
-        path: ~/.nuget/packages
-        # Look to see if there is a cache hit for the corresponding requirements file
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget
-    - name: Restore
-      run: dotnet restore
-      shell: pwsh
-    - name: Add msbuild to PATH
-      uses: microsoft/setup-msbuild@v1.3
-      with:
-        msbuild-architecture: x64
-    - name: Download hyperlight_host.dll
-      uses: actions/download-artifact@v3
-      with:
-        name: ${{ matrix.config}}_assets 
-        path: target/${{ matrix.config }}
-    - name: Fetch printf
-      working-directory: src/HyperlightGuest/third_party/printf
-      run: git submodule update --init
-    - name: Set up WHP_SHOULD_BE_PRESENT Env Var
-      run: |
-        echo "WHP_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
-    - name: Build Solution
-      run: msbuild hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
-      shell: pwsh
-    - name: Upload Binary Artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: guest-binaries-${{ matrix.config }}
-        path: src\tests\Guests\*\${{ matrix.platform }}\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']
-  #####
-  # end build-guest-binaries
-  #####
+    uses: ./.github/workflows/build_guest_binaries.yml
 
   #####
   # start build-on-windows
   #####
   build-on-windows:
     runs-on: ${{ matrix.os }}
-    needs: [build-host-library, build-guest-binaries]
+    needs: [build-guest-binaries]
     strategy:
       fail-fast: true
       matrix:
@@ -246,7 +106,7 @@ jobs:
   # start build-on-linux
   #####
   build-on-linux:
-    needs: [ build-host-library, build-guest-binaries ]
+    needs: [ build-guest-binaries ]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true

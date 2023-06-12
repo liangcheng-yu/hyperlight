@@ -1,5 +1,4 @@
-# TODO: When Github Actions allows Reusable Workflows with strategies then move build test to a reuasble workflow.
-# https://docs.github.com/en/actions/using-workflows/reusing-workflows#limitations
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
 # TODO: Add tests for linux before publish
 

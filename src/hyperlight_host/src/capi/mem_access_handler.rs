@@ -12,13 +12,23 @@ pub struct MemAccessHandlerWrapper {
 
 impl MemAccessHandlerWrapper {
     /// Call the wrapped handler function
-    pub fn call(&self) {
+    pub(crate) fn call(&self) {
         (self.func)()
     }
 }
 
+/// Create a new `MemAccessHandlerWrapper` with the given `func`
+#[cfg(test)]
+#[cfg(target_os = "linux")]
+pub(crate) fn new_mem_access_handler_wrapper(func: extern "C" fn()) -> MemAccessHandlerWrapper {
+    MemAccessHandlerWrapper { func }
+}
+
 /// Get a MemAccessHandlerFunc from the specified handle
-pub fn get_mem_access_handler_func(ctx: &Context, hdl: Handle) -> Result<&MemAccessHandlerWrapper> {
+pub(crate) fn get_mem_access_handler_func(
+    ctx: &Context,
+    hdl: Handle,
+) -> Result<&MemAccessHandlerWrapper> {
     Context::get(hdl, &ctx.mem_access_handler_funcs, |h| {
         matches!(h, Hdl::MemAccessHandlerFunc(_))
     })

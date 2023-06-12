@@ -43,7 +43,7 @@ namespace Hyperlight.Wrapper
         }
 
         /// <summary>
-        /// Get the address of the start of memory on the  host.
+        /// Get the address of the start of memory on the host.
         /// </summary>
         private IntPtr loadAddr
         {

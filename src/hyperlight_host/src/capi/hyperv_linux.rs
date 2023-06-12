@@ -7,7 +7,8 @@ use super::mem_access_handler::get_mem_access_handler_func;
 use super::mem_access_handler::MemAccessHandlerWrapper;
 use super::outb_handler::{get_outb_handler_func, OutbHandlerWrapper};
 use crate::hypervisor::hyperv_linux::{is_hypervisor_present, HypervLinuxDriver};
-use crate::hypervisor::hyperv_linux_mem::HypervLinuxDriverAddrs;
+use crate::hypervisor::hypervisor_mem::HypervisorAddrs;
+use crate::hypervisor::Hypervisor;
 use anyhow::Result;
 use mshv_bindings::hv_register_name;
 
@@ -58,7 +59,7 @@ pub extern "C" fn is_hyperv_linux_present(require_stable_api: bool) -> bool {
 pub unsafe extern "C" fn hyperv_linux_create_driver(
     ctx: *mut Context,
     require_stable_api: bool,
-    addrs: HypervLinuxDriverAddrs,
+    addrs: HypervisorAddrs,
     rsp: u64,
     pml4: u64,
 ) -> Handle {
@@ -97,7 +98,7 @@ pub unsafe extern "C" fn hyperv_linux_create_driver(
 pub unsafe extern "C" fn hyperv_linux_create_driver_simple(
     ctx_ptr: *mut Context,
     require_stable_api: bool,
-    addrs: HypervLinuxDriverAddrs,
+    addrs: HypervisorAddrs,
 ) -> Handle {
     validate_context!(ctx_ptr);
 
@@ -179,7 +180,7 @@ pub unsafe extern "C" fn hyperv_linux_set_rsp(
     }
 }
 
-fn get_handler_funcs(
+pub(crate) fn get_handler_funcs(
     ctx: &Context,
     outb_func_hdl: Handle,
     mem_access_func_hdl: Handle,
@@ -222,7 +223,8 @@ pub unsafe extern "C" fn hyperv_linux_initialise(
             Ok(tup) => tup,
             Err(e) => return (*ctx).register_err(e),
         };
-    let init_res = (*driver).initialise(peb_addr, seed, page_size, outb_func, mem_access_func);
+    let init_res =
+        (*driver).initialise(peb_addr.into(), seed, page_size, outb_func, mem_access_func);
     match init_res {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
@@ -292,7 +294,7 @@ pub unsafe extern "C" fn hyperv_linux_dispatch_call_from_host(
             Ok(tup) => tup,
             Err(e) => return (*ctx).register_err(e),
         };
-    match (*driver).dispatch_call_from_host(dispatch_func_addr, outb_func, mem_access_func) {
+    match (*driver).dispatch_call_from_host(dispatch_func_addr.into(), outb_func, mem_access_func) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
