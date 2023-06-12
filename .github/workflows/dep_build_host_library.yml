@@ -2,12 +2,7 @@
 
 name: Build Host Library
 
-# this is a workflow intended for use a dependency of other Hyperlight
-# workflows. as such, it does not have any triggers other than "workflow_call"
-#
-# for more details on this trigger, see this link:
-# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onworkflow_call
-
+# See README.md in this directory for more information about workflow_call
 on:
   workflow_call:
 

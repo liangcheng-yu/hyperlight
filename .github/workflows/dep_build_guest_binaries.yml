@@ -2,12 +2,7 @@
 
 name: Build Guest Binaries
 
-# this is a workflow intended for use a dependency of other Hyperlight
-# workflows. as such, it does not have any triggers other than "workflow_call"
-#
-# for more details on this trigger, see this link:
-# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onworkflow_call
-
+# See README.md in this directory for more information about workflow_call
 on:
   workflow_call:
 
@@ -15,9 +10,6 @@ env:
   CARGO_TERM_COLOR: always
   
 jobs:
-  build-host-library:
-    uses: ./.github/workflows/build_host_library.yml
-
   #####
   # start build-guest-binaries
   #
@@ -27,11 +19,13 @@ jobs:
   #
   # https://github.com/deislabs/hyperlight/issues/56 tracks the work
   # needed to allow us to build these PE files with clang, which would
-  # help enable us to build on Linux
+  # help enable us to build on Linux.
+  #
+  # this job requires dep_build_host_library.yml, and that dependency
+  # should be expressed in the dependent workflow.
   #####
   build-guest-binaries:
     runs-on: ${{ matrix.os }}
-    needs: [ build-host-library ]
     strategy:
       fail-fast: true
       matrix:

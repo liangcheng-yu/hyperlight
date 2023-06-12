@@ -1,18 +1,16 @@
 name: Rust Tests and Lints
 
+# See README.md in this directory for more information about workflow_call
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main, dev]
-
+  workflow_call:
+  
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-guest-binaries:
-    uses: ./.github/workflows/build_guest_binaries.yml
-
+  # this job requires the build-guest-binaries job be complete prior to 
+  # its execution. this dependency should be expressed in the dependent
+  # workflow
   build:
     strategy:
       fail-fast: true
@@ -52,7 +50,6 @@ jobs:
             hypervisor: hyperv
             config: release
     runs-on: ${{ matrix.os }}
-    needs: [build-guest-binaries]
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@1.69.0

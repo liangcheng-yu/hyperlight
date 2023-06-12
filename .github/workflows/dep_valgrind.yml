@@ -1,18 +1,16 @@
 name: Valgrind tests (Linux only)
 
+# See README.md in this directory for more information about workflow_call
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main, dev]
+  workflow_call:
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-guest-binaries:
-    uses: ./.github/workflows/build_guest_binaries.yml
-
+  # this job requires the build-guest-binaries job be complete prior to 
+  # its execution. this dependency should be expressed in the dependent
+  # workflow
   build:
     strategy:
       fail-fast: true
@@ -22,7 +20,7 @@ jobs:
         #
         # in fact, the `cargo valgrind build` command doesn't have an
         # easy way to even run against a release build.
-        build: [ubuntu-20.04-debug, linux-kvm-debug, linux-hyperv-debug, ubuntu-20.04-release, linux-kvm-release, linux-hyperv-release]
+        build: [ubuntu-20.04-debug, linux-kvm-debug, linux-hyperv-debug]
         include:
           - build: ubuntu-20.04-debug
             os: ubuntu-20.04
@@ -37,7 +35,6 @@ jobs:
             hypervisor: hyperv
             config: debug
     runs-on: ${{ matrix.os }}
-    needs: [build-guest-binaries]
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@1.66.1
