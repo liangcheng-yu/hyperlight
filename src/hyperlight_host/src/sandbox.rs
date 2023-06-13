@@ -1,9 +1,11 @@
+use crate::guest_interface_glue::{HostMethodInfo, SupportedParameterAndReturnValues};
 use crate::mem::ptr::RawPtr;
 use crate::mem::{
     config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager, pe::pe_info::PEInfo,
 };
 use anyhow::anyhow;
 use anyhow::Result;
+use std::collections::HashMap;
 use std::ffi::c_void;
 use std::ops::Add;
 
@@ -84,6 +86,9 @@ pub(crate) fn is_hypervisor_present() -> bool {
 pub struct Sandbox {
     /// The path to the binary that will be executed in the sandbox.
     pub bin_path: String,
+    /// The map of host function names to their corresponding
+    /// HostMethodInfo.
+    pub map_host_function_names_to_method_info: HashMap<String, HostMethodInfo>,
     mem_mgr: SandboxMemoryManager,
 }
 
@@ -93,8 +98,83 @@ impl Sandbox {
     pub fn new(bin_path: String, mgr: SandboxMemoryManager) -> Self {
         Self {
             bin_path,
+            map_host_function_names_to_method_info: HashMap::new(),
             mem_mgr: mgr,
         }
+    }
+
+    /// Registers a host function onto map of host functions.
+    ///
+    /// Example usage:
+    /// ```
+    /// use hyperlight_host::guest_interface_glue::register_host_function;
+    /// use hyperlight_host::guest::host_function_definition::{HostFunctionDefinition, ParamValueType, ReturnValueType};
+    /// use hyperlight_host::guest_interface_glue::SupportedParameterAndReturnTypes;
+    ///
+    /// fn add(args: &[SupportedParameterAndReturnValues]) -> Result<SupportedParameterAndReturnValues> {
+    ///    let a = match &args[0] {
+    ///             SupportedParameterAndReturnValues::Int(a) => *a,
+    ///             _ => return Err(anyhow!("Invalid type for a")),
+    ///     };
+    ///     let b = match &args[1] {
+    ///             SupportedParameterAndReturnValues::Int(b) => *b,
+    ///             _ => return Err(anyhow!("Invalid type for b")),
+    ///     };
+    ///     Ok(SupportedParameterAndReturnValues::Int(a + b))
+    /// }
+    ///
+    ///
+    /// fn main() {
+    ///    let function = HostMethodInfo {
+    ///       host_function_definition: HostFunctionDefinition {
+    ///         function_name: "add".to_string(),
+    ///         parameters: vec![ ParamValueType::Int, ParamValueType::Int ],
+    ///         return_type: ReturnValueType::Int,
+    ///       },
+    ///       function_pointer: add,
+    ///     };
+    ///    register_host_function(function);
+    /// ```
+    ///
+    pub fn register_host_function(&mut self, function: HostMethodInfo) -> Result<()> {
+        let name = function.host_function_definition.function_name.to_string();
+        let map = &mut self.map_host_function_names_to_method_info;
+
+        // If already exists, replace
+        if map.contains_key(&name) {
+            // (DAN:TODO): log warning equiv. to "HyperlightLogger.LogWarning($"Updating MethodInfo for ${methodInfo.&Name} - there are multiple host methods with the same name.", GetType().Name);"
+            map.remove(&name);
+        }
+
+        map.insert(name, function);
+        Ok(())
+    }
+
+    /// Calls a host function by name.
+    ///
+    /// Example usage:
+    /// ```
+    /// // [...]
+    /// match call_host_function("add", &vec![SupportedParameterAndReturnValues::Int(1), SupportedParameterAndReturnValues::Int(2)]) {
+    ///     Ok(SupportedParameterAndReturnValues::Int(result)) => println!("Result: {}", result),
+    ///     _ => println!("Invalid return type"),
+    /// }
+    /// // [...]
+    /// ```
+    ///
+    pub fn call_host_function(
+        &self,
+        function_name: &str,
+        args: &[SupportedParameterAndReturnValues],
+    ) -> Result<SupportedParameterAndReturnValues> {
+        let map = &self.map_host_function_names_to_method_info;
+
+        let host_function = match map.get(function_name) {
+            Some(host_function) => host_function,
+            None => return Err(anyhow!("Host function not found")),
+        };
+
+        (host_function.function_pointer)(args)
     }
 
     /// Determine whether a suitable hypervisor is available to run

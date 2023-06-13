@@ -781,7 +781,7 @@ pub unsafe extern "C" fn mem_mgr_write_host_function_details(
     };
 
     match validate_flatbuffer(fb_host_function_details_ptr) {
-        Ok(vec) => match mgr.write_host_function_details(&vec) {
+        Ok(vec) => match mgr.write_buffer_host_function_details(&vec) {
             Ok(_) => Handle::new_empty(),
             Err(e) => (*ctx).register_err(e),
         },

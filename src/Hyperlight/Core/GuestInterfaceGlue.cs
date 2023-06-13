@@ -134,6 +134,8 @@ namespace Hyperlight
                     HyperlightLogger.LogWarning($"Updating MethodInfo for ${methodInfo.Name} - there are multiple host methods with the same name.", GetType().Name);
                     MapHostFunctionNamesToMethodInfo[methodInfo.Name] = new HostMethodInfo { methodInfo = methodInfo, target = target };
                 }
+
+                sandbox.WriteHostFunctionDetails();
             }
         }
         private void CreateDymanicMethod(FieldInfo fieldInfo, object target)
@@ -507,7 +509,7 @@ namespace Hyperlight
             }
         }
 
-        #pragma warning disable CA1707 // Remove the underscores from member name
+#pragma warning disable CA1707 // Remove the underscores from member name
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]

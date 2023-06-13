@@ -221,6 +221,7 @@ dependencies = [
  "hex-literal",
  "kvm-bindings",
  "kvm-ioctls",
+ "lazy_static",
  "libc",
  "more-asserts",
  "mshv-bindings",

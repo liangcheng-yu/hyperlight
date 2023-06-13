@@ -845,14 +845,12 @@ namespace Hyperlight
         {
             HyperlightException.ThrowIfNull(type, nameof(type), GetType().Name);
             guestInterfaceGlue.ExposeAndBindMembers(type);
-            WriteHostFunctionDetails();
         }
 
         public void ExposeAndBindMembers(object instance)
         {
             HyperlightException.ThrowIfNull(instance, nameof(instance), GetType().Name);
             guestInterfaceGlue.ExposeAndBindMembers(instance);
-            WriteHostFunctionDetails();
         }
 
         public void BindGuestFunction(string delegateName, object instance)
@@ -865,17 +863,15 @@ namespace Hyperlight
         {
             HyperlightException.ThrowIfNull(instance, nameof(instance), GetType().Name);
             guestInterfaceGlue.ExposeHostMethod(methodName, instance);
-            WriteHostFunctionDetails();
         }
 
         public void ExposeHostMethod(string methodName, Type type)
         {
             HyperlightException.ThrowIfNull(type, nameof(type), GetType().Name);
             guestInterfaceGlue.ExposeHostMethod(methodName, type);
-            WriteHostFunctionDetails();
         }
 
-        private void WriteHostFunctionDetails()
+        internal void WriteHostFunctionDetails()
         {
             if (recycleAfterRun && initialised)
             {

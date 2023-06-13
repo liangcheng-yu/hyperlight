@@ -10,19 +10,22 @@ use super::{
     shared_mem::SharedMemory,
     shared_mem_snapshot::SharedMemorySnapshot,
 };
-use crate::guest::{
-    function_call::{FunctionCall, ReadFunctionCallFromMemory, WriteFunctionCallToMemory},
-    function_call_result::FunctionCallResult,
-    guest_error::{Code, GuestError},
-    guest_function_call::GuestFunctionCall,
-    guest_log_data::GuestLogData,
-    host_function_call::HostFunctionCall,
-    host_function_details::HostFunctionDetails,
+use crate::{
+    guest::{
+        function_call::{FunctionCall, ReadFunctionCallFromMemory, WriteFunctionCallToMemory},
+        function_call_result::FunctionCallResult,
+        guest_error::{Code, GuestError},
+        guest_function_call::GuestFunctionCall,
+        guest_log_data::GuestLogData,
+        host_function_call::HostFunctionCall,
+        host_function_details::HostFunctionDetails,
+    },
+    guest_interface_glue::HostMethodInfo,
 };
 use anyhow::{anyhow, bail, Result};
 use core::mem::size_of;
 use readonly;
-use std::cmp::Ordering;
+use std::{cmp::Ordering, collections::HashMap};
 
 /// Whether or not the 64-bit page directory entry (PDE) record is
 /// present.
@@ -459,9 +462,19 @@ impl SandboxMemoryManager {
     }
 
     /// Writes host function details to memory
-
-    pub(crate) fn write_host_function_details(&mut self, buffer: &[u8]) -> Result<()> {
+    pub(crate) fn write_buffer_host_function_details(&mut self, buffer: &[u8]) -> Result<()> {
         let host_function_details = HostFunctionDetails::try_from(buffer)?;
+        let layout = self.layout;
+        host_function_details.write_to_memory(self.get_shared_mem_mut(), &layout)
+    }
+
+    /// Writes host function details to memory off a HashMap<String, HostMethodInfo>
+    #[allow(unused)]
+    pub(crate) fn write_map_host_function_details(
+        &mut self,
+        host_function_info: HashMap<String, HostMethodInfo>,
+    ) -> Result<()> {
+        let host_function_details: HostFunctionDetails = host_function_info.try_into()?;
         let layout = self.layout;
         host_function_details.write_to_memory(self.get_shared_mem_mut(), &layout)
     }

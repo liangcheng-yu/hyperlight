@@ -1,17 +1,18 @@
 extern crate flatbuffers;
-use super::host_function_definition::{HostFunctionDefinition, ParamValueType, ReturnValueType};
+use super::host_function_definition::HostFunctionDefinition;
 use crate::flatbuffers::hyperlight::generated::{
     size_prefixed_root_as_host_function_details,
     HostFunctionDefinition as FbHostFunctionDefinition,
-    HostFunctionDefinitionArgs as FbHostFunctionDefinitionArgs,
     HostFunctionDetails as FbHostFunctionDetails,
-    HostFunctionDetailsArgs as FbHostFunctionDetailsArgs, ParameterType, ReturnType,
+    HostFunctionDetailsArgs as FbHostFunctionDetailsArgs,
 };
+use crate::guest_interface_glue::HostMethodInfo;
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::shared_mem::SharedMemory;
 use anyhow::{anyhow, bail, Result};
 use flatbuffers::WIPOffset;
 use readonly;
+use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 
 /// `HostFunctionDetails` represents the set of functions that the host exposes to the guest.
@@ -69,56 +70,8 @@ impl TryFrom<&[u8]> for HostFunctionDetails {
                 let mut vec_hfd: Vec<HostFunctionDefinition> = Vec::with_capacity(len);
                 for i in 0..len {
                     let fb_host_function_definition = hfd.get(i);
-                    let host_function_name = fb_host_function_definition.function_name();
-                    let return_value_type = match fb_host_function_definition.return_type() {
-                        ReturnType::hlint => ReturnValueType::Int,
-                        ReturnType::hllong => ReturnValueType::Long,
-                        ReturnType::hlstring => ReturnValueType::String,
-                        ReturnType::hlbool => ReturnValueType::Boolean,
-                        ReturnType::hlvoid => ReturnValueType::Void,
-                        _ => {
-                            bail!(
-                                "Unknown return type: {:?}",
-                                fb_host_function_definition.return_type()
-                            )
-                        }
-                    };
-                    let param_value_types = match fb_host_function_definition.parameters() {
-                        Some(pvt) => {
-                            let len = pvt.len();
-                            let mut pv: Vec<ParamValueType> = Vec::with_capacity(len);
-                            for i in 0..len {
-                                let param_type = pvt.get(i);
-                                match param_type {
-                                    ParameterType::hlint => {
-                                        pv.push(ParamValueType::Int);
-                                    }
-                                    ParameterType::hllong => {
-                                        pv.push(ParamValueType::Long);
-                                    }
-                                    ParameterType::hlbool => {
-                                        pv.push(ParamValueType::Boolean);
-                                    }
-                                    ParameterType::hlstring => {
-                                        pv.push(ParamValueType::String);
-                                    }
-                                    ParameterType::hlvecbytes => {
-                                        pv.push(ParamValueType::VecBytes);
-                                    }
-                                    _ => {
-                                        bail!("Unknown parameter type: {:?}", param_type)
-                                    }
-                                };
-                            }
-                            Some(pv)
-                        }
-                        None => None,
-                    };
-                    vec_hfd.push(HostFunctionDefinition::new(
-                        host_function_name.to_string(),
-                        param_value_types,
-                        return_value_type,
-                    ));
+                    let hfdef = HostFunctionDefinition::try_from(fb_host_function_definition)?;
+                    vec_hfd.push(hfdef);
                 }
 
                 Some(vec_hfd)
@@ -144,50 +97,8 @@ impl TryFrom<&HostFunctionDetails> for Vec<u8> {
                     Vec::with_capacity(num_items);
 
                 for hfd in vec_hfd {
-                    let host_function_name = builder.create_string(&hfd.function_name);
-                    let return_value_type = match &hfd.return_type {
-                        ReturnValueType::Int => ReturnType::hlint,
-                        ReturnValueType::Long => ReturnType::hllong,
-                        ReturnValueType::String => ReturnType::hlstring,
-                        ReturnValueType::Boolean => ReturnType::hlbool,
-                        ReturnValueType::Void => ReturnType::hlvoid,
-                    };
-                    let vec_parameters = match &hfd.parameter_types {
-                        Some(vec_pvt) => {
-                            let num_items = vec_pvt.len();
-                            let mut parameters: Vec<ParameterType> = Vec::with_capacity(num_items);
-                            for pvt in vec_pvt {
-                                match pvt {
-                                    ParamValueType::Int => {
-                                        parameters.push(ParameterType::hlint);
-                                    }
-                                    ParamValueType::Long => {
-                                        parameters.push(ParameterType::hllong);
-                                    }
-                                    ParamValueType::Boolean => {
-                                        parameters.push(ParameterType::hlbool);
-                                    }
-                                    ParamValueType::String => {
-                                        parameters.push(ParameterType::hlstring);
-                                    }
-                                    ParamValueType::VecBytes => {
-                                        parameters.push(ParameterType::hlvecbytes);
-                                    }
-                                };
-                            }
-                            Some(builder.create_vector(&parameters))
-                        }
-                        None => None,
-                    };
-
-                    let host_function_definition = FbHostFunctionDefinition::create(
-                        &mut builder,
-                        &FbHostFunctionDefinitionArgs {
-                            function_name: Some(host_function_name),
-                            return_type: return_value_type,
-                            parameters: vec_parameters,
-                        },
-                    );
+                    let host_function_definition =
+                        hfd.convert_to_wipoffset_fbhfdef(&mut builder)?;
                     host_function_definitions.push(host_function_definition);
                 }
 
@@ -228,10 +139,25 @@ impl TryFrom<HostFunctionDetails> for Vec<u8> {
     }
 }
 
+impl From<HashMap<String, HostMethodInfo>> for HostFunctionDetails {
+    fn from(value: HashMap<String, HostMethodInfo>) -> Self {
+        let mut host_functions: Vec<HostFunctionDefinition> = Vec::new();
+        for (_, host_method_info) in value {
+            host_functions.push(host_method_info.host_function_definition);
+        }
+        Self {
+            host_functions: Some(host_functions),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mem::config::SandboxMemoryConfiguration;
+    use crate::{
+        guest::host_function_definition::{ParamValueType, ReturnValueType},
+        mem::config::SandboxMemoryConfiguration,
+    };
     use anyhow::{Ok, Result};
     use hex_literal::hex;
 
