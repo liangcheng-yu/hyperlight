@@ -23,7 +23,6 @@ namespace Hyperlight
     enum OutBAction
     {
         Log = 99,
-        WriteOutput = 100,
         CallFunction = 101,
         Abort = 102,
     }
@@ -54,7 +53,6 @@ namespace Hyperlight
         readonly bool recycleAfterRun;
         readonly bool runFromProcessMemory;
         readonly bool runFromGuestBinary;
-        readonly StringWriter? writer;
         readonly GuestInterfaceGlue guestInterfaceGlue;
         private bool disposedValue; // To detect redundant calls
 
@@ -167,7 +165,6 @@ namespace Hyperlight
             {
                 HyperlightException.LogAndThrowException<ArgumentException>($"Cannot find file {guestBinaryPath} to load into hyperlight", GetType().Name);
             }
-            this.writer = writer;
 
             this.recycleAfterRun = (runOptions & SandboxRunOptions.RecycleAfterRun) == SandboxRunOptions.RecycleAfterRun;
             this.runFromProcessMemory = (runOptions & SandboxRunOptions.RunInProcess) == SandboxRunOptions.RunInProcess ||
@@ -184,13 +181,6 @@ namespace Hyperlight
 
 
             HyperlightLogger.SetLogger(errorMessageLogger);
-            this.sandboxMemoryManager = LoadGuestBinary(
-                this.context,
-                memCfg,
-                guestBinaryPath,
-                runFromProcessMemory,
-                runFromGuestBinary
-            );
 
             {
                 using var binPathHdl = StringWrapper.FromString(
@@ -203,11 +193,14 @@ namespace Hyperlight
                     sandbox_new(
                         this.context.ctx,
                         binPathHdl.HandleWrapper.handle,
-                        this.sandboxMemoryManager.Handle.handle
-                    )
+                        ref memCfg,
+                        (uint)(runOptions ?? SandboxRunOptions.None)
+                    ),
+                    true
                 );
             }
 
+            this.sandboxMemoryManager = GetSandboxMemoryManager(this.context, this.hdlWrapper.handle);
             this.sandboxMemoryManager.WriteMemoryLayout();
             SetUpStackGuard();
             rsp = 0;
@@ -221,7 +214,7 @@ namespace Hyperlight
                 rsp = SetUpHyperVisorPartition();
             }
 
-            hyperLightExports = new HyperLightExports();
+            hyperLightExports = new HyperLightExports(writer);
             ExposeAndBindMembers(hyperLightExports);
 
             Initialise();
@@ -349,24 +342,14 @@ namespace Hyperlight
             }
         }
 
-        private static SandboxMemoryManager LoadGuestBinary(
+        private static SandboxMemoryManager GetSandboxMemoryManager(
             Context ctx,
-            SandboxMemoryConfiguration memCfg,
-            string guestBinaryPath,
-            bool runFromProcessMemory,
-            bool runFromGuestBinary
+            NativeHandle sandboxHdl
         )
         {
-            using var guestBinaryPathWrapper = StringWrapper.FromString(
-                ctx,
-                guestBinaryPath
-            );
-            var rawHdl = sandbox_load_guest_binary(
+            var rawHdl = sandbox_get_memory_mgr(
                 ctx.ctx,
-                memCfg,
-                guestBinaryPathWrapper.HandleWrapper.handle,
-                runFromProcessMemory,
-                runFromGuestBinary
+                sandboxHdl
             );
             var hdl = new Handle(
                 ctx,
@@ -702,22 +685,6 @@ namespace Hyperlight
                             break;
 
                         }
-                    case OutBAction.WriteOutput:
-                        {
-                            var str = sandboxMemoryManager.ReadStringOutput();
-                            if (this.writer != null)
-                            {
-                                writer.Write(str);
-                            }
-                            else
-                            {
-                                var oldColor = Console.ForegroundColor;
-                                Console.ForegroundColor = ConsoleColor.Green;
-                                Console.Write(str);
-                                Console.ForegroundColor = oldColor;
-                            }
-                            break;
-                        }
                     case OutBAction.Log:
                         {
                             var guestLogData = sandboxMemoryManager.ReadGuestLogData();
@@ -980,7 +947,8 @@ namespace Hyperlight
         private static extern NativeHandle sandbox_new(
             NativeContext ctx,
             NativeHandle binPathHdl,
-            NativeHandle memMgrHdl
+            ref SandboxMemoryConfiguration memCfg,
+            uint sandboxRunOptions
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
@@ -995,12 +963,9 @@ namespace Hyperlight
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle sandbox_load_guest_binary(
+        private static extern NativeHandle sandbox_get_memory_mgr(
             NativeContext ctx,
-            SandboxMemoryConfiguration memCfg,
-            NativeHandle guestBinPathRef,
-            [MarshalAs(UnmanagedType.U1)] bool runFromProcessMemory,
-            [MarshalAs(UnmanagedType.U1)] bool runFromGuestBinary
+            NativeHandle sboxHdl
         );
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]

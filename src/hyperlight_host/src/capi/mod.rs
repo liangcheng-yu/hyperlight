@@ -1,8 +1,5 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
-
-///! C-compatible API functions for top-level `Sandbox` objects.
-pub mod api;
 ///! C-compatible adapters for converting `Vec`s to/from raw pointers
 pub mod arrays;
 ///! C-compatible functions for manipulating booleans in `Handle`s

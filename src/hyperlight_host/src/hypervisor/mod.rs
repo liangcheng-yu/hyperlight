@@ -64,7 +64,6 @@ pub(crate) mod tests {
     use crate::{
         capi::{mem_access_handler::MemAccessHandlerWrapper, outb_handler::OutbHandlerWrapper},
         mem::{
-            config::SandboxMemoryConfiguration,
             layout::SandboxMemoryLayout,
             mgr::SandboxMemoryManager,
             ptr::{GuestPtr, RawPtr},
@@ -89,12 +88,8 @@ pub(crate) mod tests {
         if !Path::new(&filename).exists() {
             bail!("test_initialise: file {} does not exist", filename);
         }
-        let mut mem_mgr = Sandbox::load_guest_binary(
-            SandboxMemoryConfiguration::default(),
-            filename.as_str(),
-            false,
-            false,
-        )?;
+        let sandbox = Sandbox::new(filename.clone(), None, None, None)?;
+        let mut mem_mgr = sandbox.get_mem_mgr();
         let shared_mem = &mem_mgr.shared_mem;
         let rsp_ptr = {
             let mem_size: u64 = shared_mem.mem_size().try_into()?;

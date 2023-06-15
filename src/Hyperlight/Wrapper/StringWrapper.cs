@@ -7,7 +7,6 @@ namespace Hyperlight.Wrapper
 {
     public class StringWrapper : IDisposable
     {
-        private readonly Context ctxWrapper;
         private readonly Handle hdl;
         public Handle HandleWrapper { get { return hdl; } }
         private bool disposed;
@@ -23,7 +22,6 @@ namespace Hyperlight.Wrapper
                 GetType().Name
             );
             this.hdl = new Handle(ctxWrapper, rawHdl, true);
-            this.ctxWrapper = ctxWrapper;
         }
         public static StringWrapper FromString(
             Context ctxWrapper,
@@ -53,16 +51,6 @@ namespace Hyperlight.Wrapper
         )
         {
             return new StringWrapper(ctxWrapper, hdl);
-        }
-
-        public string RawString()
-        {
-            return this.HandleWrapper.GetString()!;
-        }
-
-        public override string ToString()
-        {
-            return $"StringWrapper: {this.HandleWrapper.GetString()}";
         }
 
         public void Dispose()

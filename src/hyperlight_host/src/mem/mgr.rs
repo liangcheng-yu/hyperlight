@@ -271,12 +271,6 @@ impl SandboxMemoryManager {
         guest_ptr.absolute()
     }
 
-    /// Get output from the guest as a `String`
-    pub(crate) fn get_string_output(&self) -> Result<String> {
-        let offset = self.layout.get_output_data_offset();
-        self.shared_mem.read_string(offset)
-    }
-
     /// Get the length of the host exception
     pub(crate) fn get_host_exception_length(&self) -> Result<i32> {
         let offset = self.layout.get_host_exception_offset();

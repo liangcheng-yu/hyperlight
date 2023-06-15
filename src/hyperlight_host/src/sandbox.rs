@@ -1,3 +1,4 @@
+use super::sandbox_run_options::SandboxRunOptions;
 use crate::guest_interface_glue::{HostMethodInfo, SupportedParameterAndReturnValues};
 use crate::mem::ptr::RawPtr;
 use crate::mem::{
@@ -5,13 +6,20 @@ use crate::mem::{
 };
 use anyhow::anyhow;
 use anyhow::Result;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::c_void;
+use std::io::stdout;
+use std::io::Write;
 use std::ops::Add;
+use std::option::Option;
+use std::path::Path;
+use std::rc::Rc;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 // In case its not obvious why there are separate is_supported_platform and is_hypervisor_present functions its because
-// Hyerplight is designed to be able to run on a host that doesn't have a hypervisor.
-// In that case, the sandbox will be in porcess, we plan on making this a dev only feature and fixing up Linux support
+// Hyperlight is designed to be able to run on a host that doesn't have a hypervisor.
+// In that case, the sandbox will be in process, we plan on making this a dev only feature and fixing up Linux support
 // so we should review the need for this function at that time.
 
 /// Determine if this is a supported platform for Hyperlight
@@ -84,23 +92,61 @@ pub(crate) fn is_hypervisor_present() -> bool {
 /// A Hyperlight Sandbox is a specialized VM environment
 /// intended specifically for running Hyperlight guest processes.
 pub struct Sandbox {
-    /// The path to the binary that will be executed in the sandbox.
-    pub bin_path: String,
+    // The writer to use for print requests from the guest.
+    writer: Option<Rc<RefCell<dyn Write>>>,
     /// The map of host function names to their corresponding
     /// HostMethodInfo.
-    pub map_host_function_names_to_method_info: HashMap<String, HostMethodInfo>,
+    map_host_function_names_to_method_info: HashMap<String, HostMethodInfo>,
+    // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
 }
 
 impl Sandbox {
     /// Create a new sandbox configured to run the binary at path
     /// `bin_path`.
-    pub fn new(bin_path: String, mgr: SandboxMemoryManager) -> Self {
-        Self {
-            bin_path,
-            map_host_function_names_to_method_info: HashMap::new(),
-            mem_mgr: mgr,
+    pub fn new(
+        bin_path: String,
+        cfg: Option<SandboxMemoryConfiguration>,
+        writer: Option<Rc<RefCell<dyn Write>>>,
+        sandbox_run_options: Option<SandboxRunOptions>,
+    ) -> Result<Self> {
+        // Make sure the binary exists
+
+        let path = Path::new(&bin_path).canonicalize()?;
+        path.try_exists()?;
+
+        let sandbox_run_options =
+            sandbox_run_options.unwrap_or(SandboxRunOptions::RUN_IN_HYPERVISOR);
+
+        let run_from_process_memory = sandbox_run_options
+            .contains(SandboxRunOptions::RUN_IN_PROCESS)
+            || sandbox_run_options.contains(SandboxRunOptions::RUN_FROM_GUEST_BINARY);
+        let run_from_guest_binary =
+            sandbox_run_options.contains(SandboxRunOptions::RUN_FROM_GUEST_BINARY);
+
+        if run_from_guest_binary
+            && sandbox_run_options.contains(SandboxRunOptions::RECYCLE_AFTER_RUN)
+        {
+            anyhow::bail!("Recycle after run at is not supported when running from guest binary.");
         }
+
+        let mem_cfg = cfg.unwrap_or_default();
+        let mem_mgr = Sandbox::load_guest_binary(
+            mem_cfg,
+            &bin_path,
+            run_from_process_memory,
+            run_from_guest_binary,
+        )?;
+
+        let this = Self {
+            writer,
+            mem_mgr,
+            map_host_function_names_to_method_info: HashMap::new(),
+        };
+
+        // Register the host print function
+
+        Ok(this)
     }
 
     /// Registers a host function onto map of host functions.
@@ -187,6 +233,13 @@ impl Sandbox {
         Ok(true)
     }
 
+    /// TODO: This should be removed once we have a proper Sandbox with C API that provides all functionaliy
+    /// It only exists to keep the C# code working for now
+    ///
+    pub(crate) fn get_mem_mgr(&self) -> SandboxMemoryManager {
+        self.mem_mgr.clone()
+    }
+
     /// Call the entry point inside this `Sandbox`
     pub(crate) unsafe fn call_entry_point(
         &self,
@@ -219,7 +272,8 @@ impl Sandbox {
     /// passed as `true` and we're not running on windows, this function will
     /// return an `Err`. Otherwise, if `run_from_guest_binary` is passed
     /// as `false`, this function calls `SandboxMemoryManager::load_guest_binary_into_memory`.
-    pub(crate) fn load_guest_binary(
+    ///
+    fn load_guest_binary(
         mem_cfg: SandboxMemoryConfiguration,
         bin_path_str: &str,
         run_from_process_memory: bool,
@@ -246,12 +300,81 @@ impl Sandbox {
             )
         }
     }
+
+    // TODO: once we have the host registration functionality we should remove this and hook it up in new()
+    #[allow(unused)]
+    fn host_print(&mut self, msg: &str) -> Result<()> {
+        match &self.writer {
+            Some(writer) => {
+                writer.borrow_mut().write_all(msg.as_bytes())?;
+                Ok(())
+            }
+
+            None => match atty::is(atty::Stream::Stdout) {
+                false => {
+                    stdout().write_all(msg.as_bytes())?;
+                    Ok(())
+                }
+                true => {
+                    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+                    let mut color_spec = ColorSpec::new();
+                    color_spec.set_fg(Some(Color::Green));
+                    stdout.set_color(&color_spec)?;
+                    stdout.write_all(msg.as_bytes())?;
+                    stdout.reset()?;
+                    Ok(())
+                }
+            },
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::Sandbox;
-    use crate::{mem::config::SandboxMemoryConfiguration, testing::simple_guest_path};
+    use crate::{
+        mem::config::SandboxMemoryConfiguration, sandbox_run_options::SandboxRunOptions,
+        testing::simple_guest_path,
+    };
+    use std::{cell::RefCell, io::Cursor, rc::Rc};
+    #[test]
+
+    fn test_new_sandbox() {
+        // Guest Binary exists at path
+
+        let binary_path = simple_guest_path().unwrap();
+        let sandbox = Sandbox::new(binary_path.clone(), None, None, None);
+        assert!(sandbox.is_ok());
+
+        // Guest Binary does not exist at path
+
+        let binary_path_does_not_exist = binary_path.trim_end_matches(".exe").to_string();
+        let sandbox = Sandbox::new(binary_path_does_not_exist, None, None, None);
+        assert!(sandbox.is_err());
+
+        // Non default memory configuration
+
+        let cfg = SandboxMemoryConfiguration::new(
+            0x1000,
+            0x1000,
+            0x1000,
+            0x1000,
+            0x1000,
+            Some(0x1000),
+            Some(0x1000),
+        );
+
+        let sandbox = Sandbox::new(binary_path.clone(), Some(cfg), None, None);
+        assert!(sandbox.is_ok());
+
+        // Invalid sandbox_run_options
+
+        let sandbox_run_options =
+            SandboxRunOptions::RUN_FROM_GUEST_BINARY | SandboxRunOptions::RECYCLE_AFTER_RUN;
+
+        let sandbox = Sandbox::new(binary_path, None, None, Some(sandbox_run_options));
+        assert!(sandbox.is_err());
+    }
 
     #[test]
     fn test_load_guest_binary_manual() {
@@ -276,5 +399,27 @@ mod tests {
         {
             let _ = mgr_res.unwrap();
         }
+    }
+    #[test]
+    fn test_host_print() {
+        // Test with a writer
+
+        let cursor = Cursor::new(vec![0; 4]);
+        let writer = Rc::new(RefCell::new(cursor));
+        let mut sandbox = Sandbox::new(
+            simple_guest_path().expect("Guest Binary Missing"),
+            None,
+            Some(writer.clone()),
+            None,
+        )
+        .expect("Failed to create sandbox");
+
+        sandbox.host_print("test").unwrap();
+
+        let ref_writer = writer.borrow();
+        let buffer = ref_writer.get_ref();
+        assert_eq!(buffer, b"test");
+
+        // TODO: Test with stdout
     }
 }

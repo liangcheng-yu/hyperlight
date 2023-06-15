@@ -11,7 +11,6 @@ use crate::{
 };
 use crate::{
     capi::int::register_u64,
-    capi::strings::register_string,
     capi::{
         arrays::borrowed_slice::borrow_ptr_as_slice,
         bool::register_boolean,
@@ -421,26 +420,6 @@ pub unsafe extern "C" fn mem_mgr_get_pointer_to_dispatch_function(
     let mgr = get_mgr!(ctx, mgr_hdl);
     match mgr.get_pointer_to_dispatch_function() {
         Ok(ptr) => register_u64(&mut *ctx, ptr),
-        Err(e) => (*ctx).register_err(e),
-    }
-}
-
-/// Use `SandboxMemoryManager` in `ctx` referenced
-/// by `mgr_hdl` to get a string value written to output by the Hyperlight Guest
-/// Return a `Handle` referencing the string contents. Otherwise, return a `Handle` referencing
-/// an error.
-///
-/// # Safety
-///
-/// `ctx` must be created by `context_new`, owned by the caller, and
-/// not yet freed by `context_free`.
-#[no_mangle]
-pub unsafe extern "C" fn mem_mgr_read_string_output(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
-    validate_context!(ctx);
-    let mgr = get_mgr!(ctx, mgr_hdl);
-
-    match mgr.get_string_output() {
-        Ok(output) => register_string(&mut *ctx, output),
         Err(e) => (*ctx).register_err(e),
     }
 }

@@ -3,6 +3,8 @@ alias build-rust-debug := build-rust
 set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
 default-target:= "debug"
+# remove this once we have a new test runner, there are mutually exlcusive tests on windows
+threads := if os() == "windows" { "--test-threads 1" } else { "" }
 
 init:
     git submodule update --init --recursive
@@ -29,8 +31,8 @@ build-rust target=default-target:
 build: build-rust build-dotnet
     echo "built all .Net and Rust projects"
 
-test-rust:
-    cargo test -- --nocapture
+test-rust target=default-target:
+    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} -- --nocapture  {{ threads }} 
 
 test-dotnet-hl:
     cd src/tests/Hyperlight.Tests && dotnet test || cd ../../../

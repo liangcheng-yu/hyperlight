@@ -375,20 +375,6 @@ namespace Hyperlight.Wrapper
             return (IntPtr)hdl.GetUInt64();
         }
 
-        internal string? ReadStringOutput()
-        {
-            var rawHdl = mem_mgr_read_string_output(
-                this.ctxWrapper.ctx,
-                this.memMgrHdl.handle
-            );
-            using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
-            if (!hdl.IsString())
-            {
-                throw new HyperlightException("mem_mgr_read_string_output did not return a string");
-            }
-            return hdl.GetString();
-        }
-
         internal HyperlightException? GetHostException()
         {
             HyperlightException? hyperlightException = null;
@@ -925,13 +911,6 @@ namespace Hyperlight.Wrapper
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle mem_mgr_get_pointer_to_dispatch_function(
-            NativeContext ctx,
-            NativeHandle mgrHdl
-        );
-
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle mem_mgr_read_string_output(
             NativeContext ctx,
             NativeHandle mgrHdl
         );

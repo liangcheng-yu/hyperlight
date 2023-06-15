@@ -2,7 +2,6 @@ use super::ptr_offset::Offset;
 use super::try_add_ext::UnsafeTryAddExt;
 use anyhow::{anyhow, Result};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use libc::strlen;
 #[cfg(target_os = "linux")]
 use libc::{mmap, munmap};
 use std::ffi::c_void;
@@ -10,7 +9,6 @@ use std::io::{Cursor, Error};
 use std::mem::size_of;
 use std::ptr::null_mut;
 use std::rc::Rc;
-use std::slice;
 #[cfg(target_os = "windows")]
 use windows::Win32::System::Memory::{
     VirtualAlloc, VirtualFree, MEM_COMMIT, MEM_DECOMMIT, PAGE_EXECUTE_READWRITE,
@@ -321,24 +319,6 @@ impl SharedMemory {
             offset,
             Box::new(|mut c| c.read_u8().map_err(|e| anyhow!(e))),
         )
-    }
-
-    /// Read a `string` written as a c string from shared memory starting at
-    /// `offset`.
-    ///
-    /// Return `Ok` with the `string` value starting at `offset`
-    /// if the value at `offset` was successfully decoded as a string,
-    /// and `Err` otherwise.
-    pub(crate) fn read_string(&self, offset: Offset) -> Result<String> {
-        bounds_check!(offset, self.mem_size());
-        let addr: u64 = (self.base_addr() + offset).into();
-        unsafe {
-            let len = strlen(addr as *const i8);
-            // Ensure string length is within the memory bounds.
-            bounds_check!(offset + len, self.mem_size());
-            String::from_utf8(slice::from_raw_parts(addr as *const u8, len).to_vec())
-                .map_err(|e| anyhow!(e))
-        }
     }
 
     /// Read a value of type T from the memory in `self`, using `reader`

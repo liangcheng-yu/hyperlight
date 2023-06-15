@@ -96,6 +96,10 @@ pub mod mem;
 #[deny(dead_code, missing_docs, unused_mut)]
 pub mod sandbox;
 
+///! The run options for a sandbox.
+#[deny(dead_code, missing_docs, unused_mut)]
+pub mod sandbox_run_options;
+
 ///! Types used to pass data to/from the guest.
 #[deny(dead_code, missing_docs, unused_mut)]
 pub mod guest;

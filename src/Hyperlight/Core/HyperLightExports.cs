@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using HyperlightDependencies;
@@ -19,7 +20,36 @@ namespace Hyperlight.Core
     [ExposeToGuest(true)]
     public sealed class HyperLightExports
     {
+        readonly StringWriter? writer;
+        public HyperLightExports(StringWriter? writer)
+        {
+            this.writer = writer;
+        }
+
 #pragma warning disable CA1024 // Use properties where appropriate - Intentional as properties cannot be exposed to guest
+
+        /// <summary>
+        /// This is exposed by the GuestLibrary in function PrintMethod
+        /// </summary>
+        public int HostPrint(string message)
+        {
+            if (string.IsNullOrEmpty(message))
+            {
+                return 0;
+            }
+            if (this.writer != null)
+            {
+                writer.Write(message);
+            }
+            else
+            {
+                var oldColor = Console.ForegroundColor;
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write(message);
+                Console.ForegroundColor = oldColor;
+            }
+            return message.Length;
+        }
 
         /// <summary>
         /// This is required by os_thread_get_stack_boundary() in WAMR (which is needed to handle AOT compiled WASM)

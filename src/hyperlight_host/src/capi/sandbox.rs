@@ -2,11 +2,11 @@ use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::{c_func::CFunc, mem_mgr::register_mem_mgr};
-use crate::{capi::mem_mgr::get_mem_mgr, mem::ptr::RawPtr};
+use crate::mem::ptr::RawPtr;
 use crate::{capi::strings::get_string, mem::config::SandboxMemoryConfiguration, sandbox::Sandbox};
 use crate::{
     sandbox::is_hypervisor_present as check_hypervisor,
-    sandbox::is_supported_platform as check_platform,
+    sandbox::is_supported_platform as check_platform, sandbox_run_options::SandboxRunOptions,
 };
 use anyhow::Result;
 
@@ -23,13 +23,30 @@ use anyhow::Result;
 pub unsafe extern "C" fn sandbox_new(
     ctx: *mut Context,
     bin_path_hdl: Handle,
-    mem_mgr_hdl: Handle,
+    // TODO: Why is this not a handle , I derived this from load_guest_binary which took the struct rather than a handle to it?
+    // In the orignal code it just passed the struct and did not validate it.
+    // However ,I dont see why we cant just pass the struct here and not a handle to it as it is allocated in the client used once (i.e. we dont ever use it again in a C API call)
+    // and since its copied (both implement copy) then it doesnt matter if the client frees it after the call.
+    mem_cfg: Option<&mut SandboxMemoryConfiguration>,
+    sandbox_run_options: u32,
 ) -> Handle {
     CFunc::new("sandbox_new", ctx)
         .and_then_mut(|ctx, _| {
             let bin_path = get_string(ctx, bin_path_hdl)?;
-            let mem_mgr = get_mem_mgr(ctx, mem_mgr_hdl)?;
-            let sbox = Sandbox::new(bin_path.to_string(), mem_mgr.clone());
+            let mem_cfg: Option<SandboxMemoryConfiguration> = mem_cfg.map(|cfg| (*cfg));
+            let sandbox_run_options =
+                Some(SandboxRunOptions::from_bits_truncate(sandbox_run_options));
+            let sbox = Sandbox::new(
+                bin_path.to_string(),
+                mem_cfg,
+                // TODO: Provide support for this when we update C API properly
+                // For now this is just a hack to get things working
+                // This should probably be a function pointer to a callback
+                // but in the Rust case the function is already built in to the sandbox
+                // so we need to resolve this somehow
+                None,
+                sandbox_run_options,
+            )?;
             Ok(register_sandbox(ctx, sbox))
         })
         .ok_or_err_hdl()
@@ -59,38 +76,6 @@ pub unsafe extern "C" fn sandbox_call_entry_point(
         .ok_or_err_hdl()
 }
 
-/// Fetch the string from `ctx` referenced by `bin_path_hdl` and use
-/// that as the name of the file to load as a guest binary. Load that
-/// file as a binary according to the configuration in `mem_cfg` and the
-/// other two `bool` parameters, then return a new `Handle` referencing
-/// a new `SandboxMemoryManager` in `ctx` to manage that loaded binary.
-///
-/// # Safety
-///
-/// `ctx` must be created by `context_new`, owned by the caller, and
-/// not yet freed by `context_free`.
-#[no_mangle]
-pub unsafe extern "C" fn sandbox_load_guest_binary(
-    ctx: *mut Context,
-    mem_cfg: SandboxMemoryConfiguration,
-    bin_path_hdl: Handle,
-    run_from_process_memory: bool,
-    run_from_guest_binary: bool,
-) -> Handle {
-    CFunc::new("sandbox_load_guest_binary", ctx)
-        .and_then_mut(|ctx, _| {
-            let bin_path_str = get_string(ctx, bin_path_hdl)?;
-            let mem_mgr = Sandbox::load_guest_binary(
-                mem_cfg,
-                bin_path_str.as_str(),
-                run_from_process_memory,
-                run_from_guest_binary,
-            )?;
-            Ok(register_mem_mgr(ctx, mem_mgr))
-        })
-        .ok_or_err_hdl()
-}
-
 #[no_mangle]
 /// Checks if the current platform is supported by Hyperlight.
 pub extern "C" fn is_supported_platform() -> bool {
@@ -111,4 +96,26 @@ pub(crate) fn get_sandbox(ctx: &Context, handle: Handle) -> Result<&Sandbox> {
 
 fn register_sandbox(ctx: &mut Context, val: Sandbox) -> Handle {
     Context::register(val, &mut ctx.sandboxes, Hdl::Sandbox)
+}
+
+/// get a reference to a `SandboxMemoryConfiguration` stored in `ctx`
+/// and pointed to by `handle`.
+///
+/// TODO: this is temporary until we have a complete C API for the Sandbox
+///
+/// # Safety
+///
+/// The caller must pass a `ctx` to this function that was created
+/// by `context_new`, not currently in use in any other function,
+/// and not yet freed by `context_free` and a valid handle to a `Sandbox` that is assocaited with the Context and has not been freed.
+///
+#[no_mangle]
+pub unsafe extern "C" fn sandbox_get_memory_mgr(ctx: *mut Context, sbox_hdl: Handle) -> Handle {
+    CFunc::new("sandbox_get_memory_mgr", ctx)
+        .and_then_mut(|ctx, _| {
+            let sbox = get_sandbox(ctx, sbox_hdl)?;
+            let mem_mgr = sbox.get_mem_mgr();
+            Ok(register_mem_mgr(ctx, mem_mgr))
+        })
+        .ok_or_err_hdl()
 }

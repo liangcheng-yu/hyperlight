@@ -79,46 +79,6 @@ pub unsafe extern "C" fn string_new(ctx: *mut Context, str: RawCString) -> Handl
     register_string(&mut *ctx, str_copy)
 }
 
-/// Get the string value of the given `Handle`, or `NULL` if
-/// `hdl` doesn't exist in `ctx` or it does exist but is not
-/// a string value.
-///
-/// # Safety
-///
-/// `ctx` must have been created with `context_new` and must not be
-/// modified or deleted while this function is running.
-///
-/// This function creates new memory. You must pass the returned
-/// value to `free_raw_string()` after you're done using it. Failure
-/// to pass this pointer to `free_raw_string()` exactly once after you're
-/// done with it will result in undefined behavior, double-frees, or
-/// other bad things.
-#[no_mangle]
-pub unsafe extern "C" fn handle_get_raw_string(ctx: *const Context, hdl: Handle) -> RawCString {
-    validate_context_or_panic!(ctx);
-
-    match Context::get(hdl, &(*ctx).strings, |s| matches!(s, Hdl::String(_))) {
-        Ok(str) => match to_c_string((*str).clone()) {
-            Ok(s) => s,
-            Err(_) => std::ptr::null(),
-        },
-        Err(_) => std::ptr::null(),
-    }
-}
-
-/// Free the memory created and returned from `handle_get_raw_string`.
-///
-/// # Safety
-///
-/// `ptr` must be a pointer previously returned by `handle_get_raw_string` and
-/// not already freed by this or any other function.
-#[no_mangle]
-pub extern "C" fn free_raw_string(ptr: RawCString) {
-    if !ptr.is_null() {
-        unsafe { drop(CString::from_raw(ptr as *mut c_char)) }
-    }
-}
-
 /// Return true if the given handle `hdl` references a string in `ctx`,
 /// and false otherwise
 ///
