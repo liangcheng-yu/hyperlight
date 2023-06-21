@@ -155,7 +155,7 @@ impl From<HashMap<String, HostMethodInfo>> for HostFunctionDetails {
 mod tests {
     use super::*;
     use crate::{
-        guest::host_function_definition::{ParamValueType, ReturnValueType},
+        guest::function_types::{ParamValueType, ReturnValueType},
         mem::config::SandboxMemoryConfiguration,
     };
     use anyhow::{Ok, Result};

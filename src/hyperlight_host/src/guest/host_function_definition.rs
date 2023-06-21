@@ -1,9 +1,9 @@
-use crate::flatbuffers::hyperlight::generated::{
+use crate::{flatbuffers::hyperlight::generated::{
     HostFunctionDefinition as FbHostFunctionDefinition,
-    HostFunctionDefinitionArgs as FbHostFunctionDefinitionArgs, ParameterType as FbParameterType,
-    ReturnType as FbReturnType,
-};
-use anyhow::{bail, Result};
+    HostFunctionDefinitionArgs as FbHostFunctionDefinitionArgs, 
+    ParameterType as FbParameterType,
+}, guest::function_types::{ParamValueType, ReturnValueType}};
+use anyhow::Result;
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
 use readonly;
 
@@ -17,37 +17,6 @@ pub struct HostFunctionDefinition {
     pub parameter_types: Option<Vec<ParamValueType>>,
     /// The type of the return value from the host function call
     pub return_type: ReturnValueType,
-}
-
-/// This is the type of a parameter that can be passed to a host function.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ParamValueType {
-    /// Parameter is a signed 32 bit integer.
-    Int,
-    /// Parameter is a signed 64 bit integer.
-    Long,
-    /// Parameter is a boolean.
-    Boolean,
-    /// Parameter is a string.
-    String,
-    /// Parameter is a vector of bytes.
-    VecBytes,
-}
-
-/// This is the type of a value that can be returned from a host function.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub enum ReturnValueType {
-    #[default]
-    /// Return value is a signed 32 bit integer.
-    Int,
-    /// Return value is a signed 64 bit integer.
-    Long,
-    /// Return value is a boolean.
-    Boolean,
-    /// Return value is a string.
-    String,
-    /// Return value is void.
-    Void,
 }
 
 impl HostFunctionDefinition {
@@ -64,7 +33,7 @@ impl HostFunctionDefinition {
         }
     }
 
-    /// Create a new `HostFunctionDetails`.
+    /// Convert this `HostFunctionDefinition` into a `WIPOffset<FbHostFunctionDefinition>`.
     pub fn convert_to_wipoffset_fbhfdef<'a>(
         &self,
         builder: &mut FlatBufferBuilder<'a>,
@@ -76,23 +45,8 @@ impl HostFunctionDefinition {
                 let num_items = vec_pvt.len();
                 let mut parameters: Vec<FbParameterType> = Vec::with_capacity(num_items);
                 for pvt in vec_pvt {
-                    match pvt {
-                        ParamValueType::Int => {
-                            parameters.push(FbParameterType::hlint);
-                        }
-                        ParamValueType::Long => {
-                            parameters.push(FbParameterType::hllong);
-                        }
-                        ParamValueType::Boolean => {
-                            parameters.push(FbParameterType::hlbool);
-                        }
-                        ParamValueType::String => {
-                            parameters.push(FbParameterType::hlstring);
-                        }
-                        ParamValueType::VecBytes => {
-                            parameters.push(FbParameterType::hlvecbytes);
-                        }
-                    };
+                    let fb_pvt = pvt.clone().into();
+                    parameters.push(fb_pvt);
                 }
                 Some(builder.create_vector(&parameters))
             }
@@ -113,32 +67,6 @@ impl HostFunctionDefinition {
     }
 }
 
-impl From<ReturnValueType> for FbReturnType {
-    fn from(value: ReturnValueType) -> Self {
-        match value {
-            ReturnValueType::Int => FbReturnType::hlint,
-            ReturnValueType::Long => FbReturnType::hllong,
-            ReturnValueType::String => FbReturnType::hlstring,
-            ReturnValueType::Boolean => FbReturnType::hlbool,
-            ReturnValueType::Void => FbReturnType::hlvoid,
-        }
-    }
-}
-
-impl TryFrom<FbReturnType> for ReturnValueType {
-    type Error = anyhow::Error;
-    fn try_from(value: FbReturnType) -> Result<Self> {
-        match value {
-            FbReturnType::hlint => Ok(ReturnValueType::Int),
-            FbReturnType::hllong => Ok(ReturnValueType::Long),
-            FbReturnType::hlstring => Ok(ReturnValueType::String),
-            FbReturnType::hlbool => Ok(ReturnValueType::Boolean),
-            FbReturnType::hlvoid => Ok(ReturnValueType::Void),
-            _ => bail!("Unknown return type: {:?}", value),
-        }
-    }
-}
-
 impl TryFrom<FbHostFunctionDefinition<'_>> for HostFunctionDefinition {
     type Error = anyhow::Error;
     fn try_from(value: FbHostFunctionDefinition) -> Result<Self> {
@@ -148,28 +76,9 @@ impl TryFrom<FbHostFunctionDefinition<'_>> for HostFunctionDefinition {
             Some(pvt) => {
                 let len = pvt.len();
                 let mut pv: Vec<ParamValueType> = Vec::with_capacity(len);
-                for i in 0..len {
-                    let param_type = pvt.get(i);
-                    match param_type {
-                        FbParameterType::hlint => {
-                            pv.push(ParamValueType::Int);
-                        }
-                        FbParameterType::hllong => {
-                            pv.push(ParamValueType::Long);
-                        }
-                        FbParameterType::hlbool => {
-                            pv.push(ParamValueType::Boolean);
-                        }
-                        FbParameterType::hlstring => {
-                            pv.push(ParamValueType::String);
-                        }
-                        FbParameterType::hlvecbytes => {
-                            pv.push(ParamValueType::VecBytes);
-                        }
-                        _ => {
-                            bail!("Unknown parameter type: {:?}", param_type)
-                        }
-                    };
+                for fb_pvt in pvt {
+                    let pvt: ParamValueType = fb_pvt.try_into()?;
+                    pv.push(pvt);
                 }
                 Some(pv)
             }
