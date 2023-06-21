@@ -38,7 +38,7 @@ impl GuestFunctionDefinition {
     }
 
     /// Convert this `GuestFunctionDefinition` into a `WIPOffset<FbGuestFunctionDefinition>`.
-    pub fn convert_to_wipoffset_fbgfdef<'a>(
+    pub fn convert_to_flatbuffer_def<'a>(
         &self,
         builder: &mut FlatBufferBuilder<'a>,
     ) -> Result<WIPOffset<FbGuestFunctionDefinition<'a>>> {
@@ -106,7 +106,7 @@ impl TryFrom<&GuestFunctionDefinition> for Vec<u8> {
 
     fn try_from(value: &GuestFunctionDefinition) -> Result<Self> {
         let mut builder = FlatBufferBuilder::new();
-        let fb_guest_function_definition = value.convert_to_wipoffset_fbgfdef(&mut builder)?;
+        let fb_guest_function_definition = value.convert_to_flatbuffer_def(&mut builder)?;
         builder.finish(fb_guest_function_definition, None);
         let bytes = builder.finished_data().to_vec();
         Ok(bytes)

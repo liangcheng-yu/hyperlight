@@ -98,7 +98,7 @@ impl TryFrom<&HostFunctionDetails> for Vec<u8> {
 
                 for hfd in vec_hfd {
                     let host_function_definition =
-                        hfd.convert_to_wipoffset_fbhfdef(&mut builder)?;
+                        hfd.convert_to_flatbuffer_def(&mut builder)?;
                     host_function_definitions.push(host_function_definition);
                 }
 

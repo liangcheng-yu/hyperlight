@@ -51,7 +51,7 @@ impl TryFrom<&GuestFunctionDetails> for Vec<u8> {
         > = Vec::new();
         for guest_function in guest_function_details.guest_functions.iter() {
             guest_function_definitions
-                .push(guest_function.convert_to_wipoffset_fbgfdef(&mut builder)?);
+                .push(guest_function.convert_to_flatbuffer_def(&mut builder)?);
         }
 
         let guest_functions = builder.create_vector(&guest_function_definitions);

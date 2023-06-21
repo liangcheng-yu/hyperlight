@@ -37,7 +37,7 @@ impl HostFunctionDefinition {
     }
 
     /// Convert this `HostFunctionDefinition` into a `WIPOffset<FbHostFunctionDefinition>`.
-    pub fn convert_to_wipoffset_fbhfdef<'a>(
+    pub fn convert_to_flatbuffer_def<'a>(
         &self,
         builder: &mut FlatBufferBuilder<'a>,
     ) -> Result<WIPOffset<FbHostFunctionDefinition<'a>>> {
@@ -104,7 +104,7 @@ impl TryFrom<&HostFunctionDefinition> for Vec<u8> {
     type Error = anyhow::Error;
     fn try_from(hfd: &HostFunctionDefinition) -> Result<Vec<u8>> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
-        let host_function_definition = hfd.convert_to_wipoffset_fbhfdef(&mut builder)?;
+        let host_function_definition = hfd.convert_to_flatbuffer_def(&mut builder)?;
         builder.finish_size_prefixed(host_function_definition, None);
         Ok(builder.finished_data().to_vec())
     }
