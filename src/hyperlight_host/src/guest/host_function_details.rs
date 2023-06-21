@@ -97,8 +97,7 @@ impl TryFrom<&HostFunctionDetails> for Vec<u8> {
                     Vec::with_capacity(num_items);
 
                 for hfd in vec_hfd {
-                    let host_function_definition =
-                        hfd.convert_to_flatbuffer_def(&mut builder)?;
+                    let host_function_definition = hfd.convert_to_flatbuffer_def(&mut builder)?;
                     host_function_definitions.push(host_function_definition);
                 }
 
@@ -218,11 +217,8 @@ mod tests {
 
         host_function_definitions.push(host_function_definition);
 
-        let host_function_definition = HostFunctionDefinition::new(
-            String::from("GetStackBoundary"),
-            None,
-            ReturnType::Long,
-        );
+        let host_function_definition =
+            HostFunctionDefinition::new(String::from("GetStackBoundary"), None, ReturnType::Long);
 
         host_function_definitions.push(host_function_definition);
 
