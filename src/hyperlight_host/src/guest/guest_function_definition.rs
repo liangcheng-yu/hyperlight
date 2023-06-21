@@ -1,7 +1,6 @@
 use crate::flatbuffers::hyperlight::generated::{
     GuestFunctionDefinition as FbGuestFunctionDefinition,
-    GuestFunctionDefinitionArgs as FbGuestFunctionDefinitionArgs,
-    ParameterType as FbParameterType,
+    GuestFunctionDefinitionArgs as FbGuestFunctionDefinitionArgs, ParameterType as FbParameterType,
 };
 use crate::guest::function_types::{ParamValueType, ReturnValueType};
 use anyhow::Result;
@@ -106,8 +105,7 @@ impl TryFrom<&GuestFunctionDefinition> for Vec<u8> {
 
     fn try_from(value: &GuestFunctionDefinition) -> Result<Self> {
         let mut builder = FlatBufferBuilder::new();
-        let fb_guest_function_definition =
-            value.convert_to_wipoffset_fbgfdef(&mut builder)?;
+        let fb_guest_function_definition = value.convert_to_wipoffset_fbgfdef(&mut builder)?;
         builder.finish(fb_guest_function_definition, None);
         let bytes = builder.finished_data().to_vec();
         Ok(bytes)

@@ -1,8 +1,11 @@
-use crate::{flatbuffers::hyperlight::generated::{
-    HostFunctionDefinition as FbHostFunctionDefinition,
-    HostFunctionDefinitionArgs as FbHostFunctionDefinitionArgs, 
-    ParameterType as FbParameterType,
-}, guest::function_types::{ParamValueType, ReturnValueType}};
+use crate::{
+    flatbuffers::hyperlight::generated::{
+        HostFunctionDefinition as FbHostFunctionDefinition,
+        HostFunctionDefinitionArgs as FbHostFunctionDefinitionArgs,
+        ParameterType as FbParameterType,
+    },
+    guest::function_types::{ParamValueType, ReturnValueType},
+};
 use anyhow::Result;
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
 use readonly;

@@ -1,5 +1,7 @@
-use crate::flatbuffers::hyperlight::generated::{ReturnType as FbReturnType, ParameterType as FbParameterType};
-use anyhow::{Result, bail};
+use crate::flatbuffers::hyperlight::generated::{
+    ParameterType as FbParameterType, ReturnType as FbReturnType,
+};
+use anyhow::{bail, Result};
 
 /// This is the type of a parameter that can be passed to a host function.
 #[derive(Debug, Clone, PartialEq, Eq)]
