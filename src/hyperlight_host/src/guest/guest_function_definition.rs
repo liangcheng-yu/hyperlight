@@ -3,12 +3,13 @@ use crate::flatbuffers::hyperlight::generated::{
     GuestFunctionDefinitionArgs as FbGuestFunctionDefinitionArgs, ParameterType as FbParameterType,
 };
 use crate::guest::function_types::{ParamType, ReturnType};
+use crate::mem::ptr::GuestPtr;
 use anyhow::Result;
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
 
 /// The definition of a function exposed from the guest to the host
 #[readonly::make]
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GuestFunctionDefinition {
     /// The function name
     pub function_name: String,
@@ -17,7 +18,7 @@ pub struct GuestFunctionDefinition {
     /// The type of the return value from the host function call
     pub return_type: ReturnType,
     /// The function pointer to the guest function
-    pub function_pointer: i64,
+    pub function_pointer: GuestPtr,
 }
 
 impl GuestFunctionDefinition {
@@ -26,7 +27,7 @@ impl GuestFunctionDefinition {
         function_name: String,
         parameter_types: Vec<ParamType>,
         return_type: ReturnType,
-        function_pointer: i64,
+        function_pointer: GuestPtr,
     ) -> Self {
         Self {
             function_name,
@@ -52,7 +53,7 @@ impl GuestFunctionDefinition {
             }
             builder.create_vector(&vec_parameters)
         };
-        let function_pointer = self.function_pointer;
+        let function_pointer = self.function_pointer.clone();
 
         let fb_guest_function_definition: WIPOffset<FbGuestFunctionDefinition> =
             FbGuestFunctionDefinition::create(
@@ -60,7 +61,7 @@ impl GuestFunctionDefinition {
                 &FbGuestFunctionDefinitionArgs {
                     function_name: Some(guest_function_name),
                     return_type,
-                    function_pointer,
+                    function_pointer: function_pointer.try_into()?,
                     parameters: Some(guest_parameters),
                 },
             );
@@ -85,7 +86,7 @@ impl TryFrom<FbGuestFunctionDefinition<'_>> for GuestFunctionDefinition {
             function_name,
             parameter_types,
             return_type,
-            function_pointer,
+            function_pointer: function_pointer.try_into()?,
         })
     }
 }
