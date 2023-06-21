@@ -4,7 +4,7 @@ use crate::{
         HostFunctionDefinitionArgs as FbHostFunctionDefinitionArgs,
         ParameterType as FbParameterType,
     },
-    guest::function_types::{ParamValueType, ReturnValueType},
+    guest::function_types::{ParamType, ReturnType},
 };
 use anyhow::Result;
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
@@ -17,17 +17,17 @@ pub struct HostFunctionDefinition {
     /// The function name
     pub function_name: String,
     /// The type of the parameter values for the host function call.
-    pub parameter_types: Option<Vec<ParamValueType>>,
+    pub parameter_types: Option<Vec<ParamType>>,
     /// The type of the return value from the host function call
-    pub return_type: ReturnValueType,
+    pub return_type: ReturnType,
 }
 
 impl HostFunctionDefinition {
     /// Create a new `HostFunctionDetails`.
     pub fn new(
         function_name: String,
-        parameter_types: Option<Vec<ParamValueType>>,
-        return_type: ReturnValueType,
+        parameter_types: Option<Vec<ParamType>>,
+        return_type: ReturnType,
     ) -> Self {
         Self {
             function_name,
@@ -78,9 +78,9 @@ impl TryFrom<FbHostFunctionDefinition<'_>> for HostFunctionDefinition {
         let parameter_types = match value.parameters() {
             Some(pvt) => {
                 let len = pvt.len();
-                let mut pv: Vec<ParamValueType> = Vec::with_capacity(len);
+                let mut pv: Vec<ParamType> = Vec::with_capacity(len);
                 for fb_pvt in pvt {
-                    let pvt: ParamValueType = fb_pvt.try_into()?;
+                    let pvt: ParamType = fb_pvt.try_into()?;
                     pv.push(pvt);
                 }
                 Some(pv)

@@ -5,7 +5,7 @@ use anyhow::{bail, Result};
 
 /// This is the type of a parameter that can be passed to a host function.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ParamValueType {
+pub enum ParamType {
     /// Parameter is a signed 32 bit integer.
     Int,
     /// Parameter is a signed 64 bit integer.
@@ -20,7 +20,7 @@ pub enum ParamValueType {
 
 /// This is the type of a value that can be returned from a host function.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub enum ReturnValueType {
+pub enum ReturnType {
     #[default]
     /// Return value is a signed 32 bit integer.
     Int,
@@ -34,54 +34,54 @@ pub enum ReturnValueType {
     Void,
 }
 
-impl From<ReturnValueType> for FbReturnType {
-    fn from(value: ReturnValueType) -> Self {
+impl From<ReturnType> for FbReturnType {
+    fn from(value: ReturnType) -> Self {
         match value {
-            ReturnValueType::Int => FbReturnType::hlint,
-            ReturnValueType::Long => FbReturnType::hllong,
-            ReturnValueType::String => FbReturnType::hlstring,
-            ReturnValueType::Boolean => FbReturnType::hlbool,
-            ReturnValueType::Void => FbReturnType::hlvoid,
+            ReturnType::Int => FbReturnType::hlint,
+            ReturnType::Long => FbReturnType::hllong,
+            ReturnType::String => FbReturnType::hlstring,
+            ReturnType::Boolean => FbReturnType::hlbool,
+            ReturnType::Void => FbReturnType::hlvoid,
         }
     }
 }
 
-impl TryFrom<FbReturnType> for ReturnValueType {
+impl TryFrom<FbReturnType> for ReturnType {
     type Error = anyhow::Error;
     fn try_from(value: FbReturnType) -> Result<Self> {
         match value {
-            FbReturnType::hlint => Ok(ReturnValueType::Int),
-            FbReturnType::hllong => Ok(ReturnValueType::Long),
-            FbReturnType::hlstring => Ok(ReturnValueType::String),
-            FbReturnType::hlbool => Ok(ReturnValueType::Boolean),
-            FbReturnType::hlvoid => Ok(ReturnValueType::Void),
+            FbReturnType::hlint => Ok(ReturnType::Int),
+            FbReturnType::hllong => Ok(ReturnType::Long),
+            FbReturnType::hlstring => Ok(ReturnType::String),
+            FbReturnType::hlbool => Ok(ReturnType::Boolean),
+            FbReturnType::hlvoid => Ok(ReturnType::Void),
             _ => bail!("Unknown return type: {:?}", value),
         }
     }
 }
 
-impl TryFrom<FbParameterType> for ParamValueType {
+impl TryFrom<FbParameterType> for ParamType {
     type Error = anyhow::Error;
     fn try_from(value: FbParameterType) -> Result<Self> {
         match value {
-            FbParameterType::hlint => Ok(ParamValueType::Int),
-            FbParameterType::hllong => Ok(ParamValueType::Long),
-            FbParameterType::hlstring => Ok(ParamValueType::String),
-            FbParameterType::hlbool => Ok(ParamValueType::Boolean),
-            FbParameterType::hlvecbytes => Ok(ParamValueType::VecBytes),
+            FbParameterType::hlint => Ok(ParamType::Int),
+            FbParameterType::hllong => Ok(ParamType::Long),
+            FbParameterType::hlstring => Ok(ParamType::String),
+            FbParameterType::hlbool => Ok(ParamType::Boolean),
+            FbParameterType::hlvecbytes => Ok(ParamType::VecBytes),
             _ => bail!("Unknown parameter type: {:?}", value),
         }
     }
 }
 
-impl From<ParamValueType> for FbParameterType {
-    fn from(value: ParamValueType) -> Self {
+impl From<ParamType> for FbParameterType {
+    fn from(value: ParamType) -> Self {
         match value {
-            ParamValueType::Int => FbParameterType::hlint,
-            ParamValueType::Long => FbParameterType::hllong,
-            ParamValueType::String => FbParameterType::hlstring,
-            ParamValueType::Boolean => FbParameterType::hlbool,
-            ParamValueType::VecBytes => FbParameterType::hlvecbytes,
+            ParamType::Int => FbParameterType::hlint,
+            ParamType::Long => FbParameterType::hllong,
+            ParamType::String => FbParameterType::hlstring,
+            ParamType::Boolean => FbParameterType::hlbool,
+            ParamType::VecBytes => FbParameterType::hlvecbytes,
         }
     }
 }
