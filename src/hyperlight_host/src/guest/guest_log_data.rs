@@ -20,6 +20,24 @@ pub struct GuestLogData {
 }
 
 impl GuestLogData {
+    #[cfg(test)]
+    pub(crate) fn new(
+        message: String,
+        source: String,
+        level: LogLevel,
+        caller: String,
+        source_file: String,
+        line: u32,
+    ) -> Self {
+        Self {
+            message,
+            source,
+            level,
+            caller,
+            source_file,
+            line,
+        }
+    }
     /// Write `self` to the appropriate location in `shared_mem`, as
     /// defined by `layout`. Return `Ok` if the write operation succeeded,
     /// and `Err` otherwise.

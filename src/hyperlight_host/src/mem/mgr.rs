@@ -84,7 +84,7 @@ impl SandboxMemoryManager {
     }
 
     /// Get `SharedMemory` in `self` as a mutable reference
-    fn get_shared_mem_mut(&mut self) -> &mut SharedMemory {
+    pub(crate) fn get_shared_mem_mut(&mut self) -> &mut SharedMemory {
         &mut self.shared_mem
     }
 
