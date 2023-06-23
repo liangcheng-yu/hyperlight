@@ -98,6 +98,22 @@ impl TryFrom<Offset> for GuestPtr {
     }
 }
 
+impl TryFrom<i64> for GuestPtr {
+    type Error = anyhow::Error;
+    fn try_from(val: i64) -> Result<Self> {
+        let offset = Offset::try_from(val)?;
+        GuestPtr::try_from(offset)
+    }
+}
+
+impl TryFrom<GuestPtr> for i64 {
+    type Error = anyhow::Error;
+    fn try_from(val: GuestPtr) -> Result<Self> {
+        let offset = val.offset();
+        i64::try_from(offset)
+    }
+}
+
 /// A pointer into a specific `AddressSpace` `T`.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Ptr<T: AddressSpace> {

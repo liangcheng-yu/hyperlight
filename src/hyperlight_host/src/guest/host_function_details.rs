@@ -97,8 +97,7 @@ impl TryFrom<&HostFunctionDetails> for Vec<u8> {
                     Vec::with_capacity(num_items);
 
                 for hfd in vec_hfd {
-                    let host_function_definition =
-                        hfd.convert_to_wipoffset_fbhfdef(&mut builder)?;
+                    let host_function_definition = hfd.convert_to_flatbuffer_def(&mut builder)?;
                     host_function_definitions.push(host_function_definition);
                 }
 
@@ -155,7 +154,7 @@ impl From<HashMap<String, HostMethodInfo>> for HostFunctionDetails {
 mod tests {
     use super::*;
     use crate::{
-        guest::host_function_definition::{ParamValueType, ReturnValueType},
+        guest::function_types::{ParamType, ReturnType},
         mem::config::SandboxMemoryConfiguration,
     };
     use anyhow::{Ok, Result};
@@ -214,48 +213,45 @@ mod tests {
         let mut host_function_definitions = Vec::<HostFunctionDefinition>::new();
 
         let host_function_definition =
-            HostFunctionDefinition::new(String::from("GetOSPageSize"), None, ReturnValueType::Int);
-
-        host_function_definitions.push(host_function_definition);
-
-        let host_function_definition = HostFunctionDefinition::new(
-            String::from("GetStackBoundary"),
-            None,
-            ReturnValueType::Long,
-        );
+            HostFunctionDefinition::new(String::from("GetOSPageSize"), None, ReturnType::Int);
 
         host_function_definitions.push(host_function_definition);
 
         let host_function_definition =
-            HostFunctionDefinition::new(String::from("GetTickCount"), None, ReturnValueType::Long);
+            HostFunctionDefinition::new(String::from("GetStackBoundary"), None, ReturnType::Long);
+
+        host_function_definitions.push(host_function_definition);
+
+        let host_function_definition =
+            HostFunctionDefinition::new(String::from("GetTickCount"), None, ReturnType::Long);
 
         host_function_definitions.push(host_function_definition);
 
         let host_function_definition = HostFunctionDefinition::new(
             String::from("GetTimeSinceBootMicrosecond"),
             None,
-            ReturnValueType::Long,
+            ReturnType::Long,
         );
 
         host_function_definitions.push(host_function_definition);
 
         let host_function_definition =
-            HostFunctionDefinition::new(String::from("GetTwo"), None, ReturnValueType::Int);
+            HostFunctionDefinition::new(String::from("GetTwo"), None, ReturnType::Int);
 
         host_function_definitions.push(host_function_definition);
 
         let host_function_definition = HostFunctionDefinition::new(
             String::from("HostMethod1"),
-            Some(vec![ParamValueType::String]),
-            ReturnValueType::Int,
+            Some(vec![ParamType::String]),
+            ReturnType::Int,
         );
 
         host_function_definitions.push(host_function_definition);
 
         let host_function_definition = HostFunctionDefinition::new(
             String::from("StaticMethodWithArgs"),
-            Some(vec![ParamValueType::String, ParamValueType::Int]),
-            ReturnValueType::Int,
+            Some(vec![ParamType::String, ParamType::Int]),
+            ReturnType::Int,
         );
 
         host_function_definitions.push(host_function_definition);
