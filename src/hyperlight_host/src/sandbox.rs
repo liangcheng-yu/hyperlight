@@ -2,12 +2,22 @@ use super::sandbox_run_options::SandboxRunOptions;
 use crate::guest::guest_log_data::GuestLogData;
 use crate::guest::log_level::LogLevel;
 use crate::guest_interface_glue::{HostMethodInfo, SupportedParameterAndReturnValues};
+use crate::hypervisor::Hypervisor;
 use crate::mem::ptr::RawPtr;
 use crate::mem::{
     config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager, pe::pe_info::PEInfo,
 };
-use anyhow::anyhow;
-use anyhow::Result;
+#[cfg(target_os = "linux")]
+use crate::{
+    hypervisor::hyperv_linux::{self, HypervLinuxDriver, REQUIRE_STABLE_API},
+    hypervisor::hypervisor_mem::HypervisorAddrs,
+    hypervisor::kvm,
+    hypervisor::kvm::KVMDriver,
+    mem::layout::SandboxMemoryLayout,
+    mem::ptr::GuestPtr,
+    mem::ptr_offset::Offset,
+};
+use anyhow::{anyhow, bail, Result};
 use log::{debug, error, info, trace, warn};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -131,6 +141,67 @@ impl Sandbox {
         // Register the host print function
 
         Ok(this)
+    }
+
+    /// Set up the appropriate hypervisor for the platform.
+    ///
+    /// this function is used to prevent clippy from complaining
+    /// the 'mgr' param is unused on windows builds. this function and the
+    /// function of the same name on linux builds will merge when we
+    /// have a complete WHP implementation in Rust.
+    ///
+    /// TODO: remove this dead_code annotation after it's hooked up in
+    /// https://github.com/deislabs/hyperlight/pull/727/files, and merge with
+    /// linux version of this function
+    #[allow(dead_code)]
+    #[cfg(target_os = "windows")]
+    fn set_up_hypervisor_partition(_: &mut SandboxMemoryManager) -> Result<Box<dyn Hypervisor>> {
+        bail!("Hyperlight does not yet support Windows");
+    }
+
+    /// Set up the appropriate hypervisor for the platform
+    ///
+    /// TODO: remove this dead_code annotation after it's hooked up in
+    /// https://github.com/deislabs/hyperlight/pull/727/files,
+    /// and merge with the windows version of this function
+    #[allow(dead_code)]
+    #[cfg(target_os = "linux")]
+    fn set_up_hypervisor_partition(mgr: &mut SandboxMemoryManager) -> Result<Box<dyn Hypervisor>> {
+        let mem_size = u64::try_from(mgr.shared_mem.mem_size())?;
+        let rsp = mgr.set_up_hypervisor_partition(mem_size)?;
+        let base_addr = SandboxMemoryLayout::BASE_ADDRESS;
+        let pml4_addr = base_addr + SandboxMemoryLayout::PML4_OFFSET;
+        let entrypoint = {
+            let load_addr = mgr.load_addr.clone();
+            let load_offset_u64 =
+                u64::from(load_addr) - u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?;
+            let total_offset = Offset::from(load_offset_u64) + mgr.entrypoint_offset;
+            GuestPtr::try_from(total_offset)
+        }?;
+        if hyperv_linux::is_hypervisor_present(REQUIRE_STABLE_API)? {
+            let guest_pfn = u64::try_from(SandboxMemoryLayout::BASE_ADDRESS >> 12)?;
+            let host_addr = u64::try_from(mgr.shared_mem.base_addr())?;
+            let addrs = HypervisorAddrs {
+                entrypoint: entrypoint.absolute()?,
+                guest_pfn,
+                host_addr,
+                mem_size,
+            };
+            let hv = HypervLinuxDriver::new(REQUIRE_STABLE_API, &addrs)?;
+            Ok(Box::new(hv))
+        } else if kvm::is_hypervisor_present().is_ok() {
+            let host_addr = u64::try_from(mgr.shared_mem.base_addr())?;
+            let hv = KVMDriver::new(
+                host_addr,
+                u64::try_from(pml4_addr)?,
+                mem_size,
+                entrypoint.absolute()?,
+                rsp,
+            )?;
+            Ok(Box::new(hv))
+        } else {
+            bail!("Linux platform detected, but neither KVM nor Linux HyperV detected")
+        }
     }
 
     /// Registers a host function onto map of host functions.
