@@ -4,6 +4,7 @@ use bitflags::bitflags;
 
 bitflags! {
     #[repr(C)]
+    #[derive(Debug)]
     /// Options for running a sandbox
     pub struct SandboxRunOptions: u32 {
         /// Run in a Hypervisor

@@ -29,11 +29,11 @@ jobs:
         build: [ windows-debug, windows-release]
         include:
           - build: windows-debug
-            os: [self-hosted, Windows, X64, whp]
+            os: [self-hosted, Windows, X64, "1ES.Pool=HL-Windows-2022"]
             config: debug
             platform: x64
           - build: windows-release
-            os: [self-hosted, Windows, X64, whp]
+            os: [self-hosted, Windows, X64, "1ES.Pool=HL-Windows-2022"]
             config: release
             platform: x64
     env:
@@ -59,6 +59,9 @@ jobs:
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
         restore-keys: |
           ${{ runner.os }}-nuget
+    - name: Enable WHP
+      run: Enable-WindowsOptionalFeature -Online -FeatureName HyperVisorPlatform
+      shell: pwsh
     - name: Restore
       run: dotnet restore
       shell: pwsh
@@ -85,11 +88,6 @@ jobs:
       with:
         name: guest-binaries-${{ matrix.config }}
         path: src/tests/Guests/
-    # - name: Upload Binary Artifacts
-    #   uses: actions/upload-artifact@v3
-    #   with:
-    #     name: guest-binaries-${{ matrix.config }}
-    #     path: src\tests\Guests\*\${{ matrix.platform }}\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']
     - name: Test
       shell: pwsh
       run: dotnet test -c ${{ matrix.config }} --logger "trx;verbosity=detailed;LogFilePrefix=win-${{ matrix.config }}" --blame
@@ -123,12 +121,12 @@ jobs:
         build: [ linux-kvm-debug, linux-kvm-release, linux-hyperv-debug, linux-hyperv-release]
         include:
           - build: linux-kvm-debug
-            os: [self-hosted, Linux, X64, kvm]
+            os: [self-hosted, Linux, X64, "1ES.Pool=HL-Ubuntu-20.04-KVM"]
             config: debug
             platform: x64
             hypervisor: kvm
           - build: linux-kvm-release
-            os: [self-hosted, Linux, X64, kvm]
+            os: [self-hosted, Linux, X64, "1ES.Pool=HL-Ubuntu-20.04-KVM"]
             config: release
             platform: x64
             hypervisor: kvm
@@ -193,11 +191,12 @@ jobs:
       run: |
         echo "HYPERV_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
         echo "SHOULD_HAVE_STABLE_API=false" >> $GITHUB_ENV
-        ls -al /dev/mshv
-        whoami
     - name: Set up env vars for kvm-linux tests
       if: ${{ (matrix.hypervisor == 'kvm') && (runner.os == 'Linux') }}
       run: |
+        sudo ls -al /dev/kvm
+        sudo chgrp $(whoami) /dev/kvm
+        sudo ls -al /dev/kvm
         echo "KVM_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
     - name: Clean example
       shell: bash

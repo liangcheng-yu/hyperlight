@@ -41,6 +41,8 @@ const PDE64_RW: u64 = 1 << 1;
 const PDE64_USER: u64 = 1 << 2;
 /// The page size for the 64-bit PDE
 const PDE64_PS: u64 = 1 << 7;
+/// The size of stack guard cookies
+pub(crate) const STACK_COOKIE_LEN: usize = 16;
 
 /// A struct that is responsible for laying out and managing the memory
 /// for a given `Sandbox`.
@@ -93,6 +95,26 @@ impl SandboxMemoryManager {
         &self.shared_mem
     }
 
+    /// Given a `Vec<u8>` representation of a stack guard, convert it to a
+    /// slice as required for calling `Self::set_stack_guard`, then call
+    /// that function, passing that slice.
+    ///
+    /// This function will become unused when the C-compatible FFI layer for
+    /// `SandboxMemoryManager` goes away. At that time, the Rust compiler will
+    /// notify us this function is no longer used. Thus, no TODO is necessary
+    /// to remove this function, as we'll be forced to do so.
+    pub(crate) fn set_stack_guard_from_vec(&mut self, cookie: &Vec<u8>) -> Result<()> {
+        if cookie.len() != STACK_COOKIE_LEN {
+            bail!(
+                "invalid cookie len, actual = {}, expected = {STACK_COOKIE_LEN}",
+                cookie.len()
+            );
+        }
+        let mut cookie_slc: [u8; STACK_COOKIE_LEN] = [0; STACK_COOKIE_LEN];
+        cookie_slc[..STACK_COOKIE_LEN].copy_from_slice(&cookie[..STACK_COOKIE_LEN]);
+        self.set_stack_guard(&cookie_slc)
+    }
+
     /// Set the stack guard to `cookie` using `layout` to calculate
     /// its location and `shared_mem` to write it.
     ///
@@ -101,10 +123,9 @@ impl SandboxMemoryManager {
     /// reference to a `SandboxMemoryLayout` and `SharedMemory`,
     /// remove the `layout` and `shared_mem` parameters, and use
     /// the `&self` to access them instead.
-    pub(crate) fn set_stack_guard(&mut self, cookie: &Vec<u8>) -> Result<()> {
+    pub(crate) fn set_stack_guard(&mut self, cookie: &[u8; STACK_COOKIE_LEN]) -> Result<()> {
         let stack_offset = self.layout.get_top_of_stack_offset();
-        self.shared_mem
-            .copy_from_slice(cookie.as_slice(), stack_offset)
+        self.shared_mem.copy_from_slice(cookie, stack_offset)
     }
 
     /// Set up the hypervisor partition in the given `SharedMemory` parameter
@@ -157,7 +178,7 @@ impl SandboxMemoryManager {
     /// This method could be an associated function instead. See
     /// documentation at the bottom `set_stack_guard` for description
     /// of why it isn't.
-    pub(crate) fn check_stack_guard(&self, cookie: &Vec<u8>) -> Result<bool> {
+    pub(crate) fn check_stack_guard(&self, cookie: [u8; STACK_COOKIE_LEN]) -> Result<bool> {
         let offset = self.layout.get_top_of_stack_offset();
         let mut test_cookie = vec![b'\0'; cookie.len()];
         self.shared_mem

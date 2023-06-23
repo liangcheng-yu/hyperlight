@@ -27,7 +27,7 @@ jobs:
             hypervisor: none
             config: debug
           - build: linux-kvm-debug
-            os: [self-hosted, Linux, X64, kvm2]
+            os: [self-hosted, Linux, X64, "1ES.Pool=HL-Ubuntu-20.04-KVM"]
             hypervisor: kvm
             config: debug
           - build: linux-hyperv-debug
@@ -37,6 +37,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
+      - name: Set up env vars for kvm-linux tests
+        if: ${{ (matrix.hypervisor == 'kvm') }}
+        run: |
+          sudo ls -al /dev/kvm
+          sudo chgrp $(whoami) /dev/kvm
+          sudo ls -al /dev/kvm
+          # TODO: move this to an image build in 1ES
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang 
+          echo "KVM_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
       - uses: dtolnay/rust-toolchain@1.66.1
         with:
           components: clippy, rustfmt
@@ -51,23 +61,20 @@ jobs:
         run: |
           echo "HYPERV_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
           echo "SHOULD_HAVE_STABLE_API=false" >> $GITHUB_ENV
-          ls -al /dev/mshv
-          whoami
-      - name: Set up env vars for kvm-linux tests
-        if: ${{ (matrix.hypervisor == 'kvm') }}
-        run: |
-          echo "KVM_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
       - name: Set up munit
         working-directory: src/hyperlight_host/tests_capi
         run: |
           git submodule init
           git submodule update
-      # Script to install Valgrind does not work on Mariner or on the kvm 
-      # runner. Valgrind has been installed manually on the runners.
-      - name: Install Valgrind (Not on hyperv)
-        if: ${{ (matrix.hypervisor != 'hyperv') && (matrix.hypervisor != 'kvm') }}
-        run: ./install_valgrind.sh
-        working-directory: ./scripts
+      # TODO: install valgrind in 1ES image build for KVM
+      - name: Install Valgrind dependencies
+        if: ${{ (matrix.hypervisor == 'kvm') || (matrix.os == 'ubuntu-20.04') }}
+        run: |
+                sudo apt-get update
+                sudo apt-get install -y libc6-dbg
+      - name: Install Valgrind (snap)
+        if: ${{ (matrix.hypervisor != 'hyperv') }}
+        run: sudo snap install valgrind --classic
       # TODO: install valgrind in 1ES mariner image
       - name: Install Valgrind (Temporary for hyperv)
         if: ${{ (matrix.hypervisor == 'hyperv') }}

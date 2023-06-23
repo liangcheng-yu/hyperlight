@@ -29,13 +29,15 @@ pub fn is_hypervisor_present(require_stable_api: bool) -> Result<bool> {
 }
 /// The constant to map guest physical addresses as readable
 /// in an mshv memory region
-pub const HV_MAP_GPA_READABLE: u32 = 1;
+pub(crate) const HV_MAP_GPA_READABLE: u32 = 1;
 /// The constant to map guest physical addresses as writable
 /// in an mshv memory region
-pub const HV_MAP_GPA_WRITABLE: u32 = 2;
+pub(crate) const HV_MAP_GPA_WRITABLE: u32 = 2;
 /// The constant to map guest physical addresses as executable
 /// in an mshv memory region
-pub const HV_MAP_GPA_EXECUTABLE: u32 = 12;
+pub(crate) const HV_MAP_GPA_EXECUTABLE: u32 = 12;
+//// Whether to require a stable /dev/mshv API
+pub(crate) const REQUIRE_STABLE_API: bool = false;
 
 /// A Hypervisor driver for HyperV-on-Linux. This hypervisor is often
 /// called the Microsoft Hypervisor Platform (MSHV)

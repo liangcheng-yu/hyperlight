@@ -337,4 +337,47 @@
    fun:munit_suite_main_custom
    fun:munit_suite_main
 }
-
+{
+   test_print_output_1
+   Memcheck:Param
+   statx(file_name)
+   fun:statx
+   fun:statx
+   fun:*try_stat*
+   fun:{closure#0}
+   fun:run_with_cstr<std::sys::unix::fs::FileAttr, std::sys::unix::fs::stat::{closure_env#0}>
+   fun:run_path_with_cstr<std::sys::unix::fs::FileAttr, std::sys::unix::fs::stat::{closure_env#0}>
+   fun:*std*sys*unix*fs*stat*
+   fun:metadata<&std::path::Path>
+   fun:*std*sys_common*try_exists*
+   fun:*std*fs*try_exists*
+   fun:*std*path*Path*try_exists*
+   fun:*hyperlight_host*sandbox*Sandbox*new*
+   fun:*hyperlight_host*capi*sandbox*sandbox_new*closure*
+   fun:*hyperlight_host*capi*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_host*capi*and_then_mut*closure*
+   fun:*core6result*Result*and_then*
+}
+{
+   test_print_output_2
+   Memcheck:Param
+   statx(buf)
+   fun:statx
+   fun:statx
+   fun:*std*sys*unix*try_stat*
+   fun:{closure#0}
+   fun:run_with_cstr<std::sys::unix::fs::FileAttr, std::sys::unix::fs::stat::{closure_env#0}>
+   fun:run_path_with_cstr<std::sys::unix::fs::FileAttr, std::sys::unix::fs::stat::{closure_env#0}>
+   fun:*std*sys*unix*fs*stat*
+   fun:metadata<&std::path::Path>
+   fun:*std*sys_common*try_exists*
+   fun:*std*try_exists*
+   fun:*std*path*Path*try_exists**
+   fun:*hyperlight_host*sandbox*Sandbox*new*
+   fun:*hyperlight_host*capi*sandbox*sandbox_new*closure*
+   fun:*hyperlight_host*capi*and_then_mut*closure*
+   fun:*core*and_then*
+   fun:*hyperlight_host*and_then_mut*
+   fun:*core*and_then*
+}
