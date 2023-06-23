@@ -16,7 +16,7 @@ build-test-rust target=default-target:  (build target)
 build-tests-capi target=default-target: (build target)
     clang \
     {{ clang-checks }} \
-    {{ if target == "debug" { "" } else { "-O3" } }} \
+    {{ if target == "debug" { "-D DEBUG" } else { "-O3" } }} \
     tests_capi/*.c \
     tests_capi/munit/munit.c \
     -Iinclude \

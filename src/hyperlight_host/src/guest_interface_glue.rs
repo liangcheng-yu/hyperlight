@@ -34,6 +34,8 @@ pub enum SupportedParameterAndReturnTypes {
     IntPtr,
     /// u32
     UInt,
+    /// Void (return types only)
+    Void,
 }
 
 /// All the value types that can be used as parameters or return types for a host function.
@@ -54,6 +56,8 @@ pub enum SupportedParameterAndReturnValues {
     IntPtr(*mut std::ffi::c_void),
     /// u32
     UInt(u32),
+    /// Void (return types only)
+    Void(()),
 }
 
 /// Validates that the given type is supported by the host interface.

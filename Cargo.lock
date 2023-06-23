@@ -245,6 +245,7 @@ dependencies = [
  "readonly",
  "scroll",
  "serde",
+ "tempfile",
  "termcolor",
  "vmm-sys-util",
  "windows",
