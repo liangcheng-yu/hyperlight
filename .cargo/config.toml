@@ -1,0 +1,2 @@
+[profile.release]         
+panic = 'abort'         # Always abort, this is mainly to ensure that panics cannot unwind across FFI boundaries.

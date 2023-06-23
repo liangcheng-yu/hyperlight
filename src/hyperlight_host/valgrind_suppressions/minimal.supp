@@ -337,4 +337,171 @@
    fun:munit_suite_main_custom
    fun:munit_suite_main
 }
-
+{
+   release_set_panic_abort_pe_relocate_1
+   Memcheck:Param
+   statx(file_name)
+   fun:statx
+   fun:statx
+   fun:*std*sys*unix*try_stat*
+   fun:file_attr
+   fun:metadata
+   fun:*fs*buffer_capacity_required*
+   fun:read_to_end
+   fun:*fs*read*inner*
+   fun:_*hyperlight_host*capi*byte_array*impls*new_from_file*
+   fun:byte_array_new_from_file
+   fun:test_pe_relocate
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+}
+{
+   release_set_panic_abort_pe_relocate_2
+   Memcheck:Param
+   statx(buf)
+   fun:statx
+   fun:statx
+   fun:*std*sys*unix*fs*try_stat*
+   fun:file_attr
+   fun:metadata
+   fun:*std*fs*buffer_capacity_required*
+   fun:read_to_end
+   fun:*std*fs*read*inner*
+   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
+   fun:byte_array_new_from_file
+   fun:test_pe_relocate
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+}
+{
+   release_set_panic_abort_pe_get_headers_1
+   Memcheck:Param
+   statx(file_name)
+   fun:statx
+   fun:statx
+   fun:*std*sys*unix*fs*try_stat*
+   fun:file_attr
+   fun:metadata
+   fun:*std*fs*buffer_capacity_required*
+   fun:read_to_end
+   fun:*std*fs*read*inner*
+   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
+   fun:byte_array_new_from_file
+   fun:test_pe_get_headers
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+}
+{
+   release_set_panic_abort_pe_get_headers_2
+   Memcheck:Param
+   statx(buf)
+   fun:statx
+   fun:statx
+   fun:*std*sys*unix*fs*try_stat*
+   fun:file_attr
+   fun:metadata
+   fun:*std*fs*buffer_capacity_required*
+   fun:read_to_end
+   fun:*std*fs*read*inner*
+   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
+   fun:byte_array_new_from_file
+   fun:test_pe_get_headers
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+}
+{
+   release_set_panic_abort_byte_array_new_from_file_1
+   Memcheck:Param
+   statx(file_name)
+   fun:statx
+   fun:statx
+   fun:*std*sys*unix*fs*try_stat*
+   fun:file_attr
+   fun:metadata
+   fun:*std*fs*buffer_capacity_required*
+   fun:read_to_end
+   fun:*std*fs*read*inner*
+   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
+   fun:byte_array_new_from_file
+   fun:test_byte_array_new_from_file
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+}
+{
+   release_set_panic_abort_byte_array_new_from_file_2
+   Memcheck:Param
+   statx(buf)
+   fun:statx
+   fun:statx
+   fun:*std*sys*unix*fs*try_stat*
+   fun:file_attr
+   fun:metadata
+   fun:*std*fs*buffer_capacity_required*
+   fun:read_to_end
+   fun:*std*fs*read*inner*
+   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
+   fun:byte_array_new_from_file
+   fun:test_byte_array_new_from_file
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+}
+{
+   release_set_panic_abort_byte_array_new_from_file_3
+   Memcheck:Param
+   statx(buf)
+   fun:statx
+   fun:statx
+   fun:*std*sys*unix*fs*try_stat*
+   fun:file_attr
+   fun:metadata
+   fun:*std*fs*buffer_capacity_required*
+   fun:read_to_end
+   fun:*std*fs*read*inner*
+   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
+   fun:byte_array_new_from_file
+   fun:test_byte_array_new_from_file
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+}
+{
+   release_set_panic_abort_byte_array_new_from_file_4
+   Memcheck:Param
+   statx(file_name)
+   fun:statx
+   fun:statx
+   fun:*std*sys*unix*fs*try_stat*
+   fun:file_attr
+   fun:metadata
+   fun:*std*fs*buffer_capacity_required*
+   fun:read_to_end
+   fun:*std*fs*read*inner*
+   fun:*hyperlight_host*capi*byte_array*impls*new_from_file*
+   fun:byte_array_new_from_file
+   fun:test_byte_array_new_from_file
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+}
