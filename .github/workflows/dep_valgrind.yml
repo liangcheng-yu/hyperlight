@@ -31,7 +31,7 @@ jobs:
             hypervisor: kvm
             config: debug
           - build: linux-hyperv-debug
-            os: [self-hosted, Linux, X64, hyperv-nov82022]
+            os: [self-hosted, Linux, X64, "1ES.Pool=HL-CBLMariner-mshv"]
             hypervisor: hyperv
             config: debug
     runs-on: ${{ matrix.os }}
@@ -51,6 +51,8 @@ jobs:
         run: |
           echo "HYPERV_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
           echo "SHOULD_HAVE_STABLE_API=false" >> $GITHUB_ENV
+          ls -al /dev/mshv
+          whoami
       - name: Set up env vars for kvm-linux tests
         if: ${{ (matrix.hypervisor == 'kvm') }}
         run: |
@@ -66,6 +68,10 @@ jobs:
         if: ${{ (matrix.hypervisor != 'hyperv') && (matrix.hypervisor != 'kvm') }}
         run: ./install_valgrind.sh
         working-directory: ./scripts
+      # TODO: install valgrind in 1ES mariner image
+      - name: Install Valgrind (Temporary for hyperv)
+        if: ${{ (matrix.hypervisor == 'hyperv') }}
+        run: sudo dnf install -y valgrind
       - name: Install cargo-valgrind
         run: cargo install cargo-valgrind
       # Rust tests require the test binaries (simpleguest.exe, dummyguest.exe, 
