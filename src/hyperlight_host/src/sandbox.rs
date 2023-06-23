@@ -1,4 +1,6 @@
 use super::sandbox_run_options::SandboxRunOptions;
+use crate::guest::guest_log_data::GuestLogData;
+use crate::guest::log_level::LogLevel;
 use crate::guest_interface_glue::{HostMethodInfo, SupportedParameterAndReturnValues};
 use crate::mem::ptr::RawPtr;
 use crate::mem::{
@@ -6,6 +8,7 @@ use crate::mem::{
 };
 use anyhow::anyhow;
 use anyhow::Result;
+use log::{debug, error, info, trace, warn};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::c_void;
@@ -49,25 +52,6 @@ impl From<u16> for OutBAction {
             _ => OutBAction::Log,
         }
     }
-}
-
-#[allow(unused)]
-pub(crate) fn handle_outb(port: u16, byte: u8) -> Result<()> {
-    match port.into() {
-        OutBAction::Log => {
-            // TODO
-        }
-        OutBAction::CallFunction => {
-            // TODO
-        }
-        OutBAction::Abort => {
-            // TODO
-        }
-        _ => {
-            // TODO
-        }
-    }
-    Ok(())
 }
 
 /// Determine whether a suitable hypervisor is available to run
@@ -300,6 +284,24 @@ impl Sandbox {
             )
         }
     }
+    #[allow(unused)]
+    pub(crate) fn handle_outb(&self, port: u16, byte: u8) -> Result<()> {
+        match port.into() {
+            OutBAction::Log => outb_log(&self.mem_mgr),
+            OutBAction::CallFunction => {
+                // TODO
+                todo!();
+            }
+            OutBAction::Abort => {
+                // TODO
+                todo!();
+            }
+            _ => {
+                // TODO
+                todo!();
+            }
+        }
+    }
 
     // TODO: once we have the host registration functionality we should remove this and hook it up in new()
     #[allow(unused)]
@@ -329,12 +331,36 @@ impl Sandbox {
     }
 }
 
+fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
+    let log_data: GuestLogData = mgr.read_guest_log_data()?;
+    let log_level = &log_data.level;
+    let message = format!(
+        "{} [{}:{}] {}, {}\n",
+        log_data.source, log_data.source_file, log_data.line, log_data.caller, log_data.message
+    );
+    match log_level {
+        LogLevel::Trace => trace!("{}", message),
+        LogLevel::Debug => debug!("{}", message),
+        LogLevel::Information => info!("{}", message),
+        LogLevel::Warning => warn!("{}", message),
+        LogLevel::Error => error!("{}", message),
+        LogLevel::Critical => error!("[CRITICAL] {}", message),
+        // Do nothing if the log level is set to none
+        LogLevel::None => (),
+    };
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::Sandbox;
+    use log::{set_logger, set_max_level, Level};
+
+    use super::{outb_log, Sandbox};
     use crate::{
-        mem::config::SandboxMemoryConfiguration, sandbox_run_options::SandboxRunOptions,
-        testing::simple_guest_path,
+        guest::{guest_log_data::GuestLogData, log_level::LogLevel},
+        mem::{config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager},
+        sandbox_run_options::SandboxRunOptions,
+        testing::{logger::LOGGER, simple_guest_path, simple_guest_pe_info},
     };
     use std::{cell::RefCell, io::Cursor, rc::Rc};
     #[test]
@@ -421,5 +447,105 @@ mod tests {
         assert_eq!(buffer, b"test");
 
         // TODO: Test with stdout
+    }
+
+    fn new_guest_log_data(level: LogLevel) -> GuestLogData {
+        GuestLogData::new(
+            "test log".to_string(),
+            "test source".to_string(),
+            level,
+            "test caller".to_string(),
+            "test source file".to_string(),
+            123,
+        )
+    }
+
+    #[test]
+    fn test_outb_log() {
+        let new_mgr = || {
+            let mut pe_info = simple_guest_pe_info().unwrap();
+            SandboxMemoryManager::load_guest_binary_into_memory(
+                SandboxMemoryConfiguration::default(),
+                &mut pe_info,
+                false,
+            )
+            .unwrap()
+        };
+        {
+            // We have not set a logger and there is no guest log data
+            // in memory, so expect a log operation to fail
+            let mgr = new_mgr();
+            assert!(outb_log(&mgr).is_err());
+        }
+        {
+            // Write a log message so outb_log will succeed. Since there is
+            // no logger set with set_logger, expect logs to be no-ops
+            let mut mgr = new_mgr();
+            let layout = mgr.layout;
+            let log_msg = new_guest_log_data(LogLevel::Information);
+
+            log_msg
+                .write_to_memory(mgr.get_shared_mem_mut(), &layout)
+                .unwrap();
+            assert!(outb_log(&mgr).is_ok());
+            assert_eq!(0, LOGGER.num_log_calls());
+        }
+        {
+            // now, test logging
+            let mut mgr = new_mgr();
+            {
+                // set up the logger and set the log level to the maximum
+                // possible (Trace) to ensure we're able to test all
+                // the possible branches of the match in outb_log
+                set_logger(&LOGGER).unwrap();
+                set_max_level(log::LevelFilter::Trace);
+            }
+            let levels = vec![
+                LogLevel::Trace,
+                LogLevel::Debug,
+                LogLevel::Information,
+                LogLevel::Warning,
+                LogLevel::Error,
+                LogLevel::Critical,
+                LogLevel::None,
+            ];
+            for (idx, level) in levels.iter().enumerate() {
+                let layout = mgr.layout;
+                let log_data = new_guest_log_data(level.clone());
+                log_data
+                    .write_to_memory(mgr.get_shared_mem_mut(), &layout)
+                    .unwrap();
+                outb_log(&mgr).unwrap();
+                let num_calls = LOGGER.num_log_calls();
+                if level.clone() != LogLevel::None {
+                    assert_eq!(
+                        idx + 1,
+                        num_calls,
+                        "log call did not occur for level {:?}",
+                        level.clone()
+                    );
+                }
+                let last_log = LOGGER.get_log_call(num_calls - 1).unwrap();
+                match (level, last_log.level) {
+                    (LogLevel::Trace, Level::Trace) => (),
+                    (LogLevel::Debug, Level::Debug) => (),
+                    (LogLevel::Information, Level::Info) => (),
+                    (LogLevel::Warning, Level::Warn) => (),
+                    (LogLevel::Error, Level::Error) => (),
+                    (LogLevel::Critical, Level::Error) => (),
+                    // If someone logged with "None", we don't
+                    // expect any actual log record. this case
+                    // is here to indicate we don't want to
+                    // match None to any actual log record, and
+                    // we don't want to fall through to the next
+                    // case
+                    (LogLevel::None, _) => (),
+                    (other_log_level, other_level) => panic!(
+                        "Invalid LogLevel / Level pair: ({:?}, {:?})",
+                        other_log_level, other_level
+                    ),
+                };
+            }
+        }
     }
 }

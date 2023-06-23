@@ -1,9 +1,10 @@
+use crate::mem::pe::pe_info::PEInfo;
 use anyhow::{anyhow, Result};
 use hex_literal::hex;
 use std::fs;
 use std::path::PathBuf;
 
-use crate::mem::pe::pe_info::PEInfo;
+pub(crate) mod logger;
 
 pub(crate) const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
 

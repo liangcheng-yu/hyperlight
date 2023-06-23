@@ -29,6 +29,7 @@ termcolor = "1.2.0"
 atty = "0.2.14"
 bitflags = "2.3.1"
 lazy_static = "1.4.0"
+log = "0.4.19"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.48.0", features = [

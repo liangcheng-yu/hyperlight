@@ -102,7 +102,7 @@ pub mod sandbox_run_options;
 
 ///! Types used to pass data to/from the guest.
 #[deny(dead_code, missing_docs, unused_mut)]
-pub mod guest;
+pub(crate) mod guest;
 
 ///! FlatBuffers-related utilities and (mostly) generated code
 #[allow(non_camel_case_types)]
