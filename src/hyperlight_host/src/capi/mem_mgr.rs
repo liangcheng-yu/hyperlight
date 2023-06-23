@@ -1,6 +1,5 @@
 use super::{byte_array::get_byte_array, context::Context, handle::Handle, hdl::Hdl};
 use super::{guest_log_data::register_guest_log_data, shared_mem::get_shared_memory};
-use crate::capi::function_call_result::get_function_call_result;
 use crate::{
     capi::arrays::borrowed_slice::borrow_ptr_as_slice_mut,
     capi::{c_func::CFunc, int::register_i32},
@@ -9,6 +8,7 @@ use crate::{
         ptr::{GuestPtr, HostPtr, RawPtr},
     },
 };
+use crate::{capi::function_call_result::get_function_call_result, mem::mgr::STACK_COOKIE_LEN};
 use crate::{
     capi::int::register_u64,
     capi::{
@@ -140,7 +140,7 @@ pub unsafe extern "C" fn mem_mgr_set_stack_guard(
         Ok(c) => c,
         Err(e) => return (*ctx).register_err(e),
     };
-    match mgr.set_stack_guard(cookie) {
+    match mgr.set_stack_guard_from_vec(cookie) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
@@ -194,16 +194,21 @@ pub unsafe extern "C" fn mem_mgr_check_stack_guard(
     mgr_hdl: Handle,
     cookie_hdl: Handle,
 ) -> Handle {
-    validate_context!(ctx);
-    let mgr = get_mgr!(ctx, mgr_hdl);
-    let cookie = match get_byte_array(&*ctx, cookie_hdl) {
-        Ok(c) => c,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    match mgr.check_stack_guard(cookie) {
-        Ok(res) => Context::register(res, &mut (*ctx).booleans, Hdl::Boolean),
-        Err(e) => (*ctx).register_err(e),
-    }
+    CFunc::new("mem_mgr_check_stack_guard", ctx)
+        .and_then_mut(|ctx, _| {
+            let mgr = get_mem_mgr(ctx, mgr_hdl)?;
+            let cookie = get_byte_array(ctx, cookie_hdl)?;
+            if cookie.len() != STACK_COOKIE_LEN {
+                bail!("stack cookie not expected length {}", STACK_COOKIE_LEN);
+            }
+            // copy the `cookie` Vec into the slice
+            let mut cookie_slc: [u8; STACK_COOKIE_LEN] = [b'0'; STACK_COOKIE_LEN];
+            cookie_slc[..STACK_COOKIE_LEN].copy_from_slice(&cookie[..STACK_COOKIE_LEN]);
+
+            mgr.check_stack_guard(cookie_slc)
+                .map(|b| Context::register(b, &mut ctx.booleans, Hdl::Boolean))
+        })
+        .ok_or_err_hdl()
 }
 
 /// Get the address of the process environment block (PEB) and return a

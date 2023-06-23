@@ -5,6 +5,7 @@ use crate::guest_interface_glue::{
     HostMethodInfo, SupportedParameterAndReturnTypes, SupportedParameterAndReturnValues,
 };
 use crate::hypervisor::Hypervisor;
+use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::mem::ptr::RawPtr;
 use crate::mem::{
     config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager, pe::pe_info::PEInfo,
@@ -333,6 +334,7 @@ pub struct Sandbox<'a> {
     map_host_function_names_to_method_info: HashMap<String, HostMethodInfo>,
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
+    stack_guard: [u8; STACK_COOKIE_LEN],
 }
 
 impl<'a> Sandbox<'a> {
@@ -365,12 +367,14 @@ impl<'a> Sandbox<'a> {
         }
 
         let mem_cfg = cfg.unwrap_or_default();
-        let mem_mgr = Sandbox::load_guest_binary(
+        let mut mem_mgr = Sandbox::load_guest_binary(
             mem_cfg,
             &bin_path,
             run_from_process_memory,
             run_from_guest_binary,
         )?;
+        let stack_guard = Self::create_stack_guard();
+        mem_mgr.set_stack_guard(&stack_guard)?;
 
         // The default writer function is to write to stdout with green text
 
@@ -400,11 +404,29 @@ impl<'a> Sandbox<'a> {
             writer_func,
             mem_mgr,
             map_host_function_names_to_method_info: HashMap::new(),
+            stack_guard,
         };
 
         // TODO: Register the host print function
 
         Ok(sandbox)
+    }
+
+    fn create_stack_guard() -> [u8; STACK_COOKIE_LEN] {
+        rand::random::<[u8; STACK_COOKIE_LEN]>()
+    }
+
+    /// Check the stack guard against the stack guard cookie stored
+    /// within `self`. Return `Ok(true)` if the guard cookie could
+    /// be found and it matched `self.stack_guard`, `Ok(false)` if
+    /// if could be found and did not match `self.stack_guard`, and
+    /// `Err` if it could not be found or there was some other error.
+    ///
+    /// TODO: remove the dead code annotation after this is hooked up in
+    /// https://github.com/deislabs/hyperlight/pull/727
+    #[allow(dead_code)]
+    fn check_stack_guard(&self) -> Result<bool> {
+        self.mem_mgr.check_stack_guard(self.stack_guard)
     }
 
     /// Set up the appropriate hypervisor for the platform.
@@ -977,5 +999,14 @@ mod tests {
                 };
             }
         }
+    }
+
+    #[test]
+    fn test_stack_guard() {
+        let simple_guest_path = simple_guest_path().unwrap();
+        let sbox = Sandbox::new(simple_guest_path, None, None, None).unwrap();
+        let res = sbox.check_stack_guard();
+        assert!(res.is_ok(), "Sandbox::check_stack_guard returned an error");
+        assert!(res.unwrap(), "Sandbox::check_stack_guard returned false");
     }
 }
