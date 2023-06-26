@@ -1,14 +1,12 @@
 use super::{
+    handlers::{MemAccessHandlerRc, OutBHandlerRc},
     hypervisor_mem::{
         CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT,
         CR4_PAE, EFER_LMA, EFER_LME,
     },
     Hypervisor,
 };
-use crate::{
-    capi::{mem_access_handler::MemAccessHandlerWrapper, outb_handler::OutbHandlerWrapper},
-    mem::{layout::SandboxMemoryLayout, ptr::RawPtr},
-};
+use crate::mem::{layout::SandboxMemoryLayout, ptr::RawPtr};
 use anyhow::{anyhow, bail, Result};
 use kvm_bindings::{kvm_segment, kvm_userspace_memory_region};
 use kvm_ioctls::{Cap::UserMemory, Kvm, VcpuExit, VcpuFd, VmFd};
@@ -172,7 +170,7 @@ impl KVMDriver {
             .map_err(|e| anyhow!("failed to set segment registers: {:?}", e))
     }
 
-    fn handle_io(&self, port: u16, data: &[u8], outb_handle_fn: OutbHandlerWrapper) -> Result<()> {
+    fn handle_io(&self, port: u16, data: &[u8], outb_handle_fn: OutBHandlerRc) -> Result<()> {
         let mut regs = self.vcpu_fd.get_regs()?;
         let orig_rip = regs.rip;
 
@@ -198,8 +196,8 @@ impl Hypervisor for KVMDriver {
     fn dispatch_call_from_host(
         &mut self,
         dispatch_func_addr: RawPtr,
-        outb_handle_fn: crate::capi::outb_handler::OutbHandlerWrapper,
-        mem_access_fn: crate::capi::mem_access_handler::MemAccessHandlerWrapper,
+        outb_handle_fn: OutBHandlerRc,
+        mem_access_fn: MemAccessHandlerRc,
     ) -> Result<()> {
         // Move rip to the DispatchFunction pointer
         let mut regs = self.vcpu_fd.get_regs()?;
@@ -210,8 +208,8 @@ impl Hypervisor for KVMDriver {
 
     fn execute_until_halt(
         &mut self,
-        outb_handle_fn: OutbHandlerWrapper,
-        mem_access_fn: MemAccessHandlerWrapper,
+        outb_hdl: OutBHandlerRc,
+        mem_access_hdl: MemAccessHandlerRc,
     ) -> Result<()> {
         loop {
             let run_res = self.vcpu_fd.run()?;
@@ -219,15 +217,13 @@ impl Hypervisor for KVMDriver {
                 VcpuExit::Hlt => {
                     return Ok(());
                 }
-                VcpuExit::IoOut(port, data) => {
-                    self.handle_io(port, data, outb_handle_fn.clone())?
-                }
+                VcpuExit::IoOut(port, data) => self.handle_io(port, data, outb_hdl.clone())?,
                 VcpuExit::MmioRead(addr, data) => {
-                    mem_access_fn.call();
+                    mem_access_hdl.call();
                     bail!("MMIO read address {:#x}, data {:?}", addr, data);
                 }
                 VcpuExit::MmioWrite(addr, data) => {
-                    mem_access_fn.call();
+                    mem_access_hdl.call();
                     bail!("MMIO write address 0x{:x}, data {:?}", addr, data);
                 }
                 other => {
@@ -246,8 +242,8 @@ impl Hypervisor for KVMDriver {
         peb_addr: RawPtr,
         seed: u64,
         page_size: u32,
-        outb_handle_fn: crate::capi::outb_handler::OutbHandlerWrapper,
-        mem_access_fn: crate::capi::mem_access_handler::MemAccessHandlerWrapper,
+        outb_hdl: OutBHandlerRc,
+        mem_access_hdl: MemAccessHandlerRc,
     ) -> Result<()> {
         let mut regs = self.vcpu_fd.get_regs()?;
         regs.rip = self.entrypoint;
@@ -257,7 +253,7 @@ impl Hypervisor for KVMDriver {
         regs.rcx = peb_addr.into();
         regs.rflags = 0x2;
         self.vcpu_fd.set_regs(&regs)?;
-        self.execute_until_halt(outb_handle_fn, mem_access_fn)
+        self.execute_until_halt(outb_hdl.clone(), mem_access_hdl.clone())
     }
 
     fn reset_rsp(&mut self, rsp: u64) -> Result<()> {
@@ -334,13 +330,14 @@ pub(crate) mod test_cfg {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use super::KVMDriver;
     use crate::{
-        capi::{
-            mem_access_handler::new_mem_access_handler_wrapper,
-            outb_handler::new_outb_handler_wrapper,
+        hypervisor::{
+            handlers::{MemAccessHandlerFn, OutBHandlerFn},
+            tests::test_initialise,
         },
-        hypervisor::tests::test_initialise,
         mem::ptr_offset::Offset,
     };
     use crate::{
@@ -348,14 +345,17 @@ mod tests {
         should_run_kvm_linux_test,
     };
 
-    extern "C" fn outb_fn(_port: u16, _payload: u64) {}
-    extern "C" fn mem_access_fn() {}
-
     #[test]
     fn test_init() {
         should_run_kvm_linux_test!();
-        let outb_handler = new_outb_handler_wrapper(outb_fn);
-        let mem_access_handler = new_mem_access_handler_wrapper(mem_access_fn);
+        let outb_handler = {
+            let func: Box<dyn Fn(u16, u64)> = Box::new(|_, _| {});
+            Rc::new(OutBHandlerFn::from(func))
+        };
+        let mem_access_handler = {
+            let func: Box<dyn Fn()> = Box::new(|| {});
+            Rc::new(MemAccessHandlerFn::from(func))
+        };
         test_initialise(
             outb_handler,
             mem_access_handler,

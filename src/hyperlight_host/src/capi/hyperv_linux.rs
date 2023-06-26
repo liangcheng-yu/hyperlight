@@ -1,16 +1,16 @@
-use crate::validate_context;
-
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::mem_access_handler::get_mem_access_handler_func;
 use super::mem_access_handler::MemAccessHandlerWrapper;
-use super::outb_handler::{get_outb_handler_func, OutbHandlerWrapper};
+use super::outb_handler::{get_outb_handler_func, OutBHandlerWrapper};
 use crate::hypervisor::hyperv_linux::{is_hypervisor_present, HypervLinuxDriver};
 use crate::hypervisor::hypervisor_mem::HypervisorAddrs;
 use crate::hypervisor::Hypervisor;
+use crate::validate_context;
 use anyhow::Result;
 use mshv_bindings::hv_register_name;
+use std::rc::Rc;
 
 fn get_driver_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut HypervLinuxDriver> {
     Context::get_mut(hdl, &mut ctx.hyperv_linux_drivers, |h| {
@@ -184,7 +184,7 @@ pub(crate) fn get_handler_funcs(
     ctx: &Context,
     outb_func_hdl: Handle,
     mem_access_func_hdl: Handle,
-) -> Result<(OutbHandlerWrapper, MemAccessHandlerWrapper)> {
+) -> Result<(OutBHandlerWrapper, MemAccessHandlerWrapper)> {
     let outb_func = get_outb_handler_func(ctx, outb_func_hdl).map(|f| (*f).clone())?;
     let mem_access_func =
         get_mem_access_handler_func(ctx, mem_access_func_hdl).map(|f| (*f).clone())?;
@@ -223,8 +223,13 @@ pub unsafe extern "C" fn hyperv_linux_initialise(
             Ok(tup) => tup,
             Err(e) => return (*ctx).register_err(e),
         };
-    let init_res =
-        (*driver).initialise(peb_addr.into(), seed, page_size, outb_func, mem_access_func);
+    let init_res = (*driver).initialise(
+        peb_addr.into(),
+        seed,
+        page_size,
+        Rc::new(outb_func),
+        Rc::new(mem_access_func),
+    );
     match init_res {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
@@ -261,7 +266,7 @@ pub unsafe extern "C" fn hyperv_linux_execute_until_halt(
             Ok(tup) => tup,
             Err(e) => return (*ctx).register_err(e),
         };
-    match (*driver).execute_until_halt(outb_func, mem_access_func) {
+    match (*driver).execute_until_halt(Rc::new(outb_func), Rc::new(mem_access_func)) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
@@ -294,7 +299,11 @@ pub unsafe extern "C" fn hyperv_linux_dispatch_call_from_host(
             Ok(tup) => tup,
             Err(e) => return (*ctx).register_err(e),
         };
-    match (*driver).dispatch_call_from_host(dispatch_func_addr.into(), outb_func, mem_access_func) {
+    match (*driver).dispatch_call_from_host(
+        dispatch_func_addr.into(),
+        Rc::new(outb_func),
+        Rc::new(mem_access_func),
+    ) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }

@@ -1,7 +1,7 @@
 use super::handle::{new_key, Handle, Key};
 use super::hdl::Hdl;
 use super::sandbox::Sandbox;
-use crate::capi::outb_handler::OutbHandlerWrapper;
+use crate::capi::outb_handler::OutBHandlerWrapper;
 use crate::guest::function_call::FunctionCall;
 use crate::guest::function_call_result::FunctionCallResult;
 use crate::guest::guest_error::GuestError;
@@ -71,7 +71,7 @@ pub struct Context {
     /// The KVM Linux VM drivers stored in this context
     pub kvm_drivers: HashMap<Key, KVMDriver>,
     /// The outb handler functions stored in this context
-    pub outb_handler_funcs: HashMap<Key, OutbHandlerWrapper>,
+    pub outb_handler_funcs: HashMap<Key, OutBHandlerWrapper>,
     /// The memory access handler functions stored in this context
     pub mem_access_handler_funcs: HashMap<Key, MemAccessHandlerWrapper>,
     /// All the `GuestMemory`s stored in this context

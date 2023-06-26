@@ -1,30 +1,25 @@
-use crate::capi::context::Context;
 use crate::capi::handle::Handle;
 use crate::capi::hdl::Hdl;
+use crate::{capi::context::Context, hypervisor::handlers::OutBHandler};
 use anyhow::Result;
 
-/// Handle calling a host function from the guest via an Outb interrupt
+/// A FFI-friendly implementation of a `OutBHandler`. This type stores
+/// a standard C function pointer -- an `extern "C" fn(u16, u64)` -- and
+/// implements the `OutBHandler`'s `call` method by simply calling the
+/// underlying function.
 #[derive(Clone)]
-pub struct OutbHandlerWrapper {
+pub struct OutBHandlerWrapper {
     func: extern "C" fn(u16, u64),
 }
 
-impl OutbHandlerWrapper {
-    /// Call the wrapped handler function
-    pub(crate) fn call(&self, port: u16, payload: u64) {
+impl OutBHandler for OutBHandlerWrapper {
+    fn call(&self, port: u16, payload: u64) {
         (self.func)(port, payload)
     }
 }
 
-/// Create a new `OutbHandlerWrapper` with the given `func`
-#[cfg(test)]
-#[cfg(target_os = "linux")]
-pub(crate) fn new_outb_handler_wrapper(func: extern "C" fn(u16, u64)) -> OutbHandlerWrapper {
-    OutbHandlerWrapper { func }
-}
-
 /// Get a OutbHandlerFunc from the specified handle
-pub(crate) fn get_outb_handler_func(ctx: &Context, hdl: Handle) -> Result<&OutbHandlerWrapper> {
+pub(crate) fn get_outb_handler_func(ctx: &Context, hdl: Handle) -> Result<&OutBHandlerWrapper> {
     Context::get(hdl, &ctx.outb_handler_funcs, |h| {
         matches!(h, Hdl::OutbHandlerFunc(_))
     })
@@ -58,7 +53,7 @@ pub unsafe extern "C" fn outb_fn_handler_create(
         }
     };
 
-    let outb_func = OutbHandlerWrapper { func: ptr };
+    let outb_func = OutBHandlerWrapper { func: ptr };
     let coll = &mut (*ctx).outb_handler_funcs;
     Context::register(outb_func, coll, Hdl::OutbHandlerFunc)
 }

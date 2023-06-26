@@ -1,11 +1,13 @@
-use super::hypervisor_mem::{
-    CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT, CR4_PAE,
-    EFER_LMA, EFER_LME,
+use super::{handlers::MemAccessHandlerRc, Hypervisor};
+use super::{
+    handlers::OutBHandlerRc,
+    hypervisor_mem::{
+        CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT,
+        CR4_PAE, EFER_LMA, EFER_LME,
+    },
 };
-use super::Hypervisor;
-use crate::capi::outb_handler::OutbHandlerWrapper;
 use crate::hypervisor::hypervisor_mem::HypervisorAddrs;
-use crate::{capi::mem_access_handler::MemAccessHandlerWrapper, mem::ptr::RawPtr};
+use crate::mem::ptr::RawPtr;
 use anyhow::{anyhow, bail, Result};
 use mshv_bindings::*;
 use mshv_ioctls::{Mshv, VcpuFd, VmFd};
@@ -244,7 +246,7 @@ impl HypervLinuxDriver {
     fn handle_io_port_intercept(
         &mut self,
         msg: hv_message,
-        outb_handle_fn: OutbHandlerWrapper,
+        outb_handle_fn: OutBHandlerRc,
     ) -> Result<()> {
         let io_message = msg.to_ioport_info()?;
         let port_number = io_message.port_number;
@@ -260,7 +262,7 @@ impl HypervLinuxDriver {
     fn handle_unmapped_gpa(
         &self,
         msg: hv_message,
-        mem_access_fn: MemAccessHandlerWrapper,
+        mem_access_fn: MemAccessHandlerRc,
     ) -> Result<()> {
         mem_access_fn.call();
         let msg_type = msg.header.message_type;
@@ -274,8 +276,8 @@ impl Hypervisor for HypervLinuxDriver {
         peb_addr: RawPtr,
         seed: u64,
         page_size: u32,
-        outb_handle_fn: OutbHandlerWrapper,
-        mem_access_fn: MemAccessHandlerWrapper,
+        outb_hdl: OutBHandlerRc,
+        mem_access_hdl: MemAccessHandlerRc,
     ) -> Result<()> {
         self.registers.insert(
             hv_register_name::HV_X64_REGISTER_RCX,
@@ -292,13 +294,13 @@ impl Hypervisor for HypervLinuxDriver {
             hv_register_value { reg32: page_size },
         );
         self.apply_registers()?;
-        self.execute_until_halt(outb_handle_fn, mem_access_fn)
+        self.execute_until_halt(outb_hdl, mem_access_hdl)
     }
 
     fn execute_until_halt(
         &mut self,
-        outb_handle_fn: OutbHandlerWrapper,
-        mem_access_fn: MemAccessHandlerWrapper,
+        outb_handle_fn: OutBHandlerRc,
+        mem_access_fn: MemAccessHandlerRc,
     ) -> Result<()> {
         const HALT_MESSAGE: hv_message_type = hv_message_type_HVMSG_X64_HALT;
         const IO_PORT_INTERCEPT_MESSAGE: hv_message_type =
@@ -328,8 +330,8 @@ impl Hypervisor for HypervLinuxDriver {
     fn dispatch_call_from_host(
         &mut self,
         dispatch_func_addr: RawPtr,
-        outb_handle_fn: OutbHandlerWrapper,
-        mem_access_fn: MemAccessHandlerWrapper,
+        outb_handle_fn: OutBHandlerRc,
+        mem_access_fn: MemAccessHandlerRc,
     ) -> Result<()> {
         self.update_rip(dispatch_func_addr)?;
         self.execute_until_halt(outb_handle_fn, mem_access_fn)

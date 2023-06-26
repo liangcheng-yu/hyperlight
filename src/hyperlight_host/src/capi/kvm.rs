@@ -10,6 +10,7 @@ use crate::{
     },
 };
 use anyhow::Result;
+use std::rc::Rc;
 
 fn get_driver_mut(ctx: &mut Context, handle: Handle) -> Result<&mut KVMDriver> {
     Context::get_mut(handle, &mut ctx.kvm_drivers, |b| {
@@ -114,7 +115,13 @@ pub unsafe extern "C" fn kvm_initialise(
         .and_then_mut(|ctx, (outb_func, mem_access_func)| {
             let driver = get_driver_mut(ctx, driver_hdl)?;
             (*driver)
-                .initialise(peb_addr.into(), seed, page_size, outb_func, mem_access_func)
+                .initialise(
+                    peb_addr.into(),
+                    seed,
+                    page_size,
+                    Rc::new(outb_func),
+                    Rc::new(mem_access_func),
+                )
                 .map(|_| Handle::new_empty())
         })
         .ok_or_err_hdl()
@@ -142,7 +149,11 @@ pub unsafe extern "C" fn kvm_dispatch_call_from_host(
         .and_then_mut(|ctx, (outb_func, mem_access_func)| {
             let driver = get_driver_mut(ctx, driver_hdl)?;
             (*driver)
-                .dispatch_call_from_host(dispatch_func_addr.into(), outb_func, mem_access_func)
+                .dispatch_call_from_host(
+                    dispatch_func_addr.into(),
+                    Rc::new(outb_func),
+                    Rc::new(mem_access_func),
+                )
                 .map(|_| Handle::new_empty())
         })
         .ok_or_err_hdl()
