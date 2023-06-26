@@ -74,7 +74,7 @@ jobs:
         name: ${{ env.CONFIG }}_assets
         path: target/release/
     - name: Build Solution
-      run: msbuild hyperlight.sln /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /p:ContinuousIntegrationBuild=true
+      run: msbuild -m hyperlight.sln /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /p:ContinuousIntegrationBuild=true
       shell: pwsh
     - name: Test
       shell: pwsh
