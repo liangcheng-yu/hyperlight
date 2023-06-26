@@ -272,7 +272,7 @@ mod tests {
             let hp = HostPtr::try_from((raw_host_ptr, &gm));
             assert!(hp.is_ok());
             let host_ptr = hp.unwrap();
-            assert_eq!(OFFSET, host_ptr.offset().into());
+            assert_eq!(OFFSET, u64::from(host_ptr.offset()));
             host_ptr
         };
 
@@ -281,7 +281,7 @@ mod tests {
             assert!(gp_res.is_ok());
             gp_res.unwrap()
         };
-        assert_eq!(OFFSET, guest_ptr.offset().into());
+        assert_eq!(OFFSET, u64::from(guest_ptr.offset()));
         assert_eq!(
             OFFSET + SandboxMemoryLayout::BASE_ADDRESS as u64,
             guest_ptr.absolute().unwrap()
@@ -317,7 +317,7 @@ mod prop_tests {
                 let hp = HostPtr::try_from((raw_host_ptr, &shared_mem));
                 assert!(hp.is_ok());
                 let host_ptr = hp.unwrap();
-                assert_eq!(offset, host_ptr.offset().into());
+                assert_eq!(offset, u64::from(host_ptr.offset()));
                 host_ptr
             };
 
@@ -327,7 +327,7 @@ mod prop_tests {
                 gp_res.unwrap()
             };
 
-            assert_eq!(offset, guest_ptr.offset().into());
+            assert_eq!(offset, u64::from(guest_ptr.offset()));
             assert_eq!(
             offset + SandboxMemoryLayout::BASE_ADDRESS as u64,
                 guest_ptr.absolute().unwrap()

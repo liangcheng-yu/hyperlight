@@ -318,7 +318,7 @@ impl SandboxMemoryLayout {
         self.stack_data_offset
     }
 
-    /// Get the offset in guest memory to the start of host exceptions
+    /// Get the offset in guest memory to the start of host errors
     pub fn get_host_exception_offset(&self) -> Offset {
         self.host_exception_buffer_offset
     }

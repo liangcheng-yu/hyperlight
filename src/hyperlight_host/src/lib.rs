@@ -1,6 +1,5 @@
 ///! This crate contains an SDK that is used to execute specially-
 ///! compiled binaries within a very lightweight hypervisor environment.
-
 #[deny(dead_code, missing_docs, unused_mut)]
 
 ///! A C-compatible API for the Hyperlight Host's Sandbox and
@@ -57,6 +56,9 @@ pub mod func;
 #[deny(dead_code, missing_docs, unused_mut)]
 pub mod hypervisor;
 
+///! Dealing with errors, including errors across VM boundaries
+pub(crate) mod error;
+
 ///! Wrapper for guest interface glue
 #[deny(dead_code, missing_docs, unused_mut)]
 pub mod guest_interface_glue;
@@ -109,7 +111,7 @@ pub(crate) mod guest;
 pub mod flatbuffers;
 
 ///! Utilities for testing including interacting with `simpleguest.exe`
-/// and `callbackguest.exe`, our two most basic guest binaries for testing
+///! and `callbackguest.exe`, our two most basic guest binaries for testing
 #[deny(dead_code, missing_docs, unused_mut)]
 #[cfg(test)]
 pub(crate) mod testing;

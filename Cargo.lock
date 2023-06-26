@@ -245,6 +245,7 @@ dependencies = [
  "readonly",
  "scroll",
  "serde",
+ "serde_json",
  "tempfile",
  "termcolor",
  "vmm-sys-util",

@@ -1,4 +1,5 @@
 use super::sandbox_run_options::SandboxRunOptions;
+use crate::flatbuffers::hyperlight::generated::ErrorCode;
 use crate::guest::guest_log_data::GuestLogData;
 use crate::guest::log_level::LogLevel;
 use crate::guest_interface_glue::{
@@ -667,6 +668,35 @@ impl<'a> Sandbox<'a> {
         // Ideally we would figure if the writer_func is an FnMut or if its one of its subtraits (in which case we would not need to borrow_mut)
 
         (self.writer_func.func.try_borrow_mut()?)(msg)
+    }
+
+    /// Check for a guest error and return an `Err` if one was found,
+    /// and `Ok` if one was not found.
+    /// TODO: remove this when we hook it up to the rest of the
+    /// sandbox in https://github.com/deislabs/hyperlight/pull/727
+    #[allow(dead_code)]
+    fn check_for_guest_error(&self) -> Result<()> {
+        let guest_err = self.mem_mgr.get_guest_error()?;
+        match guest_err.code {
+            ErrorCode::NoError => Ok(()),
+            ErrorCode::OutbError => match self.mem_mgr.get_host_error()? {
+                Some(host_err) => bail!("[OutB Error] {:?}: {:?}", guest_err.code, host_err),
+                None => Ok(()),
+            },
+            ErrorCode::StackOverflow => {
+                let err_msg = format!(
+                    "[Stack Overflow] Guest Error: {:?}: {}",
+                    guest_err.code, guest_err.message
+                );
+                error!("{}", err_msg);
+                bail!(err_msg);
+            }
+            _ => {
+                let err_msg = format!("Guest Error: {:?}: {}", guest_err.code, guest_err.message);
+                error!("{}", err_msg);
+                bail!(err_msg);
+            }
+        }
     }
 }
 

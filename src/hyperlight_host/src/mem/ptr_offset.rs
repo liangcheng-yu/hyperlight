@@ -170,7 +170,7 @@ mod tests {
                 assert!(offset_res.is_ok());
                 let offset = offset_res.unwrap();
                 let ret_i64_val = {
-                    let res = offset.try_into();
+                    let res = i64::try_from(offset);
                     assert!(res.is_ok());
                     res.unwrap()
                 };

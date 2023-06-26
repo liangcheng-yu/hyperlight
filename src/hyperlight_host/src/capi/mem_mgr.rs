@@ -441,7 +441,7 @@ pub unsafe extern "C" fn mem_mgr_get_pointer_to_dispatch_function(
 pub unsafe extern "C" fn mem_mgr_has_host_exception(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
     validate_context!(ctx);
     let mgr = get_mgr!(ctx, mgr_hdl);
-    match mgr.has_host_exception() {
+    match mgr.has_host_error() {
         Ok(output) => Context::register(output, &mut (*ctx).booleans, Hdl::Boolean),
         Err(e) => (*ctx).register_err(e),
     }
@@ -462,7 +462,7 @@ pub unsafe extern "C" fn mem_mgr_get_host_exception_length(
 ) -> Handle {
     validate_context!(ctx);
     let mgr = get_mgr!(ctx, mgr_hdl);
-    match mgr.get_host_exception_length() {
+    match mgr.get_host_error_length() {
         Ok(output) => Context::register(output, &mut (*ctx).int32s, Hdl::Int32),
         Err(e) => (*ctx).register_err(e),
     }
@@ -505,7 +505,7 @@ pub unsafe extern "C" fn mem_mgr_get_host_exception_data(
                 )
             })?;
             borrow_ptr_as_slice_mut(exception_data_ptr, exception_data_len_usize, |slice| {
-                mgr.get_host_exception_data(slice)
+                mgr.get_host_error_data(slice)
             })?;
             Ok(Handle::new_empty())
         })
@@ -550,7 +550,7 @@ pub unsafe extern "C" fn mem_mgr_write_outb_exception(
         Err(e) => return (*ctx).register_err(e),
     };
 
-    match mgr.write_outb_exception(guest_error_msg, host_exception_data) {
+    match mgr.write_outb_error(guest_error_msg, host_exception_data) {
         Ok(_) => Handle::from(Hdl::Empty()),
         Err(e) => (*ctx).register_err(e),
     }
