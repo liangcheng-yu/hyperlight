@@ -1,6 +1,6 @@
 use super::sandbox_run_options::SandboxRunOptions;
 use crate::flatbuffers::hyperlight::generated::ErrorCode;
-use crate::functions::HyperlightFunction;
+use crate::functions::{HyperlightFunction, FunctionOne};
 use crate::guest::guest_log_data::GuestLogData;
 use crate::guest::log_level::LogLevel;
 use crate::guest_interface_glue::SupportedParameterAndReturnTypes;
@@ -328,12 +328,6 @@ fn validate_concrete_type(t: &dyn Any) -> Result<()> {
 pub struct Sandbox<'a> {
     // Registered host functions
     pub(crate) host_functions: HashMap<String, HyperlightFunction>,
-    // ^^^ (DAN) Another options for this might have been to use an
-    // `enum HyperlightFunction` with a variant for each supported function type.
-    // This could work, but it would require us to add generics onto the Sandbox,
-    // which that would trickle all the way down to `Context`,
-    // and make `Sandbox` pretty annoying to use.
-
     // The writer to use for print requests from the guest.
     writer_func: HostFunctionWithOneArg<'a, (), String>,
     // The memory manager for the sandbox.
@@ -380,38 +374,38 @@ impl<'a> Sandbox<'a> {
         let stack_guard = Self::create_stack_guard();
         mem_mgr.set_stack_guard(&stack_guard)?;
 
-        // The default writer function is to write to stdout with green text
+        // The default writer function is to write to stdout with green text.
+        let default_writer_func = Rc::new(RefCell::new(|s: String| -> Result<()> {
+            match atty::is(atty::Stream::Stdout) {
+                false => {
+                    stdout().write_all(s.as_bytes())?;
+                    Ok(())
+                }
+                true => {
+                    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+                    let mut color_spec = ColorSpec::new();
+                    color_spec.set_fg(Some(Color::Green));
+                    stdout.set_color(&color_spec)?;
+                    stdout.write_all(s.as_bytes())?;
+                    stdout.reset()?;
+                    Ok(())
+                }
+            }
+        }));
 
         let writer_func: HostFunctionWithOneArg<'a, (), String> =
             writer_func.unwrap_or(HostFunctionWithOneArg {
-                func: Rc::new(RefCell::new(|s: String| -> Result<()> {
-                    match atty::is(atty::Stream::Stdout) {
-                        false => {
-                            stdout().write_all(s.as_bytes())?;
-                            Ok(())
-                        }
-                        true => {
-                            let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-                            let mut color_spec = ColorSpec::new();
-                            color_spec.set_fg(Some(Color::Green));
-                            stdout.set_color(&color_spec)?;
-                            stdout.write_all(s.as_bytes())?;
-                            stdout.reset()?;
-                            Ok(())
-                        }
-                    }
-                }))
-                .clone(),
+                func: default_writer_func.clone(),
             });
 
-        let sandbox = Self {
+        let mut sandbox = Self {
             host_functions: HashMap::new(),
             writer_func,
             mem_mgr,
             stack_guard,
         };
 
-        // TODO: Register the host print function
+        default_writer_func.register(&mut sandbox, "default_writer_func");
 
         Ok(sandbox)
     }
