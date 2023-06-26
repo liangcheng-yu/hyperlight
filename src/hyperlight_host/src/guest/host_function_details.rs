@@ -6,13 +6,11 @@ use crate::flatbuffers::hyperlight::generated::{
     HostFunctionDetails as FbHostFunctionDetails,
     HostFunctionDetailsArgs as FbHostFunctionDetailsArgs,
 };
-use crate::guest_interface_glue::HostMethodInfo;
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::shared_mem::SharedMemory;
 use anyhow::{anyhow, bail, Result};
 use flatbuffers::WIPOffset;
 use readonly;
-use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 
 /// `HostFunctionDetails` represents the set of functions that the host exposes to the guest.
@@ -135,18 +133,6 @@ impl TryFrom<HostFunctionDetails> for Vec<u8> {
     type Error = anyhow::Error;
     fn try_from(value: HostFunctionDetails) -> Result<Vec<u8>> {
         (&value).try_into()
-    }
-}
-
-impl From<HashMap<String, HostMethodInfo>> for HostFunctionDetails {
-    fn from(value: HashMap<String, HostMethodInfo>) -> Self {
-        let mut host_functions: Vec<HostFunctionDefinition> = Vec::new();
-        for (_, host_method_info) in value {
-            host_functions.push(host_method_info.host_function_definition);
-        }
-        Self {
-            host_functions: Some(host_functions),
-        }
     }
 }
 

@@ -115,3 +115,7 @@ pub mod flatbuffers;
 #[deny(dead_code, missing_docs, unused_mut)]
 #[cfg(test)]
 pub(crate) mod testing;
+
+///! Structures for Hyperlight functions
+#[deny(dead_code, missing_docs, unused_mut)]
+pub mod functions;
