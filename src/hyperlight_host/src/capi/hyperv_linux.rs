@@ -9,7 +9,7 @@ use crate::hypervisor::hypervisor_mem::HypervisorAddrs;
 use crate::hypervisor::Hypervisor;
 use crate::validate_context;
 use anyhow::Result;
-use mshv_bindings::hv_register_name;
+use mshv_bindings::hv_register_name_HV_X64_REGISTER_RSP;
 use std::rc::Rc;
 
 fn get_driver_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut HypervLinuxDriver> {
@@ -174,7 +174,7 @@ pub unsafe extern "C" fn hyperv_linux_set_rsp(
         Ok(d) => d,
         Err(e) => return (*ctx_ptr).register_err(e),
     };
-    match driver.update_register_u64(hv_register_name::HV_X64_REGISTER_RSP, rsp_val) {
+    match driver.update_register_u64(hv_register_name_HV_X64_REGISTER_RSP, rsp_val) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx_ptr).register_err(e),
     }

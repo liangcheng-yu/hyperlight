@@ -9,7 +9,18 @@ use super::{
 use crate::hypervisor::hypervisor_mem::HypervisorAddrs;
 use crate::mem::ptr::RawPtr;
 use anyhow::{anyhow, bail, Result};
-use mshv_bindings::*;
+use mshv_bindings::{
+    hv_message, hv_message_type, hv_message_type_HVMSG_UNMAPPED_GPA,
+    hv_message_type_HVMSG_X64_HALT, hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT, hv_register_assoc,
+    hv_register_name, hv_register_name_HV_X64_REGISTER_CR0, hv_register_name_HV_X64_REGISTER_CR3,
+    hv_register_name_HV_X64_REGISTER_CR4, hv_register_name_HV_X64_REGISTER_CS,
+    hv_register_name_HV_X64_REGISTER_EFER, hv_register_name_HV_X64_REGISTER_R8,
+    hv_register_name_HV_X64_REGISTER_RAX, hv_register_name_HV_X64_REGISTER_RBX,
+    hv_register_name_HV_X64_REGISTER_RCX, hv_register_name_HV_X64_REGISTER_RDX,
+    hv_register_name_HV_X64_REGISTER_RFLAGS, hv_register_name_HV_X64_REGISTER_RIP,
+    hv_register_name_HV_X64_REGISTER_RSP, hv_register_value, hv_u128, mshv_user_mem_region,
+};
+//use mshv_bindings::*;
 use mshv_ioctls::{Mshv, VcpuFd, VmFd};
 use std::collections::HashMap;
 
@@ -103,7 +114,7 @@ impl HypervLinuxDriver {
         {
             // get CS Register
             let mut cs_reg = hv_register_assoc {
-                name: hv_register_name::HV_X64_REGISTER_CS as u32,
+                name: hv_register_name_HV_X64_REGISTER_CS,
                 ..Default::default()
             };
             self.vcpu_fd
@@ -112,26 +123,26 @@ impl HypervLinuxDriver {
             cs_reg.value.segment.base = 0;
             cs_reg.value.segment.selector = 0;
             self.registers
-                .insert(hv_register_name::HV_X64_REGISTER_CS, cs_reg.value);
+                .insert(hv_register_name_HV_X64_REGISTER_CS, cs_reg.value);
         }
 
         self.registers.insert(
-            hv_register_name::HV_X64_REGISTER_RAX,
+            hv_register_name_HV_X64_REGISTER_RAX,
             hv_register_value { reg64: 2 },
         );
 
         self.registers.insert(
-            hv_register_name::HV_X64_REGISTER_RBX,
+            hv_register_name_HV_X64_REGISTER_RBX,
             hv_register_value { reg64: 2 },
         );
 
         self.registers.insert(
-            hv_register_name::HV_X64_REGISTER_RFLAGS,
+            hv_register_name_HV_X64_REGISTER_RFLAGS,
             hv_register_value { reg64: 0x2 },
         );
 
         self.registers.insert(
-            hv_register_name::HV_X64_REGISTER_RIP,
+            hv_register_name_HV_X64_REGISTER_RIP,
             hv_register_value {
                 reg64: addrs.entrypoint,
             },
@@ -150,38 +161,38 @@ impl HypervLinuxDriver {
         self.add_basic_registers(addrs)?;
 
         self.registers.insert(
-            hv_register_name::HV_X64_REGISTER_RSP,
+            hv_register_name_HV_X64_REGISTER_RSP,
             hv_register_value { reg64: rsp },
         );
 
         self.registers.insert(
-            hv_register_name::HV_X64_REGISTER_CR3,
+            hv_register_name_HV_X64_REGISTER_CR3,
             hv_register_value { reg64: pml4 },
         );
 
         self.registers.insert(
-            hv_register_name::HV_X64_REGISTER_CR4,
+            hv_register_name_HV_X64_REGISTER_CR4,
             hv_register_value {
                 reg64: CR4_PAE | CR4_OSFXSR | CR4_OSXMMEXCPT,
             },
         );
 
         self.registers.insert(
-            hv_register_name::HV_X64_REGISTER_CR0,
+            hv_register_name_HV_X64_REGISTER_CR0,
             hv_register_value {
                 reg64: CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG,
             },
         );
 
         self.registers.insert(
-            hv_register_name::HV_X64_REGISTER_EFER,
+            hv_register_name_HV_X64_REGISTER_EFER,
             hv_register_value {
                 reg64: EFER_LME | EFER_LMA,
             },
         );
 
         self.registers.insert(
-            hv_register_name::HV_X64_REGISTER_CS,
+            hv_register_name_HV_X64_REGISTER_CS,
             hv_register_value {
                 reg128: hv_u128 {
                     low_part: 0,
@@ -201,7 +212,7 @@ impl HypervLinuxDriver {
         let mut regs_vec: Vec<hv_register_assoc> = Vec::new();
         for (k, v) in &self.registers {
             regs_vec.push(hv_register_assoc {
-                name: *k as u32,
+                name: *k,
                 value: *v,
                 ..Default::default()
             });
@@ -218,7 +229,7 @@ impl HypervLinuxDriver {
     /// This function will not apply any other pending changes on
     /// the internal register list.
     pub fn update_rip(&mut self, val: RawPtr) -> Result<()> {
-        self.update_register_u64(hv_register_name::HV_X64_REGISTER_RIP, val.into())
+        self.update_register_u64(hv_register_name_HV_X64_REGISTER_RIP, val.into())
     }
 
     /// Update the value of a specific register in the internally stored
@@ -231,7 +242,7 @@ impl HypervLinuxDriver {
         self.registers
             .insert(name, hv_register_value { reg64: val });
         let reg = hv_register_assoc {
-            name: name as u32,
+            name,
             value: hv_register_value { reg64: val },
             ..Default::default()
         };
@@ -280,17 +291,17 @@ impl Hypervisor for HypervLinuxDriver {
         mem_access_hdl: MemAccessHandlerRc,
     ) -> Result<()> {
         self.registers.insert(
-            hv_register_name::HV_X64_REGISTER_RCX,
+            hv_register_name_HV_X64_REGISTER_RCX,
             hv_register_value {
                 reg64: peb_addr.into(),
             },
         );
         self.registers.insert(
-            hv_register_name::HV_X64_REGISTER_RDX,
+            hv_register_name_HV_X64_REGISTER_RDX,
             hv_register_value { reg64: seed },
         );
         self.registers.insert(
-            hv_register_name::HV_X64_REGISTER_R8,
+            hv_register_name_HV_X64_REGISTER_R8,
             hv_register_value { reg32: page_size },
         );
         self.apply_registers()?;
@@ -338,7 +349,7 @@ impl Hypervisor for HypervLinuxDriver {
     }
 
     fn reset_rsp(&mut self, rsp: u64) -> Result<()> {
-        self.update_register_u64(hv_register_name::HV_X64_REGISTER_RSP, rsp)
+        self.update_register_u64(hv_register_name_HV_X64_REGISTER_RSP, rsp)
     }
 }
 

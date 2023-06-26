@@ -380,7 +380,7 @@ checksum = "1fafa6961cabd9c63bcd77a45d7e3b7f3b552b70417831fb0f56db717e72407e"
 [[package]]
 name = "mshv-bindings"
 version = "0.1.1"
-source = "git+https://github.com/rust-vmm/mshv?rev=1a9ca01#1a9ca01801e78f8ddc2630660cbab3bc3300e39e"
+source = "git+https://github.com/rust-vmm/mshv?rev=52edcf4#52edcf423c5c641c5669c0abe345a7e094619cea"
 dependencies = [
  "libc",
  "vmm-sys-util",
@@ -390,7 +390,7 @@ dependencies = [
 [[package]]
 name = "mshv-ioctls"
 version = "0.1.1"
-source = "git+https://github.com/rust-vmm/mshv?rev=1a9ca01#1a9ca01801e78f8ddc2630660cbab3bc3300e39e"
+source = "git+https://github.com/rust-vmm/mshv?rev=52edcf4#52edcf423c5c641c5669c0abe345a7e094619cea"
 dependencies = [
  "libc",
  "mshv-bindings",
