@@ -1,6 +1,6 @@
 use super::sandbox_run_options::SandboxRunOptions;
 use crate::flatbuffers::hyperlight::generated::ErrorCode;
-use crate::functions::{HyperlightFunction, FunctionOne};
+use crate::functions::{FunctionOne, HyperlightFunction};
 use crate::guest::guest_log_data::GuestLogData;
 use crate::guest::log_level::LogLevel;
 use crate::guest_interface_glue::SupportedParameterAndReturnValues;
@@ -346,8 +346,7 @@ impl Sandbox {
             .get_mut("writer_func")
             .ok_or_else(|| anyhow!("Host function 'writer_func' not found"))?;
 
-        let writer_func = writer_func
-            .as_mut();
+        let writer_func = writer_func.as_mut();
 
         writer_func(vec![SupportedParameterAndReturnValues::String(msg)])?;
 
@@ -408,10 +407,12 @@ fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
 mod tests {
     use super::Sandbox;
     use crate::{
+        functions::FunctionOne,
         guest::{guest_log_data::GuestLogData, log_level::LogLevel},
         mem::{config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager},
+        sandbox::outb_log,
         sandbox_run_options::SandboxRunOptions,
-        testing::{logger::LOGGER, simple_guest_path, simple_guest_pe_info}, functions::FunctionOne, sandbox::outb_log,
+        testing::{logger::LOGGER, simple_guest_path, simple_guest_pe_info},
     };
     use anyhow::Result;
     use log::{set_logger, set_max_level, Level};
@@ -560,7 +561,7 @@ mod tests {
             None,
         )
         .expect("Failed to create sandbox");
-        
+
         writer_func.register(&mut sandbox, "writer_func");
 
         sandbox.host_print("test2".to_string()).unwrap();

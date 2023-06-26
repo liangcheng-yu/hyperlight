@@ -2,6 +2,7 @@ use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::{c_func::CFunc, mem_mgr::register_mem_mgr};
+use crate::functions::FunctionOne;
 use crate::mem::ptr::RawPtr;
 use crate::{capi::strings::get_string, mem::config::SandboxMemoryConfiguration, sandbox::Sandbox};
 use crate::{
@@ -12,7 +13,6 @@ use anyhow::{bail, Result};
 use std::cell::RefCell;
 use std::os::raw::c_char;
 use std::rc::Rc;
-use crate::functions::{FunctionOne};
 
 /// Create a new `Sandbox` with the given guest binary to execute
 /// and return a `Handle` reference to it.
@@ -42,13 +42,15 @@ pub unsafe extern "C" fn sandbox_new(
             let sandbox_run_options =
                 Some(SandboxRunOptions::from_bits_truncate(sandbox_run_options));
 
-            let writer_func = print_output_handler.map(|f: extern "C" fn(*const c_char)| {
-                Rc::new(RefCell::new(move |s: String| -> Result<()> {
-                    let c_str = std::ffi::CString::new(s)?;
-                    f(c_str.as_ptr());
-                    Ok(())
-                }))
-            }).unwrap();
+            let writer_func = print_output_handler
+                .map(|f: extern "C" fn(*const c_char)| {
+                    Rc::new(RefCell::new(move |s: String| -> Result<()> {
+                        let c_str = std::ffi::CString::new(s)?;
+                        f(c_str.as_ptr());
+                        Ok(())
+                    }))
+                })
+                .unwrap();
 
             let mut sbox = Sandbox::new(bin_path.to_string(), mem_cfg, sandbox_run_options)?;
             writer_func.register(&mut sbox, "writer_func");

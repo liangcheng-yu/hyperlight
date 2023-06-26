@@ -91,7 +91,7 @@ pub(crate) trait SupportedParameterType {
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues;
 }
 /// This is a marker trait that is used to indicate that a type is a valid Hyperlight return type.
-pub(crate)  trait SupportedReturnType {
+pub(crate) trait SupportedReturnType {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes;
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues;
 }
