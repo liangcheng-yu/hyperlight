@@ -3,7 +3,7 @@ use crate::flatbuffers::hyperlight::generated::ErrorCode;
 use crate::functions::{HyperlightFunction, FunctionOne};
 use crate::guest::guest_log_data::GuestLogData;
 use crate::guest::log_level::LogLevel;
-use crate::guest_interface_glue::SupportedParameterAndReturnTypes;
+use crate::guest_interface_glue::SupportedParameterAndReturnValues;
 use crate::hypervisor::Hypervisor;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::mem::ptr::RawPtr;
@@ -22,7 +22,6 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Result};
 use log::{debug, error, info, trace, warn};
-use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::c_void;
@@ -84,264 +83,25 @@ pub(crate) fn is_hypervisor_present() -> bool {
     false
 }
 
-// PrintOutputFunctionPointer is a pointer to a function in the host that can be called from the Sandbox
-// it is defined as Rc<RefCell<dyn FnMut(String) -> Result<() +'a>>>,
-
-// Rc as the function pointer is shared between the sandbox and the host
-// RefCell as the function pointer needs to be able to be shared (potentially mutably) between the sandbox and the host
-// dyn FnMut as the function pointer can be a closure that can mutate captured variables
-// 'a so the function pointer does not have a static lifetime by default
-
-// The actual function it points to can be one of the following:
-//
-// fn. A static function in the host.
-// Fn. A closure in the host that can reference captured context.
-// FnMut. A closure in the host that can mutate captured context.
-
-// PrintOutputFunctionPointer is a pointer to a print_output function in the host that can be called from the Sandbox in place of the deault behaviour of writing to stdout.
-// pub type PrintOutputFunctionPointer<'a> = Rc<RefCell<dyn FnMut(String) -> Result<()> + 'a>>;
-
-// However this should be generic so that it can be used for any host function not a special case for print_output
-// One way of doing this is as follows:
-
-/// This is a marker trait that is used to indicate that a type is a valid Hyperlight parameter type.
-pub trait SupportedParameterType {}
-/// This is a marker trait that is used to indicate that a type is a valid Hyperlight return type.
-pub trait SupportedReturnType {}
-
-/// This trait allows us to get the HyperlightType for a type at run time
-pub trait SupportedParameterAndReturnTypesInfo {
-    /// Get the SupportedParameterAndReturnTypes for a type
-    fn get_hyperlight_type() -> SupportedParameterAndReturnTypes;
-}
-
-// We can then implement these traits for each type that support as a parameter or return type.
-
-impl SupportedParameterType for u32 {}
-impl SupportedParameterType for String {}
-impl SupportedParameterType for i32 {}
-impl SupportedParameterType for i64 {}
-impl SupportedParameterType for u64 {}
-impl SupportedParameterType for bool {}
-impl SupportedParameterType for Vec<u8> {}
-impl SupportedParameterType for *mut std::ffi::c_void {}
-// etc
-
-impl SupportedReturnType for u32 {}
-impl SupportedReturnType for () {}
-impl SupportedReturnType for String {}
-impl SupportedReturnType for i32 {}
-impl SupportedReturnType for i64 {}
-impl SupportedReturnType for u64 {}
-impl SupportedReturnType for bool {}
-impl SupportedReturnType for Vec<u8> {}
-impl SupportedReturnType for *mut std::ffi::c_void {}
-// etc
-
-// and we can implement HyperlightReturnandParamTypeInfo so we can get the actual type when we register or dispatch a function call.
-// e.g. in register_host_function below we can interogate the HyperlightReturnandParamTypeInfo to determine the type of the parameter or return value
-// validate that it is correct for the expected host function
-
-impl SupportedParameterAndReturnTypesInfo for u32 {
-    fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
-        SupportedParameterAndReturnTypes::UInt
-    }
-}
-
-impl SupportedParameterAndReturnTypesInfo for String {
-    fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
-        SupportedParameterAndReturnTypes::String
-    }
-}
-
-impl SupportedParameterAndReturnTypesInfo for () {
-    fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
-        SupportedParameterAndReturnTypes::Void
-    }
-}
-
-impl SupportedParameterAndReturnTypesInfo for i32 {
-    fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
-        SupportedParameterAndReturnTypes::Int
-    }
-}
-
-impl SupportedParameterAndReturnTypesInfo for i64 {
-    fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
-        SupportedParameterAndReturnTypes::Long
-    }
-}
-
-impl SupportedParameterAndReturnTypesInfo for u64 {
-    fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
-        SupportedParameterAndReturnTypes::ULong
-    }
-}
-
-impl SupportedParameterAndReturnTypesInfo for bool {
-    fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
-        SupportedParameterAndReturnTypes::Bool
-    }
-}
-
-impl SupportedParameterAndReturnTypesInfo for Vec<u8> {
-    fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
-        SupportedParameterAndReturnTypes::ByteArray
-    }
-}
-
-impl SupportedParameterAndReturnTypesInfo for std::ffi::c_void {
-    fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
-        SupportedParameterAndReturnTypes::IntPtr
-    }
-}
-
-// We can then define a structs that represents a host function with different numbers of arguments and return types
-// And constrain the types such that they can only be used with valid Hyperlight parameter and return types
-// This gives us compile time checking that the types are valid for Hyperlight
-
-// Note that we are using Anyhow Result here at the moment.
-
-/// A Hyperlight host function that takes no arguments and returns a result
-pub type HostFunctionWithNoArgsType<'a, R> = Rc<RefCell<dyn FnMut() -> Result<R> + 'a>>;
-
-#[allow(unused)]
-/// A Hyperlight host function that takes no arguments and returns a result
-pub struct HostFunctionWithNoArgs<'a, R>
-where
-    R: SupportedReturnType + SupportedParameterAndReturnTypesInfo,
-{
-    /// A Hyperlight host function that takes no arguments and returns a result
-    pub func: HostFunctionWithNoArgsType<'a, R>,
-}
-
-/// A Hyperlight host function that takes 1 argument and returns a result
-pub type HostFunctionWithOneArgType<'a, R, P1> = Rc<RefCell<dyn FnMut(P1) -> Result<R> + 'a>>;
-
-/// A Hyperlight host function that takes 1 argument and returns a result
-pub struct HostFunctionWithOneArg<'a, R, P1>
-where
-    R: SupportedReturnType + SupportedParameterAndReturnTypesInfo,
-    P1: SupportedParameterType + SupportedParameterAndReturnTypesInfo,
-{
-    /// A Hyperlight host function that takes 1 argument and returns a result
-    pub func: HostFunctionWithOneArgType<'a, R, P1>,
-}
-
-/// A Hyperlight host function that takes 2 arguments and returns a result
-pub type HostFunctionWithTwoArgsType<'a, R, P1, P2> =
-    Rc<RefCell<dyn FnMut(P1, P2) -> Result<R> + 'a>>;
-
-#[allow(unused)]
-pub(crate) struct HostFunctionWithTwoArgs<'a, R, P1, P2>
-where
-    R: SupportedReturnType + SupportedParameterAndReturnTypesInfo,
-    P1: SupportedParameterType + SupportedParameterAndReturnTypesInfo,
-    P2: SupportedParameterType + SupportedParameterAndReturnTypesInfo,
-{
-    /// A Hyperlight host function that takes 2 arguments and returns a result
-    pub(crate) func: HostFunctionWithTwoArgsType<'a, R, P1, P2>,
-}
-
-/// A Hyperlight host function that takes 3 arguments and returns a result
-pub type HostFunctionWithThreeArgsType<'a, R, P1, P2, P3> =
-    Rc<RefCell<dyn FnMut(P1, P2, P3) -> Result<R> + 'a>>;
-
-#[allow(unused)]
-pub(crate) struct HostFunctionWithThreeArgs<'a, R, P1, P2, P3>
-where
-    R: SupportedReturnType + SupportedParameterAndReturnTypesInfo,
-    P1: SupportedParameterType + SupportedParameterAndReturnTypesInfo,
-    P2: SupportedParameterType + SupportedParameterAndReturnTypesInfo,
-    P3: SupportedParameterType + SupportedParameterAndReturnTypesInfo,
-{
-    /// A Hyperlight host function that takes 3 arguments and returns a result
-    pub(crate) func: HostFunctionWithThreeArgsType<'a, R, P1, P2, P3>,
-}
-
-/// A Hyperlight host function that takes 4 arguments and returns a result
-pub type HostFunctionWithFourArgsType<'a, R, P1, P2, P3, P4> =
-    Rc<RefCell<dyn FnMut(P1, P2, P3, P4) -> Result<R> + 'a>>;
-
-#[allow(unused)]
-/// A Hyperlight host function that takes 4 arguments and returns a result
-pub(crate) struct HostFunctionWithFourArgs<'a, R, P1, P2, P3, P4>
-where
-    R: SupportedReturnType + SupportedParameterAndReturnTypesInfo,
-    P1: SupportedParameterType + SupportedParameterAndReturnTypesInfo,
-    P2: SupportedParameterType + SupportedParameterAndReturnTypesInfo,
-    P3: SupportedParameterType + SupportedParameterAndReturnTypesInfo,
-    P4: SupportedParameterType + SupportedParameterAndReturnTypesInfo,
-{
-    /// A Hyperlight host function that takes 4 arguments and returns a result
-    pub(crate) func: HostFunctionWithFourArgsType<'a, R, P1, P2, P3, P4>,
-}
-
-/// A Hyperlight host function that takes 5 arguments and returns a result
-pub type HostFunctionWithFiveArgsType<'a, R, P1, P2, P3, P4, P5> =
-    Rc<RefCell<dyn FnMut(P1, P2, P3, P4, P5) -> Result<R> + 'a>>;
-
-#[allow(unused)]
-/// A Hyperlight host function that takes 5 arguments and returns a result
-pub(crate) struct HostFunctionWithFiveArgs<'a, R, P1, P2, P3, P4, P5>
-where
-    R: SupportedReturnType + SupportedParameterAndReturnTypesInfo,
-    P1: SupportedParameterType + SupportedParameterAndReturnTypesInfo,
-    P2: SupportedParameterType + SupportedParameterAndReturnTypesInfo,
-    P3: SupportedParameterType + SupportedParameterAndReturnTypesInfo,
-    P4: SupportedParameterType + SupportedParameterAndReturnTypesInfo,
-    P5: SupportedParameterType + SupportedParameterAndReturnTypesInfo,
-{
-    /// A Hyperlight host function that takes 5 arguments and returns a result
-    pub(crate) func: HostFunctionWithFiveArgsType<'a, R, P1, P2, P3, P4, P5>,
-}
-
-// this would mean that register_host_function would need to accept any of the above structs , I think this can be solved via the implementation of another trait function
-// that checks which of the concrete types the trait is and deals with it appropriately the example below checks for the HostFunctionWithOneArg type so it can be used in a test
-// but it illustrates the idea
-// This could be an enormous function because of all the different combinations of parameter and return types but we should be able to generate the code for this
-// perf should not be too much of a concern as we only need to do this once per host function registration dispatching a call would look up the type info regsitered
-// so there would be minimal overhead at call dispatch.
-
-// this is a simple version of a dynamic type check its only used in a test below to illustrate the idea
-// I dont yet know how to make this work when a closure is passed as dyn any seems to require a static lifetime
-#[allow(unused)]
-fn validate_concrete_type(t: &dyn Any) -> Result<()> {
-    if let Some(_f) = t.downcast_ref::<HostFunctionWithOneArg<'_, (), String>>() {
-        println!(
-            "HostFunctionWithOneArg<(),String>: TypeId {:?}",
-            t.type_id()
-        );
-        Ok(())
-    } else {
-        Err(anyhow!(
-            "Not a HostFunctionWithOneArg taking a String parameter and returning a ()"
-        ))
-    }
-}
-
 /// The primary mechanism to interact with VM partitions that
 /// run Hyperlight Sandboxes.
 ///
 /// A Hyperlight Sandbox is a specialized VM environment
 /// intended specifically for running Hyperlight guest processes.
-pub struct Sandbox<'a> {
+pub struct Sandbox {
     // Registered host functions
     pub(crate) host_functions: HashMap<String, HyperlightFunction>,
-    // The writer to use for print requests from the guest.
-    writer_func: HostFunctionWithOneArg<'a, (), String>,
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
 }
 
-impl<'a> Sandbox<'a> {
+impl Sandbox {
     /// Create a new sandbox configured to run the binary at path
     /// `bin_path`.
     pub fn new(
         bin_path: String,
         cfg: Option<SandboxMemoryConfiguration>,
-        writer_func: Option<HostFunctionWithOneArg<'a, (), String>>,
         sandbox_run_options: Option<SandboxRunOptions>,
     ) -> Result<Self> {
         // Make sure the binary exists
@@ -393,19 +153,13 @@ impl<'a> Sandbox<'a> {
             }
         }));
 
-        let writer_func: HostFunctionWithOneArg<'a, (), String> =
-            writer_func.unwrap_or(HostFunctionWithOneArg {
-                func: default_writer_func.clone(),
-            });
-
         let mut sandbox = Self {
             host_functions: HashMap::new(),
-            writer_func,
             mem_mgr,
             stack_guard,
         };
 
-        default_writer_func.register(&mut sandbox, "default_writer_func");
+        default_writer_func.register(&mut sandbox, "writer_func");
 
         Ok(sandbox)
     }
@@ -585,12 +339,19 @@ impl<'a> Sandbox<'a> {
         }
     }
 
-    // TODO: function is temporary to allow the testing of C API providing a Print function remove this when we have a proper Sandbox with C API
+    // (DAN:NOTE) This is a temporary function that would be replaced by a generic way to call host functions
     pub(crate) fn host_print(&mut self, msg: String) -> Result<()> {
-        // The try_borrow_mut is not always going to be needed here.
-        // Ideally we would figure if the writer_func is an FnMut or if its one of its subtraits (in which case we would not need to borrow_mut)
+        let writer_func = self
+            .host_functions
+            .get_mut("writer_func")
+            .ok_or_else(|| anyhow!("Host function 'writer_func' not found"))?;
 
-        (self.writer_func.func.try_borrow_mut()?)(msg)
+        let writer_func = writer_func
+            .as_mut();
+
+        writer_func(vec![SupportedParameterAndReturnValues::String(msg)])?;
+
+        Ok(())
     }
 
     /// Check for a guest error and return an `Err` if one was found,
@@ -645,12 +406,12 @@ fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{outb_log, validate_concrete_type, HostFunctionWithOneArg, Sandbox};
+    use super::Sandbox;
     use crate::{
         guest::{guest_log_data::GuestLogData, log_level::LogLevel},
         mem::{config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager},
         sandbox_run_options::SandboxRunOptions,
-        testing::{logger::LOGGER, simple_guest_path, simple_guest_pe_info},
+        testing::{logger::LOGGER, simple_guest_path, simple_guest_pe_info}, functions::FunctionOne, sandbox::outb_log,
     };
     use anyhow::Result;
     use log::{set_logger, set_max_level, Level};
@@ -663,13 +424,13 @@ mod tests {
         // Guest Binary exists at path
 
         let binary_path = simple_guest_path().unwrap();
-        let sandbox = Sandbox::new(binary_path.clone(), None, None, None);
+        let sandbox = Sandbox::new(binary_path.clone(), None, None);
         assert!(sandbox.is_ok());
 
         // Guest Binary does not exist at path
 
         let binary_path_does_not_exist = binary_path.trim_end_matches(".exe").to_string();
-        let sandbox = Sandbox::new(binary_path_does_not_exist, None, None, None);
+        let sandbox = Sandbox::new(binary_path_does_not_exist, None, None);
         assert!(sandbox.is_err());
 
         // Non default memory configuration
@@ -684,7 +445,7 @@ mod tests {
             Some(0x1000),
         );
 
-        let sandbox = Sandbox::new(binary_path.clone(), Some(cfg), None, None);
+        let sandbox = Sandbox::new(binary_path.clone(), Some(cfg), None);
         assert!(sandbox.is_ok());
 
         // Invalid sandbox_run_options
@@ -692,7 +453,7 @@ mod tests {
         let sandbox_run_options =
             SandboxRunOptions::RUN_FROM_GUEST_BINARY | SandboxRunOptions::RECYCLE_AFTER_RUN;
 
-        let sandbox = Sandbox::new(binary_path, None, None, Some(sandbox_run_options));
+        let sandbox = Sandbox::new(binary_path, None, Some(sandbox_run_options));
         assert!(sandbox.is_err());
     }
 
@@ -738,12 +499,11 @@ mod tests {
         let mut sandbox = Sandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
             None,
-            Some(HostFunctionWithOneArg {
-                func: writer_func.clone(),
-            }),
             None,
         )
         .expect("Failed to create sandbox");
+
+        writer_func.register(&mut sandbox, "writer_func");
 
         sandbox.host_print("test".to_string()).unwrap();
 
@@ -774,12 +534,11 @@ mod tests {
         let mut sandbox = Sandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
             None,
-            Some(HostFunctionWithOneArg {
-                func: writer_func.clone(),
-            }),
             None,
         )
         .expect("Failed to create sandbox");
+
+        writer_func.register(&mut sandbox, "writer_func");
 
         sandbox.host_print("test2".to_string()).unwrap();
 
@@ -798,10 +557,11 @@ mod tests {
         let mut sandbox = Sandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
             None,
-            Some(HostFunctionWithOneArg { func: writer_func }),
             None,
         )
         .expect("Failed to create sandbox");
+        
+        writer_func.register(&mut sandbox, "writer_func");
 
         sandbox.host_print("test2".to_string()).unwrap();
 
@@ -818,27 +578,13 @@ mod tests {
         let mut sandbox = Sandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
             None,
-            Some(HostFunctionWithOneArg {
-                func: writer_method.clone(),
-            }),
             None,
         )
         .expect("Failed to create sandbox");
 
+        writer_method.register(&mut sandbox, "writer_func");
+
         sandbox.host_print("test3".to_string()).unwrap();
-
-        // Simulate dynamic type checking
-        // Note : Not yet able to get this to work with closures
-
-        let writer_func = Rc::new(RefCell::new(fn_writer));
-
-        let host_function_with_one_arg = HostFunctionWithOneArg { func: writer_func };
-
-        let result = validate_concrete_type(&host_function_with_one_arg);
-
-        assert!(result.is_ok());
-
-        // TODO: Test with stdout
     }
 
     struct TestHostPrint {}
@@ -957,7 +703,7 @@ mod tests {
     #[test]
     fn test_stack_guard() {
         let simple_guest_path = simple_guest_path().unwrap();
-        let sbox = Sandbox::new(simple_guest_path, None, None, None).unwrap();
+        let sbox = Sandbox::new(simple_guest_path, None, None).unwrap();
         let res = sbox.check_stack_guard();
         assert!(res.is_ok(), "Sandbox::check_stack_guard returned an error");
         assert!(res.unwrap(), "Sandbox::check_stack_guard returned false");

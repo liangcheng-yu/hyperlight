@@ -3,10 +3,7 @@ use super::handle::Handle;
 use super::hdl::Hdl;
 use super::{c_func::CFunc, mem_mgr::register_mem_mgr};
 use crate::mem::ptr::RawPtr;
-use crate::{
-    capi::strings::get_string, mem::config::SandboxMemoryConfiguration,
-    sandbox::HostFunctionWithOneArg, sandbox::Sandbox as RustSandbox,
-};
+use crate::{capi::strings::get_string, mem::config::SandboxMemoryConfiguration, sandbox::Sandbox};
 use crate::{
     sandbox::is_hypervisor_present as check_hypervisor,
     sandbox::is_supported_platform as check_platform, sandbox_run_options::SandboxRunOptions,
@@ -15,21 +12,7 @@ use anyhow::{bail, Result};
 use std::cell::RefCell;
 use std::os::raw::c_char;
 use std::rc::Rc;
-
-/// This is the C API for the `Sandbox` type.
-pub struct Sandbox {
-    rust_sandbox: RustSandbox<'static>,
-}
-
-impl Sandbox {
-    fn get_rust_sandbox(&self) -> &RustSandbox<'static> {
-        &self.rust_sandbox
-    }
-
-    fn get_rust_sandbox_mut(&mut self) -> &mut RustSandbox<'static> {
-        &mut self.rust_sandbox
-    }
-}
+use crate::functions::{FunctionOne};
 
 /// Create a new `Sandbox` with the given guest binary to execute
 /// and return a `Handle` reference to it.
@@ -59,21 +42,18 @@ pub unsafe extern "C" fn sandbox_new(
             let sandbox_run_options =
                 Some(SandboxRunOptions::from_bits_truncate(sandbox_run_options));
 
-            let writer_func = print_output_handler.map(|f| HostFunctionWithOneArg {
-                func: Rc::new(RefCell::new(move |s: String| -> Result<()> {
+            let writer_func = print_output_handler.map(|f: extern "C" fn(*const c_char)| {
+                Rc::new(RefCell::new(move |s: String| -> Result<()> {
                     let c_str = std::ffi::CString::new(s)?;
                     f(c_str.as_ptr());
                     Ok(())
-                })) as Rc<RefCell<dyn FnMut(String) -> Result<()>>>,
-            });
-            let sbox = RustSandbox::new(
-                bin_path.to_string(),
-                mem_cfg,
-                writer_func,
-                sandbox_run_options,
-            )?;
+                }))
+            }).unwrap();
 
-            Ok(register_sandbox(ctx, Sandbox { rust_sandbox: sbox }))
+            let mut sbox = Sandbox::new(bin_path.to_string(), mem_cfg, sandbox_run_options)?;
+            writer_func.register(&mut sbox, "writer_func");
+
+            Ok(register_sandbox(ctx, sbox))
         })
         .ok_or_err_hdl()
 }
@@ -96,8 +76,7 @@ pub unsafe extern "C" fn sandbox_call_entry_point(
     CFunc::new("sandbox_call_entry_point", ctx)
         .and_then_mut(|ctx, _| {
             let sbox = get_sandbox(ctx, sbox_hdl)?;
-            sbox.get_rust_sandbox()
-                .call_entry_point(RawPtr::from(peb_address), seed, page_size)?;
+            sbox.call_entry_point(RawPtr::from(peb_address), seed, page_size)?;
             Ok(Handle::new_empty())
         })
         .ok_or_err_hdl()
@@ -147,7 +126,7 @@ pub unsafe extern "C" fn sandbox_get_memory_mgr(ctx: *mut Context, sbox_hdl: Han
     CFunc::new("sandbox_get_memory_mgr", ctx)
         .and_then_mut(|ctx, _| {
             let sbox = get_sandbox(ctx, sbox_hdl)?;
-            let mem_mgr = sbox.get_rust_sandbox().get_mem_mgr();
+            let mem_mgr = sbox.get_mem_mgr();
             Ok(register_mem_mgr(ctx, mem_mgr))
         })
         .ok_or_err_hdl()
@@ -177,8 +156,7 @@ pub unsafe extern "C" fn sandbox_call_host_print(
             let c_str = std::ffi::CStr::from_ptr(msg);
             let msg = c_str.to_str()?;
             let sbox = get_sandbox_mut(ctx, sbox_hdl)?;
-            let rsbox = sbox.get_rust_sandbox_mut();
-            rsbox.host_print(String::from(msg))?;
+            sbox.host_print(String::from(msg))?;
             Ok(Handle::new_empty())
         })
         .ok_or_err_hdl()

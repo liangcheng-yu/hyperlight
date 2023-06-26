@@ -1,6 +1,5 @@
 use super::handle::{new_key, Handle, Key};
 use super::hdl::Hdl;
-use super::sandbox::Sandbox;
 use crate::capi::outb_handler::OutbHandlerWrapper;
 use crate::guest::function_call::FunctionCall;
 use crate::guest::function_call_result::FunctionCallResult;
@@ -13,6 +12,7 @@ use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::mgr::SandboxMemoryManager;
 use crate::mem::shared_mem::SharedMemory;
 use crate::mem::shared_mem_snapshot::SharedMemorySnapshot;
+use crate::sandbox::Sandbox;
 use crate::{
     capi::mem_access_handler::MemAccessHandlerWrapper, guest::guest_log_data::GuestLogData,
 };
