@@ -396,19 +396,12 @@ impl SharedMemory {
 
 #[cfg(test)]
 mod tests {
-    use crate::mem::ptr_offset::Offset;
-
     use super::SharedMemory;
+    use crate::mem::ptr_offset::Offset;
     use crate::mem::shared_mem_tests::read_write_test_suite;
     use anyhow::{anyhow, Result};
     use byteorder::ReadBytesExt;
-    #[cfg(target_os = "linux")]
-    use libc::{mmap, munmap};
     use proptest::prelude::*;
-    #[cfg(target_os = "windows")]
-    use windows::Win32::System::Memory::{
-        VirtualAlloc, VirtualFree, MEM_COMMIT, MEM_DECOMMIT, PAGE_EXECUTE_READWRITE,
-    };
 
     /// Read a `u8` (i.e. a byte) from shared memory starting at `offset`
     ///
@@ -638,50 +631,44 @@ mod tests {
         assert_eq!(data, ret_vec);
     }
 
+    /// A test to ensure that, if a `SharedMem` instance is cloned
+    /// and _all_ clones are dropped, the memory region will no longer
+    /// be valid.
     #[test]
-    fn test_drop() -> Result<()> {
-        let (addr, size) = {
-            let mem = SharedMemory::new(MIN_SIZE)?;
-            (mem.raw_ptr(), mem.mem_size())
+    #[cfg(target_os = "linux")]
+    fn test_drop() {
+        let pid = std::process::id();
+
+        let address_in_ranges = |addr: usize, maps: Vec<proc_maps::MapRange>| {
+            maps.iter().any(|map| {
+                let start = map.start();
+                let end = start + map.size();
+                start <= addr && addr <= end
+            })
         };
 
-        // guest memory should be dropped at this point,
-        // another attempt to memory-map the same address
-        // at which it was allocated should succeed, because
-        // that address should have previously been freed.
-        cfg_if::cfg_if! {
-            if #[cfg(unix)] {
-                // on Linux, mmap only takes the address (first param)
-                // as a hint, but only guarantees that it'll not
-                // return NULL if the call succeeded.
-                let mmap_addr = unsafe {
-                    mmap(
-                        addr,
-                        size,
-                        libc::PROT_READ | libc::PROT_WRITE,
-                        libc::MAP_ANONYMOUS | libc::MAP_SHARED | libc::MAP_NORESERVE,
-                        -1,
-                        0,
-                    )
-                };
-                assert_ne!(std::ptr::null_mut(), mmap_addr);
-                assert_eq!(0, unsafe{munmap(addr, size)});
-            } else if #[cfg(windows)] {
-                let valloc_addr = unsafe {
-                    VirtualAlloc(
-                        Some(addr),
-                        size,
-                        MEM_COMMIT,
-                        PAGE_EXECUTE_READWRITE,
-                    )
-                };
-                assert_ne!(std::ptr::null_mut(), valloc_addr);
-                assert_eq!(true, unsafe{
-                    VirtualFree(addr, 0, MEM_DECOMMIT)
-                });
-            }
-        };
-        Ok(())
+        let sm1 = SharedMemory::new(MIN_SIZE).unwrap();
+        let sm2 = sm1.clone();
+        let addr = sm1.raw_ptr() as usize;
+        // ensure the address is in the process's virtual memory
+        let maps = proc_maps::get_process_maps(pid.try_into().unwrap()).unwrap();
+        assert!(
+            address_in_ranges(addr, maps),
+            "shared memory address {:#x} was not found in process map, but should be",
+            addr,
+        );
+        // drop both shared memory instances, which should result
+        // in freeing the memory region
+        drop(sm1);
+        drop(sm2);
+
+        let maps = proc_maps::get_process_maps(pid.try_into().unwrap()).unwrap();
+        // now, ensure the address is not in the process's virtual memory
+        assert!(
+            address_in_ranges(addr, maps),
+            "shared memory address {:#x} was found in the process map, but shouldn't be",
+            addr
+        );
     }
 }
 
