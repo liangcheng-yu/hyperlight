@@ -13,7 +13,7 @@ use crate::mem::{
 };
 #[cfg(target_os = "linux")]
 use crate::{
-    hypervisor::hyperv_linux::{self, HypervLinuxDriver, REQUIRE_STABLE_API},
+    hypervisor::hyperv_linux::{self, HypervLinuxDriver},
     hypervisor::hypervisor_mem::HypervisorAddrs,
     hypervisor::kvm,
     hypervisor::kvm::KVMDriver,
@@ -74,11 +74,12 @@ impl From<u16> for OutBAction {
 ///
 //  Returns a boolean indicating whether a suitable hypervisor is present.
 
-// TODO - implement this
 pub(crate) fn is_hypervisor_present() -> bool {
     #[cfg(target_os = "linux")]
-    return true;
+    return hyperv_linux::is_hypervisor_present().unwrap_or(false)
+        || kvm::is_hypervisor_present().is_ok();
     #[cfg(target_os = "windows")]
+    //TODO: Implement this for Windows once Rust WHP support is merged.
     return true;
     #[cfg(not(target_os = "linux"))]
     #[cfg(not(target_os = "windows"))]
@@ -465,7 +466,7 @@ impl<'a> Sandbox<'a> {
             let total_offset = Offset::from(load_offset_u64) + mgr.entrypoint_offset;
             GuestPtr::try_from(total_offset)
         }?;
-        if hyperv_linux::is_hypervisor_present(REQUIRE_STABLE_API)? {
+        if hyperv_linux::is_hypervisor_present()? {
             let guest_pfn = u64::try_from(SandboxMemoryLayout::BASE_ADDRESS >> 12)?;
             let host_addr = u64::try_from(mgr.shared_mem.base_addr())?;
             let addrs = HypervisorAddrs {
@@ -474,7 +475,7 @@ impl<'a> Sandbox<'a> {
                 host_addr,
                 mem_size,
             };
-            let hv = HypervLinuxDriver::new(REQUIRE_STABLE_API, &addrs)?;
+            let hv = HypervLinuxDriver::new(&addrs)?;
             Ok(Box::new(hv))
         } else if kvm::is_hypervisor_present().is_ok() {
             let host_addr = u64::try_from(mgr.shared_mem.base_addr())?;
@@ -563,16 +564,6 @@ impl<'a> Sandbox<'a> {
         };
 
         (host_function.function_pointer)(args)
-    }
-
-    /// Determine whether a suitable hypervisor is available to run
-    /// this sandbox.
-    ///
-    /// Returns `Ok` with a boolean if it could be determined whether
-    /// an appropriate hypervisor is available, and `Err` otherwise.
-    pub fn is_hypervisor_present(&self) -> Result<bool> {
-        // TODO: implement
-        Ok(true)
     }
 
     /// TODO: This should be removed once we have a proper Sandbox with C API that provides all functionaliy
@@ -722,7 +713,16 @@ fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_os = "linux")]
+    use super::{
+        is_hypervisor_present, outb_log, validate_concrete_type, HostFunctionWithOneArg, Sandbox,
+    };
+    #[cfg(target_os = "windows")]
     use super::{outb_log, validate_concrete_type, HostFunctionWithOneArg, Sandbox};
+    #[cfg(target_os = "linux")]
+    use crate::hypervisor::hyperv_linux::test_cfg::TEST_CONFIG as HYPERV_TEST_CONFIG;
+    #[cfg(target_os = "linux")]
+    use crate::hypervisor::kvm::test_cfg::TEST_CONFIG as KVM_TEST_CONFIG;
     use crate::{
         guest::{guest_log_data::GuestLogData, log_level::LogLevel},
         mem::{config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager},
@@ -735,7 +735,18 @@ mod tests {
     use std::{cell::RefCell, rc::Rc};
     use tempfile::NamedTempFile;
     #[test]
+    // TODO: add support for testing on WHP
+    #[cfg(target_os = "linux")]
+    fn test_is_hypervisor_present() {
+        // TODO: Handle requiring a stable API
+        if HYPERV_TEST_CONFIG.hyperv_should_be_present || KVM_TEST_CONFIG.kvm_should_be_present {
+            assert!(is_hypervisor_present());
+        } else {
+            assert!(!is_hypervisor_present());
+        }
+    }
 
+    #[test]
     fn test_new_sandbox() {
         // Guest Binary exists at path
 

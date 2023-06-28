@@ -22,19 +22,21 @@ use mshv_bindings::{
 };
 //use mshv_bindings::*;
 use mshv_ioctls::{Mshv, VcpuFd, VmFd};
+use once_cell::sync::Lazy;
 use std::collections::HashMap;
+use std::env;
 
 /// Determine whether the HyperV for Linux hypervisor API is present
-/// and functional. If `require_stable_api` is true, determines only whether a
+/// and functional. If `REQUIRE_STABLE_API` is true, determines only whether a
 /// stable API for the Linux HyperV hypervisor is present.
-pub fn is_hypervisor_present(require_stable_api: bool) -> Result<bool> {
+pub(crate) fn is_hypervisor_present() -> Result<bool> {
     let mshv = Mshv::new()?;
     match mshv.check_stable() {
         Ok(stable) => {
             if stable {
                 Ok(true)
             } else {
-                Ok(!require_stable_api)
+                Ok(!*REQUIRE_STABLE_API)
             }
         }
         Err(e) => bail!(e),
@@ -49,8 +51,19 @@ pub(crate) const HV_MAP_GPA_WRITABLE: u32 = 2;
 /// The constant to map guest physical addresses as executable
 /// in an mshv memory region
 pub(crate) const HV_MAP_GPA_EXECUTABLE: u32 = 12;
-//// Whether to require a stable /dev/mshv API
-pub(crate) const REQUIRE_STABLE_API: bool = false;
+
+// TODO: Question should we make the default true (i.e. we only allow unstable API if the Env Var is set)
+// The only reason the default is as it is now is because there is no stable API for hyperv on Linux
+// But at some point a release will be made and this will seem backwards
+
+static REQUIRE_STABLE_API: Lazy<bool> =
+    Lazy::new(|| match env::var("HYPERV_SHOULD_HAVE_STABLE_API") {
+        Ok(val) => match val.parse::<bool>() {
+            Ok(val) => val,
+            Err(_) => false,
+        },
+        Err(_) => false,
+    });
 
 /// A Hypervisor driver for HyperV-on-Linux. This hypervisor is often
 /// called the Microsoft Hypervisor Platform (MSHV)
@@ -73,12 +86,12 @@ impl HypervLinuxDriver {
     ///
     /// Call `add_basic_registers` or `add_advanced_registers`,
     /// then `apply_registers` to do so.
-    pub fn new(require_stable_api: bool, addrs: &HypervisorAddrs) -> Result<Self> {
-        match is_hypervisor_present(require_stable_api) {
+    pub fn new(addrs: &HypervisorAddrs) -> Result<Self> {
+        match is_hypervisor_present() {
             Ok(true) => (),
             Ok(false) => bail!(
                 "Hypervisor not present (stable api was {:?})",
-                require_stable_api
+                *REQUIRE_STABLE_API
             ),
             Err(e) => bail!(e),
         }
@@ -378,21 +391,20 @@ pub mod test_cfg {
 
     fn is_hyperv_present() -> bool {
         println!(
-            "SHOULD_HAVE_STABLE_API is {}",
-            TEST_CONFIG.should_have_stable_api
+            "HYPERV_SHOULD_HAVE_STABLE_API is {}",
+            TEST_CONFIG.hyperv_should_have_stable_api
         );
         println!(
             "HYPERV_SHOULD_BE_PRESENT is {}",
             TEST_CONFIG.hyperv_should_be_present
         );
-        let is_present =
-            super::is_hypervisor_present(TEST_CONFIG.should_have_stable_api).unwrap_or(false);
+        let is_present = super::is_hypervisor_present().unwrap_or(false);
         if (is_present && !TEST_CONFIG.hyperv_should_be_present)
             || (!is_present && TEST_CONFIG.hyperv_should_be_present)
         {
             panic!(
-                "WARNING Hyper-V is present returned  {}, should be present is: {} SHOULD_HAVE_STABLE_API is {}",
-                is_present, TEST_CONFIG.hyperv_should_be_present, TEST_CONFIG.should_have_stable_api
+                "WARNING Hyper-V is present returned  {}, should be present is: {} HYPERV_SHOULD_HAVE_STABLE_API is {}",
+                is_present, TEST_CONFIG.hyperv_should_be_present, TEST_CONFIG.hyperv_should_have_stable_api
             );
         }
         is_present
@@ -401,7 +413,7 @@ pub mod test_cfg {
         false
     }
 
-    fn should_have_stable_api_default() -> bool {
+    fn hyperv_should_have_stable_api_default() -> bool {
         false
     }
     #[derive(Deserialize, Debug)]
@@ -409,9 +421,9 @@ pub mod test_cfg {
         #[serde(default = "hyperv_should_be_present_default")]
         // Set env var HYPERV_SHOULD_BE_PRESENT to require hyperv to be present for the tests.
         pub hyperv_should_be_present: bool,
-        #[serde(default = "should_have_stable_api_default")]
-        // Set env var SHOULD_HAVE_STABLE_API to require a stable api for the tests.
-        pub should_have_stable_api: bool,
+        #[serde(default = "hyperv_should_have_stable_api_default")]
+        // Set env var HYPERV_SHOULD_HAVE_STABLE_API to require a stable api for the tests.
+        pub hyperv_should_have_stable_api: bool,
     }
 
     #[macro_export]
@@ -463,13 +475,8 @@ pub mod tests {
 
     #[test]
     fn is_hypervisor_present() {
-        let result = super::is_hypervisor_present(true).unwrap_or(false);
-        assert_eq!(
-            result,
-            TEST_CONFIG.hyperv_should_be_present && TEST_CONFIG.should_have_stable_api
-        );
-        assert!(!result);
-        let result = super::is_hypervisor_present(false).unwrap_or(false);
+        // TODO add test for HYPERV_SHOULD_HAVE_STABLE_API = true
+        let result = super::is_hypervisor_present().unwrap_or(false);
         assert_eq!(result, TEST_CONFIG.hyperv_should_be_present);
     }
 
@@ -479,7 +486,7 @@ pub mod tests {
         const MEM_SIZE: usize = 0x1000;
         let gm = shared_mem_with_code(CODE.as_slice(), MEM_SIZE, Offset::zero()).unwrap();
         let addrs = HypervisorAddrs::for_shared_mem(&gm, MEM_SIZE as u64, 0, 0).unwrap();
-        super::HypervLinuxDriver::new(TEST_CONFIG.should_have_stable_api, &addrs).unwrap();
+        super::HypervLinuxDriver::new(&addrs).unwrap();
     }
 
     #[test]
@@ -490,8 +497,7 @@ pub mod tests {
 
         let gm = shared_mem_with_code(CODE.as_slice(), ACTUAL_MEM_SIZE, Offset::zero()).unwrap();
         let addrs = HypervisorAddrs::for_shared_mem(&gm, REGION_MEM_SIZE, 0x1000, 0x1).unwrap();
-        let mut driver =
-            HypervLinuxDriver::new(TEST_CONFIG.should_have_stable_api, &addrs).unwrap();
+        let mut driver = HypervLinuxDriver::new(&addrs).unwrap();
         driver.add_basic_registers(&addrs).unwrap();
         driver.apply_registers().unwrap();
 
@@ -546,8 +552,7 @@ pub mod tests {
         let gm = shared_mem_with_code(CODE.as_slice(), ACTUAL_MEM_SIZE, Offset::zero()).unwrap();
         let addrs =
             HypervisorAddrs::for_shared_mem(&gm, REGION_MEM_SIZE as u64, 0x1000, 0x1).unwrap();
-        let mut driver =
-            HypervLinuxDriver::new(TEST_CONFIG.should_have_stable_api, &addrs).unwrap();
+        let mut driver = HypervLinuxDriver::new(&addrs).unwrap();
         driver.add_advanced_registers(&addrs, 1, 2).unwrap();
     }
 }

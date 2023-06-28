@@ -110,7 +110,7 @@ pub extern "C" fn is_supported_platform() -> bool {
 }
 
 #[no_mangle]
-/// Checks if the current platform is supported by Hyperlight.
+/// Checks if a Hypervisor supported by Hyperlight is available.
 pub extern "C" fn is_hypervisor_present() -> bool {
     check_hypervisor()
 }
