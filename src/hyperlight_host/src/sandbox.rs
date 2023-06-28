@@ -717,12 +717,14 @@ impl<'a> UnintializedSandbox<'a> {
     /// Initialize the `Sandbox` from an `UninitializedSandbox`.
     /// Receives a callback function to be called during initialization.
     #[allow(unused)]
-    fn initialize<F: Fn(&mut Sandbox) -> Result<()>>(&mut self, callback: F) -> Result<Sandbox> {
+    fn initialize<F: Fn(&mut Sandbox) -> Result<()>>(&mut self, callback: Option<F>) -> Result<Sandbox> {
         let mut sbox = Sandbox {
             mem_mgr: self.mem_mgr.clone(),
             stack_guard: self.stack_guard,
         };
-        callback(&mut sbox)?;
+        if let Some(cb) = callback {
+            cb(&mut sbox)?;
+        }
 
         Ok(sbox)
     }
