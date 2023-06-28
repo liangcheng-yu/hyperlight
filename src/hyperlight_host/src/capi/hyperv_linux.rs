@@ -3,7 +3,8 @@ use super::handle::Handle;
 use super::hdl::Hdl;
 use super::mem_access_handler::get_mem_access_handler_func;
 use super::mem_access_handler::MemAccessHandlerWrapper;
-use super::outb_handler::{get_outb_handler_func, OutBHandlerWrapper};
+use super::outb_handler::get_outb_handler_func;
+use crate::capi::outb_handler::OutBHandlerWrapper;
 use crate::hypervisor::hyperv_linux::{is_hypervisor_present, HypervLinuxDriver};
 use crate::hypervisor::hypervisor_mem::HypervisorAddrs;
 use crate::hypervisor::Hypervisor;
@@ -36,9 +37,9 @@ fn get_driver(ctx: &Context, hdl: Handle) -> Result<&HypervLinuxDriver> {
 /// assert_eq!(is_hyperv_linux_present(require_stable_api), true );
 /// ```
 #[no_mangle]
-pub extern "C" fn is_hyperv_linux_present(require_stable_api: bool) -> bool {
+pub extern "C" fn is_hyperv_linux_present() -> bool {
     // At this point we dont have any way to report the error if one occurs.
-    is_hypervisor_present(require_stable_api).unwrap_or(false)
+    is_hypervisor_present().unwrap_or(false)
 }
 
 /// Creates a new HyperV-Linux driver with the given parameters and
@@ -58,14 +59,13 @@ pub extern "C" fn is_hyperv_linux_present(require_stable_api: bool) -> bool {
 #[no_mangle]
 pub unsafe extern "C" fn hyperv_linux_create_driver(
     ctx: *mut Context,
-    require_stable_api: bool,
     addrs: HypervisorAddrs,
     rsp: u64,
     pml4: u64,
 ) -> Handle {
     validate_context!(ctx);
 
-    let mut driver = match HypervLinuxDriver::new(require_stable_api, &addrs) {
+    let mut driver = match HypervLinuxDriver::new(&addrs) {
         Ok(d) => d,
         Err(e) => return (*ctx).register_err(e),
     };
@@ -97,12 +97,11 @@ pub unsafe extern "C" fn hyperv_linux_create_driver(
 #[no_mangle]
 pub unsafe extern "C" fn hyperv_linux_create_driver_simple(
     ctx_ptr: *mut Context,
-    require_stable_api: bool,
     addrs: HypervisorAddrs,
 ) -> Handle {
     validate_context!(ctx_ptr);
 
-    let mut driver = match HypervLinuxDriver::new(require_stable_api, &addrs) {
+    let mut driver = match HypervLinuxDriver::new(&addrs) {
         Ok(d) => d,
         Err(e) => return (*ctx_ptr).register_err(e),
     };

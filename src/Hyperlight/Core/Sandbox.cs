@@ -851,14 +851,18 @@ namespace Hyperlight
             }
         }
 
+
+        // TODO: remove this and make a property that calls  is_hypervisor_present() once
+        // WHP is hooked up in Rust.
         public static bool IsHypervisorPresent()
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                return LinuxHyperV.IsHypervisorPresent() || LinuxKVM.IsHypervisorPresent();
+                return is_hypervisor_present();
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
+                // TODO: remove this and call C API once WHP is hooked up in Rust.
                 return WindowsHypervisorPlatform.IsHypervisorPresent();
             }
             return false;
@@ -972,6 +976,11 @@ namespace Hyperlight
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         [return: MarshalAs(UnmanagedType.U1)]
         private static extern bool is_supported_platform();
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        [return: MarshalAs(UnmanagedType.U1)]
+        private static extern bool is_hypervisor_present();
 
 #pragma warning restore CA1707 // Remove the underscores from member name
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

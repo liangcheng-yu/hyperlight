@@ -38,7 +38,6 @@ namespace Hyperlight.Hypervisors
             );
             var rawHdl = hyperv_linux_create_driver(
                 ctxWrapper.ctx,
-                LinuxHyperV.REQUIRE_STABLE_API,
                 addrs,
                 rsp,
                 pml4_addr
@@ -143,7 +142,6 @@ namespace Hyperlight.Hypervisors
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle hyperv_linux_create_driver(
             NativeContext ctx,
-            [MarshalAs(UnmanagedType.U1)] bool require_stable_api,
             HypervisorAddrs addrs,
             ulong rsp,
             ulong pml4

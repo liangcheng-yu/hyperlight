@@ -8,12 +8,9 @@ namespace Hyperlight.Native
 
     static class LinuxHyperV
     {
-        // TODO: This should come from configuration.
-        public const bool REQUIRE_STABLE_API = false;
-
         public static bool IsHypervisorPresent()
         {
-            return is_hyperv_linux_present(LinuxHyperV.REQUIRE_STABLE_API);
+            return is_hyperv_linux_present();
         }
 
         //TODO: investigate why we cannot use SafeDirectory here
@@ -21,9 +18,7 @@ namespace Hyperlight.Native
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         [return: MarshalAs(UnmanagedType.U1)]
-        private static extern bool is_hyperv_linux_present(
-            [MarshalAs(UnmanagedType.U1)] bool require_stable_api
-        );
+        private static extern bool is_hyperv_linux_present();
 #pragma warning restore CA5393
     }
 }

@@ -4,10 +4,29 @@
 #include "err.h"
 #include "mem_mgr_tests.h"
 
-MunitResult test_is_hypervisor_present()
+MunitResult test_is_hypervisor_present(const MunitParameter params[], void *fixture)
 {
-    bool is_present = is_hypervisor_present();
-    munit_assert_true(is_present);
+
+    // TODO: remove this once we have WHP hooked up the the Rust Sandbox
+
+#ifdef _WIN32
+    return MUNIT_SKIP;
+#endif
+
+    HypervisorAvailabilityType *hypervisorAvailability = (HypervisorAvailabilityType *)fixture;
+    bool status = is_hypervisor_present();
+
+    if ((hypervisorAvailability->expect_hyperv_linux_present && hypervisorAvailability->expect_hyperv_linux_prerelease_api)|| hypervisorAvailability->expect_kvm_present|| hypervisorAvailability->expect_whp_present)
+    {
+        munit_assert_true(status);
+    }
+    else
+    {
+        munit_assert_false(status);
+    }
+
+    // TODO: Test for a non pre release API version of hyperv on linux when it is available.
+    
     return MUNIT_OK;
 }
 
@@ -16,7 +35,7 @@ void host_print(const char *str)
     munit_assert_string_equal(str, "Hello, world!");
 }
 
-MunitResult test_host_print()
+MunitResult test_host_print(const MunitParameter params[], void *fixture)
 {
     Context *ctx = context_new();
     SandboxMemoryConfiguration mem_cfg = {

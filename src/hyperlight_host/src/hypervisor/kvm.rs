@@ -281,10 +281,6 @@ pub(crate) mod test_cfg {
 
     fn is_kvm_present() -> bool {
         println!(
-            "SHOULD_HAVE_STABLE_API is {}",
-            TEST_CONFIG.should_have_stable_api
-        );
-        println!(
             "KVM_SHOULD_BE_PRESENT is {}",
             TEST_CONFIG.kvm_should_be_present
         );
@@ -303,17 +299,11 @@ pub(crate) mod test_cfg {
         false
     }
 
-    fn should_have_stable_api_default() -> bool {
-        false
-    }
     #[derive(Deserialize, Debug)]
     pub struct TestConfig {
         #[serde(default = "kvm_should_be_present_default")]
-        // Set env var HYPERV_SHOULD_BE_PRESENT to require hyperv to be present for the tests.
+        // Set env var KVM_SHOULD_BE_PRESENT to require hyperv to be present for the tests.
         pub kvm_should_be_present: bool,
-        #[serde(default = "should_have_stable_api_default")]
-        // Set env var SHOULD_HAVE_STABLE_API to require a stable api for the tests.
-        pub should_have_stable_api: bool,
     }
 
     #[macro_export]
