@@ -5,7 +5,7 @@ use super::{c_func::CFunc, mem_mgr::register_mem_mgr};
 use crate::mem::ptr::RawPtr;
 use crate::{
     capi::strings::get_string, mem::config::SandboxMemoryConfiguration,
-    sandbox::HostFunctionWithOneArg, sandbox::Sandbox as RustSandbox,
+    sandbox::HostFunctionWithOneArg, sandbox::UnintializedSandbox as RustSandbox,
 };
 use crate::{
     sandbox::is_hypervisor_present as check_hypervisor,
