@@ -752,7 +752,8 @@ fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
 mod tests {
     #[cfg(target_os = "linux")]
     use super::{
-        is_hypervisor_present, outb_log, validate_concrete_type, HostFunctionWithOneArg, UnintializedSandbox,
+        is_hypervisor_present, outb_log, validate_concrete_type, HostFunctionWithOneArg,
+        UnintializedSandbox,
     };
     #[cfg(target_os = "windows")]
     use super::{outb_log, validate_concrete_type, HostFunctionWithOneArg, UnintializedSandbox};
