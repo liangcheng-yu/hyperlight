@@ -322,7 +322,7 @@ fn validate_concrete_type(t: &dyn Any) -> Result<()> {
 }
 
 /// Sandboxes are the primary mechanism to interact with VM partitions.
-/// 
+///
 /// Prior to initializing a Sandbox, the caller must register all host functions
 /// onto an UninitializedSandbox. Once all host functions have been registered,
 /// the UninitializedSandbox can be initialized into a Sandbox through the
@@ -537,7 +537,8 @@ impl<'a> UnintializedSandbox<'a> {
     ///    register_host_function(function);
     /// ```
     ///
-    pub fn register_host_function(&mut self, function: HostMethodInfo) -> Result<()> { // (DAN:TODO) This will be completely refactored.
+    pub fn register_host_function(&mut self, function: HostMethodInfo) -> Result<()> {
+        // (DAN:TODO) This will be completely refactored.
         let name = function.host_function_definition.function_name.to_string();
         let map = &mut self.map_host_function_names_to_method_info;
 
@@ -563,7 +564,8 @@ impl<'a> UnintializedSandbox<'a> {
     /// // [...]
     /// ```
     ///
-    pub fn call_host_function( // (DAN:TODO) This will be completely refactored.
+    pub fn call_host_function(
+        // (DAN:TODO) This will be completely refactored.
         &mut self,
         function_name: &str,
         args: &[SupportedParameterAndReturnValues],
@@ -715,10 +717,10 @@ impl<'a> UnintializedSandbox<'a> {
     /// Initialize the `Sandbox` from an `UninitializedSandbox`.
     /// Receives a callback function to be called during initialization.
     #[allow(unused)]
-    fn initialize<F: Fn (&mut Sandbox) -> Result<()>>(&mut self, callback: F) -> Result<Sandbox> {
+    fn initialize<F: Fn(&mut Sandbox) -> Result<()>>(&mut self, callback: F) -> Result<Sandbox> {
         let mut sbox = Sandbox {
             mem_mgr: self.mem_mgr.clone(),
-            stack_guard: self.stack_guard.clone(),
+            stack_guard: self.stack_guard,
         };
         callback(&mut sbox)?;
 
@@ -809,7 +811,8 @@ mod tests {
 
         let simple_guest_path = simple_guest_path().unwrap();
         let mgr =
-            UnintializedSandbox::load_guest_binary(cfg, simple_guest_path.as_str(), false, false).unwrap();
+            UnintializedSandbox::load_guest_binary(cfg, simple_guest_path.as_str(), false, false)
+                .unwrap();
         assert_eq!(cfg, mgr.mem_cfg);
     }
 
@@ -817,7 +820,8 @@ mod tests {
     fn test_load_guest_binary_load_lib() {
         let cfg = SandboxMemoryConfiguration::default();
         let simple_guest_path = simple_guest_path().unwrap();
-        let mgr_res = UnintializedSandbox::load_guest_binary(cfg, simple_guest_path.as_str(), true, true);
+        let mgr_res =
+            UnintializedSandbox::load_guest_binary(cfg, simple_guest_path.as_str(), true, true);
         #[cfg(target_os = "linux")]
         {
             assert!(mgr_res.is_err())
