@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{bail, Result};
 
 /// All the types that can be used as parameters or return types for a host function.
 pub enum SupportedParameterAndReturnTypes {
@@ -23,6 +23,7 @@ pub enum SupportedParameterAndReturnTypes {
 }
 
 /// All the value types that can be used as parameters or return types for a host function.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SupportedParameterAndReturnValues {
     /// i32
     Int(i32),
@@ -44,19 +45,112 @@ pub enum SupportedParameterAndReturnValues {
     Void(()),
 }
 
-impl SupportedParameterAndReturnValues {
-    /// Gets the inner value as a reference to a dyn Any
-    pub fn get_inner(&self) -> Result<&dyn std::any::Any> {
-        match self {
-            SupportedParameterAndReturnValues::Int(x) => Ok(x),
-            SupportedParameterAndReturnValues::Long(x) => Ok(x),
-            SupportedParameterAndReturnValues::ULong(x) => Ok(x),
-            SupportedParameterAndReturnValues::Bool(x) => Ok(x),
-            SupportedParameterAndReturnValues::String(x) => Ok(x),
-            SupportedParameterAndReturnValues::ByteArray(x) => Ok(x),
-            SupportedParameterAndReturnValues::IntPtr(x) => Ok(x),
-            SupportedParameterAndReturnValues::UInt(x) => Ok(x),
-            SupportedParameterAndReturnValues::Void(x) => Ok(x),
+impl TryFrom<SupportedParameterAndReturnValues> for i32 {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
+        match value {
+            SupportedParameterAndReturnValues::Int(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
+}
+
+impl TryFrom<SupportedParameterAndReturnValues> for i64 {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
+        match value {
+            SupportedParameterAndReturnValues::Long(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
+}
+
+impl TryFrom<SupportedParameterAndReturnValues> for u64 {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
+        match value {
+            SupportedParameterAndReturnValues::ULong(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
+}
+
+impl TryFrom<SupportedParameterAndReturnValues> for bool {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
+        match value {
+            SupportedParameterAndReturnValues::Bool(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
+}
+
+impl TryFrom<SupportedParameterAndReturnValues> for String {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
+        match value {
+            SupportedParameterAndReturnValues::String(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
+}
+
+impl TryFrom<SupportedParameterAndReturnValues> for Vec<u8> {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
+        match value {
+            SupportedParameterAndReturnValues::ByteArray(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
+}
+
+impl TryFrom<SupportedParameterAndReturnValues> for *mut std::ffi::c_void {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
+        match value {
+            SupportedParameterAndReturnValues::IntPtr(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
+}
+
+impl TryFrom<SupportedParameterAndReturnValues> for u32 {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
+        match value {
+            SupportedParameterAndReturnValues::UInt(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
+}
+
+impl TryFrom<SupportedParameterAndReturnValues> for () {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
+        match value {
+            SupportedParameterAndReturnValues::Void(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
+}
+
+impl TryFrom<SupportedParameterAndReturnTypes> for u32 {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SupportedParameterAndReturnTypes) -> Result<Self> {
+        match value {
+            SupportedParameterAndReturnTypes::Int => Ok(0),
+            _ => bail!("Invalid conversion"),
         }
     }
 }
@@ -81,23 +175,25 @@ fn from_csharp_typename(value: &str) -> Result<SupportedParameterAndReturnTypes>
         "System.Byte[]" => Ok(SupportedParameterAndReturnTypes::ByteArray),
         "System.IntPtr" => Ok(SupportedParameterAndReturnTypes::IntPtr),
         "System.UInt32" => Ok(SupportedParameterAndReturnTypes::UInt),
-        _ => Err(anyhow!("Unsupported type")),
+        _ => bail!("Unsupported type"),
     }
 }
 
 /// This is a marker trait that is used to indicate that a type is a valid Hyperlight parameter type.
-pub(crate) trait SupportedParameterType {
+pub(crate) trait SupportedParameterType<T> {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes;
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues;
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<T>;
 }
 /// This is a marker trait that is used to indicate that a type is a valid Hyperlight return type.
-pub(crate) trait SupportedReturnType {
+pub(crate) trait SupportedReturnType<T> {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes;
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues;
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<T>;
 }
 
 // We can then implement these traits for each type that Hyperlight supports as a parameter or return type
-impl SupportedParameterType for u32 {
+impl SupportedParameterType<u32> for u32 {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
         SupportedParameterAndReturnTypes::UInt
     }
@@ -105,8 +201,15 @@ impl SupportedParameterType for u32 {
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues {
         SupportedParameterAndReturnValues::UInt(*self)
     }
+
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<u32> {
+        match a {
+            SupportedParameterAndReturnValues::UInt(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }   
+    }
 }
-impl SupportedParameterType for String {
+impl SupportedParameterType<String> for String {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
         SupportedParameterAndReturnTypes::String
     }
@@ -114,8 +217,15 @@ impl SupportedParameterType for String {
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues {
         SupportedParameterAndReturnValues::String(self.clone())
     }
+
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<String> {
+        match a {
+            SupportedParameterAndReturnValues::String(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }   
+    }
 }
-impl SupportedParameterType for i32 {
+impl SupportedParameterType<i32> for i32 {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
         SupportedParameterAndReturnTypes::Int
     }
@@ -123,8 +233,15 @@ impl SupportedParameterType for i32 {
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues {
         SupportedParameterAndReturnValues::Int(*self)
     }
+
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<i32> {
+        match a {
+            SupportedParameterAndReturnValues::Int(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }   
+    }
 }
-impl SupportedParameterType for i64 {
+impl SupportedParameterType<i64> for i64 {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
         SupportedParameterAndReturnTypes::Long
     }
@@ -132,8 +249,15 @@ impl SupportedParameterType for i64 {
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues {
         SupportedParameterAndReturnValues::Long(*self)
     }
+
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<i64> {
+        match a {
+            SupportedParameterAndReturnValues::Long(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }   
+    }
 }
-impl SupportedParameterType for u64 {
+impl SupportedParameterType<u64> for u64 {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
         SupportedParameterAndReturnTypes::ULong
     }
@@ -141,8 +265,15 @@ impl SupportedParameterType for u64 {
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues {
         SupportedParameterAndReturnValues::ULong(*self)
     }
+
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<u64> {
+        match a {
+            SupportedParameterAndReturnValues::ULong(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
 }
-impl SupportedParameterType for bool {
+impl SupportedParameterType<bool> for bool {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
         SupportedParameterAndReturnTypes::Bool
     }
@@ -150,8 +281,15 @@ impl SupportedParameterType for bool {
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues {
         SupportedParameterAndReturnValues::Bool(*self)
     }
+
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<bool> {
+        match a {
+            SupportedParameterAndReturnValues::Bool(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
 }
-impl SupportedParameterType for Vec<u8> {
+impl SupportedParameterType<Vec<u8>> for Vec<u8> {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
         SupportedParameterAndReturnTypes::ByteArray
     }
@@ -159,8 +297,15 @@ impl SupportedParameterType for Vec<u8> {
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues {
         SupportedParameterAndReturnValues::ByteArray(self.clone())
     }
+
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<Vec<u8>> {
+        match a {
+            SupportedParameterAndReturnValues::ByteArray(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
 }
-impl SupportedParameterType for *mut std::ffi::c_void {
+impl SupportedParameterType<*mut std::ffi::c_void> for *mut std::ffi::c_void {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
         SupportedParameterAndReturnTypes::IntPtr
     }
@@ -168,9 +313,16 @@ impl SupportedParameterType for *mut std::ffi::c_void {
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues {
         SupportedParameterAndReturnValues::IntPtr(*self)
     }
+
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<*mut std::ffi::c_void> {
+        match a {
+            SupportedParameterAndReturnValues::IntPtr(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
 }
 
-impl SupportedReturnType for u32 {
+impl SupportedReturnType<u32> for u32 {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
         SupportedParameterAndReturnTypes::UInt
     }
@@ -178,8 +330,15 @@ impl SupportedReturnType for u32 {
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues {
         SupportedParameterAndReturnValues::UInt(*self)
     }
+
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<u32> {
+        match a {
+            SupportedParameterAndReturnValues::UInt(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }   
+    }
 }
-impl SupportedReturnType for () {
+impl SupportedReturnType<()> for () {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
         SupportedParameterAndReturnTypes::Void
     }
@@ -187,8 +346,15 @@ impl SupportedReturnType for () {
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues {
         SupportedParameterAndReturnValues::Void(())
     }
+
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<()> {
+        match a {
+            SupportedParameterAndReturnValues::Void(_) => Ok(()),
+            _ => bail!("Invalid conversion"),
+        }   
+    }
 }
-impl SupportedReturnType for String {
+impl SupportedReturnType<String> for String {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
         SupportedParameterAndReturnTypes::String
     }
@@ -196,8 +362,15 @@ impl SupportedReturnType for String {
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues {
         SupportedParameterAndReturnValues::String(self.clone())
     }
+
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<String> {
+        match a {
+            SupportedParameterAndReturnValues::String(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
 }
-impl SupportedReturnType for i32 {
+impl SupportedReturnType<i32> for i32 {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
         SupportedParameterAndReturnTypes::Int
     }
@@ -205,8 +378,15 @@ impl SupportedReturnType for i32 {
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues {
         SupportedParameterAndReturnValues::Int(*self)
     }
+
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<i32> {
+        match a {
+            SupportedParameterAndReturnValues::Int(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
 }
-impl SupportedReturnType for i64 {
+impl SupportedReturnType<i64> for i64 {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
         SupportedParameterAndReturnTypes::Long
     }
@@ -214,8 +394,15 @@ impl SupportedReturnType for i64 {
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues {
         SupportedParameterAndReturnValues::Long(*self)
     }
+
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<i64> {
+        match a {
+            SupportedParameterAndReturnValues::Long(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
 }
-impl SupportedReturnType for u64 {
+impl SupportedReturnType<u64> for u64 {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
         SupportedParameterAndReturnTypes::ULong
     }
@@ -223,8 +410,15 @@ impl SupportedReturnType for u64 {
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues {
         SupportedParameterAndReturnValues::ULong(*self)
     }
+
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<u64> {
+        match a {
+            SupportedParameterAndReturnValues::ULong(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
 }
-impl SupportedReturnType for bool {
+impl SupportedReturnType<bool> for bool {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
         SupportedParameterAndReturnTypes::Bool
     }
@@ -232,8 +426,15 @@ impl SupportedReturnType for bool {
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues {
         SupportedParameterAndReturnValues::Bool(*self)
     }
+
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<bool> {
+        match a {
+            SupportedParameterAndReturnValues::Bool(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
 }
-impl SupportedReturnType for Vec<u8> {
+impl SupportedReturnType<Vec<u8>> for Vec<u8> {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
         SupportedParameterAndReturnTypes::ByteArray
     }
@@ -241,13 +442,27 @@ impl SupportedReturnType for Vec<u8> {
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues {
         SupportedParameterAndReturnValues::ByteArray(self.clone())
     }
+
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<Vec<u8>> {
+        match a {
+            SupportedParameterAndReturnValues::ByteArray(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
+    }
 }
-impl SupportedReturnType for *mut std::ffi::c_void {
+impl SupportedReturnType<*mut std::ffi::c_void> for *mut std::ffi::c_void {
     fn get_hyperlight_type() -> SupportedParameterAndReturnTypes {
         SupportedParameterAndReturnTypes::IntPtr
     }
 
     fn get_hyperlight_value(&self) -> SupportedParameterAndReturnValues {
         SupportedParameterAndReturnValues::IntPtr(*self)
+    }
+
+    fn get_inner(a: SupportedParameterAndReturnValues) -> Result<*mut std::ffi::c_void> {
+        match a {
+            SupportedParameterAndReturnValues::IntPtr(i) => Ok(i),
+            _ => bail!("Invalid conversion"),
+        }
     }
 }

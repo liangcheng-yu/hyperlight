@@ -19,16 +19,16 @@ pub(crate) type HyperlightFunction<'a> = Arc<
 >;
 
 /// A Hyperlight function that takes no arguments and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionZero<R: SupportedReturnType> {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
+pub(crate) trait FunctionZero<'a, R: SupportedReturnType<R>> {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
 }
 
-impl<T, R> FunctionZero<R> for Arc<Mutex<T>>
+impl<'a, T, R> FunctionZero<'a, R> for Arc<Mutex<T>>
 where
-    for<'a> T: FnMut() -> anyhow::Result<R> + 'a,
-    R: SupportedReturnType,
+    T: FnMut() -> anyhow::Result<R> + 'a,
+    R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
         let cloned = self.clone();
         let func = Box::new(move |_: Vec<SupportedParameterAndReturnValues>| {
             let result = cloned.lock().unwrap()()?;
@@ -39,24 +39,20 @@ where
 }
 
 /// A Hyperlight function that takes 1 argument P1 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionOne<P1: SupportedParameterType + Clone + 'static, R: SupportedReturnType> {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
+pub(crate) trait FunctionOne<'a, P1: SupportedParameterType<P1> + Clone + 'a, R: SupportedReturnType<R>> {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
 }
 
-impl<T, P1, R> FunctionOne<P1, R> for Arc<Mutex<T>>
+impl<'a, T, P1, R> FunctionOne<'a, P1, R> for Arc<Mutex<T>>
 where
-    for<'a> T: FnMut(P1) -> anyhow::Result<R> + 'a,
-    P1: SupportedParameterType + Clone + 'static,
-    R: SupportedReturnType,
+    T: FnMut(P1) -> anyhow::Result<R> + 'a,
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
         let cloned = Arc::clone(self);
         let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = args[0]
-                .get_inner()?
-                .downcast_ref::<P1>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
+            let p1 = P1::get_inner(args[0].clone())?;
             let result = cloned.lock().unwrap()(p1)?;
             Ok(result.get_hyperlight_value())
         });
@@ -65,35 +61,27 @@ where
 }
 
 /// A Hyperlight function that takes 2 arguments P1 and P2 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionTwo<
-    P1: SupportedParameterType,
-    P2: SupportedParameterType,
-    R: SupportedReturnType,
+pub(crate) trait FunctionTwo<'a, 
+    P1: SupportedParameterType<P1>,
+    P2: SupportedParameterType<P2>,
+    R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
 }
 
-impl<T, P1, P2, R> FunctionTwo<P1, P2, R> for Arc<Mutex<T>>
+impl<'a, T, P1, P2, R> FunctionTwo<'a, P1, P2, R> for Arc<Mutex<T>>
 where
-    for<'a> T: FnMut(P1, P2) -> anyhow::Result<R> + 'a,
-    P1: SupportedParameterType + Clone + 'static,
-    P2: SupportedParameterType + Clone + 'static,
-    R: SupportedReturnType,
+    T: FnMut(P1, P2) -> anyhow::Result<R> + 'a,
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    P2: SupportedParameterType<P2> + Clone + 'a,
+    R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = args[0]
-                .get_inner()?
-                .downcast_ref::<P1>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p2 = args[1]
-                .get_inner()?
-                .downcast_ref::<P2>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
+            let p1 = P1::get_inner(args[0].clone())?;
+            let p2 = P2::get_inner(args[1].clone())?;
             let result = cloned.lock().unwrap()(p1, p2)?;
             Ok(result.get_hyperlight_value())
         });
@@ -102,42 +90,30 @@ where
 }
 
 /// A Hyperlight function that takes 3 arguments P1, P2 and P3 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionThree<
-    P1: SupportedParameterType + Clone + 'static,
-    P2: SupportedParameterType + Clone + 'static,
-    P3: SupportedParameterType + Clone + 'static,
-    R: SupportedReturnType,
+pub(crate) trait FunctionThree<'a, 
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    P2: SupportedParameterType<P2> + Clone + 'a,
+    P3: SupportedParameterType<P3> + Clone + 'a,
+    R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
 }
 
-impl<T, P1, P2, P3, R> FunctionThree<P1, P2, P3, R> for Arc<Mutex<T>>
+impl<'a, T, P1, P2, P3, R> FunctionThree<'a, P1, P2, P3, R> for Arc<Mutex<T>>
 where
-    for<'a> T: FnMut(P1, P2, P3) -> anyhow::Result<R> + 'a,
-    P1: SupportedParameterType + Clone + 'static,
-    P2: SupportedParameterType + Clone + 'static,
-    P3: SupportedParameterType + Clone + 'static,
-    R: SupportedReturnType,
+    T: FnMut(P1, P2, P3) -> anyhow::Result<R> + 'a,
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    P2: SupportedParameterType<P2> + Clone + 'a,
+    P3: SupportedParameterType<P3> + Clone + 'a,
+    R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = args[0]
-                .get_inner()?
-                .downcast_ref::<P1>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p2 = args[1]
-                .get_inner()?
-                .downcast_ref::<P2>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p3 = args[2]
-                .get_inner()?
-                .downcast_ref::<P3>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
+            let p1 = P1::get_inner(args[0].clone())?;
+            let p2 = P2::get_inner(args[1].clone())?;
+            let p3 = P3::get_inner(args[2].clone())?;
             let result = cloned.lock().unwrap()(p1, p2, p3)?;
             Ok(result.get_hyperlight_value())
         });
@@ -146,49 +122,33 @@ where
 }
 
 /// A Hyperlight function that takes 4 arguments P1, P2, P3 and P4 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionFour<
-    P1: SupportedParameterType + Clone + 'static,
-    P2: SupportedParameterType + Clone + 'static,
-    P3: SupportedParameterType + Clone + 'static,
-    P4: SupportedParameterType + Clone + 'static,
-    R: SupportedReturnType,
+pub(crate) trait FunctionFour<'a, 
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    P2: SupportedParameterType<P2> + Clone + 'a,
+    P3: SupportedParameterType<P3> + Clone + 'a,
+    P4: SupportedParameterType<P4> + Clone + 'a,
+    R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
 }
 
-impl<T, P1, P2, P3, P4, R> FunctionFour<P1, P2, P3, P4, R> for Arc<Mutex<T>>
+impl<'a, T, P1, P2, P3, P4, R> FunctionFour<'a, P1, P2, P3, P4, R> for Arc<Mutex<T>>
 where
-    for<'a> T: FnMut(P1, P2, P3, P4) -> anyhow::Result<R> + 'a,
-    P1: SupportedParameterType + Clone + 'static,
-    P2: SupportedParameterType + Clone + 'static,
-    P3: SupportedParameterType + Clone + 'static,
-    P4: SupportedParameterType + Clone + 'static,
-    R: SupportedReturnType,
+    T: FnMut(P1, P2, P3, P4) -> anyhow::Result<R> + 'a,
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    P2: SupportedParameterType<P2> + Clone + 'a,
+    P3: SupportedParameterType<P3> + Clone + 'a,
+    P4: SupportedParameterType<P4> + Clone + 'a,
+    R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = args[0]
-                .get_inner()?
-                .downcast_ref::<P1>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p2 = args[1]
-                .get_inner()?
-                .downcast_ref::<P2>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p3 = args[2]
-                .get_inner()?
-                .downcast_ref::<P3>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p4 = args[3]
-                .get_inner()?
-                .downcast_ref::<P4>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
+            let p1 = P1::get_inner(args[0].clone())?;
+            let p2 = P2::get_inner(args[1].clone())?;
+            let p3 = P3::get_inner(args[2].clone())?;
+            let p4 = P4::get_inner(args[3].clone())?;
             let result = cloned.lock().unwrap()(p1, p2, p3, p4)?;
             Ok(result.get_hyperlight_value())
         });
@@ -197,56 +157,36 @@ where
 }
 
 /// A Hyperlight function that takes 5 arguments P1, P2, P3, P4 and P5 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionFive<
-    P1: SupportedParameterType + Clone + 'static,
-    P2: SupportedParameterType + Clone + 'static,
-    P3: SupportedParameterType + Clone + 'static,
-    P4: SupportedParameterType + Clone + 'static,
-    P5: SupportedParameterType + Clone + 'static,
-    R: SupportedReturnType,
+pub(crate) trait FunctionFive<'a, 
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    P2: SupportedParameterType<P2> + Clone + 'a,
+    P3: SupportedParameterType<P3> + Clone + 'a,
+    P4: SupportedParameterType<P4> + Clone + 'a,
+    P5: SupportedParameterType<P5> + Clone + 'a,
+    R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
 }
 
-impl<T, P1, P2, P3, P4, P5, R> FunctionFive<P1, P2, P3, P4, P5, R> for Arc<Mutex<T>>
+impl<'a, T, P1, P2, P3, P4, P5, R> FunctionFive<'a, P1, P2, P3, P4, P5, R> for Arc<Mutex<T>>
 where
-    for<'a> T: FnMut(P1, P2, P3, P4, P5) -> anyhow::Result<R> + 'a,
-    P1: SupportedParameterType + Clone + 'static,
-    P2: SupportedParameterType + Clone + 'static,
-    P3: SupportedParameterType + Clone + 'static,
-    P4: SupportedParameterType + Clone + 'static,
-    P5: SupportedParameterType + Clone + 'static,
-    R: SupportedReturnType,
+    T: FnMut(P1, P2, P3, P4, P5) -> anyhow::Result<R> + 'a,
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    P2: SupportedParameterType<P2> + Clone + 'a,
+    P3: SupportedParameterType<P3> + Clone + 'a,
+    P4: SupportedParameterType<P4> + Clone + 'a,
+    P5: SupportedParameterType<P5> + Clone + 'a,
+    R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = args[0]
-                .get_inner()?
-                .downcast_ref::<P1>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p2 = args[1]
-                .get_inner()?
-                .downcast_ref::<P2>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p3 = args[2]
-                .get_inner()?
-                .downcast_ref::<P3>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p4 = args[3]
-                .get_inner()?
-                .downcast_ref::<P4>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p5 = args[4]
-                .get_inner()?
-                .downcast_ref::<P5>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
+            let p1 = P1::get_inner(args[0].clone())?;
+            let p2 = P2::get_inner(args[1].clone())?;
+            let p3 = P3::get_inner(args[2].clone())?;
+            let p4 = P4::get_inner(args[3].clone())?;
+            let p5 = P5::get_inner(args[4].clone())?;
             let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5)?;
             Ok(result.get_hyperlight_value())
         });
@@ -255,63 +195,39 @@ where
 }
 
 /// A Hyperlight function that takes 6 arguments P1, P2, P3, P4, P5 and P6 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionSix<
-    P1: SupportedParameterType + Clone + 'static,
-    P2: SupportedParameterType + Clone + 'static,
-    P3: SupportedParameterType + Clone + 'static,
-    P4: SupportedParameterType + Clone + 'static,
-    P5: SupportedParameterType + Clone + 'static,
-    P6: SupportedParameterType + Clone + 'static,
-    R: SupportedReturnType,
+pub(crate) trait FunctionSix<'a, 
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    P2: SupportedParameterType<P2> + Clone + 'a,
+    P3: SupportedParameterType<P3> + Clone + 'a,
+    P4: SupportedParameterType<P4> + Clone + 'a,
+    P5: SupportedParameterType<P5> + Clone + 'a,
+    P6: SupportedParameterType<P6> + Clone + 'a,
+    R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
 }
 
-impl<T, P1, P2, P3, P4, P5, P6, R> FunctionSix<P1, P2, P3, P4, P5, P6, R> for Arc<Mutex<T>>
+impl<'a, T, P1, P2, P3, P4, P5, P6, R> FunctionSix<'a, P1, P2, P3, P4, P5, P6, R> for Arc<Mutex<T>>
 where
-    for<'a> T: FnMut(P1, P2, P3, P4, P5, P6) -> anyhow::Result<R> + 'a,
-    P1: SupportedParameterType + Clone + 'static,
-    P2: SupportedParameterType + Clone + 'static,
-    P3: SupportedParameterType + Clone + 'static,
-    P4: SupportedParameterType + Clone + 'static,
-    P5: SupportedParameterType + Clone + 'static,
-    P6: SupportedParameterType + Clone + 'static,
-    R: SupportedReturnType,
+    T: FnMut(P1, P2, P3, P4, P5, P6) -> anyhow::Result<R> + 'a,
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    P2: SupportedParameterType<P2> + Clone + 'a,
+    P3: SupportedParameterType<P3> + Clone + 'a,
+    P4: SupportedParameterType<P4> + Clone + 'a,
+    P5: SupportedParameterType<P5> + Clone + 'a,
+    P6: SupportedParameterType<P6> + Clone + 'a,
+    R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = args[0]
-                .get_inner()?
-                .downcast_ref::<P1>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p2 = args[1]
-                .get_inner()?
-                .downcast_ref::<P2>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p3 = args[2]
-                .get_inner()?
-                .downcast_ref::<P3>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p4 = args[3]
-                .get_inner()?
-                .downcast_ref::<P4>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p5 = args[4]
-                .get_inner()?
-                .downcast_ref::<P5>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p6 = args[5]
-                .get_inner()?
-                .downcast_ref::<P6>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
+            let p1 = P1::get_inner(args[0].clone())?;
+            let p2 = P2::get_inner(args[1].clone())?;
+            let p3 = P3::get_inner(args[2].clone())?;
+            let p4 = P4::get_inner(args[3].clone())?;
+            let p5 = P5::get_inner(args[4].clone())?;
+            let p6 = P6::get_inner(args[5].clone())?;
             let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6)?;
             Ok(result.get_hyperlight_value())
         });
@@ -320,71 +236,43 @@ where
 }
 
 /// A Hyperlight function that takes 7 arguments P1, P2, P3, P4, P5, P6 and P7 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionSeven<
-    P1: SupportedParameterType + Clone + 'static,
-    P2: SupportedParameterType + Clone + 'static,
-    P3: SupportedParameterType + Clone + 'static,
-    P4: SupportedParameterType + Clone + 'static,
-    P5: SupportedParameterType + Clone + 'static,
-    P6: SupportedParameterType + Clone + 'static,
-    P7: SupportedParameterType + Clone + 'static,
-    R: SupportedReturnType,
+pub(crate) trait FunctionSeven<'a, 
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    P2: SupportedParameterType<P2> + Clone + 'a,
+    P3: SupportedParameterType<P3> + Clone + 'a,
+    P4: SupportedParameterType<P4> + Clone + 'a,
+    P5: SupportedParameterType<P5> + Clone + 'a,
+    P6: SupportedParameterType<P6> + Clone + 'a,
+    P7: SupportedParameterType<P7> + Clone + 'a,
+    R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
 }
 
-impl<T, P1, P2, P3, P4, P5, P6, P7, R> FunctionSeven<P1, P2, P3, P4, P5, P6, P7, R>
+impl<'a, T, P1, P2, P3, P4, P5, P6, P7, R> FunctionSeven<'a, P1, P2, P3, P4, P5, P6, P7, R>
     for Arc<Mutex<T>>
 where
-    for<'a> T: FnMut(P1, P2, P3, P4, P5, P6, P7) -> anyhow::Result<R> + 'a,
-    P1: SupportedParameterType + Clone + 'static,
-    P2: SupportedParameterType + Clone + 'static,
-    P3: SupportedParameterType + Clone + 'static,
-    P4: SupportedParameterType + Clone + 'static,
-    P5: SupportedParameterType + Clone + 'static,
-    P6: SupportedParameterType + Clone + 'static,
-    P7: SupportedParameterType + Clone + 'static,
-    R: SupportedReturnType,
+    T: FnMut(P1, P2, P3, P4, P5, P6, P7) -> anyhow::Result<R> + 'a,
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    P2: SupportedParameterType<P2> + Clone + 'a,
+    P3: SupportedParameterType<P3> + Clone + 'a,
+    P4: SupportedParameterType<P4> + Clone + 'a,
+    P5: SupportedParameterType<P5> + Clone + 'a,
+    P6: SupportedParameterType<P6> + Clone + 'a,
+    P7: SupportedParameterType<P7> + Clone + 'a,
+    R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = args[0]
-                .get_inner()?
-                .downcast_ref::<P1>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p2 = args[1]
-                .get_inner()?
-                .downcast_ref::<P2>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p3 = args[2]
-                .get_inner()?
-                .downcast_ref::<P3>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p4 = args[3]
-                .get_inner()?
-                .downcast_ref::<P4>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p5 = args[4]
-                .get_inner()?
-                .downcast_ref::<P5>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p6 = args[5]
-                .get_inner()?
-                .downcast_ref::<P6>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p7 = args[6]
-                .get_inner()?
-                .downcast_ref::<P7>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
+            let p1 = P1::get_inner(args[0].clone())?;
+            let p2 = P2::get_inner(args[1].clone())?;
+            let p3 = P3::get_inner(args[2].clone())?;
+            let p4 = P4::get_inner(args[3].clone())?;
+            let p5 = P5::get_inner(args[4].clone())?;
+            let p6 = P6::get_inner(args[5].clone())?;
+            let p7 = P7::get_inner(args[6].clone())?;
             let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6, p7)?;
             Ok(result.get_hyperlight_value())
         });
@@ -393,78 +281,46 @@ where
 }
 
 /// A Hyperlight function that takes 8 arguments P1, P2, P3, P4, P5, P6, P7 and P8 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionEight<
-    P1: SupportedParameterType + Clone + 'static,
-    P2: SupportedParameterType + Clone + 'static,
-    P3: SupportedParameterType + Clone + 'static,
-    P4: SupportedParameterType + Clone + 'static,
-    P5: SupportedParameterType + Clone + 'static,
-    P6: SupportedParameterType + Clone + 'static,
-    P7: SupportedParameterType + Clone + 'static,
-    P8: SupportedParameterType + Clone + 'static,
-    R: SupportedReturnType,
+pub(crate) trait FunctionEight<'a, 
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    P2: SupportedParameterType<P2> + Clone + 'a,
+    P3: SupportedParameterType<P3> + Clone + 'a,
+    P4: SupportedParameterType<P4> + Clone + 'a,
+    P5: SupportedParameterType<P5> + Clone + 'a,
+    P6: SupportedParameterType<P6> + Clone + 'a,
+    P7: SupportedParameterType<P7> + Clone + 'a,
+    P8: SupportedParameterType<P8> + Clone + 'a,
+    R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
 }
 
-impl<T, P1, P2, P3, P4, P5, P6, P7, P8, R> FunctionEight<P1, P2, P3, P4, P5, P6, P7, P8, R>
+impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, R> FunctionEight<'a, P1, P2, P3, P4, P5, P6, P7, P8, R>
     for Arc<Mutex<T>>
 where
-    for<'a> T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8) -> anyhow::Result<R> + 'a,
-    P1: SupportedParameterType + Clone + 'static,
-    P2: SupportedParameterType + Clone + 'static,
-    P3: SupportedParameterType + Clone + 'static,
-    P4: SupportedParameterType + Clone + 'static,
-    P5: SupportedParameterType + Clone + 'static,
-    P6: SupportedParameterType + Clone + 'static,
-    P7: SupportedParameterType + Clone + 'static,
-    P8: SupportedParameterType + Clone + 'static,
-    R: SupportedReturnType,
+    T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8) -> anyhow::Result<R> + 'a,
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    P2: SupportedParameterType<P2> + Clone + 'a,
+    P3: SupportedParameterType<P3> + Clone + 'a,
+    P4: SupportedParameterType<P4> + Clone + 'a,
+    P5: SupportedParameterType<P5> + Clone + 'a,
+    P6: SupportedParameterType<P6> + Clone + 'a,
+    P7: SupportedParameterType<P7> + Clone + 'a,
+    P8: SupportedParameterType<P8> + Clone + 'a,
+    R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = args[0]
-                .get_inner()?
-                .downcast_ref::<P1>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p2 = args[1]
-                .get_inner()?
-                .downcast_ref::<P2>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p3 = args[2]
-                .get_inner()?
-                .downcast_ref::<P3>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p4 = args[3]
-                .get_inner()?
-                .downcast_ref::<P4>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p5 = args[4]
-                .get_inner()?
-                .downcast_ref::<P5>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p6 = args[5]
-                .get_inner()?
-                .downcast_ref::<P6>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p7 = args[6]
-                .get_inner()?
-                .downcast_ref::<P7>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p8 = args[7]
-                .get_inner()?
-                .downcast_ref::<P8>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
+            let p1 = P1::get_inner(args[0].clone())?;
+            let p2 = P2::get_inner(args[1].clone())?;
+            let p3 = P3::get_inner(args[2].clone())?;
+            let p4 = P4::get_inner(args[3].clone())?;
+            let p5 = P5::get_inner(args[4].clone())?;
+            let p6 = P6::get_inner(args[5].clone())?;
+            let p7 = P7::get_inner(args[6].clone())?;
+            let p8 = P8::get_inner(args[7].clone())?;
             let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6, p7, p8)?;
             Ok(result.get_hyperlight_value())
         });
@@ -473,85 +329,49 @@ where
 }
 
 /// A Hyperlight function that takes 9 arguments P1, P2, P3, P4, P5, P6, P7, P8 and P9 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionNine<
-    P1: SupportedParameterType + Clone + 'static,
-    P2: SupportedParameterType + Clone + 'static,
-    P3: SupportedParameterType + Clone + 'static,
-    P4: SupportedParameterType + Clone + 'static,
-    P5: SupportedParameterType + Clone + 'static,
-    P6: SupportedParameterType + Clone + 'static,
-    P7: SupportedParameterType + Clone + 'static,
-    P8: SupportedParameterType + Clone + 'static,
-    P9: SupportedParameterType + Clone + 'static,
-    R: SupportedReturnType,
+pub(crate) trait FunctionNine<'a, 
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    P2: SupportedParameterType<P2> + Clone + 'a,
+    P3: SupportedParameterType<P3> + Clone + 'a,
+    P4: SupportedParameterType<P4> + Clone + 'a,
+    P5: SupportedParameterType<P5> + Clone + 'a,
+    P6: SupportedParameterType<P6> + Clone + 'a,
+    P7: SupportedParameterType<P7> + Clone + 'a,
+    P8: SupportedParameterType<P8> + Clone + 'a,
+    P9: SupportedParameterType<P9> + Clone + 'a,
+    R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
 }
 
-impl<T, P1, P2, P3, P4, P5, P6, P7, P8, P9, R> FunctionNine<P1, P2, P3, P4, P5, P6, P7, P8, P9, R>
+impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, P9, R> FunctionNine<'a, P1, P2, P3, P4, P5, P6, P7, P8, P9, R>
     for Arc<Mutex<T>>
 where
-    for<'a> T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9) -> anyhow::Result<R> + 'a,
-    P1: SupportedParameterType + Clone + 'static,
-    P2: SupportedParameterType + Clone + 'static,
-    P3: SupportedParameterType + Clone + 'static,
-    P4: SupportedParameterType + Clone + 'static,
-    P5: SupportedParameterType + Clone + 'static,
-    P6: SupportedParameterType + Clone + 'static,
-    P7: SupportedParameterType + Clone + 'static,
-    P8: SupportedParameterType + Clone + 'static,
-    P9: SupportedParameterType + Clone + 'static,
-    R: SupportedReturnType,
+    T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9) -> anyhow::Result<R> + 'a,
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    P2: SupportedParameterType<P2> + Clone + 'a,
+    P3: SupportedParameterType<P3> + Clone + 'a,
+    P4: SupportedParameterType<P4> + Clone + 'a,
+    P5: SupportedParameterType<P5> + Clone + 'a,
+    P6: SupportedParameterType<P6> + Clone + 'a,
+    P7: SupportedParameterType<P7> + Clone + 'a,
+    P8: SupportedParameterType<P8> + Clone + 'a,
+    P9: SupportedParameterType<P9> + Clone + 'a,
+    R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = args[0]
-                .get_inner()?
-                .downcast_ref::<P1>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p2 = args[1]
-                .get_inner()?
-                .downcast_ref::<P2>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p3 = args[2]
-                .get_inner()?
-                .downcast_ref::<P3>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p4 = args[3]
-                .get_inner()?
-                .downcast_ref::<P4>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p5 = args[4]
-                .get_inner()?
-                .downcast_ref::<P5>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p6 = args[5]
-                .get_inner()?
-                .downcast_ref::<P6>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p7 = args[6]
-                .get_inner()?
-                .downcast_ref::<P7>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p8 = args[7]
-                .get_inner()?
-                .downcast_ref::<P8>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p9 = args[8]
-                .get_inner()?
-                .downcast_ref::<P9>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
+            let p1 = P1::get_inner(args[0].clone())?;
+            let p2 = P2::get_inner(args[1].clone())?;
+            let p3 = P3::get_inner(args[2].clone())?;
+            let p4 = P4::get_inner(args[3].clone())?;
+            let p5 = P5::get_inner(args[4].clone())?;
+            let p6 = P6::get_inner(args[5].clone())?;
+            let p7 = P7::get_inner(args[6].clone())?;
+            let p8 = P8::get_inner(args[7].clone())?;
+            let p9 = P9::get_inner(args[8].clone())?;
             let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6, p7, p8, p9)?;
             Ok(result.get_hyperlight_value())
         });
@@ -560,92 +380,52 @@ where
 }
 
 /// A Hyperlight function that takes 10 arguments P1, P2, P3, P4, P5, P6, P7, P8, P9 and P10 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionTen<
-    P1: SupportedParameterType + Clone + 'static,
-    P2: SupportedParameterType + Clone + 'static,
-    P3: SupportedParameterType + Clone + 'static,
-    P4: SupportedParameterType + Clone + 'static,
-    P5: SupportedParameterType + Clone + 'static,
-    P6: SupportedParameterType + Clone + 'static,
-    P7: SupportedParameterType + Clone + 'static,
-    P8: SupportedParameterType + Clone + 'static,
-    P9: SupportedParameterType + Clone + 'static,
-    P10: SupportedParameterType + Clone + 'static,
-    R: SupportedReturnType,
+pub(crate) trait FunctionTen<'a, 
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    P2: SupportedParameterType<P2> + Clone + 'a,
+    P3: SupportedParameterType<P3> + Clone + 'a,
+    P4: SupportedParameterType<P4> + Clone + 'a,
+    P5: SupportedParameterType<P5> + Clone + 'a,
+    P6: SupportedParameterType<P6> + Clone + 'a,
+    P7: SupportedParameterType<P7> + Clone + 'a,
+    P8: SupportedParameterType<P8> + Clone + 'a,
+    P9: SupportedParameterType<P9> + Clone + 'a,
+    P10: SupportedParameterType<P10> + Clone + 'a,
+    R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
 }
 
-impl<T, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, R>
-    FunctionTen<P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, R> for Arc<Mutex<T>>
+impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, R>
+    FunctionTen<'a, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, R> for Arc<Mutex<T>>
 where
-    for<'a> T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10) -> anyhow::Result<R> + 'a,
-    P1: SupportedParameterType + Clone + 'static,
-    P2: SupportedParameterType + Clone + 'static,
-    P3: SupportedParameterType + Clone + 'static,
-    P4: SupportedParameterType + Clone + 'static,
-    P5: SupportedParameterType + Clone + 'static,
-    P6: SupportedParameterType + Clone + 'static,
-    P7: SupportedParameterType + Clone + 'static,
-    P8: SupportedParameterType + Clone + 'static,
-    P9: SupportedParameterType + Clone + 'static,
-    P10: SupportedParameterType + Clone + 'static,
-    R: SupportedReturnType,
+    T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10) -> anyhow::Result<R> + 'a,
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    P2: SupportedParameterType<P2> + Clone + 'a,
+    P3: SupportedParameterType<P3> + Clone + 'a,
+    P4: SupportedParameterType<P4> + Clone + 'a,
+    P5: SupportedParameterType<P5> + Clone + 'a,
+    P6: SupportedParameterType<P6> + Clone + 'a,
+    P7: SupportedParameterType<P7> + Clone + 'a,
+    P8: SupportedParameterType<P8> + Clone + 'a,
+    P9: SupportedParameterType<P9> + Clone + 'a,
+    P10: SupportedParameterType<P10> + Clone + 'a,
+    R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = args[0]
-                .get_inner()?
-                .downcast_ref::<P1>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p2 = args[1]
-                .get_inner()?
-                .downcast_ref::<P2>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p3 = args[2]
-                .get_inner()?
-                .downcast_ref::<P3>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p4 = args[3]
-                .get_inner()?
-                .downcast_ref::<P4>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p5 = args[4]
-                .get_inner()?
-                .downcast_ref::<P5>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p6 = args[5]
-                .get_inner()?
-                .downcast_ref::<P6>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p7 = args[6]
-                .get_inner()?
-                .downcast_ref::<P7>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p8 = args[7]
-                .get_inner()?
-                .downcast_ref::<P8>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p9 = args[8]
-                .get_inner()?
-                .downcast_ref::<P9>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let p10 = args[9]
-                .get_inner()?
-                .downcast_ref::<P10>()
-                .cloned()
-                .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
+            let p1 = P1::get_inner(args[0].clone())?;
+            let p2 = P2::get_inner(args[1].clone())?;
+            let p3 = P3::get_inner(args[2].clone())?;
+            let p4 = P4::get_inner(args[3].clone())?;
+            let p5 = P5::get_inner(args[4].clone())?;
+            let p6 = P6::get_inner(args[5].clone())?;
+            let p7 = P7::get_inner(args[6].clone())?;
+            let p8 = P8::get_inner(args[7].clone())?;
+            let p9 = P9::get_inner(args[8].clone())?;
+            let p10 = P10::get_inner(args[9].clone())?;
             let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10)?;
             Ok(result.get_hyperlight_value())
         });
