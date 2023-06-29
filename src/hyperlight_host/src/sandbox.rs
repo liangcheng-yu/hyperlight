@@ -109,6 +109,23 @@ pub struct Sandbox<'a> {
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
+    uninit_sandbox: UnintializedSandbox<'a>,
+}
+
+impl<'a> std::fmt::Debug for Sandbox<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Sandbox")
+            .field("stack_guard", &self.stack_guard)
+            .finish()
+    }
+}
+
+impl<'a> std::fmt::Debug for UnintializedSandbox<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Sandbox")
+            .field("stack_guard", &self.stack_guard)
+            .finish()
+    }
 }
 
 impl<'a> UnintializedSandbox<'a> {
@@ -358,18 +375,6 @@ impl<'a> UnintializedSandbox<'a> {
         }
     }
 
-    // (DAN:NOTE) This is a temporary function that would be replaced by a generic way to call host functions
-    pub(crate) fn host_print(&mut self, msg: String) -> Result<()> {
-        let writer_func = self
-            .host_functions
-            .get_mut("writer_func")
-            .ok_or_else(|| anyhow!("Host function 'writer_func' not found"))?;
-
-        writer_func.lock().unwrap()(vec![SupportedParameterAndReturnValues::String(msg)])?;
-
-        Ok(())
-    }
-
     /// Check for a guest error and return an `Err` if one was found,
     /// and `Ok` if one was not found.
     /// TODO: remove this when we hook it up to the rest of the
@@ -402,25 +407,50 @@ impl<'a> UnintializedSandbox<'a> {
     /// Initialize the `Sandbox` from an `UninitializedSandbox`.
     /// Receives a callback function to be called during initialization.
     #[allow(unused)]
-    fn initialize<F: Fn(&mut Sandbox<'a>) -> Result<()>>(
-        &mut self,
+    fn initialize<F: Fn(&mut UnintializedSandbox<'a>) -> Result<()>>(
+        mut self,
         callback: Option<F>,
     ) -> Result<Sandbox<'a>> {
+        if let Some(cb) = callback {
+            cb(&mut self)?;
+        }
+
         let mut sbox = Sandbox {
             host_functions: self.host_functions.clone(),
             mem_mgr: self.mem_mgr.clone(),
             stack_guard: self.stack_guard,
+            uninit_sandbox: self,
         };
-        if let Some(cb) = callback {
-            cb(&mut sbox)?;
-        }
 
         Ok(sbox)
+    }
+
+    // (DAN:NOTE) This is a temporary function that would be replaced by a generic way to call host functions
+    pub(crate) fn host_print(&mut self, msg: String) -> Result<()> {
+        let writer_func = self
+            .host_functions
+            .get_mut("writer_func")
+            .ok_or_else(|| anyhow!("Host function 'writer_func' not found"))?;
+
+        writer_func.lock().unwrap()(vec![SupportedParameterAndReturnValues::String(msg)])?;
+
+        Ok(())
     }
 }
 
 impl<'a> Sandbox<'a> {
-    // (DAN:TODO) Add function to register new or delete host functions. This should return an `UninitializedSandbox`.
+    // (DAN:NOTE) This is a temporary function that would be replaced by a generic way to call host functions
+    #[allow(unused)]
+    pub(crate) fn host_print(&mut self, msg: String) -> Result<()> {
+        let writer_func = self
+            .host_functions
+            .get_mut("writer_func")
+            .ok_or_else(|| anyhow!("Host function 'writer_func' not found"))?;
+
+        writer_func.lock().unwrap()(vec![SupportedParameterAndReturnValues::String(msg)])?;
+
+        Ok(())
+    }
 }
 
 fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
@@ -490,8 +520,9 @@ mod tests {
         // Guest Binary does not exist at path
 
         let binary_path_does_not_exist = binary_path.trim_end_matches(".exe").to_string();
-        let sandbox = UnintializedSandbox::new(binary_path_does_not_exist, None, None);
-        assert!(sandbox.is_err());
+        let uninitialized_sandbox =
+            UnintializedSandbox::new(binary_path_does_not_exist, None, None);
+        assert!(uninitialized_sandbox.is_err());
 
         // Non default memory configuration
 
@@ -505,16 +536,59 @@ mod tests {
             Some(0x1000),
         );
 
-        let sandbox = UnintializedSandbox::new(binary_path.clone(), Some(cfg), None);
-        assert!(sandbox.is_ok());
+        let uninitialized_sandbox = UnintializedSandbox::new(binary_path.clone(), Some(cfg), None);
+        assert!(uninitialized_sandbox.is_ok());
 
         // Invalid sandbox_run_options
 
         let sandbox_run_options =
             SandboxRunOptions::RUN_FROM_GUEST_BINARY | SandboxRunOptions::RECYCLE_AFTER_RUN;
 
-        let sandbox = UnintializedSandbox::new(binary_path, None, Some(sandbox_run_options));
-        assert!(sandbox.is_err());
+        let uninitialized_sandbox =
+            UnintializedSandbox::new(binary_path, None, Some(sandbox_run_options));
+        assert!(uninitialized_sandbox.is_err());
+
+        let uninitialized_sandbox = UnintializedSandbox::new(binary_path, None, None);
+        assert!(uninitialized_sandbox.is_ok());
+
+        // Get a Sandbox from an uninitialized sandbox without a call back function
+
+        let sandbox = uninitialized_sandbox
+            .unwrap()
+            .initialize::<fn(&mut UnintializedSandbox<'_>) -> Result<()>>(None);
+        assert!(sandbox.is_ok());
+
+        // Test with  init callback function
+        // TODO: replace this with a test that registers and calls functions once we have that functionality
+
+        let mut received_msg = String::new();
+
+        let writer = |msg| {
+            received_msg = msg;
+            Ok(())
+        };
+
+        let writer_func = Arc::new(Mutex::new(writer));
+
+        let mut uninitialized_sandbox = UnintializedSandbox::new(
+            simple_guest_path().expect("Guest Binary Missing"),
+            None,
+            None,
+        )
+        .expect("Failed to create sandbox");
+
+        writer_func.register(&mut uninitialized_sandbox, "writer_func");
+
+        fn init(uninitialized_sandbox: &mut UnintializedSandbox) -> Result<()> {
+            uninitialized_sandbox.host_print("test".to_string())
+        }
+
+        let sandbox = uninitialized_sandbox.initialize(Some(init));
+        assert!(sandbox.is_ok());
+
+        drop(sandbox);
+
+        assert_eq!(&received_msg, "test");
     }
 
     #[test]
