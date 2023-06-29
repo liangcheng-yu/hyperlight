@@ -2,7 +2,7 @@ use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::{c_func::CFunc, mem_mgr::register_mem_mgr};
-use crate::functions::FunctionOne;
+use crate::functions::Function1;
 use crate::mem::ptr::RawPtr;
 use crate::{
     capi::strings::get_string, mem::config::SandboxMemoryConfiguration,
