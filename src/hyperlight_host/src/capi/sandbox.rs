@@ -12,9 +12,8 @@ use crate::{
     sandbox::is_supported_platform as check_platform, sandbox_run_options::SandboxRunOptions,
 };
 use anyhow::{bail, Result};
-use std::cell::RefCell;
 use std::os::raw::c_char;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 /// This is the C API for the `Sandbox` type.
 pub struct Sandbox {
@@ -60,11 +59,11 @@ pub unsafe extern "C" fn sandbox_new(
                 Some(SandboxRunOptions::from_bits_truncate(sandbox_run_options));
 
             let writer_func = print_output_handler.map(|f| HostFunctionWithOneArg {
-                func: Rc::new(RefCell::new(move |s: String| -> Result<()> {
+                func: Arc::new(Mutex::new(move |s: String| -> Result<()> {
                     let c_str = std::ffi::CString::new(s)?;
                     f(c_str.as_ptr());
                     Ok(())
-                })) as Rc<RefCell<dyn FnMut(String) -> Result<()>>>,
+                })),
             });
             let sbox = RustSandbox::new(
                 bin_path.to_string(),

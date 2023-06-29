@@ -24,15 +24,16 @@ use crate::{
 use anyhow::{anyhow, bail, Result};
 use log::{debug, error, info, trace, warn};
 use std::any::Any;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::c_void;
+use std::fmt::Debug;
+use std::fmt::Formatter;
 use std::io::stdout;
 use std::io::Write;
 use std::ops::Add;
 use std::option::Option;
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 // In case its not obvious why there are separate is_supported_platform and is_hypervisor_present functions its because
@@ -205,7 +206,7 @@ impl SupportedParameterAndReturnTypesInfo for std::ffi::c_void {
 // Note that we are using Anyhow Result here at the moment.
 
 /// A Hyperlight host function that takes no arguments and returns a result
-pub type HostFunctionWithNoArgsType<'a, R> = Rc<RefCell<dyn FnMut() -> Result<R> + 'a>>;
+pub type HostFunctionWithNoArgsType<'a, R> = Arc<Mutex<dyn FnMut() -> Result<R> + 'a + Send>>;
 
 #[allow(unused)]
 /// A Hyperlight host function that takes no arguments and returns a result
@@ -218,7 +219,7 @@ where
 }
 
 /// A Hyperlight host function that takes 1 argument and returns a result
-pub type HostFunctionWithOneArgType<'a, R, P1> = Rc<RefCell<dyn FnMut(P1) -> Result<R> + 'a>>;
+pub type HostFunctionWithOneArgType<'a, R, P1> = Arc<Mutex<dyn FnMut(P1) -> Result<R> + 'a + Send>>;
 
 /// A Hyperlight host function that takes 1 argument and returns a result
 pub struct HostFunctionWithOneArg<'a, R, P1>
@@ -232,7 +233,7 @@ where
 
 /// A Hyperlight host function that takes 2 arguments and returns a result
 pub type HostFunctionWithTwoArgsType<'a, R, P1, P2> =
-    Rc<RefCell<dyn FnMut(P1, P2) -> Result<R> + 'a>>;
+    Arc<Mutex<dyn FnMut(P1, P2) -> Result<R> + 'a + Send>>;
 
 #[allow(unused)]
 pub(crate) struct HostFunctionWithTwoArgs<'a, R, P1, P2>
@@ -247,7 +248,7 @@ where
 
 /// A Hyperlight host function that takes 3 arguments and returns a result
 pub type HostFunctionWithThreeArgsType<'a, R, P1, P2, P3> =
-    Rc<RefCell<dyn FnMut(P1, P2, P3) -> Result<R> + 'a>>;
+    Arc<Mutex<dyn FnMut(P1, P2, P3) -> Result<R> + 'a + Send>>;
 
 #[allow(unused)]
 pub(crate) struct HostFunctionWithThreeArgs<'a, R, P1, P2, P3>
@@ -263,7 +264,7 @@ where
 
 /// A Hyperlight host function that takes 4 arguments and returns a result
 pub type HostFunctionWithFourArgsType<'a, R, P1, P2, P3, P4> =
-    Rc<RefCell<dyn FnMut(P1, P2, P3, P4) -> Result<R> + 'a>>;
+    Arc<Mutex<dyn FnMut(P1, P2, P3, P4) -> Result<R> + 'a + Send>>;
 
 #[allow(unused)]
 /// A Hyperlight host function that takes 4 arguments and returns a result
@@ -281,7 +282,7 @@ where
 
 /// A Hyperlight host function that takes 5 arguments and returns a result
 pub type HostFunctionWithFiveArgsType<'a, R, P1, P2, P3, P4, P5> =
-    Rc<RefCell<dyn FnMut(P1, P2, P3, P4, P5) -> Result<R> + 'a>>;
+    Arc<Mutex<dyn FnMut(P1, P2, P3, P4, P5) -> Result<R> + 'a + Send>>;
 
 #[allow(unused)]
 /// A Hyperlight host function that takes 5 arguments and returns a result
@@ -346,10 +347,27 @@ pub struct UnintializedSandbox<'a> {
 /// A Hyperlight Sandbox is a specialized VM environment
 /// intended specifically for running Hyperlight guest processes.
 #[allow(unused)]
-pub struct Sandbox {
+pub struct Sandbox<'a> {
     // (DAN:TODO) Add field for the host_functions map
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
+    uninit_sandbox: UnintializedSandbox<'a>,
+}
+
+impl<'a> Debug for Sandbox<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Sandbox")
+            .field("stack_guard", &self.stack_guard)
+            .finish()
+    }
+}
+
+impl<'a> Debug for UnintializedSandbox<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Sandbox")
+            .field("stack_guard", &self.stack_guard)
+            .finish()
+    }
 }
 
 impl<'a> UnintializedSandbox<'a> {
@@ -395,7 +413,7 @@ impl<'a> UnintializedSandbox<'a> {
 
         let writer_func: HostFunctionWithOneArg<'a, (), String> =
             writer_func.unwrap_or(HostFunctionWithOneArg {
-                func: Rc::new(RefCell::new(|s: String| -> Result<()> {
+                func: Arc::new(Mutex::new(|s: String| -> Result<()> {
                     match atty::is(atty::Stream::Stdout) {
                         false => {
                             stdout().write_all(s.as_bytes())?;
@@ -670,10 +688,13 @@ impl<'a> UnintializedSandbox<'a> {
 
     // TODO: function is temporary to allow the testing of C API providing a Print function remove this when we have a proper Sandbox with C API
     pub(crate) fn host_print(&mut self, msg: String) -> Result<()> {
-        // The try_borrow_mut is not always going to be needed here.
-        // Ideally we would figure if the writer_func is an FnMut or if its one of its subtraits (in which case we would not need to borrow_mut)
+        // TODO: When we do this generically we should see if it possible to use RWLock instead of Mutex for fn an Fn.
 
-        (self.writer_func.func.try_borrow_mut()?)(msg)
+        let mut func = match self.writer_func.func.try_lock() {
+            Ok(func) => func,
+            Err(_) => return Err(anyhow!("Failed to acquire lock on writer function.")),
+        };
+        func(msg)
     }
 
     /// Check for a guest error and return an `Err` if one was found,
@@ -708,24 +729,36 @@ impl<'a> UnintializedSandbox<'a> {
     /// Initialize the `Sandbox` from an `UninitializedSandbox`.
     /// Receives a callback function to be called during initialization.
     #[allow(unused)]
-    fn initialize<F: Fn(&mut Sandbox) -> Result<()>>(
-        &mut self,
+    fn initialize<F: Fn(&mut UnintializedSandbox<'a>) -> Result<()>>(
+        mut self,
         callback: Option<F>,
-    ) -> Result<Sandbox> {
+    ) -> Result<Sandbox<'a>> {
+        if let Some(cb) = callback {
+            cb(&mut self)?;
+        }
+
         let mut sbox = Sandbox {
             mem_mgr: self.mem_mgr.clone(),
             stack_guard: self.stack_guard,
+            uninit_sandbox: self,
         };
-        if let Some(cb) = callback {
-            cb(&mut sbox)?;
-        }
 
         Ok(sbox)
     }
 }
 
-impl Sandbox {
+impl<'a> Sandbox<'a> {
     // (DAN:TODO) Add function to register new or delete host functions. This should return an `UninitializedSandbox`.
+
+    // TODO: function is temporary to allow the testing of Sandbox remove this when we have a complete Sandbox and the tests dont need it any longer
+    #[allow(unused)]
+    pub(crate) fn host_print(&mut self, msg: String) -> Result<()> {
+        let mut func = match self.uninit_sandbox.writer_func.func.try_lock() {
+            Ok(func) => func,
+            Err(_) => return Err(anyhow!("Failed to acquire lock on writer function.")),
+        };
+        func(msg)
+    }
 }
 
 fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
@@ -752,11 +785,13 @@ fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
 mod tests {
     #[cfg(target_os = "linux")]
     use super::{
-        is_hypervisor_present, outb_log, validate_concrete_type, HostFunctionWithOneArg,
+        is_hypervisor_present, outb_log, validate_concrete_type, HostFunctionWithOneArg, Sandbox,
         UnintializedSandbox,
     };
     #[cfg(target_os = "windows")]
-    use super::{outb_log, validate_concrete_type, HostFunctionWithOneArg, UnintializedSandbox};
+    use super::{
+        outb_log, validate_concrete_type, HostFunctionWithOneArg, Sandbox, UnintializedSandbox,
+    };
     #[cfg(target_os = "linux")]
     use crate::hypervisor::hyperv_linux::test_cfg::TEST_CONFIG as HYPERV_TEST_CONFIG;
     #[cfg(target_os = "linux")]
@@ -768,9 +803,13 @@ mod tests {
         testing::{logger::LOGGER, simple_guest_path, simple_guest_pe_info},
     };
     use anyhow::Result;
+    use crossbeam_queue::ArrayQueue;
     use log::{set_logger, set_max_level, Level};
-    use std::io::{Read, Write};
-    use std::{cell::RefCell, rc::Rc};
+    use std::sync::{Arc, Mutex};
+    use std::{
+        io::{Read, Write},
+        thread,
+    };
     use tempfile::NamedTempFile;
     #[test]
     // TODO: add support for testing on WHP
@@ -789,14 +828,15 @@ mod tests {
         // Guest Binary exists at path
 
         let binary_path = simple_guest_path().unwrap();
-        let sandbox = UnintializedSandbox::new(binary_path.clone(), None, None, None);
-        assert!(sandbox.is_ok());
+        let uninitializedsandbox = UnintializedSandbox::new(binary_path.clone(), None, None, None);
+        assert!(uninitializedsandbox.is_ok());
 
         // Guest Binary does not exist at path
 
         let binary_path_does_not_exist = binary_path.trim_end_matches(".exe").to_string();
-        let sandbox = UnintializedSandbox::new(binary_path_does_not_exist, None, None, None);
-        assert!(sandbox.is_err());
+        let uninitializedsandbox =
+            UnintializedSandbox::new(binary_path_does_not_exist, None, None, None);
+        assert!(uninitializedsandbox.is_err());
 
         // Non default memory configuration
 
@@ -810,16 +850,61 @@ mod tests {
             Some(0x1000),
         );
 
-        let sandbox = UnintializedSandbox::new(binary_path.clone(), Some(cfg), None, None);
-        assert!(sandbox.is_ok());
+        let uninitializedsandbox =
+            UnintializedSandbox::new(binary_path.clone(), Some(cfg), None, None);
+        assert!(uninitializedsandbox.is_ok());
 
         // Invalid sandbox_run_options
 
         let sandbox_run_options =
             SandboxRunOptions::RUN_FROM_GUEST_BINARY | SandboxRunOptions::RECYCLE_AFTER_RUN;
 
-        let sandbox = UnintializedSandbox::new(binary_path, None, None, Some(sandbox_run_options));
-        assert!(sandbox.is_err());
+        let uninitializedsandbox =
+            UnintializedSandbox::new(binary_path.clone(), None, None, Some(sandbox_run_options));
+        assert!(uninitializedsandbox.is_err());
+
+        let uninitializedsandbox = UnintializedSandbox::new(binary_path, None, None, None);
+        assert!(uninitializedsandbox.is_ok());
+
+        // Get a Sandbox from an unitiiialized sandbox without a call back function
+
+        let sandbox = uninitializedsandbox
+            .unwrap()
+            .initialize::<fn(&mut UnintializedSandbox<'_>) -> Result<()>>(None);
+        assert!(sandbox.is_ok());
+
+        // Test with  init callback function
+        // TODO: replace this with a test that registers and calls functions once we have that functionality
+
+        let mut received_msg = String::new();
+
+        let writer = |msg| {
+            received_msg = msg;
+            Ok(())
+        };
+
+        let writer_func = Arc::new(Mutex::new(writer));
+
+        let uninitializedsandbox = UnintializedSandbox::new(
+            simple_guest_path().expect("Guest Binary Missing"),
+            None,
+            Some(HostFunctionWithOneArg {
+                func: writer_func.clone(),
+            }),
+            None,
+        )
+        .expect("Failed to create sandbox");
+
+        fn init(unintializedsandbox: &mut UnintializedSandbox) -> Result<()> {
+            unintializedsandbox.host_print("test".to_string())
+        }
+
+        let sandbox = uninitializedsandbox.initialize(Some(init));
+        assert!(sandbox.is_ok());
+
+        drop(sandbox);
+
+        assert_eq!(&received_msg, "test");
     }
 
     #[test]
@@ -861,7 +946,7 @@ mod tests {
             Ok(())
         };
 
-        let writer_func = Rc::new(RefCell::new(writer));
+        let writer_func = Arc::new(Mutex::new(writer));
 
         let mut sandbox = UnintializedSandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
@@ -897,7 +982,7 @@ mod tests {
             Ok(())
         };
 
-        let writer_func = Rc::new(RefCell::new(writer));
+        let writer_func = Arc::new(Mutex::new(writer));
 
         let mut sandbox = UnintializedSandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
@@ -922,7 +1007,7 @@ mod tests {
             Ok(())
         }
 
-        let writer_func = Rc::new(RefCell::new(fn_writer));
+        let writer_func = Arc::new(Mutex::new(fn_writer));
         let mut sandbox = UnintializedSandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
             None,
@@ -941,7 +1026,7 @@ mod tests {
 
         let writer_closure = |s| test_host_print.write(s);
 
-        let writer_method = Rc::new(RefCell::new(writer_closure));
+        let writer_method = Arc::new(Mutex::new(writer_closure));
 
         let mut sandbox = UnintializedSandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
@@ -958,7 +1043,7 @@ mod tests {
         // Simulate dynamic type checking
         // Note : Not yet able to get this to work with closures
 
-        let writer_func = Rc::new(RefCell::new(fn_writer));
+        let writer_func = Arc::new(Mutex::new(fn_writer));
 
         let host_function_with_one_arg = HostFunctionWithOneArg { func: writer_func };
 
@@ -1089,5 +1174,68 @@ mod tests {
         let res = sbox.check_stack_guard();
         assert!(res.is_ok(), "Sandbox::check_stack_guard returned an error");
         assert!(res.unwrap(), "Sandbox::check_stack_guard returned false");
+    }
+
+    #[test]
+    fn check_create_and_use_sandbox_on_different_threads() {
+        let unintializedsandbox_queue = Arc::new(ArrayQueue::<UnintializedSandbox>::new(10));
+        let sandbox_queue = Arc::new(ArrayQueue::<Sandbox>::new(10));
+
+        for i in 0..10 {
+            let simple_guest_path = simple_guest_path().expect("Guest Binary Missing");
+            let unintializedsandbox = UnintializedSandbox::new(simple_guest_path, None, None, None)
+                .unwrap_or_else(|_| panic!("Failed to create UnintializedSandbox {}", i));
+
+            unintializedsandbox_queue
+                .push(unintializedsandbox)
+                .unwrap_or_else(|_| panic!("Failed to push UnintializedSandbox {}", i));
+        }
+
+        let thread_handles = (0..10)
+            .map(|i| {
+                let uq = unintializedsandbox_queue.clone();
+                let sq = sandbox_queue.clone();
+                thread::spawn(move || {
+                    let mut uninitialized_sandbox = uq.pop().unwrap_or_else(|| {
+                        panic!("Failed to pop UnintializedSandbox thread {}", i)
+                    });
+                    uninitialized_sandbox
+                        .host_print(format!("Print from UnintializedSandbox on Thread {}\n", i))
+                        .unwrap();
+
+                    let sandbox = uninitialized_sandbox
+                        .initialize::<fn(&mut UnintializedSandbox<'_>) -> Result<()>>(None)
+                        .unwrap_or_else(|_| {
+                            panic!("Failed to initialize UnintializedSandbox thread {}", i)
+                        });
+
+                    sq.push(sandbox).unwrap_or_else(|_| {
+                        panic!("Failed to push UnintializedSandbox thread {}", i)
+                    })
+                })
+            })
+            .collect::<Vec<_>>();
+
+        for handle in thread_handles {
+            handle.join().unwrap();
+        }
+
+        let thread_handles = (0..10)
+            .map(|i| {
+                let sq = sandbox_queue.clone();
+                thread::spawn(move || {
+                    let mut sandbox = sq
+                        .pop()
+                        .unwrap_or_else(|| panic!("Failed to pop Sandbox thread {}", i));
+                    sandbox
+                        .host_print(format!("Print from Sandbox on Thread {}\n", i))
+                        .unwrap();
+                })
+            })
+            .collect::<Vec<_>>();
+
+        for handle in thread_handles {
+            handle.join().unwrap();
+        }
     }
 }
