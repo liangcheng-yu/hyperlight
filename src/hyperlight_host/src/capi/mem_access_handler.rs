@@ -1,27 +1,21 @@
-use crate::capi::context::Context;
 use crate::capi::handle::Handle;
 use crate::capi::hdl::Hdl;
+use crate::{capi::context::Context, hypervisor::handlers::MemAccessHandler};
 use anyhow::Result;
 
-/// A wrapper around a standard C function pointer that represents a
-/// memory access, commonly used by hypervisor implementations.
+/// A FFI-friendly implementation of a `MemAccessHandler`. This type stores
+/// a standard C function pointer -- an `extern "C" fn()` -- and implements
+/// the `MemAccessHandler`'s `call` method by simply calling the underlying
+/// function.
 #[derive(Clone)]
 pub struct MemAccessHandlerWrapper {
     func: extern "C" fn(),
 }
 
-impl MemAccessHandlerWrapper {
-    /// Call the wrapped handler function
-    pub(crate) fn call(&self) {
+impl MemAccessHandler for MemAccessHandlerWrapper {
+    fn call(&self) {
         (self.func)()
     }
-}
-
-/// Create a new `MemAccessHandlerWrapper` with the given `func`
-#[cfg(test)]
-#[cfg(target_os = "linux")]
-pub(crate) fn new_mem_access_handler_wrapper(func: extern "C" fn()) -> MemAccessHandlerWrapper {
-    MemAccessHandlerWrapper { func }
 }
 
 /// Get a MemAccessHandlerFunc from the specified handle

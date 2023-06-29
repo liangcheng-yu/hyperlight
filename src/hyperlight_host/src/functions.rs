@@ -4,18 +4,18 @@ use crate::{
     guest_interface_glue::{
         SupportedParameterAndReturnValues, SupportedParameterType, SupportedReturnType,
     },
-    sandbox::Sandbox,
+    sandbox::UnintializedSandbox,
 };
 
-pub(crate) type HyperlightFunction = Box<
+pub(crate) type HyperlightFunction = Rc<RefCell<Box<
     dyn FnMut(
         Vec<SupportedParameterAndReturnValues>,
     ) -> anyhow::Result<SupportedParameterAndReturnValues>,
->;
+>>>;
 
 /// A Hyperlight function that takes no arguments and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
 pub(crate) trait FunctionZero<R: SupportedReturnType> {
-    fn register(&self, sandbox: &mut Sandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
 }
 
 impl<T, R> FunctionZero<R> for Rc<RefCell<T>>
@@ -23,19 +23,19 @@ where
     T: FnMut() -> anyhow::Result<R> + 'static,
     R: SupportedReturnType,
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
         let cloned = self.clone();
-        let boxed = Box::new(move |_: Vec<SupportedParameterAndReturnValues>| {
+        let func = Box::new(move |_: Vec<SupportedParameterAndReturnValues>| {
             let result = cloned.borrow_mut()()?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_functions.insert(name.to_string(), boxed);
+        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
     }
 }
 
 /// A Hyperlight function that takes 1 argument P1 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
 pub(crate) trait FunctionOne<P1: SupportedParameterType + Clone + 'static, R: SupportedReturnType> {
-    fn register(&self, sandbox: &mut Sandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
 }
 
 impl<T, P1, R> FunctionOne<P1, R> for Rc<RefCell<T>>
@@ -44,9 +44,9 @@ where
     P1: SupportedParameterType + Clone + 'static,
     R: SupportedReturnType,
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
         let cloned = self.clone();
-        let boxed = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
+        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
             let p1 = args[0]
                 .get_inner()?
                 .downcast_ref::<P1>()
@@ -55,7 +55,7 @@ where
             let result = cloned.borrow_mut()(p1)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_functions.insert(name.to_string(), boxed);
+        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
     }
 }
 
@@ -66,7 +66,7 @@ pub(crate) trait FunctionTwo<
     R: SupportedReturnType,
 >
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
 }
 
 impl<T, P1, P2, R> FunctionTwo<P1, P2, R> for Rc<RefCell<T>>
@@ -76,9 +76,9 @@ where
     P2: SupportedParameterType + Clone + 'static,
     R: SupportedReturnType,
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
         let cloned = self.clone();
-        let boxed = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
+        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
             let p1 = args[0]
                 .get_inner()?
                 .downcast_ref::<P1>()
@@ -92,7 +92,7 @@ where
             let result = cloned.borrow_mut()(p1, p2)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_functions.insert(name.to_string(), boxed);
+        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
     }
 }
 
@@ -104,7 +104,7 @@ pub(crate) trait FunctionThree<
     R: SupportedReturnType,
 >
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
 }
 
 impl<T, P1, P2, P3, R> FunctionThree<P1, P2, P3, R> for Rc<RefCell<T>>
@@ -115,9 +115,9 @@ where
     P3: SupportedParameterType + Clone + 'static,
     R: SupportedReturnType,
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
         let cloned = self.clone();
-        let boxed = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
+        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
             let p1 = args[0]
                 .get_inner()?
                 .downcast_ref::<P1>()
@@ -136,7 +136,7 @@ where
             let result = cloned.borrow_mut()(p1, p2, p3)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_functions.insert(name.to_string(), boxed);
+        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
     }
 }
 
@@ -149,7 +149,7 @@ pub(crate) trait FunctionFour<
     R: SupportedReturnType,
 >
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
 }
 
 impl<T, P1, P2, P3, P4, R> FunctionFour<P1, P2, P3, P4, R> for Rc<RefCell<T>>
@@ -161,9 +161,9 @@ where
     P4: SupportedParameterType + Clone + 'static,
     R: SupportedReturnType,
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
         let cloned = self.clone();
-        let boxed = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
+        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
             let p1 = args[0]
                 .get_inner()?
                 .downcast_ref::<P1>()
@@ -187,7 +187,7 @@ where
             let result = cloned.borrow_mut()(p1, p2, p3, p4)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_functions.insert(name.to_string(), boxed);
+        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
     }
 }
 
@@ -201,7 +201,7 @@ pub(crate) trait FunctionFive<
     R: SupportedReturnType,
 >
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
 }
 
 impl<T, P1, P2, P3, P4, P5, R> FunctionFive<P1, P2, P3, P4, P5, R> for Rc<RefCell<T>>
@@ -214,9 +214,9 @@ where
     P5: SupportedParameterType + Clone + 'static,
     R: SupportedReturnType,
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
         let cloned = self.clone();
-        let boxed = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
+        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
             let p1 = args[0]
                 .get_inner()?
                 .downcast_ref::<P1>()
@@ -245,7 +245,7 @@ where
             let result = cloned.borrow_mut()(p1, p2, p3, p4, p5)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_functions.insert(name.to_string(), boxed);
+        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
     }
 }
 
@@ -260,7 +260,7 @@ pub(crate) trait FunctionSix<
     R: SupportedReturnType,
 >
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
 }
 
 impl<T, P1, P2, P3, P4, P5, P6, R> FunctionSix<P1, P2, P3, P4, P5, P6, R> for Rc<RefCell<T>>
@@ -274,9 +274,9 @@ where
     P6: SupportedParameterType + Clone + 'static,
     R: SupportedReturnType,
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
         let cloned = self.clone();
-        let boxed = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
+        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
             let p1 = args[0]
                 .get_inner()?
                 .downcast_ref::<P1>()
@@ -310,7 +310,7 @@ where
             let result = cloned.borrow_mut()(p1, p2, p3, p4, p5, p6)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_functions.insert(name.to_string(), boxed);
+        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
     }
 }
 
@@ -326,7 +326,7 @@ pub(crate) trait FunctionSeven<
     R: SupportedReturnType,
 >
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
 }
 
 impl<T, P1, P2, P3, P4, P5, P6, P7, R> FunctionSeven<P1, P2, P3, P4, P5, P6, P7, R>
@@ -342,9 +342,9 @@ where
     P7: SupportedParameterType + Clone + 'static,
     R: SupportedReturnType,
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
         let cloned = self.clone();
-        let boxed = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
+        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
             let p1 = args[0]
                 .get_inner()?
                 .downcast_ref::<P1>()
@@ -383,7 +383,7 @@ where
             let result = cloned.borrow_mut()(p1, p2, p3, p4, p5, p6, p7)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_functions.insert(name.to_string(), boxed);
+        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
     }
 }
 
@@ -400,7 +400,7 @@ pub(crate) trait FunctionEight<
     R: SupportedReturnType,
 >
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
 }
 
 impl<T, P1, P2, P3, P4, P5, P6, P7, P8, R> FunctionEight<P1, P2, P3, P4, P5, P6, P7, P8, R>
@@ -417,9 +417,9 @@ where
     P8: SupportedParameterType + Clone + 'static,
     R: SupportedReturnType,
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
         let cloned = self.clone();
-        let boxed = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
+        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
             let p1 = args[0]
                 .get_inner()?
                 .downcast_ref::<P1>()
@@ -463,7 +463,7 @@ where
             let result = cloned.borrow_mut()(p1, p2, p3, p4, p5, p6, p7, p8)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_functions.insert(name.to_string(), boxed);
+        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
     }
 }
 
@@ -481,7 +481,7 @@ pub(crate) trait FunctionNine<
     R: SupportedReturnType,
 >
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
 }
 
 impl<T, P1, P2, P3, P4, P5, P6, P7, P8, P9, R> FunctionNine<P1, P2, P3, P4, P5, P6, P7, P8, P9, R>
@@ -499,9 +499,9 @@ where
     P9: SupportedParameterType + Clone + 'static,
     R: SupportedReturnType,
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
         let cloned = self.clone();
-        let boxed = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
+        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
             let p1 = args[0]
                 .get_inner()?
                 .downcast_ref::<P1>()
@@ -550,7 +550,7 @@ where
             let result = cloned.borrow_mut()(p1, p2, p3, p4, p5, p6, p7, p8, p9)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_functions.insert(name.to_string(), boxed);
+        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
     }
 }
 
@@ -569,7 +569,7 @@ pub(crate) trait FunctionTen<
     R: SupportedReturnType,
 >
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
 }
 
 impl<T, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, R>
@@ -588,9 +588,9 @@ where
     P10: SupportedParameterType + Clone + 'static,
     R: SupportedReturnType,
 {
-    fn register(&self, sandbox: &mut Sandbox, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
         let cloned = self.clone();
-        let boxed = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
+        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
             let p1 = args[0]
                 .get_inner()?
                 .downcast_ref::<P1>()
@@ -644,6 +644,6 @@ where
             let result = cloned.borrow_mut()(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_functions.insert(name.to_string(), boxed);
+        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
     }
 }

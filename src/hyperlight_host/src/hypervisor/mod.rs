@@ -1,5 +1,6 @@
-use crate::capi::{mem_access_handler::MemAccessHandlerWrapper, outb_handler::OutbHandlerWrapper};
 use anyhow::Result;
+///! Handlers for Hypervisor custom logic
+pub(crate) mod handlers;
 #[cfg(target_os = "linux")]
 ///! HyperV-on-linux functionality
 pub mod hyperv_linux;
@@ -17,6 +18,7 @@ pub(crate) mod surrogate_process;
 ///! Hyperlight Surrogate Process
 pub(crate) mod surrogate_process_manager;
 
+use self::handlers::{MemAccessHandlerRc, OutBHandlerRc};
 use crate::mem::ptr::RawPtr;
 
 /// A common set of hypervisor functionality
@@ -28,15 +30,15 @@ pub(crate) trait Hypervisor {
         peb_addr: RawPtr,
         seed: u64,
         page_size: u32,
-        outb_handle_fn: OutbHandlerWrapper,
-        mem_access_fn: MemAccessHandlerWrapper,
+        outb_handle_fn: OutBHandlerRc,
+        mem_access_fn: MemAccessHandlerRc,
     ) -> Result<()>;
 
     /// Run the internally stored vCPU until a HLT instruction.
     fn execute_until_halt(
         &mut self,
-        outb_handle_fn: OutbHandlerWrapper,
-        mem_access_fn: MemAccessHandlerWrapper,
+        outb_handle_fn: OutBHandlerRc,
+        mem_access_fn: MemAccessHandlerRc,
     ) -> Result<()>;
 
     /// Dispatch a call from the host to the guest using the given pointer
@@ -49,8 +51,8 @@ pub(crate) trait Hypervisor {
     fn dispatch_call_from_host(
         &mut self,
         dispatch_func_addr: RawPtr,
-        outb_handle_fn: OutbHandlerWrapper,
-        mem_access_fn: MemAccessHandlerWrapper,
+        outb_handle_fn: OutBHandlerRc,
+        mem_access_fn: MemAccessHandlerRc,
     ) -> Result<()>;
 
     /// Reset the stack pointer on the internal virtual CPU
@@ -60,16 +62,18 @@ pub(crate) trait Hypervisor {
 #[cfg(target_os = "linux")]
 #[cfg(test)]
 pub(crate) mod tests {
-    use super::Hypervisor;
+    use super::{
+        handlers::{MemAccessHandlerRc, OutBHandlerRc},
+        Hypervisor,
+    };
     use crate::{
-        capi::{mem_access_handler::MemAccessHandlerWrapper, outb_handler::OutbHandlerWrapper},
         mem::{
             layout::SandboxMemoryLayout,
             mgr::SandboxMemoryManager,
             ptr::{GuestPtr, RawPtr},
             ptr_offset::Offset,
         },
-        sandbox::Sandbox,
+        sandbox::UnintializedSandbox,
         testing::dummy_guest_path,
     };
     use anyhow::bail;
@@ -77,8 +81,8 @@ pub(crate) mod tests {
     use std::path::Path;
 
     pub(crate) fn test_initialise<NewFn>(
-        outb_hdl: OutbHandlerWrapper,
-        mem_access_hdl: MemAccessHandlerWrapper,
+        outb_hdl: OutBHandlerRc,
+        mem_access_hdl: MemAccessHandlerRc,
         new_fn: NewFn,
     ) -> Result<()>
     where
@@ -88,7 +92,7 @@ pub(crate) mod tests {
         if !Path::new(&filename).exists() {
             bail!("test_initialise: file {} does not exist", filename);
         }
-        let sandbox = Sandbox::new(filename.clone(), None, None)?;
+        let sandbox = UnintializedSandbox::new(filename.clone(), None, None)?;
         let mut mem_mgr = sandbox.get_mem_mgr();
         let shared_mem = &mem_mgr.shared_mem;
         let rsp_ptr = {

@@ -4,7 +4,10 @@ use super::hdl::Hdl;
 use super::{c_func::CFunc, mem_mgr::register_mem_mgr};
 use crate::functions::FunctionOne;
 use crate::mem::ptr::RawPtr;
-use crate::{capi::strings::get_string, mem::config::SandboxMemoryConfiguration, sandbox::Sandbox};
+use crate::{
+    capi::strings::get_string, mem::config::SandboxMemoryConfiguration,
+    sandbox::UnintializedSandbox,
+};
 use crate::{
     sandbox::is_hypervisor_present as check_hypervisor,
     sandbox::is_supported_platform as check_platform, sandbox_run_options::SandboxRunOptions,
@@ -52,7 +55,7 @@ pub unsafe extern "C" fn sandbox_new(
                 })
                 .unwrap();
 
-            let mut sbox = Sandbox::new(bin_path.to_string(), mem_cfg, sandbox_run_options)?;
+            let mut sbox = UnintializedSandbox::new(bin_path.to_string(), mem_cfg, sandbox_run_options)?;
             writer_func.register(&mut sbox, "writer_func");
 
             Ok(register_sandbox(ctx, sbox))
@@ -91,24 +94,24 @@ pub extern "C" fn is_supported_platform() -> bool {
 }
 
 #[no_mangle]
-/// Checks if the current platform is supported by Hyperlight.
+/// Checks if a Hypervisor supported by Hyperlight is available.
 pub extern "C" fn is_hypervisor_present() -> bool {
     check_hypervisor()
 }
 
 /// Get a read-only reference to a `Sandbox` stored in `ctx` and
 /// pointed to by `handle`.
-fn get_sandbox(ctx: &Context, handle: Handle) -> Result<&Sandbox> {
+fn get_sandbox(ctx: &Context, handle: Handle) -> Result<&UnintializedSandbox> {
     Context::get(handle, &ctx.sandboxes, |s| matches!(s, Hdl::Sandbox(_)))
 }
 
 /// Get a mutable reference to a `Sandbox` stored in `ctx` and
 /// pointed to by `handle`.
-fn get_sandbox_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut Sandbox> {
+fn get_sandbox_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut UnintializedSandbox> {
     Context::get_mut(hdl, &mut ctx.sandboxes, |h| matches!(h, Hdl::Sandbox(_)))
 }
 
-fn register_sandbox(ctx: &mut Context, val: Sandbox) -> Handle {
+fn register_sandbox(ctx: &mut Context, val: UnintializedSandbox) -> Handle {
     Context::register(val, &mut ctx.sandboxes, Hdl::Sandbox)
 }
 

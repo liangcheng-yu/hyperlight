@@ -1,6 +1,6 @@
 use super::handle::{new_key, Handle, Key};
 use super::hdl::Hdl;
-use crate::capi::outb_handler::OutbHandlerWrapper;
+use crate::capi::outb_handler::OutBHandlerWrapper;
 use crate::guest::function_call::FunctionCall;
 use crate::guest::function_call_result::FunctionCallResult;
 use crate::guest::guest_error::GuestError;
@@ -12,7 +12,7 @@ use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::mgr::SandboxMemoryManager;
 use crate::mem::shared_mem::SharedMemory;
 use crate::mem::shared_mem_snapshot::SharedMemorySnapshot;
-use crate::sandbox::Sandbox;
+use crate::sandbox::UnintializedSandbox;
 use crate::{
     capi::mem_access_handler::MemAccessHandlerWrapper, guest::guest_log_data::GuestLogData,
 };
@@ -45,7 +45,7 @@ pub struct Context {
     /// All booleans stored in this context
     pub booleans: HashMap<Key, bool>,
     /// All `Sandbox`es stored in this context
-    pub sandboxes: HashMap<Key, Sandbox>,
+    pub sandboxes: HashMap<Key, UnintializedSandbox>,
     /// All `String`s stored in this context
     pub strings: HashMap<Key, String>,
     /// All `Vec<u8>`s stored in this context
@@ -71,7 +71,7 @@ pub struct Context {
     /// The KVM Linux VM drivers stored in this context
     pub kvm_drivers: HashMap<Key, KVMDriver>,
     /// The outb handler functions stored in this context
-    pub outb_handler_funcs: HashMap<Key, OutbHandlerWrapper>,
+    pub outb_handler_funcs: HashMap<Key, OutBHandlerWrapper>,
     /// The memory access handler functions stored in this context
     pub mem_access_handler_funcs: HashMap<Key, MemAccessHandlerWrapper>,
     /// All the `GuestMemory`s stored in this context

@@ -12,7 +12,7 @@ use crate::mem::{
 };
 #[cfg(target_os = "linux")]
 use crate::{
-    hypervisor::hyperv_linux::{self, HypervLinuxDriver, REQUIRE_STABLE_API},
+    hypervisor::hyperv_linux::{self, HypervLinuxDriver},
     hypervisor::hypervisor_mem::HypervisorAddrs,
     hypervisor::kvm,
     hypervisor::kvm::KVMDriver,
@@ -72,31 +72,33 @@ impl From<u16> for OutBAction {
 ///
 //  Returns a boolean indicating whether a suitable hypervisor is present.
 
-// TODO - implement this
 pub(crate) fn is_hypervisor_present() -> bool {
     #[cfg(target_os = "linux")]
-    return true;
+    return hyperv_linux::is_hypervisor_present().unwrap_or(false)
+        || kvm::is_hypervisor_present().is_ok();
     #[cfg(target_os = "windows")]
+    //TODO: Implement this for Windows once Rust WHP support is merged.
     return true;
     #[cfg(not(target_os = "linux"))]
     #[cfg(not(target_os = "windows"))]
     false
 }
 
-/// The primary mechanism to interact with VM partitions that
-/// run Hyperlight Sandboxes.
+/// Sandboxes are the primary mechanism to interact with VM partitions.
 ///
-/// A Hyperlight Sandbox is a specialized VM environment
-/// intended specifically for running Hyperlight guest processes.
-pub struct Sandbox {
+/// Prior to initializing a Sandbox, the caller must register all host functions
+/// onto an UninitializedSandbox. Once all host functions have been registered,
+/// the UninitializedSandbox can be initialized into a Sandbox through the
+/// `initialize` method.
+pub struct UnintializedSandbox {
     // Registered host functions
-    pub(crate) host_functions: HashMap<String, HyperlightFunction>,
+    host_functions: HashMap<String, HyperlightFunction>,
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
 }
 
-impl Sandbox {
+impl UnintializedSandbox {
     /// Create a new sandbox configured to run the binary at path
     /// `bin_path`.
     pub fn new(
@@ -105,7 +107,6 @@ impl Sandbox {
         sandbox_run_options: Option<SandboxRunOptions>,
     ) -> Result<Self> {
         // Make sure the binary exists
-
         let path = Path::new(&bin_path).canonicalize()?;
         path.try_exists()?;
 
@@ -125,7 +126,7 @@ impl Sandbox {
         }
 
         let mem_cfg = cfg.unwrap_or_default();
-        let mut mem_mgr = Sandbox::load_guest_binary(
+        let mut mem_mgr = UnintializedSandbox::load_guest_binary(
             mem_cfg,
             &bin_path,
             run_from_process_memory,
@@ -181,6 +182,15 @@ impl Sandbox {
         self.mem_mgr.check_stack_guard(self.stack_guard)
     }
 
+    /// Register a host function with the sandbox.
+    pub fn register_host_function(
+        &mut self,
+        name: &str,
+        func: HyperlightFunction,
+    ) {
+        self.host_functions.insert(name.to_string(), func);
+    }
+
     /// Set up the appropriate hypervisor for the platform.
     ///
     /// this function is used to prevent clippy from complaining
@@ -216,7 +226,7 @@ impl Sandbox {
             let total_offset = Offset::from(load_offset_u64) + mgr.entrypoint_offset;
             GuestPtr::try_from(total_offset)
         }?;
-        if hyperv_linux::is_hypervisor_present(REQUIRE_STABLE_API)? {
+        if hyperv_linux::is_hypervisor_present()? {
             let guest_pfn = u64::try_from(SandboxMemoryLayout::BASE_ADDRESS >> 12)?;
             let host_addr = u64::try_from(mgr.shared_mem.base_addr())?;
             let addrs = HypervisorAddrs {
@@ -225,7 +235,7 @@ impl Sandbox {
                 host_addr,
                 mem_size,
             };
-            let hv = HypervLinuxDriver::new(REQUIRE_STABLE_API, &addrs)?;
+            let hv = HypervLinuxDriver::new(&addrs)?;
             Ok(Box::new(hv))
         } else if kvm::is_hypervisor_present().is_ok() {
             let host_addr = u64::try_from(mgr.shared_mem.base_addr())?;
@@ -346,7 +356,7 @@ impl Sandbox {
             .get_mut("writer_func")
             .ok_or_else(|| anyhow!("Host function 'writer_func' not found"))?;
 
-        let writer_func = writer_func.as_mut();
+        let mut writer_func = writer_func.borrow_mut();
 
         writer_func(vec![SupportedParameterAndReturnValues::String(msg)])?;
 
@@ -381,6 +391,29 @@ impl Sandbox {
             }
         }
     }
+
+    /// Initialize the `Sandbox` from an `UninitializedSandbox`.
+    /// Receives a callback function to be called during initialization.
+    #[allow(unused)]
+    fn initialize<F: Fn(&mut UnintializedSandbox) -> Result<()>>(
+        &mut self,
+        callback: Option<F>,
+    ) -> Result<UnintializedSandbox> {
+        let mut sbox = UnintializedSandbox {
+            host_functions: self.host_functions.clone(),
+            mem_mgr: self.mem_mgr.clone(),
+            stack_guard: self.stack_guard,
+        };
+        if let Some(cb) = callback {
+            cb(&mut sbox)?;
+        }
+
+        Ok(sbox)
+    }
+}
+
+impl UnintializedSandbox {
+    // (DAN:TODO) Add function to register new or delete host functions. This should return an `UninitializedSandbox`.
 }
 
 fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
@@ -405,12 +438,18 @@ fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::Sandbox;
+    #[cfg(target_os = "linux")]
+    use super::{is_hypervisor_present, outb_log, UnintializedSandbox};
+    #[cfg(target_os = "windows")]
+    use super::{outb_log, validate_concrete_type, HostFunctionWithOneArg, UnintializedSandbox};
+    #[cfg(target_os = "linux")]
+    use crate::hypervisor::hyperv_linux::test_cfg::TEST_CONFIG as HYPERV_TEST_CONFIG;
+    #[cfg(target_os = "linux")]
+    use crate::hypervisor::kvm::test_cfg::TEST_CONFIG as KVM_TEST_CONFIG;
     use crate::{
         functions::FunctionOne,
         guest::{guest_log_data::GuestLogData, log_level::LogLevel},
         mem::{config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager},
-        sandbox::outb_log,
         sandbox_run_options::SandboxRunOptions,
         testing::{logger::LOGGER, simple_guest_path, simple_guest_pe_info},
     };
@@ -420,18 +459,29 @@ mod tests {
     use std::{cell::RefCell, rc::Rc};
     use tempfile::NamedTempFile;
     #[test]
+    // TODO: add support for testing on WHP
+    #[cfg(target_os = "linux")]
+    fn test_is_hypervisor_present() {
+        // TODO: Handle requiring a stable API
+        if HYPERV_TEST_CONFIG.hyperv_should_be_present || KVM_TEST_CONFIG.kvm_should_be_present {
+            assert!(is_hypervisor_present());
+        } else {
+            assert!(!is_hypervisor_present());
+        }
+    }
 
+    #[test]
     fn test_new_sandbox() {
         // Guest Binary exists at path
 
         let binary_path = simple_guest_path().unwrap();
-        let sandbox = Sandbox::new(binary_path.clone(), None, None);
+        let sandbox = UnintializedSandbox::new(binary_path.clone(), None, None);
         assert!(sandbox.is_ok());
 
         // Guest Binary does not exist at path
 
         let binary_path_does_not_exist = binary_path.trim_end_matches(".exe").to_string();
-        let sandbox = Sandbox::new(binary_path_does_not_exist, None, None);
+        let sandbox = UnintializedSandbox::new(binary_path_does_not_exist, None, None);
         assert!(sandbox.is_err());
 
         // Non default memory configuration
@@ -446,7 +496,7 @@ mod tests {
             Some(0x1000),
         );
 
-        let sandbox = Sandbox::new(binary_path.clone(), Some(cfg), None);
+        let sandbox = UnintializedSandbox::new(binary_path.clone(), Some(cfg), None);
         assert!(sandbox.is_ok());
 
         // Invalid sandbox_run_options
@@ -454,7 +504,7 @@ mod tests {
         let sandbox_run_options =
             SandboxRunOptions::RUN_FROM_GUEST_BINARY | SandboxRunOptions::RECYCLE_AFTER_RUN;
 
-        let sandbox = Sandbox::new(binary_path, None, Some(sandbox_run_options));
+        let sandbox = UnintializedSandbox::new(binary_path, None, Some(sandbox_run_options));
         assert!(sandbox.is_err());
     }
 
@@ -464,7 +514,8 @@ mod tests {
 
         let simple_guest_path = simple_guest_path().unwrap();
         let mgr =
-            Sandbox::load_guest_binary(cfg, simple_guest_path.as_str(), false, false).unwrap();
+            UnintializedSandbox::load_guest_binary(cfg, simple_guest_path.as_str(), false, false)
+                .unwrap();
         assert_eq!(cfg, mgr.mem_cfg);
     }
 
@@ -472,7 +523,8 @@ mod tests {
     fn test_load_guest_binary_load_lib() {
         let cfg = SandboxMemoryConfiguration::default();
         let simple_guest_path = simple_guest_path().unwrap();
-        let mgr_res = Sandbox::load_guest_binary(cfg, simple_guest_path.as_str(), true, true);
+        let mgr_res =
+            UnintializedSandbox::load_guest_binary(cfg, simple_guest_path.as_str(), true, true);
         #[cfg(target_os = "linux")]
         {
             assert!(mgr_res.is_err())
@@ -497,7 +549,7 @@ mod tests {
 
         let writer_func = Rc::new(RefCell::new(writer));
 
-        let mut sandbox = Sandbox::new(
+        let mut sandbox = UnintializedSandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
             None,
             None,
@@ -532,7 +584,7 @@ mod tests {
 
         let writer_func = Rc::new(RefCell::new(writer));
 
-        let mut sandbox = Sandbox::new(
+        let mut sandbox = UnintializedSandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
             None,
             None,
@@ -555,7 +607,7 @@ mod tests {
         }
 
         let writer_func = Rc::new(RefCell::new(fn_writer));
-        let mut sandbox = Sandbox::new(
+        let mut sandbox = UnintializedSandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
             None,
             None,
@@ -576,7 +628,7 @@ mod tests {
 
         let writer_method = Rc::new(RefCell::new(writer_closure));
 
-        let mut sandbox = Sandbox::new(
+        let mut sandbox = UnintializedSandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
             None,
             None,
@@ -704,7 +756,7 @@ mod tests {
     #[test]
     fn test_stack_guard() {
         let simple_guest_path = simple_guest_path().unwrap();
-        let sbox = Sandbox::new(simple_guest_path, None, None).unwrap();
+        let sbox = UnintializedSandbox::new(simple_guest_path, None, None).unwrap();
         let res = sbox.check_stack_guard();
         assert!(res.is_ok(), "Sandbox::check_stack_guard returned an error");
         assert!(res.unwrap(), "Sandbox::check_stack_guard returned false");

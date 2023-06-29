@@ -190,7 +190,7 @@ jobs:
       if: ${{ (matrix.hypervisor == 'hyperv') && (runner.os == 'Linux') }}
       run: |
         echo "HYPERV_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
-        echo "SHOULD_HAVE_STABLE_API=false" >> $GITHUB_ENV
+        echo "HYPERV_SHOULD_HAVE_STABLE_API=false" >> $GITHUB_ENV
     - name: Set up env vars for kvm-linux tests
       if: ${{ (matrix.hypervisor == 'kvm') && (runner.os == 'Linux') }}
       run: |
