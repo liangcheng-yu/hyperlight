@@ -1,13 +1,29 @@
 use super::ptr::RawPtr;
 use anyhow::{bail, Result};
-use std::ffi::CString;
-use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::ffi::{c_char, CString};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use windows::core::PCSTR;
 use windows::Win32::Foundation::HMODULE;
 use windows::Win32::System::LibraryLoader::{FreeLibrary, LoadLibraryA};
 
 static IS_RUNNING_FROM_GUEST_BINARY: AtomicBool = AtomicBool::new(false);
+
+// Loadedlib needs to send so that it can be used in a Sandbox that can be passed between threads
+// *mut c_char is not send, so that means LoadedLib cannot be Send.
+// to work around this  we could try and wrap *mut c_char in a Mutex but in order for Mutex to be send
+// *mut c_char would need to be sync which it is not.
+// Additionally *muc c_char is impl !Send so we cannot unsafe impl Send for *mut c_char
+// Therefore we need to wrap *mut c_char in a struct that is impl Send
+// We also need to make this type Sync as it is wrapped in an Arc and Arc (just like Mutex) requires Sync in order to impl Send
+// Marking this type Sync is safe as it is intended to only ever used from a single thread.
+
+struct PtrCCharMut(*mut c_char);
+
+unsafe impl Send for PtrCCharMut {}
+unsafe impl Sync for PtrCCharMut {}
 
 /// A wrapper around a binary loaded with the Windows
 /// [`LoadLibraryA`](https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/System/LibraryLoader/fn.LoadLibraryA.html)
@@ -21,7 +37,7 @@ static IS_RUNNING_FROM_GUEST_BINARY: AtomicBool = AtomicBool::new(false);
 /// Use the `TryFrom` implementation to create a new instance.
 #[derive(Clone)]
 pub(crate) struct LoadedLib {
-    data: Rc<(HMODULE, *mut u8)>,
+    data: Arc<(HMODULE, PtrCCharMut)>,
 }
 
 impl LoadedLib {
@@ -34,22 +50,22 @@ impl LoadedLib {
 
 /// frees `h_inst` using `FreeLibrary`, then frees `file_name_c_str` using
 /// the standard `CString` drop functionality, in that order
-unsafe fn free_and_drop(h_inst: HMODULE, file_name_c_str: *mut u8) {
+unsafe fn free_and_drop(h_inst: HMODULE, file_name_c_str: *mut c_char) {
     FreeLibrary(h_inst);
-    drop(CString::from_raw(file_name_c_str as *mut i8));
+    drop(CString::from_raw(file_name_c_str));
 }
 
 impl Drop for LoadedLib {
     fn drop(&mut self) {
         // if the ref count is greater than 1, this particular LoadedLib
         // has been cloned, so we don't want to free stuff yet
-        if Rc::strong_count(&self.data) > 1 {
+        if Arc::strong_count(&self.data) > 1 {
             return;
         }
         // the library, referenced by self.h_instance, owns
         // self.file_name. make sure they're freed in reverse order
         unsafe {
-            free_and_drop(self.data.0, self.data.1);
+            free_and_drop(self.data.0, self.data.1 .0);
         }
         if !set_guest_binary_boolean(false) {
             // should never get here, in place just to catch bugs
@@ -61,7 +77,7 @@ impl Drop for LoadedLib {
 impl TryFrom<&str> for LoadedLib {
     type Error = anyhow::Error;
     fn try_from(file_name: &str) -> Result<Self> {
-        let cstr = CString::new(file_name)?.into_raw() as *mut u8;
+        let cstr = CString::new(file_name)?.into_raw();
         let file_name_pc_str = PCSTR::from_raw(cstr as *const u8);
         let h_instance = unsafe { LoadLibraryA(file_name_pc_str) }?;
 
@@ -77,7 +93,7 @@ impl TryFrom<&str> for LoadedLib {
         }
 
         Ok(Self {
-            data: Rc::new((h_instance, cstr)),
+            data: Arc::new((h_instance, PtrCCharMut(cstr))),
         })
     }
 }

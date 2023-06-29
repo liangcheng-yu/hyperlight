@@ -8,7 +8,7 @@ use std::ffi::c_void;
 use std::io::{Cursor, Error};
 use std::mem::size_of;
 use std::ptr::null_mut;
-use std::rc::Rc;
+use std::sync::Arc;
 #[cfg(target_os = "windows")]
 use windows::Win32::System::Memory::{
     VirtualAlloc, VirtualFree, MEM_COMMIT, MEM_DECOMMIT, PAGE_EXECUTE_READWRITE,
@@ -37,6 +37,20 @@ type Reader<T> = Box<dyn Fn(ByteSliceCursor) -> Result<T>>;
 /// a given `Cursor` of bytes.
 type Writer<'a, T> = Box<dyn Fn(T) -> Result<Vec<u8>>>;
 
+// SharedMemory needs to send so that it can be used in a Sandbox that can be passed between threads
+// *mut c_void is not send, so that means SharedMemory cannot be Send.
+// to work around this  we could try and wrap *mut c_void in a Mutex but in order for Mutex to be send
+// *mut c_void would need to be sync which it is not.
+// Additionally *muc c_void is impl !Send so we cannot unsafe impl Send for *mut c_void
+// Therefore we need to wrap *mut c_void in a struct that is impl Send
+// We also need to make this type Sync as it is wrapped in an Arc and Arc (just like Mutex) requires Sync in order to impl Send
+// Marking this type Sync is safe as it is intended to only ever used from a single thread.
+
+#[derive(Debug)]
+struct PtrCVoidMut(*mut c_void);
+unsafe impl Send for PtrCVoidMut {}
+unsafe impl Sync for PtrCVoidMut {}
+
 /// A representation of the guests's physical memory, often referred to as
 /// Guest Physical Memory or Guest Physical Addresses (GPA) in Windows
 /// Hypervisor Platform.
@@ -48,7 +62,7 @@ type Writer<'a, T> = Box<dyn Fn(T) -> Result<Vec<u8>>>;
 /// memory to be freed.
 #[derive(Debug)]
 pub struct SharedMemory {
-    ptr_and_size: Rc<(*mut c_void, usize)>,
+    ptr_and_size: Arc<(PtrCVoidMut, usize)>,
 }
 
 impl Clone for SharedMemory {
@@ -67,20 +81,20 @@ impl Drop for SharedMemory {
         //
         // Note: regardless which case we're in, the return value
         // of strong_count() will equal $TOTAL_NUM_CLONES + 1
-        if Rc::strong_count(&self.ptr_and_size) > 1 {
+        if Arc::strong_count(&self.ptr_and_size) > 1 {
             return;
         }
-        let (ptr, size) = *self.ptr_and_size;
+        let (ptr, size) = &*self.ptr_and_size;
         #[cfg(target_os = "linux")]
         {
             unsafe {
-                munmap(ptr, size);
+                munmap(ptr.0, *size);
             }
         }
         #[cfg(target_os = "windows")]
         {
             unsafe {
-                VirtualFree(ptr, size, MEM_DECOMMIT);
+                VirtualFree(ptr.0, *size, MEM_DECOMMIT);
             }
         }
     }
@@ -136,7 +150,7 @@ impl SharedMemory {
         match addr as i64 {
             0 | -1 => anyhow::bail!("Memory Allocation Failed Error {}", Error::last_os_error()),
             _ => Ok(Self {
-                ptr_and_size: Rc::new((addr, min_size_bytes)),
+                ptr_and_size: Arc::new((PtrCVoidMut(addr), min_size_bytes)),
             }),
         }
     }
@@ -238,8 +252,8 @@ impl SharedMemory {
     /// free any of this memory, since it is owned and will
     /// be cleaned up by `self`.
     pub(crate) fn raw_ptr(&self) -> *mut c_void {
-        let (ptr, _) = *self.ptr_and_size;
-        ptr
+        let (ptr, _) = &*self.ptr_and_size;
+        ptr.0
     }
 
     /// Return the length of the memory contained in `self`.

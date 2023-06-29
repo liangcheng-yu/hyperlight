@@ -475,10 +475,13 @@ fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use super::Sandbox;
     #[cfg(target_os = "linux")]
     use super::{is_hypervisor_present, outb_log, UnintializedSandbox};
     #[cfg(target_os = "windows")]
-    use super::{outb_log, validate_concrete_type, HostFunctionWithOneArg, UnintializedSandbox};
+    use super::{
+        outb_log, validate_concrete_type, HostFunctionWithOneArg, Sandbox, UnintializedSandbox,
+    };
     #[cfg(target_os = "linux")]
     use crate::hypervisor::hyperv_linux::test_cfg::TEST_CONFIG as HYPERV_TEST_CONFIG;
     #[cfg(target_os = "linux")]
@@ -491,10 +494,11 @@ mod tests {
         testing::{logger::LOGGER, simple_guest_path, simple_guest_pe_info},
     };
     use anyhow::Result;
+    use crossbeam_queue::ArrayQueue;
     use log::{set_logger, set_max_level, Level};
     use std::{
         io::{Read, Write},
-        sync::{Arc, Mutex},
+        sync::{Arc, Mutex}, thread,
     };
     use tempfile::NamedTempFile;
     #[test]
@@ -545,7 +549,7 @@ mod tests {
             SandboxRunOptions::RUN_FROM_GUEST_BINARY | SandboxRunOptions::RECYCLE_AFTER_RUN;
 
         let uninitialized_sandbox =
-            UnintializedSandbox::new(binary_path, None, Some(sandbox_run_options));
+            UnintializedSandbox::new(binary_path.clone(), None, Some(sandbox_run_options));
         assert!(uninitialized_sandbox.is_err());
 
         let uninitialized_sandbox = UnintializedSandbox::new(binary_path, None, None);
@@ -843,5 +847,68 @@ mod tests {
         let res = sbox.check_stack_guard();
         assert!(res.is_ok(), "Sandbox::check_stack_guard returned an error");
         assert!(res.unwrap(), "Sandbox::check_stack_guard returned false");
+    }
+
+    #[test]
+    fn check_create_and_use_sandbox_on_different_threads() {
+        let unintializedsandbox_queue = Arc::new(ArrayQueue::<UnintializedSandbox>::new(10));
+        let sandbox_queue = Arc::new(ArrayQueue::<Sandbox>::new(10));
+
+        for i in 0..10 {
+            let simple_guest_path = simple_guest_path().expect("Guest Binary Missing");
+            let unintializedsandbox = UnintializedSandbox::new(simple_guest_path, None, None)
+                .unwrap_or_else(|_| panic!("Failed to create UnintializedSandbox {}", i));
+
+            unintializedsandbox_queue
+                .push(unintializedsandbox)
+                .unwrap_or_else(|_| panic!("Failed to push UnintializedSandbox {}", i));
+        }
+
+        let thread_handles = (0..10)
+            .map(|i| {
+                let uq = unintializedsandbox_queue.clone();
+                let sq = sandbox_queue.clone();
+                thread::spawn(move || {
+                    let mut uninitialized_sandbox = uq.pop().unwrap_or_else(|| {
+                        panic!("Failed to pop UnintializedSandbox thread {}", i)
+                    });
+                    uninitialized_sandbox
+                        .host_print(format!("Print from UnintializedSandbox on Thread {}\n", i))
+                        .unwrap();
+
+                    let sandbox = uninitialized_sandbox
+                        .initialize::<fn(&mut UnintializedSandbox<'_>) -> Result<()>>(None)
+                        .unwrap_or_else(|_| {
+                            panic!("Failed to initialize UnintializedSandbox thread {}", i)
+                        });
+
+                    sq.push(sandbox).unwrap_or_else(|_| {
+                        panic!("Failed to push UnintializedSandbox thread {}", i)
+                    })
+                })
+            })
+            .collect::<Vec<_>>();
+
+        for handle in thread_handles {
+            handle.join().unwrap();
+        }
+
+        let thread_handles = (0..10)
+            .map(|i| {
+                let sq = sandbox_queue.clone();
+                thread::spawn(move || {
+                    let mut sandbox = sq
+                        .pop()
+                        .unwrap_or_else(|| panic!("Failed to pop Sandbox thread {}", i));
+                    sandbox
+                        .host_print(format!("Print from Sandbox on Thread {}\n", i))
+                        .unwrap();
+                })
+            })
+            .collect::<Vec<_>>();
+
+        for handle in thread_handles {
+            handle.join().unwrap();
+        }
     }
 }

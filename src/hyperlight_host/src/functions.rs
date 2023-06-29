@@ -13,7 +13,7 @@ pub(crate) type HyperlightFunction<'a> = Arc<
             dyn FnMut(
                     Vec<SupportedParameterAndReturnValues>,
                 ) -> anyhow::Result<SupportedParameterAndReturnValues>
-                + 'a,
+                + 'a + Send,
         >,
     >,
 >;
@@ -25,7 +25,7 @@ pub(crate) trait Function0<'a, R: SupportedReturnType<R>> {
 
 impl<'a, T, R> Function0<'a, R> for Arc<Mutex<T>>
 where
-    T: FnMut() -> anyhow::Result<R> + 'a,
+    T: FnMut() -> anyhow::Result<R> + 'a + Send,
     R: SupportedReturnType<R>,
 {
     fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
@@ -50,7 +50,7 @@ pub(crate) trait Function1<
 
 impl<'a, T, P1, R> Function1<'a, P1, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1) -> anyhow::Result<R> + 'a,
+    T: FnMut(P1) -> anyhow::Result<R> + 'a + Send,
     P1: SupportedParameterType<P1> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
@@ -78,7 +78,7 @@ pub(crate) trait Function2<
 
 impl<'a, T, P1, P2, R> Function2<'a, P1, P2, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2) -> anyhow::Result<R> + 'a,
+    T: FnMut(P1, P2) -> anyhow::Result<R> + 'a + Send,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     R: SupportedReturnType<R>,
@@ -109,7 +109,7 @@ pub(crate) trait Function3<
 
 impl<'a, T, P1, P2, P3, R> Function3<'a, P1, P2, P3, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3) -> anyhow::Result<R> + 'a,
+    T: FnMut(P1, P2, P3) -> anyhow::Result<R> + 'a + Send,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -143,7 +143,7 @@ pub(crate) trait Function4<
 
 impl<'a, T, P1, P2, P3, P4, R> Function4<'a, P1, P2, P3, P4, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4) -> anyhow::Result<R> + 'a,
+    T: FnMut(P1, P2, P3, P4) -> anyhow::Result<R> + 'a + Send,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -180,7 +180,7 @@ pub(crate) trait Function5<
 
 impl<'a, T, P1, P2, P3, P4, P5, R> Function5<'a, P1, P2, P3, P4, P5, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4, P5) -> anyhow::Result<R> + 'a,
+    T: FnMut(P1, P2, P3, P4, P5) -> anyhow::Result<R> + 'a + Send,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -220,7 +220,7 @@ pub(crate) trait Function6<
 
 impl<'a, T, P1, P2, P3, P4, P5, P6, R> Function6<'a, P1, P2, P3, P4, P5, P6, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4, P5, P6) -> anyhow::Result<R> + 'a,
+    T: FnMut(P1, P2, P3, P4, P5, P6) -> anyhow::Result<R> + 'a + Send,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -264,7 +264,7 @@ pub(crate) trait Function7<
 impl<'a, T, P1, P2, P3, P4, P5, P6, P7, R> Function7<'a, P1, P2, P3, P4, P5, P6, P7, R>
     for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4, P5, P6, P7) -> anyhow::Result<R> + 'a,
+    T: FnMut(P1, P2, P3, P4, P5, P6, P7) -> anyhow::Result<R> + 'a + Send,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -311,7 +311,7 @@ pub(crate) trait Function8<
 impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, R> Function8<'a, P1, P2, P3, P4, P5, P6, P7, P8, R>
     for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8) -> anyhow::Result<R> + 'a,
+    T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8) -> anyhow::Result<R> + 'a + Send,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -361,7 +361,7 @@ pub(crate) trait Function9<
 impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, P9, R>
     Function9<'a, P1, P2, P3, P4, P5, P6, P7, P8, P9, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9) -> anyhow::Result<R> + 'a,
+    T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9) -> anyhow::Result<R> + 'a + Send,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -414,7 +414,7 @@ pub(crate) trait Function10<
 impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, R>
     Function10<'a, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10) -> anyhow::Result<R> + 'a,
+    T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10) -> anyhow::Result<R> + 'a + Send,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
