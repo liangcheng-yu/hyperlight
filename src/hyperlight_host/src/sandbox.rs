@@ -102,6 +102,7 @@ pub struct UnintializedSandbox<'a> {
 ///
 /// A Hyperlight Sandbox is a specialized VM environment
 /// intended specifically for running Hyperlight guest processes.
+#[allow(unused)]
 pub struct Sandbox<'a> {
     // Registered host functions
     host_functions: HashMap<String, HyperlightFunction<'a>>,
@@ -401,11 +402,11 @@ impl<'a> UnintializedSandbox<'a> {
     /// Initialize the `Sandbox` from an `UninitializedSandbox`.
     /// Receives a callback function to be called during initialization.
     #[allow(unused)]
-    fn initialize<F: Fn(&mut UnintializedSandbox) -> Result<()>>(
+    fn initialize<F: Fn(&mut Sandbox<'a>) -> Result<()>>(
         &mut self,
         callback: Option<F>,
-    ) -> Result<UnintializedSandbox> {
-        let mut sbox = UnintializedSandbox {
+    ) -> Result<Sandbox<'a>> {
+        let mut sbox = Sandbox {
             host_functions: self.host_functions.clone(),
             mem_mgr: self.mem_mgr.clone(),
             stack_guard: self.stack_guard,
