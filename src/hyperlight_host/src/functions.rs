@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::sync::{Arc, Mutex};
 
 use crate::{
     guest_interface_glue::{
@@ -7,12 +7,13 @@ use crate::{
     sandbox::UnintializedSandbox,
 };
 
-pub(crate) type HyperlightFunction = Rc<
-    RefCell<
+pub(crate) type HyperlightFunction<'a> = Arc<
+    Mutex<
         Box<
             dyn FnMut(
-                Vec<SupportedParameterAndReturnValues>,
-            ) -> anyhow::Result<SupportedParameterAndReturnValues>,
+                    Vec<SupportedParameterAndReturnValues>,
+                ) -> anyhow::Result<SupportedParameterAndReturnValues>
+                + 'a,
         >,
     >,
 >;
@@ -22,18 +23,18 @@ pub(crate) trait FunctionZero<R: SupportedReturnType> {
     fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
 }
 
-impl<T, R> FunctionZero<R> for Rc<RefCell<T>>
+impl<T, R> FunctionZero<R> for Arc<Mutex<T>>
 where
-    T: FnMut() -> anyhow::Result<R> + 'static,
+    for<'a> T: FnMut() -> anyhow::Result<R> + 'a,
     R: SupportedReturnType,
 {
     fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
         let cloned = self.clone();
         let func = Box::new(move |_: Vec<SupportedParameterAndReturnValues>| {
-            let result = cloned.borrow_mut()()?;
+            let result = cloned.lock().unwrap()()?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
+        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
     }
 }
 
@@ -42,24 +43,24 @@ pub(crate) trait FunctionOne<P1: SupportedParameterType + Clone + 'static, R: Su
     fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
 }
 
-impl<T, P1, R> FunctionOne<P1, R> for Rc<RefCell<T>>
+impl<T, P1, R> FunctionOne<P1, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1) -> anyhow::Result<R> + 'static,
+    for<'a> T: FnMut(P1) -> anyhow::Result<R> + 'a,
     P1: SupportedParameterType + Clone + 'static,
     R: SupportedReturnType,
 {
     fn register(&self, sandbox: &mut UnintializedSandbox, name: &str) {
-        let cloned = self.clone();
+        let cloned = Arc::clone(self);
         let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
             let p1 = args[0]
                 .get_inner()?
                 .downcast_ref::<P1>()
                 .cloned()
                 .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let result = cloned.borrow_mut()(p1)?;
+            let result = cloned.lock().unwrap()(p1)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
+        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
     }
 }
 
@@ -73,9 +74,9 @@ pub(crate) trait FunctionTwo<
     fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
 }
 
-impl<T, P1, P2, R> FunctionTwo<P1, P2, R> for Rc<RefCell<T>>
+impl<T, P1, P2, R> FunctionTwo<P1, P2, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2) -> anyhow::Result<R> + 'static,
+    for<'a> T: FnMut(P1, P2) -> anyhow::Result<R> + 'a,
     P1: SupportedParameterType + Clone + 'static,
     P2: SupportedParameterType + Clone + 'static,
     R: SupportedReturnType,
@@ -93,10 +94,10 @@ where
                 .downcast_ref::<P2>()
                 .cloned()
                 .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let result = cloned.borrow_mut()(p1, p2)?;
+            let result = cloned.lock().unwrap()(p1, p2)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
+        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
     }
 }
 
@@ -111,9 +112,9 @@ pub(crate) trait FunctionThree<
     fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
 }
 
-impl<T, P1, P2, P3, R> FunctionThree<P1, P2, P3, R> for Rc<RefCell<T>>
+impl<T, P1, P2, P3, R> FunctionThree<P1, P2, P3, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3) -> anyhow::Result<R> + 'static,
+    for<'a> T: FnMut(P1, P2, P3) -> anyhow::Result<R> + 'a,
     P1: SupportedParameterType + Clone + 'static,
     P2: SupportedParameterType + Clone + 'static,
     P3: SupportedParameterType + Clone + 'static,
@@ -137,10 +138,10 @@ where
                 .downcast_ref::<P3>()
                 .cloned()
                 .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let result = cloned.borrow_mut()(p1, p2, p3)?;
+            let result = cloned.lock().unwrap()(p1, p2, p3)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
+        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
     }
 }
 
@@ -156,9 +157,9 @@ pub(crate) trait FunctionFour<
     fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
 }
 
-impl<T, P1, P2, P3, P4, R> FunctionFour<P1, P2, P3, P4, R> for Rc<RefCell<T>>
+impl<T, P1, P2, P3, P4, R> FunctionFour<P1, P2, P3, P4, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4) -> anyhow::Result<R> + 'static,
+    for<'a> T: FnMut(P1, P2, P3, P4) -> anyhow::Result<R> + 'a,
     P1: SupportedParameterType + Clone + 'static,
     P2: SupportedParameterType + Clone + 'static,
     P3: SupportedParameterType + Clone + 'static,
@@ -188,10 +189,10 @@ where
                 .downcast_ref::<P4>()
                 .cloned()
                 .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let result = cloned.borrow_mut()(p1, p2, p3, p4)?;
+            let result = cloned.lock().unwrap()(p1, p2, p3, p4)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
+        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
     }
 }
 
@@ -208,9 +209,9 @@ pub(crate) trait FunctionFive<
     fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
 }
 
-impl<T, P1, P2, P3, P4, P5, R> FunctionFive<P1, P2, P3, P4, P5, R> for Rc<RefCell<T>>
+impl<T, P1, P2, P3, P4, P5, R> FunctionFive<P1, P2, P3, P4, P5, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4, P5) -> anyhow::Result<R> + 'static,
+    for<'a> T: FnMut(P1, P2, P3, P4, P5) -> anyhow::Result<R> + 'a,
     P1: SupportedParameterType + Clone + 'static,
     P2: SupportedParameterType + Clone + 'static,
     P3: SupportedParameterType + Clone + 'static,
@@ -246,10 +247,10 @@ where
                 .downcast_ref::<P5>()
                 .cloned()
                 .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let result = cloned.borrow_mut()(p1, p2, p3, p4, p5)?;
+            let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
+        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
     }
 }
 
@@ -267,9 +268,9 @@ pub(crate) trait FunctionSix<
     fn register(&self, sandbox: &mut UnintializedSandbox, name: &str);
 }
 
-impl<T, P1, P2, P3, P4, P5, P6, R> FunctionSix<P1, P2, P3, P4, P5, P6, R> for Rc<RefCell<T>>
+impl<T, P1, P2, P3, P4, P5, P6, R> FunctionSix<P1, P2, P3, P4, P5, P6, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4, P5, P6) -> anyhow::Result<R> + 'static,
+    for<'a> T: FnMut(P1, P2, P3, P4, P5, P6) -> anyhow::Result<R> + 'a,
     P1: SupportedParameterType + Clone + 'static,
     P2: SupportedParameterType + Clone + 'static,
     P3: SupportedParameterType + Clone + 'static,
@@ -311,10 +312,10 @@ where
                 .downcast_ref::<P6>()
                 .cloned()
                 .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let result = cloned.borrow_mut()(p1, p2, p3, p4, p5, p6)?;
+            let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
+        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
     }
 }
 
@@ -334,9 +335,9 @@ pub(crate) trait FunctionSeven<
 }
 
 impl<T, P1, P2, P3, P4, P5, P6, P7, R> FunctionSeven<P1, P2, P3, P4, P5, P6, P7, R>
-    for Rc<RefCell<T>>
+    for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4, P5, P6, P7) -> anyhow::Result<R> + 'static,
+    for<'a> T: FnMut(P1, P2, P3, P4, P5, P6, P7) -> anyhow::Result<R> + 'a,
     P1: SupportedParameterType + Clone + 'static,
     P2: SupportedParameterType + Clone + 'static,
     P3: SupportedParameterType + Clone + 'static,
@@ -384,10 +385,10 @@ where
                 .downcast_ref::<P7>()
                 .cloned()
                 .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let result = cloned.borrow_mut()(p1, p2, p3, p4, p5, p6, p7)?;
+            let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6, p7)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
+        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
     }
 }
 
@@ -408,9 +409,9 @@ pub(crate) trait FunctionEight<
 }
 
 impl<T, P1, P2, P3, P4, P5, P6, P7, P8, R> FunctionEight<P1, P2, P3, P4, P5, P6, P7, P8, R>
-    for Rc<RefCell<T>>
+    for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8) -> anyhow::Result<R> + 'static,
+    for<'a> T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8) -> anyhow::Result<R> + 'a,
     P1: SupportedParameterType + Clone + 'static,
     P2: SupportedParameterType + Clone + 'static,
     P3: SupportedParameterType + Clone + 'static,
@@ -464,10 +465,10 @@ where
                 .downcast_ref::<P8>()
                 .cloned()
                 .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let result = cloned.borrow_mut()(p1, p2, p3, p4, p5, p6, p7, p8)?;
+            let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6, p7, p8)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
+        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
     }
 }
 
@@ -489,9 +490,9 @@ pub(crate) trait FunctionNine<
 }
 
 impl<T, P1, P2, P3, P4, P5, P6, P7, P8, P9, R> FunctionNine<P1, P2, P3, P4, P5, P6, P7, P8, P9, R>
-    for Rc<RefCell<T>>
+    for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9) -> anyhow::Result<R> + 'static,
+    for<'a> T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9) -> anyhow::Result<R> + 'a,
     P1: SupportedParameterType + Clone + 'static,
     P2: SupportedParameterType + Clone + 'static,
     P3: SupportedParameterType + Clone + 'static,
@@ -551,10 +552,10 @@ where
                 .downcast_ref::<P9>()
                 .cloned()
                 .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let result = cloned.borrow_mut()(p1, p2, p3, p4, p5, p6, p7, p8, p9)?;
+            let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6, p7, p8, p9)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
+        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
     }
 }
 
@@ -577,9 +578,9 @@ pub(crate) trait FunctionTen<
 }
 
 impl<T, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, R>
-    FunctionTen<P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, R> for Rc<RefCell<T>>
+    FunctionTen<P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10) -> anyhow::Result<R> + 'static,
+    for<'a> T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10) -> anyhow::Result<R> + 'a,
     P1: SupportedParameterType + Clone + 'static,
     P2: SupportedParameterType + Clone + 'static,
     P3: SupportedParameterType + Clone + 'static,
@@ -645,9 +646,9 @@ where
                 .downcast_ref::<P10>()
                 .cloned()
                 .ok_or(anyhow::anyhow!("Invalid parameter type"))?;
-            let result = cloned.borrow_mut()(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10)?;
+            let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Rc::new(RefCell::new(func)));
+        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
     }
 }

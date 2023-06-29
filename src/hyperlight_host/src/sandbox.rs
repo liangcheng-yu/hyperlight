@@ -22,7 +22,6 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Result};
 use log::{debug, error, info, trace, warn};
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::io::stdout;
@@ -30,7 +29,7 @@ use std::io::Write;
 use std::ops::Add;
 use std::option::Option;
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 // In case its not obvious why there are separate is_supported_platform and is_hypervisor_present functions its because
@@ -90,15 +89,28 @@ pub(crate) fn is_hypervisor_present() -> bool {
 /// onto an UninitializedSandbox. Once all host functions have been registered,
 /// the UninitializedSandbox can be initialized into a Sandbox through the
 /// `initialize` method.
-pub struct UnintializedSandbox {
+pub struct UnintializedSandbox<'a> {
     // Registered host functions
-    host_functions: HashMap<String, HyperlightFunction>,
+    host_functions: HashMap<String, HyperlightFunction<'a>>,
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
 }
 
-impl UnintializedSandbox {
+/// The primary mechanism to interact with VM partitions that
+/// run Hyperlight Sandboxes.
+///
+/// A Hyperlight Sandbox is a specialized VM environment
+/// intended specifically for running Hyperlight guest processes.
+pub struct Sandbox<'a> {
+    // Registered host functions
+    host_functions: HashMap<String, HyperlightFunction<'a>>,
+    // The memory manager for the sandbox.
+    mem_mgr: SandboxMemoryManager,
+    stack_guard: [u8; STACK_COOKIE_LEN],
+}
+
+impl<'a> UnintializedSandbox<'a> {
     /// Create a new sandbox configured to run the binary at path
     /// `bin_path`.
     pub fn new(
@@ -136,7 +148,7 @@ impl UnintializedSandbox {
         mem_mgr.set_stack_guard(&stack_guard)?;
 
         // The default writer function is to write to stdout with green text.
-        let default_writer_func = Rc::new(RefCell::new(|s: String| -> Result<()> {
+        let default_writer_func = Arc::new(Mutex::new(|s: String| -> Result<()> {
             match atty::is(atty::Stream::Stdout) {
                 false => {
                     stdout().write_all(s.as_bytes())?;
@@ -183,7 +195,7 @@ impl UnintializedSandbox {
     }
 
     /// Register a host function with the sandbox.
-    pub fn register_host_function(&mut self, name: &str, func: HyperlightFunction) {
+    pub fn register_host_function(&mut self, name: &str, func: HyperlightFunction<'a>) {
         self.host_functions.insert(name.to_string(), func);
     }
 
@@ -352,9 +364,7 @@ impl UnintializedSandbox {
             .get_mut("writer_func")
             .ok_or_else(|| anyhow!("Host function 'writer_func' not found"))?;
 
-        let mut writer_func = writer_func.borrow_mut();
-
-        writer_func(vec![SupportedParameterAndReturnValues::String(msg)])?;
+        writer_func.lock().unwrap()(vec![SupportedParameterAndReturnValues::String(msg)])?;
 
         Ok(())
     }
@@ -408,7 +418,7 @@ impl UnintializedSandbox {
     }
 }
 
-impl UnintializedSandbox {
+impl<'a> Sandbox<'a> {
     // (DAN:TODO) Add function to register new or delete host functions. This should return an `UninitializedSandbox`.
 }
 
@@ -451,8 +461,10 @@ mod tests {
     };
     use anyhow::Result;
     use log::{set_logger, set_max_level, Level};
-    use std::io::{Read, Write};
-    use std::{cell::RefCell, rc::Rc};
+    use std::{
+        io::{Read, Write},
+        sync::{Arc, Mutex},
+    };
     use tempfile::NamedTempFile;
     #[test]
     // TODO: add support for testing on WHP
@@ -543,7 +555,7 @@ mod tests {
             Ok(())
         };
 
-        let writer_func = Rc::new(RefCell::new(writer));
+        let writer_func = Arc::new(Mutex::new(writer));
 
         let mut sandbox = UnintializedSandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
@@ -578,7 +590,7 @@ mod tests {
             Ok(())
         };
 
-        let writer_func = Rc::new(RefCell::new(writer));
+        let writer_func = Arc::new(Mutex::new(writer));
 
         let mut sandbox = UnintializedSandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
@@ -602,7 +614,7 @@ mod tests {
             Ok(())
         }
 
-        let writer_func = Rc::new(RefCell::new(fn_writer));
+        let writer_func = Arc::new(Mutex::new(fn_writer));
         let mut sandbox = UnintializedSandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
             None,
@@ -622,7 +634,7 @@ mod tests {
 
         let writer_closure = |s| test_host_print.write(s);
 
-        let writer_method = Rc::new(RefCell::new(writer_closure));
+        let writer_method = Arc::new(Mutex::new(writer_closure));
 
         let mut sandbox = UnintializedSandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
