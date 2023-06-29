@@ -55,7 +55,8 @@ pub unsafe extern "C" fn sandbox_new(
                 })
                 .unwrap();
 
-            let mut sbox = UnintializedSandbox::new(bin_path.to_string(), mem_cfg, sandbox_run_options)?;
+            let mut sbox =
+                UnintializedSandbox::new(bin_path.to_string(), mem_cfg, sandbox_run_options)?;
             writer_func.register(&mut sbox, "writer_func");
 
             Ok(register_sandbox(ctx, sbox))

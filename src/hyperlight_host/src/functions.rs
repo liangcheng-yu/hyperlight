@@ -7,11 +7,15 @@ use crate::{
     sandbox::UnintializedSandbox,
 };
 
-pub(crate) type HyperlightFunction = Rc<RefCell<Box<
-    dyn FnMut(
-        Vec<SupportedParameterAndReturnValues>,
-    ) -> anyhow::Result<SupportedParameterAndReturnValues>,
->>>;
+pub(crate) type HyperlightFunction = Rc<
+    RefCell<
+        Box<
+            dyn FnMut(
+                Vec<SupportedParameterAndReturnValues>,
+            ) -> anyhow::Result<SupportedParameterAndReturnValues>,
+        >,
+    >,
+>;
 
 /// A Hyperlight function that takes no arguments and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
 pub(crate) trait FunctionZero<R: SupportedReturnType> {

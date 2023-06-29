@@ -183,11 +183,7 @@ impl UnintializedSandbox {
     }
 
     /// Register a host function with the sandbox.
-    pub fn register_host_function(
-        &mut self,
-        name: &str,
-        func: HyperlightFunction,
-    ) {
+    pub fn register_host_function(&mut self, name: &str, func: HyperlightFunction) {
         self.host_functions.insert(name.to_string(), func);
     }
 
