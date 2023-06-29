@@ -13,7 +13,8 @@ pub(crate) type HyperlightFunction<'a> = Arc<
             dyn FnMut(
                     Vec<SupportedParameterAndReturnValues>,
                 ) -> anyhow::Result<SupportedParameterAndReturnValues>
-                + 'a + Send,
+                + 'a
+                + Send,
         >,
     >,
 >;

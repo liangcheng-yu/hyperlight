@@ -498,7 +498,8 @@ mod tests {
     use log::{set_logger, set_max_level, Level};
     use std::{
         io::{Read, Write},
-        sync::{Arc, Mutex}, thread,
+        sync::{Arc, Mutex},
+        thread,
     };
     use tempfile::NamedTempFile;
     #[test]
