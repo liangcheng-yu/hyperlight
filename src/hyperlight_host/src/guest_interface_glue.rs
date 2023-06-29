@@ -206,7 +206,7 @@ impl SupportedParameterType<u32> for u32 {
         match a {
             SupportedParameterAndReturnValues::UInt(i) => Ok(i),
             _ => bail!("Invalid conversion"),
-        }   
+        }
     }
 }
 impl SupportedParameterType<String> for String {
@@ -222,7 +222,7 @@ impl SupportedParameterType<String> for String {
         match a {
             SupportedParameterAndReturnValues::String(i) => Ok(i),
             _ => bail!("Invalid conversion"),
-        }   
+        }
     }
 }
 impl SupportedParameterType<i32> for i32 {
@@ -238,7 +238,7 @@ impl SupportedParameterType<i32> for i32 {
         match a {
             SupportedParameterAndReturnValues::Int(i) => Ok(i),
             _ => bail!("Invalid conversion"),
-        }   
+        }
     }
 }
 impl SupportedParameterType<i64> for i64 {
@@ -254,7 +254,7 @@ impl SupportedParameterType<i64> for i64 {
         match a {
             SupportedParameterAndReturnValues::Long(i) => Ok(i),
             _ => bail!("Invalid conversion"),
-        }   
+        }
     }
 }
 impl SupportedParameterType<u64> for u64 {
@@ -335,7 +335,7 @@ impl SupportedReturnType<u32> for u32 {
         match a {
             SupportedParameterAndReturnValues::UInt(i) => Ok(i),
             _ => bail!("Invalid conversion"),
-        }   
+        }
     }
 }
 impl SupportedReturnType<()> for () {
@@ -351,7 +351,7 @@ impl SupportedReturnType<()> for () {
         match a {
             SupportedParameterAndReturnValues::Void(_) => Ok(()),
             _ => bail!("Invalid conversion"),
-        }   
+        }
     }
 }
 impl SupportedReturnType<String> for String {

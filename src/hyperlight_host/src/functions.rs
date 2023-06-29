@@ -39,7 +39,12 @@ where
 }
 
 /// A Hyperlight function that takes 1 argument P1 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionOne<'a, P1: SupportedParameterType<P1> + Clone + 'a, R: SupportedReturnType<R>> {
+pub(crate) trait FunctionOne<
+    'a,
+    P1: SupportedParameterType<P1> + Clone + 'a,
+    R: SupportedReturnType<R>,
+>
+{
     fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
 }
 
@@ -61,7 +66,8 @@ where
 }
 
 /// A Hyperlight function that takes 2 arguments P1 and P2 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionTwo<'a, 
+pub(crate) trait FunctionTwo<
+    'a,
     P1: SupportedParameterType<P1>,
     P2: SupportedParameterType<P2>,
     R: SupportedReturnType<R>,
@@ -90,7 +96,8 @@ where
 }
 
 /// A Hyperlight function that takes 3 arguments P1, P2 and P3 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionThree<'a, 
+pub(crate) trait FunctionThree<
+    'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -122,7 +129,8 @@ where
 }
 
 /// A Hyperlight function that takes 4 arguments P1, P2, P3 and P4 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionFour<'a, 
+pub(crate) trait FunctionFour<
+    'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -157,7 +165,8 @@ where
 }
 
 /// A Hyperlight function that takes 5 arguments P1, P2, P3, P4 and P5 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionFive<'a, 
+pub(crate) trait FunctionFive<
+    'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -195,7 +204,8 @@ where
 }
 
 /// A Hyperlight function that takes 6 arguments P1, P2, P3, P4, P5 and P6 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionSix<'a, 
+pub(crate) trait FunctionSix<
+    'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -236,7 +246,8 @@ where
 }
 
 /// A Hyperlight function that takes 7 arguments P1, P2, P3, P4, P5, P6 and P7 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionSeven<'a, 
+pub(crate) trait FunctionSeven<
+    'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -281,7 +292,8 @@ where
 }
 
 /// A Hyperlight function that takes 8 arguments P1, P2, P3, P4, P5, P6, P7 and P8 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionEight<'a, 
+pub(crate) trait FunctionEight<
+    'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -329,7 +341,8 @@ where
 }
 
 /// A Hyperlight function that takes 9 arguments P1, P2, P3, P4, P5, P6, P7, P8 and P9 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionNine<'a, 
+pub(crate) trait FunctionNine<
+    'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -345,8 +358,8 @@ pub(crate) trait FunctionNine<'a,
     fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
 }
 
-impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, P9, R> FunctionNine<'a, P1, P2, P3, P4, P5, P6, P7, P8, P9, R>
-    for Arc<Mutex<T>>
+impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, P9, R>
+    FunctionNine<'a, P1, P2, P3, P4, P5, P6, P7, P8, P9, R> for Arc<Mutex<T>>
 where
     T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9) -> anyhow::Result<R> + 'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
@@ -380,7 +393,8 @@ where
 }
 
 /// A Hyperlight function that takes 10 arguments P1, P2, P3, P4, P5, P6, P7, P8, P9 and P10 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait FunctionTen<'a, 
+pub(crate) trait FunctionTen<
+    'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
