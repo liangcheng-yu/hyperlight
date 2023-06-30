@@ -144,17 +144,6 @@ impl TryFrom<SupportedParameterAndReturnValues> for () {
     }
 }
 
-impl TryFrom<SupportedParameterAndReturnTypes> for u32 {
-    type Error = anyhow::Error;
-
-    fn try_from(value: SupportedParameterAndReturnTypes) -> Result<Self> {
-        match value {
-            SupportedParameterAndReturnTypes::Int => Ok(0),
-            other => bail!("Invalid conversion: from {:?} to u32", other),
-        }
-    }
-}
-
 /// Validates that the given type is supported by the host interface.
 pub fn validate_type_supported(some_type: &str) -> Result<()> {
     // try to convert from &str to SupportedParameterAndReturnTypes
