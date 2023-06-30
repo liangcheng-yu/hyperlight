@@ -2,10 +2,11 @@ use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::{c_func::CFunc, mem_mgr::register_mem_mgr};
+use crate::functions::Function1;
 use crate::mem::ptr::RawPtr;
 use crate::{
     capi::strings::get_string, mem::config::SandboxMemoryConfiguration,
-    sandbox::HostFunctionWithOneArg, sandbox::UnintializedSandbox as RustSandbox,
+    sandbox::UnintializedSandbox as RustSandbox,
 };
 use crate::{
     sandbox::is_hypervisor_present as check_hypervisor,
@@ -58,19 +59,18 @@ pub unsafe extern "C" fn sandbox_new(
             let sandbox_run_options =
                 Some(SandboxRunOptions::from_bits_truncate(sandbox_run_options));
 
-            let writer_func = print_output_handler.map(|f| HostFunctionWithOneArg {
-                func: Arc::new(Mutex::new(move |s: String| -> Result<()> {
-                    let c_str = std::ffi::CString::new(s)?;
-                    f(c_str.as_ptr());
-                    Ok(())
-                })),
-            });
-            let sbox = RustSandbox::new(
-                bin_path.to_string(),
-                mem_cfg,
-                writer_func,
-                sandbox_run_options,
-            )?;
+            let writer_func = print_output_handler
+                .map(|f: extern "C" fn(*const c_char)| {
+                    Arc::new(Mutex::new(move |s: String| -> Result<()> {
+                        let c_str = std::ffi::CString::new(s)?;
+                        f(c_str.as_ptr());
+                        Ok(())
+                    }))
+                })
+                .unwrap();
+
+            let mut sbox = RustSandbox::new(bin_path.to_string(), mem_cfg, sandbox_run_options)?;
+            writer_func.register(&mut sbox, "writer_func");
 
             Ok(register_sandbox(ctx, Sandbox { rust_sandbox: sbox }))
         })
