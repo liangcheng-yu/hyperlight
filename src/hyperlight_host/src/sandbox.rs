@@ -477,10 +477,10 @@ fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
 mod tests {
     use super::Sandbox;
     #[cfg(target_os = "linux")]
-    use super::{is_hypervisor_present, outb_log, UnintializedSandbox};
+    use super::{is_hypervisor_present, outb_log};
     #[cfg(target_os = "windows")]
     use super::{
-        outb_log, validate_concrete_type, HostFunctionWithOneArg, Sandbox, UnintializedSandbox,
+        outb_log, validate_concrete_type, Sandbox, UnintializedSandbox,
     };
     #[cfg(target_os = "linux")]
     use crate::hypervisor::hyperv_linux::test_cfg::TEST_CONFIG as HYPERV_TEST_CONFIG;
