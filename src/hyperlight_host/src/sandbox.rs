@@ -478,9 +478,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     use super::{is_hypervisor_present, outb_log, Sandbox, UnintializedSandbox};
     #[cfg(target_os = "windows")]
-    use super::{
-        outb_log, validate_concrete_type, Sandbox, UnintializedSandbox,
-    };
+    use super::{outb_log, validate_concrete_type, Sandbox, UnintializedSandbox};
     #[cfg(target_os = "linux")]
     use crate::hypervisor::hyperv_linux::test_cfg::TEST_CONFIG as HYPERV_TEST_CONFIG;
     #[cfg(target_os = "linux")]
