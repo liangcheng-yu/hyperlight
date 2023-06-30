@@ -11,7 +11,7 @@ build target=default-target:
     cargo build --verbose --profile={{ if target == "debug" {"dev"} else { target } }}
 
 build-test-rust target=default-target:  (build target)
-    cargo test --verbose --profile={{ if target == "debug" {"dev"} else { target } }} -- --test-threads 1
+    cargo nextest run --verbose {{ if target != "debug" { "--release" } else { "" } }}
 
 build-tests-capi target=default-target: (build target)
     clang \

@@ -114,8 +114,14 @@ jobs:
           sudo chgrp $(whoami) /dev/kvm
           sudo ls -al /dev/kvm
           echo "KVM_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
+      - name: Set up cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest@0.9.54
       - name: Run Rust tests
         working-directory: src/hyperlight_host
+        env:
+          CARGO_TERM_COLOR: always
         run: just build-test-rust ${{ matrix.config }}
       - name: Set up munit
         working-directory: src/hyperlight_host/tests_capi
