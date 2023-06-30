@@ -117,7 +117,10 @@ impl TryFrom<SupportedParameterAndReturnValues> for *mut std::ffi::c_void {
     fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
         match value {
             SupportedParameterAndReturnValues::IntPtr(i) => Ok(i),
-            other => bail!("Invalid conversion: from {:?} to *mut std::ffi::c_void", other),
+            other => bail!(
+                "Invalid conversion: from {:?} to *mut std::ffi::c_void",
+                other
+            ),
         }
     }
 }
@@ -306,7 +309,10 @@ impl SupportedParameterType<*mut std::ffi::c_void> for *mut std::ffi::c_void {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<*mut std::ffi::c_void> {
         match a {
             SupportedParameterAndReturnValues::IntPtr(i) => Ok(i),
-            other => bail!("Invalid conversion: from {:?} to *mut std::ffi::c_void", other),
+            other => bail!(
+                "Invalid conversion: from {:?} to *mut std::ffi::c_void",
+                other
+            ),
         }
     }
 }
@@ -451,7 +457,10 @@ impl SupportedReturnType<*mut std::ffi::c_void> for *mut std::ffi::c_void {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<*mut std::ffi::c_void> {
         match a {
             SupportedParameterAndReturnValues::IntPtr(i) => Ok(i),
-            other => bail!("Invalid conversion: from {:?} to *mut std::ffi::c_void", other),
+            other => bail!(
+                "Invalid conversion: from {:?} to *mut std::ffi::c_void",
+                other
+            ),
         }
     }
 }
