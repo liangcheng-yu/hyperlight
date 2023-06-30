@@ -51,7 +51,7 @@ impl TryFrom<SupportedParameterAndReturnValues> for i32 {
     fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
         match value {
             SupportedParameterAndReturnValues::Int(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to i32", other),
         }
     }
 }
@@ -62,7 +62,7 @@ impl TryFrom<SupportedParameterAndReturnValues> for i64 {
     fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
         match value {
             SupportedParameterAndReturnValues::Long(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to i64", other),
         }
     }
 }
@@ -73,7 +73,7 @@ impl TryFrom<SupportedParameterAndReturnValues> for u64 {
     fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
         match value {
             SupportedParameterAndReturnValues::ULong(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to u64", other),
         }
     }
 }
@@ -84,7 +84,7 @@ impl TryFrom<SupportedParameterAndReturnValues> for bool {
     fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
         match value {
             SupportedParameterAndReturnValues::Bool(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to bool", other),
         }
     }
 }
@@ -95,7 +95,7 @@ impl TryFrom<SupportedParameterAndReturnValues> for String {
     fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
         match value {
             SupportedParameterAndReturnValues::String(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to String", other),
         }
     }
 }
@@ -106,7 +106,7 @@ impl TryFrom<SupportedParameterAndReturnValues> for Vec<u8> {
     fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
         match value {
             SupportedParameterAndReturnValues::ByteArray(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to Vec<u8>", other),
         }
     }
 }
@@ -117,7 +117,7 @@ impl TryFrom<SupportedParameterAndReturnValues> for *mut std::ffi::c_void {
     fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
         match value {
             SupportedParameterAndReturnValues::IntPtr(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to *mut std::ffi::c_void", other),
         }
     }
 }
@@ -128,7 +128,7 @@ impl TryFrom<SupportedParameterAndReturnValues> for u32 {
     fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
         match value {
             SupportedParameterAndReturnValues::UInt(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to u32", other),
         }
     }
 }
@@ -139,7 +139,7 @@ impl TryFrom<SupportedParameterAndReturnValues> for () {
     fn try_from(value: SupportedParameterAndReturnValues) -> Result<Self> {
         match value {
             SupportedParameterAndReturnValues::Void(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to ()", other),
         }
     }
 }
@@ -150,7 +150,7 @@ impl TryFrom<SupportedParameterAndReturnTypes> for u32 {
     fn try_from(value: SupportedParameterAndReturnTypes) -> Result<Self> {
         match value {
             SupportedParameterAndReturnTypes::Int => Ok(0),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to u32", other),
         }
     }
 }
@@ -175,7 +175,7 @@ fn from_csharp_typename(value: &str) -> Result<SupportedParameterAndReturnTypes>
         "System.Byte[]" => Ok(SupportedParameterAndReturnTypes::ByteArray),
         "System.IntPtr" => Ok(SupportedParameterAndReturnTypes::IntPtr),
         "System.UInt32" => Ok(SupportedParameterAndReturnTypes::UInt),
-        _ => bail!("Unsupported type"),
+        other => bail!("Unsupported type: {:?}", other),
     }
 }
 
@@ -205,7 +205,7 @@ impl SupportedParameterType<u32> for u32 {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<u32> {
         match a {
             SupportedParameterAndReturnValues::UInt(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to u32", other),
         }
     }
 }
@@ -221,7 +221,7 @@ impl SupportedParameterType<String> for String {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<String> {
         match a {
             SupportedParameterAndReturnValues::String(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to String", other),
         }
     }
 }
@@ -237,7 +237,7 @@ impl SupportedParameterType<i32> for i32 {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<i32> {
         match a {
             SupportedParameterAndReturnValues::Int(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to i32", other),
         }
     }
 }
@@ -253,7 +253,7 @@ impl SupportedParameterType<i64> for i64 {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<i64> {
         match a {
             SupportedParameterAndReturnValues::Long(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to i64", other),
         }
     }
 }
@@ -269,7 +269,7 @@ impl SupportedParameterType<u64> for u64 {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<u64> {
         match a {
             SupportedParameterAndReturnValues::ULong(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to u64", other),
         }
     }
 }
@@ -285,7 +285,7 @@ impl SupportedParameterType<bool> for bool {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<bool> {
         match a {
             SupportedParameterAndReturnValues::Bool(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to bool", other),
         }
     }
 }
@@ -301,7 +301,7 @@ impl SupportedParameterType<Vec<u8>> for Vec<u8> {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<Vec<u8>> {
         match a {
             SupportedParameterAndReturnValues::ByteArray(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to Vec<u8>", other),
         }
     }
 }
@@ -317,7 +317,7 @@ impl SupportedParameterType<*mut std::ffi::c_void> for *mut std::ffi::c_void {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<*mut std::ffi::c_void> {
         match a {
             SupportedParameterAndReturnValues::IntPtr(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to *mut std::ffi::c_void", other),
         }
     }
 }
@@ -334,7 +334,7 @@ impl SupportedReturnType<u32> for u32 {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<u32> {
         match a {
             SupportedParameterAndReturnValues::UInt(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to u32", other),
         }
     }
 }
@@ -350,7 +350,7 @@ impl SupportedReturnType<()> for () {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<()> {
         match a {
             SupportedParameterAndReturnValues::Void(_) => Ok(()),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to ()", other),
         }
     }
 }
@@ -366,7 +366,7 @@ impl SupportedReturnType<String> for String {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<String> {
         match a {
             SupportedParameterAndReturnValues::String(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to String", other),
         }
     }
 }
@@ -382,7 +382,7 @@ impl SupportedReturnType<i32> for i32 {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<i32> {
         match a {
             SupportedParameterAndReturnValues::Int(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to i32", other),
         }
     }
 }
@@ -398,7 +398,7 @@ impl SupportedReturnType<i64> for i64 {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<i64> {
         match a {
             SupportedParameterAndReturnValues::Long(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to i64", other),
         }
     }
 }
@@ -414,7 +414,7 @@ impl SupportedReturnType<u64> for u64 {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<u64> {
         match a {
             SupportedParameterAndReturnValues::ULong(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to u64", other),
         }
     }
 }
@@ -430,7 +430,7 @@ impl SupportedReturnType<bool> for bool {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<bool> {
         match a {
             SupportedParameterAndReturnValues::Bool(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to bool", other),
         }
     }
 }
@@ -446,7 +446,7 @@ impl SupportedReturnType<Vec<u8>> for Vec<u8> {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<Vec<u8>> {
         match a {
             SupportedParameterAndReturnValues::ByteArray(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to Vec<u8>", other),
         }
     }
 }
@@ -462,7 +462,7 @@ impl SupportedReturnType<*mut std::ffi::c_void> for *mut std::ffi::c_void {
     fn get_inner(a: SupportedParameterAndReturnValues) -> Result<*mut std::ffi::c_void> {
         match a {
             SupportedParameterAndReturnValues::IntPtr(i) => Ok(i),
-            _ => bail!("Invalid conversion"),
+            other => bail!("Invalid conversion: from {:?} to *mut std::ffi::c_void", other),
         }
     }
 }
