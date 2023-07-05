@@ -1,6 +1,7 @@
 use anyhow::{bail, Result};
 
-/// All the types that can be used as parameters or return types for a host function.
+/// All the types that can be used as parameters or return types for a host
+/// function.
 pub enum SupportedParameterAndReturnTypes {
     /// i32
     Int,

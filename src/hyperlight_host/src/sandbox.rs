@@ -1,6 +1,6 @@
 use super::sandbox_run_options::SandboxRunOptions;
 use crate::flatbuffers::hyperlight::generated::ErrorCode;
-use crate::functions::{Function1, HyperlightFunction};
+use crate::func::host::{Function1, HyperlightFunction};
 use crate::guest::guest_log_data::GuestLogData;
 use crate::guest::log_level::LogLevel;
 use crate::guest_interface_glue::SupportedParameterAndReturnValues;
@@ -484,7 +484,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     use crate::hypervisor::kvm::test_cfg::TEST_CONFIG as KVM_TEST_CONFIG;
     use crate::{
-        functions::Function1,
+        func::host::Function1,
         guest::{guest_log_data::GuestLogData, log_level::LogLevel},
         mem::{config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager},
         sandbox_run_options::SandboxRunOptions,

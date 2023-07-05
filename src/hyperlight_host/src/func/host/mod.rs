@@ -1,3 +1,14 @@
+/// Definitions and functionality for supported parameter types in
+/// host functions
+pub mod param_type;
+/// Definitions and functionality for supported return types from
+/// guest functions
+pub mod ret_type;
+/// Functionality to identify and manipulate supported parameter and return
+/// values in host functions
+pub mod vals;
+
+use anyhow::{bail, Result};
 use std::sync::{Arc, Mutex};
 
 use crate::{
@@ -445,5 +456,52 @@ where
             Ok(result.get_hyperlight_value())
         });
         sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
+    }
+}
+
+/// All the types that can be used as parameters or return types for a host
+/// function.
+pub enum SupportedParameterAndReturnTypes {
+    /// i32
+    Int,
+    /// i64
+    Long,
+    /// u64
+    ULong,
+    /// bool
+    Bool,
+    /// StringF
+    String,
+    /// Vec<u8>
+    ByteArray,
+    /// *mut c_void (raw pointer to an unsized type)
+    IntPtr,
+    /// u32
+    UInt,
+    /// Void (return types only)
+    Void,
+}
+
+/// Validates that the given type is supported by the host interface.
+pub fn validate_type_supported(some_type: &str) -> Result<()> {
+    // try to convert from &str to SupportedParameterAndReturnTypes
+    match from_csharp_typename(some_type) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e),
+    }
+}
+
+/// Converts from a C# type name to a SupportedParameterAndReturnTypes.
+fn from_csharp_typename(value: &str) -> Result<SupportedParameterAndReturnTypes> {
+    match value {
+        "System.Int32" => Ok(SupportedParameterAndReturnTypes::Int),
+        "System.Int64" => Ok(SupportedParameterAndReturnTypes::Long),
+        "System.UInt64" => Ok(SupportedParameterAndReturnTypes::ULong),
+        "System.Boolean" => Ok(SupportedParameterAndReturnTypes::Bool),
+        "System.String" => Ok(SupportedParameterAndReturnTypes::String),
+        "System.Byte[]" => Ok(SupportedParameterAndReturnTypes::ByteArray),
+        "System.IntPtr" => Ok(SupportedParameterAndReturnTypes::IntPtr),
+        "System.UInt32" => Ok(SupportedParameterAndReturnTypes::UInt),
+        other => bail!("Unsupported type: {:?}", other),
     }
 }
