@@ -1,4 +1,4 @@
-use super::{SupportedParameterOrReturnType, vals::SupportedParameterOrReturnValue};
+use super::{vals::SupportedParameterOrReturnValue, SupportedParameterOrReturnType};
 use anyhow::{bail, Result};
 
 /// This is a marker trait that is used to indicate that a type is a valid Hyperlight return type.

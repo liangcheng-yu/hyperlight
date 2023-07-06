@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 
-use super::{SupportedParameterOrReturnType, vals::SupportedParameterOrReturnValue};
+use super::{vals::SupportedParameterOrReturnValue, SupportedParameterOrReturnType};
 
 /// This is a marker trait that is used to indicate that a type is a valid Hyperlight parameter type.
 pub(crate) trait SupportedParameterType<T> {

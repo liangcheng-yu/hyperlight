@@ -44,7 +44,7 @@ impl TryFrom<Option<Vec<Param>>> for Parameters {
         match value {
             Some(params) => params
                 .into_iter()
-                .map(|p| SupportedParameterOrReturnValue::try_from(p))
+                .map(SupportedParameterOrReturnValue::try_from)
                 .collect::<Result<Vec<SupportedParameterOrReturnValue>>>()
                 .map(Parameters),
             None => Ok(Parameters(vec![])),
@@ -60,8 +60,12 @@ impl TryFrom<Param> for SupportedParameterOrReturnValue {
             Param::Int(i) => Ok(SupportedParameterOrReturnValue::Int(i)),
             Param::Long(i) => Ok(SupportedParameterOrReturnValue::Long(i)),
             Param::Boolean(i) => Ok(SupportedParameterOrReturnValue::Bool(i)),
-            Param::String(i) => Ok(SupportedParameterOrReturnValue::String(i.unwrap_or_default())),
-            Param::VecBytes(i) => Ok(SupportedParameterOrReturnValue::ByteArray(i.unwrap_or_default())),
+            Param::String(i) => Ok(SupportedParameterOrReturnValue::String(
+                i.unwrap_or_default(),
+            )),
+            Param::VecBytes(i) => Ok(SupportedParameterOrReturnValue::ByteArray(
+                i.unwrap_or_default(),
+            )),
         }
     }
 }
