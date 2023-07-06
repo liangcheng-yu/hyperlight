@@ -1,5 +1,8 @@
-use crate::flatbuffers::hyperlight::generated::{
-    ParameterType as FbParameterType, ReturnType as FbReturnType,
+use crate::{
+    flatbuffers::hyperlight::generated::{
+        ParameterType as FbParameterType, ReturnType as FbReturnType,
+    },
+    func::host::SupportedParameterOrReturnType,
 };
 use anyhow::{bail, Result};
 
@@ -32,6 +35,33 @@ pub enum ReturnType {
     String,
     /// Return value is void.
     Void,
+}
+
+impl TryFrom<SupportedParameterOrReturnType> for ParamType {
+    type Error = anyhow::Error;
+    fn try_from(value: SupportedParameterOrReturnType) -> Result<Self> {
+        match value {
+            SupportedParameterOrReturnType::Int => Ok(ParamType::Int),
+            SupportedParameterOrReturnType::Long => Ok(ParamType::Long),
+            SupportedParameterOrReturnType::String => Ok(ParamType::String),
+            SupportedParameterOrReturnType::Bool => Ok(ParamType::Boolean),
+            _ => bail!("Unknown parameter type: {:?}", value),
+        }
+    }
+}
+
+impl TryFrom<SupportedParameterOrReturnType> for ReturnType {
+    type Error = anyhow::Error;
+    fn try_from(value: SupportedParameterOrReturnType) -> Result<Self> {
+        match value {
+            SupportedParameterOrReturnType::Int => Ok(ReturnType::Int),
+            SupportedParameterOrReturnType::Long => Ok(ReturnType::Long),
+            SupportedParameterOrReturnType::String => Ok(ReturnType::String),
+            SupportedParameterOrReturnType::Bool => Ok(ReturnType::Boolean),
+            SupportedParameterOrReturnType::Void => Ok(ReturnType::Void),
+            _ => bail!("Unknown return type: {:?}", value),
+        }
+    }
 }
 
 impl From<ReturnType> for FbReturnType {

@@ -1,9 +1,10 @@
 use super::sandbox_run_options::SandboxRunOptions;
 use crate::flatbuffers::hyperlight::generated::ErrorCode;
+use crate::func::host::vals::{Parameters, Return, SupportedParameterOrReturnValue};
 use crate::func::host::{Function1, HyperlightFunction};
 use crate::guest::guest_log_data::GuestLogData;
+use crate::guest::host_function_definition::HostFunctionDefinition;
 use crate::guest::log_level::LogLevel;
-use crate::guest_interface_glue::SupportedParameterAndReturnValues;
 use crate::hypervisor::Hypervisor;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::mem::ptr::RawPtr;
@@ -190,7 +191,7 @@ impl<'a> UnintializedSandbox<'a> {
             stack_guard,
         };
 
-        default_writer_func.register(&mut sandbox, "writer_func");
+        default_writer_func.register(&mut sandbox, "writer_func")?;
 
         Ok(sandbox)
     }
@@ -213,8 +214,16 @@ impl<'a> UnintializedSandbox<'a> {
     }
 
     /// Register a host function with the sandbox.
-    pub fn register_host_function(&mut self, name: &str, func: HyperlightFunction<'a>) {
-        self.host_functions.insert(name.to_string(), func);
+    pub fn register_host_function(
+        &mut self,
+        hfd: &HostFunctionDefinition,
+        func: HyperlightFunction<'a>,
+    ) -> Result<()> {
+        self.host_functions
+            .insert(hfd.function_name.to_string(), func);
+        let buffer: Vec<u8> = hfd.try_into()?;
+        self.mem_mgr.write_host_function_call(&buffer)?;
+        Ok(())
     }
 
     /// Set up the appropriate hypervisor for the platform.
@@ -356,24 +365,6 @@ impl<'a> UnintializedSandbox<'a> {
             )
         }
     }
-    #[allow(unused)]
-    pub(crate) fn handle_outb(&self, port: u16, byte: u8) -> Result<()> {
-        match port.into() {
-            OutBAction::Log => outb_log(&self.mem_mgr),
-            OutBAction::CallFunction => {
-                // TODO
-                todo!();
-            }
-            OutBAction::Abort => {
-                // TODO
-                todo!();
-            }
-            _ => {
-                // TODO
-                todo!();
-            }
-        }
-    }
 
     /// Check for a guest error and return an `Err` if one was found,
     /// and `Ok` if one was not found.
@@ -432,7 +423,7 @@ impl<'a> UnintializedSandbox<'a> {
             .get_mut("writer_func")
             .ok_or_else(|| anyhow!("Host function 'writer_func' not found"))?;
 
-        writer_func.lock().unwrap()(vec![SupportedParameterAndReturnValues::String(msg)])?;
+        writer_func.lock().unwrap()(vec![SupportedParameterOrReturnValue::String(msg)].into())?;
 
         Ok(())
     }
@@ -447,22 +438,42 @@ impl<'a> Sandbox<'a> {
             .get_mut("writer_func")
             .ok_or_else(|| anyhow!("Host function 'writer_func' not found"))?;
 
-        writer_func.lock().unwrap()(vec![SupportedParameterAndReturnValues::String(msg)])?;
+        writer_func.lock().unwrap()(vec![SupportedParameterOrReturnValue::String(msg)].into())?;
 
         Ok(())
     }
 
     /// Call a host function in the sandbox.
-    pub fn call_host_function(
-        &mut self,
-        name: &str,
-        args: &[SupportedParameterAndReturnValues],
-    ) -> Result<SupportedParameterAndReturnValues> {
+    pub fn call_host_function(&mut self, name: &str, args: Parameters) -> Result<Return> {
         let func = self
             .host_functions
             .get(name)
             .ok_or_else(|| anyhow!("Host function {} not found", name))?;
-        func.lock().unwrap()(args.to_vec())
+        func.lock().unwrap()(args)
+    }
+
+    #[allow(unused)]
+    pub(crate) fn handle_outb(&mut self, port: u16, byte: u8) -> Result<()> {
+        match port.into() {
+            OutBAction::Log => outb_log(&self.mem_mgr),
+            OutBAction::CallFunction => {
+                let call = self.mem_mgr.get_host_function_call()?;
+                let name = call.function_name.clone();
+                let args: Parameters = call.parameters.clone().try_into()?;
+                let res = self.call_host_function(&name, args)?;
+                self.mem_mgr
+                    .write_response_from_host_method_call(&res.try_into()?)?;
+                Ok(())
+            }
+            OutBAction::Abort => {
+                // TODO
+                todo!();
+            }
+            _ => {
+                // TODO
+                todo!();
+            }
+        }
     }
 }
 
@@ -592,7 +603,9 @@ mod tests {
         )
         .expect("Failed to create sandbox");
 
-        writer_func.register(&mut uninitialized_sandbox, "writer_func");
+        writer_func
+            .register(&mut uninitialized_sandbox, "writer_func")
+            .expect("Failed to register writer function");
 
         fn init(uninitialized_sandbox: &mut UnintializedSandbox) -> Result<()> {
             uninitialized_sandbox.host_print("test".to_string())
@@ -654,7 +667,9 @@ mod tests {
         )
         .expect("Failed to create sandbox");
 
-        writer_func.register(&mut sandbox, "writer_func");
+        writer_func
+            .register(&mut sandbox, "writer_func")
+            .expect("Failed to register writer function");
 
         sandbox.host_print("test".to_string()).unwrap();
 
@@ -689,7 +704,9 @@ mod tests {
         )
         .expect("Failed to create sandbox");
 
-        writer_func.register(&mut sandbox, "writer_func");
+        writer_func
+            .register(&mut sandbox, "writer_func")
+            .expect("Failed to register writer function");
 
         sandbox.host_print("test2".to_string()).unwrap();
 
@@ -712,7 +729,9 @@ mod tests {
         )
         .expect("Failed to create sandbox");
 
-        writer_func.register(&mut sandbox, "writer_func");
+        writer_func
+            .register(&mut sandbox, "writer_func")
+            .expect("Failed to register writer function");
 
         sandbox.host_print("test2".to_string()).unwrap();
 
@@ -733,7 +752,9 @@ mod tests {
         )
         .expect("Failed to create sandbox");
 
-        writer_method.register(&mut sandbox, "writer_func");
+        writer_method
+            .register(&mut sandbox, "writer_func")
+            .expect("Failed to register writer function");
 
         sandbox.host_print("test3".to_string()).unwrap();
     }

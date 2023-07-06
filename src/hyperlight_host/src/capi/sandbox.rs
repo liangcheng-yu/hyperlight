@@ -70,7 +70,7 @@ pub unsafe extern "C" fn sandbox_new(
                 .unwrap();
 
             let mut sbox = RustSandbox::new(bin_path.to_string(), mem_cfg, sandbox_run_options)?;
-            writer_func.register(&mut sbox, "writer_func");
+            writer_func.register(&mut sbox, "writer_func")?;
 
             Ok(register_sandbox(ctx, Sandbox { rust_sandbox: sbox }))
         })

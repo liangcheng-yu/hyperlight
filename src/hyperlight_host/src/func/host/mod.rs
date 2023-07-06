@@ -8,31 +8,25 @@ pub mod ret_type;
 /// values in host functions
 pub mod vals;
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    guest_interface_glue::{
-        SupportedParameterAndReturnValues, SupportedParameterType, SupportedReturnType,
-    },
-    sandbox::UnintializedSandbox,
+    guest::host_function_definition::HostFunctionDefinition, sandbox::UnintializedSandbox,
 };
 
-pub(crate) type HyperlightFunction<'a> = Arc<
-    Mutex<
-        Box<
-            dyn FnMut(
-                    Vec<SupportedParameterAndReturnValues>,
-                ) -> anyhow::Result<SupportedParameterAndReturnValues>
-                + 'a
-                + Send,
-        >,
-    >,
->;
+use self::{
+    param_type::SupportedParameterType,
+    ret_type::SupportedReturnType,
+    vals::{Parameters, Return},
+};
+
+pub(crate) type HyperlightFunction<'a> =
+    Arc<Mutex<Box<dyn FnMut(Parameters) -> anyhow::Result<Return> + 'a + Send>>>;
 
 /// A Hyperlight function that takes no arguments and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
 pub(crate) trait Function0<'a, R: SupportedReturnType<R>> {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, R> Function0<'a, R> for Arc<Mutex<T>>
@@ -40,13 +34,22 @@ where
     T: FnMut() -> anyhow::Result<R> + 'a + Send,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
-        let func = Box::new(move |_: Vec<SupportedParameterAndReturnValues>| {
+        let func = Box::new(move |_: Parameters| {
             let result = cloned.lock().unwrap()()?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
+        sandbox.register_host_function(
+            &HostFunctionDefinition::new(
+                name.to_string(),
+                None,
+                R::get_hyperlight_type().try_into()?,
+            ),
+            Arc::new(Mutex::new(func)),
+        )?;
+
+        Ok(())
     }
 }
 
@@ -57,7 +60,7 @@ pub(crate) trait Function1<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, R> Function1<'a, P1, R> for Arc<Mutex<T>>
@@ -66,14 +69,23 @@ where
     P1: SupportedParameterType<P1> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = Arc::clone(self);
-        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = P1::get_inner(args[0].clone())?;
+        let func = Box::new(move |args: Parameters| {
+            let p1 = P1::get_inner(args.0[0].clone())?;
             let result = cloned.lock().unwrap()(p1)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
+        sandbox.register_host_function(
+            &HostFunctionDefinition::new(
+                name.to_string(),
+                Some(vec![P1::get_hyperlight_type().try_into()?]),
+                R::get_hyperlight_type().try_into()?,
+            ),
+            Arc::new(Mutex::new(func)),
+        )?;
+
+        Ok(())
     }
 }
 
@@ -85,7 +97,7 @@ pub(crate) trait Function2<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, R> Function2<'a, P1, P2, R> for Arc<Mutex<T>>
@@ -95,15 +107,27 @@ where
     P2: SupportedParameterType<P2> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
-        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = P1::get_inner(args[0].clone())?;
-            let p2 = P2::get_inner(args[1].clone())?;
+        let func = Box::new(move |args: Parameters| {
+            let p1 = P1::get_inner(args.0[0].clone())?;
+            let p2 = P2::get_inner(args.0[1].clone())?;
             let result = cloned.lock().unwrap()(p1, p2)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
+        sandbox.register_host_function(
+            &HostFunctionDefinition::new(
+                name.to_string(),
+                Some(vec![
+                    P1::get_hyperlight_type().try_into()?,
+                    P2::get_hyperlight_type().try_into()?,
+                ]),
+                R::get_hyperlight_type().try_into()?,
+            ),
+            Arc::new(Mutex::new(func)),
+        )?;
+
+        Ok(())
     }
 }
 
@@ -116,7 +140,7 @@ pub(crate) trait Function3<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, R> Function3<'a, P1, P2, P3, R> for Arc<Mutex<T>>
@@ -127,16 +151,29 @@ where
     P3: SupportedParameterType<P3> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
-        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = P1::get_inner(args[0].clone())?;
-            let p2 = P2::get_inner(args[1].clone())?;
-            let p3 = P3::get_inner(args[2].clone())?;
+        let func = Box::new(move |args: Parameters| {
+            let p1 = P1::get_inner(args.0[0].clone())?;
+            let p2 = P2::get_inner(args.0[1].clone())?;
+            let p3 = P3::get_inner(args.0[2].clone())?;
             let result = cloned.lock().unwrap()(p1, p2, p3)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
+        sandbox.register_host_function(
+            &HostFunctionDefinition::new(
+                name.to_string(),
+                Some(vec![
+                    P1::get_hyperlight_type().try_into()?,
+                    P2::get_hyperlight_type().try_into()?,
+                    P3::get_hyperlight_type().try_into()?,
+                ]),
+                R::get_hyperlight_type().try_into()?,
+            ),
+            Arc::new(Mutex::new(func)),
+        )?;
+
+        Ok(())
     }
 }
 
@@ -150,7 +187,7 @@ pub(crate) trait Function4<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, R> Function4<'a, P1, P2, P3, P4, R> for Arc<Mutex<T>>
@@ -162,17 +199,31 @@ where
     P4: SupportedParameterType<P4> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
-        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = P1::get_inner(args[0].clone())?;
-            let p2 = P2::get_inner(args[1].clone())?;
-            let p3 = P3::get_inner(args[2].clone())?;
-            let p4 = P4::get_inner(args[3].clone())?;
+        let func = Box::new(move |args: Parameters| {
+            let p1 = P1::get_inner(args.0[0].clone())?;
+            let p2 = P2::get_inner(args.0[1].clone())?;
+            let p3 = P3::get_inner(args.0[2].clone())?;
+            let p4 = P4::get_inner(args.0[3].clone())?;
             let result = cloned.lock().unwrap()(p1, p2, p3, p4)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
+        sandbox.register_host_function(
+            &HostFunctionDefinition::new(
+                name.to_string(),
+                Some(vec![
+                    P1::get_hyperlight_type().try_into()?,
+                    P2::get_hyperlight_type().try_into()?,
+                    P3::get_hyperlight_type().try_into()?,
+                    P4::get_hyperlight_type().try_into()?,
+                ]),
+                R::get_hyperlight_type().try_into()?,
+            ),
+            Arc::new(Mutex::new(func)),
+        )?;
+
+        Ok(())
     }
 }
 
@@ -187,7 +238,7 @@ pub(crate) trait Function5<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, R> Function5<'a, P1, P2, P3, P4, P5, R> for Arc<Mutex<T>>
@@ -200,18 +251,33 @@ where
     P5: SupportedParameterType<P5> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
-        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = P1::get_inner(args[0].clone())?;
-            let p2 = P2::get_inner(args[1].clone())?;
-            let p3 = P3::get_inner(args[2].clone())?;
-            let p4 = P4::get_inner(args[3].clone())?;
-            let p5 = P5::get_inner(args[4].clone())?;
+        let func = Box::new(move |args: Parameters| {
+            let p1 = P1::get_inner(args.0[0].clone())?;
+            let p2 = P2::get_inner(args.0[1].clone())?;
+            let p3 = P3::get_inner(args.0[2].clone())?;
+            let p4 = P4::get_inner(args.0[3].clone())?;
+            let p5 = P5::get_inner(args.0[4].clone())?;
             let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
+        sandbox.register_host_function(
+            &HostFunctionDefinition::new(
+                name.to_string(),
+                Some(vec![
+                    P1::get_hyperlight_type().try_into()?,
+                    P2::get_hyperlight_type().try_into()?,
+                    P3::get_hyperlight_type().try_into()?,
+                    P4::get_hyperlight_type().try_into()?,
+                    P5::get_hyperlight_type().try_into()?,
+                ]),
+                R::get_hyperlight_type().try_into()?,
+            ),
+            Arc::new(Mutex::new(func)),
+        )?;
+
+        Ok(())
     }
 }
 
@@ -227,7 +293,7 @@ pub(crate) trait Function6<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, P6, R> Function6<'a, P1, P2, P3, P4, P5, P6, R> for Arc<Mutex<T>>
@@ -241,19 +307,35 @@ where
     P6: SupportedParameterType<P6> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
-        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = P1::get_inner(args[0].clone())?;
-            let p2 = P2::get_inner(args[1].clone())?;
-            let p3 = P3::get_inner(args[2].clone())?;
-            let p4 = P4::get_inner(args[3].clone())?;
-            let p5 = P5::get_inner(args[4].clone())?;
-            let p6 = P6::get_inner(args[5].clone())?;
+        let func = Box::new(move |args: Parameters| {
+            let p1 = P1::get_inner(args.0[0].clone())?;
+            let p2 = P2::get_inner(args.0[1].clone())?;
+            let p3 = P3::get_inner(args.0[2].clone())?;
+            let p4 = P4::get_inner(args.0[3].clone())?;
+            let p5 = P5::get_inner(args.0[4].clone())?;
+            let p6 = P6::get_inner(args.0[5].clone())?;
             let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
+        sandbox.register_host_function(
+            &HostFunctionDefinition::new(
+                name.to_string(),
+                Some(vec![
+                    P1::get_hyperlight_type().try_into()?,
+                    P2::get_hyperlight_type().try_into()?,
+                    P3::get_hyperlight_type().try_into()?,
+                    P4::get_hyperlight_type().try_into()?,
+                    P5::get_hyperlight_type().try_into()?,
+                    P6::get_hyperlight_type().try_into()?,
+                ]),
+                R::get_hyperlight_type().try_into()?,
+            ),
+            Arc::new(Mutex::new(func)),
+        )?;
+
+        Ok(())
     }
 }
 
@@ -270,7 +352,7 @@ pub(crate) trait Function7<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, P6, P7, R> Function7<'a, P1, P2, P3, P4, P5, P6, P7, R>
@@ -286,20 +368,37 @@ where
     P7: SupportedParameterType<P7> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
-        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = P1::get_inner(args[0].clone())?;
-            let p2 = P2::get_inner(args[1].clone())?;
-            let p3 = P3::get_inner(args[2].clone())?;
-            let p4 = P4::get_inner(args[3].clone())?;
-            let p5 = P5::get_inner(args[4].clone())?;
-            let p6 = P6::get_inner(args[5].clone())?;
-            let p7 = P7::get_inner(args[6].clone())?;
+        let func = Box::new(move |args: Parameters| {
+            let p1 = P1::get_inner(args.0[0].clone())?;
+            let p2 = P2::get_inner(args.0[1].clone())?;
+            let p3 = P3::get_inner(args.0[2].clone())?;
+            let p4 = P4::get_inner(args.0[3].clone())?;
+            let p5 = P5::get_inner(args.0[4].clone())?;
+            let p6 = P6::get_inner(args.0[5].clone())?;
+            let p7 = P7::get_inner(args.0[6].clone())?;
             let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6, p7)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
+        sandbox.register_host_function(
+            &HostFunctionDefinition::new(
+                name.to_string(),
+                Some(vec![
+                    P1::get_hyperlight_type().try_into()?,
+                    P2::get_hyperlight_type().try_into()?,
+                    P3::get_hyperlight_type().try_into()?,
+                    P4::get_hyperlight_type().try_into()?,
+                    P5::get_hyperlight_type().try_into()?,
+                    P6::get_hyperlight_type().try_into()?,
+                    P7::get_hyperlight_type().try_into()?,
+                ]),
+                R::get_hyperlight_type().try_into()?,
+            ),
+            Arc::new(Mutex::new(func)),
+        )?;
+
+        Ok(())
     }
 }
 
@@ -317,7 +416,7 @@ pub(crate) trait Function8<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, R> Function8<'a, P1, P2, P3, P4, P5, P6, P7, P8, R>
@@ -334,21 +433,39 @@ where
     P8: SupportedParameterType<P8> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
-        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = P1::get_inner(args[0].clone())?;
-            let p2 = P2::get_inner(args[1].clone())?;
-            let p3 = P3::get_inner(args[2].clone())?;
-            let p4 = P4::get_inner(args[3].clone())?;
-            let p5 = P5::get_inner(args[4].clone())?;
-            let p6 = P6::get_inner(args[5].clone())?;
-            let p7 = P7::get_inner(args[6].clone())?;
-            let p8 = P8::get_inner(args[7].clone())?;
+        let func = Box::new(move |args: Parameters| {
+            let p1 = P1::get_inner(args.0[0].clone())?;
+            let p2 = P2::get_inner(args.0[1].clone())?;
+            let p3 = P3::get_inner(args.0[2].clone())?;
+            let p4 = P4::get_inner(args.0[3].clone())?;
+            let p5 = P5::get_inner(args.0[4].clone())?;
+            let p6 = P6::get_inner(args.0[5].clone())?;
+            let p7 = P7::get_inner(args.0[6].clone())?;
+            let p8 = P8::get_inner(args.0[7].clone())?;
             let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6, p7, p8)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
+        sandbox.register_host_function(
+            &HostFunctionDefinition::new(
+                name.to_string(),
+                Some(vec![
+                    P1::get_hyperlight_type().try_into()?,
+                    P2::get_hyperlight_type().try_into()?,
+                    P3::get_hyperlight_type().try_into()?,
+                    P4::get_hyperlight_type().try_into()?,
+                    P5::get_hyperlight_type().try_into()?,
+                    P6::get_hyperlight_type().try_into()?,
+                    P7::get_hyperlight_type().try_into()?,
+                    P8::get_hyperlight_type().try_into()?,
+                ]),
+                R::get_hyperlight_type().try_into()?,
+            ),
+            Arc::new(Mutex::new(func)),
+        )?;
+
+        Ok(())
     }
 }
 
@@ -367,7 +484,7 @@ pub(crate) trait Function9<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, P9, R>
@@ -385,22 +502,41 @@ where
     P9: SupportedParameterType<P9> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
-        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = P1::get_inner(args[0].clone())?;
-            let p2 = P2::get_inner(args[1].clone())?;
-            let p3 = P3::get_inner(args[2].clone())?;
-            let p4 = P4::get_inner(args[3].clone())?;
-            let p5 = P5::get_inner(args[4].clone())?;
-            let p6 = P6::get_inner(args[5].clone())?;
-            let p7 = P7::get_inner(args[6].clone())?;
-            let p8 = P8::get_inner(args[7].clone())?;
-            let p9 = P9::get_inner(args[8].clone())?;
+        let func = Box::new(move |args: Parameters| {
+            let p1 = P1::get_inner(args.0[0].clone())?;
+            let p2 = P2::get_inner(args.0[1].clone())?;
+            let p3 = P3::get_inner(args.0[2].clone())?;
+            let p4 = P4::get_inner(args.0[3].clone())?;
+            let p5 = P5::get_inner(args.0[4].clone())?;
+            let p6 = P6::get_inner(args.0[5].clone())?;
+            let p7 = P7::get_inner(args.0[6].clone())?;
+            let p8 = P8::get_inner(args.0[7].clone())?;
+            let p9 = P9::get_inner(args.0[8].clone())?;
             let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6, p7, p8, p9)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
+        sandbox.register_host_function(
+            &HostFunctionDefinition::new(
+                name.to_string(),
+                Some(vec![
+                    P1::get_hyperlight_type().try_into()?,
+                    P2::get_hyperlight_type().try_into()?,
+                    P3::get_hyperlight_type().try_into()?,
+                    P4::get_hyperlight_type().try_into()?,
+                    P5::get_hyperlight_type().try_into()?,
+                    P6::get_hyperlight_type().try_into()?,
+                    P7::get_hyperlight_type().try_into()?,
+                    P8::get_hyperlight_type().try_into()?,
+                    P9::get_hyperlight_type().try_into()?,
+                ]),
+                R::get_hyperlight_type().try_into()?,
+            ),
+            Arc::new(Mutex::new(func)),
+        )?;
+
+        Ok(())
     }
 }
 
@@ -420,7 +556,7 @@ pub(crate) trait Function10<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str);
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, R>
@@ -439,29 +575,50 @@ where
     P10: SupportedParameterType<P10> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) {
+    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
-        let func = Box::new(move |args: Vec<SupportedParameterAndReturnValues>| {
-            let p1 = P1::get_inner(args[0].clone())?;
-            let p2 = P2::get_inner(args[1].clone())?;
-            let p3 = P3::get_inner(args[2].clone())?;
-            let p4 = P4::get_inner(args[3].clone())?;
-            let p5 = P5::get_inner(args[4].clone())?;
-            let p6 = P6::get_inner(args[5].clone())?;
-            let p7 = P7::get_inner(args[6].clone())?;
-            let p8 = P8::get_inner(args[7].clone())?;
-            let p9 = P9::get_inner(args[8].clone())?;
-            let p10 = P10::get_inner(args[9].clone())?;
+        let func = Box::new(move |args: Parameters| {
+            let p1 = P1::get_inner(args.0[0].clone())?;
+            let p2 = P2::get_inner(args.0[1].clone())?;
+            let p3 = P3::get_inner(args.0[2].clone())?;
+            let p4 = P4::get_inner(args.0[3].clone())?;
+            let p5 = P5::get_inner(args.0[4].clone())?;
+            let p6 = P6::get_inner(args.0[5].clone())?;
+            let p7 = P7::get_inner(args.0[6].clone())?;
+            let p8 = P8::get_inner(args.0[7].clone())?;
+            let p9 = P9::get_inner(args.0[8].clone())?;
+            let p10 = P10::get_inner(args.0[9].clone())?;
             let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(name, Arc::new(Mutex::new(func)));
+        sandbox.register_host_function(
+            &HostFunctionDefinition::new(
+                name.to_string(),
+                Some(vec![
+                    P1::get_hyperlight_type().try_into()?,
+                    P2::get_hyperlight_type().try_into()?,
+                    P3::get_hyperlight_type().try_into()?,
+                    P4::get_hyperlight_type().try_into()?,
+                    P5::get_hyperlight_type().try_into()?,
+                    P6::get_hyperlight_type().try_into()?,
+                    P7::get_hyperlight_type().try_into()?,
+                    P8::get_hyperlight_type().try_into()?,
+                    P9::get_hyperlight_type().try_into()?,
+                    P10::get_hyperlight_type().try_into()?,
+                ]),
+                R::get_hyperlight_type().try_into()?,
+            ),
+            Arc::new(Mutex::new(func)),
+        )?;
+
+        Ok(())
     }
 }
 
 /// All the types that can be used as parameters or return types for a host
 /// function.
-pub enum SupportedParameterAndReturnTypes {
+#[derive(Debug, Clone, PartialEq)]
+pub enum SupportedParameterOrReturnType {
     /// i32
     Int,
     /// i64
@@ -480,28 +637,4 @@ pub enum SupportedParameterAndReturnTypes {
     UInt,
     /// Void (return types only)
     Void,
-}
-
-/// Validates that the given type is supported by the host interface.
-pub fn validate_type_supported(some_type: &str) -> Result<()> {
-    // try to convert from &str to SupportedParameterAndReturnTypes
-    match from_csharp_typename(some_type) {
-        Ok(_) => Ok(()),
-        Err(e) => Err(e),
-    }
-}
-
-/// Converts from a C# type name to a SupportedParameterAndReturnTypes.
-fn from_csharp_typename(value: &str) -> Result<SupportedParameterAndReturnTypes> {
-    match value {
-        "System.Int32" => Ok(SupportedParameterAndReturnTypes::Int),
-        "System.Int64" => Ok(SupportedParameterAndReturnTypes::Long),
-        "System.UInt64" => Ok(SupportedParameterAndReturnTypes::ULong),
-        "System.Boolean" => Ok(SupportedParameterAndReturnTypes::Bool),
-        "System.String" => Ok(SupportedParameterAndReturnTypes::String),
-        "System.Byte[]" => Ok(SupportedParameterAndReturnTypes::ByteArray),
-        "System.IntPtr" => Ok(SupportedParameterAndReturnTypes::IntPtr),
-        "System.UInt32" => Ok(SupportedParameterAndReturnTypes::UInt),
-        other => bail!("Unsupported type: {:?}", other),
-    }
 }
