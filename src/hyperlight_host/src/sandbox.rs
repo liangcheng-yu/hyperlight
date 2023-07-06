@@ -217,19 +217,6 @@ impl<'a> UnintializedSandbox<'a> {
         self.host_functions.insert(name.to_string(), func);
     }
 
-    /// Call a host function in the sandbox.
-    pub fn call_host_function(
-        &mut self,
-        name: &str,
-        args: &[SupportedParameterAndReturnValues],
-    ) -> Result<SupportedParameterAndReturnValues> {
-        let func = self
-            .host_functions
-            .get(name)
-            .ok_or_else(|| anyhow!("Host function {} not found", name))?;
-        func.lock().unwrap()(args.to_vec())
-    }
-
     /// Set up the appropriate hypervisor for the platform.
     ///
     /// this function is used to prevent clippy from complaining
@@ -463,6 +450,19 @@ impl<'a> Sandbox<'a> {
         writer_func.lock().unwrap()(vec![SupportedParameterAndReturnValues::String(msg)])?;
 
         Ok(())
+    }
+
+    /// Call a host function in the sandbox.
+    pub fn call_host_function(
+        &mut self,
+        name: &str,
+        args: &[SupportedParameterAndReturnValues],
+    ) -> Result<SupportedParameterAndReturnValues> {
+        let func = self
+            .host_functions
+            .get(name)
+            .ok_or_else(|| anyhow!("Host function {} not found", name))?;
+        func.lock().unwrap()(args.to_vec())
     }
 }
 
