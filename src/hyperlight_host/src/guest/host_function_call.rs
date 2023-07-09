@@ -34,7 +34,7 @@ impl WriteFunctionCallToMemory for HostFunctionCall {
 
         #[cfg(debug_assertions)]
         validate_host_function_call_buffer(function_call_buffer)?;
-        shared_memory.copy_from_slice(function_call_buffer, layout.output_data_buffer_offset)?;
+        shared_memory.copy_from_slice(function_call_buffer, layout.host_function_definitions_offset)?;
 
         Ok(())
     }

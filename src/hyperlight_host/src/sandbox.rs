@@ -163,6 +163,18 @@ impl<'a> UnintializedSandbox<'a> {
             run_from_process_memory,
             run_from_guest_binary,
         )?;
+
+        // <WriteMemoryLayout>
+        let layout = mem_mgr.layout;
+        let mut shared_mem = mem_mgr.get_shared_mem_mut();
+        let mem_size = shared_mem.mem_size();
+        layout.write(
+            &mut shared_mem,
+            SandboxMemoryLayout::BASE_ADDRESS,
+            mem_size,
+        )?;
+        // </WriteMemoryLayout>
+
         let stack_guard = Self::create_stack_guard();
         mem_mgr.set_stack_guard(&stack_guard)?;
 
@@ -222,7 +234,7 @@ impl<'a> UnintializedSandbox<'a> {
         self.host_functions
             .insert(hfd.function_name.to_string(), func);
         let buffer: Vec<u8> = hfd.try_into()?;
-        self.mem_mgr.write_host_function_call(&buffer)?;
+        self.mem_mgr.write_host_function_definition(&buffer)?;
         Ok(())
     }
 
@@ -449,6 +461,7 @@ impl<'a> Sandbox<'a> {
             .host_functions
             .get(name)
             .ok_or_else(|| anyhow!("Host function {} not found", name))?;
+
         func.lock().unwrap()(args)
     }
 
@@ -508,7 +521,10 @@ mod tests {
     #[cfg(target_os = "linux")]
     use crate::hypervisor::kvm::test_cfg::TEST_CONFIG as KVM_TEST_CONFIG;
     use crate::{
-        func::host::Function1,
+        func::host::{
+            vals::{Parameters, SupportedParameterOrReturnValue},
+            Function1,
+        },
         guest::{guest_log_data::GuestLogData, log_level::LogLevel},
         mem::{config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager},
         sandbox_run_options::SandboxRunOptions,
@@ -617,6 +633,42 @@ mod tests {
         drop(sandbox);
 
         assert_eq!(&received_msg, "test");
+    }
+
+    #[test]
+    fn test_host_functions() {
+        let test0 = |arg: i32| -> Result<i32> { Ok(arg + 1) };
+
+        let test_func0 = Arc::new(Mutex::new(test0));
+
+        let mut uninitialized_sandbox = UnintializedSandbox::new(
+            simple_guest_path().expect("Guest Binary Missing"),
+            None,
+            None,
+        )
+        .unwrap();
+
+        test_func0
+            .register(&mut uninitialized_sandbox, "test0")
+            .unwrap();
+
+        fn init(_: &mut UnintializedSandbox) -> Result<()> {
+            Ok(())
+        }
+
+        let sandbox = uninitialized_sandbox.initialize(Some(init));
+        assert!(sandbox.is_ok());
+
+        let mut sandbox = sandbox.unwrap();
+
+        let res = sandbox
+            .call_host_function(
+                "test0",
+                Parameters(vec![SupportedParameterOrReturnValue::Int(1)]),
+            )
+            .unwrap();
+
+        assert_eq!(res, SupportedParameterOrReturnValue::Int(2));
     }
 
     #[test]
