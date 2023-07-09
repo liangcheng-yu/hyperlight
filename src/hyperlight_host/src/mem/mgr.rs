@@ -19,7 +19,8 @@ use crate::{
         guest_function_call::GuestFunctionCall,
         guest_log_data::GuestLogData,
         host_function_call::HostFunctionCall,
-        host_function_details::HostFunctionDetails, host_function_definition::HostFunctionDefinition,
+        host_function_definition::HostFunctionDefinition,
+        host_function_details::HostFunctionDetails,
     },
 };
 use anyhow::{anyhow, bail, Result};

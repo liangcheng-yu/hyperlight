@@ -166,13 +166,9 @@ impl<'a> UnintializedSandbox<'a> {
 
         // <WriteMemoryLayout>
         let layout = mem_mgr.layout;
-        let mut shared_mem = mem_mgr.get_shared_mem_mut();
+        let shared_mem = mem_mgr.get_shared_mem_mut();
         let mem_size = shared_mem.mem_size();
-        layout.write(
-            &mut shared_mem,
-            SandboxMemoryLayout::BASE_ADDRESS,
-            mem_size,
-        )?;
+        layout.write(shared_mem, SandboxMemoryLayout::BASE_ADDRESS, mem_size)?;
         // </WriteMemoryLayout>
 
         let stack_guard = Self::create_stack_guard();

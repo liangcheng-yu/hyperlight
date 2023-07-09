@@ -4,9 +4,10 @@ use crate::{
         HostFunctionDefinitionArgs as FbHostFunctionDefinitionArgs,
         ParameterType as FbParameterType,
     },
-    guest::function_types::{ParamType, ReturnType}, mem::{shared_mem::SharedMemory, layout::SandboxMemoryLayout},
+    guest::function_types::{ParamType, ReturnType},
+    mem::{layout::SandboxMemoryLayout, shared_mem::SharedMemory},
 };
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
 use readonly;
 
