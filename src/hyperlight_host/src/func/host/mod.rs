@@ -72,6 +72,12 @@ where
     fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = Arc::clone(self);
         let func = Box::new(move |args: Parameters| {
+            if args.0.len() != 1 {
+                return Err(anyhow::anyhow!(
+                    "Expected 1 argument, got {}",
+                    args.0.len()
+                ));
+            }
             let p1 = P1::get_inner(args.0[0].clone())?;
             let result = cloned.lock().unwrap()(p1)?;
             Ok(result.get_hyperlight_value())
@@ -110,6 +116,12 @@ where
     fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Parameters| {
+            if args.0.len() != 2 {
+                return Err(anyhow::anyhow!(
+                    "Expected 2 arguments, got {}",
+                    args.0.len()
+                ));
+            }
             let p1 = P1::get_inner(args.0[0].clone())?;
             let p2 = P2::get_inner(args.0[1].clone())?;
             let result = cloned.lock().unwrap()(p1, p2)?;
@@ -154,6 +166,12 @@ where
     fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Parameters| {
+            if args.0.len() != 3 {
+                return Err(anyhow::anyhow!(
+                    "Expected 3 arguments, got {}",
+                    args.0.len()
+                ));
+            }
             let p1 = P1::get_inner(args.0[0].clone())?;
             let p2 = P2::get_inner(args.0[1].clone())?;
             let p3 = P3::get_inner(args.0[2].clone())?;
@@ -202,6 +220,12 @@ where
     fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Parameters| {
+            if args.0.len() != 4 {
+                return Err(anyhow::anyhow!(
+                    "Expected 4 arguments, got {}",
+                    args.0.len()
+                ));
+            }
             let p1 = P1::get_inner(args.0[0].clone())?;
             let p2 = P2::get_inner(args.0[1].clone())?;
             let p3 = P3::get_inner(args.0[2].clone())?;
@@ -254,6 +278,12 @@ where
     fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Parameters| {
+            if args.0.len() != 5 {
+                return Err(anyhow::anyhow!(
+                    "Expected 5 arguments, got {}",
+                    args.0.len()
+                ));
+            }
             let p1 = P1::get_inner(args.0[0].clone())?;
             let p2 = P2::get_inner(args.0[1].clone())?;
             let p3 = P3::get_inner(args.0[2].clone())?;
@@ -310,6 +340,12 @@ where
     fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Parameters| {
+            if args.0.len() != 6 {
+                return Err(anyhow::anyhow!(
+                    "Expected 6 arguments, got {}",
+                    args.0.len()
+                ));
+            }
             let p1 = P1::get_inner(args.0[0].clone())?;
             let p2 = P2::get_inner(args.0[1].clone())?;
             let p3 = P3::get_inner(args.0[2].clone())?;
@@ -371,6 +407,12 @@ where
     fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Parameters| {
+            if args.0.len() != 7 {
+                return Err(anyhow::anyhow!(
+                    "Expected 7 arguments, got {}",
+                    args.0.len()
+                ));
+            }
             let p1 = P1::get_inner(args.0[0].clone())?;
             let p2 = P2::get_inner(args.0[1].clone())?;
             let p3 = P3::get_inner(args.0[2].clone())?;
@@ -436,6 +478,12 @@ where
     fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Parameters| {
+            if args.0.len() != 8 {
+                return Err(anyhow::anyhow!(
+                    "Expected 8 arguments, got {}",
+                    args.0.len()
+                ));
+            }
             let p1 = P1::get_inner(args.0[0].clone())?;
             let p2 = P2::get_inner(args.0[1].clone())?;
             let p3 = P3::get_inner(args.0[2].clone())?;
@@ -505,6 +553,12 @@ where
     fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Parameters| {
+            if args.0.len() != 9 {
+                return Err(anyhow::anyhow!(
+                    "Expected 9 arguments, got {}",
+                    args.0.len()
+                ));
+            }
             let p1 = P1::get_inner(args.0[0].clone())?;
             let p2 = P2::get_inner(args.0[1].clone())?;
             let p3 = P3::get_inner(args.0[2].clone())?;
@@ -578,6 +632,12 @@ where
     fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Parameters| {
+            if args.0.len() != 10 {
+                return Err(anyhow::anyhow!(
+                    "Expected 10 arguments, got {}",
+                    args.0.len()
+                ));
+            }
             let p1 = P1::get_inner(args.0[0].clone())?;
             let p2 = P2::get_inner(args.0[1].clone())?;
             let p3 = P3::get_inner(args.0[2].clone())?;
