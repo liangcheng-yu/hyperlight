@@ -424,7 +424,8 @@ impl<'a> UnintializedSandbox<'a> {
         Ok(sbox)
     }
 
-    // (DAN:NOTE) This is a temporary function that would be replaced by a generic way to call host functions
+    /// Host print function – an exception to normal calling functions
+    /// as it can be called prior to initialization.
     pub(crate) fn host_print(&mut self, msg: String) -> Result<()> {
         let writer_func = self
             .host_functions
@@ -438,15 +439,10 @@ impl<'a> UnintializedSandbox<'a> {
 }
 
 impl<'a> Sandbox<'a> {
-    // (DAN:NOTE) This is a temporary function that would be replaced by a generic way to call host functions
+    /// Call a host print in the sandbox.
     #[allow(unused)]
     pub(crate) fn host_print(&mut self, msg: String) -> Result<()> {
-        let writer_func = self
-            .host_functions
-            .get_mut("writer_func")
-            .ok_or_else(|| anyhow!("Host function 'writer_func' not found"))?;
-
-        writer_func.lock().unwrap()(vec![SupportedParameterOrReturnValue::String(msg)].into())?;
+        self.call_host_function("writer_func", vec![SupportedParameterOrReturnValue::String(msg)].into())?;
 
         Ok(())
     }
