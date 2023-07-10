@@ -442,7 +442,10 @@ impl<'a> Sandbox<'a> {
     /// Call a host print in the sandbox.
     #[allow(unused)]
     pub(crate) fn host_print(&mut self, msg: String) -> Result<()> {
-        self.call_host_function("writer_func", vec![SupportedParameterOrReturnValue::String(msg)].into())?;
+        self.call_host_function(
+            "writer_func",
+            vec![SupportedParameterOrReturnValue::String(msg)].into(),
+        )?;
 
         Ok(())
     }
