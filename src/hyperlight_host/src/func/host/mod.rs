@@ -37,7 +37,10 @@ where
     fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |_: Parameters| {
-            let result = cloned.lock().unwrap()()?;
+            let result = cloned
+                .lock()
+                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?(
+            )?;
             Ok(result.get_hyperlight_value())
         });
         sandbox.register_host_function(
@@ -76,7 +79,10 @@ where
                 return Err(anyhow::anyhow!("Expected 1 argument, got {}", args.0.len()));
             }
             let p1 = P1::get_inner(args.0[0].clone())?;
-            let result = cloned.lock().unwrap()(p1)?;
+            let result =
+                cloned
+                    .lock()
+                    .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?(p1)?;
             Ok(result.get_hyperlight_value())
         });
         sandbox.register_host_function(
@@ -121,7 +127,11 @@ where
             }
             let p1 = P1::get_inner(args.0[0].clone())?;
             let p2 = P2::get_inner(args.0[1].clone())?;
-            let result = cloned.lock().unwrap()(p1, p2)?;
+            let result = cloned
+                .lock()
+                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?(
+                p1, p2
+            )?;
             Ok(result.get_hyperlight_value())
         });
         sandbox.register_host_function(
@@ -172,7 +182,11 @@ where
             let p1 = P1::get_inner(args.0[0].clone())?;
             let p2 = P2::get_inner(args.0[1].clone())?;
             let p3 = P3::get_inner(args.0[2].clone())?;
-            let result = cloned.lock().unwrap()(p1, p2, p3)?;
+            let result = cloned
+                .lock()
+                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?(
+                p1, p2, p3
+            )?;
             Ok(result.get_hyperlight_value())
         });
         sandbox.register_host_function(
@@ -227,7 +241,11 @@ where
             let p2 = P2::get_inner(args.0[1].clone())?;
             let p3 = P3::get_inner(args.0[2].clone())?;
             let p4 = P4::get_inner(args.0[3].clone())?;
-            let result = cloned.lock().unwrap()(p1, p2, p3, p4)?;
+            let result = cloned
+                .lock()
+                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?(
+                p1, p2, p3, p4
+            )?;
             Ok(result.get_hyperlight_value())
         });
         sandbox.register_host_function(
@@ -286,7 +304,11 @@ where
             let p3 = P3::get_inner(args.0[2].clone())?;
             let p4 = P4::get_inner(args.0[3].clone())?;
             let p5 = P5::get_inner(args.0[4].clone())?;
-            let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5)?;
+            let result = cloned
+                .lock()
+                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?(
+                p1, p2, p3, p4, p5
+            )?;
             Ok(result.get_hyperlight_value())
         });
         sandbox.register_host_function(
@@ -349,7 +371,11 @@ where
             let p4 = P4::get_inner(args.0[3].clone())?;
             let p5 = P5::get_inner(args.0[4].clone())?;
             let p6 = P6::get_inner(args.0[5].clone())?;
-            let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6)?;
+            let result = cloned
+                .lock()
+                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?(
+                p1, p2, p3, p4, p5, p6
+            )?;
             Ok(result.get_hyperlight_value())
         });
         sandbox.register_host_function(
@@ -417,7 +443,11 @@ where
             let p5 = P5::get_inner(args.0[4].clone())?;
             let p6 = P6::get_inner(args.0[5].clone())?;
             let p7 = P7::get_inner(args.0[6].clone())?;
-            let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6, p7)?;
+            let result = cloned
+                .lock()
+                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?(
+                p1, p2, p3, p4, p5, p6, p7,
+            )?;
             Ok(result.get_hyperlight_value())
         });
         sandbox.register_host_function(
@@ -489,7 +519,11 @@ where
             let p6 = P6::get_inner(args.0[5].clone())?;
             let p7 = P7::get_inner(args.0[6].clone())?;
             let p8 = P8::get_inner(args.0[7].clone())?;
-            let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6, p7, p8)?;
+            let result = cloned
+                .lock()
+                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?(
+                p1, p2, p3, p4, p5, p6, p7, p8,
+            )?;
             Ok(result.get_hyperlight_value())
         });
         sandbox.register_host_function(
@@ -565,7 +599,11 @@ where
             let p7 = P7::get_inner(args.0[6].clone())?;
             let p8 = P8::get_inner(args.0[7].clone())?;
             let p9 = P9::get_inner(args.0[8].clone())?;
-            let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6, p7, p8, p9)?;
+            let result = cloned
+                .lock()
+                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?(
+                p1, p2, p3, p4, p5, p6, p7, p8, p9,
+            )?;
             Ok(result.get_hyperlight_value())
         });
         sandbox.register_host_function(
@@ -645,7 +683,11 @@ where
             let p8 = P8::get_inner(args.0[7].clone())?;
             let p9 = P9::get_inner(args.0[8].clone())?;
             let p10 = P10::get_inner(args.0[9].clone())?;
-            let result = cloned.lock().unwrap()(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10)?;
+            let result = cloned
+                .lock()
+                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?(
+                p1, p2, p3, p4, p5, p6, p7, p8, p9, p10,
+            )?;
             Ok(result.get_hyperlight_value())
         });
         sandbox.register_host_function(

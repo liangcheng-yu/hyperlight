@@ -222,7 +222,7 @@ impl<'a> UnintializedSandbox<'a> {
     }
 
     /// Register a host function with the sandbox.
-    pub fn register_host_function(
+    pub(crate) fn register_host_function(
         &mut self,
         hfd: &HostFunctionDefinition,
         func: HyperlightFunction<'a>,
@@ -432,7 +432,10 @@ impl<'a> UnintializedSandbox<'a> {
             .get_mut("writer_func")
             .ok_or_else(|| anyhow!("Host function 'writer_func' not found"))?;
 
-        writer_func.lock().unwrap()(vec![SupportedParameterOrReturnValue::String(msg)].into())?;
+        let mut writer_locked_func = writer_func
+            .lock()
+            .map_err(|e| anyhow!("error locking: {:?}", e))?;
+        writer_locked_func(vec![SupportedParameterOrReturnValue::String(msg)].into())?;
 
         Ok(())
     }
@@ -457,7 +460,8 @@ impl<'a> Sandbox<'a> {
             .get(name)
             .ok_or_else(|| anyhow!("Host function {} not found", name))?;
 
-        func.lock().unwrap()(args)
+        let mut locked_func = func.lock().map_err(|e| anyhow!("error locking: {:?}", e))?;
+        locked_func(args)
     }
 
     #[allow(unused)]
