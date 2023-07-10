@@ -9,7 +9,8 @@ use crate::hypervisor::Hypervisor;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::mem::ptr::RawPtr;
 use crate::mem::{
-    config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager, pe::pe_info::PEInfo,
+    config::SandboxMemoryConfiguration, layout::SandboxMemoryLayout, mgr::SandboxMemoryManager,
+    pe::pe_info::PEInfo,
 };
 #[cfg(target_os = "linux")]
 use crate::{
@@ -17,7 +18,6 @@ use crate::{
     hypervisor::hypervisor_mem::HypervisorAddrs,
     hypervisor::kvm,
     hypervisor::kvm::KVMDriver,
-    mem::layout::SandboxMemoryLayout,
     mem::ptr::GuestPtr,
     mem::ptr_offset::Offset,
 };
