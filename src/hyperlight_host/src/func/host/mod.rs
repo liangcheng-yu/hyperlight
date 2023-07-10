@@ -73,10 +73,7 @@ where
         let cloned = Arc::clone(self);
         let func = Box::new(move |args: Parameters| {
             if args.0.len() != 1 {
-                return Err(anyhow::anyhow!(
-                    "Expected 1 argument, got {}",
-                    args.0.len()
-                ));
+                return Err(anyhow::anyhow!("Expected 1 argument, got {}", args.0.len()));
             }
             let p1 = P1::get_inner(args.0[0].clone())?;
             let result = cloned.lock().unwrap()(p1)?;

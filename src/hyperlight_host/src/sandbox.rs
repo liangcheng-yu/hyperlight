@@ -633,7 +633,8 @@ mod tests {
 
     #[test]
     fn test_host_functions() {
-        let uninitialized_sandbox = || { UnintializedSandbox::new(
+        let uninitialized_sandbox = || {
+            UnintializedSandbox::new(
                 simple_guest_path().expect("Guest Binary Missing"),
                 None,
                 None,
@@ -649,21 +650,19 @@ mod tests {
             let mut usbox = uninitialized_sandbox();
             let test0 = |arg: i32| -> Result<i32> { Ok(arg + 1) };
             let test_func0 = Arc::new(Mutex::new(test0));
-            test_func0
-                .register(&mut usbox, "test0")
-                .unwrap();
-    
+            test_func0.register(&mut usbox, "test0").unwrap();
+
             let sandbox = usbox.initialize(Some(init));
             assert!(sandbox.is_ok());
             let mut sandbox = sandbox.unwrap();
-    
+
             let res = sandbox
                 .call_host_function(
                     "test0",
                     Parameters(vec![SupportedParameterOrReturnValue::Int(1)]),
                 )
                 .unwrap();
-    
+
             assert_eq!(res, SupportedParameterOrReturnValue::Int(2));
         }
 
@@ -672,14 +671,12 @@ mod tests {
             let mut usbox = uninitialized_sandbox();
             let test1 = |arg1: i32, arg2: i32| -> Result<i32> { Ok(arg1 + arg2) };
             let test_func1 = Arc::new(Mutex::new(test1));
-            test_func1
-                .register(&mut usbox, "test1")
-                .unwrap();
-    
+            test_func1.register(&mut usbox, "test1").unwrap();
+
             let sandbox = usbox.initialize(Some(init));
             assert!(sandbox.is_ok());
             let mut sandbox = sandbox.unwrap();
-    
+
             let res = sandbox
                 .call_host_function(
                     "test1",
@@ -689,37 +686,35 @@ mod tests {
                     ]),
                 )
                 .unwrap();
-    
+
             assert_eq!(res, SupportedParameterOrReturnValue::Int(3));
         }
 
         // incorrect arguments register + call
         {
             let mut usbox = uninitialized_sandbox();
-            let test2 = |arg1: String| -> Result<()> { 
+            let test2 = |arg1: String| -> Result<()> {
                 println!("test2 called: {}", arg1);
                 Ok(())
             };
             let test_func2 = Arc::new(Mutex::new(test2));
-            test_func2
-                .register(&mut usbox, "test2")
-                .unwrap();
-    
+            test_func2.register(&mut usbox, "test2").unwrap();
+
             let sandbox = usbox.initialize(Some(init));
             assert!(sandbox.is_ok());
             let mut sandbox = sandbox.unwrap();
-    
+
             let res = sandbox.call_host_function("test2", Parameters(vec![]));
             assert!(res.is_err());
         }
 
         // calling a function that doesn't exist
         {
-            let usbox = uninitialized_sandbox();    
+            let usbox = uninitialized_sandbox();
             let sandbox = usbox.initialize(Some(init));
             assert!(sandbox.is_ok());
             let mut sandbox = sandbox.unwrap();
-    
+
             let res = sandbox.call_host_function("test4", Parameters(vec![]));
             assert!(res.is_err());
         }
