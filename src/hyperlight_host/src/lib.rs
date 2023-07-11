@@ -99,6 +99,9 @@ pub mod sandbox;
 /// The run options for a sandbox.
 #[deny(dead_code, missing_docs, unused_mut)]
 pub mod sandbox_run_options;
+/// `trait`s and other functionality for dealing with defining sandbox
+/// states and moving between them
+pub mod sandbox_state;
 /// Utilities for testing including interacting with `simpleguest.exe`
 /// and `callbackguest.exe`, our two most basic guest binaries for testing
 #[deny(dead_code, missing_docs, unused_mut)]

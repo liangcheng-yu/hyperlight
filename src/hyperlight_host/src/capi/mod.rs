@@ -63,6 +63,9 @@ pub mod mem_mgr;
 pub mod outb_handler;
 ///! C-compatible API functions to manage `Sandbox` structures.
 pub mod sandbox;
+/// C-compatible types and functionality for wrapping the rust-native
+/// `*Sandbox` types
+pub mod sandbox_compat;
 ///! C-compatible API functions to manage guest / shared memory.
 pub mod shared_mem;
 ///! C-compatible API functions to manage guest memory snapshots

@@ -1,13 +1,9 @@
-use super::context::Context;
 use super::handle::Handle;
-use super::hdl::Hdl;
 use super::{c_func::CFunc, mem_mgr::register_mem_mgr};
-use crate::func::host::Function1;
+use super::{context::Context, sandbox_compat::Sandbox};
 use crate::mem::ptr::RawPtr;
-use crate::{
-    capi::strings::get_string, mem::config::SandboxMemoryConfiguration,
-    sandbox::UnintializedSandbox as RustSandbox,
-};
+use crate::{capi::strings::get_string, mem::config::SandboxMemoryConfiguration};
+use crate::{func::host::Function1, sandbox};
 use crate::{
     sandbox::is_hypervisor_present as check_hypervisor,
     sandbox::is_supported_platform as check_platform, sandbox_run_options::SandboxRunOptions,
@@ -15,21 +11,6 @@ use crate::{
 use anyhow::{bail, Result};
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
-
-/// This is the C API for the `Sandbox` type.
-pub struct Sandbox {
-    rust_sandbox: RustSandbox<'static>,
-}
-
-impl Sandbox {
-    fn get_rust_sandbox(&self) -> &RustSandbox<'static> {
-        &self.rust_sandbox
-    }
-
-    fn get_rust_sandbox_mut(&mut self) -> &mut RustSandbox<'static> {
-        &mut self.rust_sandbox
-    }
-}
 
 /// Create a new `Sandbox` with the given guest binary to execute
 /// and return a `Handle` reference to it.
@@ -69,10 +50,13 @@ pub unsafe extern "C" fn sandbox_new(
                 })
                 .unwrap();
 
-            let mut sbox = RustSandbox::new(bin_path.to_string(), mem_cfg, sandbox_run_options)?;
+            let mut sbox = sandbox::UnintializedSandbox::new(
+                bin_path.to_string(),
+                mem_cfg,
+                sandbox_run_options,
+            )?;
             writer_func.register(&mut sbox, "writer_func")?;
-
-            Ok(register_sandbox(ctx, Sandbox { rust_sandbox: sbox }))
+            Ok(Sandbox::from(sbox).register(ctx))
         })
         .ok_or_err_hdl()
 }
@@ -94,8 +78,8 @@ pub unsafe extern "C" fn sandbox_call_entry_point(
 ) -> Handle {
     CFunc::new("sandbox_call_entry_point", ctx)
         .and_then_mut(|ctx, _| {
-            let sbox = get_sandbox(ctx, sbox_hdl)?;
-            sbox.get_rust_sandbox()
+            let sbox = Sandbox::get(ctx, sbox_hdl)?;
+            sbox.to_uninit()?
                 .call_entry_point(RawPtr::from(peb_address), seed, page_size)?;
             Ok(Handle::new_empty())
         })
@@ -114,22 +98,6 @@ pub extern "C" fn is_hypervisor_present() -> bool {
     check_hypervisor()
 }
 
-/// Get a read-only reference to a `Sandbox` stored in `ctx` and
-/// pointed to by `handle`.
-fn get_sandbox(ctx: &Context, handle: Handle) -> Result<&Sandbox> {
-    Context::get(handle, &ctx.sandboxes, |s| matches!(s, Hdl::Sandbox(_)))
-}
-
-/// Get a mutable reference to a `Sandbox` stored in `ctx` and
-/// pointed to by `handle`.
-fn get_sandbox_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut Sandbox> {
-    Context::get_mut(hdl, &mut ctx.sandboxes, |h| matches!(h, Hdl::Sandbox(_)))
-}
-
-fn register_sandbox(ctx: &mut Context, val: Sandbox) -> Handle {
-    Context::register(val, &mut ctx.sandboxes, Hdl::Sandbox)
-}
-
 /// get a reference to a `SandboxMemoryConfiguration` stored in `ctx`
 /// and pointed to by `handle`.
 ///
@@ -145,8 +113,8 @@ fn register_sandbox(ctx: &mut Context, val: Sandbox) -> Handle {
 pub unsafe extern "C" fn sandbox_get_memory_mgr(ctx: *mut Context, sbox_hdl: Handle) -> Handle {
     CFunc::new("sandbox_get_memory_mgr", ctx)
         .and_then_mut(|ctx, _| {
-            let sbox = get_sandbox(ctx, sbox_hdl)?;
-            let mem_mgr = sbox.get_rust_sandbox().get_mem_mgr();
+            let sbox = Sandbox::get(ctx, sbox_hdl)?;
+            let mem_mgr = sbox.to_uninit()?.get_mem_mgr();
             Ok(register_mem_mgr(ctx, mem_mgr))
         })
         .ok_or_err_hdl()
@@ -175,8 +143,8 @@ pub unsafe extern "C" fn sandbox_call_host_print(
             }
             let c_str = std::ffi::CStr::from_ptr(msg);
             let msg = c_str.to_str()?;
-            let sbox = get_sandbox_mut(ctx, sbox_hdl)?;
-            let rsbox = sbox.get_rust_sandbox_mut();
+            let sbox = Sandbox::get_mut(ctx, sbox_hdl)?;
+            let rsbox = sbox.to_uninit_mut()?;
             rsbox.host_print(String::from(msg))?;
             Ok(Handle::new_empty())
         })

@@ -12,6 +12,8 @@ use crate::mem::{
     config::SandboxMemoryConfiguration, layout::SandboxMemoryLayout, mgr::SandboxMemoryManager,
     pe::pe_info::PEInfo,
 };
+use crate::sandbox_state::transition::Noop;
+use crate::sandbox_state::{sandbox::EvolvableSandbox, transition::MutatingCallback};
 #[cfg(target_os = "linux")]
 use crate::{
     hypervisor::hyperv_linux::{self, HypervLinuxDriver},
@@ -113,6 +115,8 @@ pub struct Sandbox<'a> {
     uninit_sandbox: UnintializedSandbox<'a>,
 }
 
+impl<'a> crate::sandbox_state::sandbox::Sandbox for Sandbox<'a> {}
+
 impl<'a> std::fmt::Debug for Sandbox<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Sandbox")
@@ -126,6 +130,59 @@ impl<'a> std::fmt::Debug for UnintializedSandbox<'a> {
         f.debug_struct("Sandbox")
             .field("stack_guard", &self.stack_guard)
             .finish()
+    }
+}
+
+impl<'a> crate::sandbox_state::sandbox::Sandbox for UnintializedSandbox<'a> {}
+
+impl<'a, F>
+    EvolvableSandbox<
+        UnintializedSandbox<'a>,
+        Sandbox<'a>,
+        MutatingCallback<'a, UnintializedSandbox<'a>, F>,
+    > for UnintializedSandbox<'a>
+where
+    F: FnOnce(&mut UnintializedSandbox<'a>) -> Result<()> + 'a,
+{
+    /// Evolve `self` into a `Sandbox`, executing a caller-provided
+    /// callback during the transition process.
+    ///
+    /// If you need to do this transition without a callback, use the
+    /// `EvolvableSandbox` implementation that takes a `Noop`.
+    fn evolve(mut self, tsn: MutatingCallback<UnintializedSandbox<'a>, F>) -> Result<Sandbox<'a>> {
+        tsn.call(&mut self)?;
+        // TODO: snapshot memory here so we can take the returned
+        // Sandbox and revert back to an UninitializedSandbox
+        Ok(Sandbox {
+            host_functions: self.host_functions.clone(),
+            mem_mgr: self.mem_mgr.clone(),
+            stack_guard: self.stack_guard,
+            uninit_sandbox: self,
+        })
+    }
+}
+
+impl<'a>
+    EvolvableSandbox<
+        UnintializedSandbox<'a>,
+        Sandbox<'a>,
+        Noop<UnintializedSandbox<'a>, Sandbox<'a>>,
+    > for UnintializedSandbox<'a>
+{
+    /// Evolve `self` to a `Sandbox` without any additional metadata.
+    ///
+    /// If you want to pass a callback to this state transition so you can
+    /// run your own code during the transition, use the `EvolvableSandbox`
+    /// implementation that accepts a `MutatingCallback`
+    fn evolve(self, _: Noop<UnintializedSandbox<'a>, Sandbox<'a>>) -> Result<Sandbox<'a>> {
+        // TODO: snapshot memory here so we can take the returned
+        // Sandbox and revert back to an UninitializedSandbox
+        Ok(Sandbox {
+            host_functions: self.host_functions.clone(),
+            mem_mgr: self.mem_mgr.clone(),
+            stack_guard: self.stack_guard,
+            uninit_sandbox: self,
+        })
     }
 }
 
@@ -406,22 +463,14 @@ impl<'a> UnintializedSandbox<'a> {
     /// Initialize the `Sandbox` from an `UninitializedSandbox`.
     /// Receives a callback function to be called during initialization.
     #[allow(unused)]
-    fn initialize<F: Fn(&mut UnintializedSandbox<'a>) -> Result<()>>(
+    fn initialize<F: Fn(&mut UnintializedSandbox<'a>) -> Result<()> + 'a>(
         mut self,
         callback: Option<F>,
     ) -> Result<Sandbox<'a>> {
-        if let Some(cb) = callback {
-            cb(&mut self)?;
+        match callback {
+            Some(cb) => self.evolve(MutatingCallback::from(cb)),
+            None => self.evolve(Noop::default()),
         }
-
-        let mut sbox = Sandbox {
-            host_functions: self.host_functions.clone(),
-            mem_mgr: self.mem_mgr.clone(),
-            stack_guard: self.stack_guard,
-            uninit_sandbox: self,
-        };
-
-        Ok(sbox)
     }
 
     /// Host print function – an exception to normal calling functions
