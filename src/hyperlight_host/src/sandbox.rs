@@ -24,6 +24,7 @@ use crate::{
     mem::ptr_offset::Offset,
 };
 use anyhow::{anyhow, bail, Result};
+use is_terminal::IsTerminal;
 use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
 use std::ffi::c_void;
@@ -233,9 +234,9 @@ impl<'a> UnintializedSandbox<'a> {
 
         // The default writer function is to write to stdout with green text.
         let default_writer_func = Arc::new(Mutex::new(|s: String| -> Result<()> {
-            match atty::is(atty::Stream::Stdout) {
+            match stdout().is_terminal() {
                 false => {
-                    stdout().write_all(s.as_bytes())?;
+                    print!("{}", s);
                     Ok(())
                 }
                 true => {
