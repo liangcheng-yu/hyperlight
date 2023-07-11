@@ -4,6 +4,7 @@ use crate::flatbuffers::hyperlight::generated::{
     size_prefixed_root_as_function_call_result, FunctionCallResult as FBFunctionCallResult,
     FunctionCallResultArgs as FBFunctionCallResultArgs, ReturnValue,
 };
+use crate::func::host::vals::SupportedParameterOrReturnValue;
 use crate::mem::{layout::SandboxMemoryLayout, shared_mem::SharedMemory};
 use anyhow::{anyhow, Result};
 use std::convert::{TryFrom, TryInto};
@@ -34,6 +35,26 @@ impl FunctionCallResult {
         let input_data_offset = layout.input_data_buffer_offset;
         let function_call_buffer = Vec::<u8>::try_from(self)?;
         shared_mem.copy_from_slice(function_call_buffer.as_slice(), input_data_offset)
+    }
+}
+
+impl TryFrom<SupportedParameterOrReturnValue> for FunctionCallResult {
+    type Error = anyhow::Error;
+    fn try_from(value: SupportedParameterOrReturnValue) -> Result<Self> {
+        match value {
+            SupportedParameterOrReturnValue::Int(i) => Ok(FunctionCallResult::Int(i)),
+            SupportedParameterOrReturnValue::Long(l) => Ok(FunctionCallResult::Long(l)),
+            SupportedParameterOrReturnValue::Bool(b) => Ok(FunctionCallResult::Boolean(b)),
+            SupportedParameterOrReturnValue::String(s) => Ok(FunctionCallResult::String(Some(s))),
+            SupportedParameterOrReturnValue::Void(_) => Ok(FunctionCallResult::Void),
+            SupportedParameterOrReturnValue::ByteArray(b) => {
+                Ok(FunctionCallResult::SizePrefixedBuffer(Some(b)))
+            }
+            _ => Err(anyhow!(
+                "Unsupported parameter or return value type: {:?}",
+                value
+            )),
+        }
     }
 }
 

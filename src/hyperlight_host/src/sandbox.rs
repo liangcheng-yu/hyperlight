@@ -1,28 +1,25 @@
 use super::sandbox_run_options::SandboxRunOptions;
+use crate::flatbuffers::hyperlight::generated::ErrorCode;
+use crate::func::host::vals::{Parameters, Return, SupportedParameterOrReturnValue};
+use crate::func::host::{Function1, HyperlightFunction};
 use crate::guest::guest_log_data::GuestLogData;
+use crate::guest::host_function_definition::HostFunctionDefinition;
 use crate::guest::log_level::LogLevel;
-use crate::guest_interface_glue::SupportedParameterAndReturnValues;
 use crate::hypervisor::Hypervisor;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::mem::ptr::RawPtr;
 use crate::mem::{
-    config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager, pe::pe_info::PEInfo,
+    config::SandboxMemoryConfiguration, layout::SandboxMemoryLayout, mgr::SandboxMemoryManager,
+    pe::pe_info::PEInfo,
 };
-use crate::{
-    flatbuffers::hyperlight::generated::ErrorCode,
-    sandbox_state::{sandbox::EvolvableSandbox, transition::MutatingCallback},
-};
-use crate::{
-    func::host::{Function1, HyperlightFunction},
-    sandbox_state::transition::Noop,
-};
+use crate::sandbox_state::transition::Noop;
+use crate::sandbox_state::{sandbox::EvolvableSandbox, transition::MutatingCallback};
 #[cfg(target_os = "linux")]
 use crate::{
     hypervisor::hyperv_linux::{self, HypervLinuxDriver},
     hypervisor::hypervisor_mem::HypervisorAddrs,
     hypervisor::kvm,
     hypervisor::kvm::KVMDriver,
-    mem::layout::SandboxMemoryLayout,
     mem::ptr::GuestPtr,
     mem::ptr_offset::Offset,
 };
@@ -223,6 +220,14 @@ impl<'a> UnintializedSandbox<'a> {
             run_from_process_memory,
             run_from_guest_binary,
         )?;
+
+        // <WriteMemoryLayout>
+        let layout = mem_mgr.layout;
+        let shared_mem = mem_mgr.get_shared_mem_mut();
+        let mem_size = shared_mem.mem_size();
+        layout.write(shared_mem, SandboxMemoryLayout::BASE_ADDRESS, mem_size)?;
+        // </WriteMemoryLayout>
+
         let stack_guard = Self::create_stack_guard();
         mem_mgr.set_stack_guard(&stack_guard)?;
 
@@ -251,7 +256,7 @@ impl<'a> UnintializedSandbox<'a> {
             stack_guard,
         };
 
-        default_writer_func.register(&mut sandbox, "writer_func");
+        default_writer_func.register(&mut sandbox, "writer_func")?;
 
         Ok(sandbox)
     }
@@ -274,8 +279,16 @@ impl<'a> UnintializedSandbox<'a> {
     }
 
     /// Register a host function with the sandbox.
-    pub fn register_host_function(&mut self, name: &str, func: HyperlightFunction<'a>) {
-        self.host_functions.insert(name.to_string(), func);
+    pub(crate) fn register_host_function(
+        &mut self,
+        hfd: &HostFunctionDefinition,
+        func: HyperlightFunction<'a>,
+    ) -> Result<()> {
+        self.host_functions
+            .insert(hfd.function_name.to_string(), func);
+        let buffer: Vec<u8> = hfd.try_into()?;
+        self.mem_mgr.write_host_function_definition(&buffer)?;
+        Ok(())
     }
 
     /// Set up the appropriate hypervisor for the platform.
@@ -417,24 +430,6 @@ impl<'a> UnintializedSandbox<'a> {
             )
         }
     }
-    #[allow(unused)]
-    pub(crate) fn handle_outb(&self, port: u16, byte: u8) -> Result<()> {
-        match port.into() {
-            OutBAction::Log => outb_log(&self.mem_mgr),
-            OutBAction::CallFunction => {
-                // TODO
-                todo!();
-            }
-            OutBAction::Abort => {
-                // TODO
-                todo!();
-            }
-            _ => {
-                // TODO
-                todo!();
-            }
-        }
-    }
 
     /// Check for a guest error and return an `Err` if one was found,
     /// and `Ok` if one was not found.
@@ -478,31 +473,68 @@ impl<'a> UnintializedSandbox<'a> {
         }
     }
 
-    // (DAN:NOTE) This is a temporary function that would be replaced by a generic way to call host functions
+    /// Host print function – an exception to normal calling functions
+    /// as it can be called prior to initialization.
     pub(crate) fn host_print(&mut self, msg: String) -> Result<()> {
         let writer_func = self
             .host_functions
             .get_mut("writer_func")
             .ok_or_else(|| anyhow!("Host function 'writer_func' not found"))?;
 
-        writer_func.lock().unwrap()(vec![SupportedParameterAndReturnValues::String(msg)])?;
+        let mut writer_locked_func = writer_func
+            .lock()
+            .map_err(|e| anyhow!("error locking: {:?}", e))?;
+        writer_locked_func(vec![SupportedParameterOrReturnValue::String(msg)].into())?;
 
         Ok(())
     }
 }
 
 impl<'a> Sandbox<'a> {
-    // (DAN:NOTE) This is a temporary function that would be replaced by a generic way to call host functions
+    /// Call a host print in the sandbox.
     #[allow(unused)]
     pub(crate) fn host_print(&mut self, msg: String) -> Result<()> {
-        let writer_func = self
-            .host_functions
-            .get_mut("writer_func")
-            .ok_or_else(|| anyhow!("Host function 'writer_func' not found"))?;
-
-        writer_func.lock().unwrap()(vec![SupportedParameterAndReturnValues::String(msg)])?;
+        self.call_host_function(
+            "writer_func",
+            vec![SupportedParameterOrReturnValue::String(msg)].into(),
+        )?;
 
         Ok(())
+    }
+
+    /// Call a host function in the sandbox.
+    pub fn call_host_function(&mut self, name: &str, args: Parameters) -> Result<Return> {
+        let func = self
+            .host_functions
+            .get(name)
+            .ok_or_else(|| anyhow!("Host function {} not found", name))?;
+
+        let mut locked_func = func.lock().map_err(|e| anyhow!("error locking: {:?}", e))?;
+        locked_func(args)
+    }
+
+    #[allow(unused)]
+    pub(crate) fn handle_outb(&mut self, port: u16, byte: u8) -> Result<()> {
+        match port.into() {
+            OutBAction::Log => outb_log(&self.mem_mgr),
+            OutBAction::CallFunction => {
+                let call = self.mem_mgr.get_host_function_call()?;
+                let name = call.function_name.clone();
+                let args: Parameters = call.parameters.clone().try_into()?;
+                let res = self.call_host_function(&name, args)?;
+                self.mem_mgr
+                    .write_response_from_host_method_call(&res.try_into()?)?;
+                Ok(())
+            }
+            OutBAction::Abort => {
+                // TODO
+                todo!();
+            }
+            _ => {
+                // TODO
+                todo!();
+            }
+        }
     }
 }
 
@@ -537,7 +569,10 @@ mod tests {
     #[cfg(target_os = "linux")]
     use crate::hypervisor::kvm::test_cfg::TEST_CONFIG as KVM_TEST_CONFIG;
     use crate::{
-        func::host::Function1,
+        func::host::{
+            vals::{Parameters, SupportedParameterOrReturnValue},
+            Function1, Function2,
+        },
         guest::{guest_log_data::GuestLogData, log_level::LogLevel},
         mem::{config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager},
         sandbox_run_options::SandboxRunOptions,
@@ -632,7 +667,9 @@ mod tests {
         )
         .expect("Failed to create sandbox");
 
-        writer_func.register(&mut uninitialized_sandbox, "writer_func");
+        writer_func
+            .register(&mut uninitialized_sandbox, "writer_func")
+            .expect("Failed to register writer function");
 
         fn init(uninitialized_sandbox: &mut UnintializedSandbox) -> Result<()> {
             uninitialized_sandbox.host_print("test".to_string())
@@ -644,6 +681,95 @@ mod tests {
         drop(sandbox);
 
         assert_eq!(&received_msg, "test");
+    }
+
+    #[test]
+    fn test_host_functions() {
+        let uninitialized_sandbox = || {
+            UnintializedSandbox::new(
+                simple_guest_path().expect("Guest Binary Missing"),
+                None,
+                None,
+            )
+            .unwrap()
+        };
+        fn init(_: &mut UnintializedSandbox) -> Result<()> {
+            Ok(())
+        }
+
+        // simple register + call
+        {
+            let mut usbox = uninitialized_sandbox();
+            let test0 = |arg: i32| -> Result<i32> { Ok(arg + 1) };
+            let test_func0 = Arc::new(Mutex::new(test0));
+            test_func0.register(&mut usbox, "test0").unwrap();
+
+            let sandbox = usbox.initialize(Some(init));
+            assert!(sandbox.is_ok());
+            let mut sandbox = sandbox.unwrap();
+
+            let res = sandbox
+                .call_host_function(
+                    "test0",
+                    Parameters(vec![SupportedParameterOrReturnValue::Int(1)]),
+                )
+                .unwrap();
+
+            assert_eq!(res, SupportedParameterOrReturnValue::Int(2));
+        }
+
+        // multiple parameters register + call
+        {
+            let mut usbox = uninitialized_sandbox();
+            let test1 = |arg1: i32, arg2: i32| -> Result<i32> { Ok(arg1 + arg2) };
+            let test_func1 = Arc::new(Mutex::new(test1));
+            test_func1.register(&mut usbox, "test1").unwrap();
+
+            let sandbox = usbox.initialize(Some(init));
+            assert!(sandbox.is_ok());
+            let mut sandbox = sandbox.unwrap();
+
+            let res = sandbox
+                .call_host_function(
+                    "test1",
+                    Parameters(vec![
+                        SupportedParameterOrReturnValue::Int(1),
+                        SupportedParameterOrReturnValue::Int(2),
+                    ]),
+                )
+                .unwrap();
+
+            assert_eq!(res, SupportedParameterOrReturnValue::Int(3));
+        }
+
+        // incorrect arguments register + call
+        {
+            let mut usbox = uninitialized_sandbox();
+            let test2 = |arg1: String| -> Result<()> {
+                println!("test2 called: {}", arg1);
+                Ok(())
+            };
+            let test_func2 = Arc::new(Mutex::new(test2));
+            test_func2.register(&mut usbox, "test2").unwrap();
+
+            let sandbox = usbox.initialize(Some(init));
+            assert!(sandbox.is_ok());
+            let mut sandbox = sandbox.unwrap();
+
+            let res = sandbox.call_host_function("test2", Parameters(vec![]));
+            assert!(res.is_err());
+        }
+
+        // calling a function that doesn't exist
+        {
+            let usbox = uninitialized_sandbox();
+            let sandbox = usbox.initialize(Some(init));
+            assert!(sandbox.is_ok());
+            let mut sandbox = sandbox.unwrap();
+
+            let res = sandbox.call_host_function("test4", Parameters(vec![]));
+            assert!(res.is_err());
+        }
     }
 
     #[test]
@@ -694,7 +820,9 @@ mod tests {
         )
         .expect("Failed to create sandbox");
 
-        writer_func.register(&mut sandbox, "writer_func");
+        writer_func
+            .register(&mut sandbox, "writer_func")
+            .expect("Failed to register writer function");
 
         sandbox.host_print("test".to_string()).unwrap();
 
@@ -729,7 +857,9 @@ mod tests {
         )
         .expect("Failed to create sandbox");
 
-        writer_func.register(&mut sandbox, "writer_func");
+        writer_func
+            .register(&mut sandbox, "writer_func")
+            .expect("Failed to register writer function");
 
         sandbox.host_print("test2".to_string()).unwrap();
 
@@ -752,7 +882,9 @@ mod tests {
         )
         .expect("Failed to create sandbox");
 
-        writer_func.register(&mut sandbox, "writer_func");
+        writer_func
+            .register(&mut sandbox, "writer_func")
+            .expect("Failed to register writer function");
 
         sandbox.host_print("test2".to_string()).unwrap();
 
@@ -773,7 +905,9 @@ mod tests {
         )
         .expect("Failed to create sandbox");
 
-        writer_method.register(&mut sandbox, "writer_func");
+        writer_method
+            .register(&mut sandbox, "writer_func")
+            .expect("Failed to register writer function");
 
         sandbox.host_print("test3".to_string()).unwrap();
     }

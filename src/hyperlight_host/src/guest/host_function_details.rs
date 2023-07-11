@@ -56,6 +56,14 @@ impl HostFunctionDetails {
     }
 }
 
+impl From<Vec<HostFunctionDefinition>> for HostFunctionDetails {
+    fn from(host_functions: Vec<HostFunctionDefinition>) -> Self {
+        Self {
+            host_functions: Some(host_functions),
+        }
+    }
+}
+
 impl TryFrom<&[u8]> for HostFunctionDetails {
     type Error = anyhow::Error;
     fn try_from(value: &[u8]) -> Result<Self> {

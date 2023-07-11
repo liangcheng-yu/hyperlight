@@ -55,7 +55,7 @@ pub unsafe extern "C" fn sandbox_new(
                 mem_cfg,
                 sandbox_run_options,
             )?;
-            writer_func.register(&mut sbox, "writer_func");
+            writer_func.register(&mut sbox, "writer_func")?;
             Ok(Sandbox::from(sbox).register(ctx))
         })
         .ok_or_err_hdl()
