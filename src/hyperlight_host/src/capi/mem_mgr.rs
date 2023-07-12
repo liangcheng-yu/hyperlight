@@ -886,11 +886,9 @@ pub unsafe extern "C" fn mem_mgr_get_function_call_result(
         Err(e) => return (*ctx).register_err(e),
     };
     match mgr.get_function_call_result() {
-        Ok(output) => Context::register(
-            output,
-            &mut (*ctx).function_call_results,
-            Hdl::FunctionCallResult,
-        ),
+        Ok(output) => {
+            Context::register(output, &mut (*ctx).function_call_results, Hdl::ReturnValue)
+        }
         Err(e) => (*ctx).register_err(e),
     }
 }

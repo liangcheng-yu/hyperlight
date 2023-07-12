@@ -4,9 +4,9 @@ use super::{
     sandbox_compat,
 };
 use crate::capi::outb_handler::OutBHandlerWrapper;
-use crate::guest::function_call::FunctionCall;
-use crate::guest::function_call_result::FunctionCallResult;
-use crate::guest::guest_error::GuestError;
+use crate::func::function_call::FunctionCall;
+use crate::func::function_types::ReturnValue;
+use crate::func::guest::error::GuestError;
 #[cfg(target_os = "linux")]
 use crate::hypervisor::hyperv_linux::HypervLinuxDriver;
 #[cfg(target_os = "linux")]
@@ -16,7 +16,7 @@ use crate::mem::mgr::SandboxMemoryManager;
 use crate::mem::shared_mem::SharedMemory;
 use crate::mem::shared_mem_snapshot::SharedMemorySnapshot;
 use crate::{
-    capi::mem_access_handler::MemAccessHandlerWrapper, guest::guest_log_data::GuestLogData,
+    capi::mem_access_handler::MemAccessHandlerWrapper, func::guest::log_data::GuestLogData,
 };
 use anyhow::{bail, Error, Result};
 use std::collections::HashMap;
@@ -81,7 +81,7 @@ pub struct Context {
     /// All the `FunctionCall`s stored in this context
     pub host_function_calls: HashMap<Key, FunctionCall>,
     /// All the `FunctionCallResult`s stored in this context
-    pub function_call_results: HashMap<Key, FunctionCallResult>,
+    pub function_call_results: HashMap<Key, ReturnValue>,
     /// All the `GuestLogData`s stored in this context
     pub guest_log_datas: HashMap<Key, GuestLogData>,
 }
@@ -200,9 +200,7 @@ impl Context {
                     }
                     Hdl::GuestError(key) => self.guest_errors.remove(&key).is_some(),
                     Hdl::HostFunctionCall(key) => self.host_function_calls.remove(&key).is_some(),
-                    Hdl::FunctionCallResult(key) => {
-                        self.function_call_results.remove(&key).is_some()
-                    }
+                    Hdl::ReturnValue(key) => self.function_call_results.remove(&key).is_some(),
                     Hdl::GuestLogData(key) => self.guest_log_datas.remove(&key).is_some(),
                 }
             }

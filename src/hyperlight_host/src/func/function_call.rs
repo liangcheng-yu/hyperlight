@@ -3,8 +3,9 @@ use crate::flatbuffers::hyperlight::generated::{
     hlbool, hlboolArgs, hlint, hlintArgs, hllong, hllongArgs, hlstring, hlstringArgs, hlvecbytes,
     hlvecbytesArgs, size_prefixed_root_as_function_call, FunctionCall as FBFunctionCall,
     FunctionCallArgs as FBFunctionCallArgs, FunctionCallType as FBFunctionCallType, Parameter,
-    ParameterArgs, ParameterValue, ReturnType,
+    ParameterArgs, ParameterValue as FbParameterValue, ReturnType as FbReturnType,
 };
+use crate::func::function_types::ParameterValue;
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::shared_mem::SharedMemory;
 use anyhow::{anyhow, Result};
@@ -18,25 +19,11 @@ pub struct FunctionCall {
     /// The function name
     pub function_name: String,
     /// The parameters for the function call.
-    pub parameters: Option<Vec<Param>>,
+    pub parameters: Option<Vec<ParameterValue>>,
     function_call_type: FunctionCallType,
     expected_return_type: ExpectedFunctionCallReturnType,
 }
 
-/// This is the type and value of a parameter to the function call.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Param {
-    /// Parameter is a signed 32 bit integer.
-    Int(i32),
-    /// Parameter is a signed 64 bit integer.
-    Long(i64),
-    /// Parameter is a boolean.
-    Boolean(bool),
-    /// Parameter is a string.
-    String(Option<String>),
-    /// Parameter is a vector of bytes.
-    VecBytes(Option<Vec<u8>>),
-}
 /// The type of function call.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FunctionCallType {
@@ -77,12 +64,14 @@ impl TryFrom<&[u8]> for FunctionCall {
             }
         };
         let expected_return_type = match guest_function_call_fb.expected_return_type() {
-            ReturnType::hlint => ExpectedFunctionCallReturnType::Int,
-            ReturnType::hllong => ExpectedFunctionCallReturnType::Long,
-            ReturnType::hlstring => ExpectedFunctionCallReturnType::String,
-            ReturnType::hlsizeprefixedbuffer => ExpectedFunctionCallReturnType::SizePrefixedBuffer,
-            ReturnType::hlvoid => ExpectedFunctionCallReturnType::Void,
-            ReturnType::hlbool => ExpectedFunctionCallReturnType::Bool,
+            FbReturnType::hlint => ExpectedFunctionCallReturnType::Int,
+            FbReturnType::hllong => ExpectedFunctionCallReturnType::Long,
+            FbReturnType::hlstring => ExpectedFunctionCallReturnType::String,
+            FbReturnType::hlsizeprefixedbuffer => {
+                ExpectedFunctionCallReturnType::SizePrefixedBuffer
+            }
+            FbReturnType::hlvoid => ExpectedFunctionCallReturnType::Void,
+            FbReturnType::hlbool => ExpectedFunctionCallReturnType::Bool,
             _ => {
                 anyhow::bail!("Unknown function call type");
             }
@@ -90,45 +79,47 @@ impl TryFrom<&[u8]> for FunctionCall {
         let parameters = match guest_function_call_fb.parameters() {
             Some(p) => {
                 let len = p.len();
-                let mut v: Vec<Param> = Vec::with_capacity(len);
+                let mut v: Vec<ParameterValue> = Vec::with_capacity(len);
                 for i in 0..len {
                     let param = p.get(i);
                     let param_type = param.value_type();
                     match param_type {
-                        ParameterValue::hlint => {
+                        FbParameterValue::hlint => {
                             let hlint = param.value_as_hlint().ok_or_else(|| {
                                 anyhow!("Failed to get hlint from parameter {}", i)
                             })?;
-                            v.push(Param::Int(hlint.value()));
+                            v.push(ParameterValue::Int(hlint.value()));
                         }
-                        ParameterValue::hllong => {
+                        FbParameterValue::hllong => {
                             let hllong = param.value_as_hllong().ok_or_else(|| {
                                 anyhow!("Failed to get hlong from parameter {}", i)
                             })?;
-                            v.push(Param::Long(hllong.value()));
+                            v.push(ParameterValue::Long(hllong.value()));
                         }
-                        ParameterValue::hlbool => {
+                        FbParameterValue::hlbool => {
                             let hlbool = param.value_as_hlbool().ok_or_else(|| {
                                 anyhow!("Failed to get hlbool from parameter {}", i)
                             })?;
-                            v.push(Param::Boolean(hlbool.value()));
+                            v.push(ParameterValue::Bool(hlbool.value()));
                         }
-                        ParameterValue::hlstring => {
+                        FbParameterValue::hlstring => {
                             let hlstring = param.value_as_hlstring().ok_or_else(|| {
                                 anyhow!("Failed to get hlstring from parameter {}", i)
                             })?;
 
-                            v.push(Param::String(hlstring.value().map(str::to_string)));
+                            v.push(ParameterValue::String(
+                                hlstring.value().unwrap_or_default().to_string(),
+                            ));
                         }
-                        ParameterValue::hlvecbytes => {
+                        FbParameterValue::hlvecbytes => {
                             let hlvecbytes = param.value_as_hlvecbytes().ok_or_else(|| {
                                 anyhow!("Failed to get hlvecbytes from parameter {}", i)
                             })?;
                             match hlvecbytes.value() {
-                                Some(val) => {
-                                    v.push(Param::VecBytes(Some(val.iter().collect::<Vec<u8>>())))
-                                }
-                                None => v.push(Param::VecBytes(None)),
+                                Some(val) => v.push(ParameterValue::VecBytes(
+                                    val.iter().collect::<Vec<u8>>(),
+                                )),
+                                None => v.push(ParameterValue::VecBytes(vec![])),
                             }
                         }
                         _ => {
@@ -161,12 +152,14 @@ impl TryFrom<&FunctionCall> for Vec<u8> {
         };
 
         let expected_return_type = match value.expected_return_type {
-            ExpectedFunctionCallReturnType::Int => ReturnType::hlint,
-            ExpectedFunctionCallReturnType::Long => ReturnType::hllong,
-            ExpectedFunctionCallReturnType::String => ReturnType::hlstring,
-            ExpectedFunctionCallReturnType::SizePrefixedBuffer => ReturnType::hlsizeprefixedbuffer,
-            ExpectedFunctionCallReturnType::Void => ReturnType::hlvoid,
-            ExpectedFunctionCallReturnType::Bool => ReturnType::hlbool,
+            ExpectedFunctionCallReturnType::Int => FbReturnType::hlint,
+            ExpectedFunctionCallReturnType::Long => FbReturnType::hllong,
+            ExpectedFunctionCallReturnType::String => FbReturnType::hlstring,
+            ExpectedFunctionCallReturnType::SizePrefixedBuffer => {
+                FbReturnType::hlsizeprefixedbuffer
+            }
+            ExpectedFunctionCallReturnType::Void => FbReturnType::hlvoid,
+            ExpectedFunctionCallReturnType::Bool => FbReturnType::hlbool,
         };
 
         let vec_parameters = match &value.parameters {
@@ -176,66 +169,56 @@ impl TryFrom<&FunctionCall> for Vec<u8> {
 
                 for param in p {
                     match param {
-                        Param::Int(i) => {
+                        ParameterValue::Int(i) => {
                             let hlint = hlint::create(&mut builder, &hlintArgs { value: *i });
                             let parameter = Parameter::create(
                                 &mut builder,
                                 &ParameterArgs {
-                                    value_type: ParameterValue::hlint,
+                                    value_type: FbParameterValue::hlint,
                                     value: Some(hlint.as_union_value()),
                                 },
                             );
                             parameters.push(parameter);
                         }
-                        Param::Long(l) => {
+                        ParameterValue::Long(l) => {
                             let hllong = hllong::create(&mut builder, &hllongArgs { value: *l });
                             let parameter = Parameter::create(
                                 &mut builder,
                                 &ParameterArgs {
-                                    value_type: ParameterValue::hllong,
+                                    value_type: FbParameterValue::hllong,
                                     value: Some(hllong.as_union_value()),
                                 },
                             );
                             parameters.push(parameter);
                         }
-                        Param::Boolean(b) => {
-                            let hlbool = hlbool::create(&mut builder, &hlboolArgs { value: *b });
+                        ParameterValue::Bool(b) => {
+                            let hlbool: WIPOffset<hlbool<'_>> =
+                                hlbool::create(&mut builder, &hlboolArgs { value: *b });
                             let parameter = Parameter::create(
                                 &mut builder,
                                 &ParameterArgs {
-                                    value_type: ParameterValue::hlbool,
+                                    value_type: FbParameterValue::hlbool,
                                     value: Some(hlbool.as_union_value()),
                                 },
                             );
                             parameters.push(parameter);
                         }
-                        Param::String(s) => {
-                            let hlstring = match &s {
-                                Some(s) => {
-                                    let val = builder.create_string(s.as_str());
-                                    hlstring::create(
-                                        &mut builder,
-                                        &hlstringArgs { value: Some(val) },
-                                    )
-                                }
-                                None => {
-                                    hlstring::create(&mut builder, &hlstringArgs { value: None })
-                                }
+                        ParameterValue::String(s) => {
+                            let hlstring = {
+                                let val = builder.create_string(s.as_str());
+                                hlstring::create(&mut builder, &hlstringArgs { value: Some(val) })
                             };
                             let parameter = Parameter::create(
                                 &mut builder,
                                 &ParameterArgs {
-                                    value_type: ParameterValue::hlstring,
+                                    value_type: FbParameterValue::hlstring,
                                     value: Some(hlstring.as_union_value()),
                                 },
                             );
                             parameters.push(parameter);
                         }
-                        Param::VecBytes(v) => {
-                            let vec_bytes = match &v {
-                                Some(v) => builder.create_vector(v),
-                                None => builder.create_vector(&Vec::<u8>::new()),
-                            };
+                        ParameterValue::VecBytes(v) => {
+                            let vec_bytes = builder.create_vector(v);
 
                             //let vec_bytes = builder.create_vector(&v);
 
@@ -248,7 +231,7 @@ impl TryFrom<&FunctionCall> for Vec<u8> {
                             let parameter = Parameter::create(
                                 &mut builder,
                                 &ParameterArgs {
-                                    value_type: ParameterValue::hlvecbytes,
+                                    value_type: FbParameterValue::hlvecbytes,
                                     value: Some(hlvecbytes.as_union_value()),
                                 },
                             );
@@ -329,13 +312,13 @@ mod tests {
         let parameters = function_call.parameters.unwrap();
         assert_eq!(parameters.len(), 7);
         let expected_parameters = vec![
-            Param::String(Some(String::from("Test7"))),
-            Param::Int(8),
-            Param::Long(9),
-            Param::String(Some(String::from("Tested"))),
-            Param::String(Some(String::from("Test7"))),
-            Param::Boolean(false),
-            Param::Boolean(true),
+            ParameterValue::String(String::from("Test7")),
+            ParameterValue::Int(8),
+            ParameterValue::Long(9),
+            ParameterValue::String(String::from("Tested")),
+            ParameterValue::String(String::from("Test7")),
+            ParameterValue::Bool(false),
+            ParameterValue::Bool(true),
         ];
         assert!(expected_parameters == parameters);
         assert_eq!(function_call.function_call_type, FunctionCallType::Guest);
@@ -346,9 +329,9 @@ mod tests {
         assert!(function_call.parameters.is_some());
         let parameters = function_call.parameters.unwrap();
         assert_eq!(parameters.len(), 1);
-        let expected_parameters = vec![Param::String(Some(String::from(
+        let expected_parameters = vec![ParameterValue::String(String::from(
             "Hello from GuestFunction1, Hello from CallbackTest",
-        )))];
+        ))];
         assert!(expected_parameters == parameters);
         assert_eq!(function_call.function_call_type, FunctionCallType::Host);
 
@@ -358,13 +341,13 @@ mod tests {
     #[test]
     fn write_to_flatbuffer() -> Result<()> {
         let guest_parameters = Some(vec![
-            Param::String(Some(String::from("Test7"))),
-            Param::Int(8),
-            Param::Long(9),
-            Param::String(Some(String::from("Tested"))),
-            Param::String(Some(String::from("Test7"))),
-            Param::Boolean(false),
-            Param::Boolean(true),
+            ParameterValue::String(String::from("Test7")),
+            ParameterValue::Int(8),
+            ParameterValue::Long(9),
+            ParameterValue::String(String::from("Tested")),
+            ParameterValue::String(String::from("Test7")),
+            ParameterValue::Bool(false),
+            ParameterValue::Bool(true),
         ]);
         let guest_function_call = FunctionCall {
             function_name: "PrintSevenArgs".to_string(),
@@ -378,9 +361,9 @@ mod tests {
             get_guest_function_call_test_data()
         );
 
-        let host_parameters = Some(vec![Param::String(Some(String::from(
+        let host_parameters = Some(vec![ParameterValue::String(String::from(
             "Hello from GuestFunction1, Hello from CallbackTest",
-        )))]);
+        ))]);
         let function_call = FunctionCall {
             function_name: "HostMethod1".to_string(),
             parameters: host_parameters,

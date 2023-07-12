@@ -1,9 +1,9 @@
 extern crate flatbuffers;
-use super::function_call::{ReadFunctionCallFromMemory, WriteFunctionCallToMemory};
 #[cfg(debug_assertions)]
 use crate::flatbuffers::hyperlight::generated::{
     size_prefixed_root_as_function_call, FunctionCallType as FBFunctionCallType,
 };
+use crate::func::function_call::{ReadFunctionCallFromMemory, WriteFunctionCallToMemory};
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::shared_mem::SharedMemory;
 use anyhow::{anyhow, Result};

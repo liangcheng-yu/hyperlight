@@ -54,9 +54,6 @@ pub mod flatbuffers;
 /// Wrappers for host and guest functions.
 #[deny(dead_code, missing_docs, unused_mut)]
 pub mod func;
-/// Types used to pass data to/from the guest.
-#[deny(dead_code, missing_docs, unused_mut)]
-pub(crate) mod guest;
 /// Wrapper for guest interface glue
 #[deny(dead_code, missing_docs, unused_mut)]
 pub mod guest_interface_glue;

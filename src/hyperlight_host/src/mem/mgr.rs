@@ -12,15 +12,18 @@ use super::{
 };
 use crate::{
     error::HyperlightError,
-    guest::{
+    func::{
         function_call::{FunctionCall, ReadFunctionCallFromMemory, WriteFunctionCallToMemory},
-        function_call_result::FunctionCallResult,
-        guest_error::{Code, GuestError},
-        guest_function_call::GuestFunctionCall,
-        guest_log_data::GuestLogData,
-        host_function_call::HostFunctionCall,
-        host_function_definition::HostFunctionDefinition,
-        host_function_details::HostFunctionDetails,
+        function_types::ReturnValue,
+        guest::{
+            error::{Code, GuestError},
+            function_call::GuestFunctionCall,
+            log_data::GuestLogData,
+        },
+        host::{
+            function_call::HostFunctionCall, function_definition::HostFunctionDefinition,
+            function_details::HostFunctionDetails,
+        },
     },
 };
 use anyhow::{anyhow, bail, Result};
@@ -529,10 +532,7 @@ impl SandboxMemoryManager {
         HostFunctionDefinition::write(buffer, self.get_shared_mem_mut(), &layout)
     }
 
-    pub(crate) fn write_response_from_host_method_call(
-        &mut self,
-        res: &FunctionCallResult,
-    ) -> Result<()> {
+    pub(crate) fn write_response_from_host_method_call(&mut self, res: &ReturnValue) -> Result<()> {
         let (shared_mem, layout) = (&mut self.shared_mem, &mut self.layout);
         res.write_to_memory(shared_mem, layout)
     }
@@ -545,8 +545,8 @@ impl SandboxMemoryManager {
         FunctionCall::try_from(buffer.as_slice())
     }
     /// Reads a function call result from memory
-    pub(crate) fn get_function_call_result(&mut self) -> Result<FunctionCallResult> {
-        FunctionCallResult::try_from((&self.shared_mem, &self.layout))
+    pub(crate) fn get_function_call_result(&mut self) -> Result<ReturnValue> {
+        ReturnValue::try_from((&self.shared_mem, &self.layout))
     }
 
     /// Read guest log data from the `SharedMemory` contained within `self`

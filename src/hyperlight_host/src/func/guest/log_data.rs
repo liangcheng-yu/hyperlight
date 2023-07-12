@@ -161,7 +161,7 @@ fn convert_generated_option(field_name: &str, opt: Option<&str>) -> Result<Strin
 mod test {
     use super::GuestLogData;
     use crate::{
-        guest::log_level::LogLevel,
+        func::guest::log_level::LogLevel,
         mem::{
             config::SandboxMemoryConfiguration, layout::SandboxMemoryLayout,
             shared_mem::SharedMemory,

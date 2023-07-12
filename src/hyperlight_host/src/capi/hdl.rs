@@ -54,8 +54,8 @@ pub enum Hdl {
     GuestError(Key),
     /// A reference to a `FunctionCall` representing a HostFunctionCall.
     HostFunctionCall(Key),
-    /// A reference to a `FunctionCallResult` representing a result from a function call.
-    FunctionCallResult(Key),
+    /// A reference to a `ReturnValue` representing a result from a function call.
+    ReturnValue(Key),
     /// A reference to a `GuestLogData` representing data from a guest running
     /// in a VM sandbox
     GuestLogData(Key),
@@ -83,7 +83,7 @@ impl Hdl {
     const BOOLEAN_TYPE_ID: TypeID = 126;
     const GUEST_ERROR_TYPE_ID: TypeID = 127;
     const HOST_FUNCTION_CALL_TYPE_ID: TypeID = 128;
-    const FUNCTION_CALL_RESULT_TYPE_ID: TypeID = 129;
+    const RETURN_VALUE_TYPE_ID: TypeID = 129;
     const GUEST_LOG_DATA_TYPE_ID: TypeID = 130;
     #[cfg(target_os = "linux")]
     const KVM_DRIVER_TYPE_ID: TypeID = 131;
@@ -116,7 +116,7 @@ impl Hdl {
             Hdl::MemAccessHandlerFunc(_) => Self::MEM_ACCESS_HANDLER_FUNC_TYPE_ID,
             Hdl::GuestError(_) => Self::GUEST_ERROR_TYPE_ID,
             Hdl::HostFunctionCall(_) => Self::HOST_FUNCTION_CALL_TYPE_ID,
-            Hdl::FunctionCallResult(_) => Self::FUNCTION_CALL_RESULT_TYPE_ID,
+            Hdl::ReturnValue(_) => Self::RETURN_VALUE_TYPE_ID,
             Hdl::GuestLogData(_) => Self::GUEST_LOG_DATA_TYPE_ID,
         }
     }
@@ -150,7 +150,7 @@ impl Hdl {
             Hdl::MemAccessHandlerFunc(key) => *key,
             Hdl::GuestError(key) => *key,
             Hdl::HostFunctionCall(key) => *key,
-            Hdl::FunctionCallResult(key) => *key,
+            Hdl::ReturnValue(key) => *key,
             Hdl::GuestLogData(key) => *key,
         }
     }
@@ -182,7 +182,7 @@ impl std::fmt::Display for Hdl {
             Hdl::MemAccessHandlerFunc(key) => write!(f, "MemAccessHandlerFunc({})", key),
             Hdl::GuestError(key) => write!(f, "GuestErrorHandlerFunc({})", key),
             Hdl::HostFunctionCall(key) => write!(f, "HostFunctionCallHandlerFunc({})", key),
-            Hdl::FunctionCallResult(key) => write!(f, "FunctionCallResultHandlerFunc({})", key),
+            Hdl::ReturnValue(key) => write!(f, "ReturnValueHandlerFunc({})", key),
             Hdl::GuestLogData(key) => write!(f, "GuestLogData({})", key),
         }
     }
@@ -219,7 +219,7 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::MEM_ACCESS_HANDLER_FUNC_TYPE_ID => Ok(Hdl::MemAccessHandlerFunc(key)),
             Self::GUEST_ERROR_TYPE_ID => Ok(Hdl::GuestError(key)),
             Self::HOST_FUNCTION_CALL_TYPE_ID => Ok(Hdl::HostFunctionCall(key)),
-            Self::FUNCTION_CALL_RESULT_TYPE_ID => Ok(Hdl::FunctionCallResult(key)),
+            Self::RETURN_VALUE_TYPE_ID => Ok(Hdl::ReturnValue(key)),
             Self::GUEST_LOG_DATA_TYPE_ID => Ok(Hdl::GuestLogData(key)),
             _ => bail!("invalid handle type {}", hdl.type_id()),
         }

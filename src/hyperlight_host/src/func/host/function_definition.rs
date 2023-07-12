@@ -4,7 +4,7 @@ use crate::{
         HostFunctionDefinitionArgs as FbHostFunctionDefinitionArgs,
         ParameterType as FbParameterType,
     },
-    guest::function_types::{ParamType, ReturnType},
+    func::function_types::{ParameterType, ReturnType},
     mem::{layout::SandboxMemoryLayout, shared_mem::SharedMemory},
 };
 use anyhow::{anyhow, Result};
@@ -18,7 +18,7 @@ pub struct HostFunctionDefinition {
     /// The function name
     pub function_name: String,
     /// The type of the parameter values for the host function call.
-    pub parameter_types: Option<Vec<ParamType>>,
+    pub parameter_types: Option<Vec<ParameterType>>,
     /// The type of the return value from the host function call
     pub return_type: ReturnType,
 }
@@ -27,7 +27,7 @@ impl HostFunctionDefinition {
     /// Create a new `HostFunctionDefinition`.
     pub fn new(
         function_name: String,
-        parameter_types: Option<Vec<ParamType>>,
+        parameter_types: Option<Vec<ParameterType>>,
         return_type: ReturnType,
     ) -> Self {
         Self {
@@ -104,9 +104,9 @@ impl TryFrom<FbHostFunctionDefinition<'_>> for HostFunctionDefinition {
         let parameter_types = match value.parameters() {
             Some(pvt) => {
                 let len = pvt.len();
-                let mut pv: Vec<ParamType> = Vec::with_capacity(len);
+                let mut pv: Vec<ParameterType> = Vec::with_capacity(len);
                 for fb_pvt in pvt {
-                    let pvt: ParamType = fb_pvt.try_into()?;
+                    let pvt: ParameterType = fb_pvt.try_into()?;
                     pv.push(pvt);
                 }
                 Some(pv)
