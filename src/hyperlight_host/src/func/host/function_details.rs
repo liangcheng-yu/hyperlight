@@ -1,11 +1,11 @@
 extern crate flatbuffers;
-use super::host_function_definition::HostFunctionDefinition;
 use crate::flatbuffers::hyperlight::generated::{
     size_prefixed_root_as_host_function_details,
     HostFunctionDefinition as FbHostFunctionDefinition,
     HostFunctionDetails as FbHostFunctionDetails,
     HostFunctionDetailsArgs as FbHostFunctionDetailsArgs,
 };
+use crate::func::host::function_definition::HostFunctionDefinition;
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::shared_mem::SharedMemory;
 use anyhow::{anyhow, bail, Result};
@@ -148,7 +148,7 @@ impl TryFrom<HostFunctionDetails> for Vec<u8> {
 mod tests {
     use super::*;
     use crate::{
-        guest::function_types::{ParamType, ReturnType},
+        func::function_types::{ParameterType, ReturnType},
         mem::config::SandboxMemoryConfiguration,
     };
     use anyhow::{Ok, Result};
@@ -236,7 +236,7 @@ mod tests {
 
         let host_function_definition = HostFunctionDefinition::new(
             String::from("HostMethod1"),
-            Some(vec![ParamType::String]),
+            Some(vec![ParameterType::String]),
             ReturnType::Int,
         );
 
@@ -244,7 +244,7 @@ mod tests {
 
         let host_function_definition = HostFunctionDefinition::new(
             String::from("StaticMethodWithArgs"),
-            Some(vec![ParamType::String, ParamType::Int]),
+            Some(vec![ParameterType::String, ParameterType::Int]),
             ReturnType::Int,
         );
 

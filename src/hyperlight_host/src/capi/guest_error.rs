@@ -1,7 +1,7 @@
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::{arrays::raw_vec::RawVec, context::Context};
-use crate::guest::guest_error::GuestError;
+use crate::func::guest::error::GuestError;
 use crate::validate_context_or_panic;
 use anyhow::Result;
 use std::mem;

@@ -2,7 +2,7 @@ use crate::flatbuffers::hyperlight::generated::{
     GuestFunctionDefinition as FbGuestFunctionDefinition,
     GuestFunctionDefinitionArgs as FbGuestFunctionDefinitionArgs, ParameterType as FbParameterType,
 };
-use crate::guest::function_types::{ParamType, ReturnType};
+use crate::func::function_types::{ParameterType, ReturnType};
 use crate::mem::ptr::GuestPtr;
 use anyhow::Result;
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
@@ -14,7 +14,7 @@ pub struct GuestFunctionDefinition {
     /// The function name
     pub function_name: String,
     /// The type of the parameter values for the host function call.
-    pub parameter_types: Vec<ParamType>,
+    pub parameter_types: Vec<ParameterType>,
     /// The type of the return value from the host function call
     pub return_type: ReturnType,
     /// The function pointer to the guest function
@@ -25,7 +25,7 @@ impl GuestFunctionDefinition {
     /// Create a new `GuestFunctionDetails`.
     pub fn new(
         function_name: String,
-        parameter_types: Vec<ParamType>,
+        parameter_types: Vec<ParameterType>,
         return_type: ReturnType,
         function_pointer: GuestPtr,
     ) -> Self {
@@ -75,7 +75,7 @@ impl TryFrom<FbGuestFunctionDefinition<'_>> for GuestFunctionDefinition {
     fn try_from(value: FbGuestFunctionDefinition) -> Result<Self> {
         let function_name = value.function_name().to_string();
         let return_type = value.return_type().try_into()?;
-        let mut parameter_types: Vec<ParamType> = Vec::new();
+        let mut parameter_types: Vec<ParameterType> = Vec::new();
         let function_pointer = value.function_pointer();
         for fb_pvt in value.parameters() {
             let pvt = fb_pvt.try_into()?;

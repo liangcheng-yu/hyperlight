@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use crate::flatbuffers::hyperlight::generated::size_prefixed_root_as_guest_function_details;
 
-use super::guest_function_definition::GuestFunctionDefinition;
+use crate::func::guest::function_definition::GuestFunctionDefinition;
 
 /// Represents the functions that the guest exposes to the host.
 #[readonly::make]

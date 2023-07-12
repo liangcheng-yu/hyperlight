@@ -1,6 +1,27 @@
 use anyhow::{bail, Result};
 
-use crate::func::host::SupportedParameterOrReturnType;
+/// All the types that can be used as `Vec<ParameterValue>` or return types for a host
+/// function.
+pub enum SupportedParameterOrReturnType {
+    /// i32
+    Int,
+    /// i64
+    Long,
+    /// u64
+    ULong,
+    /// bool
+    Bool,
+    /// StringF
+    String,
+    /// Vec<u8>
+    ByteArray,
+    /// *mut c_void (raw pointer to an unsized type)
+    IntPtr,
+    /// u32
+    UInt,
+    /// Void (return types only)
+    Void,
+}
 
 /// Validates that the given type is supported by the host interface.
 pub fn validate_type_supported(some_type: &str) -> Result<()> {

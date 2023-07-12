@@ -1,6 +1,6 @@
 use super::{context::Context, handle::Handle, hdl::Hdl};
 use crate::{
-    capi::arrays::raw_vec::RawVec, guest::guest_log_data::GuestLogData, validate_context_or_panic,
+    capi::arrays::raw_vec::RawVec, func::guest::log_data::GuestLogData, validate_context_or_panic,
 };
 use anyhow::Result;
 use std::mem;

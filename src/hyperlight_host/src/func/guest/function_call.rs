@@ -1,11 +1,10 @@
 extern crate flatbuffers;
-use super::function_call::WriteFunctionCallToMemory;
 #[cfg(debug_assertions)]
 use crate::flatbuffers::hyperlight::generated::{
     size_prefixed_root_as_function_call, FunctionCallType as FBFunctionCallType,
 };
-use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::shared_mem::SharedMemory;
+use crate::{func::function_call::WriteFunctionCallToMemory, mem::layout::SandboxMemoryLayout};
 use anyhow::{anyhow, Result};
 /// A guest function call is a function call from the host to the guest.
 #[derive(Default)]

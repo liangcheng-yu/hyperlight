@@ -1,10 +1,10 @@
 use super::sandbox_run_options::SandboxRunOptions;
 use crate::flatbuffers::hyperlight::generated::ErrorCode;
-use crate::func::host::vals::{Parameters, Return, SupportedParameterOrReturnValue};
+use crate::func::function_types::{ParameterValue, ReturnValue};
+use crate::func::guest::log_data::GuestLogData;
+use crate::func::guest::log_level::LogLevel;
+use crate::func::host::function_definition::HostFunctionDefinition;
 use crate::func::host::{Function1, HyperlightFunction};
-use crate::guest::guest_log_data::GuestLogData;
-use crate::guest::host_function_definition::HostFunctionDefinition;
-use crate::guest::log_level::LogLevel;
 use crate::hypervisor::Hypervisor;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::mem::ptr::RawPtr;
@@ -485,7 +485,7 @@ impl<'a> UnintializedSandbox<'a> {
         let mut writer_locked_func = writer_func
             .lock()
             .map_err(|e| anyhow!("error locking: {:?}", e))?;
-        writer_locked_func(vec![SupportedParameterOrReturnValue::String(msg)].into())?;
+        writer_locked_func(vec![ParameterValue::String(msg)])?;
 
         Ok(())
     }
@@ -495,16 +495,17 @@ impl<'a> Sandbox<'a> {
     /// Call a host print in the sandbox.
     #[allow(unused)]
     pub(crate) fn host_print(&mut self, msg: String) -> Result<()> {
-        self.call_host_function(
-            "writer_func",
-            vec![SupportedParameterOrReturnValue::String(msg)].into(),
-        )?;
+        self.call_host_function("writer_func", vec![ParameterValue::String(msg)])?;
 
         Ok(())
     }
 
     /// Call a host function in the sandbox.
-    pub fn call_host_function(&mut self, name: &str, args: Parameters) -> Result<Return> {
+    pub fn call_host_function(
+        &mut self,
+        name: &str,
+        args: Vec<ParameterValue>,
+    ) -> Result<ReturnValue> {
         let func = self
             .host_functions
             .get(name)
@@ -521,10 +522,9 @@ impl<'a> Sandbox<'a> {
             OutBAction::CallFunction => {
                 let call = self.mem_mgr.get_host_function_call()?;
                 let name = call.function_name.clone();
-                let args: Parameters = call.parameters.clone().try_into()?;
+                let args: Vec<ParameterValue> = call.parameters.clone().unwrap_or(vec![]);
                 let res = self.call_host_function(&name, args)?;
-                self.mem_mgr
-                    .write_response_from_host_method_call(&res.try_into()?)?;
+                self.mem_mgr.write_response_from_host_method_call(&res)?;
                 Ok(())
             }
             OutBAction::Abort => {
@@ -570,11 +570,11 @@ mod tests {
     #[cfg(target_os = "linux")]
     use crate::hypervisor::kvm::test_cfg::TEST_CONFIG as KVM_TEST_CONFIG;
     use crate::{
-        func::host::{
-            vals::{Parameters, SupportedParameterOrReturnValue},
-            Function1, Function2,
+        func::guest::{log_data::GuestLogData, log_level::LogLevel},
+        func::{
+            function_types::{ParameterValue, ReturnValue},
+            host::{Function1, Function2},
         },
-        guest::{guest_log_data::GuestLogData, log_level::LogLevel},
         mem::{config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager},
         sandbox_run_options::SandboxRunOptions,
         testing::{logger::LOGGER, simple_guest_path, simple_guest_pe_info},
@@ -710,13 +710,10 @@ mod tests {
             let mut sandbox = sandbox.unwrap();
 
             let res = sandbox
-                .call_host_function(
-                    "test0",
-                    Parameters(vec![SupportedParameterOrReturnValue::Int(1)]),
-                )
+                .call_host_function("test0", vec![ParameterValue::Int(1)])
                 .unwrap();
 
-            assert_eq!(res, SupportedParameterOrReturnValue::Int(2));
+            assert_eq!(res, ReturnValue::Int(2));
         }
 
         // multiple parameters register + call
@@ -733,14 +730,11 @@ mod tests {
             let res = sandbox
                 .call_host_function(
                     "test1",
-                    Parameters(vec![
-                        SupportedParameterOrReturnValue::Int(1),
-                        SupportedParameterOrReturnValue::Int(2),
-                    ]),
+                    vec![ParameterValue::Int(1), ParameterValue::Int(2)],
                 )
                 .unwrap();
 
-            assert_eq!(res, SupportedParameterOrReturnValue::Int(3));
+            assert_eq!(res, ReturnValue::Int(3));
         }
 
         // incorrect arguments register + call
@@ -757,7 +751,7 @@ mod tests {
             assert!(sandbox.is_ok());
             let mut sandbox = sandbox.unwrap();
 
-            let res = sandbox.call_host_function("test2", Parameters(vec![]));
+            let res = sandbox.call_host_function("test2", vec![]);
             assert!(res.is_err());
         }
 
@@ -768,7 +762,7 @@ mod tests {
             assert!(sandbox.is_ok());
             let mut sandbox = sandbox.unwrap();
 
-            let res = sandbox.call_host_function("test4", Parameters(vec![]));
+            let res = sandbox.call_host_function("test4", vec![]);
             assert!(res.is_err());
         }
     }
