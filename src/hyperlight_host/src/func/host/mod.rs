@@ -2,13 +2,10 @@
 pub mod param_type;
 /// Definitions and functionality for supported return types
 pub mod ret_type;
-
 /// Represents a function call from guest to host.
 pub mod function_call;
-
 /// Represents the definition of a function that the host exposes to the guest.
 pub mod function_definition;
-
 /// Represents the functions that the host exposes to the guest.
 pub mod function_details;
 
@@ -681,28 +678,4 @@ where
 
         Ok(())
     }
-}
-
-/// All the types that can be used as Vec<ParameterValue> or return types for a host
-/// function.
-#[derive(Debug, Clone, PartialEq)]
-pub enum SupportedParameterOrReturnType {
-    /// i32
-    Int,
-    /// i64
-    Long,
-    /// u64
-    ULong,
-    /// bool
-    Bool,
-    /// StringF
-    String,
-    /// Vec<u8>
-    ByteArray,
-    /// *mut c_void (raw pointer to an unsized type)
-    IntPtr,
-    /// u32
-    UInt,
-    /// Void (return types only)
-    Void,
 }

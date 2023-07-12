@@ -1,6 +1,5 @@
 ///! Definitions for common functions to be exposed in the guest
 pub(crate) mod exports;
-
 /// Definitions and functionality to enable guest-to-host function calling,
 /// also called "host functions"
 ///
@@ -13,15 +12,11 @@ pub(crate) mod exports;
 /// - Dynamically dispatching a call from the guest to the appropriate
 /// host function
 pub mod host;
-
 /// Definitions for types related to functions used by both the guest and the
 /// host. This includes the types of parameters and return values that are
 /// supported in Hyperlight.
 pub mod function_types;
-
 /// Represents a function call.
 pub mod function_call;
-
 /// Types used to pass data to/from the guest.
-#[deny(dead_code, missing_docs, unused_mut)]
 pub(crate) mod guest;
