@@ -612,6 +612,8 @@ mod tests {
         testing::{bytes_for_path, callback_guest_buf, simple_guest_buf},
     };
     use serde_json::to_string;
+    #[cfg(all(target_os = "windows", not(RunningNextest)))]
+    use serial_test::serial;
 
     #[test]
     fn load_guest_binary_common() {
@@ -640,6 +642,7 @@ mod tests {
 
     #[cfg(target_os = "windows")]
     #[test]
+    #[cfg_attr(not(RunningNextest), serial)]
     fn load_guest_binary_using_load_library() {
         use crate::{mem::mgr::SandboxMemoryManager, testing::simple_guest_path};
 

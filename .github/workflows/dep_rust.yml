@@ -122,6 +122,7 @@ jobs:
         working-directory: src/hyperlight_host
         env:
           CARGO_TERM_COLOR: always
+          RUSTFLAGS: "--cfg RunningNextest"
         run: just build-test-rust ${{ matrix.config }}
       - name: Set up munit
         working-directory: src/hyperlight_host/tests_capi

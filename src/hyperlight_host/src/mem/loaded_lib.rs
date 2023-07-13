@@ -116,11 +116,14 @@ mod tests {
     use super::set_guest_binary_boolean;
     use super::LoadedLib;
     use crate::testing::{simple_guest_buf, simple_guest_path};
+    #[cfg(not(RunningNextest))]
+    use serial_test::serial;
 
     /// universal test for all LoadedLib-related functionality. It's necessary
     /// to put everything into a single test because LoadedLib relies on global
     /// state.
     #[test]
+    #[cfg_attr(not(RunningNextest), serial)]
     fn test_universal() {
         // first, test the basic set_guest_binary_boolean
         {

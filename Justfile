@@ -30,7 +30,8 @@ build: build-rust build-dotnet
     echo "built all .Net and Rust projects"
 
 test-rust target=default-target:
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} -- --nocapture  --test-threads 1
+    cargo test --profile={{ if target == "debug" {"dev"} else { target } }}  
+    cargo test sandbox::tests::test_trace  --profile={{ if target == "debug" {"dev"} else { target } }} -- --ignored 
 
 test-dotnet-hl:
     cd src/tests/Hyperlight.Tests && dotnet test || cd ../../../

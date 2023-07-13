@@ -3,8 +3,8 @@ use anyhow::{anyhow, Result};
 use hex_literal::hex;
 use std::fs;
 use std::path::PathBuf;
-
 pub(crate) mod logger;
+pub(crate) mod tracing_subscriber;
 
 pub(crate) const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
 

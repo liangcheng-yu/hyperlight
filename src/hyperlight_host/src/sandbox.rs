@@ -2,7 +2,6 @@ use super::sandbox_run_options::SandboxRunOptions;
 use crate::flatbuffers::hyperlight::generated::ErrorCode;
 use crate::func::function_types::{ParameterValue, ReturnValue};
 use crate::func::guest::log_data::GuestLogData;
-use crate::func::guest::log_level::LogLevel;
 use crate::func::host::function_definition::HostFunctionDefinition;
 use crate::func::host::{Function1, HyperlightFunction};
 use crate::hypervisor::Hypervisor;
@@ -25,7 +24,7 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Result};
 use is_terminal::IsTerminal;
-use log::{debug, error, info, trace, warn};
+use log::{error, info, warn, Level, Record};
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::io::stdout;
@@ -35,6 +34,9 @@ use std::option::Option;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+use tracing::instrument;
+use tracing_log::format_trace;
+use uuid::Uuid;
 
 // In case its not obvious why there are separate is_supported_platform and is_hypervisor_present functions its because
 // Hyperlight is designed to be able to run on a host that doesn't have a hypervisor.
@@ -99,6 +101,7 @@ pub struct UnintializedSandbox<'a> {
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
+    correlation_id: String,
 }
 
 /// The primary mechanism to interact with VM partitions that
@@ -190,14 +193,43 @@ impl<'a>
 impl<'a> UnintializedSandbox<'a> {
     /// Create a new sandbox configured to run the binary at path
     /// `bin_path`.
+    ///
+    /// The instrument attribute is used to generate tracing spans and also to emit an error should the Result be an error
+    /// In order to ensure that the span is associated with any error (so we get the correlation id ) we set the level of the span to error
+    /// the downside to this is that if there is no trace subscriber a log at level error or below will always emit a record for this regardless of if an error actually occurs
+    /// TODO: Move this to C API and just leave   #[instrument(err(Dubug))] on the function
+    #[instrument(
+        err(),
+        skip(cfg),
+        fields(correlation_id)
+        name = "UnintializedSandbox::new"
+    )]
     pub fn new(
         bin_path: String,
         cfg: Option<SandboxMemoryConfiguration>,
         sandbox_run_options: Option<SandboxRunOptions>,
+        correlation_id: Option<String>,
     ) -> Result<Self> {
+        let correlation_id = match correlation_id {
+            None => {
+                info!("No correlation id provided, generating one");
+                Uuid::new_v4().to_string()
+            }
+            Some(id) => {
+                info!("Using provided correlation id");
+                id
+            }
+        };
+
+        tracing::Span::current().record("correlation_id", &correlation_id);
+
         // Make sure the binary exists
-        let path = Path::new(&bin_path).canonicalize()?;
-        path.try_exists()?;
+
+        let path = Path::new(&bin_path)
+            .canonicalize()
+            .map_err(|e| anyhow!("Error {} File Path {}", e, &bin_path))?;
+        path.try_exists()
+            .map_err(|e| anyhow!("Error {} File Path {}", e, &bin_path))?;
 
         let sandbox_run_options =
             sandbox_run_options.unwrap_or(SandboxRunOptions::RUN_IN_HYPERVISOR);
@@ -255,6 +287,7 @@ impl<'a> UnintializedSandbox<'a> {
             host_functions: HashMap::new(),
             mem_mgr,
             stack_guard,
+            correlation_id,
         };
 
         default_writer_func.register(&mut sandbox, "writer_func")?;
@@ -275,6 +308,7 @@ impl<'a> UnintializedSandbox<'a> {
     /// TODO: remove the dead code annotation after this is hooked up in
     /// https://github.com/deislabs/hyperlight/pull/727
     #[allow(dead_code)]
+    #[instrument(err(Debug), skip(self))]
     fn check_stack_guard(&self) -> Result<bool> {
         self.mem_mgr.check_stack_guard(self.stack_guard)
     }
@@ -464,6 +498,7 @@ impl<'a> UnintializedSandbox<'a> {
     /// Initialize the `Sandbox` from an `UninitializedSandbox`.
     /// Receives a callback function to be called during initialization.
     #[allow(unused)]
+    #[instrument(err(Debug), skip_all, fields(correlation_id=self.correlation_id))]
     fn initialize<F: Fn(&mut UnintializedSandbox<'a>) -> Result<()> + 'a>(
         mut self,
         callback: Option<F>,
@@ -538,24 +573,65 @@ impl<'a> Sandbox<'a> {
         }
     }
 }
-
+#[instrument(skip(mgr))]
 fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
+    // This code will create either a logging record or a tracing record for the GuestLogData depending on if the host has set up a tracing subscriber.
+    // In theory as we have enabled the log feature in the Cargo.toml for tracing this should happen
+    // automatically (based on if there is tracing subscriber present) but only works if the event created using macros. (see https://github.com/tokio-rs/tracing/blob/master/tracing/src/macros.rs#L2421 )
+    // The reason that we don't want to use the tracing macros is that we want to be able to explicitly
+    // set the file and line number for the log record which is not possible with macros.
+    // This is because the file and line number come from the  guest not the call site.
+
     let log_data: GuestLogData = mgr.read_guest_log_data()?;
-    let log_level = &log_data.level;
-    let message = format!(
-        "{} [{}:{}] {}, {}\n",
-        log_data.source, log_data.source_file, log_data.line, log_data.caller, log_data.message
-    );
-    match log_level {
-        LogLevel::Trace => trace!("{}", message),
-        LogLevel::Debug => debug!("{}", message),
-        LogLevel::Information => info!("{}", message),
-        LogLevel::Warning => warn!("{}", message),
-        LogLevel::Error => error!("{}", message),
-        LogLevel::Critical => error!("[CRITICAL] {}", message),
-        // Do nothing if the log level is set to none
-        LogLevel::None => (),
-    };
+
+    let record_level: &Level = &log_data.level.into();
+
+    // Work out if we need to log or trace
+    // this API is marked as follows but it is the easiest way to work out if we should trace or log
+
+    // Private API for internal use by tracing's macros.
+    //
+    // This function is *not* considered part of `tracing`'s public API, and has no
+    // stability guarantees. If you use it, and it breaks or disappears entirely,
+    // don't say we didn't warn you.
+
+    let should_trace = tracing_core::dispatcher::has_been_set();
+    let source_file = Some(log_data.source_file.as_str());
+    let line = Some(log_data.line);
+    let source = Some(log_data.source.as_str());
+
+    // See https://github.com/rust-lang/rust/issues/42253 for the reason this has to be done this way
+
+    if should_trace {
+        // Create a tracing event for the GuestLogData
+        // Ideally we would create tracing metadata based on the Guest Log Data
+        // but tracing derives the metadata at compile time
+        // see https://github.com/tokio-rs/tracing/issues/2419
+        // so we leave it up to the subscriber to figure out that there are logging fields present with this data
+        format_trace(
+            &Record::builder()
+                .args(format_args!("{}", log_data.message))
+                .level(*record_level)
+                .target("hyperlight_guest")
+                .file(source_file)
+                .line(line)
+                .module_path(source)
+                .build(),
+        )?;
+    } else {
+        // Create a log record for the GuestLogData
+        log::logger().log(
+            &Record::builder()
+                .args(format_args!("{}", log_data.message))
+                .level(*record_level)
+                .target("hyperlight_guest")
+                .file(Some(&log_data.source_file))
+                .line(Some(log_data.line))
+                .module_path(Some(&log_data.source))
+                .build(),
+        );
+    }
+
     Ok(())
 }
 
@@ -577,17 +653,26 @@ mod tests {
         },
         mem::{config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager},
         sandbox_run_options::SandboxRunOptions,
-        testing::{logger::LOGGER, simple_guest_path, simple_guest_pe_info},
+        testing::{
+            logger::Logger as TestLogger, logger::LOGGER as TEST_LOGGER, simple_guest_path,
+            simple_guest_pe_info, tracing_subscriber::TracingSubscriber as TestSubcriber,
+        },
     };
     use anyhow::Result;
     use crossbeam_queue::ArrayQueue;
-    use log::{set_logger, set_max_level, Level};
+    use log::Level;
+    #[cfg(not(RunningNextest))]
+    use serial_test::serial;
+    use std::path::PathBuf;
     use std::{
         io::{Read, Write},
         sync::{Arc, Mutex},
         thread,
     };
     use tempfile::NamedTempFile;
+    use tracing::Level as tracing_level;
+    use tracing_core::{callsite::rebuild_interest_cache, Subscriber};
+    use uuid::Uuid;
     #[test]
     // TODO: add support for testing on WHP
     #[cfg(target_os = "linux")]
@@ -599,20 +684,21 @@ mod tests {
             assert!(!is_hypervisor_present());
         }
     }
+    use serde_json::{Map, Value};
 
     #[test]
     fn test_new_sandbox() {
         // Guest Binary exists at path
 
         let binary_path = simple_guest_path().unwrap();
-        let sandbox = UnintializedSandbox::new(binary_path.clone(), None, None);
+        let sandbox = UnintializedSandbox::new(binary_path.clone(), None, None, None);
         assert!(sandbox.is_ok());
 
         // Guest Binary does not exist at path
 
         let binary_path_does_not_exist = binary_path.trim_end_matches(".exe").to_string();
         let uninitialized_sandbox =
-            UnintializedSandbox::new(binary_path_does_not_exist, None, None);
+            UnintializedSandbox::new(binary_path_does_not_exist, None, None, None);
         assert!(uninitialized_sandbox.is_err());
 
         // Non default memory configuration
@@ -627,7 +713,8 @@ mod tests {
             Some(0x1000),
         );
 
-        let uninitialized_sandbox = UnintializedSandbox::new(binary_path.clone(), Some(cfg), None);
+        let uninitialized_sandbox =
+            UnintializedSandbox::new(binary_path.clone(), Some(cfg), None, None);
         assert!(uninitialized_sandbox.is_ok());
 
         // Invalid sandbox_run_options
@@ -636,10 +723,10 @@ mod tests {
             SandboxRunOptions::RUN_FROM_GUEST_BINARY | SandboxRunOptions::RECYCLE_AFTER_RUN;
 
         let uninitialized_sandbox =
-            UnintializedSandbox::new(binary_path.clone(), None, Some(sandbox_run_options));
+            UnintializedSandbox::new(binary_path.clone(), None, Some(sandbox_run_options), None);
         assert!(uninitialized_sandbox.is_err());
 
-        let uninitialized_sandbox = UnintializedSandbox::new(binary_path, None, None);
+        let uninitialized_sandbox = UnintializedSandbox::new(binary_path, None, None, None);
         assert!(uninitialized_sandbox.is_ok());
 
         // Get a Sandbox from an uninitialized sandbox without a call back function
@@ -663,6 +750,7 @@ mod tests {
 
         let mut uninitialized_sandbox = UnintializedSandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
+            None,
             None,
             None,
         )
@@ -689,6 +777,7 @@ mod tests {
         let uninitialized_sandbox = || {
             UnintializedSandbox::new(
                 simple_guest_path().expect("Guest Binary Missing"),
+                None,
                 None,
                 None,
             )
@@ -779,6 +868,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(RunningNextest), serial)]
     fn test_load_guest_binary_load_lib() {
         let cfg = SandboxMemoryConfiguration::default();
         let simple_guest_path = simple_guest_path().unwrap();
@@ -810,6 +900,7 @@ mod tests {
 
         let mut sandbox = UnintializedSandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
+            None,
             None,
             None,
         )
@@ -849,6 +940,7 @@ mod tests {
             simple_guest_path().expect("Guest Binary Missing"),
             None,
             None,
+            None,
         )
         .expect("Failed to create sandbox");
 
@@ -874,6 +966,7 @@ mod tests {
             simple_guest_path().expect("Guest Binary Missing"),
             None,
             None,
+            None,
         )
         .expect("Failed to create sandbox");
 
@@ -895,6 +988,7 @@ mod tests {
 
         let mut sandbox = UnintializedSandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
+            None,
             None,
             None,
         )
@@ -932,7 +1026,10 @@ mod tests {
     }
 
     #[test]
-    fn test_outb_log() {
+    fn test_log_outb_log() {
+        TestLogger::initialize_test_logger();
+        TEST_LOGGER.set_max_level(log::LevelFilter::Off);
+
         let new_mgr = || {
             let mut pe_info = simple_guest_pe_info().unwrap();
             SandboxMemoryManager::load_guest_binary_into_memory(
@@ -943,14 +1040,14 @@ mod tests {
             .unwrap()
         };
         {
-            // We have not set a logger and there is no guest log data
+            // We set a logger but there is no guest log data
             // in memory, so expect a log operation to fail
             let mgr = new_mgr();
             assert!(outb_log(&mgr).is_err());
         }
         {
-            // Write a log message so outb_log will succeed. Since there is
-            // no logger set with set_logger, expect logs to be no-ops
+            // Write a log message so outb_log will succeed.
+            // Since the logger level is set off, expect logs to be no-ops
             let mut mgr = new_mgr();
             let layout = mgr.layout;
             let log_msg = new_guest_log_data(LogLevel::Information);
@@ -959,18 +1056,19 @@ mod tests {
                 .write_to_memory(mgr.get_shared_mem_mut(), &layout)
                 .unwrap();
             assert!(outb_log(&mgr).is_ok());
-            assert_eq!(0, LOGGER.num_log_calls());
+            assert_eq!(0, TEST_LOGGER.num_log_calls());
+            TEST_LOGGER.clear_log_calls();
         }
         {
             // now, test logging
+            TEST_LOGGER.set_max_level(log::LevelFilter::Trace);
             let mut mgr = new_mgr();
-            {
-                // set up the logger and set the log level to the maximum
-                // possible (Trace) to ensure we're able to test all
-                // the possible branches of the match in outb_log
-                set_logger(&LOGGER).unwrap();
-                set_max_level(log::LevelFilter::Trace);
-            }
+            TEST_LOGGER.clear_log_calls();
+
+            // set up the logger and set the log level to the maximum
+            // possible (Trace) to ensure we're able to test all
+            // the possible branches of the match in outb_log
+
             let levels = vec![
                 LogLevel::Trace,
                 LogLevel::Debug,
@@ -980,50 +1078,187 @@ mod tests {
                 LogLevel::Critical,
                 LogLevel::None,
             ];
-            for (idx, level) in levels.iter().enumerate() {
+            for level in levels {
                 let layout = mgr.layout;
-                let log_data = new_guest_log_data(level.clone());
+                let log_data = new_guest_log_data(level);
                 log_data
                     .write_to_memory(mgr.get_shared_mem_mut(), &layout)
                     .unwrap();
                 outb_log(&mgr).unwrap();
-                let num_calls = LOGGER.num_log_calls();
-                if level.clone() != LogLevel::None {
-                    assert_eq!(
-                        idx + 1,
-                        num_calls,
+
+                TEST_LOGGER.test_log_records(|log_calls| {
+                    let expected_level: Level = level.into();
+
+                    assert!(
+                        log_calls
+                            .iter()
+                            .filter(|log_call| {
+                                log_call.level == expected_level
+                                    && log_call.line == Some(log_data.line)
+                                    && log_call.args == log_data.message
+                                    && log_call.module_path == Some(log_data.source.clone())
+                                    && log_call.file == Some(log_data.source_file.clone())
+                            })
+                            .count()
+                            == 1,
                         "log call did not occur for level {:?}",
                         level.clone()
                     );
-                }
-                let last_log = LOGGER.get_log_call(num_calls - 1).unwrap();
-                match (level, last_log.level) {
-                    (LogLevel::Trace, Level::Trace) => (),
-                    (LogLevel::Debug, Level::Debug) => (),
-                    (LogLevel::Information, Level::Info) => (),
-                    (LogLevel::Warning, Level::Warn) => (),
-                    (LogLevel::Error, Level::Error) => (),
-                    (LogLevel::Critical, Level::Error) => (),
-                    // If someone logged with "None", we don't
-                    // expect any actual log record. this case
-                    // is here to indicate we don't want to
-                    // match None to any actual log record, and
-                    // we don't want to fall through to the next
-                    // case
-                    (LogLevel::None, _) => (),
-                    (other_log_level, other_level) => panic!(
-                        "Invalid LogLevel / Level pair: ({:?}, {:?})",
-                        other_log_level, other_level
-                    ),
-                };
+                });
             }
         }
+    }
+
+    // Tests that outb_log emits traces when a trace subscriber is set
+    // this test is ignored because it is incompatible with other tests , specifically those which require a logger for tracing
+    // to run tracing tests use `cargo test test_trace -- --ignored`
+    #[test]
+    #[ignore]
+    #[cfg_attr(not(RunningNextest), serial)]
+    fn test_trace_outb_log() {
+        TestLogger::initialize_log_tracer();
+        rebuild_interest_cache();
+        let subscriber = TestSubcriber::new(tracing_level::TRACE);
+        tracing::subscriber::with_default(subscriber.clone(), || {
+            let new_mgr = || {
+                let mut pe_info = simple_guest_pe_info().unwrap();
+                SandboxMemoryManager::load_guest_binary_into_memory(
+                    SandboxMemoryConfiguration::default(),
+                    &mut pe_info,
+                    false,
+                )
+                .unwrap()
+            };
+
+            // as a span does not exist one will be automatically created
+            // after that there will be an event for each log message
+            // we are interested only in the events for the log messages that we created
+
+            let levels = vec![
+                LogLevel::Trace,
+                LogLevel::Debug,
+                LogLevel::Information,
+                LogLevel::Warning,
+                LogLevel::Error,
+                LogLevel::Critical,
+                LogLevel::None,
+            ];
+            for level in levels {
+                let mut mgr = new_mgr();
+                let layout = mgr.layout;
+                let log_data: GuestLogData = new_guest_log_data(level);
+                log_data
+                    .write_to_memory(mgr.get_shared_mem_mut(), &layout)
+                    .unwrap();
+                outb_log(&mgr).unwrap();
+
+                subscriber.test_trace_records(|spans, events| {
+                    let expected_level = match level {
+                        LogLevel::Trace => "TRACE",
+                        LogLevel::Debug => "DEBUG",
+                        LogLevel::Information => "INFO",
+                        LogLevel::Warning => "WARN",
+                        LogLevel::Error => "ERROR",
+                        LogLevel::Critical => "ERROR",
+                        LogLevel::None => "TRACE",
+                    };
+
+                    // We cannot get the span using the `current_span()` method as by the time we get to this point the span has been exited so there is no current span
+                    // We need to make sure that the span that we created is in the spans map instead
+                    // We should only have one span in the map
+
+                    assert!(spans.len() == 1);
+
+                    let span_value = spans
+                        .get(&1)
+                        .unwrap()
+                        .as_object()
+                        .unwrap()
+                        .get("span")
+                        .unwrap()
+                        .get("attributes")
+                        .unwrap()
+                        .as_object()
+                        .unwrap()
+                        .get("metadata")
+                        .unwrap()
+                        .as_object()
+                        .unwrap();
+
+                    assert!(test_value_as_str(span_value, "level", "INFO"));
+                    assert!(test_value_as_str(
+                        span_value,
+                        "module_path",
+                        "hyperlight_host::sandbox"
+                    ));
+                    let expected_file = if cfg!(windows) {
+                        "src\\hyperlight_host\\src\\sandbox.rs"
+                    } else {
+                        "src/hyperlight_host/src/sandbox.rs"
+                    };
+                    assert!(test_value_as_str(span_value, "file", expected_file));
+                    assert!(test_value_as_str(
+                        span_value,
+                        "target",
+                        "hyperlight_host::sandbox"
+                    ));
+
+                    let mut count_matching_events = 0;
+
+                    for json_value in events {
+                        let event_values = json_value.as_object().unwrap().get("event").unwrap();
+                        let metadata_values_map =
+                            event_values.get("metadata").unwrap().as_object().unwrap();
+                        let event_values_map = event_values.as_object().unwrap();
+                        if test_value_as_str(metadata_values_map, "level", expected_level)
+                            && test_value_as_str(event_values_map, "log.file", "test source file")
+                            && test_value_as_str(event_values_map, "log.module_path", "test source")
+                            && test_value_as_str(event_values_map, "log.target", "hyperlight_guest")
+                        {
+                            count_matching_events += 1;
+                        }
+                    }
+                    assert!(
+                        count_matching_events == 1,
+                        "trace log call did not occur for level {:?}",
+                        level.clone()
+                    );
+                    subscriber.clear();
+                });
+            }
+        });
+    }
+
+    fn test_value_as_str(values: &Map<String, Value>, key: &str, expected_value: &str) -> bool {
+        if let Some(value) = values.get(key) {
+            if let Some(value) = value.as_str() {
+                if value == expected_value {
+                    return true;
+                }
+            }
+        };
+        false
+    }
+
+    fn test_value_as_str_starts_with(
+        values: &Map<String, Value>,
+        key: &str,
+        expected_value: &str,
+    ) -> bool {
+        if let Some(value) = values.get(key) {
+            if let Some(value) = value.as_str() {
+                if value.starts_with(expected_value) {
+                    return true;
+                }
+            }
+        };
+        false
     }
 
     #[test]
     fn test_stack_guard() {
         let simple_guest_path = simple_guest_path().unwrap();
-        let sbox = UnintializedSandbox::new(simple_guest_path, None, None).unwrap();
+        let sbox = UnintializedSandbox::new(simple_guest_path, None, None, None).unwrap();
         let res = sbox.check_stack_guard();
         assert!(res.is_ok(), "Sandbox::check_stack_guard returned an error");
         assert!(res.unwrap(), "Sandbox::check_stack_guard returned false");
@@ -1036,7 +1271,7 @@ mod tests {
 
         for i in 0..10 {
             let simple_guest_path = simple_guest_path().expect("Guest Binary Missing");
-            let unintializedsandbox = UnintializedSandbox::new(simple_guest_path, None, None)
+            let unintializedsandbox = UnintializedSandbox::new(simple_guest_path, None, None, None)
                 .unwrap_or_else(|_| panic!("Failed to create UnintializedSandbox {}", i));
 
             unintializedsandbox_queue
@@ -1090,5 +1325,309 @@ mod tests {
         for handle in thread_handles {
             handle.join().unwrap();
         }
+    }
+
+    #[test]
+    #[ignore]
+    #[cfg_attr(not(RunningNextest), serial)]
+    // Tests that trace data are emitted when a trace subscriber is set
+    // this test is ignored because it is incompatible with other tests , specifically those which require a logger for tracing
+    // to run tracing tests use `cargo test test_trace -- --ignored`
+    fn test_trace_trace() {
+        TestLogger::initialize_log_tracer();
+        rebuild_interest_cache();
+        let subscriber = TestSubcriber::new(tracing_level::TRACE);
+        tracing::subscriber::with_default(subscriber.clone(), || {
+            let correlation_id = Uuid::new_v4().as_hyphenated().to_string();
+            let span = tracing::error_span!("test_trace_logs", correlation_id).entered();
+
+            // We should be in span 1
+
+            let current_span = subscriber.current_span();
+            assert!(current_span.is_known(), "Current span is unknown");
+            let current_span_metadata = current_span.into_inner().unwrap();
+            assert_eq!(
+                current_span_metadata.0.into_u64(),
+                1,
+                "Current span is not span 1"
+            );
+            assert_eq!(current_span_metadata.1.name(), "test_trace_logs");
+
+            // Get the span data and check the correlation id
+
+            let span_data = subscriber.get_span(1);
+            let span_attributes: &Map<String, Value> = span_data
+                .get("span")
+                .unwrap()
+                .get("attributes")
+                .unwrap()
+                .as_object()
+                .unwrap();
+
+            assert!(test_value_as_str(
+                span_attributes,
+                "correlation_id",
+                correlation_id.as_str()
+            ));
+
+            let mut binary_path = simple_guest_path().unwrap();
+            binary_path.push_str("does_not_exist");
+
+            let correlation_id = Uuid::new_v4().as_hyphenated().to_string();
+            let sbox =
+                UnintializedSandbox::new(binary_path, None, None, Some(correlation_id.clone()));
+            assert!(sbox.is_err());
+
+            // Now we should still be in span 1 but span 2 should be created (we created entered and exited span 2 when we called UnintializedSandbox::new)
+
+            let current_span = subscriber.current_span();
+            assert!(current_span.is_known(), "Current span is unknown");
+            let current_span_metadata = current_span.into_inner().unwrap();
+            assert_eq!(
+                current_span_metadata.0.into_u64(),
+                1,
+                "Current span is not span 1"
+            );
+
+            let span_metadata = subscriber.get_span_metadata(2);
+            assert_eq!(span_metadata.name(), "UnintializedSandbox::new");
+
+            // The value of the correlation id should be the same as the one we passed to UnintializedSandbox::new
+
+            let span_data = subscriber.get_span(2);
+            let span_attributes: &Map<String, Value> = span_data
+                .get("span")
+                .unwrap()
+                .get("attributes")
+                .unwrap()
+                .as_object()
+                .unwrap();
+
+            assert!(test_value_as_str(
+                span_attributes,
+                "correlation_id",
+                correlation_id.as_str()
+            ));
+
+            // There should be two events, one for the info specifying that the provided correlation id is being used and the other for the error that the binary path does not exist
+
+            let events = subscriber.get_events();
+            assert_eq!(events.len(), 2);
+
+            let mut count_matching_events = 0;
+
+            for json_value in events {
+                let event_values = json_value.as_object().unwrap().get("event").unwrap();
+                let metadata_values_map =
+                    event_values.get("metadata").unwrap().as_object().unwrap();
+                let event_values_map = event_values.as_object().unwrap();
+
+                // This is the info event for using the provided correlation id
+
+                if test_value_as_str(metadata_values_map, "level", "INFO")
+                    && test_value_as_str(
+                        event_values_map,
+                        "message",
+                        "Using provided correlation id",
+                    )
+                    && test_value_as_str(
+                        event_values_map,
+                        "log.module_path",
+                        "hyperlight_host::sandbox",
+                    )
+                    && test_value_as_str(event_values_map, "log.target", "hyperlight_host::sandbox")
+                {
+                    count_matching_events += 1;
+                }
+
+                // This is the error event for the binary path not existing
+
+                #[cfg(target_os = "windows")]
+                let expected_error =
+                    "Error The system cannot find the file specified. (os error 2) File Path";
+                #[cfg(not(target_os = "windows"))]
+                let expected_error = "Error No such file or directory (os error 2) File Path";
+
+                if test_value_as_str(metadata_values_map, "level", "ERROR")
+                    && test_value_as_str_starts_with(event_values_map, "error", expected_error)
+                    && test_value_as_str(
+                        metadata_values_map,
+                        "module_path",
+                        "hyperlight_host::sandbox",
+                    )
+                    && test_value_as_str(metadata_values_map, "target", "hyperlight_host::sandbox")
+                {
+                    count_matching_events += 1;
+                }
+            }
+            assert!(
+                count_matching_events == 2,
+                "Unexpected number of matching events {}",
+                count_matching_events
+            );
+            span.exit();
+            subscriber.clear();
+        });
+    }
+
+    #[test]
+    // Tests that traces are emitted as log records when there is no trace subscriber configured.
+    fn test_log_trace() {
+        TestLogger::initialize_test_logger();
+        TEST_LOGGER.set_max_level(log::LevelFilter::Trace);
+
+        // This makes sure that the metadata interest cache is rebuilt so that the log records are emitted for the trace records
+
+        rebuild_interest_cache();
+
+        let mut binary_path = simple_guest_path().unwrap();
+        binary_path.push_str("does_not_exist");
+
+        let sbox = UnintializedSandbox::new(binary_path, None, None, None);
+        assert!(sbox.is_err());
+
+        // When tracng is creating log records it will create a log record for the creation of the span (from the instrument attribute), and will then create a log record for the entry to and exit from the span.
+        // It also creates a log record for the span beign dropped.
+        // So we expect 6 log records for this test, four for the span and then two for the error as the file that we are attempting to load into the sandbxo does not exist
+
+        let num_calls = TEST_LOGGER.num_log_calls();
+        assert_eq!(6, num_calls);
+
+        // Log record 1
+
+        let logcall = TEST_LOGGER.get_log_call(0).unwrap();
+        assert_eq!(Level::Info, logcall.level);
+
+        assert!(logcall
+            .args
+            .starts_with("UnintializedSandbox::new; bin_path"));
+        assert_eq!("hyperlight_host::sandbox", logcall.target);
+
+        // Log record 2
+
+        let logcall = TEST_LOGGER.get_log_call(1).unwrap();
+        assert_eq!(Level::Trace, logcall.level);
+        assert_eq!(logcall.args, "-> UnintializedSandbox::new;");
+        assert_eq!("tracing::span::active", logcall.target);
+
+        // Log record 3
+
+        let logcall = TEST_LOGGER.get_log_call(2).unwrap();
+        assert_eq!(Level::Info, logcall.level);
+        assert_eq!("No correlation id provided, generating one", logcall.args);
+        assert_eq!("hyperlight_host::sandbox", logcall.target);
+
+        // Log record 4
+
+        let logcall = TEST_LOGGER.get_log_call(3).unwrap();
+        assert_eq!(Level::Error, logcall.level);
+        #[cfg(target_os = "windows")]
+        assert!(logcall.args.starts_with(
+            "error=Error The system cannot find the file specified. (os error 2) File Path"
+        ));
+        #[cfg(not(target_os = "windows"))]
+        assert!(logcall
+            .args
+            .starts_with("error=Error No such file or directory (os error 2) File Path"));
+        assert_eq!("hyperlight_host::sandbox", logcall.target);
+
+        // Log record 5
+
+        let logcall = TEST_LOGGER.get_log_call(4).unwrap();
+        assert_eq!(Level::Trace, logcall.level);
+        assert_eq!(logcall.args, "<- UnintializedSandbox::new;");
+        assert_eq!("tracing::span::active", logcall.target);
+
+        // Log record 6
+
+        let logcall = TEST_LOGGER.get_log_call(5).unwrap();
+        assert_eq!(Level::Trace, logcall.level);
+        assert_eq!(logcall.args, "-- UnintializedSandbox::new;");
+        assert_eq!("tracing::span", logcall.target);
+
+        TEST_LOGGER.clear_log_calls();
+        TEST_LOGGER.set_max_level(log::LevelFilter::Info);
+
+        let mut invalid_binary_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        invalid_binary_path.push("src");
+        invalid_binary_path.push("sandbox.rs");
+
+        let sbox = UnintializedSandbox::new(
+            invalid_binary_path.into_os_string().into_string().unwrap(),
+            None,
+            None,
+            None,
+        );
+        assert!(sbox.is_err());
+
+        // There should be six calls again as we changed the log LevelFilter to Info
+        // We should see the 2 info level logs  seen in records 1 and 3 above
+        // We should then see the span and the info log record from pe_info
+        // and then finally the 2 errors from pe info and sandbox as the error result is propagated back up the call stack
+
+        let num_calls = TEST_LOGGER.num_log_calls();
+        assert_eq!(6, num_calls);
+
+        // Log record 1
+
+        let logcall = TEST_LOGGER.get_log_call(0).unwrap();
+        assert_eq!(Level::Info, logcall.level);
+
+        assert!(logcall
+            .args
+            .starts_with("UnintializedSandbox::new; bin_path"));
+        assert_eq!("hyperlight_host::sandbox", logcall.target);
+
+        // Log record 2
+
+        let logcall = TEST_LOGGER.get_log_call(1).unwrap();
+        assert_eq!(Level::Info, logcall.level);
+        assert_eq!("No correlation id provided, generating one", logcall.args);
+        assert_eq!("hyperlight_host::sandbox", logcall.target);
+
+        // Log record 3
+
+        let logcall = TEST_LOGGER.get_log_call(2).unwrap();
+        assert_eq!(Level::Info, logcall.level);
+        assert!(logcall.args.starts_with("from_file; filename="));
+        assert_eq!("hyperlight_host::mem::pe::pe_info", logcall.target);
+
+        // Log record 4
+
+        let logcall = TEST_LOGGER.get_log_call(3).unwrap();
+        assert_eq!(Level::Info, logcall.level);
+        assert!(logcall.args.starts_with("Loading PE file from"));
+        assert_eq!("hyperlight_host::mem::pe::pe_info", logcall.target);
+
+        // Log record 5
+
+        let logcall = TEST_LOGGER.get_log_call(4).unwrap();
+        assert_eq!(Level::Error, logcall.level);
+        assert!(logcall
+            .args
+            .starts_with("error=Malformed entity: DOS header is malformed"));
+        assert_eq!("hyperlight_host::mem::pe::pe_info", logcall.target);
+
+        // Log record 6
+
+        let logcall = TEST_LOGGER.get_log_call(5).unwrap();
+        assert_eq!(Level::Error, logcall.level);
+        assert!(logcall
+            .args
+            .starts_with("error=Malformed entity: DOS header is malformed"));
+        assert_eq!("hyperlight_host::sandbox", logcall.target);
+
+        TEST_LOGGER.clear_log_calls();
+        TEST_LOGGER.set_max_level(log::LevelFilter::Error);
+
+        // Now we have set the max level to error, so we should not see any log calls as the following should not create an error
+
+        let sbox = UnintializedSandbox::new(simple_guest_path().unwrap(), None, None, None);
+
+        let sbox = sbox.unwrap();
+        let _ = sbox.initialize::<fn(&mut UnintializedSandbox<'_>) -> Result<()>>(None);
+
+        let num_calls = TEST_LOGGER.num_log_calls();
+        assert_eq!(0, num_calls);
     }
 }

@@ -1,8 +1,9 @@
 use crate::flatbuffers::hyperlight::generated::LogLevel as GenLogLevel;
 use anyhow::{bail, Result};
+use log::Level;
 
 #[repr(u8)]
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub(crate) enum LogLevel {
     Trace = 0,
     Debug = 1,
@@ -54,5 +55,26 @@ impl From<&LogLevel> for GenLogLevel {
 impl From<LogLevel> for GenLogLevel {
     fn from(val: LogLevel) -> GenLogLevel {
         GenLogLevel::from(&val)
+    }
+}
+
+impl From<&LogLevel> for Level {
+    fn from(val: &LogLevel) -> Level {
+        match val {
+            LogLevel::Trace => Level::Trace,
+            LogLevel::Debug => Level::Debug,
+            LogLevel::Information => Level::Info,
+            LogLevel::Warning => Level::Warn,
+            LogLevel::Error => Level::Error,
+            LogLevel::Critical => Level::Error,
+            // If the log level is None then we will log as trace
+            LogLevel::None => Level::Trace,
+        }
+    }
+}
+
+impl From<LogLevel> for Level {
+    fn from(val: LogLevel) -> Level {
+        Level::from(&val)
     }
 }

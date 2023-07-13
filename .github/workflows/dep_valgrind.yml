@@ -61,6 +61,10 @@ jobs:
         run: |
           echo "HYPERV_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
           echo "HYPERV_SHOULD_HAVE_STABLE_API=false" >> $GITHUB_ENV
+      - name: Set up cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest@0.9.54
       - name: Set up munit
         working-directory: src/hyperlight_host/tests_capi
         run: |
@@ -106,7 +110,9 @@ jobs:
         run: ls -R
         working-directory: ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0
       - name: Valgrind Rust tests
-        run: cargo valgrind test
+        env:
+            RUSTFLAGS: "--cfg RunningNextest"
+        run: cargo valgrind nextest run --run-ignored all 
       - name: Valgrind C tests
         working-directory: src/hyperlight_host
         run: just valgrind-tests-capi  ${{ matrix.config }}
