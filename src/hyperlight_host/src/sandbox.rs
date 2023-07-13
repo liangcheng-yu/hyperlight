@@ -1114,7 +1114,6 @@ mod tests {
     // to run tracing tests use `cargo test test_trace -- --ignored`
     #[test]
     #[ignore]
-    #[cfg_attr(not(RunningNextest), serial)]
     fn test_trace_outb_log() {
         TestLogger::initialize_log_tracer();
         rebuild_interest_cache();
@@ -1147,6 +1146,7 @@ mod tests {
                 let mut mgr = new_mgr();
                 let layout = mgr.layout;
                 let log_data: GuestLogData = new_guest_log_data(level);
+                subscriber.clear();
                 log_data
                     .write_to_memory(mgr.get_shared_mem_mut(), &layout)
                     .unwrap();
@@ -1223,7 +1223,6 @@ mod tests {
                         "trace log call did not occur for level {:?}",
                         level.clone()
                     );
-                    subscriber.clear();
                 });
             }
         });
@@ -1329,7 +1328,6 @@ mod tests {
 
     #[test]
     #[ignore]
-    #[cfg_attr(not(RunningNextest), serial)]
     // Tests that trace data are emitted when a trace subscriber is set
     // this test is ignored because it is incompatible with other tests , specifically those which require a logger for tracing
     // to run tracing tests use `cargo test test_trace -- --ignored`
