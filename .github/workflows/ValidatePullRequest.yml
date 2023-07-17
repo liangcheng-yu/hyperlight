@@ -3,7 +3,8 @@ name: Validate Pull Request
 on:
   pull_request:
     branches: [ main, dev ]
-  
+    merge_group:
+
 jobs:
   build-host-library:
     uses: ./.github/workflows/dep_build_host_library.yml
