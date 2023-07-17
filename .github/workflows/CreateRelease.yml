@@ -183,6 +183,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@1.71.0
+        with:
+          components: clippy, rustfmt
       - uses: extractions/setup-just@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -217,6 +220,9 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@1.71.0
+        with:
+          components: clippy, rustfmt
       - name: Build Debug
         run: cargo build --verbose
       - name: Build Release

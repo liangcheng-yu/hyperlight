@@ -1,21 +1,21 @@
 use anyhow::Result;
-///! Handlers for Hypervisor custom logic
+/// Handlers for Hypervisor custom logic
 pub(crate) mod handlers;
 #[cfg(target_os = "linux")]
-///! HyperV-on-linux functionality
+/// HyperV-on-linux functionality
 pub mod hyperv_linux;
 #[cfg(target_os = "linux")]
-///! Hypervisor-generic memory utilities
+/// Hypervisor-generic memory utilities
 pub(crate) mod hypervisor_mem;
 #[cfg(target_os = "linux")]
 #[allow(dead_code)] // TODO: remove this when we have a working Rust sandbox
-///! Functionality to manipulate KVM-based virtual machines
+/// Functionality to manipulate KVM-based virtual machines
 pub(crate) mod kvm;
 #[cfg(target_os = "windows")]
-///! Hyperlight Surrogate Process
+/// Hyperlight Surrogate Process
 pub(crate) mod surrogate_process;
 #[cfg(target_os = "windows")]
-///! Hyperlight Surrogate Process
+/// Hyperlight Surrogate Process
 pub(crate) mod surrogate_process_manager;
 
 use self::handlers::{MemAccessHandlerRc, OutBHandlerRc};

@@ -23,11 +23,11 @@ use crate::{
     mem::ptr_offset::Offset,
 };
 use anyhow::{anyhow, bail, Result};
-use is_terminal::IsTerminal;
 use log::{error, info};
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::io::stdout;
+use std::io::IsTerminal;
 use std::io::Write;
 use std::ops::Add;
 use std::option::Option;

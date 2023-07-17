@@ -1,4 +1,4 @@
-///! Definitions for common functions to be exposed in the guest
+/// Definitions for common functions to be exposed in the guest
 pub(crate) mod exports;
 /// Represents a function call.
 pub mod function_call;

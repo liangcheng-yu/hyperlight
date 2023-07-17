@@ -58,10 +58,7 @@ pub(crate) const HV_MAP_GPA_EXECUTABLE: u32 = 12;
 
 static REQUIRE_STABLE_API: Lazy<bool> =
     Lazy::new(|| match env::var("HYPERV_SHOULD_HAVE_STABLE_API") {
-        Ok(val) => match val.parse::<bool>() {
-            Ok(val) => val,
-            Err(_) => false,
-        },
+        Ok(val) => val.parse::<bool>().unwrap_or(false),
         Err(_) => false,
     });
 
