@@ -516,6 +516,22 @@ namespace Hyperlight
                 CheckForGuestError();
                 HyperlightException.LogAndThrowException($"Init Function Failed with error code:{returnValue}", GetType().Name);
             }
+
+            {
+                // call sandbox_initialize _after_ all the init logic
+                // has executed. all the sandbox C API functionality
+                // that is called within this function requires our 
+                // sandbox handle points to an uninitialized sandbox, 
+                // and sandbox_initialize swaps to an initialized one.
+                var rawHdl = sandbox_initialize(
+                    this.context.ctx,
+                    this.hdlWrapper.handle
+                );
+                // we expect sandbox_initialize to return an empty
+                // handle, so we don't need to check the type of hdl
+                // because the ctor will throw if it was an error.
+                using var hdl = new Handle(this.context, rawHdl, true);
+            }
         }
 
         unsafe void CallEntryPoint(IntPtr pebAddress, ulong seed, uint pageSize)
@@ -981,6 +997,14 @@ namespace Hyperlight
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         [return: MarshalAs(UnmanagedType.U1)]
         private static extern bool is_hypervisor_present();
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle sandbox_initialize(
+                    NativeContext ctx,
+                    NativeHandle sboxHdl
+                );
+
 
 #pragma warning restore CA1707 // Remove the underscores from member name
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

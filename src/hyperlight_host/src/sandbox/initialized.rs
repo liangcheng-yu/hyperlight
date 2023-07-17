@@ -3,11 +3,9 @@ use super::uninitialized::UninitializedSandbox;
 use super::{host_funcs::CallHostPrint, outb::OutBAction};
 use super::{host_funcs::HostFuncs, outb::outb_log};
 use crate::func::function_types::ParameterValue;
-use crate::func::host::HyperlightFunction;
 use crate::mem::mgr::SandboxMemoryManager;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use anyhow::Result;
-use std::collections::HashMap;
 
 /// The primary mechanism to interact with VM partitions that run Hyperlight
 /// guest binaries.
@@ -18,7 +16,7 @@ use std::collections::HashMap;
 #[allow(unused)]
 pub struct Sandbox<'a> {
     // Registered host functions
-    host_functions: HashMap<String, HyperlightFunction<'a>>,
+    host_functions: HostFunctionsMap<'a>,
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],

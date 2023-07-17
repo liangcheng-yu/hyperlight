@@ -23,11 +23,11 @@ use crate::{
     mem::ptr_offset::Offset,
 };
 use anyhow::{anyhow, bail, Result};
+use is_terminal::IsTerminal;
 use log::{error, info};
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::io::stdout;
-use std::io::IsTerminal;
 use std::io::Write;
 use std::ops::Add;
 use std::option::Option;
@@ -438,11 +438,11 @@ mod tests {
             host::{Function1, Function2},
         },
         mem::config::SandboxMemoryConfiguration,
+        sandbox::host_funcs::CallHostPrint,
         testing::simple_guest_path,
-        SandboxRunOptions, UninitializedSandbox,
+        Sandbox, SandboxRunOptions, UninitializedSandbox,
     };
     use crate::{sandbox::host_funcs::CallHostFunction, testing::log_values::try_to_strings};
-    use crate::{sandbox::host_funcs::CallHostPrint, Sandbox};
     use anyhow::Result;
     use crossbeam_queue::ArrayQueue;
     use log::Level;
@@ -977,6 +977,7 @@ mod tests {
                     "Error The system cannot find the file specified. (os error 2) File Path";
                 #[cfg(not(target_os = "windows"))]
                 let expected_error = "Error No such file or directory (os error 2) File Path";
+
                 let err_vals_res = try_to_strings([
                     (metadata_values_map, "level"),
                     (event_values_map, "error"),
@@ -1106,11 +1107,11 @@ mod tests {
             assert!(sbox.is_err());
 
             // There should be six calls again as we changed the log LevelFilter
-            // to Info. We should see the 2 info level logs  seen in records 1 and
-            // 3 above.
+            // to Info. We should see the 2 info level logs seen in records 1
+            // and 3 above.
             // We should then see the span and the info log record from pe_info
-            // and then finally the 2 errors from pe info and sandbox as the error
-            // result is propagated back up the call stack
+            // and then finally the 2 errors from pe info and sandbox as the
+            // error result is propagated back up the call stack
 
             let num_calls = TEST_LOGGER.num_log_calls();
             assert_eq!(6, num_calls);
@@ -1163,7 +1164,8 @@ mod tests {
                 .args
                 .starts_with("error=Malformed entity: DOS header is malformed"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
-
+        }
+        {
             TEST_LOGGER.clear_log_calls();
             TEST_LOGGER.set_max_level(log::LevelFilter::Error);
 

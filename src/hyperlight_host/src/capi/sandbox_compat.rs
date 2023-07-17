@@ -1,5 +1,5 @@
 use super::{context::Context, handle::Handle, hdl::Hdl};
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 
 /// Either an initialized or uninitialized sandbox. This enum is used
 /// to allow our `Sandbox` wrapper type to store both an uninitailized
@@ -25,6 +25,27 @@ impl Sandbox {
     /// pointed to by `handle`.
     pub(crate) fn get_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut Self> {
         Context::get_mut(hdl, &mut ctx.sandboxes, |h| matches!(h, Hdl::Sandbox(_)))
+    }
+
+    /// Find the `Sandbox` in `ctx` referenced by `hdl`. If it was found,
+    /// remove the `EitherImpl` from it. Then, pass that `EitherImpl` to
+    /// `cb_fn`. If `cb_fn` returns an `Ok`, set the new `EitherImpl` value
+    /// to the `Sandbox`'s inner value and re-insert the `Sandbox` into `ctx`
+    /// with the same `Handle` `hdl`. If anything went wrong along the way,
+    /// return an `Err`. If an error occurred and the `Sandbox` was already
+    /// removed from `ctx`, do not re-insert it into `ctx`.
+    pub(crate) fn replace<F>(ctx: &mut Context, hdl: Handle, cb_fn: F) -> Result<()>
+    where
+        F: FnOnce(EitherImpl) -> Result<EitherImpl>,
+    {
+        let mut sbox = ctx
+            .sandboxes
+            .remove(&hdl.key())
+            .ok_or(anyhow!("no sandbox exists for the given handle"))?;
+        let new_impl = cb_fn(sbox.inner)?;
+        sbox.inner = new_impl;
+        ctx.sandboxes.insert(hdl.key(), sbox);
+        Ok(())
     }
 
     /// Consume `self`, store it inside `ctx`, then return a new `Handle`

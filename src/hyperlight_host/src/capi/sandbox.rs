@@ -1,10 +1,10 @@
-use super::handle::Handle;
 use super::{c_func::CFunc, mem_mgr::register_mem_mgr};
 use super::{context::Context, sandbox_compat::Sandbox};
-use crate::mem::ptr::RawPtr;
-use crate::sandbox::host_funcs::CallHostPrint;
+use super::{handle::Handle, sandbox_compat::EitherImpl};
 use crate::{capi::strings::get_string, mem::config::SandboxMemoryConfiguration};
 use crate::{func::host::Function1, sandbox};
+use crate::{mem::ptr::RawPtr, sandbox_state::sandbox::EvolvableSandbox};
+use crate::{sandbox::host_funcs::CallHostPrint, sandbox_state::transition::Noop};
 use crate::{
     sandbox::is_hypervisor_present as check_hypervisor,
     sandbox::is_supported_platform as check_platform, SandboxRunOptions,
@@ -18,10 +18,11 @@ use std::sync::{Arc, Mutex};
 ///
 /// # Safety
 ///
-/// This function creates new memory on the heap, and it
-/// is the caller's responsibility to free that memory when
-/// it's no longer needed (but no sooner). Use `handle_free`
-/// to do so.
+/// This function creates new memory, and it is the caller's responsibility
+/// to free that memory after it's no longer needed (but no sooner).
+///
+/// Use only the `handle_free` to do so. Any other method will lead to
+/// undefined behavior.
 #[no_mangle]
 pub unsafe extern "C" fn sandbox_new(
     ctx: *mut Context,
@@ -59,6 +60,36 @@ pub unsafe extern "C" fn sandbox_new(
             )?;
             writer_func.register(&mut sbox, "writer_func")?;
             Ok(Sandbox::from(sbox).register(ctx))
+        })
+        .ok_or_err_hdl()
+}
+
+/// Calls the initialize method on the `UninitializedSandbox` referenced
+/// by `sbox_hdl` in `ctx`, then replaces that `UninitializedSandbox`
+/// with the newly-initialized `Sandbox`. The caller can continue to use
+/// the same `Handle` for subsequent calls to the Hyperlight C APIs, but
+/// if an `UninitializedSandbox` is expected, those calls will now fail.
+///
+/// # Safety
+///
+/// The caller must pass a `ctx` to this function that was created by
+/// `context_new`, not currently in use by any other function, and not yet
+/// freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn sandbox_initialize(ctx: *mut Context, sbox_hdl: Handle) -> Handle {
+    CFunc::new("sandbox_initialize", ctx)
+        .and_then_mut(|ctx, _| {
+            Sandbox::replace(ctx, sbox_hdl, |old| {
+                let uninit = match old {
+                    EitherImpl::Uninit(u) => u,
+                    _ => bail!(
+                        "sandbox_initialize: expected an uninitialized sandbox but didn't get one"
+                    ),
+                };
+                let newly_init = uninit.evolve(Noop::default())?;
+                Ok(EitherImpl::Init(Box::new(newly_init)))
+            })?;
+            Ok(Handle::new_empty())
         })
         .ok_or_err_hdl()
 }
