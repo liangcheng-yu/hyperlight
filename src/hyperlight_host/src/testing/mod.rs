@@ -3,6 +3,7 @@ use anyhow::{anyhow, Result};
 use hex_literal::hex;
 use std::fs;
 use std::path::PathBuf;
+pub(crate) mod log_values;
 pub(crate) mod logger;
 pub(crate) mod tracing_subscriber;
 

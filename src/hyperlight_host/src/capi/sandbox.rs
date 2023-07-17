@@ -2,11 +2,12 @@ use super::handle::Handle;
 use super::{c_func::CFunc, mem_mgr::register_mem_mgr};
 use super::{context::Context, sandbox_compat::Sandbox};
 use crate::mem::ptr::RawPtr;
+use crate::sandbox::host_funcs::CallHostPrint;
 use crate::{capi::strings::get_string, mem::config::SandboxMemoryConfiguration};
 use crate::{func::host::Function1, sandbox};
 use crate::{
     sandbox::is_hypervisor_present as check_hypervisor,
-    sandbox::is_supported_platform as check_platform, sandbox_run_options::SandboxRunOptions,
+    sandbox::is_supported_platform as check_platform, SandboxRunOptions,
 };
 use anyhow::{bail, Result};
 use std::os::raw::c_char;
@@ -50,7 +51,7 @@ pub unsafe extern "C" fn sandbox_new(
                 })
                 .unwrap();
 
-            let mut sbox = sandbox::UnintializedSandbox::new(
+            let mut sbox = sandbox::UninitializedSandbox::new(
                 bin_path.to_string(),
                 mem_cfg,
                 sandbox_run_options,

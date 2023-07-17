@@ -12,7 +12,7 @@ pub mod ret_type;
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
 
-use crate::sandbox::UnintializedSandbox;
+use crate::sandbox::UninitializedSandbox;
 
 use self::{
     function_definition::HostFunctionDefinition, param_type::SupportedParameterType,
@@ -26,7 +26,7 @@ pub(crate) type HyperlightFunction<'a> =
 
 /// A Hyperlight function that takes no arguments and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
 pub(crate) trait Function0<'a, R: SupportedReturnType<R>> {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, R> Function0<'a, R> for Arc<Mutex<T>>
@@ -34,7 +34,7 @@ where
     T: FnMut() -> anyhow::Result<R> + 'a + Send,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |_: Vec<ParameterValue>| {
             let result = cloned
@@ -59,7 +59,7 @@ pub(crate) trait Function1<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, R> Function1<'a, P1, R> for Arc<Mutex<T>>
@@ -68,7 +68,7 @@ where
     P1: SupportedParameterType<P1> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = Arc::clone(self);
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 1 {
@@ -102,7 +102,7 @@ pub(crate) trait Function2<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, R> Function2<'a, P1, P2, R> for Arc<Mutex<T>>
@@ -112,7 +112,7 @@ where
     P2: SupportedParameterType<P2> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 2 {
@@ -149,7 +149,7 @@ pub(crate) trait Function3<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, R> Function3<'a, P1, P2, P3, R> for Arc<Mutex<T>>
@@ -160,7 +160,7 @@ where
     P3: SupportedParameterType<P3> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 3 {
@@ -203,7 +203,7 @@ pub(crate) trait Function4<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, R> Function4<'a, P1, P2, P3, P4, R> for Arc<Mutex<T>>
@@ -215,7 +215,7 @@ where
     P4: SupportedParameterType<P4> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 4 {
@@ -261,7 +261,7 @@ pub(crate) trait Function5<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, R> Function5<'a, P1, P2, P3, P4, P5, R> for Arc<Mutex<T>>
@@ -274,7 +274,7 @@ where
     P5: SupportedParameterType<P5> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 5 {
@@ -323,7 +323,7 @@ pub(crate) trait Function6<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, P6, R> Function6<'a, P1, P2, P3, P4, P5, P6, R> for Arc<Mutex<T>>
@@ -337,7 +337,7 @@ where
     P6: SupportedParameterType<P6> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 6 {
@@ -389,7 +389,7 @@ pub(crate) trait Function7<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, P6, P7, R> Function7<'a, P1, P2, P3, P4, P5, P6, P7, R>
@@ -405,7 +405,7 @@ where
     P7: SupportedParameterType<P7> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 7 {
@@ -460,7 +460,7 @@ pub(crate) trait Function8<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, R> Function8<'a, P1, P2, P3, P4, P5, P6, P7, P8, R>
@@ -477,7 +477,7 @@ where
     P8: SupportedParameterType<P8> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 8 {
@@ -535,7 +535,7 @@ pub(crate) trait Function9<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, P9, R>
@@ -553,7 +553,7 @@ where
     P9: SupportedParameterType<P9> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 9 {
@@ -614,7 +614,7 @@ pub(crate) trait Function10<
     R: SupportedReturnType<R>,
 >
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, R>
@@ -633,7 +633,7 @@ where
     P10: SupportedParameterType<P10> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
-    fn register(&self, sandbox: &mut UnintializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 10 {

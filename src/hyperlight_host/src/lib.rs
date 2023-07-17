@@ -90,12 +90,11 @@ pub mod hypervisor;
 /// at this address structs below are laid out in this order
 #[deny(dead_code, missing_docs, unused_mut)]
 pub mod mem;
-/// The main sandbox implementation.
+/// The main sandbox implementations. Do not use this module directly in code
+/// outside this file. Types from this module needed for public consumption are
+/// re-exported below.
 #[deny(dead_code, missing_docs, unused_mut)]
-pub mod sandbox;
-/// The run options for a sandbox.
-#[deny(dead_code, missing_docs, unused_mut)]
-pub mod sandbox_run_options;
+mod sandbox;
 /// `trait`s and other functionality for dealing with defining sandbox
 /// states and moving between them
 pub mod sandbox_state;
@@ -104,3 +103,10 @@ pub mod sandbox_state;
 #[deny(dead_code, missing_docs, unused_mut)]
 #[cfg(test)]
 pub(crate) mod testing;
+
+/// The re-export for the `Sandbox` type
+pub use sandbox::Sandbox;
+/// The re-export for the `SandboxRunOptions` type
+pub use sandbox::SandboxRunOptions;
+/// The re-export for the `UninitializedSandbox` type
+pub use sandbox::UninitializedSandbox;
