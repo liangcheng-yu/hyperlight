@@ -2,7 +2,7 @@ use crate::flatbuffers::hyperlight::generated::{
     GuestFunctionDefinition as FbGuestFunctionDefinition,
     GuestFunctionDefinitionArgs as FbGuestFunctionDefinitionArgs, ParameterType as FbParameterType,
 };
-use crate::func::function_types::{ParameterType, ReturnType};
+use crate::func::types::{ParameterType, ReturnType};
 use crate::mem::ptr::GuestPtr;
 use anyhow::Result;
 use flatbuffers::{FlatBufferBuilder, WIPOffset};

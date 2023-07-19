@@ -4,7 +4,6 @@ use super::{
     initialized::Sandbox,
 };
 use super::{host_funcs::CallHostPrint, run_options::SandboxRunOptions};
-use crate::flatbuffers::hyperlight::generated::ErrorCode;
 use crate::func::host::function_definition::HostFunctionDefinition;
 use crate::func::host::{Function1, HyperlightFunction};
 use crate::hypervisor::Hypervisor;
@@ -26,7 +25,7 @@ use crate::{
     mem::ptr_offset::Offset,
 };
 use anyhow::{anyhow, bail, Result};
-use log::{error, info};
+use log::info;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::ops::Add;
@@ -45,7 +44,7 @@ use uuid::Uuid;
 /// `UninitializedSandbox` into an initialized `Sandbox`.
 pub struct UninitializedSandbox<'a> {
     // Registered host functions
-    host_functions: HashMap<String, HyperlightFunction<'a>>,
+    host_functions: HostFunctionsMap<'a>,
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
@@ -354,35 +353,6 @@ impl<'a> UninitializedSandbox<'a> {
         }
     }
 
-    /// Check for a guest error and return an `Err` if one was found,
-    /// and `Ok` if one was not found.
-    /// TODO: remove this when we hook it up to the rest of the
-    /// sandbox in https://github.com/deislabs/hyperlight/pull/727
-    #[allow(dead_code)]
-    fn check_for_guest_error(&self) -> Result<()> {
-        let guest_err = self.mem_mgr.get_guest_error()?;
-        match guest_err.code {
-            ErrorCode::NoError => Ok(()),
-            ErrorCode::OutbError => match self.mem_mgr.get_host_error()? {
-                Some(host_err) => bail!("[OutB Error] {:?}: {:?}", guest_err.code, host_err),
-                None => Ok(()),
-            },
-            ErrorCode::StackOverflow => {
-                let err_msg = format!(
-                    "[Stack Overflow] Guest Error: {:?}: {}",
-                    guest_err.code, guest_err.message
-                );
-                error!("{}", err_msg);
-                bail!(err_msg);
-            }
-            _ => {
-                let err_msg = format!("Guest Error: {:?}: {}", guest_err.code, guest_err.message);
-                error!("{}", err_msg);
-                bail!(err_msg);
-            }
-        }
-    }
-
     /// Initialize the `Sandbox` from an `UninitializedSandbox`.
     /// Receives a callback function to be called during initialization.
     #[allow(unused)]
@@ -411,8 +381,8 @@ mod tests {
     };
     use crate::{
         func::{
-            function_types::{ParameterValue, ReturnValue},
             host::{Function1, Function2},
+            types::{ParameterValue, ReturnValue},
         },
         mem::config::SandboxMemoryConfiguration,
         sandbox::host_funcs::CallHostPrint,

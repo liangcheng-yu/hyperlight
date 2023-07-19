@@ -5,8 +5,8 @@ use super::{
 };
 use crate::capi::outb_handler::OutBHandlerWrapper;
 use crate::func::function_call::FunctionCall;
-use crate::func::function_types::ReturnValue;
 use crate::func::guest::error::GuestError;
+use crate::func::types::ReturnValue;
 #[cfg(target_os = "linux")]
 use crate::hypervisor::hyperv_linux::HypervLinuxDriver;
 #[cfg(target_os = "linux")]

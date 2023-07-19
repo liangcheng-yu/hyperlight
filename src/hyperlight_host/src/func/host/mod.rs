@@ -19,7 +19,7 @@ use self::{
     ret_type::SupportedReturnType,
 };
 
-use super::function_types::{ParameterValue, ReturnValue};
+use super::types::{ParameterValue, ReturnValue};
 
 pub(crate) type HyperlightFunction<'a> =
     Arc<Mutex<Box<dyn FnMut(Vec<ParameterValue>) -> anyhow::Result<ReturnValue> + 'a + Send>>>;

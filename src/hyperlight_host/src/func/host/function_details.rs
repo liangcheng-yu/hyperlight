@@ -148,7 +148,7 @@ impl TryFrom<HostFunctionDetails> for Vec<u8> {
 mod tests {
     use super::*;
     use crate::{
-        func::function_types::{ParameterType, ReturnType},
+        func::types::{ParameterType, ReturnType},
         mem::config::SandboxMemoryConfiguration,
     };
     use anyhow::{Ok, Result};

@@ -47,7 +47,7 @@ pub unsafe extern "C" fn handle_get_host_function_call_flatbuffer(
 
     match get_host_function_call(&*ctx, hdl) {
         Ok(host_function_call) => {
-            match Vec::try_from(host_function_call) {
+            match Vec::try_from(host_function_call.clone()) {
                 Ok(fb_bytes) => {
                     // Move the fb_bytes vec into a RawVec, then return the
                     // pointer to that underlying RawVec.

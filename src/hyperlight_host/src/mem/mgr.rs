@@ -13,7 +13,6 @@ use crate::{
     error::HyperlightError,
     func::{
         function_call::{FunctionCall, ReadFunctionCallFromMemory, WriteFunctionCallToMemory},
-        function_types::ReturnValue,
         guest::{
             error::{Code, GuestError},
             function_call::GuestFunctionCall,
@@ -23,6 +22,7 @@ use crate::{
             function_call::HostFunctionCall, function_definition::HostFunctionDefinition,
             function_details::HostFunctionDetails,
         },
+        types::ReturnValue,
     },
 };
 use anyhow::{anyhow, bail, Result};
@@ -456,18 +456,18 @@ impl SandboxMemoryManager {
         }
     }
 
-    /// Writes a guest function call to memory
-    pub(crate) fn write_guest_function_call(&mut self, buffer: &[u8]) -> Result<()> {
-        let guest_function_call = GuestFunctionCall {};
-        let layout = self.layout;
-        guest_function_call.write(buffer, self.get_shared_mem_mut(), &layout)
-    }
-
     /// Writes host function details to memory
     pub(crate) fn write_buffer_host_function_details(&mut self, buffer: &[u8]) -> Result<()> {
         let host_function_details = HostFunctionDetails::try_from(buffer)?;
         let layout = self.layout;
         host_function_details.write_to_memory(self.get_shared_mem_mut(), &layout)
+    }
+
+    /// Writes a guest function call to memory
+    pub(crate) fn write_guest_function_call(&mut self, buffer: &[u8]) -> Result<()> {
+        let guest_function_call = GuestFunctionCall {};
+        let layout = self.layout;
+        guest_function_call.write(buffer, self.get_shared_mem_mut(), &layout)
     }
 
     /// Writes a host function call to memory
@@ -489,12 +489,22 @@ impl SandboxMemoryManager {
     }
 
     /// Reads a host function call from memory
-    pub(crate) fn get_host_function_call(&mut self) -> Result<FunctionCall> {
+    pub(crate) fn get_host_function_call(&self) -> Result<FunctionCall> {
         let host_function_call = HostFunctionCall {};
         let layout = self.layout;
         let buffer = host_function_call.read(self.get_shared_mem(), &layout)?;
         FunctionCall::try_from(buffer.as_slice())
     }
+
+    /// Reads a guest function call from memory
+    #[allow(unused)]
+    pub(crate) fn get_guest_function_call(&self) -> Result<FunctionCall> {
+        let guest_function_call = GuestFunctionCall {};
+        let layout = self.layout;
+        let buffer = guest_function_call.read(self.get_shared_mem(), &layout)?;
+        FunctionCall::try_from(buffer.as_slice())
+    }
+
     /// Reads a function call result from memory
     pub(crate) fn get_function_call_result(&mut self) -> Result<ReturnValue> {
         ReturnValue::try_from((&self.shared_mem, &self.layout))

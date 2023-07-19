@@ -3,7 +3,8 @@ use crate::{
         hlbool, hlboolArgs, hlint, hlintArgs, hllong, hllongArgs, hlsizeprefixedbuffer,
         hlsizeprefixedbufferArgs, hlstring, hlstringArgs, hlvoid, hlvoidArgs,
         size_prefixed_root_as_function_call_result, FunctionCallResult as FbFunctionCallResult,
-        FunctionCallResultArgs as FbFunctionCallResultArgs, ParameterType as FbParameterType,
+        FunctionCallResultArgs as FbFunctionCallResultArgs, Parameter,
+        ParameterType as FbParameterType, ParameterValue as FbParameterValue,
         ReturnType as FbReturnType, ReturnValue as FbReturnValue,
     },
     mem::{layout::SandboxMemoryLayout, shared_mem::SharedMemory},
@@ -73,6 +74,33 @@ pub enum ReturnType {
     Void,
     /// Vec<u8>
     VecBytes,
+}
+
+impl TryFrom<Parameter<'_>> for ParameterValue {
+    type Error = anyhow::Error;
+
+    fn try_from(param: Parameter<'_>) -> Result<Self> {
+        let value = param.value_type();
+        let result = match value {
+            FbParameterValue::hlint => param
+                .value_as_hlint()
+                .map(|hlint| ParameterValue::Int(hlint.value())),
+            FbParameterValue::hllong => param
+                .value_as_hllong()
+                .map(|hllong| ParameterValue::Long(hllong.value())),
+            FbParameterValue::hlbool => param
+                .value_as_hlbool()
+                .map(|hlbool| ParameterValue::Bool(hlbool.value())),
+            FbParameterValue::hlstring => param.value_as_hlstring().map(|hlstring| {
+                ParameterValue::String(hlstring.value().unwrap_or_default().to_string())
+            }),
+            FbParameterValue::hlvecbytes => param.value_as_hlvecbytes().map(|hlvecbytes| {
+                ParameterValue::VecBytes(hlvecbytes.value().unwrap_or_default().iter().collect())
+            }),
+            _ => bail!("Unknown parameter type"),
+        };
+        result.ok_or_else(|| anyhow!("Failed to get value from parameter"))
+    }
 }
 
 impl From<ParameterType> for FbParameterType {
@@ -251,38 +279,36 @@ impl ReturnValue {
     }
 }
 
-impl TryFrom<&[u8]> for ReturnValue {
+impl TryFrom<FbFunctionCallResult<'_>> for ReturnValue {
     type Error = anyhow::Error;
-    fn try_from(value: &[u8]) -> Result<Self> {
-        let function_call_result_fb =
-            size_prefixed_root_as_function_call_result(value).map_err(|e| anyhow!(e))?;
-        let function_call_result = match function_call_result_fb.return_value_type() {
+    fn try_from(function_call_result_fb: FbFunctionCallResult<'_>) -> Result<Self> {
+        match function_call_result_fb.return_value_type() {
             FbReturnValue::hlint => {
                 let hlint = function_call_result_fb
                     .return_value_as_hlint()
                     .ok_or_else(|| anyhow!("Failed to get hlint from return value"))?;
-                ReturnValue::Int(hlint.value())
+                Ok(ReturnValue::Int(hlint.value()))
             }
             FbReturnValue::hllong => {
                 let hllong = function_call_result_fb
                     .return_value_as_hllong()
                     .ok_or_else(|| anyhow!("Failed to get hlong from return value"))?;
-                ReturnValue::Long(hllong.value())
+                Ok(ReturnValue::Long(hllong.value()))
             }
             FbReturnValue::hlbool => {
                 let hlbool = function_call_result_fb
                     .return_value_as_hlbool()
                     .ok_or_else(|| anyhow!("Failed to get hlbool from return value"))?;
-                ReturnValue::Bool(hlbool.value())
+                Ok(ReturnValue::Bool(hlbool.value()))
             }
             FbReturnValue::hlstring => {
                 let hlstring = match function_call_result_fb.return_value_as_hlstring() {
                     Some(hlstring) => hlstring.value().map(|v| v.to_string()),
                     None => None,
                 };
-                ReturnValue::String(hlstring.unwrap_or("".to_string()))
+                Ok(ReturnValue::String(hlstring.unwrap_or("".to_string())))
             }
-            FbReturnValue::hlvoid => ReturnValue::Void,
+            FbReturnValue::hlvoid => Ok(ReturnValue::Void),
             FbReturnValue::hlsizeprefixedbuffer => {
                 let hlvecbytes =
                     match function_call_result_fb.return_value_as_hlsizeprefixedbuffer() {
@@ -291,16 +317,24 @@ impl TryFrom<&[u8]> for ReturnValue {
                             .map(|val| val.iter().collect::<Vec<u8>>()),
                         None => None,
                     };
-                ReturnValue::VecBytes(hlvecbytes.unwrap_or(vec![]))
+                Ok(ReturnValue::VecBytes(hlvecbytes.unwrap_or(vec![])))
             }
             _ => {
-                return Err(anyhow!(
+                bail!(
                     "Unknown return value type: {:?}",
                     function_call_result_fb.return_value_type()
-                ))
+                )
             }
-        };
-        Ok(function_call_result)
+        }
+    }
+}
+
+impl TryFrom<&[u8]> for ReturnValue {
+    type Error = anyhow::Error;
+    fn try_from(value: &[u8]) -> Result<Self> {
+        let function_call_result_fb =
+            size_prefixed_root_as_function_call_result(value).map_err(|e| anyhow!(e))?;
+        function_call_result_fb.try_into()
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::func::{
-    function_types::{ParameterValue, ReturnValue},
     host::HyperlightFunction,
+    types::{ParameterValue, ReturnValue},
 };
 use crate::sandbox_state::sandbox::Sandbox;
 use anyhow::{anyhow, Result};

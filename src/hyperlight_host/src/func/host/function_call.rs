@@ -7,7 +7,7 @@ use crate::func::function_call::{ReadFunctionCallFromMemory, WriteFunctionCallTo
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::shared_mem::SharedMemory;
 use anyhow::{anyhow, Result};
-/// A host function call is a function call from theguest to the host.
+/// A host function call is a function call from the guest to the host.
 #[derive(Default)]
 pub struct HostFunctionCall {}
 
@@ -45,8 +45,7 @@ impl WriteFunctionCallToMemory for HostFunctionCall {
 
 impl ReadFunctionCallFromMemory for HostFunctionCall {
     fn read(&self, shared_memory: &SharedMemory, layout: &SandboxMemoryLayout) -> Result<Vec<u8>> {
-        // Get th size of the flatbuffer buffer from memory
-
+        // Get the size of the flatbuffer buffer from memory
         let fb_buffer_size = {
             let size_i32 = shared_memory.read_i32(layout.output_data_buffer_offset)? + 4;
             usize::try_from(size_i32)

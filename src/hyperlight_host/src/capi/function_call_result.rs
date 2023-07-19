@@ -2,7 +2,7 @@ use super::handle::Handle;
 use super::hdl::Hdl;
 use super::{arrays::raw_vec::RawVec, context::Context};
 use crate::validate_context_or_panic;
-use crate::{capi::strings::get_string, func::function_types::ReturnValue};
+use crate::{capi::strings::get_string, func::types::ReturnValue};
 use anyhow::Result;
 use std::mem;
 

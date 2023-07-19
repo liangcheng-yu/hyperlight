@@ -4,7 +4,7 @@ use crate::{
         HostFunctionDefinitionArgs as FbHostFunctionDefinitionArgs,
         ParameterType as FbParameterType,
     },
-    func::function_types::{ParameterType, ReturnType},
+    func::types::{ParameterType, ReturnType},
     mem::{layout::SandboxMemoryLayout, shared_mem::SharedMemory},
 };
 use anyhow::{anyhow, Result};

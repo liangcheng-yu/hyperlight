@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 
-use crate::func::function_types::{ReturnType, ReturnValue};
+use crate::func::types::{ReturnType, ReturnValue};
 
 /// This is a marker trait that is used to indicate that a type is a valid Hyperlight return type.
 pub(crate) trait SupportedReturnType<T> {
