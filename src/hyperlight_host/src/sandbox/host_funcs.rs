@@ -4,7 +4,10 @@ use crate::func::{
 };
 use crate::sandbox_state::sandbox::Sandbox;
 use anyhow::{anyhow, Result};
-use std::collections::HashMap;
+use is_terminal::IsTerminal;
+use std::io::Write;
+use std::{collections::HashMap, io::stdout};
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 /// A `HashMap` to map function names to `HyperlightFunction`s.
 pub(crate) type HostFunctionsMap<'a> = HashMap<String, HyperlightFunction<'a>>;
@@ -56,4 +59,23 @@ fn call_host_func_impl(
 
     let mut locked_func = func.lock().map_err(|e| anyhow!("error locking: {:?}", e))?;
     locked_func(args)
+}
+
+// The default writer function is to write to stdout with green text.
+pub(crate) fn default_writer_func(s: String) -> Result<()> {
+    match stdout().is_terminal() {
+        false => {
+            print!("{}", s);
+            Ok(())
+        }
+        true => {
+            let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+            let mut color_spec = ColorSpec::new();
+            color_spec.set_fg(Some(Color::Green));
+            stdout.set_color(&color_spec)?;
+            stdout.write_all(s.as_bytes())?;
+            stdout.reset()?;
+            Ok(())
+        }
+    }
 }

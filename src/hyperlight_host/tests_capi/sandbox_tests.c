@@ -16,7 +16,7 @@ MunitResult test_is_hypervisor_present(const MunitParameter params[], void *fixt
     HypervisorAvailabilityType *hypervisorAvailability = (HypervisorAvailabilityType *)fixture;
     bool status = is_hypervisor_present();
 
-    if ((hypervisorAvailability->expect_hyperv_linux_present && hypervisorAvailability->expect_hyperv_linux_prerelease_api)|| hypervisorAvailability->expect_kvm_present|| hypervisorAvailability->expect_whp_present)
+    if ((hypervisorAvailability->expect_hyperv_linux_present && hypervisorAvailability->expect_hyperv_linux_prerelease_api) || hypervisorAvailability->expect_kvm_present || hypervisorAvailability->expect_whp_present)
     {
         munit_assert_true(status);
     }
@@ -26,7 +26,7 @@ MunitResult test_is_hypervisor_present(const MunitParameter params[], void *fixt
     }
 
     // TODO: Test for a non pre release API version of hyperv on linux when it is available.
-    
+
     return MUNIT_OK;
 }
 
@@ -51,7 +51,7 @@ MunitResult test_host_print(const MunitParameter params[], void *fixture)
 #endif
     handle_assert_no_error(ctx, binary);
 
-    Handle sbx = sandbox_new(ctx, binary, &mem_cfg,0, host_print);
+    Handle sbx = sandbox_new(ctx, binary, mem_cfg, 0, host_print);
     handle_assert_no_error(ctx, sbx);
 
     sandbox_call_host_print(ctx, sbx, "Hello, world!");

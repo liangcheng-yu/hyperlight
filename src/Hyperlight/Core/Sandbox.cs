@@ -193,7 +193,7 @@ namespace Hyperlight
                     sandbox_new(
                         this.context.ctx,
                         binPathHdl.HandleWrapper.handle,
-                        ref memCfg,
+                        memCfg,
                         (uint)(runOptions ?? SandboxRunOptions.None)
                     ),
                     true
@@ -967,7 +967,7 @@ namespace Hyperlight
         private static extern NativeHandle sandbox_new(
             NativeContext ctx,
             NativeHandle binPathHdl,
-            ref SandboxMemoryConfiguration memCfg,
+            SandboxMemoryConfiguration memCfg,
             uint sandboxRunOptions
         );
 

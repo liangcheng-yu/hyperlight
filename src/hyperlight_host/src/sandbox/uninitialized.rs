@@ -1,4 +1,4 @@
-use super::host_funcs::HostFunctionsMap;
+use super::host_funcs::{default_writer_func, HostFunctionsMap};
 use super::{host_funcs::CallHostPrint, run_options::SandboxRunOptions};
 use super::{host_funcs::HostFuncs, initialized::Sandbox};
 use crate::flatbuffers::hyperlight::generated::ErrorCode;
@@ -23,17 +23,13 @@ use crate::{
     mem::ptr_offset::Offset,
 };
 use anyhow::{anyhow, bail, Result};
-use is_terminal::IsTerminal;
 use log::{error, info};
 use std::collections::HashMap;
 use std::ffi::c_void;
-use std::io::stdout;
-use std::io::Write;
 use std::ops::Add;
 use std::option::Option;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use tracing::instrument;
 use uuid::Uuid;
 
@@ -188,23 +184,7 @@ impl<'a> UninitializedSandbox<'a> {
         mem_mgr.set_stack_guard(&stack_guard)?;
 
         // The default writer function is to write to stdout with green text.
-        let default_writer_func = Arc::new(Mutex::new(|s: String| -> Result<()> {
-            match stdout().is_terminal() {
-                false => {
-                    print!("{}", s);
-                    Ok(())
-                }
-                true => {
-                    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
-                    let mut color_spec = ColorSpec::new();
-                    color_spec.set_fg(Some(Color::Green));
-                    stdout.set_color(&color_spec)?;
-                    stdout.write_all(s.as_bytes())?;
-                    stdout.reset()?;
-                    Ok(())
-                }
-            }
-        }));
+        let default_writer = Arc::new(Mutex::new(default_writer_func));
 
         let mut sandbox = Self {
             host_functions: HashMap::new(),
@@ -213,7 +193,7 @@ impl<'a> UninitializedSandbox<'a> {
             correlation_id,
         };
 
-        default_writer_func.register(&mut sandbox, "writer_func")?;
+        default_writer.register(&mut sandbox, "writer_func")?;
 
         Ok(sandbox)
     }

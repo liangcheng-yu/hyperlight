@@ -1,6 +1,7 @@
 use super::{c_func::CFunc, mem_mgr::register_mem_mgr};
 use super::{context::Context, sandbox_compat::Sandbox};
 use super::{handle::Handle, sandbox_compat::EitherImpl};
+use crate::sandbox::host_funcs::default_writer_func;
 use crate::{capi::strings::get_string, mem::config::SandboxMemoryConfiguration};
 use crate::{func::host::Function1, sandbox};
 use crate::{mem::ptr::RawPtr, sandbox_state::sandbox::EvolvableSandbox};
@@ -27,34 +28,38 @@ use std::sync::{Arc, Mutex};
 pub unsafe extern "C" fn sandbox_new(
     ctx: *mut Context,
     bin_path_hdl: Handle,
-    // TODO: Why is this not a handle , I derived this from load_guest_binary which took the struct rather than a handle to it?
-    // In the orignal code it just passed the struct and did not validate it.
-    // However ,I dont see why we cant just pass the struct here and not a handle to it as it is allocated in the client used once (i.e. we dont ever use it again in a C API call)
-    // and since its copied (both implement copy) then it doesnt matter if the client frees it after the call.
-    mem_cfg: Option<&mut SandboxMemoryConfiguration>,
+    // Why is this not a handle?
+    //
+    // This struct is created once by the client, passed here, and then
+    // never used again by the client and only stored in Rust structures.
+    //
+    // Further, it's small enough to allow a copy from the caller's stack
+    // frame to this function's stack frame, rather than going through all
+    // the heap allocation and `Handle` mechanics.
+    mem_cfg: SandboxMemoryConfiguration,
     sandbox_run_options: u32,
     print_output_handler: Option<extern "C" fn(*const c_char)>,
 ) -> Handle {
     CFunc::new("sandbox_new", ctx)
         .and_then_mut(|ctx, _| {
             let bin_path = get_string(ctx, bin_path_hdl)?;
-            let mem_cfg: Option<SandboxMemoryConfiguration> = mem_cfg.map(|cfg| (*cfg));
             let sandbox_run_options =
                 Some(SandboxRunOptions::from_bits_truncate(sandbox_run_options));
 
-            let writer_func = print_output_handler
-                .map(|f: extern "C" fn(*const c_char)| {
-                    Arc::new(Mutex::new(move |s: String| -> Result<()> {
+            let writer_func = Arc::new(Mutex::new(move |s: String| -> Result<()> {
+                match print_output_handler {
+                    Some(f) => {
                         let c_str = std::ffi::CString::new(s)?;
                         f(c_str.as_ptr());
                         Ok(())
-                    }))
-                })
-                .unwrap();
+                    }
+                    None => default_writer_func(s),
+                }
+            }));
 
             let mut sbox = sandbox::UninitializedSandbox::new(
                 bin_path.to_string(),
-                mem_cfg,
+                Some(mem_cfg),
                 sandbox_run_options,
                 None,
             )?;
