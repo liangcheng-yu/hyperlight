@@ -1,24 +1,15 @@
+use super::guest_log_data::register_guest_log_data;
 use super::{byte_array::get_byte_array, context::Context, handle::Handle, hdl::Hdl};
-use super::{guest_log_data::register_guest_log_data, shared_mem::get_shared_memory};
+use crate::capi::function_call_result::get_function_call_result;
 use crate::{
     capi::arrays::borrowed_slice::borrow_ptr_as_slice_mut,
     capi::{c_func::CFunc, int::register_i32},
-    mem::{
-        mgr::SandboxMemoryManager,
-        ptr::{GuestPtr, HostPtr, RawPtr},
-    },
+    mem::mgr::SandboxMemoryManager,
 };
-use crate::{capi::function_call_result::get_function_call_result, mem::mgr::STACK_COOKIE_LEN};
 use crate::{
     capi::int::register_u64,
-    capi::{
-        arrays::borrowed_slice::borrow_ptr_as_slice,
-        bool::register_boolean,
-        mem_layout::{get_mem_layout, register_mem_layout},
-        shared_mem::register_shared_mem,
-    },
-    mem::{config::SandboxMemoryConfiguration, ptr_offset::Offset},
-    validate_context, validate_context_or_panic,
+    capi::{arrays::borrowed_slice::borrow_ptr_as_slice, shared_mem::register_shared_mem},
+    validate_context,
 };
 use anyhow::{anyhow, bail, Result};
 
@@ -64,88 +55,6 @@ fn validate_flatbuffer(fb_ptr: *const u8) -> Result<Vec<u8>> {
     }
 }
 
-/// Create a new `SandboxMemoryManager` from the given `run_from_process`
-/// memory and the `SandboxMemoryConfiguration` stored in `ctx` referenced by
-/// `cfg_hdl`. Then, store it in `ctx`, and return a new `Handle` referencing
-/// it.
-///
-/// This function should only be used for testing purposes.
-///
-/// TODO: delete this function after removing the entire C API
-/// for SandboxMemoryManager.
-///
-/// # Safety
-///
-/// The called must pass a `ctx` to this function that was created
-/// by `context_new`, not currently in use in any other function,
-/// and not yet freed by `context_free`.
-#[no_mangle]
-pub unsafe extern "C" fn mem_mgr_new(
-    ctx: *mut Context,
-    mem_cfg: SandboxMemoryConfiguration,
-    shared_mem_hdl: Handle,
-    layout_hdl: Handle,
-    run_from_process_mem: bool,
-    load_addr: u64,
-    entrypoint_offset: u64,
-) -> Handle {
-    validate_context!(ctx);
-    let layout = match get_mem_layout(&*ctx, layout_hdl) {
-        Ok(l) => l,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let shared_mem = match get_shared_memory(&*ctx, shared_mem_hdl) {
-        Ok(s) => s,
-        Err(e) => return (*ctx).register_err(e),
-    };
-
-    let mgr = SandboxMemoryManager::new(
-        mem_cfg,
-        layout,
-        shared_mem.clone(),
-        run_from_process_mem,
-        RawPtr::from(load_addr),
-        Offset::from(entrypoint_offset),
-        #[cfg(target_os = "windows")]
-        None,
-    );
-    Context::register(mgr, &mut (*ctx).mem_mgrs, Hdl::MemMgr)
-}
-
-/// Set the stack guard for the `SandboxMemoryManager` in `ctx` referenced
-/// by `mgr_hdl`.
-///
-/// The location of the guard will be calculated using the `SandboxMemoryLayout`
-/// in `ctx` referenced by `layout_hdl`, the contents of the stack guard
-/// will be the byte array in `ctx` referenced by `cookie_hdl`, and the write
-/// operations will be done with the `SharedMemory` in `ctx` referenced by
-/// `shared_mem_hdl`.
-///
-/// # Safety
-///
-/// `ctx` must be created by `context_new`, owned by the caller, and
-/// not yet freed by `context_free`.
-#[no_mangle]
-pub unsafe extern "C" fn mem_mgr_set_stack_guard(
-    ctx: *mut Context,
-    mgr_hdl: Handle,
-    cookie_hdl: Handle,
-) -> Handle {
-    validate_context!(ctx);
-    let mgr = match get_mem_mgr_mut(&mut *ctx, mgr_hdl) {
-        Ok(m) => m,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    let cookie = match get_byte_array(&*ctx, cookie_hdl) {
-        Ok(c) => c,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    match mgr.set_stack_guard_from_vec(cookie) {
-        Ok(_) => Handle::new_empty(),
-        Err(e) => (*ctx).register_err(e),
-    }
-}
-
 /// Set up a new hypervisor partition in the given `Context` using the
 /// `SharedMemory` referenced by `shared_mem_hdl`, the
 /// `SandboxMemoryManager` referenced by `mgr_hdl`, and the given memory
@@ -170,45 +79,6 @@ pub unsafe extern "C" fn mem_mgr_set_up_hypervisor_partition(
         Ok(rsp) => Context::register(rsp, &mut (*ctx).uint64s, Hdl::UInt64),
         Err(e) => (*ctx).register_err(e),
     }
-}
-
-/// Check the stack guard for the `SandboxMemoryManager` in `ctx` referenced
-/// by `mgr_hdl`. Return a `Handle` referencing a boolean indicating
-/// whether the stack guard matches the contents of the byte array
-/// referenced by `cookie_hdl`. Otherwise, return a `Handle` referencing
-/// an error.
-///
-/// The location of the guard will be calculated using the `SandboxMemoryLayout`
-/// in `ctx` referenced by `layout_hdl`, the contents of the stack guard
-/// will be the byte array in `ctx` referenced by `cookie_hdl`, and the write
-/// operations will be done with the `SharedMemory` in `ctx` referenced by
-/// `shared_mem_hdl`.
-///
-/// # Safety
-///
-/// `ctx` must be created by `context_new`, owned by the caller, and
-/// not yet freed by `context_free`.
-#[no_mangle]
-pub unsafe extern "C" fn mem_mgr_check_stack_guard(
-    ctx: *mut Context,
-    mgr_hdl: Handle,
-    cookie_hdl: Handle,
-) -> Handle {
-    CFunc::new("mem_mgr_check_stack_guard", ctx)
-        .and_then_mut(|ctx, _| {
-            let mgr = get_mem_mgr(ctx, mgr_hdl)?;
-            let cookie = get_byte_array(ctx, cookie_hdl)?;
-            if cookie.len() != STACK_COOKIE_LEN {
-                bail!("stack cookie not expected length {}", STACK_COOKIE_LEN);
-            }
-            // copy the `cookie` Vec into the slice
-            let mut cookie_slc: [u8; STACK_COOKIE_LEN] = [b'0'; STACK_COOKIE_LEN];
-            cookie_slc[..STACK_COOKIE_LEN].copy_from_slice(&cookie[..STACK_COOKIE_LEN]);
-
-            mgr.check_stack_guard(cookie_slc)
-                .map(|b| Context::register(b, &mut ctx.booleans, Hdl::Boolean))
-        })
-        .ok_or_err_hdl()
 }
 
 /// Get the address of the process environment block (PEB) and return a
@@ -321,87 +191,6 @@ pub unsafe extern "C" fn mem_mgr_set_outb_address(
     };
     match mgr.set_outb_address(addr) {
         Ok(_) => Handle::new_empty(),
-        Err(e) => (*ctx).register_err(e),
-    }
-}
-
-/// Get the offset to use when calculating addresses.
-///
-/// Return a `Handle` referencing a uint64 on success, and a `Handle`
-/// referencing an error otherwise.
-///
-/// # Safety
-///
-/// `ctx` must be created by `context_new`, owned by the caller, and
-/// not yet freed by `context_free`.
-#[no_mangle]
-pub unsafe extern "C" fn mem_mgr_get_address_offset(
-    ctx: *mut Context,
-    mgr_hdl: Handle,
-    source_addr: u64,
-) -> Handle {
-    CFunc::new("mem_mgr_get_address_offset", ctx)
-        .and_then(|c, _| {
-            let mgr = get_mem_mgr(c, mgr_hdl)?;
-            Ok(mgr.get_address_offset(source_addr))
-        })
-        .map_static_mut(register_u64)
-        .ok_or_err_hdl()
-}
-
-/// Translate `addr` -- a pointer to memory in the guest address space --
-/// to the equivalent pointer in the host's.
-///
-/// # Safety
-///
-/// `ctx` must be created by `context_new`, owned by the caller, and
-/// not yet freed by `context_free`.
-#[no_mangle]
-pub unsafe extern "C" fn mem_mgr_get_host_address_from_pointer(
-    ctx: *mut Context,
-    mgr_hdl: Handle,
-    addr: u64,
-) -> Handle {
-    validate_context!(ctx);
-    let mgr = get_mgr!(ctx, mgr_hdl);
-    let guest_ptr = match GuestPtr::try_from(RawPtr::from(addr)) {
-        Ok(g) => g,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    match mgr.get_host_address_from_ptr(guest_ptr) {
-        Ok(addr_ptr) => match addr_ptr.absolute() {
-            Ok(addr) => register_u64(&mut *ctx, addr),
-            Err(e) => (*ctx).register_err(e),
-        },
-        Err(e) => (*ctx).register_err(e),
-    }
-}
-
-/// Translate `addr` -- a pointer to memory in the host's address space --
-/// to the equivalent pointer in the guest's.
-///
-/// # Safety
-///
-/// `ctx` must be created by `context_new`, owned by the caller, and
-/// not yet freed by `context_free`.
-#[no_mangle]
-pub unsafe extern "C" fn mem_mgr_get_guest_address_from_pointer(
-    ctx: *mut Context,
-    mgr_hdl: Handle,
-    addr: u64,
-) -> Handle {
-    validate_context!(ctx);
-    let mgr = get_mgr!(ctx, mgr_hdl);
-
-    let host_ptr = match HostPtr::try_from((RawPtr::from(addr), &mgr.shared_mem)) {
-        Ok(p) => p,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    match mgr.get_guest_address_from_ptr(host_ptr) {
-        Ok(addr_ptr) => match addr_ptr.absolute() {
-            Ok(addr) => register_u64(&mut *ctx, addr),
-            Err(e) => (*ctx).register_err(e),
-        },
         Err(e) => (*ctx).register_err(e),
     }
 }
@@ -623,61 +412,6 @@ pub unsafe extern "C" fn mem_mgr_get_load_addr(ctx: *mut Context, mgr_hdl: Handl
     let mgr = get_mgr!(ctx, mgr_hdl);
     let val = &mgr.load_addr;
     register_u64(&mut *ctx, val.into())
-}
-
-/// Get a new `Handle` referencing the `SandboxMemoryLayout` for the
-/// `SandboxMemoryManager` in `ctx` referenced by the given `mgr_hdl`
-///
-/// # Safety
-///
-/// `ctx` must be created by `context_new`, owned by the caller, and
-/// not yet freed by `context_free`.
-#[no_mangle]
-pub unsafe extern "C" fn mem_mgr_get_sandbox_memory_layout(
-    ctx: *mut Context,
-    mgr_hdl: Handle,
-) -> Handle {
-    validate_context!(ctx);
-    let mgr = get_mgr!(ctx, mgr_hdl);
-    register_mem_layout(&mut *ctx, mgr.layout)
-}
-
-/// Get a new `Handle` referencing the bool indicating whether to
-/// run the binary from process memory or not for the
-/// `SandboxMemoryManager` in `ctx` referenced by the given `mgr_hdl`
-///
-/// # Safety
-///
-/// `ctx` must be created by `context_new`, owned by the caller, and
-/// not yet freed by `context_free`.
-#[no_mangle]
-pub unsafe extern "C" fn mem_mgr_get_run_from_process_memory(
-    ctx: *mut Context,
-    mgr_hdl: Handle,
-) -> Handle {
-    validate_context!(ctx);
-    let mgr = get_mgr!(ctx, mgr_hdl);
-    register_boolean(&mut *ctx, mgr.run_from_process_memory)
-}
-
-/// Get the `SandboxMemoryConfiguration` for the `SandboxMemoryManager`
-/// in `ctx` referenced by the given `mgr_hdl`
-///
-/// # Safety
-///
-/// `ctx` must be created by `context_new`, owned by the caller, and
-/// not yet freed by `context_free`.
-#[no_mangle]
-pub unsafe extern "C" fn mem_mgr_get_config(
-    ctx: *mut Context,
-    mgr_hdl: Handle,
-) -> SandboxMemoryConfiguration {
-    validate_context_or_panic!(ctx);
-    let mgr = match get_mem_mgr(&*ctx, mgr_hdl) {
-        Ok(m) => m,
-        Err(_) => panic!("mem_mgr_get_config invalid handle"),
-    };
-    mgr.mem_cfg
 }
 
 /// Get a new `Handle` referencing the uint64 memory size for the

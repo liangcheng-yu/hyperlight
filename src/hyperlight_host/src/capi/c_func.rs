@@ -74,22 +74,6 @@ impl<T> CFunc<T> {
     {
         self.and_then_mut(|c, t| run_fn(c, t))
     }
-
-    /// Convenience function for `self.and_then_mut(run_fn)`, but converts
-    /// the result of `run_fn` into an `Ok`
-    pub(super) unsafe fn map_mut<RunFn, RunRes>(self, run_fn: RunFn) -> CFunc<RunRes>
-    where
-        RunFn: FnOnce(&mut Context, T) -> RunRes,
-    {
-        self.and_then_mut(|c, val| Ok(run_fn(c, val)))
-    }
-
-    pub(super) unsafe fn map_static_mut<RunRes>(
-        self,
-        run_fn: fn(&mut Context, T) -> RunRes,
-    ) -> CFunc<RunRes> {
-        self.map_mut(run_fn)
-    }
 }
 
 impl CFunc<Handle> {

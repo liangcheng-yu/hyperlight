@@ -1,6 +1,9 @@
-use super::host_funcs::{default_writer_func, HostFunctionsMap};
+use super::mem_mgr::MemMgr;
+use super::{
+    host_funcs::default_writer_func, host_funcs::HostFuncs, host_funcs::HostFunctionsMap,
+    initialized::Sandbox,
+};
 use super::{host_funcs::CallHostPrint, run_options::SandboxRunOptions};
-use super::{host_funcs::HostFuncs, initialized::Sandbox};
 use crate::flatbuffers::hyperlight::generated::ErrorCode;
 use crate::func::host::function_definition::HostFunctionDefinition;
 use crate::func::host::{Function1, HyperlightFunction};
@@ -42,10 +45,10 @@ use uuid::Uuid;
 /// `UninitializedSandbox` into an initialized `Sandbox`.
 pub struct UninitializedSandbox<'a> {
     // Registered host functions
-    pub(super) host_functions: HashMap<String, HyperlightFunction<'a>>,
+    host_functions: HashMap<String, HyperlightFunction<'a>>,
     // The memory manager for the sandbox.
-    pub(super) mem_mgr: SandboxMemoryManager,
-    pub(super) stack_guard: [u8; STACK_COOKIE_LEN],
+    mem_mgr: SandboxMemoryManager,
+    stack_guard: [u8; STACK_COOKIE_LEN],
     correlation_id: String,
 }
 
@@ -108,6 +111,15 @@ impl<'a> HostFuncs<'a> for UninitializedSandbox<'a> {
 }
 
 impl<'a> CallHostPrint<'a> for UninitializedSandbox<'a> {}
+
+impl<'a> MemMgr for UninitializedSandbox<'a> {
+    fn get_mem_mgr(&self) -> &SandboxMemoryManager {
+        &self.mem_mgr
+    }
+    fn get_stack_cookie(&self) -> &super::mem_mgr::StackCookie {
+        &self.stack_guard
+    }
+}
 
 impl<'a> UninitializedSandbox<'a> {
     /// Create a new sandbox configured to run the binary at path
@@ -177,7 +189,12 @@ impl<'a> UninitializedSandbox<'a> {
         let layout = mem_mgr.layout;
         let shared_mem = mem_mgr.get_shared_mem_mut();
         let mem_size = shared_mem.mem_size();
-        layout.write(shared_mem, SandboxMemoryLayout::BASE_ADDRESS, mem_size)?;
+        let guest_offset = if run_from_process_memory {
+            shared_mem.base_addr()
+        } else {
+            SandboxMemoryLayout::BASE_ADDRESS
+        };
+        layout.write(shared_mem, guest_offset, mem_size)?;
         // </WriteMemoryLayout>
 
         let stack_guard = Self::create_stack_guard();
@@ -200,20 +217,6 @@ impl<'a> UninitializedSandbox<'a> {
 
     fn create_stack_guard() -> [u8; STACK_COOKIE_LEN] {
         rand::random::<[u8; STACK_COOKIE_LEN]>()
-    }
-
-    /// Check the stack guard against the stack guard cookie stored
-    /// within `self`. Return `Ok(true)` if the guard cookie could
-    /// be found and it matched `self.stack_guard`, `Ok(false)` if
-    /// if could be found and did not match `self.stack_guard`, and
-    /// `Err` if it could not be found or there was some other error.
-    ///
-    /// TODO: remove the dead code annotation after this is hooked up in
-    /// https://github.com/deislabs/hyperlight/pull/727
-    #[allow(dead_code)]
-    #[instrument(err(Debug), skip(self))]
-    pub(super) fn check_stack_guard(&self) -> Result<bool> {
-        self.mem_mgr.check_stack_guard(self.stack_guard)
     }
 
     /// Register a host function with the sandbox.
@@ -288,13 +291,6 @@ impl<'a> UninitializedSandbox<'a> {
         } else {
             bail!("Linux platform detected, but neither KVM nor Linux HyperV detected")
         }
-    }
-
-    /// TODO: This should be removed once we have a proper Sandbox with C API that provides all functionaliy
-    /// It only exists to keep the C# code working for now
-    ///
-    pub(crate) fn get_mem_mgr(&self) -> SandboxMemoryManager {
-        self.mem_mgr.clone()
     }
 
     /// Call the entry point inside this `Sandbox`
@@ -408,6 +404,7 @@ impl<'a> UninitializedSandbox<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::sandbox::mem_mgr::MemMgr;
     use crate::testing::{
         log_values::test_value_as_str, logger::Logger as TestLogger, logger::LOGGER as TEST_LOGGER,
         tracing_subscriber::TracingSubscriber as TestSubcriber,

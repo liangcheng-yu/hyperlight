@@ -37,6 +37,6 @@ fn get_boolean(ctx: &Context, hdl: Handle) -> Result<bool> {
 }
 
 /// Store `val` in `ctx` and return a new `Handle` referencing it
-pub fn register_boolean(ctx: &mut Context, val: bool) -> Handle {
+pub(crate) fn register_boolean(ctx: &mut Context, val: bool) -> Handle {
     Context::register(val, &mut ctx.booleans, Hdl::Boolean)
 }

@@ -46,9 +46,9 @@ namespace Hyperlight
         public static bool IsSupportedPlatform => is_supported_platform();
         Hypervisor? hyperVisor;
         GCHandle? gCHandle;
-        byte[]? stackGuard;
         readonly HyperLightExports hyperLightExports;
         readonly SandboxMemoryManager sandboxMemoryManager;
+        public ulong memSize => sandboxMemoryManager.Size;
         readonly bool initialised;
         readonly bool recycleAfterRun;
         readonly bool runFromProcessMemory;
@@ -201,8 +201,6 @@ namespace Hyperlight
             }
 
             this.sandboxMemoryManager = GetSandboxMemoryManager(this.context, this.hdlWrapper.handle);
-            this.sandboxMemoryManager.WriteMemoryLayout();
-            SetUpStackGuard();
             rsp = 0;
             // If we are NOT running from process memory, we have to setup a Hypervisor partition
             if (!runFromProcessMemory)
@@ -359,15 +357,15 @@ namespace Hyperlight
             return new SandboxMemoryManager(ctx, hdl);
         }
 
-        void SetUpStackGuard()
-        {
-            stackGuard = RandomNumberGenerator.GetBytes(16);
-            sandboxMemoryManager.SetStackGuard(stackGuard);
-        }
-
         bool CheckStackGuard()
         {
-            return sandboxMemoryManager.CheckStackGuard(stackGuard);
+            var rawHdl = sandbox_check_stack_guard(this.context.ctx, this.hdlWrapper.handle);
+            using var hdl = new Handle(
+                this.context,
+                rawHdl,
+                true
+            );
+            return hdl.GetBoolean();
         }
 
         public ulong SetUpHyperVisorPartition()
@@ -1001,9 +999,16 @@ namespace Hyperlight
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle sandbox_initialize(
-                    NativeContext ctx,
-                    NativeHandle sboxHdl
-                );
+            NativeContext ctx,
+            NativeHandle sboxHdl
+        );
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle sandbox_check_stack_guard(
+            NativeContext ctx,
+            NativeHandle hdl
+        );
 
 
 #pragma warning restore CA1707 // Remove the underscores from member name

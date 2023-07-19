@@ -66,6 +66,7 @@ pub(crate) mod tests {
         handlers::{MemAccessHandlerRc, OutBHandlerRc},
         Hypervisor,
     };
+    use crate::sandbox::mem_mgr::MemMgr;
     use crate::{
         mem::{
             layout::SandboxMemoryLayout,
@@ -94,7 +95,7 @@ pub(crate) mod tests {
         }
 
         let sandbox = UninitializedSandbox::new(filename.clone(), None, None, None)?;
-        let mut mem_mgr = sandbox.get_mem_mgr();
+        let mut mem_mgr = sandbox.get_mem_mgr().clone();
         let shared_mem = &mem_mgr.shared_mem;
         let rsp_ptr = {
             let mem_size: u64 = shared_mem.mem_size().try_into()?;

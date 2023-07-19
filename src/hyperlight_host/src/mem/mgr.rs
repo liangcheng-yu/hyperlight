@@ -4,8 +4,7 @@ use super::{
     config::SandboxMemoryConfiguration,
     layout::SandboxMemoryLayout,
     pe::{headers::PEHeaders, pe_info::PEInfo},
-    ptr::{GuestPtr, HostPtr, RawPtr},
-    ptr_addr_space::{GuestAddressSpace, HostAddressSpace},
+    ptr::{GuestPtr, RawPtr},
     ptr_offset::Offset,
     shared_mem::SharedMemory,
     shared_mem_snapshot::SharedMemorySnapshot,
@@ -96,28 +95,8 @@ impl SandboxMemoryManager {
     }
 
     /// Get the `SharedMemory` in `self` as an immutable reference
-    fn get_shared_mem(&mut self) -> &SharedMemory {
+    fn get_shared_mem(&self) -> &SharedMemory {
         &self.shared_mem
-    }
-
-    /// Given a `Vec<u8>` representation of a stack guard, convert it to a
-    /// slice as required for calling `Self::set_stack_guard`, then call
-    /// that function, passing that slice.
-    ///
-    /// This function will become unused when the C-compatible FFI layer for
-    /// `SandboxMemoryManager` goes away. At that time, the Rust compiler will
-    /// notify us this function is no longer used. Thus, no TODO is necessary
-    /// to remove this function, as we'll be forced to do so.
-    pub(crate) fn set_stack_guard_from_vec(&mut self, cookie: &Vec<u8>) -> Result<()> {
-        if cookie.len() != STACK_COOKIE_LEN {
-            bail!(
-                "invalid cookie len, actual = {}, expected = {STACK_COOKIE_LEN}",
-                cookie.len()
-            );
-        }
-        let mut cookie_slc: [u8; STACK_COOKIE_LEN] = [0; STACK_COOKIE_LEN];
-        cookie_slc[..STACK_COOKIE_LEN].copy_from_slice(&cookie[..STACK_COOKIE_LEN]);
-        self.set_stack_guard(&cookie_slc)
     }
 
     /// Set the stack guard to `cookie` using `layout` to calculate
@@ -253,34 +232,6 @@ impl SandboxMemoryManager {
     pub(crate) fn set_outb_address(&mut self, addr: u64) -> Result<()> {
         let offset = self.layout.get_out_b_pointer_offset();
         self.shared_mem.write_u64(offset, addr)
-    }
-
-    /// Get the offset to use when calculating addresses
-    pub(crate) fn get_address_offset(&self, source_addr: u64) -> u64 {
-        match self.run_from_process_memory {
-            true => 0,
-            false => source_addr - SandboxMemoryLayout::BASE_ADDRESS as u64,
-        }
-    }
-
-    /// Convert a pointer in the guest's address space to a pointer in the
-    /// host's.
-    pub(crate) fn get_host_address_from_ptr(&self, guest_ptr: GuestPtr) -> Result<HostPtr> {
-        // to translate a pointer from the guest address space,
-        // we need to get the offset (which is already taken care of in
-        // guest_ptr) and then add it to the host base address, which is
-        // the base address of shared memory.
-        guest_ptr.to_foreign_ptr(HostAddressSpace::new(&self.shared_mem)?)
-    }
-
-    /// Convert a pointer in the host's address space to a pointer in the
-    /// guest's.
-    pub(crate) fn get_guest_address_from_ptr(&self, host_ptr: HostPtr) -> Result<GuestPtr> {
-        // to convert a pointer in the host address space, we need to get its
-        // offset (which is already done inside host_ptr) and then
-        // add it to the base address inside guest memory, which is
-        // below.
-        host_ptr.to_foreign_ptr(GuestAddressSpace::new()?)
     }
 
     /// Get the address of the dispatch function in memory

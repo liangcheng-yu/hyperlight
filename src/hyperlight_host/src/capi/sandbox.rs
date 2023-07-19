@@ -1,7 +1,8 @@
-use super::{c_func::CFunc, mem_mgr::register_mem_mgr};
+use super::{bool::register_boolean, c_func::CFunc, mem_mgr::register_mem_mgr};
 use super::{context::Context, sandbox_compat::Sandbox};
 use super::{handle::Handle, sandbox_compat::EitherImpl};
 use crate::sandbox::host_funcs::default_writer_func;
+use crate::sandbox::mem_mgr::MemMgr;
 use crate::{capi::strings::get_string, mem::config::SandboxMemoryConfiguration};
 use crate::{func::host::Function1, sandbox};
 use crate::{mem::ptr::RawPtr, sandbox_state::sandbox::EvolvableSandbox};
@@ -99,6 +100,30 @@ pub unsafe extern "C" fn sandbox_initialize(ctx: *mut Context, sbox_hdl: Handle)
         .ok_or_err_hdl()
 }
 
+/// Check the previously-generated stack guard against the value of
+/// the stack guard in memory, then return a `Handle` referencing a new
+/// boolean in `ctx` indicating whether the stack guard matched or not
+/// (`true` is good, `false`, is not). If an error occurred checking the
+/// stack guard, return instead a `Handle` referencing an error in `ctx`.
+///
+/// TODO: remove this after Sandbox is completely rewritten in Rust
+///
+/// # Safety
+///
+/// The caller must pass a `ctx` to this function that was created by
+/// `context_new`, not currently in use by any other function, and not yet
+/// freed by `context_free`.
+#[no_mangle]
+pub unsafe extern "C" fn sandbox_check_stack_guard(ctx: *mut Context, sbox_hdl: Handle) -> Handle {
+    CFunc::new("sandbox_initialize", ctx)
+        .and_then_mut(|ctx, _| {
+            let sbox = Sandbox::get(ctx, sbox_hdl)?;
+            let check_res: bool = sbox.check_stack_guard()?;
+            Ok(register_boolean(ctx, check_res))
+        })
+        .ok_or_err_hdl()
+}
+
 /// Call the entrypoint inside the `Sandbox` referenced by `sbox_hdl`
 ///
 /// # Safety
@@ -153,7 +178,7 @@ pub unsafe extern "C" fn sandbox_get_memory_mgr(ctx: *mut Context, sbox_hdl: Han
         .and_then_mut(|ctx, _| {
             let sbox = Sandbox::get(ctx, sbox_hdl)?;
             let mem_mgr = sbox.to_uninit()?.get_mem_mgr();
-            Ok(register_mem_mgr(ctx, mem_mgr))
+            Ok(register_mem_mgr(ctx, mem_mgr.clone()))
         })
         .ok_or_err_hdl()
 }

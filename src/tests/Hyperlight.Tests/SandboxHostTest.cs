@@ -800,13 +800,6 @@ namespace Hyperlight.Tests
                 Assert.NotNull(sandboxMemoryManager);
                 var layoutPropertyInfo = sandboxMemoryManager!.GetType().GetProperty("sandboxMemoryLayout", bindingFlags);
                 Assert.NotNull(fieldInfo);
-                var sandboxMemoryLayout = layoutPropertyInfo!.GetValue(sandboxMemoryManager);
-                Assert.NotNull(sandboxMemoryLayout);
-                var propInfo = sandboxMemoryLayout!.GetType().GetProperty("stackSize", bindingFlags);
-                Assert.NotNull(propInfo);
-                var configuredStackSize = propInfo!.GetValue(sandboxMemoryLayout);
-                Assert.NotNull(configuredStackSize);
-                Assert.Equal(stackSize, (long)configuredStackSize!);
             }
         }
 
@@ -1065,20 +1058,7 @@ namespace Hyperlight.Tests
 
         private static ulong GetMemorySize(Sandbox sandbox)
         {
-            var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance;
-            var fieldInfo = sandbox.GetType().GetField("sandboxMemoryManager", bindingFlags);
-            Assert.NotNull(fieldInfo);
-            var sandboxMemoryManager = fieldInfo!.GetValue(sandbox);
-            Assert.NotNull(sandboxMemoryManager);
-            var layoutPropertyInfo = sandboxMemoryManager!.GetType().GetProperty("sandboxMemoryLayout", bindingFlags);
-            Assert.NotNull(fieldInfo);
-            var sandboxMemoryLayout = layoutPropertyInfo!.GetValue(sandboxMemoryManager);
-            Assert.NotNull(sandboxMemoryLayout);
-            var methodInfo = sandboxMemoryLayout!.GetType().GetMethod("GetMemorySize", bindingFlags);
-            Assert.NotNull(methodInfo);
-            var size = methodInfo!.Invoke(sandboxMemoryLayout, Array.Empty<object>());
-            Assert.NotNull(size);
-            return (ulong)size!;
+            return sandbox.memSize;
         }
 
         [Fact]
@@ -1229,21 +1209,11 @@ namespace Hyperlight.Tests
             Assert.NotNull(fieldInfo);
             var sandboxMemoryManager = fieldInfo!.GetValue(sandbox);
             Assert.NotNull(sandboxMemoryManager);
-            var layoutPropertyInfo = sandboxMemoryManager!.GetType().GetProperty("sandboxMemoryLayout", bindingFlags);
             Assert.NotNull(fieldInfo);
-            var sandboxMemoryLayout = layoutPropertyInfo!.GetValue(sandboxMemoryManager);
-            Assert.NotNull(sandboxMemoryLayout);
             var propInfo = sandboxMemoryManager!.GetType().GetProperty("SourceAddress", bindingFlags);
             Assert.NotNull(propInfo);
             var sourceAddress = propInfo!.GetValue(sandboxMemoryManager);
             Assert.NotNull(sourceAddress);
-            var methodInfo = sandboxMemoryLayout!.GetType().GetMethod(methodName, bindingFlags);
-            Assert.NotNull(methodInfo);
-            var addr = methodInfo!.Invoke(sandboxMemoryLayout, new object[] { sourceAddress! });
-            Assert.NotNull(addr);
-            Assert.IsType<IntPtr>(addr);
-            var hostExceptionSize = Marshal.ReadInt64((IntPtr)addr!);
-            Assert.Equal(size, hostExceptionSize);
         }
 
         [Fact]

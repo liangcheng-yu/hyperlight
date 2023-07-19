@@ -1,7 +1,10 @@
-use super::host_funcs::{CallHostFunction, HostFunctionsMap};
 use super::uninitialized::UninitializedSandbox;
 use super::{host_funcs::CallHostPrint, outb::OutBAction};
 use super::{host_funcs::HostFuncs, outb::outb_log};
+use super::{
+    host_funcs::{CallHostFunction, HostFunctionsMap},
+    mem_mgr::MemMgr,
+};
 use crate::func::function_types::ParameterValue;
 use crate::mem::mgr::SandboxMemoryManager;
 use crate::mem::mgr::STACK_COOKIE_LEN;
@@ -25,9 +28,9 @@ pub struct Sandbox<'a> {
 impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
     fn from(val: UninitializedSandbox<'a>) -> Self {
         Self {
-            host_functions: val.host_functions.clone(),
-            mem_mgr: val.mem_mgr.clone(),
-            stack_guard: val.stack_guard,
+            host_functions: val.get_host_funcs().clone(),
+            mem_mgr: val.get_mem_mgr().clone(),
+            stack_guard: *val.get_stack_cookie(),
         }
     }
 }
@@ -50,6 +53,15 @@ impl<'a> std::fmt::Debug for Sandbox<'a> {
             .field("stack_guard", &self.stack_guard)
             .field("num_host_funcs", &self.host_functions.len())
             .finish()
+    }
+}
+
+impl<'a> MemMgr for Sandbox<'a> {
+    fn get_mem_mgr(&self) -> &SandboxMemoryManager {
+        &self.mem_mgr
+    }
+    fn get_stack_cookie(&self) -> &super::mem_mgr::StackCookie {
+        &self.stack_guard
     }
 }
 

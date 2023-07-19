@@ -23,7 +23,8 @@
     "flatcc_flatbuffers.h": "c",
     "flatcc_prologue.h": "c",
     "host_function_details_builder.h": "c",
-    "val_ref_tests.h": "c"
+    "val_ref_tests.h": "c",
+    "byte_array_tests.h": "c"
   },
   "rust-analyzer.showUnlinkedFileNotification": false
 }

@@ -2,7 +2,6 @@
 #include "munit/munit.h"
 #include "sandbox_tests.h"
 #include "err.h"
-#include "mem_mgr_tests.h"
 
 MunitResult test_is_hypervisor_present(const MunitParameter params[], void *fixture)
 {

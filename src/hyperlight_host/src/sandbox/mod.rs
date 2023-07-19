@@ -2,6 +2,9 @@
 pub(crate) mod host_funcs;
 /// Functionality for dealing with completely initialized sandboxes
 mod initialized;
+/// Functionality for interacting with a sandbox's internally-stored
+/// `SandboxMemoryManager`
+pub(crate) mod mem_mgr;
 mod outb;
 /// Options for configuring a sandbox
 mod run_options;

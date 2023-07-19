@@ -1,4 +1,5 @@
 use super::{context::Context, handle::Handle, hdl::Hdl};
+use crate::sandbox::mem_mgr::MemMgr;
 use anyhow::{anyhow, bail, Result};
 
 /// Either an initialized or uninitialized sandbox. This enum is used
@@ -70,6 +71,13 @@ impl Sandbox {
         match &mut self.inner {
             EitherImpl::Uninit(sbox) => Ok(sbox),
             _ => bail!("attempted to get mutable uninitialzied sandbox from an initialized one"),
+        }
+    }
+
+    pub(crate) fn check_stack_guard(&self) -> Result<bool> {
+        match &self.inner {
+            EitherImpl::Uninit(sbox) => sbox.check_stack_guard(),
+            EitherImpl::Init(sbox) => sbox.check_stack_guard(),
         }
     }
 }

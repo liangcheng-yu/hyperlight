@@ -84,49 +84,6 @@ namespace Hyperlight.Wrapper
         }
         public IntPtr SourceAddress => this.SharedMem.Address;
 
-        private SandboxMemoryLayout sandboxMemoryLayout
-        {
-            get
-            {
-                var rawHdl = mem_mgr_get_sandbox_memory_layout(
-                    this.ctxWrapper.ctx,
-                    this.memMgrHdl.handle
-                );
-                return SandboxMemoryLayout.FromHandle(
-                    this.ctxWrapper,
-                    new Handle(this.ctxWrapper, rawHdl, true)
-                );
-            }
-        }
-
-        private bool RunFromProcessMemory
-        {
-            get
-            {
-                var rawHdl = mem_mgr_get_run_from_process_memory(
-                    this.ctxWrapper.ctx,
-                    this.memMgrHdl.handle
-                );
-                using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
-                if (!hdl.IsBoolean())
-                {
-                    throw new HyperlightException(
-                        "mem_mgr_get_run_from_process_memory did not return a bool"
-                    );
-                }
-                return hdl.GetBoolean();
-            }
-        }
-        private SandboxMemoryConfiguration MemConfig
-        {
-            get
-            {
-                return mem_mgr_get_config(
-                    this.ctxWrapper.ctx,
-                    this.memMgrHdl.handle
-                );
-            }
-        }
         public ulong Size
         {
             get
@@ -154,57 +111,6 @@ namespace Hyperlight.Wrapper
             this.ctxWrapper = ctx;
             hdl.ThrowIfError();
             this.memMgrHdl = hdl;
-        }
-
-        internal void SetStackGuard(byte[] cookie)
-        {
-            HyperlightException.ThrowIfNull(
-                cookie,
-                nameof(cookie),
-                GetType().Name
-            );
-            using var cookieByteArray = new ByteArray(
-                this.ctxWrapper,
-                cookie
-            );
-            var rawHdl = mem_mgr_set_stack_guard(
-                this.ctxWrapper.ctx,
-                this.memMgrHdl.handle,
-                cookieByteArray.handleWrapper.handle
-            );
-            using var hdl = new Handle(
-                this.ctxWrapper,
-                rawHdl,
-                true
-            );
-        }
-
-        internal bool CheckStackGuard(byte[]? cookie)
-        {
-            HyperlightException.ThrowIfNull(
-                cookie,
-                nameof(cookie),
-                GetType().Name
-            );
-            using var cookieByteArray = new ByteArray(
-                this.ctxWrapper,
-                cookie
-            );
-            var rawHdl = mem_mgr_check_stack_guard(
-                this.ctxWrapper.ctx,
-                this.memMgrHdl.handle,
-                cookieByteArray.handleWrapper.handle
-            );
-            using var hdl = new Handle(
-                this.ctxWrapper,
-                rawHdl,
-                true
-            );
-            if (!hdl.IsBoolean())
-            {
-                throw new HyperlightException("call to rust mem_mgr_check_stack_guard` did not return an error nor a boolean");
-            }
-            return hdl.GetBoolean();
         }
 
         internal ulong SetUpHyperVisorPartition()
@@ -315,20 +221,6 @@ namespace Hyperlight.Wrapper
             using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
         }
 
-        internal long GetAddressOffset()
-        {
-            var rawHdl = mem_mgr_get_address_offset(
-                this.ctxWrapper.ctx,
-                this.memMgrHdl.handle,
-                (ulong)this.SourceAddress.ToInt64()
-            );
-            using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
-            if (!hdl.IsUInt64())
-            {
-                throw new HyperlightException("mem_mgr_get_address_offset did not return a uint64");
-            }
-            return (long)hdl.GetUInt64();
-        }
         internal ulong GetPointerToDispatchFunction()
         {
             var rawHdl = mem_mgr_get_pointer_to_dispatch_function(
@@ -343,36 +235,6 @@ namespace Hyperlight.Wrapper
                 );
             }
             return hdl.GetUInt64();
-        }
-
-        internal IntPtr GetHostAddressFromPointer(long address)
-        {
-            var rawHdl = mem_mgr_get_host_address_from_pointer(
-                this.ctxWrapper.ctx,
-                this.memMgrHdl.handle,
-                (ulong)address
-            );
-            using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
-            if (!hdl.IsUInt64())
-            {
-                throw new HyperlightException("mem_mgr_get_host_address_from_pointer did not return a uint64");
-            }
-            return (IntPtr)hdl.GetUInt64();
-        }
-
-        internal IntPtr GetGuestAddressFromPointer(IntPtr address)
-        {
-            var rawHdl = mem_mgr_get_guest_address_from_pointer(
-                this.ctxWrapper.ctx,
-                this.memMgrHdl.handle,
-                (ulong)address.ToInt64()
-            );
-            using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
-            if (!hdl.IsUInt64())
-            {
-                throw new HyperlightException("mem_mgr_get_guest_address_from_pointer did not return a uint64");
-            }
-            return (IntPtr)hdl.GetUInt64();
         }
 
         internal HyperlightException? GetHostException()
@@ -739,20 +601,6 @@ namespace Hyperlight.Wrapper
         }
 
 
-        internal void WriteMemoryLayout()
-        {
-            var addr = GetGuestAddressFromPointer(SourceAddress);
-            if (this.RunFromProcessMemory)
-            {
-                addr = SourceAddress;
-            }
-            this.sandboxMemoryLayout.WriteMemoryLayout(
-                this.SharedMem,
-                addr,
-                Size
-            );
-        }
-
         internal FunctionCall GetHostFunctionCall()
         {
             using var resultHdlWrapper = new Handle(
@@ -823,22 +671,6 @@ namespace Hyperlight.Wrapper
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle mem_mgr_set_stack_guard(
-            NativeContext ctx,
-            NativeHandle mgrHdl,
-            NativeHandle cookieHdl
-        );
-
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle mem_mgr_check_stack_guard(
-            NativeContext ctx,
-            NativeHandle mgrHdl,
-            NativeHandle cookieHdl
-        );
-
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle mem_mgr_set_up_hypervisor_partition(
             NativeContext ctx,
             NativeHandle mgrHdl,
@@ -877,32 +709,6 @@ namespace Hyperlight.Wrapper
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle mem_mgr_set_outb_address(
-            NativeContext ctx,
-            NativeHandle mgrHdl,
-            ulong addr
-        );
-
-
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle mem_mgr_get_address_offset(
-            NativeContext ctx,
-            NativeHandle mgrHdl,
-            ulong sourceAddr
-        );
-
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle mem_mgr_get_host_address_from_pointer(
-            NativeContext ctx,
-            NativeHandle mgrHdl,
-            ulong addr
-        );
-
-
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle mem_mgr_get_guest_address_from_pointer(
             NativeContext ctx,
             NativeHandle mgrHdl,
             ulong addr
@@ -970,27 +776,6 @@ namespace Hyperlight.Wrapper
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle mem_mgr_get_load_addr(
-            NativeContext ctx,
-            NativeHandle memMgrHdl
-        );
-
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle mem_mgr_get_sandbox_memory_layout(
-            NativeContext ctx,
-            NativeHandle memMgrHdl
-        );
-
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle mem_mgr_get_run_from_process_memory(
-            NativeContext ctx,
-            NativeHandle memMgrHdl
-        );
-
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern SandboxMemoryConfiguration mem_mgr_get_config(
             NativeContext ctx,
             NativeHandle memMgrHdl
         );
