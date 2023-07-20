@@ -9,7 +9,7 @@ static const uint64_t SHARED_MEM_SIZE = 4096;
 
 MunitResult test_shared_mem_create_delete()
 {
-    Context *ctx = context_new();
+    Context *ctx = context_new("test correlation id");
     Handle ref = shared_memory_new(ctx, SHARED_MEM_SIZE);
     handle_free(ctx, ref);
     context_free(ctx);
@@ -43,7 +43,7 @@ MunitResult test_shared_mem_read_write()
 {
     {
         // read-write-read an i64
-        Context *ctx = context_new();
+        Context *ctx = context_new("test correlation id");
         Handle ref = shared_memory_new(ctx, SHARED_MEM_SIZE);
 
         {
@@ -82,7 +82,7 @@ MunitResult test_shared_mem_read_write()
     }
     {
         // read-write-read an i32
-        Context *ctx = context_new();
+        Context *ctx = context_new("test correlation id");
         Handle ref = shared_memory_new(ctx, SHARED_MEM_SIZE);
 
         {
@@ -125,7 +125,7 @@ MunitResult test_shared_mem_read_write()
 
 MunitResult test_shared_mem_copy_from_byte_array()
 {
-    Context *ctx = context_new();
+    Context *ctx = context_new("test correlation id");
     Handle ref = shared_memory_new(ctx, SHARED_MEM_SIZE);
     {
         // create a very small byte array, which we'll
@@ -224,7 +224,7 @@ MunitResult test_shared_mem_copy_from_byte_array()
 
 MunitResult test_shared_mem_copy_to_byte_array()
 {
-    Context *ctx = context_new();
+    Context *ctx = context_new("test correlation id");
     Handle ref = shared_memory_new(ctx, SHARED_MEM_SIZE);
 
     // Test copying a small byte array from the start of the memory.

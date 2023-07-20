@@ -9,7 +9,7 @@ void outb_handler_func(uint16_t port, uint64_t payload)
 
 MunitResult test_outb_handler_create(const MunitParameter params[], void *fixture)
 {
-    Context *ctx = context_new();
+    Context *ctx = context_new("test correlation id");
     Handle create_res = outb_fn_handler_create(ctx, outb_handler_func);
 
     handle_assert_no_error(ctx, create_res);
@@ -20,7 +20,7 @@ MunitResult test_outb_handler_create(const MunitParameter params[], void *fixtur
 }
 MunitResult test_outb_handler_call(const MunitParameter params[], void *fixture)
 {
-    Context *ctx = context_new();
+    Context *ctx = context_new("test correlation id");
 
     Handle fn_ref = outb_fn_handler_create(ctx, outb_handler_func);
     handle_assert_no_error(ctx, fn_ref);

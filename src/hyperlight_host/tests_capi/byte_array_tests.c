@@ -7,7 +7,7 @@
 
 MunitResult test_byte_array_null_ptr()
 {
-    struct Context *ctx = context_new();
+    struct Context *ctx = context_new("test correlation id");
     Handle barr_ref = byte_array_new(ctx, NULL, 123);
     munit_assert_true(handle_get_status(barr_ref) == ValidError);
     const char *err_msg = handle_get_error_message(ctx, barr_ref);
@@ -22,7 +22,7 @@ MunitResult test_byte_array_null_ptr()
 
 MunitResult test_byte_array_lifecycle()
 {
-    struct Context *ctx = context_new();
+    struct Context *ctx = context_new("test correlation id");
     const uint8_t size = 100;
     uint8_t *mem = create_u8_mem(size, true);
     Handle barr_ref = byte_array_new(ctx, mem, size);
@@ -41,7 +41,7 @@ MunitResult test_byte_array_lifecycle()
 MunitResult test_byte_array_new_from_file()
 {
     const char *file_name = "./tests_capi/byte_array_tests.c";
-    struct Context *ctx = context_new();
+    struct Context *ctx = context_new("test correlation id");
 
     Handle barr_ref = byte_array_new_from_file(ctx, file_name);
     munit_assert_true(handle_get_status(barr_ref) == ValidOther);

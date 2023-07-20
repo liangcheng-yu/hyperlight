@@ -25,7 +25,6 @@ use crate::{
     mem::ptr_offset::Offset,
 };
 use anyhow::{anyhow, bail, Result};
-use log::info;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::ops::Add;
@@ -33,7 +32,6 @@ use std::option::Option;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tracing::instrument;
-use uuid::Uuid;
 
 /// A preliminary `Sandbox`, not yet ready to execute guest code.
 ///
@@ -48,7 +46,6 @@ pub struct UninitializedSandbox<'a> {
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
-    correlation_id: String,
 }
 
 impl<'a> std::fmt::Debug for UninitializedSandbox<'a> {
@@ -127,32 +124,12 @@ impl<'a> UninitializedSandbox<'a> {
     /// The instrument attribute is used to generate tracing spans and also to emit an error should the Result be an error
     /// In order to ensure that the span is associated with any error (so we get the correlation id ) we set the level of the span to error
     /// the downside to this is that if there is no trace subscriber a log at level error or below will always emit a record for this regardless of if an error actually occurs
-    /// TODO: Move this to C API and just leave   #[instrument(err(Dubug))] on the function
-    #[instrument(
-        err(),
-        skip(cfg),
-        fields(correlation_id)
-        name = "UninitializedSandbox::new"
-    )]
+    #[instrument(err(), skip(cfg), name = "UninitializedSandbox::new")]
     pub fn new(
         bin_path: String,
         cfg: Option<SandboxMemoryConfiguration>,
         sandbox_run_options: Option<SandboxRunOptions>,
-        correlation_id: Option<String>,
     ) -> Result<Self> {
-        let correlation_id = match correlation_id {
-            None => {
-                info!("No correlation id provided, generating one");
-                Uuid::new_v4().to_string()
-            }
-            Some(id) => {
-                info!("Using provided correlation id");
-                id
-            }
-        };
-
-        tracing::Span::current().record("correlation_id", &correlation_id);
-
         // Make sure the binary exists
 
         let path = Path::new(&bin_path)
@@ -206,7 +183,6 @@ impl<'a> UninitializedSandbox<'a> {
             host_functions: HashMap::new(),
             mem_mgr,
             stack_guard,
-            correlation_id,
         };
 
         default_writer.register(&mut sandbox, "writer_func")?;
@@ -356,11 +332,7 @@ impl<'a> UninitializedSandbox<'a> {
     /// Initialize the `Sandbox` from an `UninitializedSandbox`.
     /// Receives a callback function to be called during initialization.
     #[allow(unused)]
-    #[instrument(
-        err(Debug),
-        skip_all,
-        fields(correlation_id=self.correlation_id)
-    )]
+    #[instrument(err(Debug), skip_all)]
     pub(super) fn initialize<F: Fn(&mut UninitializedSandbox<'a>) -> Result<()> + 'a>(
         mut self,
         callback: Option<F>,
@@ -411,14 +383,14 @@ mod tests {
         // Guest Binary exists at path
 
         let binary_path = simple_guest_path().unwrap();
-        let sandbox = UninitializedSandbox::new(binary_path.clone(), None, None, None);
+        let sandbox = UninitializedSandbox::new(binary_path.clone(), None, None);
         assert!(sandbox.is_ok());
 
         // Guest Binary does not exist at path
 
         let binary_path_does_not_exist = binary_path.trim_end_matches(".exe").to_string();
         let uninitialized_sandbox =
-            UninitializedSandbox::new(binary_path_does_not_exist, None, None, None);
+            UninitializedSandbox::new(binary_path_does_not_exist, None, None);
         assert!(uninitialized_sandbox.is_err());
 
         // Non default memory configuration
@@ -433,8 +405,7 @@ mod tests {
             Some(0x1000),
         );
 
-        let uninitialized_sandbox =
-            UninitializedSandbox::new(binary_path.clone(), Some(cfg), None, None);
+        let uninitialized_sandbox = UninitializedSandbox::new(binary_path.clone(), Some(cfg), None);
         assert!(uninitialized_sandbox.is_ok());
 
         // Invalid sandbox_run_options
@@ -443,10 +414,10 @@ mod tests {
             SandboxRunOptions::RUN_FROM_GUEST_BINARY | SandboxRunOptions::RECYCLE_AFTER_RUN;
 
         let uninitialized_sandbox =
-            UninitializedSandbox::new(binary_path.clone(), None, Some(sandbox_run_options), None);
+            UninitializedSandbox::new(binary_path.clone(), None, Some(sandbox_run_options));
         assert!(uninitialized_sandbox.is_err());
 
-        let uninitialized_sandbox = UninitializedSandbox::new(binary_path, None, None, None);
+        let uninitialized_sandbox = UninitializedSandbox::new(binary_path, None, None);
         assert!(uninitialized_sandbox.is_ok());
 
         // Get a Sandbox from an uninitialized sandbox without a call back function
@@ -470,7 +441,6 @@ mod tests {
 
         let mut uninitialized_sandbox = UninitializedSandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
-            None,
             None,
             None,
         )
@@ -506,7 +476,7 @@ mod tests {
     #[test]
     fn test_stack_guard() {
         let simple_guest_path = simple_guest_path().unwrap();
-        let sbox = UninitializedSandbox::new(simple_guest_path, None, None, None).unwrap();
+        let sbox = UninitializedSandbox::new(simple_guest_path, None, None).unwrap();
         let res = sbox.check_stack_guard();
         assert!(
             res.is_ok(),
@@ -523,7 +493,6 @@ mod tests {
         let uninitialized_sandbox = || {
             UninitializedSandbox::new(
                 simple_guest_path().expect("Guest Binary Missing"),
-                None,
                 None,
                 None,
             )
@@ -638,7 +607,6 @@ mod tests {
             simple_guest_path().expect("Guest Binary Missing"),
             None,
             None,
-            None,
         )
         .expect("Failed to create sandbox");
 
@@ -676,7 +644,6 @@ mod tests {
             simple_guest_path().expect("Guest Binary Missing"),
             None,
             None,
-            None,
         )
         .expect("Failed to create sandbox");
 
@@ -702,7 +669,6 @@ mod tests {
             simple_guest_path().expect("Guest Binary Missing"),
             None,
             None,
-            None,
         )
         .expect("Failed to create sandbox");
 
@@ -724,7 +690,6 @@ mod tests {
 
         let mut sandbox = UninitializedSandbox::new(
             simple_guest_path().expect("Guest Binary Missing"),
-            None,
             None,
             None,
         )
@@ -757,9 +722,8 @@ mod tests {
 
         for i in 0..10 {
             let simple_guest_path = simple_guest_path().expect("Guest Binary Missing");
-            let unintializedsandbox =
-                UninitializedSandbox::new(simple_guest_path, None, None, None)
-                    .unwrap_or_else(|_| panic!("Failed to create UninitializedSandbox {}", i));
+            let unintializedsandbox = UninitializedSandbox::new(simple_guest_path, None, None)
+                .unwrap_or_else(|_| panic!("Failed to create UninitializedSandbox {}", i));
 
             unintializedsandbox_queue
                 .push(unintializedsandbox)
@@ -855,9 +819,7 @@ mod tests {
             let mut binary_path = simple_guest_path().unwrap();
             binary_path.push_str("does_not_exist");
 
-            let correlation_id = Uuid::new_v4().as_hyphenated().to_string();
-            let sbox =
-                UninitializedSandbox::new(binary_path, None, None, Some(correlation_id.clone()));
+            let sbox = UninitializedSandbox::new(binary_path, None, None);
             assert!(sbox.is_err());
 
             // Now we should still be in span 1 but span 2 should be created (we created entered and exited span 2 when we called UninitializedSandbox::new)
@@ -874,23 +836,10 @@ mod tests {
             let span_metadata = subscriber.get_span_metadata(2);
             assert_eq!(span_metadata.name(), "UninitializedSandbox::new");
 
-            // The value of the correlation id should be the same as the one we passed to UninitializedSandbox::new
-
-            let span_data = subscriber.get_span(2);
-            let span_attributes: &Map<String, Value> = span_data
-                .get("span")
-                .unwrap()
-                .get("attributes")
-                .unwrap()
-                .as_object()
-                .unwrap();
-
-            test_value_as_str(span_attributes, "correlation_id", correlation_id.as_str());
-
-            // There should be two events, one for the info specifying that the provided correlation id is being used and the other for the error that the binary path does not exist
+            // There should be one event for the error that the binary path does not exist
 
             let events = subscriber.get_events();
-            assert_eq!(events.len(), 2);
+            assert_eq!(events.len(), 1);
 
             let mut count_matching_events = 0;
 
@@ -899,25 +848,6 @@ mod tests {
                 let metadata_values_map =
                     event_values.get("metadata").unwrap().as_object().unwrap();
                 let event_values_map = event_values.as_object().unwrap();
-
-                // This is the info event for using the provided correlation id
-                let succ_vals_res = try_to_strings([
-                    (metadata_values_map, "level"),
-                    (event_values_map, "message"),
-                    (event_values_map, "log.module_path"),
-                    (event_values_map, "log.target"),
-                ]);
-                if let Ok(succ_vals) = succ_vals_res {
-                    if succ_vals[0] == "INFO"
-                        && succ_vals[1] == "Using provided correlation id"
-                        && succ_vals[2] == "hyperlight_host::sandbox::uninitialized"
-                        && succ_vals[3] == "hyperlight_host::sandbox::uninitialized"
-                    {
-                        count_matching_events += 1;
-                    }
-                }
-
-                // This is the error event for the binary path not existing
 
                 #[cfg(target_os = "windows")]
                 let expected_error =
@@ -942,7 +872,7 @@ mod tests {
                 }
             }
             assert!(
-                count_matching_events == 2,
+                count_matching_events == 1,
                 "Unexpected number of matching events {}",
                 count_matching_events
             );
@@ -967,7 +897,7 @@ mod tests {
             let mut invalid_binary_path = simple_guest_path().unwrap();
             invalid_binary_path.push_str("does_not_exist");
 
-            let sbox = UninitializedSandbox::new(invalid_binary_path, None, None, None);
+            let sbox = UninitializedSandbox::new(invalid_binary_path, None, None);
             assert!(sbox.is_err());
 
             // When tracing is creating log records it will create a log
@@ -976,12 +906,12 @@ mod tests {
             // and exit from the span.
             //
             // It also creates a log record for the span being dropped.
-            // So we expect 6 log records for this test, four for the span and
-            // then two for the error as the file that we are attempting to
+            // So we expect 5 log records for this test, four for the span and
+            // then one for the error as the file that we are attempting to
             // load into the sandbox does not exist
 
             let num_calls = TEST_LOGGER.num_log_calls();
-            assert_eq!(6, num_calls);
+            assert_eq!(5, num_calls);
 
             // Log record 1
 
@@ -1003,13 +933,6 @@ mod tests {
             // Log record 3
 
             let logcall = TEST_LOGGER.get_log_call(2).unwrap();
-            assert_eq!(Level::Info, logcall.level);
-            assert_eq!("No correlation id provided, generating one", logcall.args);
-            assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
-
-            // Log record 4
-
-            let logcall = TEST_LOGGER.get_log_call(3).unwrap();
             assert_eq!(Level::Error, logcall.level);
             #[cfg(target_os = "windows")]
             assert!(logcall.args.starts_with(
@@ -1021,16 +944,16 @@ mod tests {
                 .starts_with("error=Error No such file or directory (os error 2) File Path"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
 
-            // Log record 5
+            // Log record 4
 
-            let logcall = TEST_LOGGER.get_log_call(4).unwrap();
+            let logcall = TEST_LOGGER.get_log_call(3).unwrap();
             assert_eq!(Level::Trace, logcall.level);
             assert_eq!(logcall.args, "<- UninitializedSandbox::new;");
             assert_eq!("tracing::span::active", logcall.target);
 
             // Log record 6
 
-            let logcall = TEST_LOGGER.get_log_call(5).unwrap();
+            let logcall = TEST_LOGGER.get_log_call(4).unwrap();
             assert_eq!(Level::Trace, logcall.level);
             assert_eq!(logcall.args, "-- UninitializedSandbox::new;");
             assert_eq!("tracing::span", logcall.target);
@@ -1049,19 +972,18 @@ mod tests {
                 valid_binary_path.into_os_string().into_string().unwrap(),
                 None,
                 None,
-                None,
             );
             assert!(sbox.is_err());
 
-            // There should be six calls again as we changed the log LevelFilter
-            // to Info. We should see the 2 info level logs seen in records 1
-            // and 3 above.
+            // There should be five calls again as we changed the log LevelFilter
+            // to Info. We should see the 1 info level log seen in records 1 above.
+
             // We should then see the span and the info log record from pe_info
             // and then finally the 2 errors from pe info and sandbox as the
             // error result is propagated back up the call stack
 
             let num_calls = TEST_LOGGER.num_log_calls();
-            assert_eq!(6, num_calls);
+            assert_eq!(5, num_calls);
 
             // Log record 1
 
@@ -1073,30 +995,23 @@ mod tests {
                 .starts_with("UninitializedSandbox::new; bin_path"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
 
-            // Log record 2
-
-            let logcall = TEST_LOGGER.get_log_call(1).unwrap();
-            assert_eq!(Level::Info, logcall.level);
-            assert_eq!("No correlation id provided, generating one", logcall.args);
-            assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
-
             // Log record 3
 
-            let logcall = TEST_LOGGER.get_log_call(2).unwrap();
+            let logcall = TEST_LOGGER.get_log_call(1).unwrap();
             assert_eq!(Level::Info, logcall.level);
             assert!(logcall.args.starts_with("from_file; filename="));
             assert_eq!("hyperlight_host::mem::pe::pe_info", logcall.target);
 
             // Log record 4
 
-            let logcall = TEST_LOGGER.get_log_call(3).unwrap();
+            let logcall = TEST_LOGGER.get_log_call(2).unwrap();
             assert_eq!(Level::Info, logcall.level);
             assert!(logcall.args.starts_with("Loading PE file from"));
             assert_eq!("hyperlight_host::mem::pe::pe_info", logcall.target);
 
             // Log record 5
 
-            let logcall = TEST_LOGGER.get_log_call(4).unwrap();
+            let logcall = TEST_LOGGER.get_log_call(3).unwrap();
             assert_eq!(Level::Error, logcall.level);
             assert!(logcall
                 .args
@@ -1105,7 +1020,7 @@ mod tests {
 
             // Log record 6
 
-            let logcall = TEST_LOGGER.get_log_call(5).unwrap();
+            let logcall = TEST_LOGGER.get_log_call(4).unwrap();
             assert_eq!(Level::Error, logcall.level);
             assert!(logcall
                 .args
@@ -1118,7 +1033,7 @@ mod tests {
 
             // Now we have set the max level to error, so we should not see any log calls as the following should not create an error
 
-            let sbox = UninitializedSandbox::new(simple_guest_path().unwrap(), None, None, None);
+            let sbox = UninitializedSandbox::new(simple_guest_path().unwrap(), None, None);
 
             let sbox = sbox.unwrap();
             let _ = sbox.initialize::<fn(&mut UninitializedSandbox<'_>) -> Result<()>>(None);

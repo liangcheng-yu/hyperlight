@@ -381,3 +381,23 @@
    fun:*hyperlight_host*and_then_mut*
    fun:*core*and_then*
 }
+{
+   suppres_leak_for_lazy_tracing_subcriber_init
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:alloc
+   fun:*alloc*alloc*Global*alloc_impl*
+   fun:_*alloc*alloc*Global*core*alloc*Allocator*allocate*
+   fun:*hashbrown*raw*alloc*inner*do_alloc*
+   fun:*hashbrown*raw*RawTableInner*new_uninitialized*
+   fun:*hashbrown*raw*RawTableInner*fallible_with_capacity*
+   fun:*hashbrown*raw*RawTableInner*prepare_resize*
+   fun:resize_inner<alloc::alloc::Global>
+   fun:reserve_rehash_inner<alloc::alloc::Global>
+   fun:*hashbrown*raw*RawTable*reserve_rehash*
+   fun:*hashbrown*raw*RawTable*reserve*
+   fun:*hashbrown*raw*RawTable*insert*
+   fun:*hashbrown*map*HashMap*insert*
+   fun:*std*collections*hash*map*HashMap*insert*
+}

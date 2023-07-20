@@ -9,7 +9,7 @@ void mem_access_handler_func()
 
 MunitResult test_mem_access_handler_create(const MunitParameter params[], void *fixture)
 {
-    Context *ctx = context_new();
+    Context *ctx = context_new("test correlation id");
     Handle create_res = mem_access_handler_create(ctx, mem_access_handler_func);
 
     handle_assert_no_error(ctx, create_res);
@@ -20,7 +20,7 @@ MunitResult test_mem_access_handler_create(const MunitParameter params[], void *
 }
 MunitResult test_mem_access_handler_call(const MunitParameter params[], void *fixture)
 {
-    Context *ctx = context_new();
+    Context *ctx = context_new("test correlation id");
 
     Handle fn_ref = mem_access_handler_create(ctx, mem_access_handler_func);
     handle_assert_no_error(ctx, fn_ref);

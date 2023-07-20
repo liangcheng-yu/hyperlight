@@ -133,6 +133,9 @@ namespace Hyperlight
             Func<string>? getCorrelationIdFunc = null
         )
         {
+            // Create the context and let it generate a CorrelationId, we will then update it with the one provided or generated in UpdateCorrelationId below.
+            this.context = new Context(string.Empty);
+
             if (!string.IsNullOrEmpty(correlationId))
             {
                 fixedCorrelationId = correlationId;
@@ -146,7 +149,6 @@ namespace Hyperlight
 
             UpdateCorrelationId();
             var memCfg = sandboxMemoryConfiguration ?? new SandboxMemoryConfiguration();
-            this.context = new Context(CorrelationId.Value!);
 
             if (!IsSupportedPlatform)
             {
@@ -227,6 +229,8 @@ namespace Hyperlight
 
         }
 
+        // NOTE: Neither of the following two functions need to be ported to Rust, they are needed by the C# code only.
+
         // Default function to get a correlationid ,if a correlationId was provided in the constructor
         // then use it otherwise generate a new one for each invocation of the function.
         string GetDefaultCorrelationId()
@@ -249,11 +253,11 @@ namespace Hyperlight
                 result = GetDefaultCorrelationId();
                 HyperlightLogger.LogError($"Exception thrown tyring to get new CorrelationId {ex.GetType().Name} {ex.Message}", nameof(GetCorrelationId));
             }
-            if (this.context != null && this.context.CorrelationId != result)
+            if (CorrelationId.Value != result)
             {
-                this.context.CorrelationId = result;
+                this.context.SetCorrelationId(result);
+                CorrelationId.Value = result;
             }
-            CorrelationId.Value = result;
         }
         internal object DispatchCallFromHost(string functionName, RuntimeTypeHandle returnType, object[] args)
         {
