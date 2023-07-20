@@ -6,7 +6,7 @@ use super::{
     mem_mgr::MemMgr,
 };
 use crate::flatbuffers::hyperlight::generated::ErrorCode;
-use crate::func::function_call::FunctionCall;
+use crate::func::function_call::{FunctionCall, FunctionCallType};
 use crate::func::types::{ParameterValue, ReturnType};
 use crate::mem::mgr::SandboxMemoryManager;
 use crate::mem::mgr::STACK_COOKIE_LEN;
@@ -121,25 +121,22 @@ impl<'a> Sandbox<'a> {
         }
     }
 
+    #[allow(unused)]
     pub(crate) fn dispatch_call_from_host(
         &mut self,
         function_name: String,
         return_type: ReturnType,
-        args: Vec<ParameterValue>,
+        args: Option<Vec<ParameterValue>>,
     ) -> Result<i32> {
         let _p_dispatch = self.mem_mgr.get_pointer_to_dispatch_function()?;
 
-        let fc = FunctionCall {
-            function_name,
-            parameters: Some(args),
-            function_call_type: crate::func::function_call::FunctionCallType::Host,
-            expected_return_type: return_type,
-        };
-        
+        let fc = FunctionCall::new(function_name, args, FunctionCallType::Host, args);
+
         let buffer: Vec<u8> = fc.try_into()?;
 
         self.mem_mgr.write_guest_function_call(&buffer)?;
 
+        #[allow(clippy::if_same_then_else)]
         if self.mem_mgr.is_in_process() {
             // TODO: transmute p_dispatch and call fxn
         } else {

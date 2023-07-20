@@ -89,6 +89,7 @@ impl SandboxMemoryManager {
         }
     }
 
+    #[allow(unused)]
     pub(crate) fn is_in_process(&self) -> bool {
         self.run_from_process_memory
     }

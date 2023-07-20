@@ -26,6 +26,22 @@ pub(crate) struct FunctionCall {
     expected_return_type: ReturnType,
 }
 
+impl FunctionCall {
+    pub(crate) fn new(
+        function_name: String,
+        parameters: Option<Vec<ParameterValue>>,
+        function_call_type: FunctionCallType,
+        expected_return_type: ReturnType,
+    ) -> Self {
+        Self {
+            function_name,
+            parameters,
+            function_call_type,
+            expected_return_type,
+        }
+    }
+}
+
 /// The type of function call.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum FunctionCallType {
