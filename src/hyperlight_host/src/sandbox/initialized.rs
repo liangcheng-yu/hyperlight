@@ -148,7 +148,7 @@ impl<'a> Sandbox<'a> {
         } else {
             // TODO: For this, we're missing some sort of API
             // to get the current Hypervisor set by `set_up_hypervisor_partition`
-            // in `UninitializedSandbox`. Once that's done, we should be able to 
+            // in `UninitializedSandbox`. Once that's done, we should be able to
             // to something like this: `self.mem_mgr.get_hypervisor().dispatch(...)`
         }
 
