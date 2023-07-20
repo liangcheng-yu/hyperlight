@@ -11,3 +11,25 @@ pub(crate) mod log_data;
 /// An enumeration and supporting logic to determine the desired
 /// level of a log message issued from the guest.
 pub(crate) mod log_level;
+
+use super::{ret_type::SupportedReturnType, types::ReturnValue};
+use anyhow::Result;
+use std::sync::{Arc, Mutex};
+
+/// A Hyperlight function that takes no arguments and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
+pub(crate) trait GuestFunction<'a, R: SupportedReturnType<R>> {
+    fn call(&self) -> Result<ReturnValue>;
+}
+
+impl<'a, T, R> GuestFunction<'a, R> for Arc<Mutex<T>>
+where
+    T: FnMut() -> anyhow::Result<R> + 'a + Send,
+    R: SupportedReturnType<R>,
+{
+    fn call(&self) -> Result<ReturnValue> {
+        let result = self
+            .lock()
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?()?;
+        Ok(result.get_hyperlight_value())
+    }
+}

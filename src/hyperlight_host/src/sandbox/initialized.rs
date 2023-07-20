@@ -1,3 +1,4 @@
+use super::guest::CallGuestFunction;
 use super::uninitialized::UninitializedSandbox;
 use super::{host_funcs::CallHostPrint, outb::OutBAction};
 use super::{host_funcs::HostFuncs, outb::outb_log};
@@ -44,6 +45,8 @@ impl<'a> HostFuncs<'a> for Sandbox<'a> {
 }
 
 impl<'a> CallHostFunction<'a> for Sandbox<'a> {}
+
+impl<'a> CallGuestFunction<'a> for UninitializedSandbox<'a> {}
 
 impl<'a> CallHostPrint<'a> for Sandbox<'a> {}
 

@@ -1,3 +1,4 @@
+use super::guest::CallGuestFunction;
 use super::mem_mgr::MemMgr;
 use super::{
     host_funcs::default_writer_func, host_funcs::HostFuncs, host_funcs::HostFunctionsMap,
@@ -5,7 +6,7 @@ use super::{
 };
 use super::{host_funcs::CallHostPrint, run_options::SandboxRunOptions};
 use crate::func::host::function_definition::HostFunctionDefinition;
-use crate::func::host::{Function1, HyperlightFunction};
+use crate::func::host::{HostFunction1, HyperlightFunction};
 use crate::hypervisor::Hypervisor;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::mem::ptr::RawPtr;
@@ -107,6 +108,8 @@ impl<'a> HostFuncs<'a> for UninitializedSandbox<'a> {
 }
 
 impl<'a> CallHostPrint<'a> for UninitializedSandbox<'a> {}
+
+impl<'a> CallGuestFunction<'a> for UninitializedSandbox<'a> {}
 
 impl<'a> MemMgr for UninitializedSandbox<'a> {
     fn get_mem_mgr(&self) -> &SandboxMemoryManager {
@@ -353,7 +356,7 @@ mod tests {
     };
     use crate::{
         func::{
-            host::{Function1, Function2},
+            host::{HostFunction1, HostFunction2},
             types::{ParameterValue, ReturnValue},
         },
         mem::config::SandboxMemoryConfiguration,

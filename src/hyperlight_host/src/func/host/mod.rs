@@ -4,20 +4,15 @@ pub(crate) mod function_call;
 pub(crate) mod function_definition;
 /// Represents the functions that the host exposes to the guest.
 pub(crate) mod function_details;
-/// Definitions and functionality for supported parameter types
-pub(crate) mod param_type;
-/// Definitions and functionality for supported return types
-pub(crate) mod ret_type;
 
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
 
 use crate::sandbox::UninitializedSandbox;
 
-use self::{
-    function_definition::HostFunctionDefinition, param_type::SupportedParameterType,
-    ret_type::SupportedReturnType,
-};
+use self::function_definition::HostFunctionDefinition;
+
+use super::{param_type::SupportedParameterType, ret_type::SupportedReturnType};
 
 use super::types::{ParameterValue, ReturnValue};
 
@@ -25,11 +20,11 @@ pub(crate) type HyperlightFunction<'a> =
     Arc<Mutex<Box<dyn FnMut(Vec<ParameterValue>) -> anyhow::Result<ReturnValue> + 'a + Send>>>;
 
 /// A Hyperlight function that takes no arguments and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait Function0<'a, R: SupportedReturnType<R>> {
+pub(crate) trait HostFunction0<'a, R: SupportedReturnType<R>> {
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
-impl<'a, T, R> Function0<'a, R> for Arc<Mutex<T>>
+impl<'a, T, R> HostFunction0<'a, R> for Arc<Mutex<T>>
 where
     T: FnMut() -> anyhow::Result<R> + 'a + Send,
     R: SupportedReturnType<R>,
@@ -53,7 +48,7 @@ where
 }
 
 /// A Hyperlight function that takes 1 argument P1 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait Function1<
+pub(crate) trait HostFunction1<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
     R: SupportedReturnType<R>,
@@ -62,7 +57,7 @@ pub(crate) trait Function1<
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
-impl<'a, T, P1, R> Function1<'a, P1, R> for Arc<Mutex<T>>
+impl<'a, T, P1, R> HostFunction1<'a, P1, R> for Arc<Mutex<T>>
 where
     T: FnMut(P1) -> anyhow::Result<R> + 'a + Send,
     P1: SupportedParameterType<P1> + Clone + 'a,
@@ -95,7 +90,7 @@ where
 }
 
 /// A Hyperlight function that takes 2 arguments P1 and P2 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait Function2<
+pub(crate) trait HostFunction2<
     'a,
     P1: SupportedParameterType<P1>,
     P2: SupportedParameterType<P2>,
@@ -105,7 +100,7 @@ pub(crate) trait Function2<
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
-impl<'a, T, P1, P2, R> Function2<'a, P1, P2, R> for Arc<Mutex<T>>
+impl<'a, T, P1, P2, R> HostFunction2<'a, P1, P2, R> for Arc<Mutex<T>>
 where
     T: FnMut(P1, P2) -> anyhow::Result<R> + 'a + Send,
     P1: SupportedParameterType<P1> + Clone + 'a,
@@ -141,7 +136,7 @@ where
 }
 
 /// A Hyperlight function that takes 3 arguments P1, P2 and P3 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait Function3<
+pub(crate) trait HostFunction3<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
@@ -152,7 +147,7 @@ pub(crate) trait Function3<
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
-impl<'a, T, P1, P2, P3, R> Function3<'a, P1, P2, P3, R> for Arc<Mutex<T>>
+impl<'a, T, P1, P2, P3, R> HostFunction3<'a, P1, P2, P3, R> for Arc<Mutex<T>>
 where
     T: FnMut(P1, P2, P3) -> anyhow::Result<R> + 'a + Send,
     P1: SupportedParameterType<P1> + Clone + 'a,
@@ -194,7 +189,7 @@ where
 }
 
 /// A Hyperlight function that takes 4 arguments P1, P2, P3 and P4 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait Function4<
+pub(crate) trait HostFunction4<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
@@ -206,7 +201,7 @@ pub(crate) trait Function4<
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
-impl<'a, T, P1, P2, P3, P4, R> Function4<'a, P1, P2, P3, P4, R> for Arc<Mutex<T>>
+impl<'a, T, P1, P2, P3, P4, R> HostFunction4<'a, P1, P2, P3, P4, R> for Arc<Mutex<T>>
 where
     T: FnMut(P1, P2, P3, P4) -> anyhow::Result<R> + 'a + Send,
     P1: SupportedParameterType<P1> + Clone + 'a,
@@ -251,7 +246,7 @@ where
 }
 
 /// A Hyperlight function that takes 5 arguments P1, P2, P3, P4 and P5 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait Function5<
+pub(crate) trait HostFunction5<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
@@ -264,7 +259,7 @@ pub(crate) trait Function5<
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
-impl<'a, T, P1, P2, P3, P4, P5, R> Function5<'a, P1, P2, P3, P4, P5, R> for Arc<Mutex<T>>
+impl<'a, T, P1, P2, P3, P4, P5, R> HostFunction5<'a, P1, P2, P3, P4, P5, R> for Arc<Mutex<T>>
 where
     T: FnMut(P1, P2, P3, P4, P5) -> anyhow::Result<R> + 'a + Send,
     P1: SupportedParameterType<P1> + Clone + 'a,
@@ -312,7 +307,7 @@ where
 }
 
 /// A Hyperlight function that takes 6 arguments P1, P2, P3, P4, P5 and P6 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait Function6<
+pub(crate) trait HostFunction6<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
@@ -326,7 +321,8 @@ pub(crate) trait Function6<
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
-impl<'a, T, P1, P2, P3, P4, P5, P6, R> Function6<'a, P1, P2, P3, P4, P5, P6, R> for Arc<Mutex<T>>
+impl<'a, T, P1, P2, P3, P4, P5, P6, R> HostFunction6<'a, P1, P2, P3, P4, P5, P6, R>
+    for Arc<Mutex<T>>
 where
     T: FnMut(P1, P2, P3, P4, P5, P6) -> anyhow::Result<R> + 'a + Send,
     P1: SupportedParameterType<P1> + Clone + 'a,
@@ -377,7 +373,7 @@ where
 }
 
 /// A Hyperlight function that takes 7 arguments P1, P2, P3, P4, P5, P6 and P7 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait Function7<
+pub(crate) trait HostFunction7<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
@@ -392,7 +388,7 @@ pub(crate) trait Function7<
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
-impl<'a, T, P1, P2, P3, P4, P5, P6, P7, R> Function7<'a, P1, P2, P3, P4, P5, P6, P7, R>
+impl<'a, T, P1, P2, P3, P4, P5, P6, P7, R> HostFunction7<'a, P1, P2, P3, P4, P5, P6, P7, R>
     for Arc<Mutex<T>>
 where
     T: FnMut(P1, P2, P3, P4, P5, P6, P7) -> anyhow::Result<R> + 'a + Send,
@@ -447,7 +443,7 @@ where
 }
 
 /// A Hyperlight function that takes 8 arguments P1, P2, P3, P4, P5, P6, P7 and P8 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait Function8<
+pub(crate) trait HostFunction8<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
@@ -463,7 +459,7 @@ pub(crate) trait Function8<
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
-impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, R> Function8<'a, P1, P2, P3, P4, P5, P6, P7, P8, R>
+impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, R> HostFunction8<'a, P1, P2, P3, P4, P5, P6, P7, P8, R>
     for Arc<Mutex<T>>
 where
     T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8) -> anyhow::Result<R> + 'a + Send,
@@ -521,7 +517,7 @@ where
 }
 
 /// A Hyperlight function that takes 9 arguments P1, P2, P3, P4, P5, P6, P7, P8 and P9 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait Function9<
+pub(crate) trait HostFunction9<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
@@ -539,7 +535,7 @@ pub(crate) trait Function9<
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, P9, R>
-    Function9<'a, P1, P2, P3, P4, P5, P6, P7, P8, P9, R> for Arc<Mutex<T>>
+    HostFunction9<'a, P1, P2, P3, P4, P5, P6, P7, P8, P9, R> for Arc<Mutex<T>>
 where
     T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9) -> anyhow::Result<R> + 'a + Send,
     P1: SupportedParameterType<P1> + Clone + 'a,
@@ -599,7 +595,7 @@ where
 }
 
 /// A Hyperlight function that takes 10 arguments P1, P2, P3, P4, P5, P6, P7, P8, P9 and P10 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait Function10<
+pub(crate) trait HostFunction10<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
@@ -618,7 +614,7 @@ pub(crate) trait Function10<
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, R>
-    Function10<'a, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, R> for Arc<Mutex<T>>
+    HostFunction10<'a, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, R> for Arc<Mutex<T>>
 where
     T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10) -> anyhow::Result<R> + 'a + Send,
     P1: SupportedParameterType<P1> + Clone + 'a,

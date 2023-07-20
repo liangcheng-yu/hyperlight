@@ -4,7 +4,7 @@ use super::{handle::Handle, sandbox_compat::EitherImpl};
 use crate::sandbox::host_funcs::default_writer_func;
 use crate::sandbox::mem_mgr::MemMgr;
 use crate::{capi::strings::get_string, mem::config::SandboxMemoryConfiguration};
-use crate::{func::host::Function1, sandbox};
+use crate::{func::host::HostFunction1, sandbox};
 use crate::{mem::ptr::RawPtr, sandbox_state::sandbox::EvolvableSandbox};
 use crate::{sandbox::host_funcs::CallHostPrint, sandbox_state::transition::Noop};
 use crate::{
