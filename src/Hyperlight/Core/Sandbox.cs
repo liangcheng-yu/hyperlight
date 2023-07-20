@@ -83,12 +83,6 @@ namespace Hyperlight
         readonly Func<string> GetCorrelationId;
 
         /// <summary>
-        /// Returns the maximum number of partitions per process, on windows its the mximum number of processes that can be handled by the HyperVSurrogateProcessManager , on Linux its not fixed and dependent on resources.
-        /// </summary>
-
-        public static int MaxPartitionsPerProcess => IsWindows ? HyperVSurrogateProcessManager.NumberOfProcesses : -1;
-
-        /// <summary>
         /// Create a new Sandbox. Note that you may also use the
         /// SandboxBuilder class to construct Sandboxes
         /// to this constructor.
