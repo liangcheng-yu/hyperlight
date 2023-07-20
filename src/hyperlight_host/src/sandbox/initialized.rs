@@ -128,7 +128,7 @@ impl<'a> Sandbox<'a> {
         return_type: ReturnType,
         args: Option<Vec<ParameterValue>>,
     ) -> Result<i32> {
-        let _p_dispatch = self.mem_mgr.get_pointer_to_dispatch_function()?;
+        let p_dispatch = self.mem_mgr.get_pointer_to_dispatch_function()?;
 
         let fc = FunctionCall::new(function_name, args, FunctionCallType::Host, return_type);
 
@@ -138,9 +138,18 @@ impl<'a> Sandbox<'a> {
 
         #[allow(clippy::if_same_then_else)]
         if self.mem_mgr.is_in_process() {
-            // TODO: transmute p_dispatch and call fxn
+            let dispatch: fn() = unsafe { std::mem::transmute(p_dispatch) };
+            // Q: Why does this function not take `args` and doesn't return `return_type`?
+            //
+            // A: That's because we've already written the function call details to memory
+            // with `self.mem_mgr.write_guest_function_call(&buffer)?;`
+            // and the `dispatch` function can directly access that via shared memory.
+            dispatch();
         } else {
-            // TODO: run Hypervisor specific dispatch_call_from_host (still missing HyperV's)
+            // TODO: For this, we're missing some sort of API
+            // to get the current Hypervisor set by `set_up_hypervisor_partition`
+            // in `UninitializedSandbox`. Once that's done, we should be able to 
+            // to something like this: `self.mem_mgr.get_hypervisor().dispatch(...)`
         }
 
         self.check_stack_guard()?;
