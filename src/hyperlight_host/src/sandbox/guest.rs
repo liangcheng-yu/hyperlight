@@ -1,5 +1,5 @@
-use anyhow::Result;
 use crate::func::{guest::GuestFunction, ret_type::SupportedReturnType, types::ReturnValue};
+use anyhow::Result;
 
 use super::mem_mgr::MemMgr;
 
@@ -11,7 +11,7 @@ pub(crate) trait CallGuestFunction<'a>: MemMgr {
         R: SupportedReturnType<R>,
     {
         // TODO: call reset_state() here
-        
+
         function.call() // <- ensures that only one call can be made concurrently
     }
 }
