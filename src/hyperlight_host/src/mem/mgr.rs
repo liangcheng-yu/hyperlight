@@ -89,6 +89,10 @@ impl SandboxMemoryManager {
         }
     }
 
+    pub(crate) fn is_in_process(&self) -> bool {
+        self.run_from_process_memory
+    }
+
     /// Get `SharedMemory` in `self` as a mutable reference
     pub(crate) fn get_shared_mem_mut(&mut self) -> &mut SharedMemory {
         &mut self.shared_mem
