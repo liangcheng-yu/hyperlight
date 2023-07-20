@@ -130,7 +130,7 @@ impl<'a> Sandbox<'a> {
     ) -> Result<i32> {
         let _p_dispatch = self.mem_mgr.get_pointer_to_dispatch_function()?;
 
-        let fc = FunctionCall::new(function_name, args, FunctionCallType::Host, args);
+        let fc = FunctionCall::new(function_name, args, FunctionCallType::Host, return_type);
 
         let buffer: Vec<u8> = fc.try_into()?;
 
