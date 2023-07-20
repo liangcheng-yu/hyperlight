@@ -46,7 +46,7 @@ impl<'a> HostFuncs<'a> for Sandbox<'a> {
 
 impl<'a> CallHostFunction<'a> for Sandbox<'a> {}
 
-impl<'a> CallGuestFunction<'a> for UninitializedSandbox<'a> {}
+impl<'a> CallGuestFunction<'a> for Sandbox<'a> {}
 
 impl<'a> CallHostPrint<'a> for Sandbox<'a> {}
 
