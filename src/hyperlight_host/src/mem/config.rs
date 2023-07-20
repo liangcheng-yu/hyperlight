@@ -57,7 +57,7 @@ impl SandboxMemoryConfiguration {
     const MIN_GUEST_ERROR_BUFFER_SIZE: usize = 0x80;
 
     /// Create a new configuration for a sandbox with the given sizes.
-    pub fn new(
+    pub(crate) fn new(
         input_data_size: usize,
         output_data_size: usize,
         function_definition_size: usize,

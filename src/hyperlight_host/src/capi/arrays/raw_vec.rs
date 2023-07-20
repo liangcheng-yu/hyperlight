@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 /// A container for a `Vec<T>` that can convert it to/from a raw
 /// pointer, suitable for C-compatible APIs.
 #[derive(PartialEq, Eq, Debug)]
-pub struct RawVec<T: Copy> {
+pub(crate) struct RawVec<T: Copy> {
     internal: Vec<T>,
 }
 
@@ -23,7 +23,7 @@ impl<T: Copy> RawVec<T> {
     /// - Interact with it in any way except directly or transitively via
     /// the `RawPtr` API
     /// - Pass the same pointer to this function more than once
-    pub unsafe fn from_ptr(ptr: *mut T, len: usize) -> Self {
+    pub(crate) unsafe fn from_ptr(ptr: *mut T, len: usize) -> Self {
         let vec = Vec::from_raw_parts(ptr, len, len);
         Self { internal: vec }
     }
@@ -36,7 +36,7 @@ impl<T: Copy> RawVec<T> {
     ///
     /// Since this function copies memory, the caller is still
     /// responsible for the memory in the aforementioned range.
-    pub unsafe fn copy_from_ptr(ptr: *mut T, len: usize) -> Self {
+    pub(crate) unsafe fn copy_from_ptr(ptr: *mut T, len: usize) -> Self {
         // convert the (ptr, len) to a native Rust Vec, then immediately
         // move it into a ManuallyDrop so we can avoid dropping it for the
         // moment.
@@ -70,7 +70,8 @@ impl<T: Copy> RawVec<T> {
     /// If you don't do exactly that, or if you pass the pointer to other
     /// functions like `free()`, the results will be undefined, but you'll
     /// at least leak memory.
-    pub fn copy_to_ptr(&self) -> (*mut T, usize) {
+    #[cfg(test)]
+    pub(crate) fn copy_to_ptr(&self) -> (*mut T, usize) {
         // the memory operations are explicitly documented
         // stepwise, below. This function could be compressed down to
         // two lines, but it is purposely left expanded.
@@ -96,19 +97,17 @@ impl<T: Copy> RawVec<T> {
         let mut slc = ManuallyDrop::new(slc_box);
         (slc.as_mut_ptr(), slc.len())
     }
+}
 
-    /// Similar to `copy_to_ptr`, except for the following:
+impl<T: Copy> From<RawVec<T>> for (*mut T, usize) {
+    /// Consume the `RawVec` `value` and return the underlying `*mut T`
+    /// pointer and the length of owned memory to which that pointer
+    /// points.
     ///
-    /// - No memory is copied. The returned pointer (`*mut T`) and length
-    /// (`usize`) are pointers to the array memory underlying this `RawVec`
-    /// - This `RawVec` (i.e. `self`) is consumed, which means the type
-    /// system will forbid you from calling `to_ptr` twice on the same
-    /// `RawVec` instance.
-    ///
-    /// # Safety
-    ///
-    /// The same safety considerations as `copy_to_ptr` apply here.
-    pub fn to_ptr(self) -> (*mut T, usize) {
+    /// No memory is copied here. If you wish to lift this pointer/size
+    /// tuple back into a `RawVec` use the (unsafe) `RawVec::from_ptr`
+    /// function.
+    fn from(value: RawVec<T>) -> Self {
         // since self.internal is a Vec, we have to deal with the following
         // values before we return:
         //
@@ -135,7 +134,7 @@ impl<T: Copy> RawVec<T> {
         //
         // See https://stackoverflow.com/a/39693977/78455 for a little
         // more detail.
-        let mut slc = ManuallyDrop::new(self.internal.into_boxed_slice());
+        let mut slc = ManuallyDrop::new(value.internal.into_boxed_slice());
         (slc.as_mut_ptr(), slc.len())
     }
 }
@@ -182,7 +181,7 @@ mod tests {
     fn basic_round_trip_to_ptr() {
         let orig_vec = vec![1, 2, 3, 4, 5, 6];
         let start = RawVec::from(orig_vec);
-        let (ptr, len) = start.clone().to_ptr();
+        let (ptr, len): (*mut i32, usize) = start.clone().into();
         let ret = unsafe { RawVec::from_ptr(ptr, len) };
         assert_eq!(start, ret);
     }
@@ -218,7 +217,7 @@ mod tests {
     #[test]
     fn basic_round_trip_copy_from_ptr() {
         // make a pointer
-        let (ptr, len) = RawVec::from(vec![1, 2, 3, 4, 5]).to_ptr();
+        let (ptr, len): (*mut i32, usize) = RawVec::from(vec![1, 2, 3, 4, 5]).into();
 
         // copy from the previously created pointer 100 times
         let copied_raw_vecs: Vec<RawVec<i32>> = (0..100)

@@ -10,7 +10,7 @@ use std::mem::size_of;
 /// The guest log data for a VM sandbox
 #[readonly::make]
 #[derive(Eq, PartialEq, Debug, Clone)]
-pub struct GuestLogData {
+pub(crate) struct GuestLogData {
     pub(crate) message: String,
     pub(crate) source: String,
     pub(crate) level: LogLevel,

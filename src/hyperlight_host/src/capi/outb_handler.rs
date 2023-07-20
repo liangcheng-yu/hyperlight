@@ -8,7 +8,7 @@ use anyhow::Result;
 /// implements the `OutBHandler`'s `call` method by simply calling the
 /// underlying function.
 #[derive(Clone)]
-pub struct OutBHandlerWrapper {
+pub(crate) struct OutBHandlerWrapper {
     func: extern "C" fn(u16, u64),
 }
 

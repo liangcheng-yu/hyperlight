@@ -28,7 +28,7 @@ pub(crate) fn is_hypervisor_present() -> Result<()> {
 }
 
 /// A Hypervisor driver for KVM on Linux
-pub struct KVMDriver {
+pub(crate) struct KVMDriver {
     // kvm and vm_fd are not used but must be present so they're properly
     // dropped.
     // prefix them with underscore so clippy doesn't complain they're unused
@@ -273,11 +273,12 @@ pub(crate) mod test_cfg {
     use once_cell::sync::Lazy;
     use serde::Deserialize;
 
-    pub static TEST_CONFIG: Lazy<TestConfig> = Lazy::new(|| match envy::from_env::<TestConfig>() {
-        Ok(config) => config,
-        Err(err) => panic!("error parsing config from env: {}", err),
-    });
-    pub static SHOULD_RUN_TEST: Lazy<bool> = Lazy::new(is_kvm_present);
+    pub(crate) static TEST_CONFIG: Lazy<TestConfig> =
+        Lazy::new(|| match envy::from_env::<TestConfig>() {
+            Ok(config) => config,
+            Err(err) => panic!("error parsing config from env: {}", err),
+        });
+    pub(crate) static SHOULD_RUN_TEST: Lazy<bool> = Lazy::new(is_kvm_present);
 
     fn is_kvm_present() -> bool {
         println!(
@@ -300,10 +301,10 @@ pub(crate) mod test_cfg {
     }
 
     #[derive(Deserialize, Debug)]
-    pub struct TestConfig {
+    pub(crate) struct TestConfig {
         #[serde(default = "kvm_should_be_present_default")]
         // Set env var KVM_SHOULD_BE_PRESENT to require hyperv to be present for the tests.
-        pub kvm_should_be_present: bool,
+        pub(crate) kvm_should_be_present: bool,
     }
 
     #[macro_export]

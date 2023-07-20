@@ -13,7 +13,7 @@ mod impls {
     use std::fs::read;
 
     /// Returns a reference to the byte array
-    pub fn get(ctx: &Context, handle: Handle) -> Result<&Vec<u8>> {
+    pub(crate) fn get(ctx: &Context, handle: Handle) -> Result<&Vec<u8>> {
         match super::get_byte_array(ctx, handle) {
             Ok(bytes) => Ok(bytes),
             _ => bail!("handle is not a byte array handle"),
@@ -21,12 +21,12 @@ mod impls {
     }
 
     /// Returns the length of the byte array.
-    pub fn len(ctx: &Context, handle: Handle) -> Result<usize> {
+    pub(crate) fn len(ctx: &Context, handle: Handle) -> Result<usize> {
         let arr = super::get_byte_array(ctx, handle)?;
         Ok(arr.len())
     }
 
-    pub fn new_from_file(file_name: &str) -> Result<Vec<u8>> {
+    pub(crate) fn new_from_file(file_name: &str) -> Result<Vec<u8>> {
         // this line will cause valgrind version 3.15 to fail due to
         // a syscall being passed 0x0. it's a known issue:
         // https://github.com/rust-lang/rust/issues/68979. you must have
@@ -40,7 +40,7 @@ mod impls {
 /// Get the byte array in `ctx` referenced by `handle` in a `ReadResult`
 /// that can be used only to read the bytes, or `Err` if the
 /// byte array could not be fetched from `ctx`.
-pub fn get_byte_array(ctx: &Context, handle: Handle) -> Result<&Vec<u8>> {
+pub(crate) fn get_byte_array(ctx: &Context, handle: Handle) -> Result<&Vec<u8>> {
     Context::get(handle, &ctx.byte_arrays, |b| matches!(b, Hdl::ByteArray(_)))
 }
 
@@ -154,7 +154,8 @@ pub unsafe extern "C" fn byte_array_get_raw(ctx: *mut Context, handle: Handle) -
             // copy the vec and move it into a RawVec,
             // then convert that RawVec to a pointer.
             let raw_vec = RawVec::from(vec.clone());
-            raw_vec.to_ptr().0
+            let (ptr, _): (*mut u8, usize) = raw_vec.into();
+            ptr
         }
         Err(e) => {
             (*ctx).register_err(e);

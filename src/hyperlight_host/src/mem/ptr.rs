@@ -8,7 +8,7 @@ use std::ops::Add;
 ///
 /// Use this type to distinguish between an offset and a raw pointer
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct RawPtr(u64);
+pub(crate) struct RawPtr(u64);
 
 impl From<u64> for RawPtr {
     fn from(val: u64) -> Self {
@@ -57,7 +57,7 @@ impl From<&RawPtr> for u64 {
 }
 
 /// Convenience type for representing a pointer into the host address space
-pub type HostPtr = Ptr<HostAddressSpace>;
+pub(crate) type HostPtr = Ptr<HostAddressSpace>;
 impl TryFrom<(RawPtr, &SharedMemory)> for HostPtr {
     type Error = anyhow::Error;
     /// Create a new `HostPtr` from the given `host_raw_ptr`, which must
@@ -80,7 +80,7 @@ impl TryFrom<(Offset, &SharedMemory)> for HostPtr {
     }
 }
 /// Convenience type for representing a pointer into the guest address space
-pub type GuestPtr = Ptr<GuestAddressSpace>;
+pub(crate) type GuestPtr = Ptr<GuestAddressSpace>;
 impl TryFrom<RawPtr> for GuestPtr {
     type Error = anyhow::Error;
     /// Create a new `GuestPtr` from the given `guest_raw_ptr`, which must
@@ -116,7 +116,7 @@ impl TryFrom<GuestPtr> for i64 {
 
 /// A pointer into a specific `AddressSpace` `T`.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct Ptr<T: AddressSpace> {
+pub(crate) struct Ptr<T: AddressSpace> {
     addr_space: T,
     offset: Offset,
 }
@@ -146,6 +146,7 @@ impl<T: AddressSpace> Ptr<T> {
         Self { addr_space, offset }
     }
 
+    #[cfg(test)]
     /// Create a new `Ptr<Tgt>` from a source pointer and a target
     /// address space
     fn from_foreign_ptr<Src: AddressSpace, Tgt: AddressSpace>(
@@ -159,9 +160,13 @@ impl<T: AddressSpace> Ptr<T> {
         Ok(tgt)
     }
 
+    #[cfg(test)]
     /// Convert `self` into a new `Ptr` with a different address
     /// space.
-    pub fn to_foreign_ptr<Tgt: AddressSpace>(&self, target_addr_space: Tgt) -> Result<Ptr<Tgt>> {
+    pub(crate) fn to_foreign_ptr<Tgt: AddressSpace>(
+        &self,
+        target_addr_space: Tgt,
+    ) -> Result<Ptr<Tgt>> {
         Self::from_foreign_ptr(self, target_addr_space)
     }
 
@@ -171,7 +176,7 @@ impl<T: AddressSpace> Ptr<T> {
     }
 
     /// Get the offset into the pointer's address space
-    pub fn offset(&self) -> Offset {
+    pub(crate) fn offset(&self) -> Offset {
         self.offset
     }
 
@@ -179,7 +184,7 @@ impl<T: AddressSpace> Ptr<T> {
     ///
     /// This function should rarely be used. Prefer to use offsets
     /// instead.
-    pub fn absolute(&self) -> Result<u64> {
+    pub(crate) fn absolute(&self) -> Result<u64> {
         let offset_u64: u64 = self.offset.into();
         self.base().checked_add(offset_u64).ok_or_else(|| {
             anyhow!(

@@ -1,13 +1,13 @@
 /// Represents a function call from guest to host.
-pub mod function_call;
+pub(crate) mod function_call;
 /// Represents the definition of a function that the host exposes to the guest.
-pub mod function_definition;
+pub(crate) mod function_definition;
 /// Represents the functions that the host exposes to the guest.
-pub mod function_details;
+pub(crate) mod function_details;
 /// Definitions and functionality for supported parameter types
-pub mod param_type;
+pub(crate) mod param_type;
 /// Definitions and functionality for supported return types
-pub mod ret_type;
+pub(crate) mod ret_type;
 
 use anyhow::Result;
 use std::sync::{Arc, Mutex};

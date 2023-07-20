@@ -8,7 +8,7 @@ use anyhow::Result;
 /// the `MemAccessHandler`'s `call` method by simply calling the underlying
 /// function.
 #[derive(Clone)]
-pub struct MemAccessHandlerWrapper {
+pub(crate) struct MemAccessHandlerWrapper {
     func: extern "C" fn(),
 }
 

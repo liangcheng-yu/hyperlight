@@ -11,7 +11,7 @@ pub(crate) enum EitherImpl {
 }
 
 /// This is the C API for the `Sandbox` type.
-pub struct Sandbox {
+pub(crate) struct Sandbox {
     inner: EitherImpl,
 }
 

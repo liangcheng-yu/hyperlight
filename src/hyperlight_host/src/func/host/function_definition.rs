@@ -14,18 +14,18 @@ use readonly;
 /// The definition of a function exposed from the host to the guest
 #[readonly::make]
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct HostFunctionDefinition {
+pub(crate) struct HostFunctionDefinition {
     /// The function name
-    pub function_name: String,
+    pub(crate) function_name: String,
     /// The type of the parameter values for the host function call.
-    pub parameter_types: Option<Vec<ParameterType>>,
+    pub(crate) parameter_types: Option<Vec<ParameterType>>,
     /// The type of the return value from the host function call
-    pub return_type: ReturnType,
+    pub(crate) return_type: ReturnType,
 }
 
 impl HostFunctionDefinition {
     /// Create a new `HostFunctionDefinition`.
-    pub fn new(
+    pub(crate) fn new(
         function_name: String,
         parameter_types: Option<Vec<ParameterType>>,
         return_type: ReturnType,
@@ -38,7 +38,7 @@ impl HostFunctionDefinition {
     }
 
     /// Write to Memory
-    pub fn write(
+    pub(crate) fn write(
         buff: &[u8],
         shared_memory: &mut SharedMemory,
         layout: &SandboxMemoryLayout,
@@ -63,7 +63,7 @@ impl HostFunctionDefinition {
     }
 
     /// Convert this `HostFunctionDefinition` into a `WIPOffset<FbHostFunctionDefinition>`.
-    pub fn convert_to_flatbuffer_def<'a>(
+    pub(crate) fn convert_to_flatbuffer_def<'a>(
         &self,
         builder: &mut FlatBufferBuilder<'a>,
     ) -> Result<WIPOffset<FbHostFunctionDefinition<'a>>> {

@@ -16,19 +16,20 @@ use std::convert::{TryFrom, TryInto};
 /// `HostFunctionDetails` represents the set of functions that the host exposes to the guest.
 #[readonly::make]
 #[derive(Debug, Default, Clone)]
-pub struct HostFunctionDetails {
+pub(crate) struct HostFunctionDetails {
     /// The host functions.
-    pub host_functions: Option<Vec<HostFunctionDefinition>>,
+    pub(crate) host_functions: Option<Vec<HostFunctionDefinition>>,
 }
 
 impl HostFunctionDetails {
     /// Create a new `HostFunctionDetails`.
-    pub fn new(host_functions: Option<Vec<HostFunctionDefinition>>) -> Self {
+    #[cfg(test)]
+    pub(crate) fn new(host_functions: Option<Vec<HostFunctionDefinition>>) -> Self {
         Self { host_functions }
     }
 
     /// Write the host function details to the shared memory.
-    pub fn write_to_memory(
+    pub(crate) fn write_to_memory(
         self,
         guest_mem: &mut SharedMemory,
         layout: &SandboxMemoryLayout,

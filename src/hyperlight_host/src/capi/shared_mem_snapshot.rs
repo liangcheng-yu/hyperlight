@@ -12,7 +12,7 @@ mod impls {
     /// Create a new `SharedMemorySnapshot` from the `SharedMemory` in `ctx`
     /// referenced by `shared_mem_hdl`, then store that new `SharedMemorySnapshot`
     /// in `ctx` and return a new `Handle` referencing it
-    pub fn new_snapshot(ctx: &mut Context, shared_mem_hdl: Handle) -> Result<Handle> {
+    pub(crate) fn new_snapshot(ctx: &mut Context, shared_mem_hdl: Handle) -> Result<Handle> {
         let shared_mem = get_shared_memory(ctx, shared_mem_hdl)?;
         let snap = SharedMemorySnapshot::new(shared_mem.clone())?;
         Ok(Context::register(
@@ -25,7 +25,7 @@ mod impls {
     /// Get the `SharedMemorySnapshot` in `ctx` referenced by
     /// `shared_mem_snapshot_hdl`, then restore the `SharedMemory`
     /// stored therein from the memory snapshot stored therein.
-    pub fn restore_from_snapshot(
+    pub(crate) fn restore_from_snapshot(
         ctx: &mut Context,
         shared_mem_snapshot_hdl: Handle,
     ) -> Result<Handle> {
@@ -36,7 +36,10 @@ mod impls {
 
     /// Get the `SharedMemorySnapshot` in `ctx` referenced by `shared_mem_snapshot_hdl`,
     /// then call `replace_snapshot()` on it. Return an empty `Handle` on success.
-    pub fn replace_snapshot(ctx: &mut Context, shared_mem_snapshot_hdl: Handle) -> Result<Handle> {
+    pub(crate) fn replace_snapshot(
+        ctx: &mut Context,
+        shared_mem_snapshot_hdl: Handle,
+    ) -> Result<Handle> {
         let snap = super::get_shared_memory_snapshot_mut(ctx, shared_mem_snapshot_hdl)?;
         snap.replace_snapshot()?;
         Ok(Handle::new_empty())

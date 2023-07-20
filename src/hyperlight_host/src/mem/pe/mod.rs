@@ -1,6 +1,6 @@
 /// Extends goblin to suport base relocations in PE file
-pub mod base_relocations;
+pub(crate) mod base_relocations;
 /// PE file headers
-pub mod headers;
+pub(crate) mod headers;
 /// Helper for interacting with PE files
-pub mod pe_info;
+pub(crate) mod pe_info;

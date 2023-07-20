@@ -42,19 +42,19 @@ pub unsafe fn to_string(c_string: RawCString) -> String {
 /// - If this function returns `Ok(cstr)`, you must not
 /// modify `cstr` at all. If you do so, `free_c_string` may
 /// not work properly.
-pub fn to_c_string<T: Into<Vec<u8>>>(string: T) -> Result<RawCString, NulError> {
+pub(crate) fn to_c_string<T: Into<Vec<u8>>>(string: T) -> Result<RawCString, NulError> {
     CString::new(string).map(|s| s.into_raw() as RawCString)
 }
 
 /// Get a read-only reference to a string that is stored in `ctx`
 /// and pointed to by `handle`.
-pub fn get_string(ctx: &Context, handle: Handle) -> Result<&String> {
+pub(crate) fn get_string(ctx: &Context, handle: Handle) -> Result<&String> {
     Context::get(handle, &ctx.strings, |s| matches!(s, Hdl::String(_)))
 }
 
 /// Register the string in `val` in `ctx` and return a new `Handle`
 /// referencing it.
-pub fn register_string(ctx: &mut Context, val: String) -> Handle {
+pub(crate) fn register_string(ctx: &mut Context, val: String) -> Handle {
     Context::register(val, &mut ctx.strings, Hdl::String)
 }
 

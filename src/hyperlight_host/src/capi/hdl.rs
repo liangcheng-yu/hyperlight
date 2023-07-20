@@ -3,7 +3,7 @@ use anyhow::bail;
 
 /// The type-safe adapter to `Handle`
 #[derive(Eq, Clone, PartialEq, Debug)]
-pub enum Hdl {
+pub(crate) enum Hdl {
     /// A reference to an `anyhow::Error`
     Err(Key),
     /// A reference to a `bool`
@@ -26,8 +26,6 @@ pub enum Hdl {
     String(Key),
     /// A reference to a `Vec<u8>`.
     ByteArray(Key),
-    /// A reference to a `SandboxMemoryLayout`.
-    MemLayout(Key),
     /// A reference to a `SandboxMemoryManager`.
     MemMgr(Key),
     /// A reference to a `SharedMemory`.
@@ -69,7 +67,6 @@ impl Hdl {
     const EMPTY_TYPE_ID: TypeID = 103;
     const STRING_TYPE_ID: TypeID = 105;
     const BYTE_ARRAY_TYPE_ID: TypeID = 106;
-    const MEM_LAYOUT_TYPE_ID: TypeID = 109;
     const SHARED_MEMORY_TYPE_ID: TypeID = 110;
     const INT_64_TYPE_ID: TypeID = 111;
     const INT_32_TYPE_ID: TypeID = 112;
@@ -91,7 +88,7 @@ impl Hdl {
     /// Get the `TypeID` associated with `self`.
     ///
     /// This is often useful for interfacing with C APIs.
-    pub fn type_id(&self) -> TypeID {
+    pub(crate) fn type_id(&self) -> TypeID {
         match self {
             Hdl::Err(_) => Self::ERROR_TYPE_ID,
             Hdl::Boolean(_) => Self::BOOLEAN_TYPE_ID,
@@ -101,7 +98,6 @@ impl Hdl {
             Hdl::NullContext() => Self::NULL_CONTEXT_TYPE_ID,
             Hdl::String(_) => Self::STRING_TYPE_ID,
             Hdl::ByteArray(_) => Self::BYTE_ARRAY_TYPE_ID,
-            Hdl::MemLayout(_) => Self::MEM_LAYOUT_TYPE_ID,
             Hdl::MemMgr(_) => Self::MEM_MGR_TYPE_ID,
             Hdl::SharedMemory(_) => Self::SHARED_MEMORY_TYPE_ID,
             Hdl::SharedMemorySnapshot(_) => Self::SHARED_MEMORY_SNAPSHOT_TYPE_ID,
@@ -125,7 +121,7 @@ impl Hdl {
     ///
     /// This is useful for inserting, retrieving, and removing
     /// a given `Handle` from a `Context`.
-    pub fn key(&self) -> Key {
+    pub(crate) fn key(&self) -> Key {
         match self {
             Hdl::Err(key) => *key,
             Hdl::Boolean(key) => *key,
@@ -135,7 +131,6 @@ impl Hdl {
             Hdl::NullContext() => NULL_CONTEXT_KEY,
             Hdl::String(key) => *key,
             Hdl::ByteArray(key) => *key,
-            Hdl::MemLayout(key) => *key,
             Hdl::MemMgr(key) => *key,
             Hdl::SharedMemory(key) => *key,
             Hdl::SharedMemorySnapshot(key) => *key,
@@ -167,7 +162,6 @@ impl std::fmt::Display for Hdl {
             Hdl::NullContext() => write!(f, "NullContext()"),
             Hdl::String(key) => write!(f, "String({})", key),
             Hdl::ByteArray(key) => write!(f, "ByteArray({})", key),
-            Hdl::MemLayout(key) => write!(f, "MemLayout({})", key),
             Hdl::MemMgr(key) => write!(f, "MemMgr({})", key),
             Hdl::SharedMemory(key) => write!(f, "SharedMemory({})", key),
             Hdl::SharedMemorySnapshot(key) => write!(f, "SharedMemorySnapshot({})", key),
@@ -204,7 +198,6 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::NULL_CONTEXT_TYPE_ID => Ok(Hdl::NullContext()),
             Self::STRING_TYPE_ID => Ok(Hdl::String(key)),
             Self::BYTE_ARRAY_TYPE_ID => Ok(Hdl::ByteArray(key)),
-            Self::MEM_LAYOUT_TYPE_ID => Ok(Hdl::MemLayout(key)),
             Self::MEM_MGR_TYPE_ID => Ok(Hdl::MemMgr(key)),
             Self::SHARED_MEMORY_TYPE_ID => Ok(Hdl::SharedMemory(key)),
             Self::SHARED_MEMORY_SNAPSHOT_TYPE_ID => Ok(Hdl::SharedMemorySnapshot(key)),

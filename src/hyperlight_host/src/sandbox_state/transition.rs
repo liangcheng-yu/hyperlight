@@ -124,7 +124,7 @@ impl<'a, Cur: Sandbox, F> MutatingCallback<'a, Cur, F>
 where
     F: FnOnce(&mut Cur) -> Result<()>,
 {
-    pub fn call(self, cur: &mut Cur) -> Result<()> {
+    pub(crate) fn call(self, cur: &mut Cur) -> Result<()> {
         (self.cb)(cur)
     }
 }

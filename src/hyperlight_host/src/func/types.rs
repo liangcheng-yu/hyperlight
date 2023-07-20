@@ -13,7 +13,7 @@ use anyhow::{anyhow, bail, Result};
 
 /// Supported parameter types with values for function calling.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ParameterValue {
+pub(crate) enum ParameterValue {
     /// i32
     Int(i32),
     /// i64
@@ -28,7 +28,7 @@ pub enum ParameterValue {
 
 /// Supported parameter types for function calling.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ParameterType {
+pub(crate) enum ParameterType {
     /// i32
     Int,
     /// i64
@@ -43,7 +43,7 @@ pub enum ParameterType {
 
 /// Supported return types with values from function calling.
 #[derive(Debug, PartialEq, Eq)]
-pub enum ReturnValue {
+pub(crate) enum ReturnValue {
     /// i32
     Int(i32),
     /// i64
@@ -60,7 +60,7 @@ pub enum ReturnValue {
 
 /// Supported return types from function calling.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub enum ReturnType {
+pub(crate) enum ReturnType {
     /// i32
     #[default]
     Int,

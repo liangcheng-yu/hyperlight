@@ -62,7 +62,8 @@ pub unsafe extern "C" fn handle_get_guest_log_data_flatbuffer(
                     // reconstruct the Vec, bring it back into a RawVec, and
                     // then drop it.
                     let raw_vec = RawVec::from(fb_bytes);
-                    raw_vec.to_ptr().0
+                    let (ptr, _): (*mut u8, usize) = raw_vec.into();
+                    ptr
                 }
                 Err(e) => {
                     (*ctx).register_err(e);

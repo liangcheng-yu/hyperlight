@@ -11,12 +11,12 @@ static INITLOGGER: Once = Once::new();
 #[derive(Clone, Eq, PartialEq)]
 #[readonly::make]
 pub(crate) struct LogCall {
-    pub level: Level,
-    pub args: String,
-    pub target: String,
-    pub line: Option<u32>,
-    pub file: Option<String>,
-    pub module_path: Option<String>,
+    pub(crate) level: Level,
+    pub(crate) args: String,
+    pub(crate) target: String,
+    pub(crate) line: Option<u32>,
+    pub(crate) file: Option<String>,
+    pub(crate) module_path: Option<String>,
 }
 
 thread_local!(

@@ -9,21 +9,21 @@ use readonly;
 use std::convert::{TryFrom, TryInto};
 
 /// The error code of a `GuestError`.
-pub type Code = ErrorCode;
+pub(crate) type Code = ErrorCode;
 
 /// `GuestError` represents an error taht occurred in the Hyperlight Guest.
 #[derive(Debug, Clone)]
 #[readonly::make]
-pub struct GuestError {
+pub(crate) struct GuestError {
     /// The error code.
-    pub code: Code,
+    pub(crate) code: Code,
     /// The error message.
-    pub message: String,
+    pub(crate) message: String,
 }
 
 impl GuestError {
     /// Create a new GuestError.
-    pub fn new(code: Code, message: String) -> Self {
+    pub(crate) fn new(code: Code, message: String) -> Self {
         Self { code, message }
     }
 
@@ -37,7 +37,7 @@ impl GuestError {
     }
 
     /// Write the guest error to the shared memory.
-    pub fn write_to_memory(
+    pub(crate) fn write_to_memory(
         self,
         guest_mem: &mut SharedMemory,
         layout: &SandboxMemoryLayout,

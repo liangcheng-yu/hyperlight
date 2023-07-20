@@ -5,7 +5,7 @@ use anyhow::Result;
 /// A wrapper around a `SharedMemory` reference and a snapshot
 /// of the memory therein
 #[derive(Clone)]
-pub struct SharedMemorySnapshot {
+pub(crate) struct SharedMemorySnapshot {
     snapshot: Vec<u8>,
     shared_mem: SharedMemory,
 }
@@ -13,7 +13,7 @@ pub struct SharedMemorySnapshot {
 impl SharedMemorySnapshot {
     /// Take a snapshot of the memory in `shared_mem`, then create a new
     /// instance of `Self` with the snapshot stored therein.
-    pub fn new(shared_mem: SharedMemory) -> Result<Self> {
+    pub(crate) fn new(shared_mem: SharedMemory) -> Result<Self> {
         // TODO: Track dirty pages instead of copying entire memory
         let snapshot = shared_mem.copy_all_to_vec()?;
         Ok(Self {
@@ -24,7 +24,7 @@ impl SharedMemorySnapshot {
 
     /// Take another snapshot of the internally-stored `SharedMemory`,
     /// then store it internally.
-    pub fn replace_snapshot(&mut self) -> Result<()> {
+    pub(crate) fn replace_snapshot(&mut self) -> Result<()> {
         let new_snapshot = self.shared_mem.copy_all_to_vec()?;
         self.snapshot = new_snapshot;
         Ok(())
@@ -32,7 +32,7 @@ impl SharedMemorySnapshot {
 
     /// Copy the memory from the internally-stored memory snapshot
     /// into the internally-stored `SharedMemory`
-    pub fn restore_from_snapshot(&mut self) -> Result<()> {
+    pub(crate) fn restore_from_snapshot(&mut self) -> Result<()> {
         self.shared_mem
             .copy_from_slice(self.snapshot.as_slice(), Offset::zero())
     }

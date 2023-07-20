@@ -9,7 +9,7 @@ use crate::mem::shared_mem::SharedMemory;
 use anyhow::{anyhow, Result};
 /// A host function call is a function call from the guest to the host.
 #[derive(Default)]
-pub struct HostFunctionCall {}
+pub(crate) struct HostFunctionCall {}
 
 impl WriteFunctionCallToMemory for HostFunctionCall {
     fn write(

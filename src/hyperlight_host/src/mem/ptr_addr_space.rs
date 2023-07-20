@@ -2,17 +2,17 @@ use super::{layout::SandboxMemoryLayout, shared_mem::SharedMemory};
 use anyhow::Result;
 
 /// A representation of a specific address space
-pub trait AddressSpace {
+pub(crate) trait AddressSpace {
     /// The base address for this address space
     fn base(&self) -> u64;
 }
 
 /// The address space for the guest executable
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct GuestAddressSpace(u64);
+pub(crate) struct GuestAddressSpace(u64);
 impl GuestAddressSpace {
     /// Create a new instance of a `GuestAddressSpace`
-    pub fn new() -> Result<Self> {
+    pub(crate) fn new() -> Result<Self> {
         let base_addr = u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?;
         Ok(Self(base_addr))
     }
@@ -25,11 +25,11 @@ impl AddressSpace for GuestAddressSpace {
 
 /// The address space for the host executable
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct HostAddressSpace(u64);
+pub(crate) struct HostAddressSpace(u64);
 impl HostAddressSpace {
     /// Create a new instance of a `HostAddressSpace`, using the given
     /// `SharedMemory` as the base address.
-    pub fn new(shared_mem: &SharedMemory) -> Result<Self> {
+    pub(crate) fn new(shared_mem: &SharedMemory) -> Result<Self> {
         let base = u64::try_from(shared_mem.base_addr())?;
         Ok(Self(base))
     }

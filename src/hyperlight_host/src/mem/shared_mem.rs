@@ -61,7 +61,7 @@ unsafe impl Sync for PtrCVoidMut {}
 /// however, that only the last clone to be dropped will cause the underlying
 /// memory to be freed.
 #[derive(Debug)]
-pub struct SharedMemory {
+pub(crate) struct SharedMemory {
     ptr_and_size: Arc<(PtrCVoidMut, usize)>,
 }
 
@@ -316,22 +316,10 @@ impl SharedMemory {
     /// Return `Ok` with the `u32` value starting at `offset`
     /// if the value in the bit range `[offset, <offset + 32 bits>)`
     /// was successfully decoded to a `u8`, and `Err` otherwise.
-    pub fn read_u32(&self, offset: Offset) -> Result<u32> {
+    pub(crate) fn read_u32(&self, offset: Offset) -> Result<u32> {
         self.read(
             offset,
             Box::new(|mut c| c.read_u32::<LittleEndian>().map_err(|e| anyhow!(e))),
-        )
-    }
-
-    /// Read a `u8` (i.e. a byte) from shared memory starting at `offset`
-    ///
-    /// Return `Ok` with the `u8` value starting at `offset`
-    /// if the value in the range `[offset, offset + 8)`
-    /// was successfully decoded to a `u8`, and `Err` otherwise.
-    pub fn read_u8(&self, offset: Offset) -> Result<u8> {
-        self.read(
-            offset,
-            Box::new(|mut c| c.read_u8().map_err(|e| anyhow!(e))),
         )
     }
 

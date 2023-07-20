@@ -9,7 +9,7 @@ use crate::{func::function_call::WriteFunctionCallToMemory, mem::layout::Sandbox
 use anyhow::{anyhow, Result};
 /// A guest function call is a function call from the host to the guest.
 #[derive(Default)]
-pub struct GuestFunctionCall {}
+pub(crate) struct GuestFunctionCall {}
 
 impl WriteFunctionCallToMemory for GuestFunctionCall {
     fn write(

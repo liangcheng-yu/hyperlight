@@ -24,7 +24,7 @@ pub enum SupportedParameterOrReturnType {
 }
 
 /// Validates that the given type is supported by the host interface.
-pub fn validate_type_supported(some_type: &str) -> Result<()> {
+pub(crate) fn validate_type_supported(some_type: &str) -> Result<()> {
     // try to convert from &str to SupportedParameterAndReturnTypes
     match from_csharp_typename(some_type) {
         Ok(_) => Ok(()),

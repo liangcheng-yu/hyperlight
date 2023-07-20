@@ -10,35 +10,20 @@ use flatbuffers::{FlatBufferBuilder, WIPOffset};
 /// The definition of a function exposed from the guest to the host
 #[readonly::make]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GuestFunctionDefinition {
+pub(crate) struct GuestFunctionDefinition {
     /// The function name
-    pub function_name: String,
+    pub(crate) function_name: String,
     /// The type of the parameter values for the host function call.
-    pub parameter_types: Vec<ParameterType>,
+    pub(crate) parameter_types: Vec<ParameterType>,
     /// The type of the return value from the host function call
-    pub return_type: ReturnType,
+    pub(crate) return_type: ReturnType,
     /// The function pointer to the guest function
-    pub function_pointer: GuestPtr,
+    pub(crate) function_pointer: GuestPtr,
 }
 
 impl GuestFunctionDefinition {
-    /// Create a new `GuestFunctionDetails`.
-    pub fn new(
-        function_name: String,
-        parameter_types: Vec<ParameterType>,
-        return_type: ReturnType,
-        function_pointer: GuestPtr,
-    ) -> Self {
-        Self {
-            function_name,
-            parameter_types,
-            return_type,
-            function_pointer,
-        }
-    }
-
     /// Convert this `GuestFunctionDefinition` into a `WIPOffset<FbGuestFunctionDefinition>`.
-    pub fn convert_to_flatbuffer_def<'a>(
+    pub(crate) fn convert_to_flatbuffer_def<'a>(
         &self,
         builder: &mut FlatBufferBuilder<'a>,
     ) -> Result<WIPOffset<FbGuestFunctionDefinition<'a>>> {

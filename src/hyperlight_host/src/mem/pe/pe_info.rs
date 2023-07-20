@@ -74,53 +74,53 @@ impl PEInfo {
     }
 
     /// Get a reference to the payload contained within `self`
-    pub fn get_payload(&self) -> &[u8] {
+    pub(crate) fn get_payload(&self) -> &[u8] {
         &self.payload
     }
 
     /// Get a mutable reference to the payload contained within `self`
-    pub fn get_payload_mut(&mut self) -> &mut [u8] {
+    pub(crate) fn get_payload_mut(&mut self) -> &mut [u8] {
         &mut self.payload
     }
     /// Get the length of the entire PE file payload
-    pub fn get_payload_len(&self) -> usize {
+    pub(crate) fn get_payload_len(&self) -> usize {
         self.payload_len
     }
 
     /// Get the entry point offset from the PE file's optional COFF
     /// header.
-    pub fn entry_point_offset(&self) -> u64 {
+    pub(crate) fn entry_point_offset(&self) -> u64 {
         self.optional_header.standard_fields.address_of_entry_point
     }
 
     /// Get the load address specified in the PE file's optional COFF header.
-    pub fn preferred_load_address(&self) -> u64 {
+    pub(crate) fn preferred_load_address(&self) -> u64 {
         self.optional_header.windows_fields.image_base
     }
 
     /// Return the stack reserve field from the optional COFF header.
-    pub fn stack_reserve(&self) -> u64 {
+    pub(crate) fn stack_reserve(&self) -> u64 {
         self.optional_header.windows_fields.size_of_stack_reserve
     }
 
     /// Return the stack commit field from the optional COFF header.
-    pub fn stack_commit(&self) -> u64 {
+    pub(crate) fn stack_commit(&self) -> u64 {
         self.optional_header.windows_fields.size_of_stack_commit
     }
 
     /// Return the heap reserve field from the optional COFF header.
-    pub fn heap_reserve(&self) -> u64 {
+    pub(crate) fn heap_reserve(&self) -> u64 {
         self.optional_header.windows_fields.size_of_heap_reserve
     }
 
     /// Return the heap commit field from the optional COFF header.
-    pub fn heap_commit(&self) -> u64 {
+    pub(crate) fn heap_commit(&self) -> u64 {
         self.optional_header.windows_fields.size_of_heap_commit
     }
 
     /// Apply the list of `RelocationPatch`es in `patches` to the given
     /// `payload` and return the number of patches applied.
-    pub fn apply_relocation_patches(
+    pub(crate) fn apply_relocation_patches(
         payload: &mut [u8],
         patches: Vec<RelocationPatch>,
     ) -> Result<usize> {
@@ -145,7 +145,7 @@ impl PEInfo {
 
     /// Get a list of patches to make to the symbol table to
     /// complete the relocations in the relocation table.
-    pub fn get_exe_relocation_patches(
+    pub(crate) fn get_exe_relocation_patches(
         &self,
         payload: &[u8],
         address_to_load_at: usize,
@@ -213,7 +213,7 @@ impl PEInfo {
 /// Represents a patch that relocates a symbol to its final destination.
 #[derive(Debug, Copy, Clone)]
 #[allow(dead_code)]
-pub struct RelocationPatch {
+pub(crate) struct RelocationPatch {
     /// The offset of the address to patch.
     offset: usize,
     /// The new virtual address that should be written at offset.

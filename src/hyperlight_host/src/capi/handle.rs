@@ -16,33 +16,33 @@ pub struct Handle(pub u64);
 
 /// The ID of the type of the `Handle`, often used inside
 /// C functions to identify the type of a given `Handle`.
-pub type TypeID = u32;
+pub(crate) type TypeID = u32;
 /// The key used to store a `Handle` inside a `Context`.
-pub type Key = u32;
+pub(crate) type Key = u32;
 
 /// The `Key` specifically intended to identify an "empty"
 /// handle.
 ///
 /// Use this key to indicate that a `Handle` points to no
 /// memory.
-pub const EMPTY_KEY: Key = 0;
+pub(crate) const EMPTY_KEY: Key = 0;
 
 /// The `Key` specifically intended to identify an "invalid"
 /// handle.
 ///
 /// Use this key to indicate that a `Handle` points to invalid
 /// memory.
-pub const INVALID_KEY: Key = 1;
+pub(crate) const INVALID_KEY: Key = 1;
 
 /// The `Key` specifically intended to identify an "null context"
 /// handle.
 ///
 /// Use this key to indicate that a `Handle` points to an error
 /// indicating a null context was passed to the c api.
-pub const NULL_CONTEXT_KEY: Key = 2;
+pub(crate) const NULL_CONTEXT_KEY: Key = 2;
 
 /// Create and return a new `Key` from a random number.
-pub fn new_key() -> Key {
+pub(crate) fn new_key() -> Key {
     let r = random();
     if r == EMPTY_KEY {
         r + 1
@@ -64,23 +64,23 @@ impl Handle {
     ///
     /// Empty `Handle`s have no key and are not saved
     /// in any `Context.
-    pub fn new_empty() -> Handle {
+    pub(crate) fn new_empty() -> Handle {
         Handle::from(Hdl::Empty())
     }
 
     /// Return a new `Handle` that is invalid and guaranteed
     /// not to reference any memory inside any `Context`.
-    pub fn new_invalid() -> Handle {
+    pub(crate) fn new_invalid() -> Handle {
         Handle::from(Hdl::Invalid())
     }
 
     /// Return a new NullContext error `Handle`.
-    pub fn new_null_context() -> Handle {
+    pub(crate) fn new_null_context() -> Handle {
         Handle::from(Hdl::NullContext())
     }
 
     /// Get the key portion of `self`.
-    pub fn key(&self) -> Key {
+    pub(crate) fn key(&self) -> Key {
         // MASK is 32 zero bits followed by 32 one bits:
         //
         // {0 ...}        {1 ...}
@@ -108,7 +108,7 @@ impl Handle {
     ///
     /// This is often useful for comparing to `TypeID` passed in from
     /// C code.
-    pub fn type_id(&self) -> TypeID {
+    pub(crate) fn type_id(&self) -> TypeID {
         // MASK is 32 one bits followed by 32 zero bits:
         //
         // { 1 ... }      { 0 ... }

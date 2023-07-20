@@ -18,31 +18,41 @@ mod impls {
     use std::cell::RefCell;
 
     /// Get the starting address of the shared memory in `ctx` referenced by `hdl`
-    pub fn get_address(ctx: &Context, hdl: Handle) -> Result<usize> {
+    pub(crate) fn get_address(ctx: &Context, hdl: Handle) -> Result<usize> {
         let shared_mem = super::get_shared_memory(ctx, hdl)?;
         Ok(shared_mem.base_addr())
     }
 
     /// Read an `i64` from the memory location at `offset`
-    pub fn read_int_64(ctx: &Context, hdl: Handle, offset: Offset) -> Result<i64> {
+    pub(crate) fn read_int_64(ctx: &Context, hdl: Handle, offset: Offset) -> Result<i64> {
         let shared_mem = super::get_shared_memory(ctx, hdl)?;
         (*shared_mem).read_i64(offset)
     }
 
     /// Write an `i64` to the memory location at `offset`
-    pub fn write_int_64(ctx: &mut Context, hdl: Handle, offset: Offset, val: i64) -> Result<()> {
+    pub(crate) fn write_int_64(
+        ctx: &mut Context,
+        hdl: Handle,
+        offset: Offset,
+        val: i64,
+    ) -> Result<()> {
         let shared_mem = super::get_shared_memory_mut(ctx, hdl)?;
         (*shared_mem).write_u64(offset, val as u64)
     }
 
     /// Read an `i32` from the memory location at `offset`
-    pub fn read_int_32(ctx: &Context, hdl: Handle, offset: Offset) -> Result<i32> {
+    pub(crate) fn read_int_32(ctx: &Context, hdl: Handle, offset: Offset) -> Result<i32> {
         let shared_mem = super::get_shared_memory(ctx, hdl)?;
         (*shared_mem).read_i32(offset)
     }
 
     /// Write `val` to the memory location at `offset`
-    pub fn write_int_32(ctx: &mut Context, hdl: Handle, offset: Offset, val: i32) -> Result<()> {
+    pub(crate) fn write_int_32(
+        ctx: &mut Context,
+        hdl: Handle,
+        offset: Offset,
+        val: i32,
+    ) -> Result<()> {
         let shared_mem = super::get_shared_memory_mut(ctx, hdl)?;
         (*shared_mem).write_i32(offset, val)?;
         Ok(())
@@ -51,7 +61,7 @@ mod impls {
     /// Look up the `[u8]` referenced by `byte_arr_hdl` in `ctx`,
     /// get the slice in the range `[arr_start, arr_start + arr_length)`,
     /// wrap that slice in a `RefCell`, and return it
-    pub fn copy_from_byte_array(
+    pub(crate) fn copy_from_byte_array(
         ctx: &Context,
         byte_arr_hdl: Handle,
         arr_start: usize,
@@ -113,7 +123,7 @@ mod impls {
     /// Copy all values in the byte array referenced by `byte_array_hdl`,
     /// in the range `[arr_start, arr_start + arr_length)` into the
     /// `SharedMemory` referenced by `shared_mem_hdl`
-    pub fn copy_byte_array(
+    pub(crate) fn copy_byte_array(
         ctx: &mut Context,
         shared_mem_hdl: Handle,
         byte_array_hdl: Handle,
@@ -243,7 +253,7 @@ mod impls {
 
     /// Look up the shared memory wrapper referenced by `shared_mem_hdl` in
     /// `ctx`, then copy its contents starting at `offset` into `byte_array`
-    pub fn copy_to_byte_array(
+    pub(crate) fn copy_to_byte_array(
         ctx: &mut Context,
         shared_mem_hdl: Handle,
         byte_array: &mut [u8],
@@ -259,7 +269,7 @@ mod impls {
 ///
 /// Returns `Ok` if `hdl` is a valid `SharedMemory` in `ctx`,
 /// `Err` otherwise.
-pub fn get_shared_memory(ctx: &Context, hdl: Handle) -> Result<&SharedMemory> {
+pub(crate) fn get_shared_memory(ctx: &Context, hdl: Handle) -> Result<&SharedMemory> {
     Context::get(hdl, &ctx.shared_mems, |g| matches!(g, Hdl::SharedMemory(_)))
 }
 
@@ -268,7 +278,7 @@ pub fn get_shared_memory(ctx: &Context, hdl: Handle) -> Result<&SharedMemory> {
 ///
 /// Returns `Ok` if `hdl` is a valid `SharedMemory` in `ctx`,
 /// `Err` otherwise.
-pub fn get_shared_memory_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut SharedMemory> {
+pub(crate) fn get_shared_memory_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut SharedMemory> {
     Context::get_mut(hdl, &mut ctx.shared_mems, |g| {
         matches!(g, Hdl::SharedMemory(_))
     })
@@ -276,7 +286,7 @@ pub fn get_shared_memory_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut Shar
 
 /// Store the given `shared_mem` in `ctx` and return a new `Handle`
 /// referencing it.
-pub fn register_shared_mem(ctx: &mut Context, shared_mem: SharedMemory) -> Handle {
+pub(crate) fn register_shared_mem(ctx: &mut Context, shared_mem: SharedMemory) -> Handle {
     Context::register(shared_mem, &mut ctx.shared_mems, Hdl::SharedMemory)
 }
 
@@ -585,19 +595,19 @@ mod tests {
 
     struct TestData {
         // Context used to create all handles herein
-        pub ctx: Box<Context>,
+        pub(crate) ctx: Box<Context>,
         // Handle to shared memory
-        pub shared_mem_hdl: Handle,
+        pub(crate) shared_mem_hdl: Handle,
         // Size of shared memory
-        pub shared_mem_size: usize,
+        pub(crate) shared_mem_size: usize,
         // Handle to byte array
-        pub byte_arr_hdl: Handle,
+        pub(crate) byte_arr_hdl: Handle,
         // length of byte array
-        pub barr_len: usize,
+        pub(crate) barr_len: usize,
     }
 
     impl TestData {
-        pub fn new(barr_vec_len: usize, shared_mem_size: usize) -> Result<Self> {
+        pub(crate) fn new(barr_vec_len: usize, shared_mem_size: usize) -> Result<Self> {
             let mut ctx = Context::default();
             let barr_vec = {
                 let mut v = Vec::new();

@@ -64,7 +64,7 @@ static REQUIRE_STABLE_API: Lazy<bool> =
 
 /// A Hypervisor driver for HyperV-on-Linux. This hypervisor is often
 /// called the Microsoft Hypervisor Platform (MSHV)
-pub struct HypervLinuxDriver {
+pub(crate) struct HypervLinuxDriver {
     _mshv: Mshv,
     vm_fd: VmFd,
     vcpu_fd: VcpuFd,
@@ -83,7 +83,7 @@ impl HypervLinuxDriver {
     ///
     /// Call `add_basic_registers` or `add_advanced_registers`,
     /// then `apply_registers` to do so.
-    pub fn new(addrs: &HypervisorAddrs) -> Result<Self> {
+    pub(crate) fn new(addrs: &HypervisorAddrs) -> Result<Self> {
         match is_hypervisor_present() {
             Ok(true) => (),
             Ok(false) => bail!(
@@ -118,7 +118,7 @@ impl HypervLinuxDriver {
     ///
     /// The added registers will be suitable for running very "basic" code
     /// that uses no memory.
-    pub fn add_basic_registers(&mut self, addrs: &HypervisorAddrs) -> Result<()> {
+    pub(crate) fn add_basic_registers(&mut self, addrs: &HypervisorAddrs) -> Result<()> {
         // set CS register. adapted from:
         // https://github.com/rust-vmm/mshv/blob/ed66a5ad37b107c972701f93c91e8c7adfe6256a/mshv-ioctls/src/ioctls/vcpu.rs#L1165-L1169
         {
@@ -162,7 +162,7 @@ impl HypervLinuxDriver {
 
     /// Create an "advanced" version of `Self`, equipped to execute code that
     /// accesses memory
-    pub fn add_advanced_registers(
+    pub(crate) fn add_advanced_registers(
         &mut self,
         addrs: &HypervisorAddrs,
         rsp: u64,
@@ -218,7 +218,7 @@ impl HypervLinuxDriver {
     ///
     /// Call `add_registers` prior to this function to add to the internal
     /// register list.
-    pub fn apply_registers(&self) -> Result<()> {
+    pub(crate) fn apply_registers(&self) -> Result<()> {
         let mut regs_vec: Vec<hv_register_assoc> = Vec::new();
         for (k, v) in &self.registers {
             regs_vec.push(hv_register_assoc {
@@ -238,7 +238,7 @@ impl HypervLinuxDriver {
     ///
     /// This function will not apply any other pending changes on
     /// the internal register list.
-    pub fn update_rip(&mut self, val: RawPtr) -> Result<()> {
+    pub(crate) fn update_rip(&mut self, val: RawPtr) -> Result<()> {
         self.update_register_u64(hv_register_name_HV_X64_REGISTER_RIP, val.into())
     }
 
@@ -248,7 +248,7 @@ impl HypervLinuxDriver {
     ///
     /// This function will apply only the value of the given register on the
     /// internally stored virtual CPU, but no others in the pending list.
-    pub fn update_register_u64(&mut self, name: hv_register_name, val: u64) -> Result<()> {
+    pub(crate) fn update_register_u64(&mut self, name: hv_register_name, val: u64) -> Result<()> {
         self.registers
             .insert(name, hv_register_value { reg64: val });
         let reg = hv_register_assoc {
@@ -376,15 +376,16 @@ impl Drop for HypervLinuxDriver {
 }
 
 #[cfg(test)]
-pub mod test_cfg {
+pub(crate) mod test_cfg {
     use once_cell::sync::Lazy;
     use serde::Deserialize;
 
-    pub static TEST_CONFIG: Lazy<TestConfig> = Lazy::new(|| match envy::from_env::<TestConfig>() {
-        Ok(config) => config,
-        Err(err) => panic!("error parsing config from env: {}", err),
-    });
-    pub static SHOULD_RUN_TEST: Lazy<bool> = Lazy::new(is_hyperv_present);
+    pub(crate) static TEST_CONFIG: Lazy<TestConfig> =
+        Lazy::new(|| match envy::from_env::<TestConfig>() {
+            Ok(config) => config,
+            Err(err) => panic!("error parsing config from env: {}", err),
+        });
+    pub(crate) static SHOULD_RUN_TEST: Lazy<bool> = Lazy::new(is_hyperv_present);
 
     fn is_hyperv_present() -> bool {
         println!(
@@ -414,13 +415,13 @@ pub mod test_cfg {
         false
     }
     #[derive(Deserialize, Debug)]
-    pub struct TestConfig {
+    pub(crate) struct TestConfig {
         #[serde(default = "hyperv_should_be_present_default")]
         // Set env var HYPERV_SHOULD_BE_PRESENT to require hyperv to be present for the tests.
-        pub hyperv_should_be_present: bool,
+        pub(crate) hyperv_should_be_present: bool,
         #[serde(default = "hyperv_should_have_stable_api_default")]
         // Set env var HYPERV_SHOULD_HAVE_STABLE_API to require a stable api for the tests.
-        pub hyperv_should_have_stable_api: bool,
+        pub(crate) hyperv_should_have_stable_api: bool,
     }
 
     #[macro_export]
@@ -435,7 +436,7 @@ pub mod test_cfg {
     }
 }
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use super::test_cfg::{SHOULD_RUN_TEST, TEST_CONFIG};
     use super::*;
     use crate::mem::ptr_offset::Offset;

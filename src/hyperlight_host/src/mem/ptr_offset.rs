@@ -7,11 +7,11 @@ use std::ops::Add;
 ///
 /// Use this type to distinguish between an offset and a raw pointer
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
-pub struct Offset(u64);
+pub(crate) struct Offset(u64);
 
 impl Offset {
     /// Get the offset representing `0`
-    pub fn zero() -> Self {
+    pub(crate) fn zero() -> Self {
         Self::default()
     }
 }

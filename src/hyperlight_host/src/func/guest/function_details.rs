@@ -7,14 +7,14 @@ use crate::func::guest::function_definition::GuestFunctionDefinition;
 /// Represents the functions that the guest exposes to the host.
 #[readonly::make]
 #[derive(Debug, Default, Clone)]
-pub struct GuestFunctionDetails {
+pub(crate) struct GuestFunctionDetails {
     /// The guest functions
-    pub guest_functions: Vec<GuestFunctionDefinition>,
+    pub(crate) guest_functions: Vec<GuestFunctionDefinition>,
 }
 
 impl GuestFunctionDetails {
     /// Create a new `GuestFunctionDetails`.
-    pub fn new(guest_functions: Vec<GuestFunctionDefinition>) -> Self {
+    pub(crate) fn new(guest_functions: Vec<GuestFunctionDefinition>) -> Self {
         Self { guest_functions }
     }
 }

@@ -3,7 +3,7 @@ use anyhow::Result;
 pub(crate) mod handlers;
 #[cfg(target_os = "linux")]
 /// HyperV-on-linux functionality
-pub mod hyperv_linux;
+pub(crate) mod hyperv_linux;
 #[cfg(target_os = "linux")]
 /// Hypervisor-generic memory utilities
 pub(crate) mod hypervisor_mem;

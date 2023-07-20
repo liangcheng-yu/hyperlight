@@ -4,7 +4,7 @@ use windows::Win32::Foundation::HANDLE;
 /// See surrogate_process_manager for details on why this is needed.
 pub(crate) struct SurrogateProcess {
     /// The address of memory allocated in the surrogate process to be mapped to the VM.
-    pub allocated_address: *mut c_void,
+    pub(crate) allocated_address: *mut c_void,
     /// The handle to the surrogate process.
-    pub process_handle: HANDLE,
+    pub(crate) process_handle: HANDLE,
 }

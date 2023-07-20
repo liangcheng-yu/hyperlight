@@ -3,7 +3,7 @@ use anyhow::Result;
 
 /// An extension trait intended for pointer types to which an
 /// offset can be added unsafely.
-pub trait UnsafeTryAddExt<T> {
+pub(crate) trait UnsafeTryAddExt<T> {
     /// The type of the pointer to return
     type PointerType;
     /// The type of the quantity to add to the given pointer.

@@ -11,7 +11,6 @@ use crate::func::types::ReturnValue;
 use crate::hypervisor::hyperv_linux::HypervLinuxDriver;
 #[cfg(target_os = "linux")]
 use crate::hypervisor::kvm::KVMDriver;
-use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::mgr::SandboxMemoryManager;
 use crate::mem::shared_mem::SharedMemory;
 use crate::mem::shared_mem_snapshot::SharedMemorySnapshot;
@@ -43,47 +42,45 @@ use std::collections::HashMap;
 #[derive(Default)]
 pub struct Context {
     /// All `anyhow::Error`s stored in this context.
-    pub errs: HashMap<Key, Error>,
+    pub(crate) errs: HashMap<Key, Error>,
     /// All booleans stored in this context
-    pub booleans: HashMap<Key, bool>,
+    pub(crate) booleans: HashMap<Key, bool>,
     /// All `Sandbox`es stored in this context
-    pub sandboxes: HashMap<Key, sandbox_compat::Sandbox>,
+    pub(crate) sandboxes: HashMap<Key, sandbox_compat::Sandbox>,
     /// All `String`s stored in this context
-    pub strings: HashMap<Key, String>,
+    pub(crate) strings: HashMap<Key, String>,
     /// All `Vec<u8>`s stored in this context
-    pub byte_arrays: HashMap<Key, Vec<u8>>,
-    /// All `SandboxMemoryLayout`s stored in this context
-    pub mem_layouts: HashMap<Key, SandboxMemoryLayout>,
+    pub(crate) byte_arrays: HashMap<Key, Vec<u8>>,
     /// All the `SandboxMemoryManager`s stored in this context
-    pub mem_mgrs: HashMap<Key, SandboxMemoryManager>,
+    pub(crate) mem_mgrs: HashMap<Key, SandboxMemoryManager>,
     /// All the `SharedMemory`s stored in this context
-    pub shared_mems: HashMap<Key, SharedMemory>,
+    pub(crate) shared_mems: HashMap<Key, SharedMemory>,
     /// All the `SharedMemorySnapshot`s stored in this context
-    pub shared_mem_snapshots: HashMap<Key, SharedMemorySnapshot>,
+    pub(crate) shared_mem_snapshots: HashMap<Key, SharedMemorySnapshot>,
     /// All the `i64`s stored in this context
-    pub int64s: HashMap<Key, i64>,
+    pub(crate) int64s: HashMap<Key, i64>,
     /// All the `u64`s stored in this context
-    pub uint64s: HashMap<Key, u64>,
+    pub(crate) uint64s: HashMap<Key, u64>,
     /// All the `i32`s stored in this context
-    pub int32s: HashMap<Key, i32>,
+    pub(crate) int32s: HashMap<Key, i32>,
     #[cfg(target_os = "linux")]
     /// The HyperV Linux VM drivers stored in this context
-    pub hyperv_linux_drivers: HashMap<Key, HypervLinuxDriver>,
+    pub(crate) hyperv_linux_drivers: HashMap<Key, HypervLinuxDriver>,
     #[cfg(target_os = "linux")]
     /// The KVM Linux VM drivers stored in this context
-    pub kvm_drivers: HashMap<Key, KVMDriver>,
+    pub(crate) kvm_drivers: HashMap<Key, KVMDriver>,
     /// The outb handler functions stored in this context
-    pub outb_handler_funcs: HashMap<Key, OutBHandlerWrapper>,
+    pub(crate) outb_handler_funcs: HashMap<Key, OutBHandlerWrapper>,
     /// The memory access handler functions stored in this context
-    pub mem_access_handler_funcs: HashMap<Key, MemAccessHandlerWrapper>,
+    pub(crate) mem_access_handler_funcs: HashMap<Key, MemAccessHandlerWrapper>,
     /// All the `GuestMemory`s stored in this context
-    pub guest_errors: HashMap<Key, GuestError>,
+    pub(crate) guest_errors: HashMap<Key, GuestError>,
     /// All the `FunctionCall`s stored in this context
-    pub host_function_calls: HashMap<Key, FunctionCall>,
+    pub(crate) host_function_calls: HashMap<Key, FunctionCall>,
     /// All the `FunctionCallResult`s stored in this context
-    pub function_call_results: HashMap<Key, ReturnValue>,
+    pub(crate) function_call_results: HashMap<Key, ReturnValue>,
     /// All the `GuestLogData`s stored in this context
-    pub guest_log_datas: HashMap<Key, GuestLogData>,
+    pub(crate) guest_log_datas: HashMap<Key, GuestLogData>,
 }
 
 impl Context {
@@ -93,7 +90,7 @@ impl Context {
     /// The given `FnOnce` called `make_handle` can be used to
     /// create a new `Handle` from the newly created key, and to
     /// verify that the given `obj` is of the correct type.
-    pub fn register<T, HandleFn: FnOnce(Key) -> Hdl>(
+    pub(crate) fn register<T, HandleFn: FnOnce(Key) -> Hdl>(
         obj: T,
         coll: &mut HashMap<Key, T>,
         make_handle: HandleFn,
@@ -106,16 +103,8 @@ impl Context {
 
     /// A convenience function for `register`, typed specifically
     /// for `Error` types.
-    pub fn register_err(&mut self, err: Error) -> Handle {
+    pub(crate) fn register_err(&mut self, err: Error) -> Handle {
         Self::register(err, &mut self.errs, Hdl::Err)
-    }
-
-    /// Convenience method for:
-    /// ```
-    /// self.register_err(anyhow::Error::msg(err_msg))
-    /// ```
-    pub fn register_err_msg(&mut self, err_msg: &str) -> Handle {
-        self.register_err(anyhow::Error::msg(err_msg.to_string()))
     }
 
     /// Get a type `T` from the given collection `coll` using
@@ -127,7 +116,7 @@ impl Context {
     ///
     /// This function is only suitable for immutable operations on
     /// `coll`. If you intend to mutate `coll`, use `get_mut`.
-    pub fn get<T, ChkFn: FnOnce(&Hdl) -> bool>(
+    pub(crate) fn get<T, ChkFn: FnOnce(&Hdl) -> bool>(
         handle: Handle,
         coll: &HashMap<Key, T>,
         chk: ChkFn,
@@ -145,7 +134,7 @@ impl Context {
     /// Similar to `get`, except returns a `WriteResult` rather than
     /// a `ReadResult`, making this function suitable for mutating
     /// `coll` in a thread-safe manner.
-    pub fn get_mut<T, ChkFn: FnOnce(&Hdl) -> bool>(
+    pub(crate) fn get_mut<T, ChkFn: FnOnce(&Hdl) -> bool>(
         handle: Handle,
         coll: &mut HashMap<Key, T>,
         chk: ChkFn,
@@ -166,7 +155,10 @@ impl Context {
     /// remove that `Hdl`'s key from the collection that corresponds to
     /// it, returning `true` if an element was removed and `false`
     /// otherwise.
-    pub fn remove<ChkFn: FnOnce(&Hdl) -> bool>(&mut self, handle: Handle, chk_fn: ChkFn) -> bool {
+    pub(crate) fn remove<ChkFn>(&mut self, handle: Handle, chk_fn: ChkFn) -> bool
+    where
+        ChkFn: FnOnce(&Hdl) -> bool,
+    {
         match Hdl::try_from(handle) {
             Ok(hdl) => {
                 if !chk_fn(&hdl) {
@@ -181,7 +173,6 @@ impl Context {
                     Hdl::NullContext() => true,
                     Hdl::String(key) => self.strings.remove(&key).is_some(),
                     Hdl::ByteArray(key) => self.byte_arrays.remove(&key).is_some(),
-                    Hdl::MemLayout(key) => self.mem_layouts.remove(&key).is_some(),
                     Hdl::MemMgr(key) => self.mem_mgrs.remove(&key).is_some(),
                     Hdl::SharedMemory(key) => self.shared_mems.remove(&key).is_some(),
                     Hdl::SharedMemorySnapshot(key) => {
@@ -230,7 +221,7 @@ pub unsafe extern "C" fn context_free(ctx: *mut Context) {
 }
 
 /// The error message returned when a null reference check on a Context raw pointer fails in the C api.
-pub const ERR_NULL_CONTEXT: &str = "NULL context was passed";
+pub(crate) const ERR_NULL_CONTEXT: &str = "NULL context was passed";
 
 /// Return a null context error handle when Context is null.
 #[macro_export]

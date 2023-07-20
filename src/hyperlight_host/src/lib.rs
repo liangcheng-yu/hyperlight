@@ -50,7 +50,7 @@ pub mod capi;
 pub(crate) mod error;
 /// FlatBuffers-related utilities and (mostly) generated code
 #[allow(non_camel_case_types)]
-pub mod flatbuffers;
+pub(crate) mod flatbuffers;
 /// Wrappers for host and guest functions.
 #[deny(dead_code, missing_docs, unused_mut)]
 pub mod func;
