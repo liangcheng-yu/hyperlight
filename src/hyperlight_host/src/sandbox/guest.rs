@@ -11,7 +11,7 @@ pub(crate) trait CallGuestFunction<'a>: MemMgr {
     {
         // TODO: call reset_state() here
 
-        function.call() 
+        function.call()
         // ^^^ ensures that only one call can be made concurrently
         // because `GuestFunction` is implemented for `Arc<Mutex<T>>`
         // so we'll be locking on the function call. There are tests
@@ -25,7 +25,10 @@ mod tests {
     use crate::UninitializedSandbox;
 
     use super::*;
-    use std::{sync::{Arc, Mutex}, thread};
+    use std::{
+        sync::{Arc, Mutex},
+        thread,
+    };
 
     // simple function
     fn test_function0() -> Result<i32> {
@@ -84,9 +87,8 @@ mod tests {
             let sandbox = usbox
                 .initialize(Some(init))
                 .expect("Failed to initialize sandbox");
-            let result = sandbox.call_guest_function(Arc::new(Mutex::new(move || {
-                test_function2(42)
-            })));
+            let result =
+                sandbox.call_guest_function(Arc::new(Mutex::new(move || test_function2(42))));
             assert_eq!(result.unwrap(), 42);
         }
 
@@ -96,12 +98,12 @@ mod tests {
             let sandbox = usbox
                 .initialize(Some(init))
                 .expect("Failed to initialize sandbox");
-        
+
             let count = Arc::new(Mutex::new(0));
             let order = Arc::new(Mutex::new(vec![]));
-        
+
             let mut handles = vec![];
-            
+
             for _ in 0..10 {
                 let sandbox = sandbox.clone();
                 let count = Arc::clone(&count);
@@ -116,11 +118,11 @@ mod tests {
                 });
                 handles.push(handle);
             }
-        
+
             for handle in handles {
                 handle.join().unwrap();
             }
-        
+
             // Check if the order of operations is sequential
             let order = order.lock().unwrap();
             for i in 0..10 {

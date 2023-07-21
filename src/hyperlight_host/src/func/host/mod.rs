@@ -5,12 +5,12 @@ pub(crate) mod function_definition;
 /// Represents the functions that the host exposes to the guest.
 pub(crate) mod function_details;
 
+use self::function_definition::HostFunctionDefinition;
+use super::types::{ParameterValue, ReturnValue};
+use super::{param_type::SupportedParameterType, ret_type::SupportedReturnType};
+use crate::sandbox::UninitializedSandbox;
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
-use crate::sandbox::UninitializedSandbox;
-use self::function_definition::HostFunctionDefinition;
-use super::{param_type::SupportedParameterType, ret_type::SupportedReturnType};
-use super::types::{ParameterValue, ReturnValue};
 
 pub(crate) type HyperlightFunction<'a> =
     Arc<Mutex<Box<dyn FnMut(Vec<ParameterValue>) -> anyhow::Result<ReturnValue> + 'a + Send>>>;
