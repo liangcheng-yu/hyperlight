@@ -20,6 +20,7 @@ use log::error;
 /// `UninitializedSandbox`, and then call `evolve` or `initialize` on it to
 /// generate one of these.
 #[allow(unused)]
+#[derive(Clone)]
 pub struct Sandbox<'a> {
     // Registered host functions
     host_functions: HostFunctionsMap<'a>,

@@ -7,13 +7,9 @@ pub(crate) mod function_details;
 
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
-
 use crate::sandbox::UninitializedSandbox;
-
 use self::function_definition::HostFunctionDefinition;
-
 use super::{param_type::SupportedParameterType, ret_type::SupportedReturnType};
-
 use super::types::{ParameterValue, ReturnValue};
 
 pub(crate) type HyperlightFunction<'a> =
