@@ -191,6 +191,7 @@ impl<'a> UninitializedSandbox<'a> {
             mem_mgr,
             stack_guard,
             executing_guest_call: AtomicBool::new(false),
+            needs_state_reset: false,
         };
 
         default_writer.register(&mut sandbox, "writer_func")?;
