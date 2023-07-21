@@ -1,5 +1,5 @@
-use crate::sandbox::mem_mgr::MemMgr;
 use super::sandbox::ReusableSandbox;
+use crate::sandbox::mem_mgr::MemMgr;
 use anyhow::Result;
 
 pub(crate) trait RestoreSandbox: ReusableSandbox + MemMgr {
@@ -18,11 +18,11 @@ pub(crate) trait RestoreSandbox: ReusableSandbox + MemMgr {
     // ^^^ Note: In C#, we have two functions:
     // - `RestoreState`, and
     // - `ResetState`.
-    // 
+    //
     // ... where `ResetState` is a conditional `RestoreState`
     // that only happens if the sandbox has the `recycleAfterRun`
     // property set to `true`. In Rust, we don't need that, because
     // the `recycleAfterRun` state is abstracted away by the different
     // `Sandbox` states (i.e., `OneShot` (non-recyclable) vs.
-    // `Reusable` (recyclable)), so having only `restore_state` suffices.  
+    // `Reusable` (recyclable)), so having only `restore_state` suffices.
 }

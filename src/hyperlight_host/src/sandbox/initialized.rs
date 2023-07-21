@@ -1,4 +1,3 @@
-use std::sync::atomic::AtomicBool;
 use super::uninitialized::UninitializedSandbox;
 use super::{host_funcs::CallHostPrint, outb::OutBAction};
 use super::{host_funcs::HostFuncs, outb::outb_log};
@@ -12,6 +11,7 @@ use crate::mem::mgr::SandboxMemoryManager;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use anyhow::{bail, Result};
 use log::error;
+use std::sync::atomic::AtomicBool;
 
 /// The primary mechanism to interact with VM partitions that run Hyperlight
 /// guest binaries.
