@@ -67,6 +67,11 @@ impl<'a> MemMgr for Sandbox<'a> {
     fn get_mem_mgr(&self) -> &SandboxMemoryManager {
         &self.mem_mgr
     }
+
+    fn get_mem_mgr_mut(&mut self) -> &mut SandboxMemoryManager {
+        &mut self.mem_mgr
+    }
+
     fn get_stack_cookie(&self) -> &super::mem_mgr::StackCookie {
         &self.stack_guard
     }

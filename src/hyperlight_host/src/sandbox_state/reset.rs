@@ -2,11 +2,11 @@ use crate::sandbox::mem_mgr::MemMgr;
 use super::sandbox::ReusableSandbox;
 use anyhow::Result;
 
-pub trait RestoreSandbox: ReusableSandbox + MemMgr {
+pub(crate) trait RestoreSandbox: ReusableSandbox + MemMgr {
     /// Restore the Sandbox's state
     fn restore_state(&mut self) -> Result<()> {
-        let mem_mgr = self.get_mem_mgr();
         if self.needs_state_reset() {
+            let mem_mgr = self.get_mem_mgr_mut();
             mem_mgr.restore_state()?;
             if !mem_mgr.run_from_process_memory {
                 // TODO: Call specific Hypervisor `reset_RSP` function.
