@@ -41,6 +41,7 @@ use tracing::instrument;
 /// host-implemented functions you need to be available to the guest, then
 /// call either `initialize` or `evolve to transform your
 /// `UninitializedSandbox` into an initialized `Sandbox`.
+#[allow(unused)]
 pub struct UninitializedSandbox<'a> {
     // Registered host functions
     host_functions: HostFunctionsMap<'a>,

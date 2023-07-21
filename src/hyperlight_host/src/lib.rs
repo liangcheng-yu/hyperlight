@@ -93,7 +93,7 @@ pub mod mem;
 /// The main sandbox implementations. Do not use this module directly in code
 /// outside this file. Types from this module needed for public consumption are
 /// re-exported below.
-#[deny(missing_docs, unused_mut)]
+#[deny(dead_code, missing_docs, unused_mut)]
 mod sandbox;
 /// `trait`s and other functionality for dealing with defining sandbox
 /// states and moving between them
