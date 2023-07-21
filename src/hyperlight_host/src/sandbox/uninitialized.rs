@@ -30,6 +30,7 @@ use std::ffi::c_void;
 use std::ops::Add;
 use std::option::Option;
 use std::path::Path;
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use tracing::instrument;
 
@@ -46,6 +47,12 @@ pub struct UninitializedSandbox<'a> {
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
+    executing_guest_call: AtomicBool,
+    needs_state_reset: bool,
+    // ^^^ `UninitializedSandbox` should
+    // also cointain `executing_guest_call`,
+    // and `needs_state_reset` because it might
+    // execute some guest functions when initializing.
 }
 
 impl<'a> std::fmt::Debug for UninitializedSandbox<'a> {
@@ -183,6 +190,7 @@ impl<'a> UninitializedSandbox<'a> {
             host_functions: HashMap::new(),
             mem_mgr,
             stack_guard,
+            executing_guest_call: AtomicBool::new(false),
         };
 
         default_writer.register(&mut sandbox, "writer_func")?;

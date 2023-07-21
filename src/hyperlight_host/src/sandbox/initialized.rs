@@ -1,3 +1,4 @@
+use std::sync::atomic::AtomicBool;
 use super::uninitialized::UninitializedSandbox;
 use super::{host_funcs::CallHostPrint, outb::OutBAction};
 use super::{host_funcs::HostFuncs, outb::outb_log};
@@ -25,6 +26,8 @@ pub struct Sandbox<'a> {
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
+    executing_guest_call: AtomicBool,
+    needs_state_reset: bool,
 }
 
 impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
@@ -33,6 +36,8 @@ impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
             host_functions: val.get_host_funcs().clone(),
             mem_mgr: val.get_mem_mgr().clone(),
             stack_guard: *val.get_stack_cookie(),
+            executing_guest_call: AtomicBool::new(false),
+            needs_state_reset: false,
         }
     }
 }
