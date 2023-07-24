@@ -237,7 +237,7 @@ pub unsafe extern "C" fn context_new(correlation_id: *const c_char) -> *mut Cont
         // TODO: Replace the subscriber with custom Hyperlight subscriber
         // TODO: Allow the host to set the tracing level
         tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::TRACE)
+            .with_max_level(tracing::Level::ERROR)
             .init();
     });
     let correlation_id = if correlation_id.is_null() {
