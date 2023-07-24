@@ -381,7 +381,6 @@ mod tests {
     use crossbeam_queue::ArrayQueue;
     use log::Level;
     use serde_json::{Map, Value};
-    #[cfg(not(RunningNextest))]
     use serial_test::serial;
     use std::{
         io::{Read, Write},
@@ -587,7 +586,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(RunningNextest), serial)]
+    #[serial]
     fn test_load_guest_binary_load_lib() {
         let cfg = SandboxMemoryConfiguration::default();
         let simple_guest_path = simple_guest_path().unwrap();

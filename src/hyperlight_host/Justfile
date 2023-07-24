@@ -11,7 +11,9 @@ build target=default-target:
     cargo build --verbose --profile={{ if target == "debug" {"dev"} else { target } }}
 
 build-test-rust target=default-target:  (build target)
-    cargo nextest run --run-ignored all --verbose {{ if target != "debug" { "--release" } else { "" } }}
+    cargo test --profile={{ if target == "debug" {"dev"} else { target } }}  
+    #ignored tests are tracing tests that cannot run with other tests
+    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} -- --ignored 
 
 build-tests-capi target=default-target: (build target)
     clang \

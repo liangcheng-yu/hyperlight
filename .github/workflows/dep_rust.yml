@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Rust Tests and Lints
 
 # See README.md in this directory for more information about workflow_call
@@ -22,7 +23,7 @@ jobs:
             hypervisor: none
             config: debug
           - build: windows-2022-debug
-            os: windows-2022
+            os: [self-hosted, Windows, X64, "1ES.Pool=HL-Windows-2022"]
             hypervisor: none
             config: debug
           - build: linux-kvm-debug
@@ -38,7 +39,7 @@ jobs:
             hypervisor: none
             config: release
           - build: windows-2022-release
-            os: windows-2022
+            os: [self-hosted, Windows, X64, "1ES.Pool=HL-Windows-2022"]
             hypervisor: none
             config: release
           - build: linux-kvm-release
@@ -70,6 +71,14 @@ jobs:
         uses: microsoft/setup-msbuild@v1.3
         with:
           msbuild-architecture: x64
+      - name: Enable WHP on Windows
+        if: ${{ (runner.os == 'Windows')}}
+        run: Enable-WindowsOptionalFeature -Online -FeatureName HyperVisorPlatform
+        shell: pwsh
+      - name: Get gh action service name
+        if: ${{ (runner.os == 'Windows' )}}
+        run: (Get-Service actions.runner.*) | Foreach { $_.Name, $_.UserName, $_.ServiceType }
+        shell: pwsh
 
       # Rust tests require the test binaries (simpleguest.exe, dummyguest.exe, 
       # etc...) to be in ./src/tests/Hyperlight.Tests/bin/{Release or Debug}/net6.0.
@@ -114,15 +123,14 @@ jobs:
           sudo chgrp $(whoami) /dev/kvm
           sudo ls -al /dev/kvm
           echo "KVM_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
-      - name: Set up cargo-nextest
-        uses: taiki-e/install-action@v2
-        with:
-          tool: nextest@0.9.54
+      - name: Set up env vars for windows tests
+        if: ${{ (runner.os == 'Windows') }}
+        run: |
+          echo "RUST_BACKTRACE=1" >> $GITHUB_ENV
       - name: Run Rust tests
         working-directory: src/hyperlight_host
         env:
           CARGO_TERM_COLOR: always
-          RUSTFLAGS: "--cfg RunningNextest"
         run: just build-test-rust ${{ matrix.config }}
       - name: Set up munit
         working-directory: src/hyperlight_host/tests_capi

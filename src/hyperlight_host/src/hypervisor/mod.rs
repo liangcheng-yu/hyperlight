@@ -1,9 +1,12 @@
 use anyhow::Result;
 /// Handlers for Hypervisor custom logic
 pub(crate) mod handlers;
-#[cfg(target_os = "linux")]
 /// HyperV-on-linux functionality
+#[cfg(target_os = "linux")]
 pub(crate) mod hyperv_linux;
+#[cfg(target_os = "windows")]
+/// Hyperv-on-windows functionality
+pub(crate) mod hyperv_windows;
 #[cfg(target_os = "linux")]
 /// Hypervisor-generic memory utilities
 pub(crate) mod hypervisor_mem;
@@ -17,9 +20,25 @@ pub(crate) mod surrogate_process;
 #[cfg(target_os = "windows")]
 /// Hyperlight Surrogate Process
 pub(crate) mod surrogate_process_manager;
+/// WindowsHypervisorPlatform utilities
+#[cfg(target_os = "windows")]
+pub(crate) mod windows_hypervisor_platform;
 
 use self::handlers::{MemAccessHandlerRc, OutBHandlerRc};
 use crate::mem::ptr::RawPtr;
+
+pub(crate) const CR4_PAE: u64 = 1 << 5;
+pub(crate) const CR4_OSFXSR: u64 = 1 << 9;
+pub(crate) const CR4_OSXMMEXCPT: u64 = 1 << 10;
+pub(crate) const CR0_PE: u64 = 1;
+pub(crate) const CR0_MP: u64 = 1 << 1;
+pub(crate) const CR0_ET: u64 = 1 << 4;
+pub(crate) const CR0_NE: u64 = 1 << 5;
+pub(crate) const CR0_WP: u64 = 1 << 16;
+pub(crate) const CR0_AM: u64 = 1 << 18;
+pub(crate) const CR0_PG: u64 = 1 << 31;
+pub(crate) const EFER_LME: u64 = 1 << 8;
+pub(crate) const EFER_LMA: u64 = 1 << 10;
 
 /// A common set of hypervisor functionality
 pub(crate) trait Hypervisor {
@@ -59,7 +78,6 @@ pub(crate) trait Hypervisor {
     fn reset_rsp(&mut self, rsp: u64) -> Result<()>;
 }
 
-#[cfg(target_os = "linux")]
 #[cfg(test)]
 pub(crate) mod tests {
     use super::{

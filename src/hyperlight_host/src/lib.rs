@@ -59,6 +59,8 @@ pub mod func;
 pub mod guest_interface_glue;
 /// Wrappers for hypervisor implementations
 #[deny(dead_code, missing_docs, unused_mut)]
+#[cfg_attr(windows, allow(dead_code))]
+// TODO: Remove once HypervisorWindowsDriver is wired up outside of just tests
 pub mod hypervisor;
 /// Functionality to establish and manage an individual sandbox's
 /// memory.
@@ -100,7 +102,7 @@ mod sandbox;
 pub mod sandbox_state;
 /// Utilities for testing including interacting with `simpleguest.exe`
 /// and `callbackguest.exe`, our two most basic guest binaries for testing
-#[deny(dead_code, missing_docs, unused_mut)]
+#[deny(missing_docs, unused_mut)]
 #[cfg(test)]
 pub(crate) mod testing;
 

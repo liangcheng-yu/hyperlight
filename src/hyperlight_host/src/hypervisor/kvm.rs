@@ -1,10 +1,7 @@
 use super::{
     handlers::{MemAccessHandlerRc, OutBHandlerRc},
-    hypervisor_mem::{
-        CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT,
-        CR4_PAE, EFER_LMA, EFER_LME,
-    },
-    Hypervisor,
+    Hypervisor, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT,
+    CR4_PAE, EFER_LMA, EFER_LME,
 };
 use crate::mem::{layout::SandboxMemoryLayout, ptr::RawPtr};
 use anyhow::{anyhow, bail, Result};
