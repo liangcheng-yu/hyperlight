@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicI32, Ordering};
+
 use super::uninitialized::UninitializedSandbox;
 use super::{host_funcs::CallHostPrint, outb::OutBAction};
 use super::{host_funcs::HostFuncs, outb::outb_log};
@@ -11,7 +13,6 @@ use crate::mem::mgr::SandboxMemoryManager;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use anyhow::{bail, Result};
 use log::error;
-use std::sync::atomic::AtomicBool;
 
 /// The primary mechanism to interact with VM partitions that run Hyperlight
 /// guest binaries.
@@ -26,7 +27,7 @@ pub struct Sandbox<'a> {
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
-    executing_guest_call: AtomicBool,
+    executing_guest_call: AtomicI32,
     needs_state_reset: bool,
 }
 
@@ -36,7 +37,7 @@ impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
             host_functions: val.get_host_funcs().clone(),
             mem_mgr: val.get_mem_mgr().clone(),
             stack_guard: *val.get_stack_cookie(),
-            executing_guest_call: AtomicBool::new(false),
+            executing_guest_call: AtomicI32::new(0),
             needs_state_reset: false,
         }
     }
@@ -128,5 +129,41 @@ impl<'a> Sandbox<'a> {
                 bail!(err_msg);
             }
         }
+    }
+
+    /// `enter_dynamic_method` is used to indicate if a `Sandbox`'s state should be reset.
+    /// - When we enter call a guest function, the `executing_guest_call` value is set to 1.
+    /// - When we exit a guest function, the `executing_guest_call` value is set to 0.
+    ///
+    /// `enter_dynamic_method` will check if the value of `executing_guest_call` is 1.
+    /// If yes, it means the guest function is still running and state should not be reset.
+    /// If the value of `executing_guest_call` is 0, we should reset the state.
+    #[allow(unused)]
+    pub(crate) fn enter_dynamic_method(&mut self) -> Result<bool> {
+        if self.executing_guest_call.load(Ordering::SeqCst) == 1 {
+            return Ok(false);
+        }
+
+        if self
+            .executing_guest_call
+            .compare_exchange(0, 2, Ordering::SeqCst, Ordering::SeqCst)
+            .map_err(|_| anyhow::anyhow!("Failed to verify status of guest function execution"))?
+            != 0
+        {
+            bail!("Guest call already in progress");
+        }
+
+        Ok(true)
+    }
+
+    /// `exit_dynamic_method` is used to indicate that a guest function has finished executing.
+    #[allow(unused)]
+    pub(crate) fn exit_dynamic_method(&mut self, should_release: bool) -> Result<()> {
+        if should_release {
+            self.executing_guest_call.store(0, Ordering::SeqCst);
+            self.needs_state_reset = true;
+        }
+
+        Ok(())
     }
 }
