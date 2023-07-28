@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicI32, Ordering};
-
+use super::guest_funcs::CallGuestFunction;
+use super::guest_mgr::GuestMgr;
 use super::uninitialized::UninitializedSandbox;
 use super::{host_funcs::CallHostPrint, outb::OutBAction};
 use super::{host_funcs::HostFuncs, outb::outb_log};
@@ -11,8 +11,10 @@ use crate::flatbuffers::hyperlight::generated::ErrorCode;
 use crate::func::types::ParameterValue;
 use crate::mem::mgr::SandboxMemoryManager;
 use crate::mem::mgr::STACK_COOKIE_LEN;
+use crate::sandbox_state::reset::RestoreSandbox;
 use anyhow::{bail, Result};
 use log::error;
+use std::sync::atomic::AtomicI32;
 
 /// The primary mechanism to interact with VM partitions that run Hyperlight
 /// guest binaries.
@@ -29,6 +31,7 @@ pub struct Sandbox<'a> {
     stack_guard: [u8; STACK_COOKIE_LEN],
     executing_guest_call: AtomicI32,
     needs_state_reset: bool,
+    num_runs: i32,
 }
 
 impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
@@ -39,6 +42,7 @@ impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
             stack_guard: *val.get_stack_cookie(),
             executing_guest_call: AtomicI32::new(0),
             needs_state_reset: false,
+            num_runs: 0,
         }
     }
 }
@@ -51,6 +55,10 @@ impl<'a> HostFuncs<'a> for Sandbox<'a> {
 
 impl<'a> CallHostFunction<'a> for Sandbox<'a> {}
 
+impl<'a> CallGuestFunction<'a> for Sandbox<'a> {}
+
+impl<'a> RestoreSandbox for Sandbox<'a> {}
+
 impl<'a> CallHostPrint<'a> for Sandbox<'a> {}
 
 impl<'a> crate::sandbox_state::sandbox::Sandbox for Sandbox<'a> {}
@@ -61,6 +69,40 @@ impl<'a> std::fmt::Debug for Sandbox<'a> {
             .field("stack_guard", &self.stack_guard)
             .field("num_host_funcs", &self.host_functions.len())
             .finish()
+    }
+}
+
+impl<'a> GuestMgr for Sandbox<'a> {
+    fn get_executing_guest_call(&self) -> &AtomicI32 {
+        &self.executing_guest_call
+    }
+
+    fn get_executing_guest_call_mut(&mut self) -> &mut AtomicI32 {
+        &mut self.executing_guest_call
+    }
+
+    fn increase_num_runs(&mut self) {
+        self.num_runs += 1;
+    }
+
+    fn get_num_runs(&self) -> i32 {
+        self.num_runs
+    }
+
+    fn needs_state_reset(&self) -> bool {
+        self.needs_state_reset
+    }
+
+    fn set_needs_state_reset(&mut self, val: bool) {
+        self.needs_state_reset = val;
+    }
+
+    fn as_guest_mgr(&self) -> &dyn GuestMgr {
+        self
+    }
+
+    fn as_guest_mgr_mut(&mut self) -> &mut dyn GuestMgr {
+        self
     }
 }
 
@@ -129,41 +171,5 @@ impl<'a> Sandbox<'a> {
                 bail!(err_msg);
             }
         }
-    }
-
-    /// `enter_dynamic_method` is used to indicate if a `Sandbox`'s state should be reset.
-    /// - When we enter call a guest function, the `executing_guest_call` value is set to 1.
-    /// - When we exit a guest function, the `executing_guest_call` value is set to 0.
-    ///
-    /// `enter_dynamic_method` will check if the value of `executing_guest_call` is 1.
-    /// If yes, it means the guest function is still running and state should not be reset.
-    /// If the value of `executing_guest_call` is 0, we should reset the state.
-    #[allow(unused)]
-    pub(crate) fn enter_dynamic_method(&mut self) -> Result<bool> {
-        if self.executing_guest_call.load(Ordering::SeqCst) == 1 {
-            return Ok(false);
-        }
-
-        if self
-            .executing_guest_call
-            .compare_exchange(0, 2, Ordering::SeqCst, Ordering::SeqCst)
-            .map_err(|_| anyhow::anyhow!("Failed to verify status of guest function execution"))?
-            != 0
-        {
-            bail!("Guest call already in progress");
-        }
-
-        Ok(true)
-    }
-
-    /// `exit_dynamic_method` is used to indicate that a guest function has finished executing.
-    #[allow(unused)]
-    pub(crate) fn exit_dynamic_method(&mut self, should_release: bool) -> Result<()> {
-        if should_release {
-            self.executing_guest_call.store(0, Ordering::SeqCst);
-            self.needs_state_reset = true;
-        }
-
-        Ok(())
     }
 }

@@ -5,7 +5,7 @@ use super::{
 };
 use super::{host_funcs::CallHostPrint, run_options::SandboxRunOptions};
 use crate::func::host::function_definition::HostFunctionDefinition;
-use crate::func::host::{Function1, HyperlightFunction};
+use crate::func::host::{HostFunction1, HyperlightFunction};
 use crate::hypervisor::Hypervisor;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::mem::ptr::RawPtr;
@@ -359,7 +359,7 @@ mod tests {
     };
     use crate::{
         func::{
-            host::{Function1, Function2},
+            host::{HostFunction1, HostFunction2},
             types::{ParameterValue, ReturnValue},
         },
         mem::config::SandboxMemoryConfiguration,

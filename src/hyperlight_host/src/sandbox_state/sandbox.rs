@@ -14,7 +14,12 @@ use std::fmt::Debug;
 /// These transitions are expressed as `EvolvableSandbox` and
 /// `DevolvableSandbox` implementations any `Sandbox` implementation can
 /// opt into.
-pub trait Sandbox: Sized + Debug {}
+pub trait Sandbox: Sized + Debug {
+    /// By default, a Sandbox is non-reusable
+    fn is_reusable(&self) -> bool {
+        false
+    }
+}
 
 /// A "final" sandbox implementation that has the following properties:
 ///
@@ -28,20 +33,22 @@ pub trait Sandbox: Sized + Debug {}
 /// - It implements `DevolvableSandbox`, but not `EvolvableSandbox` so it
 /// can be evolved but not devolved
 pub trait ReusableSandbox: Sandbox {
+    fn is_reusable(&self) -> bool {
+        true
+    }
+
     /// Borrow `self` and run this sandbox.
     fn run(&self) -> Result<()>;
-
-    /// Checks if the `Sandbox` needs state resetting.
-    fn needs_state_reset(&self) -> bool;
-
-    /// Sets the `Sandbox`'s `needs_state_reset` property to provided value.
-    fn set_needs_state_reset(&mut self, val: bool);
 }
 
 /// A fully-initialized sandbox that can run guest code or be devolved, but not
 /// both. Further, once either operation has occurred, the `OneShotSandbox`
 /// cannot be used again.
 pub trait OneShotSandbox: Sandbox {
+    fn is_reusable(&self) -> bool {
+        false
+    }
+
     /// Consume `self` and run the sandbox.
     ///
     /// After this call, you can no longer use this `OneShotSandbox`
