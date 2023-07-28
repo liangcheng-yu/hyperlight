@@ -1,4 +1,5 @@
-use super::guest::CallGuestFunction;
+use super::guest_funcs::CallGuestFunction;
+use super::guest_mgr::GuestMgr;
 use super::uninitialized::UninitializedSandbox;
 use super::{host_funcs::CallHostPrint, outb::OutBAction};
 use super::{host_funcs::HostFuncs, outb::outb_log};
@@ -10,6 +11,7 @@ use crate::flatbuffers::hyperlight::generated::ErrorCode;
 use crate::func::types::ParameterValue;
 use crate::mem::mgr::SandboxMemoryManager;
 use crate::mem::mgr::STACK_COOKIE_LEN;
+use crate::sandbox_state::reset::RestoreSandbox;
 use anyhow::{bail, Result};
 use log::error;
 use std::sync::atomic::AtomicBool;
@@ -30,6 +32,7 @@ pub struct Sandbox<'a> {
     stack_guard: [u8; STACK_COOKIE_LEN],
     executing_guest_call: AtomicBool,
     needs_state_reset: bool,
+    num_runs: i32,
 }
 
 impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
@@ -40,6 +43,7 @@ impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
             stack_guard: *val.get_stack_cookie(),
             executing_guest_call: AtomicBool::new(false),
             needs_state_reset: false,
+            num_runs: 0,
         }
     }
 }
@@ -54,6 +58,8 @@ impl<'a> CallHostFunction<'a> for Sandbox<'a> {}
 
 impl<'a> CallGuestFunction<'a> for Sandbox<'a> {}
 
+impl<'a> RestoreSandbox for Sandbox<'a> {}
+
 impl<'a> CallHostPrint<'a> for Sandbox<'a> {}
 
 impl<'a> crate::sandbox_state::sandbox::Sandbox for Sandbox<'a> {}
@@ -64,6 +70,32 @@ impl<'a> std::fmt::Debug for Sandbox<'a> {
             .field("stack_guard", &self.stack_guard)
             .field("num_host_funcs", &self.host_functions.len())
             .finish()
+    }
+}
+
+impl<'a> GuestMgr for Sandbox<'a> {
+    fn get_executing_guest_call(&self) -> &AtomicBool {
+        &self.executing_guest_call
+    }
+
+    fn get_executing_guest_call_mut(&mut self) -> &mut std::sync::atomic::AtomicI32 {
+        &mut self.executing_guest_call
+    }
+
+    fn increase_num_runs(&mut self) {
+        self.num_runs += 1;
+    }
+
+    fn get_num_runs(&self) -> i32 {
+        self.num_runs
+    }
+
+    fn needs_state_reset(&self) -> bool {
+        self.needs_state_reset
+    }
+
+    fn set_needs_state_reset(&mut self, val: bool) {
+        self.needs_state_reset = val;
     }
 }
 

@@ -1,4 +1,4 @@
-use super::guest::CallGuestFunction;
+use super::guest_funcs::CallGuestFunction;
 use super::mem_mgr::MemMgr;
 use super::{
     host_funcs::default_writer_func, host_funcs::HostFuncs, host_funcs::HostFunctionsMap,

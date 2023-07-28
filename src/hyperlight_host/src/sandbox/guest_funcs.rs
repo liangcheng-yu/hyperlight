@@ -1,17 +1,44 @@
-use crate::func::guest::GuestFunction;
-use anyhow::Result;
+use std::sync::atomic::Ordering;
 
-use super::mem_mgr::MemMgr;
+use super::guest_mgr::GuestMgr;
+use crate::{func::guest::GuestFunction, sandbox_state::reset::RestoreSandbox};
+
+use anyhow::{bail, Result};
+
+// `ShouldRelease` is an internal construct that represents a
+// port of try-finally logic in C#.
+//
+// It implements `drop` and captures part of our state in
+// `call_guest_function`, to allow it to properly act
+// on it and do cleanup.
+struct ShouldRelease<T: GuestMgr>(bool, Box<T>);
+
+impl<T: GuestMgr> Drop for ShouldRelease<T> {
+    fn drop(&mut self) {
+        if self.0 {
+            let guest_mgr: T = self.unwrap().1;
+            guest_mgr.set_needs_state_reset(true);
+            let executing_guest_function = guest_mgr.get_executing_guest_call_mut();
+            executing_guest_function.store(0, Ordering::SeqCst);
+        }
+    }
+}
 
 /// Enables the host to call functions in the guest and have the sandbox state reset at the start of the call
-pub(crate) trait CallGuestFunction<'a>: MemMgr {
+pub(crate) trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox {
     fn call_guest_function<T, R>(&self, function: T) -> Result<R>
     where
         T: GuestFunction<R>,
     {
-        // TODO: call reset_state() here
+        let mut sd = ShouldRelease(false, Box::new(self));
+        let executing_guest_function = self.get_executing_guest_call_mut();
+        if executing_guest_function.compare_exchange(0, 1, Ordering::SeqCst, Ordering::SeqCst) {
+            bail!("Guest call already in progress");
+        }
 
-        function.call()
+        sd = ShouldRelease(true);
+        self.reset_state()?;
+        return function.call();
         // ^^^ ensures that only one call can be made concurrently
         // because `GuestFunction` is implemented for `Arc<Mutex<T>>`
         // so we'll be locking on the function call. There are tests
