@@ -8,6 +8,10 @@ pub(crate) trait MemMgr {
     /// `SandboxMemoryManager`
     fn get_mem_mgr(&self) -> &SandboxMemoryManager;
 
+    /// Get a mutable reference to the internally-stored
+    /// `SandboxMemoryManager`
+    fn get_mem_mgr_mut(&mut self) -> &mut SandboxMemoryManager;
+
     /// Get the internally-stored stack cookie that was written
     /// as a stack guard to guest memory.
     fn get_stack_cookie(&self) -> &StackCookie;

@@ -7,6 +7,9 @@ pub(crate) mod log_values;
 pub(crate) mod logger;
 pub(crate) mod tracing_subscriber;
 
+#[cfg(target_os = "windows")]
+pub(crate) mod surrogate_binary;
+
 pub(crate) const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
 /// Join all the `&str`s in the `v` parameter as a path with appropriate
@@ -45,7 +48,6 @@ fn test_bin_base() -> PathBuf {
     )
 }
 
-#[cfg(target_os = "linux")]
 pub(crate) fn dummy_guest_buf() -> PathBuf {
     // $REPO_ROOT/src/tests/Hyperlight.Tests/bin/Debug/net6.0/dummyguest.exe"
     let mut base = test_bin_base();
@@ -72,7 +74,6 @@ pub(crate) fn callback_guest_buf() -> PathBuf {
 /// Get a fully qualified OS-specific path to the dummyguest.exe
 /// binary. Convenience method for calling `dummy_guest_buf`, then converting
 /// the result into an owned `String`
-#[cfg(target_os = "linux")]
 pub(crate) fn dummy_guest_path() -> Result<String> {
     let buf = dummy_guest_buf();
     buf.to_str()

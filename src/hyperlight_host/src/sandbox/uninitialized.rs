@@ -31,6 +31,7 @@ use std::ffi::c_void;
 use std::ops::Add;
 use std::option::Option;
 use std::path::Path;
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use tracing::instrument;
 
@@ -41,12 +42,19 @@ use tracing::instrument;
 /// host-implemented functions you need to be available to the guest, then
 /// call either `initialize` or `evolve to transform your
 /// `UninitializedSandbox` into an initialized `Sandbox`.
+#[allow(unused)]
 pub struct UninitializedSandbox<'a> {
     // Registered host functions
     host_functions: HostFunctionsMap<'a>,
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
+    executing_guest_call: AtomicBool,
+    needs_state_reset: bool,
+    // ^^^ `UninitializedSandbox` should
+    // also cointain `executing_guest_call`,
+    // and `needs_state_reset` because it might
+    // execute some guest functions when initializing.
 }
 
 impl<'a> std::fmt::Debug for UninitializedSandbox<'a> {
@@ -115,6 +123,11 @@ impl<'a> MemMgr for UninitializedSandbox<'a> {
     fn get_mem_mgr(&self) -> &SandboxMemoryManager {
         &self.mem_mgr
     }
+
+    fn get_mem_mgr_mut(&mut self) -> &mut SandboxMemoryManager {
+        &mut self.mem_mgr
+    }
+
     fn get_stack_cookie(&self) -> &super::mem_mgr::StackCookie {
         &self.stack_guard
     }
@@ -186,6 +199,8 @@ impl<'a> UninitializedSandbox<'a> {
             host_functions: HashMap::new(),
             mem_mgr,
             stack_guard,
+            executing_guest_call: AtomicBool::new(false),
+            needs_state_reset: false,
         };
 
         default_writer.register(&mut sandbox, "writer_func")?;
@@ -369,7 +384,6 @@ mod tests {
     use crossbeam_queue::ArrayQueue;
     use log::Level;
     use serde_json::{Map, Value};
-    #[cfg(not(RunningNextest))]
     use serial_test::serial;
     use std::{
         io::{Read, Write},
@@ -575,7 +589,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(RunningNextest), serial)]
+    #[serial]
     fn test_load_guest_binary_load_lib() {
         let cfg = SandboxMemoryConfiguration::default();
         let simple_guest_path = simple_guest_path().unwrap();
