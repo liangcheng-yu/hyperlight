@@ -12,6 +12,7 @@ use crate::mem::mgr::SandboxMemoryManager;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use anyhow::{bail, Result};
 use log::error;
+use std::sync::atomic::AtomicBool;
 
 /// The primary mechanism to interact with VM partitions that run Hyperlight
 /// guest binaries.
@@ -26,6 +27,8 @@ pub struct Sandbox<'a> {
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
+    executing_guest_call: AtomicBool,
+    needs_state_reset: bool,
 }
 
 impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
@@ -34,6 +37,8 @@ impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
             host_functions: val.get_host_funcs().clone(),
             mem_mgr: val.get_mem_mgr().clone(),
             stack_guard: *val.get_stack_cookie(),
+            executing_guest_call: AtomicBool::new(false),
+            needs_state_reset: false,
         }
     }
 }
@@ -63,6 +68,11 @@ impl<'a> MemMgr for Sandbox<'a> {
     fn get_mem_mgr(&self) -> &SandboxMemoryManager {
         &self.mem_mgr
     }
+
+    fn get_mem_mgr_mut(&mut self) -> &mut SandboxMemoryManager {
+        &mut self.mem_mgr
+    }
+
     fn get_stack_cookie(&self) -> &super::mem_mgr::StackCookie {
         &self.stack_guard
     }

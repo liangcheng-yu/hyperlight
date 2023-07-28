@@ -1,4 +1,6 @@
+use super::c_func::CFunc;
 use super::hdl::Hdl;
+use super::strings::register_string;
 use super::{
     handle::{new_key, Handle, Key},
     sandbox_compat,
@@ -19,6 +21,25 @@ use crate::{
 };
 use anyhow::{bail, Error, Result};
 use std::collections::HashMap;
+use std::ffi::{c_char, CStr};
+use std::sync::Once;
+use tracing::info;
+use tracing_subscriber;
+use uuid::Uuid;
+static INITTRACER: Once = Once::new();
+
+/// The error message returned when a null reference check on a Context raw pointer fails in the C api.
+pub(crate) const ERR_NULL_CONTEXT: &str = "NULL context was passed";
+
+/// Return a null context error handle when Context is null.
+#[macro_export]
+macro_rules! validate_context {
+    ($cob:ident) => {
+        if $cob.is_null() {
+            return Handle::new_null_context();
+        }
+    };
+}
 
 /// Context is a memory storage mechanism used in the Hyperlight C API
 /// functions.
@@ -41,6 +62,8 @@ use std::collections::HashMap;
 /// - `Context` is not thread-safe. Do not share one between threads
 #[derive(Default)]
 pub struct Context {
+    /// The host's correlation Id for this context
+    pub(crate) correlation_id: String,
     /// All `anyhow::Error`s stored in this context.
     pub(crate) errs: HashMap<Key, Error>,
     /// All booleans stored in this context
@@ -200,10 +223,85 @@ impl Context {
     }
 }
 
-/// Create a new context for use in the C API.
+/// Create a new `Context`.
+///
+/// # Safety
+///
+/// You must only call this function:
+///
+/// - With an optional correlation_id which should be a UTF-8 encoded string that is freed by the caller, if no correlation_id is provided, a new UUID will be generated
+///
 #[no_mangle]
-pub extern "C" fn context_new() -> *mut Context {
-    Box::into_raw(Box::default())
+pub unsafe extern "C" fn context_new(correlation_id: *const c_char) -> *mut Context {
+    INITTRACER.call_once(|| {
+        // TODO: Replace the subscriber with custom Hyperlight subscriber
+        // TODO: Allow the host to set the tracing level
+        tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::ERROR)
+            .init();
+    });
+    let correlation_id = if correlation_id.is_null() {
+        info!("No correlation id or function provided by host, generating one");
+        Uuid::new_v4().to_string()
+    } else {
+        let cid = unsafe { CStr::from_ptr(correlation_id) };
+        cid.to_string_lossy().into_owned()
+    };
+    let context = Context {
+        correlation_id,
+        ..Default::default()
+    };
+    Box::into_raw(Box::new(context))
+}
+
+/// Get the correlation_id associated with the Context.
+///
+/// # Safety
+///
+/// You must only call this function:
+///
+/// - With `Context`s created by `context_new`
+/// - Before calling `context_free`
+///
+#[no_mangle]
+pub unsafe extern "C" fn get_correlation_id(ctx: *mut Context) -> Handle {
+    CFunc::new("get_correlation_id", ctx)
+        .and_then_mut(|ctx, _| {
+            let correlation_id = ctx.correlation_id.clone();
+            Ok(register_string(&mut *ctx, correlation_id))
+        })
+        .ok_or_err_hdl()
+}
+
+/// Update the correlation_id associated with the Context.
+///
+/// # Safety
+///
+/// You must only call this function:
+///
+/// - With `Context`s created by `context_new`
+/// - Before calling `context_free`
+/// - With a new correlation_id which should be a UTF-8 encoded string that is freed by the caller if no correlation_id is provided, a new UUID will be generated
+///
+
+#[no_mangle]
+pub unsafe extern "C" fn set_correlation_id(
+    ctx: *mut Context,
+    correlation_id: *const c_char,
+) -> Handle {
+    CFunc::new("set_correlation_id", ctx)
+        .and_then_mut(|ctx, _| {
+            let correlation_id = if correlation_id.is_null() {
+                info!("No correlation id or function provided by host, generating one");
+                Uuid::new_v4().to_string()
+            } else {
+                let cid = unsafe { CStr::from_ptr(correlation_id) };
+                cid.to_string_lossy().into_owned()
+            };
+            ctx.correlation_id = correlation_id;
+            Ok(Handle::new_empty())
+        })
+        .ok_or_err_hdl()
 }
 
 /// Free the memory referenced by with `ctx`.
@@ -216,21 +314,10 @@ pub extern "C" fn context_new() -> *mut Context {
 /// - Only after a given `ctx` is done being used
 /// - With `Context`s created by `context_new`
 #[no_mangle]
-pub unsafe extern "C" fn context_free(ctx: *mut Context) {
-    drop(Box::from_raw(ctx))
-}
-
-/// The error message returned when a null reference check on a Context raw pointer fails in the C api.
-pub(crate) const ERR_NULL_CONTEXT: &str = "NULL context was passed";
-
-/// Return a null context error handle when Context is null.
-#[macro_export]
-macro_rules! validate_context {
-    ($cob:ident) => {
-        if $cob.is_null() {
-            return Handle::new_null_context();
-        }
-    };
+pub unsafe extern "C" fn context_free(ctx: *mut Context) -> Handle {
+    validate_context!(ctx);
+    drop(Box::from_raw(ctx));
+    Handle::new_empty()
 }
 
 /// Panic when the Context is null.

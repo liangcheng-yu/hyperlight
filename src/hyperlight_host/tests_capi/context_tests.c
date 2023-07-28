@@ -7,7 +7,7 @@
 // making sure that context_free frees up all the memory created.
 MunitResult test_context_contains_memory()
 {
-    Context *ctx = context_new();
+    Context *ctx = context_new("test correlation id");
 
     for (size_t i = 0; i < 10; i++)
     {

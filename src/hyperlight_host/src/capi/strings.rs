@@ -46,6 +46,38 @@ pub(crate) fn to_c_string<T: Into<Vec<u8>>>(string: T) -> Result<RawCString, Nul
     CString::new(string).map(|s| s.into_raw() as RawCString)
 }
 
+/// Get the string value of the given `Handle`, or `NULL` if
+/// `hdl` doesn't exist in `ctx` or it does exist but is not
+/// a string value.
+///
+/// # Safety
+///
+/// `ctx` must have been created with `context_new` and must not be
+/// modified or deleted while this function is running.
+///
+/// This function creates new memory. You must pass the returned
+/// value to `free_raw_string()` after you're done using it.
+#[no_mangle]
+pub unsafe extern "C" fn handle_get_raw_string(ctx: *const Context, hdl: Handle) -> RawCString {
+    validate_context_or_panic!(ctx);
+
+    match Context::get(hdl, &(*ctx).strings, |s| matches!(s, Hdl::String(_))) {
+        Ok(str) => match to_c_string((*str).clone()) {
+            Ok(s) => s,
+            Err(_) => std::ptr::null(),
+        },
+        Err(_) => std::ptr::null(),
+    }
+}
+
+/// Free the memory created by a handle_get_raw_string call
+#[no_mangle]
+pub extern "C" fn free_raw_string(ptr: RawCString) {
+    if !ptr.is_null() {
+        unsafe { drop(CString::from_raw(ptr as *mut c_char)) }
+    }
+}
+
 /// Get a read-only reference to a string that is stored in `ctx`
 /// and pointed to by `handle`.
 pub(crate) fn get_string(ctx: &Context, handle: Handle) -> Result<&String> {

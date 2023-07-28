@@ -3,7 +3,7 @@
 #![allow(dead_code)]
 
 use super::surrogate_process::SurrogateProcess;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use core::ffi::c_void;
 use std::ffi::CString;
 use std::mem::{size_of, MaybeUninit};
@@ -15,7 +15,7 @@ use std::sync::{
 };
 use windows::core::{PCSTR, PSTR};
 use windows::s;
-use windows::Win32::Foundation::HANDLE;
+use windows::Win32::Foundation::{GetLastError, HANDLE};
 use windows::Win32::Security::SECURITY_ATTRIBUTES;
 use windows::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectA, JobObjectExtendedLimitInformation,
@@ -32,7 +32,7 @@ use windows::Win32::System::Threading::{
 // This is the name of the surrogate process binary that will be used to create surrogate processes.
 // The process does nothing , it just sleeps forever. Its only purpose is to provide a host for memory that will be mapped
 // into the guest using the `WHvMapGpaRange2` API.
-const SURROGATE_PROCESS_BINARY_NAME: &str = "HyperlightSurrogate.exe";
+pub(crate) const SURROGATE_PROCESS_BINARY_NAME: &str = "HyperlightSurrogate.exe";
 // The maximum number of surrogate processes that can be created.
 // (This is a factor of limitations in the `WHvMapGpaRange2` API which only allows 512 different process handles).
 const NUMBER_OF_SURROGATE_PROCESSES: usize = 512;
@@ -60,7 +60,7 @@ pub(crate) struct SurrogateProcessManager {
 }
 
 impl SurrogateProcessManager {
-    /// Gets a surrogate process from the pool of surrogate processes and allocates meomory in the process. This should be called when a new HyperV on Windows Driver is created.
+    /// Gets a surrogate process from the pool of surrogate processes and allocates memory in the process. This should be called when a new HyperV on Windows Driver is created.
     pub(crate) fn get_surrogate_process(
         &self,
         size: usize,
@@ -92,7 +92,7 @@ impl SurrogateProcessManager {
             allocated_address,
         })
     }
-    /// Returns a surrogate process to the pool of surrogate processes and frees meomory in the process. This should be called when a sandbox using HyperV on Windows is dropped.
+    /// Returns a surrogate process to the pool of surrogate processes and frees memory in the process. This should be called when a sandbox using HyperV on Windows is dropped.
     pub(crate) fn return_surrogate_process(
         &self,
         surrogate_process: SurrogateProcess,
@@ -147,13 +147,21 @@ static mut SURROGATE_PROCESSES_MANAGER: MaybeUninit<SurrogateProcessManager> =
 pub(crate) fn get_surrogate_process_manager() -> Result<&'static SurrogateProcessManager> {
     static ONCE: Once = Once::new();
 
+    let surrogate_process_path = std::env::current_exe()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join(SURROGATE_PROCESS_BINARY_NAME);
+
+    if !Path::new(&surrogate_process_path).exists() {
+        bail!(
+            "get_surrogate_process_manager: file {} does not exist",
+            &surrogate_process_path.display()
+        );
+    }
+
     ONCE.call_once(|| {
         let (sender, receiver): (Sender<HANDLE>, Receiver<HANDLE>) = mpsc::channel();
-        let surrogate_process_path = std::env::current_exe()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join(SURROGATE_PROCESS_BINARY_NAME);
         let job_handle = create_job_object().unwrap();
         let surrogate_process_manager = SurrogateProcessManager {
             job_handle,
@@ -252,7 +260,11 @@ fn create_surrogate_process(surrogate_process_path: &Path, job_handle: &HANDLE) 
 
     unsafe {
         if !AssignProcessToJobObject(*job_handle, process_handle).as_bool() {
-            return Err(anyhow!("Assign SurrogateProcess To JobObject Failed"));
+            let hresult = GetLastError();
+            return Err(anyhow!(
+                "Assign SurrogateProcess To JobObject Failed: {}",
+                hresult.to_hresult()
+            ));
         }
     }
 
@@ -262,7 +274,9 @@ fn create_surrogate_process(surrogate_process_path: &Path, job_handle: &HANDLE) 
 mod tests {
 
     use super::*;
+    use crate::testing::surrogate_binary::copy_surrogate_exe;
     use rand::{thread_rng, Rng};
+    use serial_test::serial;
     use std::ffi::CStr;
     use std::time::Instant;
     use std::{thread, time::Duration};
@@ -274,12 +288,11 @@ mod tests {
     use windows::Win32::System::Memory::{
         VirtualAlloc, VirtualFree, MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE,
     };
-
     #[test]
+    #[serial]
     fn test_surrogate_process_manager() {
-        if !copy_surrogate_exe() {
-            return;
-        }
+        assert!(copy_surrogate_exe());
+
         let mut threads = Vec::new();
         // create more threads than surrogate processes as we want to test that the manager can handle multiple threads requesting processes at the same time when there are not enough processes available.
         for t in 0..NUMBER_OF_SURROGATE_PROCESSES * 2 {
@@ -379,38 +392,5 @@ mod tests {
                 break;
             }
         }
-    }
-
-    fn copy_surrogate_exe() -> bool {
-        let configs = ["Debug", "Release"];
-
-        for config in &configs {
-            let test_binary = std::env::current_exe().unwrap();
-            let dest_directory = test_binary.parent().unwrap();
-
-            let source = dest_directory
-                .parent()
-                .unwrap()
-                .parent()
-                .unwrap()
-                .parent()
-                .unwrap()
-                .join("src")
-                .join("HyperlightSurrogate")
-                .join("x64")
-                .join(config)
-                .join(SURROGATE_PROCESS_BINARY_NAME);
-
-            let source_path = Path::new(&source);
-            if source_path.exists() {
-                std::fs::copy(
-                    source_path,
-                    dest_directory.join(SURROGATE_PROCESS_BINARY_NAME),
-                )
-                .unwrap();
-                return true;
-            }
-        }
-        false
     }
 }

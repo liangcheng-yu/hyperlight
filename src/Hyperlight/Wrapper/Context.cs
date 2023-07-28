@@ -10,29 +10,64 @@ namespace Hyperlight.Wrapper
         /// Create a new context wrapper with a newly allocated
         /// context.
         /// </summary>
-        public Context(string correlationId) : this(context_new(), correlationId)
+        public Context(string correlationId)
         {
+            var new_ctx = IntPtr.Zero;
+            var buffer = System.Text.Encoding.UTF8.GetBytes(correlationId);
+            unsafe
+            {
+                fixed (byte* buffer_ptr = buffer)
+                {
+                    new_ctx = context_new((IntPtr)buffer_ptr);
+                }
+            }
+
+            if (new_ctx == IntPtr.Zero)
+            {
+                HyperlightException.LogAndThrowException<HyperlightException>("Invalid, empty context recieved from context_new call", GetType().Name);
+            }
+
+            this.ctx = new_ctx;
         }
 
-        // TODO: This should be passed to the Rust API and used in error messages/logging from Rust code. Each time set is called the correlationId 
-        // that is associated with the context should be updated.
         /// <summary>
-        /// The request Correlation ID
+        /// Gets the current request Correlation ID
         /// </summary>
-        public string CorrelationId { get; set; }
+        public string GetCorrelationId()
+        {
+            var rawHdl = get_correlation_id(this.ctx);
+            using var hdl = new Handle(this, rawHdl, true);
+            if (!hdl.IsString())
+            {
+                throw new HyperlightException("get_correlation_id did not return a string");
+            }
+            if (hdl.GetString() == null)
+            {
+                throw new HyperlightException("get_correlation_id returned a null string");
+            }
+            return hdl.GetString()!;
+        }
+
+        /// <summary>
+        /// sets the current request Correlation ID
+        /// </summary>
+        public void SetCorrelationId(string correlationId)
+        {
+            ulong rawHdl = 0;
+            var buffer = System.Text.Encoding.UTF8.GetBytes(correlationId);
+            unsafe
+            {
+                fixed (byte* buffer_ptr = buffer)
+                {
+                    rawHdl = set_correlation_id(this.ctx, (IntPtr)buffer_ptr);
+                }
+            }
+
+            using var hdl = new Handle(this, rawHdl, true);
+        }
 
         public NativeContext ctx { get; private set; }
         private bool disposed;
-        private Context(NativeContext ctx, string correlationId)
-        {
-            CorrelationId = correlationId;
-            if (ctx == IntPtr.Zero)
-            {
-                HyperlightException.LogAndThrowException<HyperlightException>("Invalid, empty context passed to Context constructor", GetType().Name);
-            }
-
-            this.ctx = ctx;
-        }
 
         public void Dispose()
         {
@@ -58,7 +93,15 @@ namespace Hyperlight.Wrapper
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeContext context_new();
+        private static extern NativeContext context_new(IntPtr correlationId);
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle get_correlation_id(NativeContext context);
+
+        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle set_correlation_id(NativeContext context, IntPtr correlationId);
 
         [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]

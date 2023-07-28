@@ -35,7 +35,7 @@ MunitResult test_hyperv_linux_create_driver(const MunitParameter params[], void 
     };
 
     const size_t MEM_SIZE = 0x1000;
-    Context *ctx = context_new();
+    Context *ctx = context_new("Test Correlation Id");
     Handle shared_mem_ref = shared_memory_new(ctx, MEM_SIZE);
     struct HypervisorAddrs addrs = {
         .entrypoint = 0,

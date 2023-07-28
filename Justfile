@@ -31,7 +31,8 @@ build: build-rust build-dotnet
 
 test-rust target=default-target:
     cargo test --profile={{ if target == "debug" {"dev"} else { target } }}  
-    cargo test sandbox::tests::test_trace  --profile={{ if target == "debug" {"dev"} else { target } }} -- --ignored 
+    #ignored tests are tracing tests that cannot run with other tests
+    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} -- --ignored 
 
 test-dotnet-hl:
     cd src/tests/Hyperlight.Tests && dotnet test || cd ../../../

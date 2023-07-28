@@ -1,6 +1,7 @@
 use super::context::Context;
 use super::handle::Handle;
 use anyhow::{anyhow, Result};
+use tracing::{error, info_span, trace};
 
 /// Roughly equivalent to a `Result` type with the following additional
 /// features:
@@ -31,7 +32,7 @@ impl CFunc<()> {
     /// name as the function in which the `CFunc` is being created) and
     /// `ctx` should be passed as the same `ctx` as `my_ffi_func` accepts
     /// as a parameter.
-    pub(super) unsafe fn new(func_name: &str, ctx: *mut Context) -> CFunc<()> {
+    pub(super) fn new(func_name: &str, ctx: *mut Context) -> CFunc<()> {
         CFunc {
             func_name: func_name.to_string(),
             ctx,
@@ -50,17 +51,46 @@ impl<T> CFunc<T> {
     /// Pass the a `&mut Context` as the `ctx_ref` parameter and
     /// the other parameter as `other_val`, then return a new `CFunc` with
     /// the result of the call to `run_fn`
-    pub(super) unsafe fn and_then_mut<RunFn, RunRes>(self, run_fn: RunFn) -> CFunc<RunRes>
+    pub(super) fn and_then_mut<RunFn, RunRes>(self, run_fn: RunFn) -> CFunc<RunRes>
     where
         RunFn: FnOnce(&mut Context, T) -> Result<RunRes>,
     {
         let ctx_res = if self.ctx.is_null() {
             Err(anyhow!("{}: NULL context passed", self.func_name))
         } else {
-            Ok(&mut *self.ctx)
+            unsafe { Ok(&mut *self.ctx) }
         };
         CFunc {
-            other: ctx_res.and_then(|ctx| self.other.and_then(|other| run_fn(ctx, other))),
+            other: ctx_res.and_then(|ctx| {
+                let span = info_span!(
+                    "function_call",
+                    FunctionName = self.func_name,
+                    CorrelationId = ctx.correlation_id
+                )
+                .entered();
+                self.other.and_then(|other| {
+                    trace!(
+                        CorrelationId = ctx.correlation_id,
+                        "Calling Function {}",
+                        self.func_name
+                    );
+                    let res = run_fn(ctx, other);
+                    trace!(
+                        CorrelationId = ctx.correlation_id,
+                        "Returned from Calling Function {}",
+                        self.func_name
+                    );
+                    if let Err(ref e) = res {
+                        error!(
+                            FunctionName = self.func_name,
+                            CorrelationId = ctx.correlation_id,
+                            Error = e.to_string()
+                        );
+                    }
+                    span.exit();
+                    res
+                })
+            }),
             func_name: self.func_name,
             ctx: self.ctx,
         }
@@ -68,7 +98,7 @@ impl<T> CFunc<T> {
 
     /// Equivalent to `and_then_mut` except only used for callback functions
     /// that take `&Context`, rather than `&mut Context`
-    pub(super) unsafe fn and_then<RunFn, RunRes>(self, run_fn: RunFn) -> CFunc<RunRes>
+    pub(super) fn and_then<RunFn, RunRes>(self, run_fn: RunFn) -> CFunc<RunRes>
     where
         RunFn: FnOnce(&Context, T) -> Result<RunRes>,
     {
@@ -77,11 +107,11 @@ impl<T> CFunc<T> {
 }
 
 impl CFunc<Handle> {
-    pub(super) unsafe fn ok_or_err_hdl(self) -> Handle {
+    pub(super) fn ok_or_err_hdl(self) -> Handle {
         let ctx_res = if self.ctx.is_null() {
             Err(anyhow!("{}: NULL context passed", self.func_name))
         } else {
-            Ok(&mut *self.ctx)
+            unsafe { Ok(&mut *self.ctx) }
         };
 
         match (ctx_res, self.other) {

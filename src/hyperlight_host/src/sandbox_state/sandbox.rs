@@ -30,6 +30,12 @@ pub trait Sandbox: Sized + Debug {}
 pub trait ReusableSandbox: Sandbox {
     /// Borrow `self` and run this sandbox.
     fn run(&self) -> Result<()>;
+
+    /// Checks if the `Sandbox` needs state resetting.
+    fn needs_state_reset(&self) -> bool;
+
+    /// Sets the `Sandbox`'s `needs_state_reset` property to provided value.
+    fn set_needs_state_reset(&mut self, val: bool);
 }
 
 /// A fully-initialized sandbox that can run guest code or be devolved, but not

@@ -5,7 +5,7 @@
 MunitResult test_int_64()
 {
     const int64_t val = 6400;
-    Context *ctx = context_new();
+    Context *ctx = context_new("test correlation id");
     Handle ref = int_64_new(ctx, val);
     munit_assert_true(handle_is_int_64(ctx, ref));
     munit_assert_int(val, ==, handle_get_int_64(ctx, ref));
@@ -16,7 +16,7 @@ MunitResult test_int_64()
 MunitResult test_int_32()
 {
     const int32_t val = 3200;
-    Context *ctx = context_new();
+    Context *ctx = context_new("test correlation id");
     Handle ref = int_32_new(ctx, val);
     munit_assert_true(handle_is_int_32(ctx, ref));
     munit_assert_int(val, ==, handle_get_int_32(ctx, ref));

@@ -36,7 +36,7 @@ void host_print(const char *str)
 
 MunitResult test_host_print(const MunitParameter params[], void *fixture)
 {
-    Context *ctx = context_new();
+    Context *ctx = context_new("test correlation id");
     SandboxMemoryConfiguration mem_cfg = {
         .guest_error_buffer_size = 4096,
         .host_function_definition_size = 4096,
