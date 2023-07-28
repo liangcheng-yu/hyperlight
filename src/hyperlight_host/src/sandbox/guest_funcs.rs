@@ -1,4 +1,4 @@
-use std::sync::atomic::Ordering;
+use std::sync::{atomic::Ordering, Arc, Mutex};
 
 use super::guest_mgr::GuestMgr;
 use crate::{func::guest::GuestFunction, sandbox_state::reset::RestoreSandbox};
@@ -11,12 +11,19 @@ use anyhow::{bail, Result};
 // It implements `drop` and captures part of our state in
 // `call_guest_function`, to allow it to properly act
 // on it and do cleanup.
-struct ShouldRelease<T: GuestMgr>(bool, Box<T>);
+struct ShouldRelease<'a>(bool, &'a mut dyn GuestMgr);
 
-impl<T: GuestMgr> Drop for ShouldRelease<T> {
+impl<'a> ShouldRelease<'a> {
+    #[allow(unused)]
+    fn toggle(&mut self) {
+        self.0 = !self.0;
+    }
+}
+
+impl<'a> Drop for ShouldRelease<'a> {
     fn drop(&mut self) {
         if self.0 {
-            let guest_mgr: T = self.unwrap().1;
+            let guest_mgr = &mut self.1;
             guest_mgr.set_needs_state_reset(true);
             let executing_guest_function = guest_mgr.get_executing_guest_call_mut();
             executing_guest_function.store(0, Ordering::SeqCst);
@@ -26,19 +33,42 @@ impl<T: GuestMgr> Drop for ShouldRelease<T> {
 
 /// Enables the host to call functions in the guest and have the sandbox state reset at the start of the call
 pub(crate) trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox {
-    fn call_guest_function<T, R>(&self, function: T) -> Result<R>
+    fn call_guest_function<T, R>(&mut self, function: T) -> Result<R>
     where
         T: GuestFunction<R>,
     {
-        let mut sd = ShouldRelease(false, Box::new(self));
-        let executing_guest_function = self.get_executing_guest_call_mut();
-        if executing_guest_function.compare_exchange(0, 1, Ordering::SeqCst, Ordering::SeqCst) {
+        let this = Arc::new(Mutex::new(self));
+        // ^^^ needs to be an Arc Mutex because we need three owners with mutable
+        // access in a thread-safe way, as highlighted below:
+
+        let mut guest_mgr = this
+            .as_ref()
+            .lock()
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
+
+        let mut executing_guest_function = this
+            .as_ref()
+            .lock()
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
+
+        let mut restore_sandbox = this
+            .as_ref()
+            .lock()
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
+
+        let mut _sd = ShouldRelease(false, guest_mgr.as_guest_mgr_mut());
+        if executing_guest_function
+            .get_executing_guest_call_mut()
+            .compare_exchange(0, 1, Ordering::SeqCst, Ordering::SeqCst)
+            .map_err(|_| anyhow::anyhow!("Failed to verify status of guest function execution"))?
+            != 0
+        {
             bail!("Guest call already in progress");
         }
 
-        sd = ShouldRelease(true);
-        self.reset_state()?;
-        return function.call();
+        _sd.toggle();
+        restore_sandbox.reset_state()?;
+        function.call()
         // ^^^ ensures that only one call can be made concurrently
         // because `GuestFunction` is implemented for `Arc<Mutex<T>>`
         // so we'll be locking on the function call. There are tests
@@ -91,7 +121,7 @@ mod tests {
         // test_function0
         {
             let usbox = uninitialized_sandbox();
-            let sandbox = usbox
+            let mut sandbox = usbox
                 .initialize(Some(init))
                 .expect("Failed to initialize sandbox");
             let result = sandbox.call_guest_function(Arc::new(Mutex::new(test_function0)));
@@ -101,7 +131,7 @@ mod tests {
         // test_function1
         {
             let usbox = uninitialized_sandbox();
-            let sandbox = usbox
+            let mut sandbox = usbox
                 .initialize(Some(init))
                 .expect("Failed to initialize sandbox");
             let result = sandbox.call_guest_function(Arc::new(Mutex::new(test_function1)));
@@ -111,7 +141,7 @@ mod tests {
         // test_function2
         {
             let usbox = uninitialized_sandbox();
-            let sandbox = usbox
+            let mut sandbox = usbox
                 .initialize(Some(init))
                 .expect("Failed to initialize sandbox");
             let result =
@@ -121,18 +151,16 @@ mod tests {
 
         // test concurrent calls with a local closure that returns current count
         {
-            let usbox = uninitialized_sandbox();
-            let sandbox = usbox
-                .initialize(Some(init))
-                .expect("Failed to initialize sandbox");
-
             let count = Arc::new(Mutex::new(0));
             let order = Arc::new(Mutex::new(vec![]));
 
             let mut handles = vec![];
 
             for _ in 0..10 {
-                let sandbox = sandbox.clone();
+                let usbox = uninitialized_sandbox();
+                let mut sandbox = usbox
+                    .initialize(Some(init))
+                    .expect("Failed to initialize sandbox");
                 let count = Arc::clone(&count);
                 let order = Arc::clone(&order);
                 let handle = thread::spawn(move || {

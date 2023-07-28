@@ -2,11 +2,6 @@ use super::transition::TransitionMetadata;
 use anyhow::Result;
 use std::fmt::Debug;
 
-pub enum SandboxType {
-    Reusable,
-    OneShot
-}
-
 /// The minimal functionality of a Hyperlight sandbox. Most of the types
 /// and operations within this crate require `Sandbox` implementations.
 ///
@@ -20,7 +15,10 @@ pub enum SandboxType {
 /// `DevolvableSandbox` implementations any `Sandbox` implementation can
 /// opt into.
 pub trait Sandbox: Sized + Debug {
-    fn what_am_i(&self) -> SandboxType;
+    /// By default, a Sandbox is non-reusable
+    fn is_reusable(&self) -> bool {
+        false
+    }
 }
 
 /// A "final" sandbox implementation that has the following properties:
@@ -35,8 +33,8 @@ pub trait Sandbox: Sized + Debug {
 /// - It implements `DevolvableSandbox`, but not `EvolvableSandbox` so it
 /// can be evolved but not devolved
 pub trait ReusableSandbox: Sandbox {
-    fn what_am_i(&self) -> SandboxType {
-        SandboxType::Reusable
+    fn is_reusable(&self) -> bool {
+        true
     }
 
     /// Borrow `self` and run this sandbox.
@@ -47,8 +45,8 @@ pub trait ReusableSandbox: Sandbox {
 /// both. Further, once either operation has occurred, the `OneShotSandbox`
 /// cannot be used again.
 pub trait OneShotSandbox: Sandbox {
-    fn what_am_i(&self) -> SandboxType {
-        SandboxType::OneShot
+    fn is_reusable(&self) -> bool {
+        false
     }
 
     /// Consume `self` and run the sandbox.

@@ -1,4 +1,3 @@
-use super::guest_funcs::CallGuestFunction;
 use super::mem_mgr::MemMgr;
 use super::{
     host_funcs::default_writer_func, host_funcs::HostFuncs, host_funcs::HostFunctionsMap,
@@ -116,8 +115,6 @@ impl<'a> HostFuncs<'a> for UninitializedSandbox<'a> {
 }
 
 impl<'a> CallHostPrint<'a> for UninitializedSandbox<'a> {}
-
-impl<'a> CallGuestFunction<'a> for UninitializedSandbox<'a> {}
 
 impl<'a> MemMgr for UninitializedSandbox<'a> {
     fn get_mem_mgr(&self) -> &SandboxMemoryManager {

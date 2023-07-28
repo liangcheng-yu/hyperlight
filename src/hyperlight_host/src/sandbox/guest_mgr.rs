@@ -20,4 +20,10 @@ pub(crate) trait GuestMgr {
 
     /// Sets the `Sandbox`'s `needs_state_reset` property to provided value.
     fn set_needs_state_reset(&mut self, val: bool);
+
+    /// Get immutable reference as `Box<dyn GuestMgr>`
+    fn as_guest_mgr(&self) -> &dyn GuestMgr;
+
+    /// Get mutable reference as `Box<dyn GuestMgr>`
+    fn as_guest_mgr_mut(&mut self) -> &mut dyn GuestMgr;
 }

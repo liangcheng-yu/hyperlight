@@ -14,7 +14,7 @@ use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::sandbox_state::reset::RestoreSandbox;
 use anyhow::{bail, Result};
 use log::error;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicI32;
 
 /// The primary mechanism to interact with VM partitions that run Hyperlight
 /// guest binaries.
@@ -23,14 +23,13 @@ use std::sync::atomic::AtomicBool;
 /// `UninitializedSandbox`, and then call `evolve` or `initialize` on it to
 /// generate one of these.
 #[allow(unused)]
-#[derive(Clone)]
 pub struct Sandbox<'a> {
     // Registered host functions
     host_functions: HostFunctionsMap<'a>,
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
-    executing_guest_call: AtomicBool,
+    executing_guest_call: AtomicI32,
     needs_state_reset: bool,
     num_runs: i32,
 }
@@ -41,7 +40,7 @@ impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
             host_functions: val.get_host_funcs().clone(),
             mem_mgr: val.get_mem_mgr().clone(),
             stack_guard: *val.get_stack_cookie(),
-            executing_guest_call: AtomicBool::new(false),
+            executing_guest_call: AtomicI32::new(0),
             needs_state_reset: false,
             num_runs: 0,
         }
@@ -74,11 +73,11 @@ impl<'a> std::fmt::Debug for Sandbox<'a> {
 }
 
 impl<'a> GuestMgr for Sandbox<'a> {
-    fn get_executing_guest_call(&self) -> &AtomicBool {
+    fn get_executing_guest_call(&self) -> &AtomicI32 {
         &self.executing_guest_call
     }
 
-    fn get_executing_guest_call_mut(&mut self) -> &mut std::sync::atomic::AtomicI32 {
+    fn get_executing_guest_call_mut(&mut self) -> &mut AtomicI32 {
         &mut self.executing_guest_call
     }
 
@@ -96,6 +95,14 @@ impl<'a> GuestMgr for Sandbox<'a> {
 
     fn set_needs_state_reset(&mut self, val: bool) {
         self.needs_state_reset = val;
+    }
+
+    fn as_guest_mgr(&self) -> &dyn GuestMgr {
+        self
+    }
+
+    fn as_guest_mgr_mut(&mut self) -> &mut dyn GuestMgr {
+        self
     }
 }
 
