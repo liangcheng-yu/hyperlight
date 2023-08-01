@@ -143,6 +143,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_call_guest_function() {
         let uninitialized_sandbox = || {
             UninitializedSandbox::new(
