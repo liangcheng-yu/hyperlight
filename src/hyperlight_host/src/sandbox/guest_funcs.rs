@@ -56,6 +56,9 @@ pub(crate) trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox {
             .lock()
             .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
 
+        // We prefix the variable below w/ an underscore because it is
+        // 'technically' unused, as our purpose w/ it is just for it to
+        // go out of scope and call its' custom `Drop` `impl`.
         let mut _sd = ShouldRelease(false, guest_mgr.as_guest_mgr_mut());
         if executing_guest_function
             .get_executing_guest_call_mut()
