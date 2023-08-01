@@ -112,3 +112,40 @@ pub use sandbox::Sandbox;
 pub use sandbox::SandboxRunOptions;
 /// The re-export for the `UninitializedSandbox` type
 pub use sandbox::UninitializedSandbox;
+
+/// # `expose_methods!` macro
+/// A macro wrapper around `quote::quote!` that allows us to
+/// obtain a `TokenStream`. One application of this is its' usage
+/// w/ `expose_and_bind_members` that might generate dynamic methods
+/// for guest calls.
+/// 
+/// ## Example Usage
+/// ```rs
+/// // <snip/>
+/// 
+/// let exposed_methods = hyperlight_macro::expose_methods! {
+/// trait ExposedMethods {
+///     #[expose_to(host)]
+///     fn guest_method(a1: String) -> i32;
+/// 
+///     #[expose_to(host)]
+///     fn print_output(a1: String) -> i32;
+/// 
+///     #[expose_to(guest)]
+///     fn host_method(a1: String) -> i32 {
+///         print_output(a1)
+///     }
+/// }
+/// }; // <-  this is of type proc_macro2::TokenStream
+///
+/// sbox.expose_and_bind_members(exposed_methods);
+/// // <snip/>
+/// ```
+#[macro_export]
+macro_rules! expose_methods {
+    ($($tokens:tt)*) => {
+        quote::quote! {
+            $($tokens)*
+        }
+    };
+}
