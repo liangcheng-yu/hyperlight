@@ -784,10 +784,8 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     // Tests that trace data are emitted when a trace subscriber is set
     // this test is ignored because it is incompatible with other tests , specifically those which require a logger for tracing
-    // to run tracing tests use `cargo test test_trace -- --ignored`
     fn test_trace_trace() {
         TestLogger::initialize_log_tracer();
         rebuild_interest_cache();
