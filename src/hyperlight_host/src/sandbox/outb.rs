@@ -193,9 +193,7 @@ mod tests {
 
     // Tests that outb_log emits traces when a trace subscriber is set
     // this test is ignored because it is incompatible with other tests , specifically those which require a logger for tracing
-    // to run tracing tests use `cargo test test_trace -- --ignored`
     #[test]
-    #[ignore]
     fn test_trace_outb_log() {
         Logger::initialize_log_tracer();
         rebuild_interest_cache();

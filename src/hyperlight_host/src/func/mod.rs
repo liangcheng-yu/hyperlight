@@ -16,6 +16,10 @@ pub(crate) mod guest;
 /// - Dynamically dispatching a call from the guest to the appropriate
 /// host function
 pub(crate) mod host;
+/// Definitions and functionality for supported parameter types
+pub(crate) mod param_type;
+/// Definitions and functionality for supported return types
+pub(crate) mod ret_type;
 /// Definitions for types related to functions used by both the guest and the
 /// host. This includes the types of parameters and return values that are
 /// supported in Hyperlight.

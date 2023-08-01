@@ -1,8 +1,24 @@
-use super::sandbox::ReusableSandbox;
-use crate::sandbox::mem_mgr::MemMgr;
+use crate::sandbox::{guest_mgr::GuestMgr, mem_mgr::MemMgr};
 use anyhow::Result;
 
-pub(crate) trait RestoreSandbox: ReusableSandbox + MemMgr {
+use super::sandbox::Sandbox;
+
+pub(crate) trait RestoreSandbox: MemMgr + GuestMgr + Sandbox {
+    /// Reset the Sandbox's state
+    fn reset_state(&mut self) -> Result<()> {
+        if self.get_num_runs() > 0 && !self.is_reusable() {
+            anyhow::bail!("You must use a ReusableSandbox if you need to call a function in the guest more than once");
+        }
+
+        if self.is_reusable() {
+            self.restore_state()?;
+        }
+
+        self.increase_num_runs();
+
+        Ok(())
+    }
+
     /// Restore the Sandbox's state
     fn restore_state(&mut self) -> Result<()> {
         if self.needs_state_reset() {
@@ -13,16 +29,7 @@ pub(crate) trait RestoreSandbox: ReusableSandbox + MemMgr {
             }
             self.set_needs_state_reset(false);
         }
+
         Ok(())
     }
-    // ^^^ Note: In C#, we have two functions:
-    // - `RestoreState`, and
-    // - `ResetState`.
-    //
-    // ... where `ResetState` is a conditional `RestoreState`
-    // that only happens if the sandbox has the `recycleAfterRun`
-    // property set to `true`. In Rust, we don't need that, because
-    // the `recycleAfterRun` state is abstracted away by the different
-    // `Sandbox` states (i.e., `OneShot` (non-recyclable) vs.
-    // `Reusable` (recyclable)), so having only `restore_state` suffices.
 }
