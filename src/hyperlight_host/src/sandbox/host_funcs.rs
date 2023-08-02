@@ -1,7 +1,7 @@
 use crate::func::{
-    HyperlightFunction,
     host::function_definition::HostFunctionDefinition,
     types::{ParameterValue, ReturnValue},
+    HyperlightFunction,
 };
 use crate::sandbox_state::sandbox::Sandbox;
 use anyhow::{anyhow, Result};

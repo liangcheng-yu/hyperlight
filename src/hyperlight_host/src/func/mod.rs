@@ -25,8 +25,8 @@ pub(crate) mod ret_type;
 /// supported in Hyperlight.
 pub(crate) mod types;
 
-use std::sync::{Arc, Mutex};
 use self::types::{ParameterValue, ReturnValue};
+use std::sync::{Arc, Mutex};
 
 /// Generic HyperlightFunction
 pub(crate) type HyperlightFunction<'a> =

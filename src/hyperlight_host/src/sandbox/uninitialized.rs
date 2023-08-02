@@ -121,7 +121,7 @@ impl<'a> HostFuncs<'a> for UninitializedSandbox<'a> {
     }
 }
 
-impl GuestFuncs<'a> for UninitializedSandbox<'a> {}
+impl<'a> GuestFuncs<'a> for UninitializedSandbox<'a> {}
 
 impl<'a> CallHostPrint<'a> for UninitializedSandbox<'a> {}
 

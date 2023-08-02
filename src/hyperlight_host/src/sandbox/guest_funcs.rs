@@ -121,7 +121,7 @@ pub trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox {
 
 pub trait GuestFuncs<'a> {
     /// `add_dynamic_method` is used to register a dynamic guest method onto the Sandbox.
-    fn add_dynamic_method(&mut self, name: &str, func: HyperlightFunction<'a>) -> Result<()> {
+    fn add_dynamic_method(&mut self, _name: &str, _func: HyperlightFunction<'a>) -> Result<()> {
         todo!();
     }
 }
