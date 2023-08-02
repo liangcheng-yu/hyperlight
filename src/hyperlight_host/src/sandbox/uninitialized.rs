@@ -5,7 +5,7 @@ use super::{
 };
 use super::{host_funcs::CallHostPrint, run_options::SandboxRunOptions};
 use crate::func::host::function_definition::HostFunctionDefinition;
-use crate::func::host::{Function1, HyperlightFunction};
+use crate::func::host::{HostFunction1, HyperlightFunction};
 use crate::hypervisor::Hypervisor;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::mem::ptr::RawPtr;
@@ -30,7 +30,6 @@ use std::ffi::c_void;
 use std::ops::Add;
 use std::option::Option;
 use std::path::Path;
-use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use tracing::instrument;
 
@@ -48,12 +47,6 @@ pub struct UninitializedSandbox<'a> {
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
-    executing_guest_call: AtomicBool,
-    needs_state_reset: bool,
-    // ^^^ `UninitializedSandbox` should
-    // also cointain `executing_guest_call`,
-    // and `needs_state_reset` because it might
-    // execute some guest functions when initializing.
 }
 
 impl<'a> std::fmt::Debug for UninitializedSandbox<'a> {
@@ -196,8 +189,6 @@ impl<'a> UninitializedSandbox<'a> {
             host_functions: HashMap::new(),
             mem_mgr,
             stack_guard,
-            executing_guest_call: AtomicBool::new(false),
-            needs_state_reset: false,
         };
 
         default_writer.register(&mut sandbox, "writer_func")?;
@@ -368,7 +359,7 @@ mod tests {
     };
     use crate::{
         func::{
-            host::{Function1, Function2},
+            host::{HostFunction1, HostFunction2},
             types::{ParameterValue, ReturnValue},
         },
         mem::config::SandboxMemoryConfiguration,
@@ -793,10 +784,8 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     // Tests that trace data are emitted when a trace subscriber is set
     // this test is ignored because it is incompatible with other tests , specifically those which require a logger for tracing
-    // to run tracing tests use `cargo test test_trace -- --ignored`
     fn test_trace_trace() {
         TestLogger::initialize_log_tracer();
         rebuild_interest_cache();
