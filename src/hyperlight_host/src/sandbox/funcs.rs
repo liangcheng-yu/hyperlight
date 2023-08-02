@@ -1,5 +1,5 @@
 pub trait ExposeFuncs {
-    fn expose_and_bind_members(&mut self, exposed_methods: proc_macro2::TokenStream) {
+    fn expose_and_bind_members(&mut self, _exposed_methods: proc_macro2::TokenStream) {
         // First, parse exposed_methods TokenStream to separate methods exposed to the guest, and host
         // (i.e., identified by #[expose_to(guest)], and #[expose_to(host)] respectively)
 
