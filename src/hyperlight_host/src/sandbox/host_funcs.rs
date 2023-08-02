@@ -1,5 +1,6 @@
 use crate::func::{
-    host::{function_definition::HostFunctionDefinition, HyperlightFunction},
+    HyperlightFunction,
+    host::function_definition::HostFunctionDefinition,
     types::{ParameterValue, ReturnValue},
 };
 use crate::sandbox_state::sandbox::Sandbox;

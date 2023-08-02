@@ -1,7 +1,10 @@
 use std::sync::{atomic::Ordering, Arc, Mutex};
 
 use super::guest_mgr::GuestMgr;
-use crate::{func::guest::GuestFunction, sandbox_state::reset::RestoreSandbox};
+use crate::{
+    func::{guest::GuestFunction, HyperlightFunction},
+    sandbox_state::reset::RestoreSandbox,
+};
 
 use anyhow::{bail, Result};
 
@@ -114,6 +117,13 @@ pub trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox {
     }
 
     // TODO: add `create_and_dispatch_dynamic_function_guest_call`
+}
+
+pub trait GuestFuncs<'a> {
+    /// `add_dynamic_method` is used to register a dynamic guest method onto the Sandbox.
+    fn add_dynamic_method(&mut self, name: &str, func: HyperlightFunction<'a>) -> Result<()> {
+        todo!();
+    }
 }
 
 #[cfg(test)]

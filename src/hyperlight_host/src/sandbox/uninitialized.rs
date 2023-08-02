@@ -1,3 +1,4 @@
+use super::guest_funcs::GuestFuncs;
 use super::mem_mgr::MemMgr;
 use super::{
     host_funcs::default_writer_func, host_funcs::HostFuncs, host_funcs::HostFunctionsMap,
@@ -119,6 +120,8 @@ impl<'a> HostFuncs<'a> for UninitializedSandbox<'a> {
         &mut self.host_functions
     }
 }
+
+impl GuestFuncs<'a> for UninitializedSandbox<'a> {}
 
 impl<'a> CallHostPrint<'a> for UninitializedSandbox<'a> {}
 

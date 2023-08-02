@@ -2,9 +2,19 @@
 
 #[allow(unused)]
 use crate::func::host::{
-    HostFunction0, HostFunction1, HostFunction10, HostFunction2, HostFunction3, HostFunction4,
-    HostFunction5, HostFunction6, HostFunction7, HostFunction8, HostFunction9,
+    HostFunction0, HostFunction1, HostFunction10, HostFunction2, HostFunction3,
+    HostFunction4, HostFunction5, HostFunction6, HostFunction7, HostFunction8, 
+    HostFunction9,
 };
+
+#[allow(unused)]
+use crate::func::guest::{
+    DynamicGuestFunction0, DynamicGuestFunction1, DynamicGuestFunction10, DynamicGuestFunction2,
+    DynamicGuestFunction3, DynamicGuestFunction4, DynamicGuestFunction5, DynamicGuestFunction6,
+    DynamicGuestFunction7, DynamicGuestFunction8, DynamicGuestFunction9
+
+}
+
 use crate::{
     func::types::{ParameterType, ReturnType},
     sandbox_state::sandbox::UninitializedSandbox,
