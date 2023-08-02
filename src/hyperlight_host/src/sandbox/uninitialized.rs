@@ -4,8 +4,7 @@ use super::{
     initialized::Sandbox,
 };
 use super::{host_funcs::CallHostPrint, run_options::SandboxRunOptions};
-use crate::func::host::function_definition::HostFunctionDefinition;
-use crate::func::host::{HostFunction1, HyperlightFunction};
+use crate::func::host::HostFunction1;
 use crate::hypervisor::Hypervisor;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::mem::ptr::RawPtr;
@@ -47,6 +46,16 @@ pub struct UninitializedSandbox<'a> {
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
+}
+
+impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for UninitializedSandbox<'a> {
+    fn get_uninitialized_sandbox(&self) -> &crate::sandbox::UninitializedSandbox<'a> {
+        self
+    }
+    
+    fn get_uninitialized_sandbox_mut(&mut self) -> &mut crate::sandbox::UninitializedSandbox<'a> {
+        self
+    }
 }
 
 impl<'a> std::fmt::Debug for UninitializedSandbox<'a> {
@@ -104,6 +113,10 @@ impl<'a>
 impl<'a> HostFuncs<'a> for UninitializedSandbox<'a> {
     fn get_host_funcs(&self) -> &HostFunctionsMap<'a> {
         &self.host_functions
+    }
+
+    fn get_host_funcs_mut(&mut self) -> &mut HostFunctionsMap<'a> {
+        &mut self.host_functions
     }
 }
 
@@ -198,19 +211,6 @@ impl<'a> UninitializedSandbox<'a> {
 
     fn create_stack_guard() -> [u8; STACK_COOKIE_LEN] {
         rand::random::<[u8; STACK_COOKIE_LEN]>()
-    }
-
-    /// Register a host function with the sandbox.
-    pub(crate) fn register_host_function(
-        &mut self,
-        hfd: &HostFunctionDefinition,
-        func: HyperlightFunction<'a>,
-    ) -> Result<()> {
-        self.host_functions
-            .insert(hfd.function_name.to_string(), func);
-        let buffer: Vec<u8> = hfd.try_into()?;
-        self.mem_mgr.write_host_function_definition(&buffer)?;
-        Ok(())
     }
 
     /// Set up the appropriate hypervisor for the platform.

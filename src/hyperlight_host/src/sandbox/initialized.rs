@@ -35,6 +35,16 @@ pub struct Sandbox<'a> {
     num_runs: i32,
 }
 
+impl<'a> crate::sandbox_state::sandbox::InitializedSandbox<'a> for Sandbox<'a> {
+    fn get_initialized_sandbox(&self) -> &crate::sandbox::Sandbox<'a> {
+        self
+    }
+
+    fn get_initialized_sandbox_mut(&mut self) -> &mut crate::sandbox::Sandbox<'a> {
+        self
+    }
+}
+
 impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
     fn from(val: UninitializedSandbox<'a>) -> Self {
         Self {
@@ -51,6 +61,10 @@ impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
 impl<'a> HostFuncs<'a> for Sandbox<'a> {
     fn get_host_funcs(&self) -> &HostFunctionsMap<'a> {
         &self.host_functions
+    }
+
+    fn get_host_funcs_mut(&mut self) -> &mut HostFunctionsMap<'a> {
+        &mut self.host_functions
     }
 }
 

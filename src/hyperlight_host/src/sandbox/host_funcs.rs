@@ -1,5 +1,5 @@
 use crate::func::{
-    host::HyperlightFunction,
+    host::{HyperlightFunction, function_definition::HostFunctionDefinition},
     types::{ParameterValue, ReturnValue},
 };
 use crate::sandbox_state::sandbox::Sandbox;
@@ -9,11 +9,28 @@ use std::io::Write;
 use std::{collections::HashMap, io::stdout};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
+use super::mem_mgr::MemMgr;
+
 /// A `HashMap` to map function names to `HyperlightFunction`s.
 pub(crate) type HostFunctionsMap<'a> = HashMap<String, HyperlightFunction<'a>>;
 
-pub(crate) trait HostFuncs<'a>: Sandbox {
+pub(crate) trait HostFuncs<'a>: Sandbox + MemMgr {
     fn get_host_funcs(&self) -> &HostFunctionsMap<'a>;
+
+    fn get_host_funcs_mut(&mut self) -> &mut HostFunctionsMap<'a>;
+
+    /// Register a host function with the sandbox.
+    fn register_host_function(
+        &mut self,
+        hfd: &HostFunctionDefinition,
+        func: HyperlightFunction<'a>,
+    ) -> Result<()> {
+        self.get_host_funcs_mut()
+            .insert(hfd.function_name.to_string(), func);
+        let buffer: Vec<u8> = hfd.try_into()?;
+        self.get_mem_mgr_mut().write_host_function_definition(&buffer)?;
+        Ok(())
+    }
 }
 
 /// Call the host-print function called `"writer_func"`

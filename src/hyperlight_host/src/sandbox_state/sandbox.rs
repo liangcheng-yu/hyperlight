@@ -21,6 +21,22 @@ pub trait Sandbox: Sized + Debug {
     }
 }
 
+/// A utility trait to recognize a Sandbox that has not yet been initialized.
+/// It allows retrieval of a strongly typed UninitializedSandbox.
+pub trait UninitializedSandbox<'a>: Sandbox {
+    fn get_uninitialized_sandbox(&self) -> &crate::sandbox::UninitializedSandbox<'a>;
+
+    fn get_uninitialized_sandbox_mut(&mut self) -> &mut crate::sandbox::UninitializedSandbox<'a>;
+}
+
+/// A utility trait to recognize a Sandbox that has been initialized.
+/// It allows retrieval of a strongly typed Sandbox.
+pub trait InitializedSandbox<'a>: Sandbox {
+    fn get_initialized_sandbox(&self) -> &crate::sandbox::Sandbox<'a>;
+
+    fn get_initialized_sandbox_mut(&mut self) -> &mut crate::sandbox::Sandbox<'a>;
+}
+
 /// A "final" sandbox implementation that has the following properties:
 ///
 /// - Can execute guest code, potentially more than once
