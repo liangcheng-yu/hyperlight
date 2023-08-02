@@ -1,3 +1,5 @@
+/// Functionality for managing visibility of functions between host and guest.
+mod funcs;
 /// Functionality for interacting with guest calls
 pub(crate) mod guest_funcs;
 /// Functionality for managing the guest
@@ -15,8 +17,6 @@ mod run_options;
 /// Functionality for creating uninitialized sandboxes, manipulating them,
 /// and converting them to initialized sandboxes.
 mod uninitialized;
-/// Functionality for managing visibility of functions between host and guest.
-mod funcs;
 
 /// Re-export for `Sandbox` type
 pub use initialized::Sandbox;
