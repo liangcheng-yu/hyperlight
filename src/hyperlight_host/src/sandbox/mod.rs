@@ -1,3 +1,7 @@
+/// Functionality for interacting with guest calls
+pub(crate) mod guest_funcs;
+/// Functionality for managing the guest
+pub(crate) mod guest_mgr;
 /// Functionality for reading, but not modifying host functions
 pub(crate) mod host_funcs;
 /// Functionality for dealing with completely initialized sandboxes
