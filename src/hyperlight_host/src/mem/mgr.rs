@@ -52,7 +52,7 @@ pub(crate) const STACK_COOKIE_LEN: usize = 16;
 /// for a given `Sandbox`.
 #[readonly::make]
 #[derive(Clone)]
-pub(crate) struct SandboxMemoryManager {
+pub struct SandboxMemoryManager {
     pub(crate) mem_cfg: SandboxMemoryConfiguration,
     /// Whether or not to run a sandbox in-process
     pub(crate) run_from_process_memory: bool,

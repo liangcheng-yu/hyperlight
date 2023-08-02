@@ -3,7 +3,7 @@ use anyhow::Result;
 
 use super::sandbox::Sandbox;
 
-pub(crate) trait RestoreSandbox: MemMgr + GuestMgr + Sandbox {
+pub trait RestoreSandbox: MemMgr + GuestMgr + Sandbox {
     /// Reset the Sandbox's state
     fn reset_state(&mut self) -> Result<()> {
         if self.get_num_runs() > 0 && !self.is_reusable() {

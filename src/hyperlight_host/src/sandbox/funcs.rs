@@ -1,9 +1,14 @@
+#![allow(dead_code)]
+
 #[allow(unused)]
 use crate::func::host::{
     HostFunction0, HostFunction1, HostFunction10, HostFunction2, HostFunction3, HostFunction4,
     HostFunction5, HostFunction6, HostFunction7, HostFunction8, HostFunction9,
 };
-use crate::{func::types::{ParameterType, ReturnType}, sandbox_state::sandbox::UninitializedSandbox};
+use crate::{
+    func::types::{ParameterType, ReturnType},
+    sandbox_state::sandbox::UninitializedSandbox,
+};
 
 use super::guest_funcs::CallGuestFunction;
 

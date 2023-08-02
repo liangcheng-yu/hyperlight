@@ -8,6 +8,7 @@ pub(crate) mod function_details;
 use self::function_definition::HostFunctionDefinition;
 use super::types::{ParameterValue, ReturnValue};
 use super::{param_type::SupportedParameterType, ret_type::SupportedReturnType};
+use crate::sandbox::host_funcs::HostFuncs;
 use crate::sandbox::UninitializedSandbox;
 use anyhow::Result;
 use std::sync::{Arc, Mutex};

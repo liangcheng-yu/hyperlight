@@ -1,5 +1,5 @@
 use crate::func::{
-    host::{HyperlightFunction, function_definition::HostFunctionDefinition},
+    host::{function_definition::HostFunctionDefinition, HyperlightFunction},
     types::{ParameterValue, ReturnValue},
 };
 use crate::sandbox_state::sandbox::Sandbox;
@@ -28,7 +28,8 @@ pub(crate) trait HostFuncs<'a>: Sandbox + MemMgr {
         self.get_host_funcs_mut()
             .insert(hfd.function_name.to_string(), func);
         let buffer: Vec<u8> = hfd.try_into()?;
-        self.get_mem_mgr_mut().write_host_function_definition(&buffer)?;
+        self.get_mem_mgr_mut()
+            .write_host_function_definition(&buffer)?;
         Ok(())
     }
 }

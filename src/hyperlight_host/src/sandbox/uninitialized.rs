@@ -52,7 +52,7 @@ impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for Uninitializ
     fn get_uninitialized_sandbox(&self) -> &crate::sandbox::UninitializedSandbox<'a> {
         self
     }
-    
+
     fn get_uninitialized_sandbox_mut(&mut self) -> &mut crate::sandbox::UninitializedSandbox<'a> {
         self
     }

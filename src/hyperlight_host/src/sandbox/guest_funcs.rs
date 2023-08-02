@@ -32,7 +32,7 @@ impl<'a> Drop for ShouldRelease<'a> {
 }
 
 /// Enables the host to call functions in the guest and have the sandbox state reset at the start of the call
-pub(crate) trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox {
+pub trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox {
     fn call_guest_function<T, R>(&mut self, function: T) -> Result<R>
     where
         T: GuestFunction<R>,

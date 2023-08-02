@@ -1,6 +1,6 @@
 use std::sync::atomic::AtomicI32;
 
-pub(crate) trait GuestMgr {
+pub trait GuestMgr {
     /// Get an immutable reference to the internally-stored
     /// `executing_guest_call` flag
     fn get_executing_guest_call(&self) -> &AtomicI32;
