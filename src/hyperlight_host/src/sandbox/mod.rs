@@ -15,6 +15,8 @@ mod run_options;
 /// Functionality for creating uninitialized sandboxes, manipulating them,
 /// and converting them to initialized sandboxes.
 mod uninitialized;
+/// Functionality for managing visibility of functions between host and guest.
+mod funcs;
 
 /// Re-export for `Sandbox` type
 pub use initialized::Sandbox;

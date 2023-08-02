@@ -112,6 +112,8 @@ pub(crate) trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox {
 
         Ok(())
     }
+
+    // TODO: add `call_dynamic_guest_func`
 }
 
 #[cfg(test)]

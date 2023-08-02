@@ -525,6 +525,7 @@ dependencies = [
  "page_size",
  "paste",
  "pretty_assertions",
+ "proc-macro2",
  "proc-maps",
  "proptest",
  "quote",
