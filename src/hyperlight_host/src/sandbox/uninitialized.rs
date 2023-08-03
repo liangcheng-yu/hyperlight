@@ -1,4 +1,4 @@
-use super::guest_funcs::{GuestFuncs, DynamicGuestFunctionsMap};
+use super::guest_funcs::{DynamicGuestFunctionsMap, GuestFuncs};
 use super::mem_mgr::MemMgr;
 use super::{
     host_funcs::default_writer_func, host_funcs::HostFuncs, host_funcs::HostFunctionsMap,

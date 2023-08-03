@@ -32,7 +32,7 @@ pub struct Sandbox<'a> {
     executing_guest_call: AtomicI32,
     needs_state_reset: bool,
     num_runs: i32,
-    dynamic_methods: DynamicGuestFunctionsMap<'a>
+    dynamic_methods: DynamicGuestFunctionsMap<'a>,
 }
 
 impl<'a> crate::sandbox_state::sandbox::InitializedSandbox<'a> for Sandbox<'a> {
@@ -54,7 +54,7 @@ impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
             executing_guest_call: AtomicI32::new(0),
             needs_state_reset: false,
             num_runs: 0,
-            dynamic_methods: val.get_dynamic_methods().clone()
+            dynamic_methods: val.get_dynamic_methods().clone(),
         }
     }
 }

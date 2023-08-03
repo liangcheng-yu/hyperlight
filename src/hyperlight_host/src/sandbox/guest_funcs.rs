@@ -211,7 +211,8 @@ pub trait GuestFuncs<'a> {
 
     /// `add_dynamic_method` is used to register a dynamic guest method onto the Sandbox.
     fn add_dynamic_method(&mut self, name: &str, func: HyperlightFunction<'a>) {
-        self.get_dynamic_methods_mut().insert(name.to_string(), func);
+        self.get_dynamic_methods_mut()
+            .insert(name.to_string(), func);
     }
 }
 
