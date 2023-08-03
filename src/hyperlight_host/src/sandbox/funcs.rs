@@ -77,6 +77,5 @@ pub trait ExposeFuncs<'a>: UninitializedSandbox<'a> + CallGuestFunction<'a> {
         //     // ^^^ i.e., maintaining the function's original body.
         // };
         // host_method.register(self.get_uninitialized_sandbox_mut(), "host_method");
-
     }
 }
