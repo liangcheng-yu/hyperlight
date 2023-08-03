@@ -145,15 +145,11 @@ pub trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox + InitializedSandbox<
             restore_sandbox.reset_state()?;
         }
 
-        let hl_args = if let Some(args) = args {
-            Some(
-                args.into_iter()
-                    .map(|arg| arg.get_hyperlight_value())
-                    .collect::<Vec<ParameterValue>>(),
-            )
-        } else {
-            None
-        };
+        let hl_args = args.map(|args| {
+            args.into_iter()
+                .map(|arg| arg.get_hyperlight_value())
+                .collect::<Vec<ParameterValue>>()
+        });
 
         call.dispatch_call_from_host(name, ret, hl_args)
     }

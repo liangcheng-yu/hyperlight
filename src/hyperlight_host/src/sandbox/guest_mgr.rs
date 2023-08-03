@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicI32, Ordering};
 use log::error;
+use std::sync::atomic::{AtomicI32, Ordering};
 
 pub trait GuestMgr {
     /// Get an immutable reference to the internally-stored
@@ -28,7 +28,7 @@ pub trait GuestMgr {
     /// Get mutable reference as `Box<dyn GuestMgr>`
     fn as_guest_mgr_mut(&mut self) -> &mut dyn GuestMgr;
 
-        /// `enter_dynamic_method` is used to indicate if a `Sandbox`'s state should be reset.
+    /// `enter_dynamic_method` is used to indicate if a `Sandbox`'s state should be reset.
     /// - When we enter call a guest function, the `executing_guest_call` value is set to 1.
     /// - When we exit a guest function, the `executing_guest_call` value is set to 0.
     ///
