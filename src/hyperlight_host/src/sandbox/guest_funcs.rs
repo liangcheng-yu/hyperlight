@@ -2,11 +2,19 @@ use std::sync::{atomic::Ordering, Arc, Mutex};
 
 use super::guest_mgr::GuestMgr;
 use crate::{
-    func::{guest::GuestFunction, HyperlightFunction},
-    sandbox_state::reset::RestoreSandbox,
+    func::{
+        function_call::{FunctionCall, FunctionCallType},
+        guest::GuestFunction,
+        param_type::SupportedParameterType,
+        ret_type::SupportedReturnType,
+        types::{ParameterValue, ReturnType},
+        HyperlightFunction,
+    },
+    sandbox_state::{reset::RestoreSandbox, sandbox::InitializedSandbox},
 };
 
 use anyhow::{bail, Result};
+use tracing::instrument;
 
 // `ShouldRelease` is an internal construct that represents a
 // port of try-finally logic in C#.
@@ -34,14 +42,23 @@ impl<'a> Drop for ShouldRelease<'a> {
     }
 }
 
+struct ShouldReset<'a>(bool, &'a mut dyn GuestMgr);
+
+impl<'a> Drop for ShouldReset<'a> {
+    fn drop(&mut self) {
+        let guest_mgr = &mut self.1;
+        guest_mgr.exit_dynamic_method(self.0);
+    }
+}
+
 /// Enables the host to call functions in the guest and have the sandbox state reset at the start of the call
-pub trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox {
+pub trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox + InitializedSandbox<'a> {
     fn call_guest_function<T, R>(&mut self, function: T) -> Result<R>
     where
         T: GuestFunction<R>,
     {
         let this = Arc::new(Mutex::new(self));
-        // ^^^ needs to be an Arc Mutex because we need three owners with mutable
+        // ^^^ needs to be an Arc Mutex because we need multiple owners with mutable
         // access in a thread-safe way, as highlighted below:
 
         let mut guest_mgr = this
@@ -81,42 +98,106 @@ pub trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox {
         // below that demonstrate this.
     }
 
-    /// `enter_dynamic_method` is used to indicate if a `Sandbox`'s state should be reset.
-    /// - When we enter call a guest function, the `executing_guest_call` value is set to 1.
-    /// - When we exit a guest function, the `executing_guest_call` value is set to 0.
-    ///
-    /// `enter_dynamic_method` will check if the value of `executing_guest_call` is 1.
-    /// If yes, it means the guest function is still running and state should not be reset.
-    /// If the value of `executing_guest_call` is 0, we should reset the state.
-    fn enter_dynamic_method(&mut self) -> Result<bool> {
-        let executing_guest_function = self.get_executing_guest_call_mut();
-        if executing_guest_function.load(Ordering::SeqCst) == 1 {
-            return Ok(false);
+    #[instrument]
+    fn call_dynamic_guest_function<R, P>(
+        &mut self,
+        name: &str,
+        ret: ReturnType,
+        args: Option<Vec<P>>,
+    ) -> Result<i32>
+    where
+        R: SupportedReturnType<R> + std::fmt::Debug,
+        P: SupportedParameterType<P> + std::fmt::Debug,
+    {
+        let this = Arc::new(Mutex::new(self));
+        // ^^^ needs to be an Arc Mutex because we need multiple owners with mutable
+
+        let mut guest_mgr = this
+            .as_ref()
+            .lock()
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
+
+        let mut enter_dynamic_method = this
+            .as_ref()
+            .lock()
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
+
+        let should_reset = enter_dynamic_method
+            .as_guest_mgr_mut()
+            .enter_dynamic_method();
+
+        let mut restore_sandbox = this
+            .as_ref()
+            .lock()
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
+
+        let mut call = this
+            .as_ref()
+            .lock()
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
+
+        // We prefix the variable below w/ an underscore because it is
+        // 'technically' unused, as our purpose w/ it is just for it to
+        // go out of scope and call its' custom `Drop` `impl`.
+        let mut _sr = ShouldReset(should_reset, guest_mgr.as_guest_mgr_mut());
+
+        if should_reset {
+            restore_sandbox.reset_state()?;
         }
 
-        if executing_guest_function
-            .compare_exchange(0, 2, Ordering::SeqCst, Ordering::SeqCst)
-            .map_err(|_| anyhow::anyhow!("Failed to verify status of guest function execution"))?
-            != 0
-        {
-            bail!("Guest call already in progress");
-        }
+        let hl_args = if let Some(args) = args {
+            Some(
+                args.into_iter()
+                    .map(|arg| arg.get_hyperlight_value())
+                    .collect::<Vec<ParameterValue>>(),
+            )
+        } else {
+            None
+        };
 
-        Ok(true)
+        call.dispatch_call_from_host(name, ret, hl_args)
     }
 
-    /// `exit_dynamic_method` is used to indicate that a guest function has finished executing.
-    fn exit_dynamic_method(&mut self, should_release: bool) -> Result<()> {
-        if should_release {
-            self.get_executing_guest_call_mut()
-                .store(0, Ordering::SeqCst);
-            self.set_needs_state_reset(true);
+    fn dispatch_call_from_host(
+        &mut self,
+        function_name: &str,
+        return_type: ReturnType,
+        args: Option<Vec<ParameterValue>>,
+    ) -> Result<i32> {
+        let p_dispatch = self.get_mem_mgr().get_pointer_to_dispatch_function()?;
+
+        let fc = FunctionCall::new(
+            function_name.to_string(),
+            args,
+            FunctionCallType::Host,
+            return_type,
+        );
+
+        let buffer: Vec<u8> = fc.try_into()?;
+
+        self.get_mem_mgr_mut().write_guest_function_call(&buffer)?;
+
+        #[allow(clippy::if_same_then_else)]
+        if self.get_mem_mgr().is_in_process() {
+            let dispatch: fn() = unsafe { std::mem::transmute(p_dispatch) };
+            // Q: Why does this function not take `args` and doesn't return `return_type`?
+            //
+            // A: That's because we've already written the function call details to memory
+            // with `mem_mgr.write_guest_function_call(&buffer)?;`
+            // and the `dispatch` function can directly access that via shared memory.
+            dispatch();
+        } else {
+            // TODO: For this, we're missing some sort of API
+            // to get the current Hypervisor set by `set_up_hypervisor_partition`
+            // in `UninitializedSandbox`. Once that's done, we should be able to
+            // to something like this: `mem_mgr.get_hypervisor().dispatch(...)`
         }
 
-        Ok(())
-    }
+        self.check_stack_guard()?; // <- wrapper around mem_mgr `check_for_stack_guard`
+        self.get_initialized_sandbox().check_for_guest_error()?;
 
-    // TODO: add `create_and_dispatch_dynamic_function_guest_call`
+        self.get_mem_mgr().get_return_value()
+    }
 }
 
 pub trait GuestFuncs<'a> {

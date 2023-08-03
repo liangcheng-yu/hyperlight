@@ -63,7 +63,7 @@ pub trait ExposeFuncs<'a>: UninitializedSandbox<'a> + CallGuestFunction<'a> {
         //  ];
         // Then, for each of these, we should generate:
         //  let guest_method = |a1: String| -> i32 {
-        //      self.create_and_dispatch_dynamic_function_guest_call("guest_method", vec![a1]);
+        //      self.call_dynamic_guest_function("guest_method", ReturnType::Int, vec![a1]);
         //      // ^^^ in itself, `create_and_dispatch_dynamic_function_guest_call` will be #[instrument]ed, it will have a `try-finally`-like
         //      // logic to always call the correspondant `exit_dynamic_method(should_reset)` to the `enter_dynamic_method()`
         //      // call it makes. Other than that, if `should_reset`, it will call `reset_state()`, and, regardless, return a
