@@ -42,7 +42,7 @@ pub trait ExposeFuncs<'a>: UninitializedSandbox<'a> + CallGuestFunction<'a> {
         // (i.e., identified by #[expose_to(guest)], and #[expose_to(host)] respectively)
         // For example, if provided w/:
         // let exposed_methods = hyperlight_macro::expose_methods! {
-        //     trait ExposedMethods {
+        //     trait ExposedMethods: CallGuestFunction<'a> {
         //         #[expose_to(host)]
         //         fn guest_method(a1: String) -> i32;
         //
@@ -50,8 +50,8 @@ pub trait ExposeFuncs<'a>: UninitializedSandbox<'a> + CallGuestFunction<'a> {
         //         fn print_output(a1: String) -> i32;
         //
         //         #[expose_to(guest)]
-        //         fn host_method(&self, a1: String) -> i32 {
-        //             &self.call_guest("print_output", vec![a1]);
+        //         fn host_method(&self, a1: String) -> Result<i32> {
+        //             self.call_dynamic_guest_function("print_output", ReturnType::Int, vec![a1])
         //         }
         //     }
         //     }; // <-  this is of type proc_macro2::TokenStream
@@ -70,5 +70,13 @@ pub trait ExposeFuncs<'a>: UninitializedSandbox<'a> + CallGuestFunction<'a> {
         //      // dispatch_call_from_host("guest_method", ReturnType::Int ,vec![a1]);
         //  };
         // guest_method.register(self.get_uninitialized_sandbox_mut(), "guest_method");
+
+        // For host methods, we want to generate:
+        // let host_method = |a1: String| -> i32 {
+        //     self.call_dynamic_guest_function("print_output", ReturnType::Int, vec![a1])
+        //     // ^^^ i.e., maintaining the function's original body.
+        // };
+        // host_method.register(self.get_uninitialized_sandbox_mut(), "host_method");
+
     }
 }
