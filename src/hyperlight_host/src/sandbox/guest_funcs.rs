@@ -1,4 +1,7 @@
-use std::sync::{atomic::Ordering, Arc, Mutex};
+use std::{
+    collections::HashMap,
+    sync::{atomic::Ordering, Arc, Mutex},
+};
 
 use super::guest_mgr::GuestMgr;
 use crate::{
@@ -15,6 +18,9 @@ use crate::{
 
 use anyhow::{bail, Result};
 use tracing::instrument;
+
+/// A `Hashmap` of dynamic guest functions, keyed by their name.
+pub(crate) type DynamicGuestFunctionsMap<'a> = HashMap<String, HyperlightFunction<'a>>;
 
 // `ShouldRelease` is an internal construct that represents a
 // port of try-finally logic in C#.
@@ -197,9 +203,15 @@ pub trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox + InitializedSandbox<
 }
 
 pub trait GuestFuncs<'a> {
+    /// `get_dynamic_methods` is used to get the dynamic guest methods.
+    fn get_dynamic_methods(&self) -> &DynamicGuestFunctionsMap<'a>;
+
+    /// `get_dynamic_methods_mut` is used to get a mutable reference to the dynamic guest methods.
+    fn get_dynamic_methods_mut(&mut self) -> &mut DynamicGuestFunctionsMap<'a>;
+
     /// `add_dynamic_method` is used to register a dynamic guest method onto the Sandbox.
-    fn add_dynamic_method(&mut self, _name: &str, _func: HyperlightFunction<'a>) -> Result<()> {
-        todo!();
+    fn add_dynamic_method(&mut self, name: &str, func: HyperlightFunction<'a>) {
+        self.get_dynamic_methods_mut().insert(name.to_string(), func);
     }
 }
 

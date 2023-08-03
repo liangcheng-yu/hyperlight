@@ -57,7 +57,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)))?;
+        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
 
         Ok(())
     }
@@ -92,7 +92,7 @@ where
                     .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?(p1)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)))?;
+        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
 
         Ok(())
     }
@@ -131,7 +131,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)))?;
+        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
 
         Ok(())
     }
@@ -173,7 +173,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)))?;
+        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
 
         Ok(())
     }
@@ -218,7 +218,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)))?;
+        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
 
         Ok(())
     }
@@ -267,7 +267,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)))?;
+        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
 
         Ok(())
     }
@@ -319,7 +319,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)))?;
+        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
 
         Ok(())
     }
@@ -374,7 +374,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)))?;
+        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
 
         Ok(())
     }
@@ -432,7 +432,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)))?;
+        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
 
         Ok(())
     }
@@ -493,7 +493,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)))?;
+        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
 
         Ok(())
     }
@@ -557,7 +557,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)))?;
+        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
 
         Ok(())
     }

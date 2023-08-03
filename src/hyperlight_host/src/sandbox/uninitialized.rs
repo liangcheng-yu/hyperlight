@@ -1,4 +1,4 @@
-use super::guest_funcs::GuestFuncs;
+use super::guest_funcs::{GuestFuncs, DynamicGuestFunctionsMap};
 use super::mem_mgr::MemMgr;
 use super::{
     host_funcs::default_writer_func, host_funcs::HostFuncs, host_funcs::HostFunctionsMap,
@@ -47,6 +47,7 @@ pub struct UninitializedSandbox<'a> {
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
+    dynamic_methods: DynamicGuestFunctionsMap<'a>,
 }
 
 impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for UninitializedSandbox<'a> {
@@ -121,7 +122,15 @@ impl<'a> HostFuncs<'a> for UninitializedSandbox<'a> {
     }
 }
 
-impl<'a> GuestFuncs<'a> for UninitializedSandbox<'a> {}
+impl<'a> GuestFuncs<'a> for UninitializedSandbox<'a> {
+    fn get_dynamic_methods(&self) -> &DynamicGuestFunctionsMap<'a> {
+        &self.dynamic_methods
+    }
+
+    fn get_dynamic_methods_mut(&mut self) -> &mut DynamicGuestFunctionsMap<'a> {
+        &mut self.dynamic_methods
+    }
+}
 
 impl<'a> CallHostPrint<'a> for UninitializedSandbox<'a> {}
 
@@ -205,6 +214,7 @@ impl<'a> UninitializedSandbox<'a> {
             host_functions: HashMap::new(),
             mem_mgr,
             stack_guard,
+            dynamic_methods: HashMap::new(),
         };
 
         default_writer.register(&mut sandbox, "writer_func")?;
