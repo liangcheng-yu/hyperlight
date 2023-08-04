@@ -35,7 +35,7 @@ unsafe impl Sync for PtrCCharMut {}
 /// [`FreeLibrary`](https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/System/LibraryLoader/fn.FreeLibrary.html).
 ///
 /// Use the `TryFrom` implementation to create a new instance.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub(crate) struct LoadedLib {
     data: Arc<(HMODULE, PtrCCharMut)>,
 }
