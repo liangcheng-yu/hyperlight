@@ -28,7 +28,8 @@ pub(crate) mod types;
 use self::types::{ParameterValue, ReturnValue};
 use std::sync::{Arc, Mutex};
 
-type HLFunc<'a> = Arc<Mutex<Box<dyn FnMut(Vec<ParameterValue>) -> anyhow::Result<ReturnValue> + 'a + Send>>>;
+type HLFunc<'a> =
+    Arc<Mutex<Box<dyn FnMut(Vec<ParameterValue>) -> anyhow::Result<ReturnValue> + 'a + Send>>>;
 
 /// Generic HyperlightFunction
 #[derive(Clone)]

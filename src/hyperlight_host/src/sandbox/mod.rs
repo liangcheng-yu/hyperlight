@@ -27,9 +27,9 @@ pub use run_options::SandboxRunOptions;
 pub use uninitialized::UninitializedSandbox;
 
 use crate::func::HyperlightFunction;
-use std::collections::HashMap;
 #[cfg(target_os = "linux")]
 use crate::{hypervisor::hyperv_linux, hypervisor::kvm};
+use std::collections::HashMap;
 
 // In case its not obvious why there are separate is_supported_platform and is_hypervisor_present functions its because
 // Hyperlight is designed to be able to run on a host that doesn't have a hypervisor.
@@ -75,8 +75,7 @@ impl<'a> FunctionsMap<'a> {
 
 impl<'a> PartialEq for FunctionsMap<'a> {
     fn eq(&self, other: &Self) -> bool {
-        self.len() == other.len()
-            && self.0.keys().all(|k| other.0.contains_key(k))
+        self.len() == other.len() && self.0.keys().all(|k| other.0.contains_key(k))
     }
 }
 

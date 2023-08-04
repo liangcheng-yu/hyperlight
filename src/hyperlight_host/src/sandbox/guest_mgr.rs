@@ -1,5 +1,5 @@
-use log::error;
 use super::initialized::ExecutingGuestCall;
+use log::error;
 
 pub trait GuestMgr {
     /// Get an immutable reference to the internally-stored

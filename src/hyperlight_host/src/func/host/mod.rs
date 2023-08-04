@@ -6,8 +6,8 @@ pub(crate) mod function_definition;
 pub(crate) mod function_details;
 
 use self::function_definition::HostFunctionDefinition;
-use super::HyperlightFunction;
 use super::types::ParameterValue;
+use super::HyperlightFunction;
 use super::{param_type::SupportedParameterType, ret_type::SupportedReturnType};
 use crate::sandbox::host_funcs::HostFuncs;
 use crate::sandbox::UninitializedSandbox;

@@ -29,7 +29,7 @@ use syn::{parse_macro_input, ItemTrait};
 /// guest_method.register(self.get_uninitialized_sandbox_mut(), "guest_method");
 ///
 /// - For host methods, it'd generate:
-/// let 
+/// let
 /// let host_method = |a1: String| -> i32 {
 ///     self.call_dynamic_guest_function("print_output", ReturnType::Int, vec![a1])
 ///     // ^^^ i.e., maintaining the function's original body.
