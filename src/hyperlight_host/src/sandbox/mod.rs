@@ -16,9 +16,6 @@ mod run_options;
 /// and converting them to initialized sandboxes.
 mod uninitialized;
 
-/// tmp
-mod usbox_test;
-
 /// Re-export for `Sandbox` type
 pub use initialized::Sandbox;
 /// Re-export for `SandboxRunOptions` type
