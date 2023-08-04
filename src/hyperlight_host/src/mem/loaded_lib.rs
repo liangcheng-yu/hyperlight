@@ -20,6 +20,7 @@ static IS_RUNNING_FROM_GUEST_BINARY: AtomicBool = AtomicBool::new(false);
 // We also need to make this type Sync as it is wrapped in an Arc and Arc (just like Mutex) requires Sync in order to impl Send
 // Marking this type Sync is safe as it is intended to only ever used from a single thread.
 
+#[derive(PartialEq, Eq)]
 struct PtrCCharMut(*mut c_char);
 
 unsafe impl Send for PtrCCharMut {}
