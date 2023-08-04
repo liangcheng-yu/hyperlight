@@ -1,12 +1,10 @@
-use super::guest_funcs::{CallGuestFunction, DynamicGuestFunctionsMap, GuestFuncs};
+use super::guest_funcs::{CallGuestFunction, GuestFuncs};
 use super::guest_mgr::GuestMgr;
 use super::uninitialized::UninitializedSandbox;
+use super::FunctionsMap;
+use super::{host_funcs::CallHostFunction, mem_mgr::MemMgr};
 use super::{host_funcs::CallHostPrint, outb::OutBAction};
 use super::{host_funcs::HostFuncs, outb::outb_log};
-use super::{
-    host_funcs::{CallHostFunction, HostFunctionsMap},
-    mem_mgr::MemMgr,
-};
 use crate::flatbuffers::hyperlight::generated::ErrorCode;
 use crate::func::types::ParameterValue;
 use crate::mem::mgr::SandboxMemoryManager;
@@ -15,6 +13,47 @@ use crate::sandbox_state::reset::RestoreSandbox;
 use anyhow::{bail, Result};
 use log::error;
 use std::sync::atomic::AtomicI32;
+use std::sync::Arc;
+
+// 0 = not executing a guest call
+// 1 = executing a guest call
+// 2 = executing a dynamic guest call
+#[derive(Clone)]
+pub struct ExecutingGuestCall(Arc<AtomicI32>);
+
+impl ExecutingGuestCall {
+    pub fn new(val: i32) -> Self {
+        Self(Arc::new(AtomicI32::new(val)))
+    }
+
+    pub fn load(&self) -> i32 {
+        self.0.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    pub fn store(&self, val: i32) {
+        self.0.store(val, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    pub fn compare_exchange(&self, current: i32, new: i32) -> Result<i32> {
+        self.0
+            .compare_exchange(
+                current,
+                new,
+                std::sync::atomic::Ordering::SeqCst,
+                std::sync::atomic::Ordering::SeqCst,
+            )
+            .map_err(|_| anyhow::anyhow!("compare_exchange failed"))
+    }
+}
+
+impl PartialEq for ExecutingGuestCall {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.load(std::sync::atomic::Ordering::SeqCst)
+            == other.0.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+impl Eq for ExecutingGuestCall {}
 
 /// The primary mechanism to interact with VM partitions that run Hyperlight
 /// guest binaries.
@@ -23,16 +62,17 @@ use std::sync::atomic::AtomicI32;
 /// `UninitializedSandbox`, and then call `evolve` or `initialize` on it to
 /// generate one of these.
 #[allow(unused)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Sandbox<'a> {
     // Registered host functions
-    host_functions: HostFunctionsMap<'a>,
+    host_functions: FunctionsMap<'a>,
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
-    executing_guest_call: AtomicI32,
+    executing_guest_call: ExecutingGuestCall,
     needs_state_reset: bool,
     num_runs: i32,
-    dynamic_methods: DynamicGuestFunctionsMap<'a>,
+    dynamic_methods: FunctionsMap<'a>,
 }
 
 impl<'a> crate::sandbox_state::sandbox::InitializedSandbox<'a> for Sandbox<'a> {
@@ -51,7 +91,7 @@ impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
             host_functions: val.get_host_funcs().clone(),
             mem_mgr: val.get_mem_mgr().clone(),
             stack_guard: *val.get_stack_cookie(),
-            executing_guest_call: AtomicI32::new(0),
+            executing_guest_call: ExecutingGuestCall::new(0),
             needs_state_reset: false,
             num_runs: 0,
             dynamic_methods: val.get_dynamic_methods().clone(),
@@ -60,21 +100,21 @@ impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
 }
 
 impl<'a> HostFuncs<'a> for Sandbox<'a> {
-    fn get_host_funcs(&self) -> &HostFunctionsMap<'a> {
+    fn get_host_funcs(&self) -> &FunctionsMap<'a> {
         &self.host_functions
     }
 
-    fn get_host_funcs_mut(&mut self) -> &mut HostFunctionsMap<'a> {
+    fn get_host_funcs_mut(&mut self) -> &mut FunctionsMap<'a> {
         &mut self.host_functions
     }
 }
 
 impl<'a> GuestFuncs<'a> for Sandbox<'a> {
-    fn get_dynamic_methods(&self) -> &DynamicGuestFunctionsMap<'a> {
+    fn get_dynamic_methods(&self) -> &FunctionsMap<'a> {
         &self.dynamic_methods
     }
 
-    fn get_dynamic_methods_mut(&mut self) -> &mut DynamicGuestFunctionsMap<'a> {
+    fn get_dynamic_methods_mut(&mut self) -> &mut FunctionsMap<'a> {
         &mut self.dynamic_methods
     }
 }
@@ -99,11 +139,11 @@ impl<'a> std::fmt::Debug for Sandbox<'a> {
 }
 
 impl<'a> GuestMgr for Sandbox<'a> {
-    fn get_executing_guest_call(&self) -> &AtomicI32 {
+    fn get_executing_guest_call(&self) -> &ExecutingGuestCall {
         &self.executing_guest_call
     }
 
-    fn get_executing_guest_call_mut(&mut self) -> &mut AtomicI32 {
+    fn get_executing_guest_call_mut(&mut self) -> &mut ExecutingGuestCall {
         &mut self.executing_guest_call
     }
 

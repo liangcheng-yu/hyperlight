@@ -6,19 +6,16 @@ use crate::func::{
 use crate::sandbox_state::sandbox::Sandbox;
 use anyhow::{anyhow, Result};
 use is_terminal::IsTerminal;
+use std::io::stdout;
 use std::io::Write;
-use std::{collections::HashMap, io::stdout};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-use super::mem_mgr::MemMgr;
-
-/// A `HashMap` to map function names to `HyperlightFunction`s.
-pub(crate) type HostFunctionsMap<'a> = HashMap<String, HyperlightFunction<'a>>;
+use super::{mem_mgr::MemMgr, FunctionsMap};
 
 pub(crate) trait HostFuncs<'a>: Sandbox + MemMgr {
-    fn get_host_funcs(&self) -> &HostFunctionsMap<'a>;
+    fn get_host_funcs(&self) -> &FunctionsMap<'a>;
 
-    fn get_host_funcs_mut(&mut self) -> &mut HostFunctionsMap<'a>;
+    fn get_host_funcs_mut(&mut self) -> &mut FunctionsMap<'a>;
 
     /// Register a host function with the sandbox.
     fn register_host_function(
@@ -68,7 +65,7 @@ pub(crate) trait CallHostFunction<'a>: HostFuncs<'a> {
 }
 
 fn call_host_func_impl(
-    host_funcs: &HostFunctionsMap<'_>,
+    host_funcs: &FunctionsMap<'_>,
     name: &str,
     args: Vec<ParameterValue>,
 ) -> Result<ReturnValue> {
@@ -76,8 +73,7 @@ fn call_host_func_impl(
         .get(name)
         .ok_or_else(|| anyhow!("Host function {} not found", name))?;
 
-    let mut locked_func = func.lock().map_err(|e| anyhow!("error locking: {:?}", e))?;
-    locked_func(args)
+    func.call(args)
 }
 
 // The default writer function is to write to stdout with green text.

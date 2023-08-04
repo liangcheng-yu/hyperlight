@@ -1,15 +1,11 @@
-use std::{
-    collections::HashMap,
-    sync::{atomic::Ordering, Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
-use super::guest_mgr::GuestMgr;
+use super::{guest_mgr::GuestMgr, FunctionsMap};
 use crate::{
     func::{
         function_call::{FunctionCall, FunctionCallType},
         guest::GuestFunction,
         param_type::SupportedParameterType,
-        ret_type::SupportedReturnType,
         types::{ParameterValue, ReturnType},
         HyperlightFunction,
     },
@@ -18,9 +14,6 @@ use crate::{
 
 use anyhow::{bail, Result};
 use tracing::instrument;
-
-/// A `Hashmap` of dynamic guest functions, keyed by their name.
-pub(crate) type DynamicGuestFunctionsMap<'a> = HashMap<String, HyperlightFunction<'a>>;
 
 // `ShouldRelease` is an internal construct that represents a
 // port of try-finally logic in C#.
@@ -43,7 +36,7 @@ impl<'a> Drop for ShouldRelease<'a> {
             let guest_mgr = &mut self.1;
             guest_mgr.set_needs_state_reset(true);
             let executing_guest_function = guest_mgr.get_executing_guest_call_mut();
-            executing_guest_function.store(0, Ordering::SeqCst);
+            executing_guest_function.store(0);
         }
     }
 }
@@ -88,7 +81,7 @@ pub trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox + InitializedSandbox<
         let mut _sd = ShouldRelease(false, guest_mgr.as_guest_mgr_mut());
         if executing_guest_function
             .get_executing_guest_call_mut()
-            .compare_exchange(0, 1, Ordering::SeqCst, Ordering::SeqCst)
+            .compare_exchange(0, 1)
             .map_err(|_| anyhow::anyhow!("Failed to verify status of guest function execution"))?
             != 0
         {
@@ -105,14 +98,13 @@ pub trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox + InitializedSandbox<
     }
 
     #[instrument]
-    fn call_dynamic_guest_function<R, P>(
+    fn call_dynamic_guest_function<P>(
         &mut self,
         name: &str,
         ret: ReturnType,
         args: Option<Vec<P>>,
     ) -> Result<i32>
     where
-        R: SupportedReturnType<R> + std::fmt::Debug,
         P: SupportedParameterType<P> + std::fmt::Debug,
     {
         let this = Arc::new(Mutex::new(self));
@@ -204,10 +196,10 @@ pub trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox + InitializedSandbox<
 
 pub trait GuestFuncs<'a> {
     /// `get_dynamic_methods` is used to get the dynamic guest methods.
-    fn get_dynamic_methods(&self) -> &DynamicGuestFunctionsMap<'a>;
+    fn get_dynamic_methods(&self) -> &FunctionsMap<'a>;
 
     /// `get_dynamic_methods_mut` is used to get a mutable reference to the dynamic guest methods.
-    fn get_dynamic_methods_mut(&mut self) -> &mut DynamicGuestFunctionsMap<'a>;
+    fn get_dynamic_methods_mut(&mut self) -> &mut FunctionsMap<'a>;
 
     /// `add_dynamic_method` is used to register a dynamic guest method onto the Sandbox.
     fn add_dynamic_method(&mut self, name: &str, func: HyperlightFunction<'a>) {

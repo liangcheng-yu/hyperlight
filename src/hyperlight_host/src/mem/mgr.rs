@@ -51,7 +51,7 @@ pub(crate) const STACK_COOKIE_LEN: usize = 16;
 /// A struct that is responsible for laying out and managing the memory
 /// for a given `Sandbox`.
 #[readonly::make]
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct SandboxMemoryManager {
     pub(crate) mem_cfg: SandboxMemoryConfiguration,
     /// Whether or not to run a sandbox in-process

@@ -6,6 +6,7 @@ pub(crate) mod function_definition;
 pub(crate) mod function_details;
 
 use self::function_definition::HostFunctionDefinition;
+use super::HyperlightFunction;
 use super::types::ParameterValue;
 use super::{param_type::SupportedParameterType, ret_type::SupportedReturnType};
 use crate::sandbox::host_funcs::HostFuncs;
@@ -34,7 +35,7 @@ where
         });
         sandbox.register_host_function(
             &HostFunctionDefinition::new(name.to_string(), None, R::get_hyperlight_type()),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
@@ -76,7 +77,7 @@ where
                 Some(vec![P1::get_hyperlight_type()]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
@@ -122,7 +123,7 @@ where
                 Some(vec![P1::get_hyperlight_type(), P2::get_hyperlight_type()]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
@@ -175,7 +176,7 @@ where
                 ]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
@@ -232,7 +233,7 @@ where
                 ]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
@@ -293,7 +294,7 @@ where
                 ]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
@@ -359,7 +360,7 @@ where
                 ]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
@@ -429,7 +430,7 @@ where
                 ]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
@@ -503,7 +504,7 @@ where
                 ]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
@@ -581,7 +582,7 @@ where
                 ]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
@@ -663,7 +664,7 @@ where
                 ]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())

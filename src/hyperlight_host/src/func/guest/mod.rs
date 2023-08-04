@@ -19,6 +19,7 @@ use crate::{sandbox::guest_funcs::GuestFuncs, UninitializedSandbox};
 
 use super::{
     param_type::SupportedParameterType, ret_type::SupportedReturnType, types::ParameterValue,
+    HyperlightFunction,
 };
 
 /// A simple guest function that takes no arguments and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
@@ -57,7 +58,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
+        sandbox.add_dynamic_method(name, HyperlightFunction::new(func));
 
         Ok(())
     }
@@ -92,7 +93,7 @@ where
                     .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?(p1)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
+        sandbox.add_dynamic_method(name, HyperlightFunction::new(func));
 
         Ok(())
     }
@@ -131,7 +132,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
+        sandbox.add_dynamic_method(name, HyperlightFunction::new(func));
 
         Ok(())
     }
@@ -173,7 +174,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
+        sandbox.add_dynamic_method(name, HyperlightFunction::new(func));
 
         Ok(())
     }
@@ -218,7 +219,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
+        sandbox.add_dynamic_method(name, HyperlightFunction::new(func));
 
         Ok(())
     }
@@ -267,7 +268,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
+        sandbox.add_dynamic_method(name, HyperlightFunction::new(func));
 
         Ok(())
     }
@@ -319,7 +320,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
+        sandbox.add_dynamic_method(name, HyperlightFunction::new(func));
 
         Ok(())
     }
@@ -374,7 +375,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
+        sandbox.add_dynamic_method(name, HyperlightFunction::new(func));
 
         Ok(())
     }
@@ -432,7 +433,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
+        sandbox.add_dynamic_method(name, HyperlightFunction::new(func));
 
         Ok(())
     }
@@ -493,7 +494,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
+        sandbox.add_dynamic_method(name, HyperlightFunction::new(func));
 
         Ok(())
     }
@@ -557,7 +558,7 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.add_dynamic_method(name, Arc::new(Mutex::new(func)));
+        sandbox.add_dynamic_method(name, HyperlightFunction::new(func));
 
         Ok(())
     }

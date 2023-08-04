@@ -1,14 +1,14 @@
 use log::error;
-use std::sync::atomic::{AtomicI32, Ordering};
+use super::initialized::ExecutingGuestCall;
 
 pub trait GuestMgr {
     /// Get an immutable reference to the internally-stored
     /// `executing_guest_call` flag
-    fn get_executing_guest_call(&self) -> &AtomicI32;
+    fn get_executing_guest_call(&self) -> &ExecutingGuestCall;
 
     /// Get a mutable reference to the internally-stored
     /// `executing_guest_call` flag
-    fn get_executing_guest_call_mut(&mut self) -> &mut AtomicI32;
+    fn get_executing_guest_call_mut(&mut self) -> &mut ExecutingGuestCall;
 
     /// Increase the number of times guest funcs have been called
     fn increase_num_runs(&mut self);
@@ -37,12 +37,12 @@ pub trait GuestMgr {
     /// If the value of `executing_guest_call` is 0, we should reset the state.
     fn enter_dynamic_method(&mut self) -> bool {
         let executing_guest_function = self.get_executing_guest_call_mut();
-        if executing_guest_function.load(Ordering::SeqCst) == 1 {
+        if executing_guest_function.load() == 1 {
             return false;
         }
 
         if executing_guest_function
-            .compare_exchange(0, 2, Ordering::SeqCst, Ordering::SeqCst)
+            .compare_exchange(0, 2)
             .unwrap() // .compare_exchange() returns a Result<i32, i32>, so it's ok to unwrap here
             != 0
         {
@@ -55,8 +55,7 @@ pub trait GuestMgr {
     /// `exit_dynamic_method` is used to indicate that a guest function has finished executing.
     fn exit_dynamic_method(&mut self, should_release: bool) {
         if should_release {
-            self.get_executing_guest_call_mut()
-                .store(0, Ordering::SeqCst);
+            self.get_executing_guest_call_mut().store(0);
             self.set_needs_state_reset(true);
         }
     }

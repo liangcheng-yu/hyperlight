@@ -29,5 +29,21 @@ use self::types::{ParameterValue, ReturnValue};
 use std::sync::{Arc, Mutex};
 
 /// Generic HyperlightFunction
-pub(crate) type HyperlightFunction<'a> =
-    Arc<Mutex<Box<dyn FnMut(Vec<ParameterValue>) -> anyhow::Result<ReturnValue> + 'a + Send>>>;
+#[derive(Clone)]
+pub struct HyperlightFunction<'a>(
+    Arc<Mutex<Box<dyn FnMut(Vec<ParameterValue>) -> anyhow::Result<ReturnValue> + 'a + Send>>>,
+);
+
+impl<'a> HyperlightFunction<'a> {
+    pub(crate) fn new<F>(f: F) -> Self
+    where
+        F: FnMut(Vec<ParameterValue>) -> anyhow::Result<ReturnValue> + 'a + Send,
+    {
+        Self(Arc::new(Mutex::new(Box::new(f))))
+    }
+
+    pub(crate) fn call(&self, args: Vec<ParameterValue>) -> anyhow::Result<ReturnValue> {
+        let mut f = self.0.lock().unwrap();
+        f(args)
+    }
+}

@@ -1,9 +1,7 @@
-use super::guest_funcs::{DynamicGuestFunctionsMap, GuestFuncs};
+use super::FunctionsMap;
+use super::guest_funcs::GuestFuncs;
 use super::mem_mgr::MemMgr;
-use super::{
-    host_funcs::default_writer_func, host_funcs::HostFuncs, host_funcs::HostFunctionsMap,
-    initialized::Sandbox,
-};
+use super::{host_funcs::default_writer_func, host_funcs::HostFuncs, initialized::Sandbox};
 use super::{host_funcs::CallHostPrint, run_options::SandboxRunOptions};
 use crate::func::host::HostFunction1;
 use crate::hypervisor::Hypervisor;
@@ -25,7 +23,6 @@ use crate::{
     mem::ptr_offset::Offset,
 };
 use anyhow::{anyhow, bail, Result};
-use std::collections::HashMap;
 use std::ffi::c_void;
 use std::ops::Add;
 use std::option::Option;
@@ -43,11 +40,11 @@ use tracing::instrument;
 #[allow(unused)]
 pub struct UninitializedSandbox<'a> {
     // Registered host functions
-    host_functions: HostFunctionsMap<'a>,
+    host_functions: FunctionsMap<'a>,
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
-    dynamic_methods: DynamicGuestFunctionsMap<'a>,
+    dynamic_methods: FunctionsMap<'a>,
 }
 
 impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for UninitializedSandbox<'a> {
@@ -113,21 +110,21 @@ impl<'a>
 }
 
 impl<'a> HostFuncs<'a> for UninitializedSandbox<'a> {
-    fn get_host_funcs(&self) -> &HostFunctionsMap<'a> {
+    fn get_host_funcs(&self) -> &FunctionsMap<'a> {
         &self.host_functions
     }
 
-    fn get_host_funcs_mut(&mut self) -> &mut HostFunctionsMap<'a> {
+    fn get_host_funcs_mut(&mut self) -> &mut FunctionsMap<'a> {
         &mut self.host_functions
     }
 }
 
 impl<'a> GuestFuncs<'a> for UninitializedSandbox<'a> {
-    fn get_dynamic_methods(&self) -> &DynamicGuestFunctionsMap<'a> {
+    fn get_dynamic_methods(&self) -> &FunctionsMap<'a> {
         &self.dynamic_methods
     }
 
-    fn get_dynamic_methods_mut(&mut self) -> &mut DynamicGuestFunctionsMap<'a> {
+    fn get_dynamic_methods_mut(&mut self) -> &mut FunctionsMap<'a> {
         &mut self.dynamic_methods
     }
 }
@@ -211,10 +208,10 @@ impl<'a> UninitializedSandbox<'a> {
         let default_writer = Arc::new(Mutex::new(default_writer_func));
 
         let mut sandbox = Self {
-            host_functions: HashMap::new(),
+            host_functions: FunctionsMap::new(),
             mem_mgr,
             stack_guard,
-            dynamic_methods: HashMap::new(),
+            dynamic_methods: FunctionsMap::new(),
         };
 
         default_writer.register(&mut sandbox, "writer_func")?;

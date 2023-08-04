@@ -126,7 +126,7 @@ struct GuestStack {
 ///
 ///
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[readonly::make]
 pub(crate) struct SandboxMemoryLayout {
     sandbox_memory_config: SandboxMemoryConfiguration,

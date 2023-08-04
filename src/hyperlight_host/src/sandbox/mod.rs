@@ -1,5 +1,3 @@
-/// Functionality for managing visibility of functions between host and guest.
-mod funcs;
 /// Functionality for interacting with guest calls
 pub(crate) mod guest_funcs;
 /// Functionality for managing the guest
@@ -18,6 +16,9 @@ mod run_options;
 /// and converting them to initialized sandboxes.
 mod uninitialized;
 
+/// tmp
+mod usbox_test;
+
 /// Re-export for `Sandbox` type
 pub use initialized::Sandbox;
 /// Re-export for `SandboxRunOptions` type
@@ -25,6 +26,8 @@ pub use run_options::SandboxRunOptions;
 /// Re-export for `UninitializedSandbox` type
 pub use uninitialized::UninitializedSandbox;
 
+use crate::func::HyperlightFunction;
+use std::collections::HashMap;
 #[cfg(target_os = "linux")]
 use crate::{hypervisor::hyperv_linux, hypervisor::kvm};
 
@@ -43,6 +46,41 @@ pub(crate) fn is_supported_platform() -> bool {
 
     true
 }
+
+/// A `HashMap` to map function names to `HyperlightFunction`s.
+#[derive(Clone)]
+pub struct FunctionsMap<'a>(HashMap<String, HyperlightFunction<'a>>);
+
+impl<'a> FunctionsMap<'a> {
+    /// Create a new `HostFunctionsMap` with no entries.
+    pub fn new() -> Self {
+        Self(HashMap::new())
+    }
+
+    /// Insert a new entry into the map.
+    pub fn insert(&mut self, key: String, value: HyperlightFunction<'a>) {
+        self.0.insert(key, value);
+    }
+
+    /// Get the value associated with the given key, if it exists.
+    pub fn get(&self, key: &str) -> Option<&HyperlightFunction<'a>> {
+        self.0.get(key)
+    }
+
+    /// Get the length of the map.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl<'a, 'b> PartialEq for FunctionsMap<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.len() == other.len()
+            && self.0.keys().all(|k| other.0.contains_key(k))
+    }
+}
+
+impl<'a> Eq for FunctionsMap<'a> {}
 
 /// Determine whether a suitable hypervisor is available to run
 /// this sandbox.

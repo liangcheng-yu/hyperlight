@@ -46,7 +46,7 @@ type Writer<'a, T> = Box<dyn Fn(T) -> Result<Vec<u8>>>;
 // We also need to make this type Sync as it is wrapped in an Arc and Arc (just like Mutex) requires Sync in order to impl Send
 // Marking this type Sync is safe as it is intended to only ever used from a single thread.
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 struct PtrCVoidMut(*mut c_void);
 unsafe impl Send for PtrCVoidMut {}
 unsafe impl Sync for PtrCVoidMut {}
@@ -60,7 +60,7 @@ unsafe impl Sync for PtrCVoidMut {}
 /// so a clone just increases the reference count of the pointer. Beware,
 /// however, that only the last clone to be dropped will cause the underlying
 /// memory to be freed.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) struct SharedMemory {
     ptr_and_size: Arc<(PtrCVoidMut, usize)>,
 }
