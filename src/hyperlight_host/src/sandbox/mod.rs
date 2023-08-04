@@ -73,7 +73,7 @@ impl<'a> FunctionsMap<'a> {
     }
 }
 
-impl<'a, 'b> PartialEq for FunctionsMap<'a> {
+impl<'a> PartialEq for FunctionsMap<'a> {
     fn eq(&self, other: &Self) -> bool {
         self.len() == other.len()
             && self.0.keys().all(|k| other.0.contains_key(k))

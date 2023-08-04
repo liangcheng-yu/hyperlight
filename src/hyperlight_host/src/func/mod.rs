@@ -28,11 +28,11 @@ pub(crate) mod types;
 use self::types::{ParameterValue, ReturnValue};
 use std::sync::{Arc, Mutex};
 
+type HLFunc<'a> = Arc<Mutex<Box<dyn FnMut(Vec<ParameterValue>) -> anyhow::Result<ReturnValue> + 'a + Send>>>;
+
 /// Generic HyperlightFunction
 #[derive(Clone)]
-pub struct HyperlightFunction<'a>(
-    Arc<Mutex<Box<dyn FnMut(Vec<ParameterValue>) -> anyhow::Result<ReturnValue> + 'a + Send>>>,
-);
+pub struct HyperlightFunction<'a>(HLFunc<'a>);
 
 impl<'a> HyperlightFunction<'a> {
     pub(crate) fn new<F>(f: F) -> Self
