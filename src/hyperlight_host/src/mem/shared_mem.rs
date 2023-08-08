@@ -637,6 +637,11 @@ mod tests {
     /// and _all_ clones are dropped, the memory region will no longer
     /// be valid.
     #[test]
+    // this test is ignored because it is incompatible with other tests as they may be allocating memory
+    // marking  this test as ignored means that running `cargo test` will not run this test but will allow a developer who runs that command
+    // from their workstation to be successful without needed to know about test interdependencies
+    // this test will be run explcitly as a part of the CI pipeline
+    #[ignore]
     #[cfg(target_os = "linux")]
     fn test_drop() {
         let pid = std::process::id();

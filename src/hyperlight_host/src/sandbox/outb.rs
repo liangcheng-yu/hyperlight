@@ -193,6 +193,10 @@ mod tests {
 
     // Tests that outb_log emits traces when a trace subscriber is set
     // this test is ignored because it is incompatible with other tests , specifically those which require a logger for tracing
+    // marking  this test as ignored means that running `cargo test` will not run this test but will allow a developer who runs that command
+    // from their workstation to be successful without needed to know about test interdependencies
+    // this test will be run explcitly as a part of the CI pipeline
+    #[ignore]
     #[test]
     fn test_trace_outb_log() {
         Logger::initialize_log_tracer();
