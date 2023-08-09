@@ -289,7 +289,7 @@ namespace Hyperlight.Tests
             public Func<string, string, int, int>? LogMessage;
         }
 
-        [FactSkipIfWindowsOrNoHypervisor]
+        [FactSkipIfNotWindowsAndNoHypervisor]
         public void Test_Passing_Byte_Array()
         {
 
@@ -331,7 +331,7 @@ namespace Hyperlight.Tests
             }
         }
 
-        [FactSkipIfWindowsOrNoHypervisor]
+        [FactSkipIfNotWindowsAndNoHypervisor]
         public void Test_Heap_Size()
         {
             var options = GetSandboxRunOptions();
@@ -357,7 +357,7 @@ namespace Hyperlight.Tests
             return intValue;
         }
 
-        [FactSkipIfWindowsOrNoHypervisor]
+        [Fact]
         public void Test_Error_Logging()
         {
             var options = GetSandboxRunOptions();
@@ -510,7 +510,7 @@ namespace Hyperlight.Tests
             }
         }
 
-        [FactSkipIfWindowsOrNoHypervisor]
+        [Fact]
         public void Test_Error_Logging_Cross_ExecutionContext()
         {
             var options = GetSandboxRunOptions();
@@ -739,7 +739,7 @@ namespace Hyperlight.Tests
             }
         }
 
-        [FactSkipIfWindowsOrNoHypervisor]
+        [Fact]
         public void Test_Handles_Host_Exception()
         {
             var options = GetSandboxRunOptions();
@@ -773,7 +773,7 @@ namespace Hyperlight.Tests
             }
         }
 
-        [FactSkipIfWindowsOrNoHypervisor]
+        [FactSkipIfNotWindowsAndNoHypervisor]
         public void Test_Stack_Size()
         {
             using var ctx = new Wrapper.Context("sample_corr_id");
@@ -843,7 +843,7 @@ namespace Hyperlight.Tests
             }
         }
 
-        [FactSkipIfWindowsOrNoHypervisor]
+        [Fact]
         public void Test_Buffer_Overrun()
         {
             using var ctx = new Wrapper.Context("sample_corr_id");
@@ -884,7 +884,7 @@ namespace Hyperlight.Tests
             }
         }
 
-        [FactSkipIfWindowsOrNoHypervisor]
+        [FactSkipIfHypervisorNotPresent]
         public void Test_Stack_Overflow()
         {
             var path = AppDomain.CurrentDomain.BaseDirectory;
@@ -976,7 +976,7 @@ namespace Hyperlight.Tests
             }
         }
 
-        [FactSkipIfWindowsOrNoHypervisor]
+        [FactSkipIfHypervisorNotPresent]
         public void Test_Memory_Size_InHypervisor()
         {
             var path = AppDomain.CurrentDomain.BaseDirectory;
@@ -1461,19 +1461,19 @@ namespace Hyperlight.Tests
             {
                 if (Sandbox.IsHypervisorPresent())
                 {
-                    return new SandboxRunOptions[] { 
-                        // SandboxRunOptions.RunFromGuestBinary,
-                        // SandboxRunOptions.None,
+                    return new SandboxRunOptions[] {
+                        SandboxRunOptions.RunFromGuestBinary,
+                        SandboxRunOptions.None,
                         SandboxRunOptions.RunInProcess,
-                        SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun 
-                        // SandboxRunOptions.RecycleAfterRun, 
-                        // SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun 
+                        SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun,
+                        SandboxRunOptions.RecycleAfterRun,
+                        SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun
                     };
                 }
                 else
                 {
                     return new SandboxRunOptions[] {
-                        // SandboxRunOptions.RunFromGuestBinary,
+                        SandboxRunOptions.RunFromGuestBinary,
                         SandboxRunOptions.RunInProcess,
                         SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun
                     };
@@ -1736,7 +1736,7 @@ namespace Hyperlight.Tests
         public void Test_Loads_Windows_Exe_Concurrently(TestData testData)
         {
             SandboxRunOptions[] options = {
-                // SandboxRunOptions.RunFromGuestBinary,
+                SandboxRunOptions.RunFromGuestBinary,
                 SandboxRunOptions.RunFromGuestBinary | SandboxRunOptions.RunInProcess
             };
             foreach (var option in options)
@@ -1844,7 +1844,7 @@ namespace Hyperlight.Tests
             });
         }
 
-        [TheorySkipIfWindowsOrNoHypervisor]
+        [TheorySkipIfHyperVisorNotPresent]
         [MemberData(nameof(GetSimpleTestData))]
         public void Test_Runs_InHyperVisor(TestData testData)
         {
@@ -1861,7 +1861,7 @@ namespace Hyperlight.Tests
             }
         }
 
-        [TheorySkipIfWindowsOrNoHypervisor]
+        [TheorySkipIfHyperVisorNotPresent]
         [MemberData(nameof(GetSimpleTestData))]
         public void Test_Runs_InHyperVisor_Concurrently(TestData testData)
         {
@@ -1887,7 +1887,7 @@ namespace Hyperlight.Tests
         public void Test_Loads_Windows_Exe_With_Callback(TestData testData)
         {
             SandboxRunOptions[] options = {
-                // SandboxRunOptions.RunFromGuestBinary,
+                SandboxRunOptions.RunFromGuestBinary,
                 SandboxRunOptions.RunFromGuestBinary | SandboxRunOptions.RunInProcess
             };
             foreach (var option in options)
@@ -1896,7 +1896,7 @@ namespace Hyperlight.Tests
             }
         }
 
-        [FactSkipIfWindowsOrNoHypervisor]
+        [Fact]
         public void Test_RecycleAfterRun()
         {
 
@@ -1958,7 +1958,7 @@ namespace Hyperlight.Tests
         public void Test_Loads_Windows_Exe_With_Callback_Concurrently(TestData testData)
         {
             SandboxRunOptions[] options = {
-                // SandboxRunOptions.RunFromGuestBinary,
+                SandboxRunOptions.RunFromGuestBinary,
                 SandboxRunOptions.RunFromGuestBinary | SandboxRunOptions.RunInProcess
             };
             foreach (var option in options)
@@ -2056,7 +2056,7 @@ namespace Hyperlight.Tests
             });
         }
 
-        [TheorySkipIfWindowsOrNoHypervisor]
+        [TheorySkipIfHyperVisorNotPresent]
         [MemberData(nameof(GetCallbackTestData))]
         public void Test_Runs_InHyperVisor_With_Callback(TestData testData)
         {
@@ -2074,7 +2074,7 @@ namespace Hyperlight.Tests
         }
 
 
-        [TheorySkipIfWindowsOrNoHypervisor]
+        [TheorySkipIfHyperVisorNotPresent]
         [MemberData(nameof(GetCallbackTestData))]
         public void Test_Runs_InHyperVisor_With_Callback_Concurrently(TestData testData)
         {
