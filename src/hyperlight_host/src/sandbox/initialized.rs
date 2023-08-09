@@ -1,6 +1,6 @@
-use super::guest_funcs::CallGuestFunction;
 use super::guest_mgr::GuestMgr;
 use super::uninitialized::UninitializedSandbox;
+use super::{guest_funcs::CallGuestFunction, hypervisor::HypervisorWrapper};
 use super::{host_funcs::CallHostPrint, outb::OutBAction};
 use super::{host_funcs::HostFuncs, outb::outb_log};
 use super::{
@@ -33,6 +33,7 @@ pub struct Sandbox<'a> {
     executing_guest_call: AtomicI32,
     needs_state_reset: bool,
     num_runs: i32,
+    hv: HypervisorWrapper,
 }
 
 impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
@@ -44,6 +45,7 @@ impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
             executing_guest_call: AtomicI32::new(0),
             needs_state_reset: false,
             num_runs: 0,
+            hv: val.hv,
         }
     }
 }
