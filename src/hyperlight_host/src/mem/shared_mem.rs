@@ -51,6 +51,29 @@ struct PtrCVoidMut(*mut c_void);
 unsafe impl Send for PtrCVoidMut {}
 unsafe impl Sync for PtrCVoidMut {}
 
+#[derive(Debug)]
+struct PtrAndSize {
+    ptr: PtrCVoidMut,
+    size: usize,
+}
+
+impl Drop for PtrAndSize {
+    fn drop(&mut self) {
+        #[cfg(target_os = "linux")]
+        {
+            unsafe {
+                munmap(self.ptr.0, self.size);
+            }
+        }
+        #[cfg(target_os = "windows")]
+        {
+            unsafe {
+                VirtualFree(self.ptr.0, self.size, MEM_DECOMMIT);
+            }
+        }
+    }
+}
+
 /// A representation of the guests's physical memory, often referred to as
 /// Guest Physical Memory or Guest Physical Addresses (GPA) in Windows
 /// Hypervisor Platform.
@@ -62,40 +85,13 @@ unsafe impl Sync for PtrCVoidMut {}
 /// memory to be freed.
 #[derive(Debug)]
 pub(crate) struct SharedMemory {
-    ptr_and_size: Arc<(PtrCVoidMut, usize)>,
+    ptr_and_size: Arc<PtrAndSize>,
 }
 
 impl Clone for SharedMemory {
     fn clone(&self) -> Self {
         Self {
             ptr_and_size: self.ptr_and_size.clone(),
-        }
-    }
-}
-
-impl Drop for SharedMemory {
-    fn drop(&mut self) {
-        // if this `SharedMemory` has been cloned, or is a clone
-        // of some other `SharedMemory`, don't actually free
-        // the underlying memory map
-        //
-        // Note: regardless which case we're in, the return value
-        // of strong_count() will equal $TOTAL_NUM_CLONES + 1
-        if Arc::strong_count(&self.ptr_and_size) > 1 {
-            return;
-        }
-        let (ptr, size) = &*self.ptr_and_size;
-        #[cfg(target_os = "linux")]
-        {
-            unsafe {
-                munmap(ptr.0, *size);
-            }
-        }
-        #[cfg(target_os = "windows")]
-        {
-            unsafe {
-                VirtualFree(ptr.0, *size, MEM_DECOMMIT);
-            }
         }
     }
 }
@@ -150,7 +146,10 @@ impl SharedMemory {
         match addr as i64 {
             0 | -1 => anyhow::bail!("Memory Allocation Failed Error {}", Error::last_os_error()),
             _ => Ok(Self {
-                ptr_and_size: Arc::new((PtrCVoidMut(addr), min_size_bytes)),
+                ptr_and_size: Arc::new(PtrAndSize {
+                    ptr: PtrCVoidMut(addr),
+                    size: min_size_bytes,
+                }),
             }),
         }
     }
@@ -252,8 +251,7 @@ impl SharedMemory {
     /// free any of this memory, since it is owned and will
     /// be cleaned up by `self`.
     pub(crate) fn raw_ptr(&self) -> *mut c_void {
-        let (ptr, _) = &*self.ptr_and_size;
-        ptr.0
+        self.ptr_and_size.ptr.0
     }
 
     /// Return the length of the memory contained in `self`.
@@ -261,8 +259,7 @@ impl SharedMemory {
     /// The return value is guaranteed to be the size of memory
     /// of which `self.raw_ptr()` points to the beginning.
     pub(crate) fn mem_size(&self) -> usize {
-        let (_, size) = *self.ptr_and_size;
-        size
+        self.ptr_and_size.size
     }
 
     /// Return the address of memory at an offset to this `SharedMemory` checking
