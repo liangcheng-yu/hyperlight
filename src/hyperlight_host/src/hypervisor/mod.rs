@@ -11,7 +11,6 @@ pub(crate) mod hyperv_windows;
 /// Hypervisor-generic memory utilities
 pub(crate) mod hypervisor_mem;
 #[cfg(target_os = "linux")]
-#[allow(dead_code)] // TODO: remove this when we have a working Rust sandbox
 /// Functionality to manipulate KVM-based virtual machines
 pub(crate) mod kvm;
 #[cfg(target_os = "windows")]
@@ -23,9 +22,13 @@ pub(crate) mod surrogate_process_manager;
 /// WindowsHypervisorPlatform utilities
 #[cfg(target_os = "windows")]
 pub(crate) mod windows_hypervisor_platform;
+/// Safe wrappers around windows types like `PSTR`
+#[cfg(target_os = "windows")]
+mod wrappers;
 
 use self::handlers::{MemAccessHandlerRc, OutBHandlerRc};
 use crate::mem::ptr::RawPtr;
+use std::fmt::Debug;
 
 pub(crate) const CR4_PAE: u64 = 1 << 5;
 pub(crate) const CR4_OSFXSR: u64 = 1 << 9;
@@ -41,7 +44,7 @@ pub(crate) const EFER_LME: u64 = 1 << 8;
 pub(crate) const EFER_LMA: u64 = 1 << 10;
 
 /// A common set of hypervisor functionality
-pub(crate) trait Hypervisor {
+pub(crate) trait Hypervisor: Debug + Sync + Send {
     /// Initialise the internally stored vCPU with the given PEB address and
     /// random number seed, then run it until a HLT instruction.
     fn initialise(
@@ -76,6 +79,10 @@ pub(crate) trait Hypervisor {
 
     /// Reset the stack pointer on the internal virtual CPU
     fn reset_rsp(&mut self, rsp: u64) -> Result<()>;
+
+    /// Get the value of the stack pointer (RSP register) when this
+    /// `Hypervisor` was first created
+    fn orig_rsp(&self) -> Result<u64>;
 }
 
 #[cfg(test)]

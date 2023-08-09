@@ -115,10 +115,38 @@ impl TryFrom<GuestPtr> for i64 {
 }
 
 /// A pointer into a specific `AddressSpace` `T`.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone)]
 pub(crate) struct Ptr<T: AddressSpace> {
     addr_space: T,
     offset: Offset,
+}
+
+impl<T: AddressSpace> std::cmp::PartialEq for Ptr<T> {
+    fn eq(&self, other: &Self) -> bool {
+        other.addr_space == self.addr_space && other.offset == self.offset
+    }
+}
+
+impl<T: AddressSpace> std::cmp::Eq for Ptr<T> {}
+
+fn cmp_helper<T: AddressSpace>(left: &Ptr<T>, right: &Ptr<T>) -> std::cmp::Ordering {
+    // We know both left and right have the same address space, thus
+    // they have the same base, so we can get away with just comparing
+    // the offsets and assume we're in the same address space, practically
+    // speaking.
+    left.offset.cmp(&right.offset)
+}
+
+impl<T: AddressSpace> std::cmp::PartialOrd for Ptr<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(cmp_helper(self, other))
+    }
+}
+
+impl<T: AddressSpace> std::cmp::Ord for Ptr<T> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        cmp_helper(self, other)
+    }
 }
 
 impl<T: AddressSpace> Ptr<T> {

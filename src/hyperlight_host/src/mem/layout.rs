@@ -127,7 +127,6 @@ struct GuestStack {
 ///
 
 #[derive(Copy, Clone, Debug)]
-#[readonly::make]
 pub(crate) struct SandboxMemoryLayout {
     sandbox_memory_config: SandboxMemoryConfiguration,
     /// The peb offset into this sandbox.

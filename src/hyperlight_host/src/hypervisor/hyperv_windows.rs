@@ -1,25 +1,23 @@
+use super::windows_hypervisor_platform as whp;
 use super::{
     handlers::{MemAccessHandlerRc, OutBHandlerRc},
+    windows_hypervisor_platform::{VMPartition, VMProcessor},
     Hypervisor, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT,
     CR4_PAE, EFER_LMA, EFER_LME,
 };
-
-use crate::mem::ptr::RawPtr;
+use super::{surrogate_process::SurrogateProcess, surrogate_process_manager::*};
+use crate::mem::{ptr::RawPtr, shared_mem::PtrCVoidMut};
 use anyhow::{bail, Result};
 use core::ffi::c_void;
-
-use super::windows_hypervisor_platform as whp;
-use super::{surrogate_process::SurrogateProcess, surrogate_process_manager::*};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::mem::take;
 use std::string::String;
 use windows::Win32::System::Hypervisor::{
     WHvMapGpaRangeFlagExecute, WHvMapGpaRangeFlagRead, WHvMapGpaRangeFlagWrite, WHvX64RegisterCr0,
     WHvX64RegisterCr3, WHvX64RegisterCr4, WHvX64RegisterCs, WHvX64RegisterEfer, WHvX64RegisterR8,
     WHvX64RegisterRcx, WHvX64RegisterRdx, WHvX64RegisterRflags, WHvX64RegisterRip,
-    WHvX64RegisterRsp, WHV_PARTITION_HANDLE, WHV_REGISTER_NAME, WHV_REGISTER_VALUE,
-    WHV_RUN_VP_EXIT_CONTEXT, WHV_RUN_VP_EXIT_REASON, WHV_UINT128, WHV_UINT128_0,
+    WHvX64RegisterRsp, WHV_REGISTER_NAME, WHV_REGISTER_VALUE, WHV_RUN_VP_EXIT_CONTEXT,
+    WHV_RUN_VP_EXIT_REASON, WHV_UINT128, WHV_UINT128_0,
 };
 
 /// Wrapper around WHV_REGISTER_NAME so we can impl
@@ -36,11 +34,19 @@ impl Hash for WhvRegisterNameWrapper {
 /// A Hypervisor driver for HyperV-on-Windows.
 pub struct HypervWindowsDriver {
     size: usize,
-    partition_handle: WHV_PARTITION_HANDLE,
+    processor: VMProcessor,
     surrogate_process: SurrogateProcess,
-    source_address: *mut c_void,
-    virtual_processor_created: bool,
+    source_address: PtrCVoidMut,
     registers: HashMap<WhvRegisterNameWrapper, WHV_REGISTER_VALUE>,
+    orig_rsp: u64,
+}
+
+impl std::fmt::Debug for HypervWindowsDriver {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HypervLinuxDriver")
+            .field("size", &self.size)
+            .finish()
+    }
 }
 
 impl HypervWindowsDriver {
@@ -59,18 +65,17 @@ impl HypervWindowsDriver {
         }
 
         // create and setup hypervisor partition
-        let partition_handle: WHV_PARTITION_HANDLE = whp::create_partition()?;
-        whp::set_processor_count(&partition_handle, 1)?;
-        whp::setup_partition(&partition_handle)?;
+        let mut partition = VMPartition::new(1)?;
 
         // get a surrogate process
-        let surrogate_process =
-            get_surrogate_process_manager()?.get_surrogate_process(size, source_address)?;
+        let surrogate_process = {
+            let mgr = get_surrogate_process_manager()?;
+            mgr.get_surrogate_process(size, source_address)
+        }?;
 
         let whp_map_gpa_range_flags =
             WHvMapGpaRangeFlagRead | WHvMapGpaRangeFlagWrite | WHvMapGpaRangeFlagExecute;
-        whp::map_gpa_range(
-            &partition_handle,
+        partition.map_gpa_range(
             &surrogate_process.process_handle,
             source_address,
             sandbox_base_address,
@@ -78,79 +83,81 @@ impl HypervWindowsDriver {
             whp_map_gpa_range_flags,
         )?;
 
-        whp::create_virtual_processor(&partition_handle)?;
-        let virtual_processor_created = true;
+        let proc = VMProcessor::new(partition)?;
 
-        let mut registers = HashMap::new();
+        let registers = {
+            let mut hm = HashMap::new();
 
-        // prime the registers we will set when to run the workload on a vcpu
-        registers.insert(
-            WhvRegisterNameWrapper(WHvX64RegisterCr3),
-            WHV_REGISTER_VALUE {
-                Reg64: pml4_address,
-            },
-        );
-        registers.insert(
-            WhvRegisterNameWrapper(WHvX64RegisterCr4),
-            WHV_REGISTER_VALUE {
-                Reg64: CR4_PAE | CR4_OSFXSR | CR4_OSXMMEXCPT,
-            },
-        );
-        registers.insert(
-            WhvRegisterNameWrapper(WHvX64RegisterCr0),
-            WHV_REGISTER_VALUE {
-                Reg64: CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG,
-            },
-        );
-        registers.insert(
-            WhvRegisterNameWrapper(WHvX64RegisterEfer),
-            WHV_REGISTER_VALUE {
-                Reg64: EFER_LME | EFER_LMA,
-            },
-        );
-        registers.insert(
-            WhvRegisterNameWrapper(WHvX64RegisterCs),
-            WHV_REGISTER_VALUE {
-                Reg128: WHV_UINT128 {
-                    Anonymous: WHV_UINT128_0 {
-                        Low64: (0),
-                        High64: (0xa09b0008ffffffff),
+            // prime the registers we will set when to run the workload on a vcpu
+            hm.insert(
+                WhvRegisterNameWrapper(WHvX64RegisterCr3),
+                WHV_REGISTER_VALUE {
+                    Reg64: pml4_address,
+                },
+            );
+            hm.insert(
+                WhvRegisterNameWrapper(WHvX64RegisterCr4),
+                WHV_REGISTER_VALUE {
+                    Reg64: CR4_PAE | CR4_OSFXSR | CR4_OSXMMEXCPT,
+                },
+            );
+            hm.insert(
+                WhvRegisterNameWrapper(WHvX64RegisterCr0),
+                WHV_REGISTER_VALUE {
+                    Reg64: CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG,
+                },
+            );
+            hm.insert(
+                WhvRegisterNameWrapper(WHvX64RegisterEfer),
+                WHV_REGISTER_VALUE {
+                    Reg64: EFER_LME | EFER_LMA,
+                },
+            );
+            hm.insert(
+                WhvRegisterNameWrapper(WHvX64RegisterCs),
+                WHV_REGISTER_VALUE {
+                    Reg128: WHV_UINT128 {
+                        Anonymous: WHV_UINT128_0 {
+                            Low64: (0),
+                            High64: (0xa09b0008ffffffff),
+                        },
                     },
                 },
-            },
-        );
-        registers.insert(
-            WhvRegisterNameWrapper(WHvX64RegisterRflags),
-            WHV_REGISTER_VALUE { Reg64: 0x0002 },
-        );
-        registers.insert(
-            WhvRegisterNameWrapper(WHvX64RegisterRip),
-            WHV_REGISTER_VALUE { Reg64: entry_point },
-        );
-        registers.insert(
-            WhvRegisterNameWrapper(WHvX64RegisterRsp),
-            WHV_REGISTER_VALUE { Reg64: rsp },
-        );
-        registers.insert(
-            WhvRegisterNameWrapper(WHvX64RegisterR8),
-            WHV_REGISTER_VALUE { Reg64: 0x0 },
-        );
-        registers.insert(
-            WhvRegisterNameWrapper(WHvX64RegisterRdx),
-            WHV_REGISTER_VALUE { Reg64: 0x0 },
-        );
-        registers.insert(
-            WhvRegisterNameWrapper(WHvX64RegisterRcx),
-            WHV_REGISTER_VALUE { Reg64: 0x0 },
-        );
+            );
+            hm.insert(
+                WhvRegisterNameWrapper(WHvX64RegisterRflags),
+                WHV_REGISTER_VALUE { Reg64: 0x0002 },
+            );
+            hm.insert(
+                WhvRegisterNameWrapper(WHvX64RegisterRip),
+                WHV_REGISTER_VALUE { Reg64: entry_point },
+            );
+            hm.insert(
+                WhvRegisterNameWrapper(WHvX64RegisterRsp),
+                WHV_REGISTER_VALUE { Reg64: rsp },
+            );
+            hm.insert(
+                WhvRegisterNameWrapper(WHvX64RegisterR8),
+                WHV_REGISTER_VALUE { Reg64: 0x0 },
+            );
+            hm.insert(
+                WhvRegisterNameWrapper(WHvX64RegisterRdx),
+                WHV_REGISTER_VALUE { Reg64: 0x0 },
+            );
+            hm.insert(
+                WhvRegisterNameWrapper(WHvX64RegisterRcx),
+                WHV_REGISTER_VALUE { Reg64: 0x0 },
+            );
+            hm
+        };
 
         Ok(Self {
             size,
-            partition_handle,
+            processor: proc,
             surrogate_process,
-            source_address,
-            virtual_processor_created,
+            source_address: PtrCVoidMut::from(source_address),
             registers,
+            orig_rsp: rsp,
         })
     }
 
@@ -158,8 +165,7 @@ impl HypervWindowsDriver {
     fn throw_exit_exception(&self, exit_reason: WHV_RUN_VP_EXIT_REASON) -> Result<()> {
         // get registers
         let register_names = self.registers.keys().map(|x| x.0).collect();
-        let registers =
-            whp::get_virtual_processor_registers(&self.partition_handle, &register_names)?;
+        let registers = self.processor.get_registers(&register_names)?;
 
         let mut error = String::new();
         error.push_str(&format!(
@@ -201,7 +207,7 @@ impl Hypervisor for HypervWindowsDriver {
             WhvRegisterNameWrapper(WHvX64RegisterR8),
             WHV_REGISTER_VALUE { Reg32: page_size },
         );
-        whp::set_virtual_processor_registers(&self.partition_handle, &self.registers)?;
+        self.processor.set_registers(&self.registers)?;
         self.execute_until_halt(outb_hdl, mem_access_hdl)
     }
 
@@ -226,8 +232,8 @@ impl Hypervisor for HypervWindowsDriver {
             unsafe {
                 if !windows::Win32::System::Diagnostics::Debug::WriteProcessMemory(
                     self.surrogate_process.process_handle,
-                    self.surrogate_process.allocated_address,
-                    self.source_address,
+                    self.surrogate_process.allocated_address.as_ptr(),
+                    self.source_address.as_ptr(),
                     self.size,
                     bytes_written,
                 )
@@ -239,15 +245,14 @@ impl Hypervisor for HypervWindowsDriver {
             }
 
             // - call WHvRunVirtualProcessor
-            let exit_context: WHV_RUN_VP_EXIT_CONTEXT =
-                whp::run_virtual_processor(&self.partition_handle)?;
+            let exit_context: WHV_RUN_VP_EXIT_CONTEXT = self.processor.run()?;
 
             // - call read-process memory
             unsafe {
                 if !windows::Win32::System::Diagnostics::Debug::ReadProcessMemory(
                     self.surrogate_process.process_handle,
-                    self.surrogate_process.allocated_address,
-                    self.source_address as *mut c_void,
+                    self.surrogate_process.allocated_address.as_ptr(),
+                    self.source_address.as_mut_ptr(),
                     self.size,
                     bytes_read,
                 )
@@ -269,7 +274,7 @@ impl Hypervisor for HypervWindowsDriver {
                                 Reg64: (exit_context.VpContext.Reserved & 0xF) as u64,
                             },
                         )]);
-                        whp::set_virtual_processor_registers(&self.partition_handle, &registers)?;
+                        self.processor.set_registers(&registers)?;
                         continue;
                     }
                     // HvRunVpExitReasonX64Halt
@@ -303,7 +308,7 @@ impl Hypervisor for HypervWindowsDriver {
                 Reg64: dispatch_func_addr.into(),
             },
         )]);
-        whp::set_virtual_processor_registers(&self.partition_handle, &registers)?;
+        self.processor.set_registers(&registers)?;
         self.execute_until_halt(outb_hdl, mem_access_hdl)
     }
 
@@ -312,25 +317,11 @@ impl Hypervisor for HypervWindowsDriver {
             WhvRegisterNameWrapper(WHvX64RegisterRsp),
             WHV_REGISTER_VALUE { Reg64: rsp },
         )]);
-        whp::set_virtual_processor_registers(&self.partition_handle, &registers)?;
+        self.processor.set_registers(&registers)?;
         Ok(())
     }
-}
-
-impl Drop for HypervWindowsDriver {
-    fn drop(&mut self) {
-        let sp = take(&mut self.surrogate_process);
-        let _result = get_surrogate_process_manager()
-            .unwrap()
-            .return_surrogate_process(sp); // TODO error handling
-
-        if self.virtual_processor_created {
-            whp::delete_virtual_process(&self.partition_handle).unwrap();
-        }
-
-        if self.partition_handle != WHV_PARTITION_HANDLE::default() {
-            whp::delete_partition(&self.partition_handle).unwrap();
-        }
+    fn orig_rsp(&self) -> Result<u64> {
+        Ok(self.orig_rsp)
     }
 }
 

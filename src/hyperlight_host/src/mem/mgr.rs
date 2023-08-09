@@ -27,7 +27,6 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Result};
 use core::mem::size_of;
-use readonly;
 use serde_json::from_str;
 use std::{cmp::Ordering, str::from_utf8};
 
@@ -50,10 +49,8 @@ pub(crate) const STACK_COOKIE_LEN: usize = 16;
 
 /// A struct that is responsible for laying out and managing the memory
 /// for a given `Sandbox`.
-#[readonly::make]
 #[derive(Clone)]
 pub(crate) struct SandboxMemoryManager {
-    pub(crate) mem_cfg: SandboxMemoryConfiguration,
     /// Whether or not to run a sandbox in-process
     pub(crate) run_from_process_memory: bool,
     mem_snapshot: Option<SharedMemorySnapshot>,
@@ -61,14 +58,16 @@ pub(crate) struct SandboxMemoryManager {
     pub(crate) layout: SandboxMemoryLayout,
     pub(crate) load_addr: RawPtr,
     pub(crate) entrypoint_offset: Offset,
+    /// This field must be present, even though it's not read,
+    /// so that its underlying resources are properly dropped at
+    /// the right time.
     #[cfg(target_os = "windows")]
-    lib: Option<LoadedLib>,
+    _lib: Option<LoadedLib>,
 }
 
 impl SandboxMemoryManager {
     /// Create a new `SandboxMemoryManager` with the given parameters
     pub(crate) fn new(
-        mem_cfg: SandboxMemoryConfiguration,
         layout: SandboxMemoryLayout,
         shared_mem: SharedMemory,
         run_from_process_memory: bool,
@@ -77,7 +76,6 @@ impl SandboxMemoryManager {
         #[cfg(target_os = "windows")] lib: Option<LoadedLib>,
     ) -> Self {
         Self {
-            mem_cfg,
             run_from_process_memory,
             mem_snapshot: None,
             layout,
@@ -85,7 +83,7 @@ impl SandboxMemoryManager {
             load_addr,
             entrypoint_offset,
             #[cfg(target_os = "windows")]
-            lib,
+            _lib: lib,
         }
     }
 
@@ -412,7 +410,6 @@ impl SandboxMemoryManager {
         }?;
 
         Ok(Self::new(
-            cfg,
             layout,
             shared_mem,
             run_from_process_memory,
@@ -439,7 +436,6 @@ impl SandboxMemoryManager {
             let (layout, shared_mem, load_addr, entrypoint_offset) =
                 load_guest_binary_common(cfg, pe_info, 0, |_| lib.base_addr())?;
             Ok(Self::new(
-                cfg,
                 layout,
                 shared_mem,
                 run_from_process_memory,
@@ -637,7 +633,6 @@ mod tests {
             .write(&mut shared_mem, SandboxMemoryLayout::BASE_ADDRESS, mem_size)
             .unwrap();
         let mgr = SandboxMemoryManager::new(
-            cfg,
             layout,
             shared_mem,
             false,
@@ -661,7 +656,6 @@ mod tests {
             .write(&mut shared_mem, SandboxMemoryLayout::BASE_ADDRESS, mem_size)
             .unwrap();
         let mut mgr = SandboxMemoryManager::new(
-            cfg,
             layout,
             shared_mem.clone(),
             false,

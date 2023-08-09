@@ -2,11 +2,7 @@
 #include "sandbox_tests.h"
 #include "context_tests.h"
 #include "byte_array_tests.h"
-#if defined(__linux__)
-#include "hyperv_linux.h"
-#endif
 #include "int.h"
-#include "shared_mem.h"
 #include "err.h"
 #include "outb_handler.h"
 #include "mem_access_handler.h"
@@ -16,10 +12,6 @@ static MunitSuite test_suites[] = {
     {"/byte_array_tests", byte_array_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/context_tests", context_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/err_tests", err_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-    {"/shared_memory_tests", shared_memory_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-#if defined(__linux__)
-    {"/hyperv_linux_tests", hyperv_linux_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-#endif
     {"/int_handle_tests", int_handle_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/mem_access_handler_tests", mem_access_handler_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
     {"/outb_handler_tests", outb_handler_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},

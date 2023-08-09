@@ -4,6 +4,8 @@ pub(crate) mod guest_funcs;
 pub(crate) mod guest_mgr;
 /// Functionality for reading, but not modifying host functions
 pub(crate) mod host_funcs;
+/// Functionality for dealing with `Sandbox`es that contain Hypervisors
+pub(crate) mod hypervisor;
 /// Functionality for dealing with completely initialized sandboxes
 mod initialized;
 /// Functionality for interacting with a sandbox's internally-stored
@@ -15,6 +17,9 @@ mod run_options;
 /// Functionality for creating uninitialized sandboxes, manipulating them,
 /// and converting them to initialized sandboxes.
 mod uninitialized;
+/// Functionality for properly converting `UninitailizedSandbox`es to
+/// initialized `Sandbox`es.
+mod uninitialized_evolve;
 
 /// Re-export for `Sandbox` type
 pub use initialized::Sandbox;
@@ -23,6 +28,8 @@ pub use run_options::SandboxRunOptions;
 /// Re-export for `UninitializedSandbox` type
 pub use uninitialized::UninitializedSandbox;
 
+#[cfg(target_os = "windows")]
+use crate::hypervisor::windows_hypervisor_platform;
 #[cfg(target_os = "linux")]
 use crate::{hypervisor::hyperv_linux, hypervisor::kvm};
 
@@ -48,11 +55,14 @@ pub(crate) fn is_supported_platform() -> bool {
 //  Returns a boolean indicating whether a suitable hypervisor is present.
 pub(crate) fn is_hypervisor_present() -> bool {
     #[cfg(target_os = "linux")]
-    return hyperv_linux::is_hypervisor_present().unwrap_or(false)
-        || kvm::is_hypervisor_present().is_ok();
+    {
+        hyperv_linux::is_hypervisor_present().unwrap_or(false)
+            || kvm::is_hypervisor_present().is_ok()
+    }
     #[cfg(target_os = "windows")]
-    //TODO: Implement this for Windows once Rust WHP support is merged.
-    return true;
+    {
+        windows_hypervisor_platform::is_hypervisor_present().unwrap_or(false)
+    }
     #[cfg(not(target_os = "linux"))]
     #[cfg(not(target_os = "windows"))]
     false
@@ -67,9 +77,8 @@ mod tests {
     #[cfg(target_os = "linux")]
     use crate::hypervisor::kvm::test_cfg::TEST_CONFIG as KVM_TEST_CONFIG;
     use crate::sandbox::host_funcs::CallHostPrint;
-    use crate::{
-        sandbox::uninitialized::UninitializedSandbox, testing::simple_guest_path, Sandbox,
-    };
+    use crate::UninitializedSandbox;
+    use crate::{testing::simple_guest_path, Sandbox};
     use anyhow::Result;
     use crossbeam_queue::ArrayQueue;
     use std::{sync::Arc, thread};

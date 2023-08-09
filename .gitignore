@@ -465,3 +465,4 @@ libhyperlight_host.so
 libhyperlight_host.d
 hyperlight_host.dll
 .envrc
+vgcore.*

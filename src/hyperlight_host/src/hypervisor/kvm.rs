@@ -25,6 +25,7 @@ pub(crate) fn is_hypervisor_present() -> Result<()> {
 }
 
 /// A Hypervisor driver for KVM on Linux
+#[derive(Debug)]
 pub(crate) struct KVMDriver {
     // kvm and vm_fd are not used but must be present so they're properly
     // dropped.
@@ -262,6 +263,10 @@ impl Hypervisor for KVMDriver {
                 e
             )
         })
+    }
+
+    fn orig_rsp(&self) -> Result<u64> {
+        Ok(self.rsp)
     }
 }
 

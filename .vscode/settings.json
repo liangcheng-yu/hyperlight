@@ -24,7 +24,8 @@
     "flatcc_prologue.h": "c",
     "host_function_details_builder.h": "c",
     "val_ref_tests.h": "c",
-    "byte_array_tests.h": "c"
+    "byte_array_tests.h": "c",
+    "outb_handler.h": "c"
   },
   "rust-analyzer.showUnlinkedFileNotification": false
 }

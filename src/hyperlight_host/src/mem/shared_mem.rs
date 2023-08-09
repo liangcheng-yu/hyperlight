@@ -47,7 +47,26 @@ type Writer<'a, T> = Box<dyn Fn(T) -> Result<Vec<u8>>>;
 // Marking this type Sync is safe as it is intended to only ever used from a single thread.
 
 #[derive(Debug)]
-struct PtrCVoidMut(*mut c_void);
+pub(crate) struct PtrCVoidMut(*mut c_void);
+
+impl PtrCVoidMut {
+    #[cfg(target_os = "windows")]
+    pub(crate) fn as_mut_ptr(&mut self) -> *mut c_void {
+        self.0
+    }
+
+    #[cfg(target_os = "windows")]
+    pub(crate) fn as_ptr(&self) -> *const c_void {
+        self.0
+    }
+}
+
+impl From<*mut c_void> for PtrCVoidMut {
+    fn from(value: *mut c_void) -> Self {
+        Self(value)
+    }
+}
+
 unsafe impl Send for PtrCVoidMut {}
 unsafe impl Sync for PtrCVoidMut {}
 
@@ -267,19 +286,6 @@ impl SharedMemory {
     pub(crate) fn calculate_address(&self, offset: Offset) -> Result<usize> {
         bounds_check!(offset, self.mem_size());
         usize::try_from(self.base_addr() + offset)
-    }
-
-    /// Read an `i64` from shared memory starting at `offset`
-    ///
-    /// Return `Ok` with the `i64` value starting at `offset`
-    /// if the value between `offset` and `offset + <64 bits>`
-    /// was successfully decoded to a little-endian `i64`,
-    /// and `Err` otherwise.
-    pub(crate) fn read_i64(&self, offset: Offset) -> Result<i64> {
-        self.read(
-            offset,
-            Box::new(|mut c: ByteSliceCursor| c.read_i64::<LittleEndian>().map_err(|e| anyhow!(e))),
-        )
     }
 
     /// Read an `u64` from shared memory starting at `offset`
@@ -561,19 +567,6 @@ mod tests {
         }
     }
 
-    proptest! {
-        #[test]
-        fn read_i64_write_u64(mem_size in 256_usize..4096_usize, val in 0_u64..0x1000_u64) {
-            read_write_test_suite(
-                mem_size,
-                val,
-                Box::new(SharedMemory::read_i64),
-                Box::new(SharedMemory::write_u64),
-            )
-            .unwrap();
-        }
-    }
-
     #[test]
     fn alloc_fail() {
         let gm = SharedMemory::new(0);
@@ -633,11 +626,16 @@ mod tests {
     /// A test to ensure that, if a `SharedMem` instance is cloned
     /// and _all_ clones are dropped, the memory region will no longer
     /// be valid.
+    ///
+    /// This test is ignored because it is incompatible with other tests as
+    /// they may be allocating memory at the same time.
+    ///
+    /// Marking this test as ignored means that running `cargo test` will not
+    /// run it. This feature will allow a developer who runs that command
+    /// from their workstation to be successful without needing to know about
+    /// test interdependencies. This test will, however, be run explcitly as a
+    /// part of the CI pipeline.
     #[test]
-    // this test is ignored because it is incompatible with other tests as they may be allocating memory
-    // marking  this test as ignored means that running `cargo test` will not run this test but will allow a developer who runs that command
-    // from their workstation to be successful without needed to know about test interdependencies
-    // this test will be run explcitly as a part of the CI pipeline
     #[ignore]
     #[cfg(target_os = "linux")]
     fn test_drop() {

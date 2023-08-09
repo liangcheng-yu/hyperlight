@@ -2,7 +2,7 @@ use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::{
-    capi::{arrays::borrowed_slice::borrow_ptr_as_slice_mut, int::register_u64},
+    capi::int::register_u64,
     mem::{ptr_offset::Offset, shared_mem::SharedMemory},
     validate_context, validate_context_or_panic,
 };
@@ -21,41 +21,6 @@ mod impls {
     pub(crate) fn get_address(ctx: &Context, hdl: Handle) -> Result<usize> {
         let shared_mem = super::get_shared_memory(ctx, hdl)?;
         Ok(shared_mem.base_addr())
-    }
-
-    /// Read an `i64` from the memory location at `offset`
-    pub(crate) fn read_int_64(ctx: &Context, hdl: Handle, offset: Offset) -> Result<i64> {
-        let shared_mem = super::get_shared_memory(ctx, hdl)?;
-        (*shared_mem).read_i64(offset)
-    }
-
-    /// Write an `i64` to the memory location at `offset`
-    pub(crate) fn write_int_64(
-        ctx: &mut Context,
-        hdl: Handle,
-        offset: Offset,
-        val: i64,
-    ) -> Result<()> {
-        let shared_mem = super::get_shared_memory_mut(ctx, hdl)?;
-        (*shared_mem).write_u64(offset, val as u64)
-    }
-
-    /// Read an `i32` from the memory location at `offset`
-    pub(crate) fn read_int_32(ctx: &Context, hdl: Handle, offset: Offset) -> Result<i32> {
-        let shared_mem = super::get_shared_memory(ctx, hdl)?;
-        (*shared_mem).read_i32(offset)
-    }
-
-    /// Write `val` to the memory location at `offset`
-    pub(crate) fn write_int_32(
-        ctx: &mut Context,
-        hdl: Handle,
-        offset: Offset,
-        val: i32,
-    ) -> Result<()> {
-        let shared_mem = super::get_shared_memory_mut(ctx, hdl)?;
-        (*shared_mem).write_i32(offset, val)?;
-        Ok(())
     }
 
     /// Look up the `[u8]` referenced by `byte_arr_hdl` in `ctx`,
@@ -250,18 +215,6 @@ mod impls {
 
         shared_mem.copy_from_slice(data, shared_mem_offset)
     }
-
-    /// Look up the shared memory wrapper referenced by `shared_mem_hdl` in
-    /// `ctx`, then copy its contents starting at `offset` into `byte_array`
-    pub(crate) fn copy_to_byte_array(
-        ctx: &mut Context,
-        shared_mem_hdl: Handle,
-        byte_array: &mut [u8],
-        offset: Offset,
-    ) -> Result<()> {
-        let shared_mem = super::get_shared_memory_mut(ctx, shared_mem_hdl)?;
-        (*shared_mem).copy_to_slice(byte_array, offset)
-    }
 }
 
 /// Get the `SharedMemory` stored in `ctx` and referenced by `hdl` and return
@@ -273,43 +226,10 @@ pub(crate) fn get_shared_memory(ctx: &Context, hdl: Handle) -> Result<&SharedMem
     Context::get(hdl, &ctx.shared_mems, |g| matches!(g, Hdl::SharedMemory(_)))
 }
 
-/// Get the `SharedMemory` stored in `ctx` and referenced by `hdl` and return
-/// it inside a `WriteResult` suitable for mutation.
-///
-/// Returns `Ok` if `hdl` is a valid `SharedMemory` in `ctx`,
-/// `Err` otherwise.
-pub(crate) fn get_shared_memory_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut SharedMemory> {
-    Context::get_mut(hdl, &mut ctx.shared_mems, |g| {
-        matches!(g, Hdl::SharedMemory(_))
-    })
-}
-
 /// Store the given `shared_mem` in `ctx` and return a new `Handle`
 /// referencing it.
 pub(crate) fn register_shared_mem(ctx: &mut Context, shared_mem: SharedMemory) -> Handle {
     Context::register(shared_mem, &mut ctx.shared_mems, Hdl::SharedMemory)
-}
-
-/// Create a new instance of shared memory with `min_size` bytes.
-///
-/// Guest memory is shared memory intended to be shared with a
-/// hypervisor partition.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free`
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn shared_memory_new(ctx: *mut Context, min_size: u64) -> Handle {
-    validate_context!(ctx);
-
-    match SharedMemory::new(min_size as usize) {
-        Ok(shared_mem) => register_shared_mem(&mut *ctx, shared_mem),
-        Err(e) => (*ctx).register_err(e),
-    }
 }
 
 /// Get the starting address of the shared memory referenced
@@ -404,179 +324,6 @@ pub unsafe extern "C" fn shared_memory_copy_from_byte_array(
         arr_start,
         arr_length,
     ) {
-        Ok(_) => Handle::new_empty(),
-        Err(e) => (*ctx).register_err(e),
-    }
-}
-
-/// Fetch the shared memory in `ctx` referenced by `shared_mem_hdl`,
-/// then copy the data from shared memory starting at address `offset`
-/// into the memory between `byte_array` and `(byte_array + length)`
-///
-/// Return an empty `Handle` if the shared memory and byte array were valid
-/// and the copy succeeded, or an error handle otherwise.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free`
-/// - Not modified, except by calling functions in the Hyperlight C API
-///
-/// You must also call this function with:
-///
-/// - A valid handle to shared memory
-/// - A valid offset into the shared memory
-/// - A pointer to a byte array
-/// - A valid length for the byte array
-///
-/// The byte array is owned by the caller and must be valid for the lifetime of the call.
-#[no_mangle]
-pub unsafe extern "C" fn shared_memory_copy_to_byte_array(
-    ctx: *mut Context,
-    shared_mem_hdl: Handle,
-    offset: usize,
-    byte_array: *mut u8,
-    length: usize,
-) -> Handle {
-    validate_context!(ctx);
-
-    if byte_array.is_null() {
-        return (*ctx).register_err(anyhow!("Invalid byte array"));
-    };
-
-    if length < 1 {
-        return (*ctx).register_err(anyhow!("Invalid length"));
-    };
-
-    let offset_val = match Offset::try_from(offset) {
-        Ok(offs) => offs,
-        Err(e) => return (*ctx).register_err(e),
-    };
-
-    match borrow_ptr_as_slice_mut(byte_array, length, |buffer| {
-        impls::copy_to_byte_array(&mut *ctx, shared_mem_hdl, buffer, offset_val)
-    }) {
-        Ok(_) => Handle::new_empty(),
-        Err(e) => (*ctx).register_err(e),
-    }
-}
-
-/// Fetch shared memory from `ctx` referenced by `hdl`, then read
-/// a single 64 bit integer from it at address `addr`.
-///
-/// Return a `Handle` containing the integer if the read succeeded,
-/// and an error otherwise.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free`
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn shared_memory_read_int_64(
-    ctx: *mut Context,
-    hdl: Handle,
-    stack_frame_offset: u64,
-) -> Handle {
-    validate_context!(ctx);
-
-    match impls::read_int_64(&*ctx, hdl, Offset::from(stack_frame_offset)) {
-        Ok(val) => Context::register(val, &mut (*ctx).int64s, Hdl::Int64),
-        Err(e) => (*ctx).register_err(e),
-    }
-}
-
-/// Write a single 64 bit integer `val` to shared memory in `ctx` referenced
-/// by `hdl` at the offset `offset`
-///
-/// Return an empty `Handle` if the write succeeded,
-/// and an error `Handle` otherwise.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free`
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn shared_memory_write_int_64(
-    ctx: *mut Context,
-    hdl: Handle,
-    offset: usize,
-    val: i64,
-) -> Handle {
-    validate_context!(ctx);
-
-    let offset_val = match Offset::try_from(offset) {
-        Ok(offs) => offs,
-        Err(e) => return (*ctx).register_err(e),
-    };
-
-    match impls::write_int_64(&mut *ctx, hdl, offset_val, val) {
-        Ok(_) => Handle::new_empty(),
-        Err(e) => (*ctx).register_err(e),
-    }
-}
-
-/// Fetch shared memory from `ctx` referenced by `hdl`, then read
-/// a single 32 bit integer from it at offset `offset`.
-///
-/// Return a `Handle` containing the integer if the read succeeded,
-/// and an error otherwise.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free`
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn shared_memory_read_int_32(
-    ctx: *mut Context,
-    hdl: Handle,
-    offset: u64,
-) -> Handle {
-    validate_context!(ctx);
-
-    match impls::read_int_32(&*ctx, hdl, Offset::from(offset)) {
-        Ok(val) => Context::register(val, &mut (*ctx).int32s, Hdl::Int32),
-        Err(e) => (*ctx).register_err(e),
-    }
-}
-
-/// Write a single 32 bit integer `val` to shared memory in `ctx` referenced
-/// by `hdl` at `addr`.
-///
-/// Return an empty `Handle` if the write succeeded,
-/// and an error `Handle` otherwise.
-///
-/// # Safety
-///
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free`
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn shared_memory_write_int_32(
-    ctx: *mut Context,
-    hdl: Handle,
-    offset: usize,
-    val: i32,
-) -> Handle {
-    validate_context!(ctx);
-    let offset_val = match Offset::try_from(offset) {
-        Ok(offs) => offs,
-        Err(e) => return (*ctx).register_err(e),
-    };
-
-    match impls::write_int_32(&mut *ctx, hdl, offset_val, val) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
