@@ -181,45 +181,31 @@ mod tests {
         testing::{callback_guest_path, simple_guest_path},
         UninitializedSandbox,
     };
-    #[cfg(target_os = "linux")]
     use anyhow::anyhow;
     use std::rc::Rc;
 
-    /// This test is temporarily disabled for windows builds.
-    /// see https://github.com/deislabs/hyperlight/issues/845 for more
-    /// information
     #[test]
     fn test_evolve() {
-        #[cfg(target_os = "windows")]
-        {
-            println!(
-                "Windows support is temporarily disabled. see https://github.com/deislabs/hyperlight/issues/845 for more information"
-            );
-        }
-        #[cfg(target_os = "linux")]
-        {
-            let guest_bin_paths =
-                vec![simple_guest_path().unwrap(), callback_guest_path().unwrap()];
-            let outb_rc = {
-                let cb: Box<dyn Fn(u16, u64)> = Box::new(|_, _| {
-                    println!("outb callback in test_evolve");
-                });
-                Rc::new(OutBHandlerFn::from(cb))
-            };
-            let mem_access_rc = {
-                let cb: Box<dyn Fn()> = Box::new(|| {
-                    println!("mem access callback in test_evolve");
-                });
-                Rc::new(MemAccessHandlerFn::from(cb))
-            };
-            for guest_bin_path in guest_bin_paths {
-                let u_sbox = UninitializedSandbox::new(guest_bin_path.clone(), None, None).unwrap();
-                evolve_impl(u_sbox, outb_rc.clone(), mem_access_rc.clone())
-                    .map_err(|e| {
-                        anyhow!("error evolving sandbox with guest binary {guest_bin_path}: {e:?}")
-                    })
-                    .unwrap();
-            }
+        let guest_bin_paths = vec![simple_guest_path().unwrap(), callback_guest_path().unwrap()];
+        let outb_rc = {
+            let cb: Box<dyn Fn(u16, u64)> = Box::new(|_, _| {
+                println!("outb callback in test_evolve");
+            });
+            Rc::new(OutBHandlerFn::from(cb))
+        };
+        let mem_access_rc = {
+            let cb: Box<dyn Fn()> = Box::new(|| {
+                println!("mem access callback in test_evolve");
+            });
+            Rc::new(MemAccessHandlerFn::from(cb))
+        };
+        for guest_bin_path in guest_bin_paths {
+            let u_sbox = UninitializedSandbox::new(guest_bin_path.clone(), None, None).unwrap();
+            evolve_impl(u_sbox, outb_rc.clone(), mem_access_rc.clone())
+                .map_err(|e| {
+                    anyhow!("error evolving sandbox with guest binary {guest_bin_path}: {e:?}")
+                })
+                .unwrap();
         }
     }
 

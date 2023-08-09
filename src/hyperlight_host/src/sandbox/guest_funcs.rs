@@ -115,11 +115,6 @@ pub(crate) trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox {
 }
 
 #[cfg(test)]
-/// TODO: re-enable for windows. some windows tests have been temporarily
-/// disabled. see the following github issue for more details:
-///
-/// https://github.com/deislabs/hyperlight/issues/845
-#[cfg(target_os = "linux")]
 mod tests {
     use crate::testing::simple_guest_path;
     use crate::UninitializedSandbox;

@@ -309,7 +309,7 @@ mod tests {
         UninitializedSandbox,
     };
     use crate::{sandbox::host_funcs::CallHostFunction, testing::log_values::try_to_strings};
-    use anyhow::Result;
+    use anyhow::{anyhow, Result};
     use crossbeam_queue::ArrayQueue;
     use log::Level;
     use serde_json::{Map, Value};
@@ -989,30 +989,15 @@ mod tests {
 
             // Now we have set the max level to error, so we should not see any log calls as the following should not create an error
 
-            let sbox = UninitializedSandbox::new(simple_guest_path().unwrap(), None, None);
+            let sbox = {
+                let res = UninitializedSandbox::new(simple_guest_path().unwrap(), None, None);
+                res.map_err(|e| anyhow!("could not create a new UninitializedSandbox: {e:?}"))
+                    .unwrap()
+            };
+            let _ = sbox.initialize::<fn(&mut UninitializedSandbox<'_>) -> Result<()>>(None);
 
-            // we've temporarily disabled Windows Hypervisor support,
-            // so we're not doing an initialize here.
-            //
-            // see https://github.com/deislabs/hyperlight/issues/845 for
-            // more details.
-            #[cfg(target_os = "windows")]
-            {
-                println!(
-                    "Windows support is temporarily disabled. see https://github.com/deislabs/hyperlight/issues/845 for more information"
-                );
-
-                // just here to prevent clippy from complaining for now
-                let _ = sbox;
-            }
-            #[cfg(target_os = "linux")]
-            {
-                let sbox = sbox.unwrap();
-                let _ = sbox.initialize::<fn(&mut UninitializedSandbox<'_>) -> Result<()>>(None);
-
-                let num_calls = TEST_LOGGER.num_log_calls();
-                assert_eq!(0, num_calls);
-            }
+            let num_calls = TEST_LOGGER.num_log_calls();
+            assert_eq!(0, num_calls);
         }
     }
 }
