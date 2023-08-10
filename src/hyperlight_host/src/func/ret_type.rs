@@ -3,7 +3,7 @@ use anyhow::{bail, Result};
 use crate::func::types::{ReturnType, ReturnValue};
 
 /// This is a marker trait that is used to indicate that a type is a valid Hyperlight return type.
-pub trait SupportedReturnType<T> {
+pub(crate) trait SupportedReturnType<T> {
     fn get_hyperlight_type() -> ReturnType;
     fn get_hyperlight_value(&self) -> ReturnValue;
     fn get_inner(a: ReturnValue) -> Result<T>;

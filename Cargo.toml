@@ -1,5 +1,4 @@
 [workspace]
 members = [
-    "src/hyperlight_macro",
     "src/hyperlight_host",
 ]

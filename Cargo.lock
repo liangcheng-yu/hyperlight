@@ -523,7 +523,6 @@ dependencies = [
  "flatbuffers",
  "goblin",
  "hex-literal",
- "hyperlight_macro",
  "is-terminal",
  "kvm-bindings",
  "kvm-ioctls",
@@ -556,16 +555,6 @@ dependencies = [
  "uuid",
  "vmm-sys-util",
  "windows",
-]
-
-[[package]]
-name = "hyperlight_macro"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "proc-macro2",
- "quote",
- "syn 2.0.28",
 ]
 
 [[package]]

@@ -62,7 +62,6 @@ impl Eq for ExecutingGuestCall {}
 /// `UninitializedSandbox`, and then call `evolve` or `initialize` on it to
 /// generate one of these.
 #[allow(unused)]
-#[derive(Clone, PartialEq, Eq)]
 pub struct Sandbox<'a> {
     // Registered host functions
     host_functions: FunctionsMap<'a>,

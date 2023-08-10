@@ -17,17 +17,17 @@ use super::types::ReturnType;
 /// `Functioncall` represents a call to a function in the guest or host.
 #[derive(Clone)]
 #[readonly::make]
-pub struct FunctionCall {
+pub(crate) struct FunctionCall {
     /// The function name
-    pub function_name: String,
+    pub(crate) function_name: String,
     /// The parameters for the function call.
-    pub parameters: Option<Vec<ParameterValue>>,
-    pub function_call_type: FunctionCallType,
-    pub expected_return_type: ReturnType,
+    pub(crate) parameters: Option<Vec<ParameterValue>>,
+    function_call_type: FunctionCallType,
+    expected_return_type: ReturnType,
 }
 
 impl FunctionCall {
-    pub fn new(
+    pub(crate) fn new(
         function_name: String,
         parameters: Option<Vec<ParameterValue>>,
         function_call_type: FunctionCallType,
@@ -44,7 +44,7 @@ impl FunctionCall {
 
 /// The type of function call.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum FunctionCallType {
+pub(crate) enum FunctionCallType {
     /// The function call is to a guest function.
     Guest,
     /// The function call is to a host function.

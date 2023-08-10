@@ -37,7 +37,6 @@ tracing-log = "0.1.3"
 tracing-core = "0.1.31"
 uuid = { version = "1.4.1", features = ["v4"] }
 tracing-subscriber = { version = "0.3.17", features = ["json"] }
-hyperlight_macro = { path = "../hyperlight_macro" }
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.48.0", features = [
