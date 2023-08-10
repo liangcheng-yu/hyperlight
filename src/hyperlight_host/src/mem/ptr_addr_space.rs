@@ -2,7 +2,7 @@ use super::{layout::SandboxMemoryLayout, shared_mem::SharedMemory};
 use anyhow::Result;
 
 /// A representation of a specific address space
-pub(crate) trait AddressSpace {
+pub(crate) trait AddressSpace: std::cmp::Eq {
     /// The base address for this address space
     fn base(&self) -> u64;
 }

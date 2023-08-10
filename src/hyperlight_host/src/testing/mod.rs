@@ -5,11 +5,9 @@ use std::fs;
 use std::path::PathBuf;
 pub(crate) mod log_values;
 pub(crate) mod logger;
-pub(crate) mod tracing_subscriber;
-
 #[cfg(target_os = "windows")]
 pub(crate) mod surrogate_binary;
-
+pub(crate) mod tracing_subscriber;
 pub(crate) const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
 /// Join all the `&str`s in the `v` parameter as a path with appropriate

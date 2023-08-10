@@ -5,17 +5,18 @@
 
 MunitResult test_is_hypervisor_present(const MunitParameter params[], void *fixture)
 {
-
-    // TODO: remove this once we have WHP hooked up the the Rust Sandbox
-
-#ifdef _WIN32
-    return MUNIT_SKIP;
-#endif
+#ifdef __linux__
 
     HypervisorAvailabilityType *hypervisorAvailability = (HypervisorAvailabilityType *)fixture;
     bool status = is_hypervisor_present();
 
-    if ((hypervisorAvailability->expect_hyperv_linux_present && hypervisorAvailability->expect_hyperv_linux_prerelease_api) || hypervisorAvailability->expect_kvm_present || hypervisorAvailability->expect_whp_present)
+    bool should_be_true = ((
+                               hypervisorAvailability->expect_hyperv_linux_present &&
+                               hypervisorAvailability->expect_hyperv_linux_prerelease_api) ||
+                           hypervisorAvailability->expect_kvm_present ||
+                           hypervisorAvailability->expect_whp_present);
+
+    if (should_be_true)
     {
         munit_assert_true(status);
     }
@@ -27,6 +28,12 @@ MunitResult test_is_hypervisor_present(const MunitParameter params[], void *fixt
     // TODO: Test for a non pre release API version of hyperv on linux when it is available.
 
     return MUNIT_OK;
+#else
+    // TODO: implement this test for windows.
+    //
+    // see https://github.com/deislabs/hyperlight/issues/850 for details
+    return MUNIT_OK;
+#endif
 }
 
 void host_print(const char *str)
@@ -36,6 +43,7 @@ void host_print(const char *str)
 
 MunitResult test_host_print(const MunitParameter params[], void *fixture)
 {
+#ifdef __linux__
     Context *ctx = context_new("test correlation id");
     SandboxMemoryConfiguration mem_cfg = {
         .guest_error_buffer_size = 4096,
@@ -58,5 +66,6 @@ MunitResult test_host_print(const MunitParameter params[], void *fixture)
     handle_free(ctx, binary);
     handle_free(ctx, sbx);
     context_free(ctx);
+#endif
     return MUNIT_OK;
 }

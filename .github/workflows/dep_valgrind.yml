@@ -20,12 +20,8 @@ jobs:
         #
         # in fact, the `cargo valgrind build` command doesn't have an
         # easy way to even run against a release build.
-        build: [ubuntu-20.04-debug, linux-kvm-debug, linux-hyperv-debug]
+        build: [linux-kvm-debug, linux-hyperv-debug]
         include:
-          - build: ubuntu-20.04-debug
-            os: ubuntu-20.04
-            hypervisor: none
-            config: debug
           - build: linux-kvm-debug
             os: [self-hosted, Linux, X64, "1ES.Pool=HL-Ubuntu-20.04-KVM"]
             hypervisor: kvm

@@ -16,12 +16,8 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        build: [ubuntu-20.04-debug, windows-2022-debug, linux-kvm-debug, linux-hyperv-debug, ubuntu-20.04-release, windows-2022-release, linux-kvm-release, linux-hyperv-release]
+        build: [windows-2022-debug, linux-kvm-debug, linux-hyperv-debug, windows-2022-release, linux-kvm-release, linux-hyperv-release]
         include:
-          - build: ubuntu-20.04-debug
-            os: ubuntu-20.04
-            hypervisor: none
-            config: debug
           - build: windows-2022-debug
             os: [self-hosted, Windows, X64, "1ES.Pool=HL-Windows-2022"]
             hypervisor: none
@@ -34,10 +30,6 @@ jobs:
             os: [self-hosted, Linux, X64, "1ES.Pool=HL-CBLMariner-mshv"]
             hypervisor: hyperv
             config: debug
-          - build: ubuntu-20.04-release
-            os: ubuntu-20.04
-            hypervisor: none
-            config: release
           - build: windows-2022-release
             os: [self-hosted, Windows, X64, "1ES.Pool=HL-Windows-2022"]
             hypervisor: none

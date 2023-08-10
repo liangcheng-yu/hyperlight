@@ -401,3 +401,105 @@
    fun:*hashbrown*map*HashMap*insert*
    fun:*std*collections*hash*map*HashMap*insert*
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h65d0e470e4c6a67eE
+   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd15map_user_memory17h299d76554190b147E
+   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver3new17hf9cad8b9f7cdf937E
+   fun:_ZN15hyperlight_host7sandbox10hypervisor79_$LT$impl$u20$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$27set_up_hypervisor_partition17hcb722190d2343c2dE
+   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new28_$u7b$$u7b$closure$u7d$$u7d$17h39d23e66ef52b5beE
+   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new17h66314c806fdc3988E
+   fun:_ZN15hyperlight_host4capi7sandbox11sandbox_new28_$u7b$$u7b$closure$u7d$$u7d$17h6b73a9a5b4709ee5E
+   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$28_$u7b$$u7b$closure$u7d$$u7d$17h29fb4ba41739b8f4E
+   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17hf35c12648a4378ecE
+   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$17h83216d85af583a00E
+   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17h9aac8e2bfede50fbE
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:_ZN12vmm_sys_util5linux5ioctl18ioctl_with_mut_ref17hb6b4fdc513aaaaa3E
+   fun:_ZN11mshv_ioctls6ioctls4vcpu6VcpuFd7get_reg17h9abf0085b28eafa9E
+   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver13add_registers17he2f32f149b897a8cE
+   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver3new17hf9cad8b9f7cdf937E
+   fun:_ZN15hyperlight_host7sandbox10hypervisor79_$LT$impl$u20$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$27set_up_hypervisor_partition17hcb722190d2343c2dE
+   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new28_$u7b$$u7b$closure$u7d$$u7d$17h39d23e66ef52b5beE
+   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new17h66314c806fdc3988E
+   fun:_ZN15hyperlight_host4capi7sandbox11sandbox_new28_$u7b$$u7b$closure$u7d$$u7d$17h6b73a9a5b4709ee5E
+   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$28_$u7b$$u7b$closure$u7d$$u7d$17h29fb4ba41739b8f4E
+   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17hf35c12648a4378ecE
+   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$17h83216d85af583a00E
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h65d0e470e4c6a67eE
+   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd17unmap_user_memory17h5a13dfd6965fe811E
+   fun:_ZN102_$LT$hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver$u20$as$u20$core..ops..drop..Drop$GT$4drop17hfee0233ea2e93799E
+   fun:_ZN4core3ptr81drop_in_place$LT$hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver$GT$17h6ed8b76d0e8037a5E
+   fun:_ZN4core3ptr93drop_in_place$LT$alloc..boxed..Box$LT$dyn$u20$hyperlight_host..hypervisor..Hypervisor$GT$$GT$17hbb17d9f36867af37E
+   fun:_ZN4core3ptr121drop_in_place$LT$core..option..Option$LT$alloc..boxed..Box$LT$dyn$u20$hyperlight_host..hypervisor..Hypervisor$GT$$GT$$GT$17hd89a91e47ae8a8ffE
+   fun:_ZN4core3ptr76drop_in_place$LT$hyperlight_host..sandbox..hypervisor..HypervisorWrapper$GT$17h36b6ca646c01290aE
+   fun:_ZN4core3ptr82drop_in_place$LT$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$17h524e61105372f503E
+   fun:_ZN4core3ptr107drop_in_place$LT$alloc..boxed..Box$LT$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$$GT$17h19bcfa9caeb83b8fE
+   fun:_ZN4core3ptr70drop_in_place$LT$hyperlight_host..capi..sandbox_compat..EitherImpl$GT$17h59643f940628f8dcE
+   fun:_ZN4core3ptr67drop_in_place$LT$hyperlight_host..capi..sandbox_compat..Sandbox$GT$17h890807fbe5d06711E
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h65d0e470e4c6a67eE
+   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd17unmap_user_memory17h5a13dfd6965fe811E
+   fun:_ZN102_$LT$hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver$u20$as$u20$core..ops..drop..Drop$GT$4drop17hfee0233ea2e93799E
+   fun:_ZN4core3ptr81drop_in_place$LT$hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver$GT$17h6ed8b76d0e8037a5E
+   fun:_ZN4core3ptr93drop_in_place$LT$alloc..boxed..Box$LT$dyn$u20$hyperlight_host..hypervisor..Hypervisor$GT$$GT$17hbb17d9f36867af37E
+   fun:_ZN4core3ptr121drop_in_place$LT$core..option..Option$LT$alloc..boxed..Box$LT$dyn$u20$hyperlight_host..hypervisor..Hypervisor$GT$$GT$$GT$17hd89a91e47ae8a8ffE
+   fun:_ZN4core3ptr76drop_in_place$LT$hyperlight_host..sandbox..hypervisor..HypervisorWrapper$GT$17h36b6ca646c01290aE
+   fun:_ZN4core3ptr82drop_in_place$LT$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$17h524e61105372f503E
+   fun:_ZN4core3ptr107drop_in_place$LT$alloc..boxed..Box$LT$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$$GT$17h19bcfa9caeb83b8fE
+   fun:_ZN4core3ptr70drop_in_place$LT$hyperlight_host..capi..sandbox_compat..EitherImpl$GT$17h59643f940628f8dcE
+   fun:_ZN4core3ptr67drop_in_place$LT$hyperlight_host..capi..sandbox_compat..Sandbox$GT$17h890807fbe5d06711E
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:_ZN12vmm_sys_util5linux5ioctl18ioctl_with_mut_ref17hb6b4fdc513aaaaa3E
+   fun:_ZN11mshv_ioctls6ioctls4vcpu6VcpuFd7get_reg17h9abf0085b28eafa9E
+   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver13add_registers17he2f32f149b897a8cE
+   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver3new17hf9cad8b9f7cdf937E
+   fun:_ZN15hyperlight_host7sandbox10hypervisor79_$LT$impl$u20$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$27set_up_hypervisor_partition17hcb722190d2343c2dE
+   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new28_$u7b$$u7b$closure$u7d$$u7d$17h39d23e66ef52b5beE
+   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new17h66314c806fdc3988E
+   fun:_ZN15hyperlight_host4capi7sandbox11sandbox_new28_$u7b$$u7b$closure$u7d$$u7d$17h6b73a9a5b4709ee5E
+   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$28_$u7b$$u7b$closure$u7d$$u7d$17h29fb4ba41739b8f4E
+   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17hf35c12648a4378ecE
+   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$17h83216d85af583a00E
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h65d0e470e4c6a67eE
+   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd15map_user_memory17h299d76554190b147E
+   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver3new17hf9cad8b9f7cdf937E
+   fun:_ZN15hyperlight_host7sandbox10hypervisor79_$LT$impl$u20$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$27set_up_hypervisor_partition17hcb722190d2343c2dE
+   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new28_$u7b$$u7b$closure$u7d$$u7d$17h39d23e66ef52b5beE
+   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new17h66314c806fdc3988E
+   fun:_ZN15hyperlight_host4capi7sandbox11sandbox_new28_$u7b$$u7b$closure$u7d$$u7d$17h6b73a9a5b4709ee5E
+   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$28_$u7b$$u7b$closure$u7d$$u7d$17h29fb4ba41739b8f4E
+   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17hf35c12648a4378ecE
+   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$17h83216d85af583a00E
+   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17h9aac8e2bfede50fbE
+}

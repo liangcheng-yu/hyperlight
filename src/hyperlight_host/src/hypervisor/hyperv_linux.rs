@@ -4,8 +4,8 @@ use super::{
     CR4_PAE, EFER_LMA, EFER_LME,
 };
 
-use crate::hypervisor::hypervisor_mem::HypervisorAddrs;
 use crate::mem::ptr::RawPtr;
+use crate::{hypervisor::hypervisor_mem::HypervisorAddrs, mem::ptr::GuestPtr};
 use anyhow::{anyhow, bail, Result};
 use mshv_bindings::{
     hv_message, hv_message_type, hv_message_type_HVMSG_UNMAPPED_GPA,
@@ -18,7 +18,6 @@ use mshv_bindings::{
     hv_register_name_HV_X64_REGISTER_RFLAGS, hv_register_name_HV_X64_REGISTER_RIP,
     hv_register_name_HV_X64_REGISTER_RSP, hv_register_value, hv_u128, mshv_user_mem_region,
 };
-//use mshv_bindings::*;
 use mshv_ioctls::{Mshv, VcpuFd, VmFd};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
@@ -60,6 +59,8 @@ static REQUIRE_STABLE_API: Lazy<bool> =
         Err(_) => false,
     });
 
+type RegistersHashMap = HashMap<hv_register_name, hv_register_value>;
+
 /// A Hypervisor driver for HyperV-on-Linux. This hypervisor is often
 /// called the Microsoft Hypervisor Platform (MSHV)
 pub(crate) struct HypervLinuxDriver {
@@ -72,16 +73,32 @@ pub(crate) struct HypervLinuxDriver {
     // implement Eq and PartialEq
     // since it implements neither, we have to use a HashMap
     // instead and use the registers's name -- a u32 -- as the key
-    registers: HashMap<hv_register_name, hv_register_value>,
+    registers: RegistersHashMap,
+    orig_rsp: GuestPtr,
+}
+
+impl std::fmt::Debug for HypervLinuxDriver {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HypervLinuxDriver")
+            .field("mem_region", &self.mem_region)
+            .finish()
+    }
 }
 
 impl HypervLinuxDriver {
-    /// Create a new instance of `Self`, without any registers
-    /// set.
+    /// Create a new `HypervLinuxDriver`, complete with all registers
+    /// set up to execute a Hyperlight binary inside a HyperV-powered
+    /// sandbox on Linux.
     ///
-    /// Call `add_basic_registers` or `add_advanced_registers`,
-    /// then `apply_registers` to do so.
-    pub(crate) fn new(addrs: &HypervisorAddrs) -> Result<Self> {
+    /// While registers are set up, they will not have been applied to
+    /// the underlying virtual CPU after this function returns. Call the
+    /// `apply_registers` method to do that, or more likely call
+    /// `initialise` to do it for you.
+    pub(crate) fn new(
+        addrs: &HypervisorAddrs,
+        rsp_ptr: GuestPtr,
+        pml4_ptr: GuestPtr,
+    ) -> Result<Self> {
         match is_hypervisor_present() {
             Ok(true) => (),
             Ok(false) => bail!(
@@ -93,7 +110,7 @@ impl HypervLinuxDriver {
         let mshv = Mshv::new().map_err(|e| anyhow!(e))?;
         let pr = Default::default();
         let vm_fd = mshv.create_vm_with_config(&pr).map_err(|e| anyhow!(e))?;
-        let vcpu_fd = vm_fd.create_vcpu(0).map_err(|e| anyhow!(e))?;
+        let mut vcpu_fd = vm_fd.create_vcpu(0).map_err(|e| anyhow!(e))?;
         let mem_region = mshv_user_mem_region {
             size: addrs.mem_size,
             guest_pfn: addrs.guest_pfn,
@@ -102,21 +119,34 @@ impl HypervLinuxDriver {
         };
 
         vm_fd.map_user_memory(mem_region).map_err(|e| anyhow!(e))?;
+        let registers = {
+            let mut hm = HashMap::new();
+            Self::add_registers(&mut vcpu_fd, &mut hm, addrs, rsp_ptr.clone(), pml4_ptr)?;
+            hm
+        };
         Ok(Self {
             _mshv: mshv,
             vm_fd,
             vcpu_fd,
             mem_region,
-            registers: HashMap::new(),
+            registers,
+            orig_rsp: rsp_ptr,
         })
     }
 
-    /// Add basic registers to the pending list of registers, but do not
+    /// Add all register values to the pending list of registers, but do not
     /// apply them.
     ///
-    /// The added registers will be suitable for running very "basic" code
-    /// that uses no memory.
-    pub(crate) fn add_basic_registers(&mut self, addrs: &HypervisorAddrs) -> Result<()> {
+    /// If you want to manually apply registers to the stored vCPU, call
+    /// `apply_registers`. `initialise` and `dispatch_call_from_host` will
+    /// also do so automatically.
+    fn add_registers(
+        vcpu: &mut VcpuFd,
+        registers: &mut RegistersHashMap,
+        addrs: &HypervisorAddrs,
+        rsp_ptr: GuestPtr,
+        pml4_ptr: GuestPtr,
+    ) -> Result<()> {
         // set CS register. adapted from:
         // https://github.com/rust-vmm/mshv/blob/ed66a5ad37b107c972701f93c91e8c7adfe6256a/mshv-ioctls/src/ioctls/vcpu.rs#L1165-L1169
         {
@@ -125,81 +155,71 @@ impl HypervLinuxDriver {
                 name: hv_register_name_HV_X64_REGISTER_CS,
                 ..Default::default()
             };
-            self.vcpu_fd
-                .get_reg(std::slice::from_mut(&mut cs_reg))
+            vcpu.get_reg(std::slice::from_mut(&mut cs_reg))
                 .map_err(|e| anyhow!(e))?;
             cs_reg.value.segment.base = 0;
             cs_reg.value.segment.selector = 0;
-            self.registers
-                .insert(hv_register_name_HV_X64_REGISTER_CS, cs_reg.value);
+            registers.insert(hv_register_name_HV_X64_REGISTER_CS, cs_reg.value);
         }
 
-        self.registers.insert(
+        registers.insert(
             hv_register_name_HV_X64_REGISTER_RAX,
             hv_register_value { reg64: 2 },
         );
 
-        self.registers.insert(
+        registers.insert(
             hv_register_name_HV_X64_REGISTER_RBX,
             hv_register_value { reg64: 2 },
         );
 
-        self.registers.insert(
+        registers.insert(
             hv_register_name_HV_X64_REGISTER_RFLAGS,
             hv_register_value { reg64: 0x2 },
         );
 
-        self.registers.insert(
+        registers.insert(
             hv_register_name_HV_X64_REGISTER_RIP,
             hv_register_value {
                 reg64: addrs.entrypoint,
             },
         );
-        Ok(())
-    }
 
-    /// Create an "advanced" version of `Self`, equipped to execute code that
-    /// accesses memory
-    pub(crate) fn add_advanced_registers(
-        &mut self,
-        addrs: &HypervisorAddrs,
-        rsp: u64,
-        pml4: u64,
-    ) -> Result<()> {
-        self.add_basic_registers(addrs)?;
-
-        self.registers.insert(
+        registers.insert(
             hv_register_name_HV_X64_REGISTER_RSP,
-            hv_register_value { reg64: rsp },
+            hv_register_value {
+                reg64: rsp_ptr.absolute()?,
+            },
         );
 
-        self.registers.insert(
+        registers.insert(
             hv_register_name_HV_X64_REGISTER_CR3,
-            hv_register_value { reg64: pml4 },
+            hv_register_value {
+                reg64: pml4_ptr.absolute()?,
+            },
         );
 
-        self.registers.insert(
+        registers.insert(
             hv_register_name_HV_X64_REGISTER_CR4,
             hv_register_value {
                 reg64: CR4_PAE | CR4_OSFXSR | CR4_OSXMMEXCPT,
             },
         );
 
-        self.registers.insert(
+        registers.insert(
             hv_register_name_HV_X64_REGISTER_CR0,
             hv_register_value {
                 reg64: CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG,
             },
         );
 
-        self.registers.insert(
+        registers.insert(
             hv_register_name_HV_X64_REGISTER_EFER,
             hv_register_value {
                 reg64: EFER_LME | EFER_LMA,
             },
         );
 
-        self.registers.insert(
+        registers.insert(
             hv_register_name_HV_X64_REGISTER_CS,
             hv_register_value {
                 reg128: hv_u128 {
@@ -257,11 +277,6 @@ impl HypervLinuxDriver {
         self.vcpu_fd.set_reg(&[reg]).map_err(|e| anyhow!(e))
     }
 
-    fn run_vcpu(&self) -> Result<hv_message> {
-        let hv_message: hv_message = Default::default();
-        self.vcpu_fd.run(hv_message).map_err(|e| anyhow!(e))
-    }
-
     fn handle_io_port_intercept(
         &mut self,
         msg: hv_message,
@@ -276,16 +291,6 @@ impl HypervLinuxDriver {
         outb_handle_fn.call(port_number, rax);
 
         self.update_rip(RawPtr::from(rip + instruction_length))
-    }
-
-    fn handle_unmapped_gpa(
-        &self,
-        msg: hv_message,
-        mem_access_fn: MemAccessHandlerRc,
-    ) -> Result<()> {
-        mem_access_fn.call();
-        let msg_type = msg.header.message_type;
-        bail!("Unexpected HyperV exit_reason = {:?}", msg_type)
     }
 }
 
@@ -321,27 +326,49 @@ impl Hypervisor for HypervLinuxDriver {
         outb_handle_fn: OutBHandlerRc,
         mem_access_fn: MemAccessHandlerRc,
     ) -> Result<()> {
+        /// Run the given `vcpu` until the next interrupt and return an `Ok`
+        /// with the `hv_message` representing the interrupt.
+        ///
+        /// Will return an `Ok` if _any_ interrupt was successfully made,
+        /// even if the caller considers it a "failure".
+        ///
+        /// Note: this is defined as a static function (an `fn`) rather than
+        /// a closure (an `Fn`, `FnMut`, or `FnOnce`) because we can't close
+        /// over `self.vcpu` so we can mutate it below. Defining this as a
+        /// `fn` ensures the compiler will prevent us from closing over
+        /// anything. If you're modifying this function and need to access
+        /// more state inside `execute_until_halt`, pass it as a parameter to
+        /// `run_vcpu`.
+        fn run_vcpu(vcpu: &VcpuFd) -> Result<hv_message> {
+            let hv_message: hv_message = Default::default();
+            vcpu.run(hv_message).map_err(|e| anyhow!(e))
+        }
+
         const HALT_MESSAGE: hv_message_type = hv_message_type_HVMSG_X64_HALT;
         const IO_PORT_INTERCEPT_MESSAGE: hv_message_type =
             hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT;
         const UNMAPPED_GPA_MESSAGE: hv_message_type = hv_message_type_HVMSG_UNMAPPED_GPA;
         loop {
-            let run_res = self.run_vcpu()?;
-            let hdl_res: Result<()> = match run_res.header.message_type {
-                // on a HLT, we're done
+            let run_res = run_vcpu(&self.vcpu_fd)?;
+            match run_res.header.message_type {
+                // we've succeeded if we get a halt, so we can return success
                 HALT_MESSAGE => return Ok(()),
-                // on an IO port intercept, we have to handle a message
+                // on an IO port intercept, we have to handle a message sent
                 // from the guest.
                 IO_PORT_INTERCEPT_MESSAGE => {
-                    self.handle_io_port_intercept(run_res, outb_handle_fn.clone())
+                    self.handle_io_port_intercept(run_res, outb_handle_fn.clone())?;
                 }
-                // on an unmapped GPA, we have to handle a memory access
-                // from the guest
-                UNMAPPED_GPA_MESSAGE => self.handle_unmapped_gpa(run_res, mem_access_fn.clone()),
+                // "unmapped GPA" indicates a request to a guest physical
+                // address (GPA) that is not mapped to valid memory.
+                //
+                // in this case, we need to call the mem_access_fn callback and
+                // then fail
+                UNMAPPED_GPA_MESSAGE => {
+                    mem_access_fn.call();
+                    let msg_type = run_res.header.message_type;
+                    bail!("Linux HyperV unmapped GPA. exit_reason = {:?}", msg_type);
+                }
                 other => bail!("unknown Hyper-V run message type {:?}", other),
-            };
-            if let Err(e) = hdl_res {
-                bail!(e)
             }
         }
     }
@@ -358,6 +385,10 @@ impl Hypervisor for HypervLinuxDriver {
 
     fn reset_rsp(&mut self, rsp: u64) -> Result<()> {
         self.update_register_u64(hv_register_name_HV_X64_REGISTER_RSP, rsp)
+    }
+
+    fn orig_rsp(&self) -> Result<u64> {
+        self.orig_rsp.absolute()
     }
 }
 
@@ -482,73 +513,8 @@ mod tests {
         const MEM_SIZE: usize = 0x1000;
         let gm = shared_mem_with_code(CODE.as_slice(), MEM_SIZE, Offset::zero()).unwrap();
         let addrs = HypervisorAddrs::for_shared_mem(&gm, MEM_SIZE as u64, 0, 0).unwrap();
-        super::HypervLinuxDriver::new(&addrs).unwrap();
-    }
-
-    #[test]
-    fn run_vcpu() {
-        should_run_hyperv_linux_test!();
-        const ACTUAL_MEM_SIZE: usize = 0x4000;
-        const REGION_MEM_SIZE: u64 = 0x1000;
-
-        let gm = shared_mem_with_code(CODE.as_slice(), ACTUAL_MEM_SIZE, Offset::zero()).unwrap();
-        let addrs = HypervisorAddrs::for_shared_mem(&gm, REGION_MEM_SIZE, 0x1000, 0x1).unwrap();
-        let mut driver = HypervLinuxDriver::new(&addrs).unwrap();
-        driver.add_basic_registers(&addrs).unwrap();
-        driver.apply_registers().unwrap();
-
-        {
-            // first instruction should be an IO port intercept
-
-            let run_result = driver.run_vcpu().unwrap();
-            let message_type = run_result.header.message_type;
-            assert_eq!(hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT, message_type);
-
-            let io_message = run_result.to_ioport_info().unwrap();
-            assert!(io_message.rax == b'4' as u64);
-            assert!(io_message.port_number == 0x3f8);
-
-            driver
-                .update_rip(RawPtr::from(
-                    io_message.header.rip + io_message.header.instruction_length() as u64,
-                ))
-                .unwrap();
-        }
-
-        {
-            // next, another IO port intercept
-
-            let run_result = driver.run_vcpu().unwrap();
-            let message_type = run_result.header.message_type;
-            let io_message = run_result.to_ioport_info().unwrap();
-            assert_eq!(message_type, hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT);
-            assert!(io_message.rax == b'\0' as u64);
-            assert!(io_message.port_number == 0x3f8);
-
-            driver
-                .update_rip(RawPtr::from(
-                    io_message.header.rip + io_message.header.instruction_length() as u64,
-                ))
-                .unwrap();
-        }
-        {
-            // finally, a halt
-
-            let run_result = driver.run_vcpu().unwrap();
-            let message_type = run_result.header.message_type;
-            assert_eq!(message_type, hv_message_type_HVMSG_X64_HALT);
-        }
-    }
-
-    #[test]
-    fn new_advanced_config() {
-        should_run_hyperv_linux_test!();
-        const ACTUAL_MEM_SIZE: usize = 0x4000;
-        const REGION_MEM_SIZE: usize = 0x1000;
-        let gm = shared_mem_with_code(CODE.as_slice(), ACTUAL_MEM_SIZE, Offset::zero()).unwrap();
-        let addrs =
-            HypervisorAddrs::for_shared_mem(&gm, REGION_MEM_SIZE as u64, 0x1000, 0x1).unwrap();
-        let mut driver = HypervLinuxDriver::new(&addrs).unwrap();
-        driver.add_advanced_registers(&addrs, 1, 2).unwrap();
+        let rsp_ptr = GuestPtr::try_from(Offset::from(0)).unwrap();
+        let pml4_ptr = GuestPtr::try_from(Offset::from(0)).unwrap();
+        super::HypervLinuxDriver::new(&addrs, rsp_ptr, pml4_ptr).unwrap();
     }
 }

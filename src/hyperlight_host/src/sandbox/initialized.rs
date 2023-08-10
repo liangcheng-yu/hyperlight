@@ -2,7 +2,7 @@ use super::guest_funcs::{CallGuestFunction, GuestFuncs};
 use super::guest_mgr::GuestMgr;
 use super::uninitialized::UninitializedSandbox;
 use super::FunctionsMap;
-use super::{host_funcs::CallHostFunction, mem_mgr::MemMgr};
+use super::{host_funcs::CallHostFunction, mem_mgr::MemMgr, hypervisor::HypervisorWrapper};
 use super::{host_funcs::CallHostPrint, outb::OutBAction};
 use super::{host_funcs::HostFuncs, outb::outb_log};
 use crate::flatbuffers::hyperlight::generated::ErrorCode;
@@ -73,6 +73,7 @@ pub struct Sandbox<'a> {
     needs_state_reset: bool,
     num_runs: i32,
     dynamic_methods: FunctionsMap<'a>,
+    hv: HypervisorWrapper,
 }
 
 impl<'a> crate::sandbox_state::sandbox::InitializedSandbox<'a> for Sandbox<'a> {
@@ -95,6 +96,7 @@ impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
             needs_state_reset: false,
             num_runs: 0,
             dynamic_methods: val.get_dynamic_methods().clone(),
+            hv: val.hv,
         }
     }
 }

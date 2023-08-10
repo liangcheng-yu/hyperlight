@@ -1461,11 +1461,22 @@ namespace Hyperlight.Tests
             {
                 if (Sandbox.IsHypervisorPresent())
                 {
-                    return new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.None, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
+                    return new SandboxRunOptions[] {
+                        SandboxRunOptions.RunFromGuestBinary,
+                        SandboxRunOptions.None,
+                        SandboxRunOptions.RunInProcess,
+                        SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun,
+                        SandboxRunOptions.RecycleAfterRun,
+                        SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun
+                    };
                 }
                 else
                 {
-                    return new SandboxRunOptions[] { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
+                    return new SandboxRunOptions[] {
+                        SandboxRunOptions.RunFromGuestBinary,
+                        SandboxRunOptions.RunInProcess,
+                        SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun
+                    };
                 }
             }
             return GetSandboxRunInHyperVisorOptions();
@@ -1711,7 +1722,9 @@ namespace Hyperlight.Tests
         [MemberData(nameof(GetSimpleTestData))]
         public void Test_Loads_Windows_Exe(TestData testData)
         {
-            SandboxRunOptions[] options = { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunFromGuestBinary | SandboxRunOptions.RunInProcess };
+            SandboxRunOptions[] options = {
+                SandboxRunOptions.RunFromGuestBinary,
+                SandboxRunOptions.RunFromGuestBinary | SandboxRunOptions.RunInProcess };
             foreach (var option in options)
             {
                 RunTests(testData, option, SimpleTest);
@@ -1722,7 +1735,10 @@ namespace Hyperlight.Tests
         [MemberData(nameof(GetSimpleTestData))]
         public void Test_Loads_Windows_Exe_Concurrently(TestData testData)
         {
-            SandboxRunOptions[] options = { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunFromGuestBinary | SandboxRunOptions.RunInProcess };
+            SandboxRunOptions[] options = {
+                SandboxRunOptions.RunFromGuestBinary,
+                SandboxRunOptions.RunFromGuestBinary | SandboxRunOptions.RunInProcess
+            };
             foreach (var option in options)
             {
                 var correlationId = Guid.NewGuid().ToString("N");
@@ -1801,7 +1817,10 @@ namespace Hyperlight.Tests
         [MemberData(nameof(GetSimpleTestData))]
         public void Test_Runs_InProcess(TestData testData)
         {
-            SandboxRunOptions[] options = { SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
+            SandboxRunOptions[] options = {
+                SandboxRunOptions.RunInProcess,
+                SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun
+            };
             foreach (var option in options)
             {
                 RunTests(testData, option, SimpleTest);
@@ -1814,7 +1833,10 @@ namespace Hyperlight.Tests
         {
             Parallel.For(0, testData.NumberOfParallelTests, (t) =>
             {
-                SandboxRunOptions[] options = { SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
+                SandboxRunOptions[] options = {
+                    SandboxRunOptions.RunInProcess,
+                    SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun
+                };
                 foreach (var option in options)
                 {
                     RunTests(testData, option, SimpleTest);
@@ -1864,7 +1886,10 @@ namespace Hyperlight.Tests
         [MemberData(nameof(GetCallbackTestData))]
         public void Test_Loads_Windows_Exe_With_Callback(TestData testData)
         {
-            SandboxRunOptions[] options = { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunFromGuestBinary | SandboxRunOptions.RunInProcess };
+            SandboxRunOptions[] options = {
+                SandboxRunOptions.RunFromGuestBinary,
+                SandboxRunOptions.RunFromGuestBinary | SandboxRunOptions.RunInProcess
+            };
             foreach (var option in options)
             {
                 RunTests(testData, option, CallbackTest);
@@ -1932,7 +1957,10 @@ namespace Hyperlight.Tests
         [MemberData(nameof(GetCallbackTestData))]
         public void Test_Loads_Windows_Exe_With_Callback_Concurrently(TestData testData)
         {
-            SandboxRunOptions[] options = { SandboxRunOptions.RunFromGuestBinary, SandboxRunOptions.RunFromGuestBinary | SandboxRunOptions.RunInProcess };
+            SandboxRunOptions[] options = {
+                SandboxRunOptions.RunFromGuestBinary,
+                SandboxRunOptions.RunFromGuestBinary | SandboxRunOptions.RunInProcess
+            };
             foreach (var option in options)
             {
                 foreach (var instanceOrType in testData.TestInstanceOrTypes())
@@ -2004,7 +2032,10 @@ namespace Hyperlight.Tests
         [MemberData(nameof(GetCallbackTestData))]
         public void Test_Runs_InProcess_With_Callback(TestData testData)
         {
-            SandboxRunOptions[] options = { SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
+            SandboxRunOptions[] options = {
+                SandboxRunOptions.RunInProcess,
+                SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun
+            };
             foreach (var option in options)
             {
                 RunTests(testData, option, CallbackTest);

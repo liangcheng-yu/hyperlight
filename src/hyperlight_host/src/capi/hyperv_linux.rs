@@ -4,11 +4,14 @@ use super::hdl::Hdl;
 use super::mem_access_handler::get_mem_access_handler_func;
 use super::mem_access_handler::MemAccessHandlerWrapper;
 use super::outb_handler::get_outb_handler_func;
-use crate::capi::outb_handler::OutBHandlerWrapper;
 use crate::hypervisor::hyperv_linux::{is_hypervisor_present, HypervLinuxDriver};
 use crate::hypervisor::hypervisor_mem::HypervisorAddrs;
 use crate::hypervisor::Hypervisor;
 use crate::validate_context;
+use crate::{
+    capi::{c_func::CFunc, outb_handler::OutBHandlerWrapper},
+    mem::ptr::{GuestPtr, RawPtr},
+};
 use anyhow::Result;
 use mshv_bindings::hv_register_name_HV_X64_REGISTER_RSP;
 use std::rc::Rc;
@@ -63,58 +66,19 @@ pub unsafe extern "C" fn hyperv_linux_create_driver(
     rsp: u64,
     pml4: u64,
 ) -> Handle {
-    validate_context!(ctx);
+    CFunc::new("hyperv_linux_create_driver", ctx)
+        .and_then_mut(|ctx, _| {
+            let rsp_ptr = GuestPtr::try_from(RawPtr::from(rsp))?;
+            let pml4_ptr = GuestPtr::try_from(RawPtr::from(pml4))?;
 
-    let mut driver = match HypervLinuxDriver::new(&addrs) {
-        Ok(d) => d,
-        Err(e) => return (*ctx).register_err(e),
-    };
-    match driver.add_advanced_registers(&addrs, rsp, pml4) {
-        Ok(_) => (),
-        Err(e) => return (*ctx).register_err(e),
-    };
-
-    Context::register(
-        driver,
-        &mut (*ctx).hyperv_linux_drivers,
-        Hdl::HypervLinuxDriver,
-    )
-}
-
-/// Creates a new HyperV-Linux driver with the given parameters and "basic"
-/// registers, suitable for a program that does not access memory.
-///
-/// If the driver was created successfully, returns a `Handle` referencing the
-/// new driver. Otherwise, returns a new `Handle` that references a descriptive
-/// error.
-///
-/// # Safety
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn hyperv_linux_create_driver_simple(
-    ctx_ptr: *mut Context,
-    addrs: HypervisorAddrs,
-) -> Handle {
-    validate_context!(ctx_ptr);
-
-    let mut driver = match HypervLinuxDriver::new(&addrs) {
-        Ok(d) => d,
-        Err(e) => return (*ctx_ptr).register_err(e),
-    };
-    match driver.add_basic_registers(&addrs) {
-        Ok(_) => (),
-        Err(e) => return (*ctx_ptr).register_err(e),
-    };
-
-    Context::register(
-        driver,
-        &mut (*ctx_ptr).hyperv_linux_drivers,
-        Hdl::HypervLinuxDriver,
-    )
+            let driver = HypervLinuxDriver::new(&addrs, rsp_ptr, pml4_ptr)?;
+            Ok(Context::register(
+                driver,
+                &mut ctx.hyperv_linux_drivers,
+                Hdl::HypervLinuxDriver,
+            ))
+        })
+        .ok_or_err_hdl()
 }
 
 /// Apply all drivers to the vCPU stored within the HypervLinuxDriver

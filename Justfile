@@ -30,9 +30,11 @@ build: build-rust build-dotnet
     echo "built all .Net and Rust projects"
 
 test-rust target=default-target:
-    # tracing tests cannot run with other tests
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} -- --skip test_trace
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_trace
+    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} 
+    # tracing tests cannot run with other tests they are marked as ignored so that cargo test works
+    # there may be tests that we really want to ignore so we cant just use --ignored and we have to specify the test name of the ignored tests that we want to run
+    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_trace -- --ignored
+    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_drop -- --ignored
 
 test-dotnet-hl:
     cd src/tests/Hyperlight.Tests && dotnet test || cd ../../../

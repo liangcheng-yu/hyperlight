@@ -2,8 +2,8 @@ use super::guest_funcs::GuestFuncs;
 use super::mem_mgr::MemMgr;
 use super::FunctionsMap;
 use super::{host_funcs::default_writer_func, host_funcs::HostFuncs, initialized::Sandbox};
-use super::{host_funcs::CallHostPrint, run_options::SandboxRunOptions};
-use crate::func::host::HostFunction1;
+use super::{host_funcs::CallHostPrint, run_options::SandboxRunOptions, hypervisor::HypervisorWrapper};
+use crate::func::host::{HostFunction1, HyperlightFunction};
 use crate::hypervisor::Hypervisor;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::mem::ptr::RawPtr;
@@ -13,16 +13,8 @@ use crate::mem::{
 };
 use crate::sandbox_state::transition::Noop;
 use crate::sandbox_state::{sandbox::EvolvableSandbox, transition::MutatingCallback};
-#[cfg(target_os = "linux")]
-use crate::{
-    hypervisor::hyperv_linux::{self, HypervLinuxDriver},
-    hypervisor::hypervisor_mem::HypervisorAddrs,
-    hypervisor::kvm,
-    hypervisor::kvm::KVMDriver,
-    mem::ptr::GuestPtr,
-    mem::ptr_offset::Offset,
-};
 use anyhow::{anyhow, bail, Result};
+use std::collections::HashMap;
 use std::ffi::c_void;
 use std::ops::Add;
 use std::option::Option;
@@ -44,6 +36,8 @@ pub struct UninitializedSandbox<'a> {
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
+    pub(super) hv: HypervisorWrapper,
+    pub(super) run_from_process_memory: bool,
     dynamic_methods: FunctionsMap<'a>,
 }
 
@@ -206,12 +200,20 @@ impl<'a> UninitializedSandbox<'a> {
 
         // The default writer function is to write to stdout with green text.
         let default_writer = Arc::new(Mutex::new(default_writer_func));
+        let hv = if !run_from_process_memory {
+            let h = Self::set_up_hypervisor_partition(&mut mem_mgr)?;
+            Some(h)
+        } else {
+            None
+        };
 
         let mut sandbox = Self {
             host_functions: FunctionsMap::new(),
             mem_mgr,
             stack_guard,
             dynamic_methods: FunctionsMap::new(),
+            hv: hv.into(),
+            run_from_process_memory,
         };
 
         default_writer.register(&mut sandbox, "writer_func")?;
@@ -221,67 +223,6 @@ impl<'a> UninitializedSandbox<'a> {
 
     fn create_stack_guard() -> [u8; STACK_COOKIE_LEN] {
         rand::random::<[u8; STACK_COOKIE_LEN]>()
-    }
-
-    /// Set up the appropriate hypervisor for the platform.
-    ///
-    /// this function is used to prevent clippy from complaining
-    /// the 'mgr' param is unused on windows builds. this function and the
-    /// function of the same name on linux builds will merge when we
-    /// have a complete WHP implementation in Rust.
-    ///
-    /// TODO: remove this dead_code annotation after it's hooked up in
-    /// https://github.com/deislabs/hyperlight/pull/727/files, and merge with
-    /// linux version of this function
-    #[allow(dead_code)]
-    #[cfg(target_os = "windows")]
-    fn set_up_hypervisor_partition(_: &mut SandboxMemoryManager) -> Result<Box<dyn Hypervisor>> {
-        bail!("Hyperlight does not yet support Windows");
-    }
-
-    /// Set up the appropriate hypervisor for the platform
-    ///
-    /// TODO: remove this dead_code annotation after it's hooked up in
-    /// https://github.com/deislabs/hyperlight/pull/727/files,
-    /// and merge with the windows version of this function
-    #[allow(dead_code)]
-    #[cfg(target_os = "linux")]
-    fn set_up_hypervisor_partition(mgr: &mut SandboxMemoryManager) -> Result<Box<dyn Hypervisor>> {
-        let mem_size = u64::try_from(mgr.shared_mem.mem_size())?;
-        let rsp = mgr.set_up_hypervisor_partition(mem_size)?;
-        let base_addr = SandboxMemoryLayout::BASE_ADDRESS;
-        let pml4_addr = base_addr + SandboxMemoryLayout::PML4_OFFSET;
-        let entrypoint = {
-            let load_addr = mgr.load_addr.clone();
-            let load_offset_u64 =
-                u64::from(load_addr) - u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?;
-            let total_offset = Offset::from(load_offset_u64) + mgr.entrypoint_offset;
-            GuestPtr::try_from(total_offset)
-        }?;
-        if hyperv_linux::is_hypervisor_present()? {
-            let guest_pfn = u64::try_from(SandboxMemoryLayout::BASE_ADDRESS >> 12)?;
-            let host_addr = u64::try_from(mgr.shared_mem.base_addr())?;
-            let addrs = HypervisorAddrs {
-                entrypoint: entrypoint.absolute()?,
-                guest_pfn,
-                host_addr,
-                mem_size,
-            };
-            let hv = HypervLinuxDriver::new(&addrs)?;
-            Ok(Box::new(hv))
-        } else if kvm::is_hypervisor_present().is_ok() {
-            let host_addr = u64::try_from(mgr.shared_mem.base_addr())?;
-            let hv = KVMDriver::new(
-                host_addr,
-                u64::try_from(pml4_addr)?,
-                mem_size,
-                entrypoint.absolute()?,
-                rsp,
-            )?;
-            Ok(Box::new(hv))
-        } else {
-            bail!("Linux platform detected, but neither KVM nor Linux HyperV detected")
-        }
     }
 
     /// Call the entry point inside this `Sandbox`
@@ -367,6 +308,8 @@ mod tests {
         log_values::test_value_as_str, logger::Logger as TestLogger, logger::LOGGER as TEST_LOGGER,
         tracing_subscriber::TracingSubscriber as TestSubcriber,
     };
+    use crate::Sandbox;
+    use crate::SandboxRunOptions;
     use crate::{
         func::{
             host::{HostFunction1, HostFunction2},
@@ -375,19 +318,20 @@ mod tests {
         mem::config::SandboxMemoryConfiguration,
         sandbox::host_funcs::CallHostPrint,
         testing::simple_guest_path,
-        Sandbox, SandboxRunOptions, UninitializedSandbox,
+        UninitializedSandbox,
     };
     use crate::{sandbox::host_funcs::CallHostFunction, testing::log_values::try_to_strings};
-    use anyhow::Result;
+    use anyhow::{anyhow, Result};
     use crossbeam_queue::ArrayQueue;
     use log::Level;
     use serde_json::{Map, Value};
     use serial_test::serial;
+    use std::path::PathBuf;
+    use std::thread;
     use std::{
         io::{Read, Write},
         sync::{Arc, Mutex},
     };
-    use std::{path::PathBuf, thread};
     use tempfile::NamedTempFile;
     use tracing::Level as tracing_level;
     use tracing_core::{callsite::rebuild_interest_cache, Subscriber};
@@ -482,10 +426,9 @@ mod tests {
         let cfg = SandboxMemoryConfiguration::default();
 
         let simple_guest_path = simple_guest_path().unwrap();
-        let mgr =
-            UninitializedSandbox::load_guest_binary(cfg, simple_guest_path.as_str(), false, false)
-                .unwrap();
-        assert_eq!(cfg, mgr.mem_cfg);
+
+        UninitializedSandbox::load_guest_binary(cfg, simple_guest_path.as_str(), false, false)
+            .unwrap();
     }
 
     #[test]
@@ -737,12 +680,20 @@ mod tests {
 
         for i in 0..10 {
             let simple_guest_path = simple_guest_path().expect("Guest Binary Missing");
-            let unintializedsandbox = UninitializedSandbox::new(simple_guest_path, None, None)
-                .unwrap_or_else(|_| panic!("Failed to create UninitializedSandbox {}", i));
+            let unintializedsandbox = {
+                let err_string = format!("failed to create UninitializedSandbox {i}");
+                let err_str = err_string.as_str();
+                UninitializedSandbox::new(simple_guest_path, None, None).expect(err_str)
+            };
 
-            unintializedsandbox_queue
-                .push(unintializedsandbox)
-                .unwrap_or_else(|_| panic!("Failed to push UninitializedSandbox {}", i));
+            {
+                let err_string = format!("Failed to push UninitializedSandbox {i}");
+                let err_str = err_string.as_str();
+
+                unintializedsandbox_queue
+                    .push(unintializedsandbox)
+                    .expect(err_str);
+            }
         }
 
         let thread_handles = (0..10)
@@ -796,6 +747,10 @@ mod tests {
     #[test]
     // Tests that trace data are emitted when a trace subscriber is set
     // this test is ignored because it is incompatible with other tests , specifically those which require a logger for tracing
+    // marking  this test as ignored means that running `cargo test` will not run this test but will allow a developer who runs that command
+    // from their workstation to be successful without needed to know about test interdependencies
+    // this test will be run explcitly as a part of the CI pipeline
+    #[ignore]
     fn test_trace_trace() {
         TestLogger::initialize_log_tracer();
         rebuild_interest_cache();
@@ -1046,9 +1001,11 @@ mod tests {
 
             // Now we have set the max level to error, so we should not see any log calls as the following should not create an error
 
-            let sbox = UninitializedSandbox::new(simple_guest_path().unwrap(), None, None);
-
-            let sbox = sbox.unwrap();
+            let sbox = {
+                let res = UninitializedSandbox::new(simple_guest_path().unwrap(), None, None);
+                res.map_err(|e| anyhow!("could not create a new UninitializedSandbox: {e:?}"))
+                    .unwrap()
+            };
             let _ = sbox.initialize::<fn(&mut UninitializedSandbox<'_>) -> Result<()>>(None);
 
             let num_calls = TEST_LOGGER.num_log_calls();
