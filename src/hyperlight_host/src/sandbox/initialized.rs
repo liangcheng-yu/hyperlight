@@ -2,7 +2,7 @@ use super::guest_funcs::{CallGuestFunction, GuestFuncs};
 use super::guest_mgr::GuestMgr;
 use super::uninitialized::UninitializedSandbox;
 use super::FunctionsMap;
-use super::{host_funcs::CallHostFunction, mem_mgr::MemMgr, hypervisor::HypervisorWrapper};
+use super::{host_funcs::CallHostFunction, hypervisor::HypervisorWrapper, mem_mgr::MemMgr};
 use super::{host_funcs::CallHostPrint, outb::OutBAction};
 use super::{host_funcs::HostFuncs, outb::outb_log};
 use crate::flatbuffers::hyperlight::generated::ErrorCode;

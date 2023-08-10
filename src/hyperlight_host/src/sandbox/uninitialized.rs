@@ -2,7 +2,9 @@ use super::guest_funcs::GuestFuncs;
 use super::mem_mgr::MemMgr;
 use super::FunctionsMap;
 use super::{host_funcs::default_writer_func, host_funcs::HostFuncs, initialized::Sandbox};
-use super::{host_funcs::CallHostPrint, run_options::SandboxRunOptions, hypervisor::HypervisorWrapper};
+use super::{
+    host_funcs::CallHostPrint, hypervisor::HypervisorWrapper, run_options::SandboxRunOptions,
+};
 use crate::func::host::HostFunction1;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::mem::ptr::RawPtr;
