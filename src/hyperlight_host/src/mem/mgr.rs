@@ -50,7 +50,7 @@ pub(crate) const STACK_COOKIE_LEN: usize = 16;
 /// A struct that is responsible for laying out and managing the memory
 /// for a given `Sandbox`.
 #[derive(Clone)]
-pub(crate) struct SandboxMemoryManager {
+pub struct SandboxMemoryManager {
     /// Whether or not to run a sandbox in-process
     pub(crate) run_from_process_memory: bool,
     mem_snapshot: Option<SharedMemorySnapshot>,
