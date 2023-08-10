@@ -27,6 +27,10 @@ pub(crate) struct FunctionCall {
 }
 
 impl FunctionCall {
+    // because we're not using the work in `dispatch_call_from_host` yet,
+    // this function appears unused. Once we've incorparated it, we can remove
+    // this lint.
+    #[allow(dead_code)]
     pub(crate) fn new(
         function_name: String,
         parameters: Option<Vec<ParameterValue>>,
