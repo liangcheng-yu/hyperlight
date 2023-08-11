@@ -29,7 +29,7 @@ jobs:
           delete-only-pre-release-versions: "true" 
       # https://github.com/marketplace/actions/delete-releases
       - name: Delete old 'Hyperlight' releases
-        uses: sgpublic/delete-release-action@v1.0
+        uses: sgpublic/delete-release-action@v1.1
         with:
           pre-release-drop: true
           pre-release-keep-count: 5
