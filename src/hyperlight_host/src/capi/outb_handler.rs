@@ -92,7 +92,7 @@ pub unsafe extern "C" fn outb_fn_handler_call(
     };
 
     match (*handler).call(port, payload as u64) {
-        Ok(_) => return Handle::new_empty(),
-        Err(e) => return (*ctx).register_err(e),
+        Ok(_) => Handle::new_empty(),
+        Err(e) => (*ctx).register_err(e),
     }
 }

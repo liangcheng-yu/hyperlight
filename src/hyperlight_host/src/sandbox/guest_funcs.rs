@@ -9,9 +9,7 @@ use crate::{
         types::{ParameterValue, ReturnType},
         HyperlightFunction,
     },
-    hypervisor::handlers::{
-        MemAccessHandler, OutBHandler,
-    },
+    hypervisor::handlers::{MemAccessHandler, OutBHandler},
     sandbox_state::{reset::RestoreSandbox, sandbox::InitializedSandbox},
 };
 

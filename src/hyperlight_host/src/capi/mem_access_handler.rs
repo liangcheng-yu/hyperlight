@@ -88,7 +88,7 @@ pub unsafe extern "C" fn mem_access_handler_call(
     };
 
     match (*handler).call() {
-        Ok(_) => return Handle::new_empty(),
-        Err(e) => return (*ctx).register_err(e),
+        Ok(_) => Handle::new_empty(),
+        Err(e) => (*ctx).register_err(e),
     }
 }

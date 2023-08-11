@@ -25,8 +25,7 @@ pub trait RestoreSandbox: MemMgr + GuestMgr + HypervisorWrapperMgr + Sandbox {
             let mem_mgr = self.get_mem_mgr_mut();
             mem_mgr.restore_state()?;
             if !mem_mgr.run_from_process_memory {
-                let hv = self.get_hypervisor_wrapper_mut()
-                    .get_hypervisor_mut()?;
+                let hv = self.get_hypervisor_wrapper_mut().get_hypervisor_mut()?;
 
                 hv.reset_rsp(hv.orig_rsp()?)?;
             }
