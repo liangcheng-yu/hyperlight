@@ -35,7 +35,7 @@ pub trait GuestMgr {
     /// `enter_method` will check if the value of `executing_guest_call` is 1.
     /// If yes, it means the guest function is still running and state should not be reset.
     /// If the value of `executing_guest_call` is 0, we should reset the state.
-    /// 
+    ///
     /// In addition, this protects agaubs a guest call being made from multiple threads, which
     /// is unsupported.
     fn enter_method(&mut self) -> bool {
