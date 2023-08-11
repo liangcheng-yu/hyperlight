@@ -1,6 +1,6 @@
 use crate::capi::handle::Handle;
 use crate::capi::hdl::Hdl;
-use crate::{capi::context::Context, hypervisor::handlers::MemAccessHandler};
+use crate::{capi::context::Context, hypervisor::handlers::MemAccessHandlerCaller};
 use anyhow::Result;
 
 /// A FFI-friendly implementation of a `MemAccessHandler`. This type stores
@@ -12,9 +12,11 @@ pub(crate) struct MemAccessHandlerWrapper {
     func: extern "C" fn(),
 }
 
-impl MemAccessHandler for MemAccessHandlerWrapper {
-    fn call(&self) {
-        (self.func)()
+impl MemAccessHandlerCaller for MemAccessHandlerWrapper {
+    fn call(&mut self) -> Result<()> {
+        (self.func)();
+
+        Ok(())
     }
 }
 
@@ -24,6 +26,16 @@ pub(crate) fn get_mem_access_handler_func(
     hdl: Handle,
 ) -> Result<&MemAccessHandlerWrapper> {
     Context::get(hdl, &ctx.mem_access_handler_funcs, |h| {
+        matches!(h, Hdl::MemAccessHandlerFunc(_))
+    })
+}
+
+/// Get a mutable MemAccessHandlerFunc from the specified handle
+pub(crate) fn get_mut_mem_access_handler_func(
+    ctx: &mut Context,
+    hdl: Handle,
+) -> Result<&mut MemAccessHandlerWrapper> {
+    Context::get_mut(hdl, &mut ctx.mem_access_handler_funcs, |h| {
         matches!(h, Hdl::MemAccessHandlerFunc(_))
     })
 }
@@ -70,10 +82,13 @@ pub unsafe extern "C" fn mem_access_handler_call(
     ctx: *mut Context,
     mem_access_fn_hdl: Handle,
 ) -> Handle {
-    let handler = match get_mem_access_handler_func(&*ctx, mem_access_fn_hdl) {
+    let handler = match get_mut_mem_access_handler_func(&mut *ctx, mem_access_fn_hdl) {
         Ok(h) => h,
         Err(e) => return (*ctx).register_err(e),
     };
-    (*handler).call();
-    Handle::new_empty()
+
+    match (*handler).call() {
+        Ok(_) => return Handle::new_empty(),
+        Err(e) => return (*ctx).register_err(e),
+    }
 }

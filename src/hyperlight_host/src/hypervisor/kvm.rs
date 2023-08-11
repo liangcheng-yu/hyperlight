@@ -1,5 +1,5 @@
 use super::{
-    handlers::{MemAccessHandlerRc, OutBHandlerRc},
+    handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
     Hypervisor, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT,
     CR4_PAE, EFER_LMA, EFER_LME,
 };
@@ -168,7 +168,7 @@ impl KVMDriver {
             .map_err(|e| anyhow!("failed to set segment registers: {:?}", e))
     }
 
-    fn handle_io(&self, port: u16, data: &[u8], outb_handle_fn: OutBHandlerRc) -> Result<()> {
+    fn handle_io(&self, port: u16, data: &[u8], outb_handle_fn: OutBHandlerWrapper) -> Result<()> {
         let mut regs = self.vcpu_fd.get_regs()?;
         let orig_rip = regs.rip;
 
@@ -179,7 +179,10 @@ impl KVMDriver {
             bail!("no data was given in IO interrupt");
         } else {
             let payload_u64 = u64::from(data[0]);
-            outb_handle_fn.call(port, payload_u64);
+            outb_handle_fn
+                .lock()
+                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                .call(port, payload_u64)?;
         }
 
         //TODO: +1 may be a hack, but it works for now, need to figure out
@@ -194,8 +197,8 @@ impl Hypervisor for KVMDriver {
     fn dispatch_call_from_host(
         &mut self,
         dispatch_func_addr: RawPtr,
-        outb_handle_fn: OutBHandlerRc,
-        mem_access_fn: MemAccessHandlerRc,
+        outb_handle_fn: OutBHandlerWrapper,
+        mem_access_fn: MemAccessHandlerWrapper,
     ) -> Result<()> {
         // Move rip to the DispatchFunction pointer
         let mut regs = self.vcpu_fd.get_regs()?;
@@ -206,8 +209,8 @@ impl Hypervisor for KVMDriver {
 
     fn execute_until_halt(
         &mut self,
-        outb_hdl: OutBHandlerRc,
-        mem_access_hdl: MemAccessHandlerRc,
+        outb_hdl: OutBHandlerWrapper,
+        mem_access_hdl: MemAccessHandlerWrapper,
     ) -> Result<()> {
         loop {
             let run_res = self.vcpu_fd.run()?;
@@ -217,11 +220,17 @@ impl Hypervisor for KVMDriver {
                 }
                 VcpuExit::IoOut(port, data) => self.handle_io(port, data, outb_hdl.clone())?,
                 VcpuExit::MmioRead(addr, data) => {
-                    mem_access_hdl.call();
+                    mem_access_hdl
+                        .lock()
+                        .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                        .call()?;
                     bail!("MMIO read address {:#x}, data {:?}", addr, data);
                 }
                 VcpuExit::MmioWrite(addr, data) => {
-                    mem_access_hdl.call();
+                    mem_access_hdl
+                        .lock()
+                        .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                        .call()?;
                     bail!("MMIO write address 0x{:x}, data {:?}", addr, data);
                 }
                 other => {
@@ -240,8 +249,8 @@ impl Hypervisor for KVMDriver {
         peb_addr: RawPtr,
         seed: u64,
         page_size: u32,
-        outb_hdl: OutBHandlerRc,
-        mem_access_hdl: MemAccessHandlerRc,
+        outb_hdl: OutBHandlerWrapper,
+        mem_access_hdl: MemAccessHandlerWrapper,
     ) -> Result<()> {
         let mut regs = self.vcpu_fd.get_regs()?;
         regs.rip = self.entrypoint;
@@ -323,12 +332,12 @@ pub(crate) mod test_cfg {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::sync::{Arc, Mutex};
 
     use super::KVMDriver;
     use crate::{
         hypervisor::{
-            handlers::{MemAccessHandlerFn, OutBHandlerFn},
+            handlers::{MemAccessHandler, OutBHandler},
             tests::test_initialise,
         },
         mem::ptr_offset::Offset,
@@ -337,17 +346,19 @@ mod tests {
         mem::{layout::SandboxMemoryLayout, ptr::GuestPtr},
         should_run_kvm_linux_test,
     };
+    use anyhow::Result;
 
     #[test]
     fn test_init() {
         should_run_kvm_linux_test!();
         let outb_handler = {
-            let func: Box<dyn Fn(u16, u64)> = Box::new(|_, _| {});
-            Rc::new(OutBHandlerFn::from(func))
+            let func: Box<dyn FnMut(u16, u64) -> Result<()>> =
+                Box::new(|_, _| -> Result<()> { Ok(()) });
+            Arc::new(Mutex::new(OutBHandler::from(func)))
         };
         let mem_access_handler = {
-            let func: Box<dyn Fn()> = Box::new(|| {});
-            Rc::new(MemAccessHandlerFn::from(func))
+            let func: Box<dyn FnMut() -> Result<()>> = Box::new(|| -> Result<()> { Ok(()) });
+            Arc::new(Mutex::new(MemAccessHandler::from(func)))
         };
         test_initialise(
             outb_handler,

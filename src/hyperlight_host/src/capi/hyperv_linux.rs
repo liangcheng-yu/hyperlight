@@ -14,7 +14,8 @@ use crate::{
 };
 use anyhow::Result;
 use mshv_bindings::hv_register_name_HV_X64_REGISTER_RSP;
-use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 fn get_driver_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut HypervLinuxDriver> {
     Context::get_mut(hdl, &mut ctx.hyperv_linux_drivers, |h| {
@@ -190,8 +191,8 @@ pub unsafe extern "C" fn hyperv_linux_initialise(
         peb_addr.into(),
         seed,
         page_size,
-        Rc::new(outb_func),
-        Rc::new(mem_access_func),
+        Arc::new(Mutex::new(outb_func)),
+        Arc::new(Mutex::new(mem_access_func)),
     );
     match init_res {
         Ok(_) => Handle::new_empty(),
@@ -229,7 +230,10 @@ pub unsafe extern "C" fn hyperv_linux_execute_until_halt(
             Ok(tup) => tup,
             Err(e) => return (*ctx).register_err(e),
         };
-    match (*driver).execute_until_halt(Rc::new(outb_func), Rc::new(mem_access_func)) {
+    match (*driver).execute_until_halt(
+        Arc::new(Mutex::new(outb_func)),
+        Arc::new(Mutex::new(mem_access_func)),
+    ) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
     }
@@ -264,8 +268,8 @@ pub unsafe extern "C" fn hyperv_linux_dispatch_call_from_host(
         };
     match (*driver).dispatch_call_from_host(
         dispatch_func_addr.into(),
-        Rc::new(outb_func),
-        Rc::new(mem_access_func),
+        Arc::new(Mutex::new(outb_func)),
+        Arc::new(Mutex::new(mem_access_func)),
     ) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),

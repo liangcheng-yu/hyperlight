@@ -1,5 +1,6 @@
 use super::guest_funcs::{CallGuestFunction, GuestFuncs};
 use super::guest_mgr::GuestMgr;
+use super::hypervisor::HypervisorWrapperMgr;
 use super::uninitialized::UninitializedSandbox;
 use super::FunctionsMap;
 use super::{host_funcs::CallHostFunction, hypervisor::HypervisorWrapper, mem_mgr::MemMgr};
@@ -187,9 +188,19 @@ impl<'a> MemMgr for Sandbox<'a> {
     }
 }
 
+impl<'a> HypervisorWrapperMgr for Sandbox<'a> {
+    fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper {
+        &self.hv
+    }
+
+    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper {
+        &mut self.hv
+    }
+}
+
 impl<'a> Sandbox<'a> {
-    #[allow(unused)]
-    pub(crate) fn handle_outb(&mut self, port: u16, byte: u8) -> Result<()> {
+    /// Handles OutB operations from the guest.
+    pub fn handle_outb(&mut self, port: u16, _byte: u64) -> Result<()> {
         match port.into() {
             OutBAction::Log => outb_log(&self.mem_mgr),
             OutBAction::CallFunction => {
@@ -204,11 +215,16 @@ impl<'a> Sandbox<'a> {
                 // TODO
                 todo!();
             }
-            _ => {
-                // TODO
-                todo!();
-            }
         }
+    }
+
+    /// Handles Stack Overflows.
+    pub fn handle_mmio_exit(&mut self) -> Result<()> {
+        if !self.check_stack_guard()? {
+            bail!("Stack overflow detected");
+        }
+
+        Ok(())
     }
 
     /// Check for a guest error and return an `Err` if one was found,

@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use super::{guest_mgr::GuestMgr, FunctionsMap};
+use super::{guest_mgr::GuestMgr, hypervisor::HypervisorWrapperMgr, FunctionsMap};
 use crate::{
     func::{
         function_call::{FunctionCall, FunctionCallType},
@@ -8,6 +8,9 @@ use crate::{
         param_type::SupportedParameterType,
         types::{ParameterValue, ReturnType},
         HyperlightFunction,
+    },
+    hypervisor::handlers::{
+        MemAccessHandler, OutBHandler,
     },
     sandbox_state::{reset::RestoreSandbox, sandbox::InitializedSandbox},
 };
@@ -51,7 +54,9 @@ impl<'a> Drop for ShouldReset<'a> {
 }
 
 /// Enables the host to call functions in the guest and have the sandbox state reset at the start of the call
-pub trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox + InitializedSandbox<'a> {
+pub trait CallGuestFunction<'a>:
+    GuestMgr + RestoreSandbox + HypervisorWrapperMgr + InitializedSandbox<'a>
+{
     fn call_guest_function<T, R>(&mut self, function: T) -> Result<R>
     where
         T: GuestFunction<R>,
@@ -98,7 +103,7 @@ pub trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox + InitializedSandbox<
     }
 
     #[instrument]
-    fn call_dynamic_guest_function<P>(
+    fn call_guest_function_by_name<P>(
         &mut self,
         name: &str,
         ret: ReturnType,
@@ -171,7 +176,6 @@ pub trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox + InitializedSandbox<
 
         self.get_mem_mgr_mut().write_guest_function_call(&buffer)?;
 
-        #[allow(clippy::if_same_then_else)]
         if self.get_mem_mgr().is_in_process() {
             let dispatch: fn() = unsafe { std::mem::transmute(p_dispatch) };
             // Q: Why does this function not take `args` and doesn't return `return_type`?
@@ -181,10 +185,53 @@ pub trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox + InitializedSandbox<
             // and the `dispatch` function can directly access that via shared memory.
             dispatch();
         } else {
-            // TODO: For this, we're missing some sort of API
-            // to get the current Hypervisor set by `set_up_hypervisor_partition`
-            // in `UninitializedSandbox`. Once that's done, we should be able to
-            // to something like this: `mem_mgr.get_hypervisor().dispatch(...)`
+            // let outb = {
+            //     let this_outb = this.clone();
+
+            //     let cb: OutBHandlerFunction<'a> =
+            //         Box::new(|port, byte| -> Result<()> {
+            //             this_outb
+            //                 .lock()
+            //                 .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+            //                 .get_initialized_sandbox_mut()
+            //                 .handle_outb(port, byte)
+            //         });
+            //     Arc::new(Mutex::new(OutBHandler::from(cb)))
+            // };
+
+            // let mmio_exit = {
+            //     let this_mmio_exit = this.clone();
+
+            //     let cb: MemAccessHandlerFunction<'a> = Box::new(|| -> Result<()> {
+            //         this_mmio_exit
+            //             .lock()
+            //             .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+            //             .get_initialized_sandbox_mut()
+            //             .handle_mmio_exit()
+            //     });
+            //     Arc::new(Mutex::new(MemAccessHandler::from(cb)))
+            // };
+
+            let outb_arc = {
+                let cb: Box<dyn FnMut(u16, u64) -> Result<()>> = Box::new(|_, _| -> Result<()> {
+                    println!("outb callback in test_evolve");
+                    Ok(())
+                });
+                Arc::new(Mutex::new(OutBHandler::from(cb)))
+            };
+            let mem_access_arc = {
+                let cb: Box<dyn FnMut() -> Result<()>> = Box::new(|| -> Result<()> {
+                    println!("mem access callback in test_evolve");
+                    Ok(())
+                });
+                Arc::new(Mutex::new(MemAccessHandler::from(cb)))
+            };
+
+            self.get_hypervisor_wrapper_mut().dispatch_call_from_host(
+                p_dispatch.into(),
+                outb_arc.clone(),
+                mem_access_arc.clone(),
+            )?
         }
 
         self.check_stack_guard()?; // <- wrapper around mem_mgr `check_for_stack_guard`

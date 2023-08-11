@@ -1,6 +1,6 @@
 use crate::capi::handle::Handle;
 use crate::capi::hdl::Hdl;
-use crate::{capi::context::Context, hypervisor::handlers::OutBHandler};
+use crate::{capi::context::Context, hypervisor::handlers::OutBHandlerCaller};
 use anyhow::Result;
 
 /// A FFI-friendly implementation of a `OutBHandler`. This type stores
@@ -12,15 +12,26 @@ pub(crate) struct OutBHandlerWrapper {
     func: extern "C" fn(u16, u64),
 }
 
-impl OutBHandler for OutBHandlerWrapper {
-    fn call(&self, port: u16, payload: u64) {
-        (self.func)(port, payload)
+impl OutBHandlerCaller for OutBHandlerWrapper {
+    fn call(&mut self, port: u16, payload: u64) -> anyhow::Result<()> {
+        (self.func)(port, payload);
+        Ok(())
     }
 }
 
 /// Get a OutbHandlerFunc from the specified handle
 pub(crate) fn get_outb_handler_func(ctx: &Context, hdl: Handle) -> Result<&OutBHandlerWrapper> {
     Context::get(hdl, &ctx.outb_handler_funcs, |h| {
+        matches!(h, Hdl::OutbHandlerFunc(_))
+    })
+}
+
+/// Get a mutable OutbHandlerFunc from the specified handle
+pub(crate) fn get_outb_handler_func_mut(
+    ctx: &mut Context,
+    hdl: Handle,
+) -> Result<&mut OutBHandlerWrapper> {
+    Context::get_mut(hdl, &mut ctx.outb_handler_funcs, |h| {
         matches!(h, Hdl::OutbHandlerFunc(_))
     })
 }
@@ -75,10 +86,13 @@ pub unsafe extern "C" fn outb_fn_handler_call(
     port: u16,
     payload: u8,
 ) -> Handle {
-    let handler = match get_outb_handler_func(&*ctx, outb_fn_handler_ref) {
+    let handler = match get_outb_handler_func_mut(&mut *ctx, outb_fn_handler_ref) {
         Ok(h) => h,
         Err(e) => return (*ctx).register_err(e),
     };
-    (*handler).call(port, payload as u64);
-    Handle::new_empty()
+
+    match (*handler).call(port, payload as u64) {
+        Ok(_) => return Handle::new_empty(),
+        Err(e) => return (*ctx).register_err(e),
+    }
 }

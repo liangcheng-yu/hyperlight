@@ -1,4 +1,5 @@
 use super::guest_funcs::GuestFuncs;
+use super::hypervisor::HypervisorWrapperMgr;
 use super::mem_mgr::MemMgr;
 use super::FunctionsMap;
 use super::{host_funcs::default_writer_func, host_funcs::HostFuncs, initialized::Sandbox};
@@ -136,6 +137,16 @@ impl<'a> MemMgr for UninitializedSandbox<'a> {
 
     fn get_stack_cookie(&self) -> &super::mem_mgr::StackCookie {
         &self.stack_guard
+    }
+}
+
+impl<'a> HypervisorWrapperMgr for UninitializedSandbox<'a> {
+    fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper {
+        &self.hv
+    }
+
+    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper {
+        &mut self.hv
     }
 }
 

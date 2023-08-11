@@ -26,7 +26,7 @@ pub(crate) mod windows_hypervisor_platform;
 #[cfg(target_os = "windows")]
 mod wrappers;
 
-use self::handlers::{MemAccessHandlerRc, OutBHandlerRc};
+use self::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper};
 use crate::mem::ptr::RawPtr;
 use std::fmt::Debug;
 
@@ -44,7 +44,7 @@ pub(crate) const EFER_LME: u64 = 1 << 8;
 pub(crate) const EFER_LMA: u64 = 1 << 10;
 
 /// A common set of hypervisor functionality
-pub(crate) trait Hypervisor: Debug + Sync + Send {
+pub trait Hypervisor: Debug + Sync + Send {
     /// Initialise the internally stored vCPU with the given PEB address and
     /// random number seed, then run it until a HLT instruction.
     fn initialise(
@@ -52,15 +52,15 @@ pub(crate) trait Hypervisor: Debug + Sync + Send {
         peb_addr: RawPtr,
         seed: u64,
         page_size: u32,
-        outb_handle_fn: OutBHandlerRc,
-        mem_access_fn: MemAccessHandlerRc,
+        outb_handle_fn: OutBHandlerWrapper,
+        mem_access_fn: MemAccessHandlerWrapper,
     ) -> Result<()>;
 
     /// Run the internally stored vCPU until a HLT instruction.
     fn execute_until_halt(
         &mut self,
-        outb_handle_fn: OutBHandlerRc,
-        mem_access_fn: MemAccessHandlerRc,
+        outb_handle_fn: OutBHandlerWrapper,
+        mem_access_fn: MemAccessHandlerWrapper,
     ) -> Result<()>;
 
     /// Dispatch a call from the host to the guest using the given pointer
@@ -73,8 +73,8 @@ pub(crate) trait Hypervisor: Debug + Sync + Send {
     fn dispatch_call_from_host(
         &mut self,
         dispatch_func_addr: RawPtr,
-        outb_handle_fn: OutBHandlerRc,
-        mem_access_fn: MemAccessHandlerRc,
+        outb_handle_fn: OutBHandlerWrapper,
+        mem_access_fn: MemAccessHandlerWrapper,
     ) -> Result<()>;
 
     /// Reset the stack pointer on the internal virtual CPU
@@ -88,7 +88,7 @@ pub(crate) trait Hypervisor: Debug + Sync + Send {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::{
-        handlers::{MemAccessHandlerRc, OutBHandlerRc},
+        handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
         Hypervisor,
     };
     use crate::sandbox::mem_mgr::MemMgr;
@@ -107,8 +107,8 @@ pub(crate) mod tests {
     use std::path::Path;
 
     pub(crate) fn test_initialise<NewFn>(
-        outb_hdl: OutBHandlerRc,
-        mem_access_hdl: MemAccessHandlerRc,
+        outb_hdl: OutBHandlerWrapper,
+        mem_access_hdl: MemAccessHandlerWrapper,
         new_fn: NewFn,
     ) -> Result<()>
     where

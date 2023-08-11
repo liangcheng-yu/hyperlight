@@ -336,7 +336,7 @@ pub mod tests {
         testing::surrogate_binary::copy_surrogate_exe,
     };
     use serial_test::serial;
-    use std::rc::Rc;
+    use std::sync::{Arc, Mutex};
 
     use super::HypervWindowsDriver;
 
@@ -349,12 +349,12 @@ pub mod tests {
         assert!(copy_surrogate_exe());
 
         let outb_handler = {
-            let func: Box<dyn Fn(u16, u64)> = Box::new(|_, _| {});
-            Rc::new(OutBHandlerFn::from(func))
+            let func: Box<dyn FnMut(u16, u64)> = Box::new(|_, _| -> Result<()> { Ok(()) });
+            Arc::new(Mutex::new(OutBHandlerFn::from(func)))
         };
         let mem_access_handler = {
-            let func: Box<dyn Fn()> = Box::new(|| {});
-            Rc::new(MemAccessHandlerFn::from(func))
+            let func: Box<dyn FnMut()> = Box::new(|| -> Result<()> { Ok(()) });
+            Arc::new(Mutex::new(MemAccessHandlerFn::from(func)))
         };
         test_initialise(
             outb_handler,

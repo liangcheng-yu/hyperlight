@@ -8,7 +8,7 @@ use std::ops::Add;
 ///
 /// Use this type to distinguish between an offset and a raw pointer
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct RawPtr(u64);
+pub struct RawPtr(u64);
 
 impl From<u64> for RawPtr {
     fn from(val: u64) -> Self {
@@ -80,7 +80,16 @@ impl TryFrom<(Offset, &SharedMemory)> for HostPtr {
     }
 }
 /// Convenience type for representing a pointer into the guest address space
-pub(crate) type GuestPtr = Ptr<GuestAddressSpace>;
+pub type GuestPtr = Ptr<GuestAddressSpace>;
+
+impl From<u64> for GuestPtr {
+    fn from(val: u64) -> Self {
+        let addr_space = GuestAddressSpace::new().unwrap();
+        let offset = Offset::from(val);
+        Ptr::from_offset(addr_space, offset)
+    }
+}
+
 impl TryFrom<RawPtr> for GuestPtr {
     type Error = anyhow::Error;
     /// Create a new `GuestPtr` from the given `guest_raw_ptr`, which must
@@ -116,7 +125,7 @@ impl TryFrom<GuestPtr> for i64 {
 
 /// A pointer into a specific `AddressSpace` `T`.
 #[derive(Debug, Copy, Clone)]
-pub(crate) struct Ptr<T: AddressSpace> {
+pub struct Ptr<T: AddressSpace> {
     addr_space: T,
     offset: Offset,
 }
