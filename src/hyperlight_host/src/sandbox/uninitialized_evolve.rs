@@ -178,6 +178,7 @@ mod tests {
     use super::evolve_impl;
     use crate::{
         hypervisor::handlers::{MemAccessHandlerFn, OutBHandlerFn},
+        sandbox::uninitialized::GuestBinary,
         testing::{callback_guest_path, simple_guest_path},
         UninitializedSandbox,
     };
@@ -200,7 +201,12 @@ mod tests {
             Rc::new(MemAccessHandlerFn::from(cb))
         };
         for guest_bin_path in guest_bin_paths {
-            let u_sbox = UninitializedSandbox::new(guest_bin_path.clone(), None, None).unwrap();
+            let u_sbox = UninitializedSandbox::new(
+                GuestBinary::FilePath(guest_bin_path.clone()),
+                None,
+                None,
+            )
+            .unwrap();
             evolve_impl(u_sbox, outb_rc.clone(), mem_access_rc.clone())
                 .map_err(|e| {
                     anyhow!("error evolving sandbox with guest binary {guest_bin_path}: {e:?}")
@@ -224,7 +230,7 @@ mod tests {
         };
         for guest_bin_path in guest_bin_paths {
             let u_sbox: UninitializedSandbox<'_> = UninitializedSandbox::new(
-                guest_bin_path.clone(),
+                GuestBinary::FilePath(guest_bin_path.clone()),
                 None,
                 Some(SandboxRunOptions::RUN_IN_PROCESS),
             )

@@ -482,7 +482,7 @@
    ioctl(generic)
    fun:ioctl
    fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
-   fun:*core*ptr*drop_in_place*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
    fun:*hyperlight_host*capi*context*Context*remove*
    fun:test_hyperv_linux_create_driver
    fun:munit_test_runner_exec
@@ -499,7 +499,7 @@
    ioctl(generic)
    fun:ioctl
    fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
-   fun:*core*ptr*drop_in_place*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
    fun:*hyperlight_host*capi*context*Context*remove*
    fun:test_hyperv_linux_create_driver
    fun:munit_test_runner_exec
@@ -516,7 +516,7 @@
    ioctl(generic)
    fun:ioctl
    fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
-   fun:*core*ptr*drop_in_place*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
    fun:*hyperlight_host*capi*context*Context*remove*
    fun:test_hyperv_linux_execute_until_halt
    fun:munit_test_runner_exec
@@ -533,7 +533,7 @@
    ioctl(generic)
    fun:ioctl
    fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
-   fun:*core*ptr*drop_in_place*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
    fun:*hyperlight_host*capi*context*Context*remove*
    fun:test_hyperv_linux_execute_until_halt
    fun:munit_test_runner_exec
@@ -551,9 +551,9 @@
    fun:ioctl
    fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
    fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
-   fun:*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*as*core..ops..drop..Drop*drop*
-   fun:*core*ptr*drop_in_place*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
-   fun:*core*ptr*drop_in_place*core..option..Option*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*as*core*ops*drop*Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*core*option*Option*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
    fun:*hyperlight_host*capi*context*Context*remove*
    fun:handle_free
    fun:test_hyperv_linux_execute_until_halt
@@ -568,9 +568,9 @@
    fun:ioctl
    fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
    fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
-   fun:*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*as*core..ops..drop..Drop*drop*
-   fun:*core*ptr*drop_in_place*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
-   fun:*core*ptr*drop_in_place*core..option..Option*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*as*core*ops*drop*Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*core*option*Option*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
    fun:*hyperlight_host*capi*context*Context*remove*
    fun:handle_free
    fun:test_hyperv_linux_execute_until_halt
@@ -585,9 +585,9 @@
    fun:ioctl
    fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
    fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
-   fun:*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*as*core..ops..drop..Drop*drop*
-   fun:*core*ptr*drop_in_place*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
-   fun:*core*ptr*drop_in_place*core..option..Option*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*as*core*ops*drop*Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*core*option*Option*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
    fun:*hyperlight_host*capi*context*Context*remove*
    fun:handle_free
    fun:test_hyperv_linux_create_driver
@@ -602,9 +602,9 @@
    fun:ioctl
    fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
    fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
-   fun:*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*as*core..ops..drop..Drop*drop*
-   fun:*core*ptr*drop_in_place*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
-   fun:*core*ptr*drop_in_place*core..option..Option*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*as*core*ops*drop*Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*core*option*Option*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
    fun:*hyperlight_host*capi*context*Context*remove*
    fun:handle_free
    fun:test_hyperv_linux_create_driver
@@ -619,9 +619,9 @@
    fun:ioctl
    fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
    fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
-   fun:*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*as*core..ops..drop..Drop*drop*
-   fun:*core*ptr*drop_in_place*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
-   fun:*core*ptr*drop_in_place*core..option..Option*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*as*core*ops*drop*Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*core*option*Option*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
    fun:*hyperlight_host*capi*context*Context*remove*
    fun:handle_free
    fun:test_hyperv_linux_create_driver
@@ -636,9 +636,9 @@
    fun:ioctl
    fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
    fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
-   fun:*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*as*core..ops..drop..Drop*drop*
-   fun:*core*ptr*drop_in_place*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
-   fun:*core*ptr*drop_in_place*core..option..Option*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*as*core*ops*drop*Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*core*option*Option*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
    fun:*hyperlight_host*capi*context*Context6remove*
    fun:handle_free
    fun:test_hyperv_linux_create_driver
@@ -653,9 +653,9 @@
    fun:ioctl
    fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
    fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
-   fun:*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*as*core..ops..drop..Drop*drop*
-   fun:*core*ptr*drop_in_place*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
-   fun:*core*ptr*drop_in_place*core..option..Option*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*as*core*ops*drop*Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*core*option*Option*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
    fun:*hyperlight_host*capi*context*Context*remove*
    fun:handle_free
    fun:test_hyperv_linux_execute_until_halt
@@ -670,9 +670,9 @@
    fun:ioctl
    fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
    fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
-   fun:*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*as*core..ops..drop..Drop*drop*
-   fun:*core*ptr*drop_in_place*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
-   fun:*core*ptr*drop_in_place*core..option..Option*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*as*core*ops*drop*Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*core*option*Option*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
    fun:*hyperlight_host*capi*context*Context*remove*
    fun:handle_free
    fun:test_hyperv_linux_execute_until_halt
@@ -687,9 +687,9 @@
    fun:ioctl
    fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
    fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
-   fun:*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*core..ops..drop..Drop*drop*
-   fun:_*drop_in_place*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
-   fun:_*drop_in_place*core..option..Option*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*core*ops*drop*Drop*drop*
+   fun:_*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:_*drop_in_place*core*option*Option*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
    fun:_*hyperlight_host*capi*context*Context*remove*
    fun:handle_free
    fun:test_hyperv_linux_create_driver
@@ -704,9 +704,9 @@
    fun:ioctl
    fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
    fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
-   fun:*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*core..ops..drop..Drop*drop*
-   fun:*core*ptr*drop_in_place*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
-   fun:*core*ptr*drop_in_place*core..option..Option*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*core*ops*drop*Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*core*option*Option*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
    fun:*hyperlight_host*capi*context*Context*remove17hfcbe8e8ab1f904aaE
    fun:handle_free
    fun:test_hyperv_linux_execute_until_halt
@@ -958,7 +958,7 @@
    ioctl(generic)
    fun:ioctl
    fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
-   fun:*core*ptr*drop_in_place*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
    fun:*hyperlight_host*capi*context*Context*remove*
    fun:test_hyperv_linux_create_driver
    fun:munit_test_runner_exec
@@ -1010,7 +1010,7 @@
    ioctl(generic)
    fun:ioctl
    fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
-   fun:*core*ptr*drop_in_place*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
    fun:*hyperlight_host*capi*context*Context*remove*
    fun:test_hyperv_linux_execute_until_halt
    fun:munit_test_runner_exec
@@ -1026,321 +1026,321 @@
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h4d41acb19974c1b7E
-   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd15map_user_memory17h07ff01e78db21fd6E
-   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver3new17hecf7cf6b8c806673E
-   fun:_ZN15hyperlight_host7sandbox14hypervisor_box79_$LT$impl$u20$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$27set_up_hypervisor_partition17h3f98d3df9795fdeaE
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new28_$u7b$$u7b$closure$u7d$$u7d$17h0a474702b608007eE
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new17h696c83f5078fd085E
-   fun:_ZN15hyperlight_host4capi7sandbox11sandbox_new28_$u7b$$u7b$closure$u7d$$u7d$17hf839b82ea83f876eE
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$28_$u7b$$u7b$closure$u7d$$u7d$17h9ac3eaa0ba937b19E
-   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17ha9f7059ee0f4af8fE
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$17h7383c373e229b2a5E
-   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17h6102931ca29ab0e2E
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor_box*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_host*capi*sandbox*sandbox_new*closure*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*
+   fun:*core*result*Result*and_then*
 }
 {
    hyperv_linux_get_reg
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl18ioctl_with_mut_ref17he4b00a670fb3b38fE
-   fun:_ZN11mshv_ioctls6ioctls4vcpu6VcpuFd7get_reg17hb9f7fb2bd725a5efE
-   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver13add_registers17h4b7ff3c25a7bda12E
-   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver3new17hecf7cf6b8c806673E
-   fun:_ZN15hyperlight_host7sandbox14hypervisor_box79_$LT$impl$u20$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$27set_up_hypervisor_partition17h3f98d3df9795fdeaE
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new28_$u7b$$u7b$closure$u7d$$u7d$17h0a474702b608007eE
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new17h696c83f5078fd085E
-   fun:_ZN15hyperlight_host4capi7sandbox11sandbox_new28_$u7b$$u7b$closure$u7d$$u7d$17hf839b82ea83f876eE
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$28_$u7b$$u7b$closure$u7d$$u7d$17h9ac3eaa0ba937b19E
-   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17ha9f7059ee0f4af8fE
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$17h7383c373e229b2a5E
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg1*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor_box*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_host*capi*sandbox*sandbox_new*closure*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*
 }
 {
    hyperv_linux_unmap_user_mem
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h4d41acb19974c1b7E
-   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd17unmap_user_memory17h2bda0629463dccddE
-   fun:_ZN102_$LT$hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver$u20$as$u20$core..ops..drop..Drop$GT$4drop17h517109a2b7389df8E
-   fun:_ZN4core3ptr81drop_in_place$LT$hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver$GT$17h41fdde752e3b966eE
-   fun:_ZN4core3ptr93drop_in_place$LT$alloc..boxed..Box$LT$dyn$u20$hyperlight_host..hypervisor..Hypervisor$GT$$GT$17h1dab5a02c9e19665E
-   fun:_ZN4core3ptr121drop_in_place$LT$core..option..Option$LT$alloc..boxed..Box$LT$dyn$u20$hyperlight_host..hypervisor..Hypervisor$GT$$GT$$GT$17hc6847236affb1fc7E
-   fun:_ZN4core3ptr79drop_in_place$LT$hyperlight_host..sandbox..hypervisor_box..HypervisorBoxOpt$GT$17hd404029400a80e59E
-   fun:_ZN4core3ptr82drop_in_place$LT$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$17h2a0c8b09291cd999E
-   fun:_ZN4core3ptr107drop_in_place$LT$alloc..boxed..Box$LT$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$$GT$17h0362f8117b465ec9E
-   fun:_ZN4core3ptr70drop_in_place$LT$hyperlight_host..capi..sandbox_compat..EitherImpl$GT$17ha9c72738662c4a24E
-   fun:_ZN4core3ptr67drop_in_place$LT$hyperlight_host..capi..sandbox_compat..Sandbox$GT$17he91c10f15f069df9E
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*core*ops*drop*Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core*ptr*drop_in_place*core*option*Option*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core*ptr*drop_in_place*hyperlight_host*sandbox*hypervisor_box*HypervisorBoxOpt*
+   fun:*core*ptr*drop_in_place*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*hyperlight_host*capi*sandbox_compat*EitherImpl*
+   fun:*core*ptr*drop_in_place*hyperlight_host*capi*sandbox_compat*Sandbox*
 }
 {
    hyperv_linux_map_user_mem_2
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h65d0e470e4c6a67eE
-   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd15map_user_memory17h299d76554190b147E
-   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver3new17hf9cad8b9f7cdf937E
-   fun:_ZN15hyperlight_host7sandbox14hypervisor_box79_$LT$impl$u20$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$27set_up_hypervisor_partition17heb28d7c5510adff3E
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new28_$u7b$$u7b$closure$u7d$$u7d$17h39d23e66ef52b5beE
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new17h66314c806fdc3988E
-   fun:_ZN15hyperlight_host4capi7sandbox11sandbox_new28_$u7b$$u7b$closure$u7d$$u7d$17h6b73a9a5b4709ee5E
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$28_$u7b$$u7b$closure$u7d$$u7d$17h29fb4ba41739b8f4E
-   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17hf35c12648a4378ecE
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$17h83216d85af583a00E
-   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17h9aac8e2bfede50fbE
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor_box*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_host*capi*sandbox*sandbox_new*closure*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*
+   fun:*core*result*Result*and_then*
 }
 {
    hyperv_linux_get_reg_2
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl18ioctl_with_mut_ref17hb6b4fdc513aaaaa3E
-   fun:_ZN11mshv_ioctls6ioctls4vcpu6VcpuFd7get_reg17h9abf0085b28eafa9E
-   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver13add_registers17he2f32f149b897a8cE
-   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver3new17hf9cad8b9f7cdf937E
-   fun:_ZN15hyperlight_host7sandbox14hypervisor_box79_$LT$impl$u20$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$27set_up_hypervisor_partition17heb28d7c5510adff3E
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new28_$u7b$$u7b$closure$u7d$$u7d$17h39d23e66ef52b5beE
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new17h66314c806fdc3988E
-   fun:_ZN15hyperlight_host4capi7sandbox11sandbox_new28_$u7b$$u7b$closure$u7d$$u7d$17h6b73a9a5b4709ee5E
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$28_$u7b$$u7b$closure$u7d$$u7d$17h29fb4ba41739b8f4E
-   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17hf35c12648a4378ecE
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$17h83216d85af583a00E
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor_box*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_host*capi*sandbox*sandbox_new*closure*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*closure
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*
 }
 {
    hv_linux_unmap_user_mem
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h65d0e470e4c6a67eE
-   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd17unmap_user_memory17h5a13dfd6965fe811E
-   fun:_ZN102_$LT$hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver$u20$as$u20$core..ops..drop..Drop$GT$4drop17hfee0233ea2e93799E
-   fun:_ZN4core3ptr81drop_in_place$LT$hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver$GT$17h6ed8b76d0e8037a5E
-   fun:_ZN4core3ptr93drop_in_place$LT$alloc..boxed..Box$LT$dyn$u20$hyperlight_host..hypervisor..Hypervisor$GT$$GT$17hbb17d9f36867af37E
-   fun:_ZN4core3ptr121drop_in_place$LT$core..option..Option$LT$alloc..boxed..Box$LT$dyn$u20$hyperlight_host..hypervisor..Hypervisor$GT$$GT$$GT$17hd89a91e47ae8a8ffE
-   fun:_ZN4core3ptr79drop_in_place$LT$hyperlight_host..sandbox..hypervisor_box..HypervisorBoxOpt$GT$17h04df9550a80df5b1E
-   fun:_ZN4core3ptr82drop_in_place$LT$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$17h524e61105372f503E
-   fun:_ZN4core3ptr107drop_in_place$LT$alloc..boxed..Box$LT$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$$GT$17h19bcfa9caeb83b8fE
-   fun:_ZN4core3ptr70drop_in_place$LT$hyperlight_host..capi..sandbox_compat..EitherImpl$GT$17h59643f940628f8dcE
-   fun:_ZN4core3ptr67drop_in_place$LT$hyperlight_host..capi..sandbox_compat..Sandbox$GT$17h890807fbe5d06711E
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*core*ops*drop*Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core*ptr*drop_in_place*core*option*Option*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core*ptr*drop_in_place*hyperlight_host*sandbox*hypervisor_box*HypervisorBoxOpt*
+   fun:*core*ptr*drop_in_place*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*hyperlight_host*capi*sandbox_compat*EitherImpl*
+   fun:*core*ptr*drop_in_place*hyperlight_host*capi*sandbox_compat*Sandbox*
 }
 {
    hv_linux_unmap_user_mem_2
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h65d0e470e4c6a67eE
-   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd17unmap_user_memory17h5a13dfd6965fe811E
-   fun:_ZN102_$LT$hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver$u20$as$u20$core..ops..drop..Drop$GT$4drop17hfee0233ea2e93799E
-   fun:_ZN4core3ptr81drop_in_place$LT$hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver$GT$17h6ed8b76d0e8037a5E
-   fun:_ZN4core3ptr93drop_in_place$LT$alloc..boxed..Box$LT$dyn$u20$hyperlight_host..hypervisor..Hypervisor$GT$$GT$17hbb17d9f36867af37E
-   fun:_ZN4core3ptr121drop_in_place$LT$core..option..Option$LT$alloc..boxed..Box$LT$dyn$u20$hyperlight_host..hypervisor..Hypervisor$GT$$GT$$GT$17hd89a91e47ae8a8ffE
-   fun:_ZN4core3ptr79drop_in_place$LT$hyperlight_host..sandbox..hypervisor_box..HypervisorBoxOpt$GT$17h04df9550a80df5b1E
-   fun:_ZN4core3ptr82drop_in_place$LT$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$17h524e61105372f503E
-   fun:_ZN4core3ptr107drop_in_place$LT$alloc..boxed..Box$LT$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$$GT$17h19bcfa9caeb83b8fE
-   fun:_ZN4core3ptr70drop_in_place$LT$hyperlight_host..capi..sandbox_compat..EitherImpl$GT$17h59643f940628f8dcE
-   fun:_ZN4core3ptr67drop_in_place$LT$hyperlight_host..capi..sandbox_compat..Sandbox$GT$17h890807fbe5d06711E
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*core*ops*drop*Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core*ptr*drop_in_place*core*option*Option*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core*ptr*drop_in_place*hyperlight_host*sandbox*hypervisor_box*HypervisorBoxOpt*
+   fun:*core*ptr*drop_in_place*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*hyperlight_host*capi*sandbox_compat*EitherImpl*
+   fun:*core*ptr*drop_in_place*hyperlight_host*capi*sandbox_compat*Sandbox*
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h65d0e470e4c6a67eE
-   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd15map_user_memory17h299d76554190b147E
-   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver3new17h6a0b9a9cda8133bdE
-   fun:_ZN15hyperlight_host7sandbox10hypervisor79_$LT$impl$u20$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$27set_up_hypervisor_partition17h5c812b64d7df3711E
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new28_$u7b$$u7b$closure$u7d$$u7d$17h029cb1773080cee0E
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new17h38293058c73d82ccE
-   fun:_ZN15hyperlight_host4capi7sandbox11sandbox_new28_$u7b$$u7b$closure$u7d$$u7d$17h2d79ad2488fb51ebE
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$28_$u7b$$u7b$closure$u7d$$u7d$17h97562692a0e176d8E
-   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17h0302d9647b3cf2deE
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$17h2dc9f2ca09adb095E
-   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17hb7a57238dcae4c7dE
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_host*capi*sandbox*sandbox_new*closure*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*
+   fun:*core*result*Result*and_then*
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl18ioctl_with_mut_ref17hb6b4fdc513aaaaa3E
-   fun:_ZN11mshv_ioctls6ioctls4vcpu6VcpuFd7get_reg17h9abf0085b28eafa9E
-   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver13add_registers17h73212583d91fcf44E
-   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver3new17h6a0b9a9cda8133bdE
-   fun:_ZN15hyperlight_host7sandbox10hypervisor79_$LT$impl$u20$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$27set_up_hypervisor_partition17h5c812b64d7df3711E
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new28_$u7b$$u7b$closure$u7d$$u7d$17h029cb1773080cee0E
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new17h38293058c73d82ccE
-   fun:_ZN15hyperlight_host4capi7sandbox11sandbox_new28_$u7b$$u7b$closure$u7d$$u7d$17h2d79ad2488fb51ebE
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$28_$u7b$$u7b$closure$u7d$$u7d$17h97562692a0e176d8E
-   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17h0302d9647b3cf2deE
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$17h2dc9f2ca09adb095E
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_host*capi*sandbox*sandbox_new*closure*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h65d0e470e4c6a67eE
-   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd17unmap_user_memory17h5a13dfd6965fe811E
-   fun:_ZN102_$LT$hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver$u20$as$u20$core..ops..drop..Drop$GT$4drop17h01993680080a3697E
-   fun:_ZN4core3ptr81drop_in_place$LT$hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver$GT$17h8d22f82f3e08921bE
-   fun:_ZN4core3ptr93drop_in_place$LT$alloc..boxed..Box$LT$dyn$u20$hyperlight_host..hypervisor..Hypervisor$GT$$GT$17h2225f8d016d0e936E
-   fun:_ZN4core3ptr121drop_in_place$LT$core..option..Option$LT$alloc..boxed..Box$LT$dyn$u20$hyperlight_host..hypervisor..Hypervisor$GT$$GT$$GT$17h981ec333aa40f953E
-   fun:_ZN4core3ptr76drop_in_place$LT$hyperlight_host..sandbox..hypervisor..HypervisorWrapper$GT$17h96ecbf9d1c68d80cE
-   fun:_ZN4core3ptr82drop_in_place$LT$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$17ha16064bb03f94dafE
-   fun:_ZN4core3ptr107drop_in_place$LT$alloc..boxed..Box$LT$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$$GT$17hd4b24199d183c9a4E
-   fun:_ZN4core3ptr70drop_in_place$LT$hyperlight_host..capi..sandbox_compat..EitherImpl$GT$17h89944717ab8776a4E
-   fun:_ZN4core3ptr67drop_in_place$LT$hyperlight_host..capi..sandbox_compat..Sandbox$GT$17h3eddc9466e31689aE
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*core*ops*drop*Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core*ptr*drop_in_place*core*option*Option*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core3ptr76drop_in_place*hyperlight_host*sandbox*hypervisor*HypervisorWrapper*
+   fun:*core*ptr*drop_in_place*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*hyperlight_host*capi*sandbox_compat*EitherImpl*
+   fun:*core*ptr*drop_in_place*hyperlight_host*capi*sandbox_compat*Sandbox*
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h65d0e470e4c6a67eE
-   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd17unmap_user_memory17h5a13dfd6965fe811E
-   fun:_ZN102_$LT$hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver$u20$as$u20$core..ops..drop..Drop$GT$4drop17h01993680080a3697E
-   fun:_ZN4core3ptr81drop_in_place$LT$hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver$GT$17h8d22f82f3e08921bE
-   fun:_ZN4core3ptr93drop_in_place$LT$alloc..boxed..Box$LT$dyn$u20$hyperlight_host..hypervisor..Hypervisor$GT$$GT$17h2225f8d016d0e936E
-   fun:_ZN4core3ptr121drop_in_place$LT$core..option..Option$LT$alloc..boxed..Box$LT$dyn$u20$hyperlight_host..hypervisor..Hypervisor$GT$$GT$$GT$17h981ec333aa40f953E
-   fun:_ZN4core3ptr76drop_in_place$LT$hyperlight_host..sandbox..hypervisor..HypervisorWrapper$GT$17h96ecbf9d1c68d80cE
-   fun:_ZN4core3ptr82drop_in_place$LT$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$17ha16064bb03f94dafE
-   fun:_ZN4core3ptr107drop_in_place$LT$alloc..boxed..Box$LT$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$$GT$17hd4b24199d183c9a4E
-   fun:_ZN4core3ptr70drop_in_place$LT$hyperlight_host..capi..sandbox_compat..EitherImpl$GT$17h89944717ab8776a4E
-   fun:_ZN4core3ptr67drop_in_place$LT$hyperlight_host..capi..sandbox_compat..Sandbox$GT$17h3eddc9466e31689aE
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*core*ops*drop*Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core*ptr*drop_in_place*core*option*Option*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core3ptr76drop_in_place*hyperlight_host*sandbox*hypervisor*HypervisorWrapper*
+   fun:*core*ptr*drop_in_place*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*hyperlight_host*capi*sandbox_compat*EitherImpl*
+   fun:*core*ptr*drop_in_place*hyperlight_host*capi*sandbox_compat*Sandbox*
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl18ioctl_with_mut_ref17hb6b4fdc513aaaaa3E
-   fun:_ZN11mshv_ioctls6ioctls4vcpu6VcpuFd7get_reg17h9abf0085b28eafa9E
-   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver13add_registers17h73212583d91fcf44E
-   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver3new17h6a0b9a9cda8133bdE
-   fun:_ZN15hyperlight_host7sandbox10hypervisor79_$LT$impl$u20$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$27set_up_hypervisor_partition17h5c812b64d7df3711E
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new28_$u7b$$u7b$closure$u7d$$u7d$17h029cb1773080cee0E
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new17h38293058c73d82ccE
-   fun:_ZN15hyperlight_host4capi7sandbox11sandbox_new28_$u7b$$u7b$closure$u7d$$u7d$17h2d79ad2488fb51ebE
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$28_$u7b$$u7b$closure$u7d$$u7d$17h97562692a0e176d8E
-   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17h0302d9647b3cf2deE
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$17h2dc9f2ca09adb095E
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_host*capi*sandbox*sandbox_new*closure*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h65d0e470e4c6a67eE
-   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd15map_user_memory17h299d76554190b147E
-   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver3new17h6a0b9a9cda8133bdE
-   fun:_ZN15hyperlight_host7sandbox10hypervisor79_$LT$impl$u20$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$27set_up_hypervisor_partition17h5c812b64d7df3711E
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new28_$u7b$$u7b$closure$u7d$$u7d$17h029cb1773080cee0E
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new17h38293058c73d82ccE
-   fun:_ZN15hyperlight_host4capi7sandbox11sandbox_new28_$u7b$$u7b$closure$u7d$$u7d$17h2d79ad2488fb51ebE
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$28_$u7b$$u7b$closure$u7d$$u7d$17h97562692a0e176d8E
-   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17h0302d9647b3cf2deE
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$17h2dc9f2ca09adb095E
-   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17hb7a57238dcae4c7dE
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_host*capi*sandbox*sandbox_new*closure*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*
+   fun:*core*result*Result*and_then*
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h65d0e470e4c6a67eE
-   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd15map_user_memory17h299d76554190b147E
-   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver3new17hade885dbe5841cebE
-   fun:_ZN15hyperlight_host7sandbox10hypervisor79_$LT$impl$u20$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$27set_up_hypervisor_partition17he17515d8aa4d1079E
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new28_$u7b$$u7b$closure$u7d$$u7d$17h13929966d7e916c5E
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new17heecc5074f684d3d2E
-   fun:_ZN15hyperlight_host4capi7sandbox11sandbox_new28_$u7b$$u7b$closure$u7d$$u7d$17h794fafffb113a948E
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$28_$u7b$$u7b$closure$u7d$$u7d$17h2e34e0a5c9a3dfd7E
-   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17h1ca8e017bc1855dfE
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$17h1f1a43396b60f2a6E
-   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17h3b91a5e3d466e66cE
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_host*capi*sandbox*sandbox_new*closure*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*
+   fun:*core*result*Result*and_then*
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl18ioctl_with_mut_ref17hb6b4fdc513aaaaa3E
-   fun:_ZN11mshv_ioctls6ioctls4vcpu6VcpuFd7get_reg17h9abf0085b28eafa9E
-   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver13add_registers17h81bc43b29c5a8a6eE
-   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver3new17hade885dbe5841cebE
-   fun:_ZN15hyperlight_host7sandbox10hypervisor79_$LT$impl$u20$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$27set_up_hypervisor_partition17he17515d8aa4d1079E
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new28_$u7b$$u7b$closure$u7d$$u7d$17h13929966d7e916c5E
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new17heecc5074f684d3d2E
-   fun:_ZN15hyperlight_host4capi7sandbox11sandbox_new28_$u7b$$u7b$closure$u7d$$u7d$17h794fafffb113a948E
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$28_$u7b$$u7b$closure$u7d$$u7d$17h2e34e0a5c9a3dfd7E
-   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17h1ca8e017bc1855dfE
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$17h1f1a43396b60f2a6E
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_host*capi*sandbox*sandbox_new*closure**
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h65d0e470e4c6a67eE
-   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd17unmap_user_memory17h5a13dfd6965fe811E
-   fun:_ZN102_$LT$hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver$u20$as$u20$core..ops..drop..Drop$GT$4drop17h0cfb6715bcfbf472E
-   fun:_ZN4core3ptr81drop_in_place$LT$hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver$GT$17h2d32fee3e8d580f6E
-   fun:_ZN4core3ptr93drop_in_place$LT$alloc..boxed..Box$LT$dyn$u20$hyperlight_host..hypervisor..Hypervisor$GT$$GT$17hdc6a469b3bbbd8f3E
-   fun:_ZN4core3ptr121drop_in_place$LT$core..option..Option$LT$alloc..boxed..Box$LT$dyn$u20$hyperlight_host..hypervisor..Hypervisor$GT$$GT$$GT$17h2df4f4c55796025fE
-   fun:_ZN4core3ptr76drop_in_place$LT$hyperlight_host..sandbox..hypervisor..HypervisorWrapper$GT$17hd9ed5c8ddbdeb5c4E
-   fun:_ZN4core3ptr82drop_in_place$LT$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$17ha6ef09317eeb5a02E
-   fun:_ZN4core3ptr107drop_in_place$LT$alloc..boxed..Box$LT$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$$GT$17h61b80ebad93b4059E
-   fun:_ZN4core3ptr70drop_in_place$LT$hyperlight_host..capi..sandbox_compat..EitherImpl$GT$17hc213cd1b75fb3e25E
-   fun:_ZN4core3ptr67drop_in_place$LT$hyperlight_host..capi..sandbox_compat..Sandbox$GT$17hc5e0e83b7214f9e4E
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*core*ops*drop*Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core*ptr*drop_in_place*core*option*Option*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core3ptr76drop_in_place*hyperlight_host*sandbox*hypervisor*HypervisorWrapper*
+   fun:*core*ptr*drop_in_place*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*hyperlight_host*capi*sandbox_compat*EitherImpl*
+   fun:*core*ptr*drop_in_place*hyperlight_host*capi*sandbox_compat*Sandbox*
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h65d0e470e4c6a67eE
-   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd17unmap_user_memory17h5a13dfd6965fe811E
-   fun:_ZN102_$LT$hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver$u20$as$u20$core..ops..drop..Drop$GT$4drop17h0cfb6715bcfbf472E
-   fun:_ZN4core3ptr81drop_in_place$LT$hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver$GT$17h2d32fee3e8d580f6E
-   fun:_ZN4core3ptr93drop_in_place$LT$alloc..boxed..Box$LT$dyn$u20$hyperlight_host..hypervisor..Hypervisor$GT$$GT$17hdc6a469b3bbbd8f3E
-   fun:_ZN4core3ptr121drop_in_place$LT$core..option..Option$LT$alloc..boxed..Box$LT$dyn$u20$hyperlight_host..hypervisor..Hypervisor$GT$$GT$$GT$17h2df4f4c55796025fE
-   fun:_ZN4core3ptr76drop_in_place$LT$hyperlight_host..sandbox..hypervisor..HypervisorWrapper$GT$17hd9ed5c8ddbdeb5c4E
-   fun:_ZN4core3ptr82drop_in_place$LT$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$17ha6ef09317eeb5a02E
-   fun:_ZN4core3ptr107drop_in_place$LT$alloc..boxed..Box$LT$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$$GT$17h61b80ebad93b4059E
-   fun:_ZN4core3ptr70drop_in_place$LT$hyperlight_host..capi..sandbox_compat..EitherImpl$GT$17hc213cd1b75fb3e25E
-   fun:_ZN4core3ptr67drop_in_place$LT$hyperlight_host..capi..sandbox_compat..Sandbox$GT$17hc5e0e83b7214f9e4E
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*core*ops*drop*Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core*ptr*drop_in_place*core*option*Option*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core3ptr76drop_in_place*hyperlight_host*sandbox*hypervisor*HypervisorWrapper*
+   fun:*core*ptr*drop_in_place*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*hyperlight_host*capi*sandbox_compat*EitherImpl*
+   fun:*core*ptr*drop_in_place*hyperlight_host*capi*sandbox_compat*Sandbox*
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl18ioctl_with_mut_ref17hb6b4fdc513aaaaa3E
-   fun:_ZN11mshv_ioctls6ioctls4vcpu6VcpuFd7get_reg17h9abf0085b28eafa9E
-   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver13add_registers17h81bc43b29c5a8a6eE
-   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver3new17hade885dbe5841cebE
-   fun:_ZN15hyperlight_host7sandbox10hypervisor79_$LT$impl$u20$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$27set_up_hypervisor_partition17he17515d8aa4d1079E
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new28_$u7b$$u7b$closure$u7d$$u7d$17h13929966d7e916c5E
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new17heecc5074f684d3d2E
-   fun:_ZN15hyperlight_host4capi7sandbox11sandbox_new28_$u7b$$u7b$closure$u7d$$u7d$17h794fafffb113a948E
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$28_$u7b$$u7b$closure$u7d$$u7d$17h2e34e0a5c9a3dfd7E
-   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17h1ca8e017bc1855dfE
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$17h1f1a43396b60f2a6E
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_host*capi*sandbox*sandbox_new*closure**
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Param
    ioctl(generic)
    fun:ioctl
-   fun:_ZN12vmm_sys_util5linux5ioctl14ioctl_with_ref17h65d0e470e4c6a67eE
-   fun:_ZN11mshv_ioctls6ioctls2vm4VmFd15map_user_memory17h299d76554190b147E
-   fun:_ZN15hyperlight_host10hypervisor12hyperv_linux17HypervLinuxDriver3new17hade885dbe5841cebE
-   fun:_ZN15hyperlight_host7sandbox10hypervisor79_$LT$impl$u20$hyperlight_host..sandbox..uninitialized..UninitializedSandbox$GT$27set_up_hypervisor_partition17he17515d8aa4d1079E
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new28_$u7b$$u7b$closure$u7d$$u7d$17h13929966d7e916c5E
-   fun:_ZN15hyperlight_host7sandbox13uninitialized20UninitializedSandbox3new17heecc5074f684d3d2E
-   fun:_ZN15hyperlight_host4capi7sandbox11sandbox_new28_$u7b$$u7b$closure$u7d$$u7d$17h794fafffb113a948E
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$28_$u7b$$u7b$closure$u7d$$u7d$17h2e34e0a5c9a3dfd7E
-   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17h1ca8e017bc1855dfE
-   fun:_ZN15hyperlight_host4capi6c_func14CFunc$LT$T$GT$12and_then_mut28_$u7b$$u7b$closure$u7d$$u7d$17h1f1a43396b60f2a6E
-   fun:_ZN4core6result19Result$LT$T$C$E$GT$8and_then17h3b91a5e3d466e66cE
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_host*capi*sandbox*sandbox_new*closure**
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_host*capi*func*CFunc*and_then_mut*closure*
+   fun:*core*result*Result*and_then*
 }

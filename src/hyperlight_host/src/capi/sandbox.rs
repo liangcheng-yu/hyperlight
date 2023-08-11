@@ -3,6 +3,7 @@ use super::{context::Context, sandbox_compat::Sandbox};
 use super::{handle::Handle, sandbox_compat::EitherImpl};
 use crate::sandbox::host_funcs::default_writer_func;
 use crate::sandbox::mem_mgr::MemMgr;
+use crate::sandbox::uninitialized::GuestBinary;
 use crate::{capi::strings::get_string, mem::config::SandboxMemoryConfiguration};
 use crate::{func::host::HostFunction1, sandbox};
 use crate::{mem::ptr::RawPtr, sandbox_state::sandbox::EvolvableSandbox};
@@ -59,7 +60,7 @@ pub unsafe extern "C" fn sandbox_new(
             }));
 
             let mut sbox = sandbox::UninitializedSandbox::new(
-                bin_path.to_string(),
+                GuestBinary::FilePath(bin_path.to_string()),
                 Some(mem_cfg),
                 sandbox_run_options,
             )?;

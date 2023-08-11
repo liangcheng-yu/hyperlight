@@ -116,6 +116,7 @@ pub(crate) trait CallGuestFunction<'a>: GuestMgr + RestoreSandbox {
 
 #[cfg(test)]
 mod tests {
+    use crate::sandbox::uninitialized::GuestBinary;
     use crate::testing::simple_guest_path;
     use crate::UninitializedSandbox;
 
@@ -147,7 +148,7 @@ mod tests {
     fn test_call_guest_function() {
         let uninitialized_sandbox = || {
             UninitializedSandbox::new(
-                simple_guest_path().expect("Guest Binary Missing"),
+                GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
                 None,
                 None,
             )

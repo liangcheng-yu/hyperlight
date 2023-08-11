@@ -99,7 +99,7 @@ pub(crate) mod tests {
             ptr::{GuestPtr, RawPtr},
             ptr_offset::Offset,
         },
-        sandbox::UninitializedSandbox,
+        sandbox::{uninitialized::GuestBinary, UninitializedSandbox},
         testing::dummy_guest_path,
     };
     use anyhow::bail;
@@ -119,7 +119,8 @@ pub(crate) mod tests {
             bail!("test_initialise: file {} does not exist", filename);
         }
 
-        let sandbox = UninitializedSandbox::new(filename.clone(), None, None)?;
+        let sandbox =
+            UninitializedSandbox::new(GuestBinary::FilePath(filename.clone()), None, None)?;
         let mut mem_mgr = sandbox.get_mem_mgr().clone();
         let shared_mem = &mem_mgr.shared_mem;
         let rsp_ptr = {
