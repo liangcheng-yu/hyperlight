@@ -16,9 +16,12 @@ use log::error;
 use std::sync::atomic::AtomicI32;
 use std::sync::Arc;
 
-// 0 = not executing a guest call
-// 1 = executing a guest call
-// 2 = executing a dynamic guest call
+/// A container to atomically keep track of whether a sandbox is currently executing a guest call. Primarily
+/// used to prevent concurrent execution of guest calls.
+///
+/// 0 = not executing a guest call
+/// 1 = executing `execute_in_host`
+/// 2 = executing a `call_guest_function_by_name`
 #[derive(Clone)]
 pub struct ExecutingGuestCall(Arc<AtomicI32>);
 

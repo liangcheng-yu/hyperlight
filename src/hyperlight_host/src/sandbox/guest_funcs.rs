@@ -47,7 +47,7 @@ struct ShouldReset<'a>(bool, &'a mut dyn GuestMgr);
 impl<'a> Drop for ShouldReset<'a> {
     fn drop(&mut self) {
         let guest_mgr = &mut self.1;
-        guest_mgr.exit_dynamic_method(self.0);
+        guest_mgr.exit_method(self.0);
     }
 }
 
@@ -55,7 +55,7 @@ impl<'a> Drop for ShouldReset<'a> {
 pub trait CallGuestFunction<'a>:
     GuestMgr + RestoreSandbox + HypervisorWrapperMgr + InitializedSandbox<'a>
 {
-    fn call_guest_function<T, R>(&mut self, function: T) -> Result<R>
+    fn execute_in_host<T, R>(&mut self, function: T) -> Result<R>
     where
         T: GuestFunction<R>,
     {
@@ -125,7 +125,7 @@ pub trait CallGuestFunction<'a>:
 
         let should_reset = enter_dynamic_method
             .as_guest_mgr_mut()
-            .enter_dynamic_method();
+            .enter_method();
 
         let mut restore_sandbox = this
             .as_ref()
@@ -183,44 +183,15 @@ pub trait CallGuestFunction<'a>:
             // and the `dispatch` function can directly access that via shared memory.
             dispatch();
         } else {
-            // let outb = {
-            //     let this_outb = this.clone();
-
-            //     let cb: OutBHandlerFunction<'a> =
-            //         Box::new(|port, byte| -> Result<()> {
-            //             this_outb
-            //                 .lock()
-            //                 .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-            //                 .get_initialized_sandbox_mut()
-            //                 .handle_outb(port, byte)
-            //         });
-            //     Arc::new(Mutex::new(OutBHandler::from(cb)))
-            // };
-
-            // let mmio_exit = {
-            //     let this_mmio_exit = this.clone();
-
-            //     let cb: MemAccessHandlerFunction<'a> = Box::new(|| -> Result<()> {
-            //         this_mmio_exit
-            //             .lock()
-            //             .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-            //             .get_initialized_sandbox_mut()
-            //             .handle_mmio_exit()
-            //     });
-            //     Arc::new(Mutex::new(MemAccessHandler::from(cb)))
-            // };
-
             let outb_arc = {
-                let cb: Box<dyn FnMut(u16, u64) -> Result<()>> = Box::new(|_, _| -> Result<()> {
-                    println!("outb callback in test_evolve");
-                    Ok(())
+                let cb: Box<dyn FnMut(u16, u64) -> Result<()> + 'a> = Box::new(|port, byte| -> Result<()> {
+                    self.get_initialized_sandbox_mut().handle_outb(port, byte)
                 });
                 Arc::new(Mutex::new(OutBHandler::from(cb)))
             };
             let mem_access_arc = {
-                let cb: Box<dyn FnMut() -> Result<()>> = Box::new(|| -> Result<()> {
-                    println!("mem access callback in test_evolve");
-                    Ok(())
+                let cb: Box<dyn FnMut() -> Result<()> + 'a> = Box::new(|| -> Result<()> {
+                    self.get_initialized_sandbox_mut().handle_mmio_exit()
                 });
                 Arc::new(Mutex::new(MemAccessHandler::from(cb)))
             };
@@ -302,7 +273,7 @@ mod tests {
             let mut sandbox = usbox
                 .initialize(Some(init))
                 .expect("Failed to initialize sandbox");
-            let result = sandbox.call_guest_function(Arc::new(Mutex::new(test_function0)));
+            let result = sandbox.execute_in_host(Arc::new(Mutex::new(test_function0)));
             assert_eq!(result.unwrap(), 42);
         }
 
@@ -312,7 +283,7 @@ mod tests {
             let mut sandbox = usbox
                 .initialize(Some(init))
                 .expect("Failed to initialize sandbox");
-            let result = sandbox.call_guest_function(Arc::new(Mutex::new(test_function1)));
+            let result = sandbox.execute_in_host(Arc::new(Mutex::new(test_function1)));
             assert!(result.is_ok());
         }
 
@@ -323,7 +294,7 @@ mod tests {
                 .initialize(Some(init))
                 .expect("Failed to initialize sandbox");
             let result =
-                sandbox.call_guest_function(Arc::new(Mutex::new(move || test_function2(42))));
+                sandbox.execute_in_host(Arc::new(Mutex::new(move || test_function2(42))));
             assert_eq!(result.unwrap(), 42);
         }
 
@@ -342,7 +313,7 @@ mod tests {
                 let count = Arc::clone(&count);
                 let order = Arc::clone(&order);
                 let handle = thread::spawn(move || {
-                    let result = sandbox.call_guest_function(Arc::new(Mutex::new(move || {
+                    let result = sandbox.execute_in_host(Arc::new(Mutex::new(move || {
                         let mut num = count.lock().unwrap();
                         *num += 1;
                         Ok(*num)
