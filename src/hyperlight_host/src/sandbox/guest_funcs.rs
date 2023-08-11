@@ -9,8 +9,11 @@ use crate::{
         types::{ParameterValue, ReturnType},
         HyperlightFunction,
     },
-    hypervisor::handlers::{MemAccessHandler, OutBHandler},
+    hypervisor::handlers::{
+        MemAccessHandler, MemAccessHandlerFunction, OutBHandler, OutBHandlerFunction,
+    },
     sandbox_state::{reset::RestoreSandbox, sandbox::InitializedSandbox},
+    Sandbox,
 };
 
 use anyhow::{bail, Result};
@@ -102,7 +105,7 @@ pub trait CallGuestFunction<'a>:
 
     #[instrument]
     fn call_guest_function_by_name<P>(
-        &mut self,
+        &'a mut self,
         name: &str,
         ret: ReturnType,
         args: Option<Vec<P>>,
@@ -123,9 +126,7 @@ pub trait CallGuestFunction<'a>:
             .lock()
             .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
 
-        let should_reset = enter_dynamic_method
-            .as_guest_mgr_mut()
-            .enter_method();
+        let should_reset = enter_dynamic_method.as_guest_mgr_mut().enter_method();
 
         let mut restore_sandbox = this
             .as_ref()
@@ -183,24 +184,39 @@ pub trait CallGuestFunction<'a>:
             // and the `dispatch` function can directly access that via shared memory.
             dispatch();
         } else {
+            let sbox: Arc<Mutex<&mut Sandbox<'a>>> =
+                Arc::new(Mutex::new(self.get_initialized_sandbox_mut()));
+
             let outb_arc = {
-                let cb: Box<dyn FnMut(u16, u64) -> Result<()> + 'a> = Box::new(|port, byte| -> Result<()> {
-                    self.get_initialized_sandbox_mut().handle_outb(port, byte)
+                let outb_sbox = sbox.clone();
+                let cb: OutBHandlerFunction<'_> = Box::new(move |port, byte| -> Result<()> {
+                    outb_sbox
+                        .lock()
+                        .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                        .handle_outb(port, byte)
                 });
                 Arc::new(Mutex::new(OutBHandler::from(cb)))
             };
+
             let mem_access_arc = {
-                let cb: Box<dyn FnMut() -> Result<()> + 'a> = Box::new(|| -> Result<()> {
-                    self.get_initialized_sandbox_mut().handle_mmio_exit()
+                let mem_access_sbox = sbox.clone();
+                let cb: MemAccessHandlerFunction<'_> = Box::new(move || -> Result<()> {
+                    mem_access_sbox
+                        .lock()
+                        .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                        .handle_mmio_exit()
                 });
                 Arc::new(Mutex::new(MemAccessHandler::from(cb)))
             };
 
-            self.get_hypervisor_wrapper_mut().dispatch_call_from_host(
-                p_dispatch.into(),
-                outb_arc.clone(),
-                mem_access_arc.clone(),
-            )?
+            sbox.lock()
+                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                .get_hypervisor_wrapper_mut()
+                .dispatch_call_from_host(
+                    p_dispatch.into(),
+                    outb_arc.clone(),
+                    mem_access_arc.clone(),
+                )?;
         }
 
         self.check_stack_guard()?; // <- wrapper around mem_mgr `check_for_stack_guard`
@@ -263,6 +279,7 @@ mod tests {
             )
             .unwrap()
         };
+
         fn init(_: &mut UninitializedSandbox) -> Result<()> {
             Ok(())
         }
@@ -293,8 +310,7 @@ mod tests {
             let mut sandbox = usbox
                 .initialize(Some(init))
                 .expect("Failed to initialize sandbox");
-            let result =
-                sandbox.execute_in_host(Arc::new(Mutex::new(move || test_function2(42))));
+            let result = sandbox.execute_in_host(Arc::new(Mutex::new(move || test_function2(42))));
             assert_eq!(result.unwrap(), 42);
         }
 

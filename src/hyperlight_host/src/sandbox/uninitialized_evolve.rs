@@ -44,10 +44,10 @@ pub(super) fn evolve_impl<'a>(
     }
 }
 
-fn evolve_in_proc(
-    mut u_sbox: UninitializedSandbox<'_>,
+fn evolve_in_proc<'a>(
+    mut u_sbox: UninitializedSandbox<'a>,
     outb_hdl: OutBHandlerWrapper,
-) -> Result<Sandbox<'_>> {
+) -> Result<Sandbox<'a>> {
     #[cfg(target_os = "linux")]
     {
         // Note from old C# implementation of this function:

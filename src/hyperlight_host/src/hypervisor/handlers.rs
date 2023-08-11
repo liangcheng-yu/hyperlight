@@ -14,7 +14,7 @@ pub trait OutBHandlerCaller {
 /// Note: This needs to be wrapped in a Mutex to be able to grab a mutable
 /// reference to the underlying data (i.e., handle_outb in `Sandbox` takes
 /// a &mut self).
-pub type OutBHandlerWrapper = Arc<Mutex<dyn OutBHandlerCaller>>;
+pub type OutBHandlerWrapper<'a> = Arc<Mutex<dyn OutBHandlerCaller + 'a>>;
 
 pub(crate) type OutBHandlerFunction<'a> = Box<dyn FnMut(u16, u64) -> Result<()> + 'a>;
 
@@ -50,7 +50,7 @@ pub trait MemAccessHandlerCaller {
 /// reference to the underlying data (i.e., handle_mmio_exit in `Sandbox` takes
 /// a &mut self).
 #[allow(unused)]
-pub type MemAccessHandlerWrapper = Arc<Mutex<dyn MemAccessHandlerCaller>>;
+pub type MemAccessHandlerWrapper<'a> = Arc<Mutex<dyn MemAccessHandlerCaller + 'a>>;
 
 pub(crate) type MemAccessHandlerFunction<'a> = Box<dyn FnMut() -> Result<()> + 'a>;
 
