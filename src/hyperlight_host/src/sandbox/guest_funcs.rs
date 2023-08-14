@@ -25,32 +25,32 @@ use tracing::instrument;
 // It implements `drop` and captures part of our state in
 // `call_guest_function`, to allow it to properly act
 // on it and do cleanup.
-struct ShouldRelease<'a>(bool, &'a mut dyn GuestMgr);
+struct ShouldRelease<'a, 'b>(bool, Arc<Mutex<&'b mut Sandbox<'a>>>);
 
-impl<'a> ShouldRelease<'a> {
+impl<'a, 'b> ShouldRelease<'a, 'b> {
     #[allow(unused)]
     fn toggle(&mut self) {
         self.0 = !self.0;
     }
 }
 
-impl<'a> Drop for ShouldRelease<'a> {
+impl<'a, 'b> Drop for ShouldRelease<'a, 'b> {
     fn drop(&mut self) {
         if self.0 {
-            let guest_mgr = &mut self.1;
-            guest_mgr.set_needs_state_reset(true);
-            let executing_guest_function = guest_mgr.get_executing_guest_call_mut();
+            let sbox = &mut self.1.lock().unwrap();
+            sbox.set_needs_state_reset(true);
+            let executing_guest_function = sbox.get_executing_guest_call_mut();
             executing_guest_function.store(0);
         }
     }
 }
 
-struct ShouldReset<'a>(bool, &'a mut dyn GuestMgr);
+struct ShouldReset<'a, 'b>(bool, Arc<Mutex<&'b mut Sandbox<'a>>>);
 
-impl<'a> Drop for ShouldReset<'a> {
+impl<'a, 'b> Drop for ShouldReset<'a, 'b> {
     fn drop(&mut self) {
-        let guest_mgr = &mut self.1;
-        guest_mgr.exit_method(self.0);
+        let mut sbox = self.1.lock().unwrap();
+        sbox.exit_method(self.0);
     }
 }
 
@@ -62,30 +62,15 @@ pub trait CallGuestFunction<'a>:
     where
         T: GuestFunction<R>,
     {
-        let this = Arc::new(Mutex::new(self));
-        // ^^^ needs to be an Arc Mutex because we need multiple owners with mutable
-        // access in a thread-safe way, as highlighted below:
-
-        let mut guest_mgr = this
-            .as_ref()
-            .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
-
-        let mut executing_guest_function = this
-            .as_ref()
-            .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
-
-        let mut restore_sandbox = this
-            .as_ref()
-            .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
+        let sbox = Arc::new(Mutex::new(self.get_initialized_sandbox_mut()));
 
         // We prefix the variable below w/ an underscore because it is
         // 'technically' unused, as our purpose w/ it is just for it to
         // go out of scope and call its' custom `Drop` `impl`.
-        let mut _sd = ShouldRelease(false, guest_mgr.as_guest_mgr_mut());
-        if executing_guest_function
+        let mut _sd = ShouldRelease(false, sbox.clone());
+        if sbox
+            .lock()
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
             .get_executing_guest_call_mut()
             .compare_exchange(0, 1)
             .map_err(|_| anyhow::anyhow!("Failed to verify status of guest function execution"))?
@@ -95,7 +80,9 @@ pub trait CallGuestFunction<'a>:
         }
 
         _sd.toggle();
-        restore_sandbox.reset_state()?;
+        sbox.lock()
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+            .reset_state()?;
         function.call()
         // ^^^ ensures that only one call can be made concurrently
         // because `GuestFunction` is implemented for `Arc<Mutex<T>>`
@@ -105,7 +92,7 @@ pub trait CallGuestFunction<'a>:
 
     #[instrument]
     fn call_guest_function_by_name<P>(
-        &'a mut self,
+        &mut self,
         name: &str,
         ret: ReturnType,
         args: Option<Vec<P>>,
@@ -113,38 +100,23 @@ pub trait CallGuestFunction<'a>:
     where
         P: SupportedParameterType<P> + std::fmt::Debug,
     {
-        let this = Arc::new(Mutex::new(self));
-        // ^^^ needs to be an Arc Mutex because we need multiple owners with mutable
+        let sbox = Arc::new(Mutex::new(self.get_initialized_sandbox_mut()));
 
-        let mut guest_mgr = this
-            .as_ref()
+        let should_reset = sbox
             .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
-
-        let mut enter_dynamic_method = this
-            .as_ref()
-            .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
-
-        let should_reset = enter_dynamic_method.as_guest_mgr_mut().enter_method();
-
-        let mut restore_sandbox = this
-            .as_ref()
-            .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
-
-        let mut call = this
-            .as_ref()
-            .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+            .as_guest_mgr_mut()
+            .enter_method();
 
         // We prefix the variable below w/ an underscore because it is
         // 'technically' unused, as our purpose w/ it is just for it to
         // go out of scope and call its' custom `Drop` `impl`.
-        let mut _sr = ShouldReset(should_reset, guest_mgr.as_guest_mgr_mut());
+        let mut _sr = ShouldReset(should_reset, sbox.clone());
 
         if should_reset {
-            restore_sandbox.reset_state()?;
+            sbox.lock()
+                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                .reset_state()?;
         }
 
         let hl_args = args.map(|args| {
@@ -153,7 +125,11 @@ pub trait CallGuestFunction<'a>:
                 .collect::<Vec<ParameterValue>>()
         });
 
-        call.dispatch_call_from_host(name, ret, hl_args)
+        let mut dispatcher = sbox
+            .lock()
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
+
+        dispatcher.dispatch_call_from_host(name, ret, hl_args)
     }
 
     fn dispatch_call_from_host(
@@ -184,8 +160,7 @@ pub trait CallGuestFunction<'a>:
             // and the `dispatch` function can directly access that via shared memory.
             dispatch();
         } else {
-            let sbox: Arc<Mutex<&mut Sandbox<'a>>> =
-                Arc::new(Mutex::new(self.get_initialized_sandbox_mut()));
+            let sbox = Arc::new(Mutex::new(self.get_initialized_sandbox_mut()));
 
             let outb_arc = {
                 let outb_sbox = sbox.clone();
