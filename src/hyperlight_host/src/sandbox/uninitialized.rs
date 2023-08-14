@@ -504,7 +504,7 @@ mod tests {
 
         UninitializedSandbox::load_guest_binary(
             cfg,
-            &GuestBinary::FilePath(simple_guest_path.clone()),
+            &GuestBinary::FilePath(simple_guest_path),
             false,
             false,
         )
@@ -617,7 +617,7 @@ mod tests {
         let simple_guest_path = simple_guest_path().unwrap();
         let mgr_res = UninitializedSandbox::load_guest_binary(
             cfg,
-            &GuestBinary::FilePath(simple_guest_path.clone()),
+            &GuestBinary::FilePath(simple_guest_path),
             true,
             true,
         );
