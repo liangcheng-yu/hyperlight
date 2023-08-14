@@ -20,6 +20,8 @@ impl MemAccessHandlerCaller for MemAccessHandlerWrapper {
     }
 }
 
+// TODO: Remove this once this is used.
+#[allow(unused)]
 /// Get a MemAccessHandlerFunc from the specified handle
 pub(crate) fn get_mem_access_handler_func(
     ctx: &Context,

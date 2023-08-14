@@ -19,6 +19,8 @@ impl OutBHandlerCaller for OutBHandlerWrapper {
     }
 }
 
+// TODO: Remove this once this is used.
+#[allow(unused)]
 /// Get a OutbHandlerFunc from the specified handle
 pub(crate) fn get_outb_handler_func(ctx: &Context, hdl: Handle) -> Result<&OutBHandlerWrapper> {
     Context::get(hdl, &ctx.outb_handler_funcs, |h| {
