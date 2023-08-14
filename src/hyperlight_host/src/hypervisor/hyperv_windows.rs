@@ -1,6 +1,6 @@
 use super::windows_hypervisor_platform as whp;
 use super::{
-    handlers::{MemAccessHandlerRc, OutBHandlerRc},
+    handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
     windows_hypervisor_platform::{VMPartition, VMProcessor},
     Hypervisor, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT,
     CR4_PAE, EFER_LMA, EFER_LME,
@@ -190,8 +190,8 @@ impl Hypervisor for HypervWindowsDriver {
         peb_address: RawPtr,
         seed: u64,
         page_size: u32,
-        outb_hdl: OutBHandlerRc,
-        mem_access_hdl: MemAccessHandlerRc,
+        outb_hdl: OutBHandlerWrapper,
+        mem_access_hdl: MemAccessHandlerWrapper,
     ) -> Result<()> {
         self.registers.insert(
             WhvRegisterNameWrapper(WHvX64RegisterRcx),
@@ -213,8 +213,8 @@ impl Hypervisor for HypervWindowsDriver {
 
     fn execute_until_halt(
         &mut self,
-        outb_hdl: OutBHandlerRc,
-        mem_access_hdl: MemAccessHandlerRc,
+        outb_hdl: OutBHandlerWrapper,
+        mem_access_hdl: MemAccessHandlerWrapper,
     ) -> Result<()> {
         let bytes_written: Option<*mut usize> = None;
         let bytes_read: Option<*mut usize> = None;
@@ -299,8 +299,8 @@ impl Hypervisor for HypervWindowsDriver {
     fn dispatch_call_from_host(
         &mut self,
         dispatch_func_addr: RawPtr,
-        outb_hdl: OutBHandlerRc,
-        mem_access_hdl: MemAccessHandlerRc,
+        outb_hdl: OutBHandlerWrapper,
+        mem_access_hdl: MemAccessHandlerWrapper,
     ) -> Result<()> {
         let registers = HashMap::from([(
             WhvRegisterNameWrapper(WHvX64RegisterRip),
@@ -329,7 +329,7 @@ impl Hypervisor for HypervWindowsDriver {
 pub mod tests {
     use crate::{
         hypervisor::{
-            handlers::{MemAccessHandlerFn, OutBHandlerFn},
+            handlers::{MemAccessHandler, OutBHandler},
             tests::test_initialise,
         },
         mem::{layout::SandboxMemoryLayout, ptr::GuestPtr, ptr_offset::Offset},
@@ -350,11 +350,11 @@ pub mod tests {
 
         let outb_handler = {
             let func: Box<dyn FnMut(u16, u64)> = Box::new(|_, _| -> Result<()> { Ok(()) });
-            Arc::new(Mutex::new(OutBHandlerFn::from(func)))
+            Arc::new(Mutex::new(OutBHandler::from(func)))
         };
         let mem_access_handler = {
             let func: Box<dyn FnMut()> = Box::new(|| -> Result<()> { Ok(()) });
-            Arc::new(Mutex::new(MemAccessHandlerFn::from(func)))
+            Arc::new(Mutex::new(MemAccessHandler::from(func)))
         };
         test_initialise(
             outb_handler,
