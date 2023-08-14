@@ -209,7 +209,7 @@ mod tests {
                 None,
             )
             .unwrap();
-            evolve_impl(u_sbox, outb_rc.clone(), mem_access_rc.clone())
+            evolve_impl(u_sbox, outb_arc.clone(), mem_access_arc.clone())
                 .map_err(|e| {
                     anyhow!("error evolving sandbox with guest binary {guest_bin_path}: {e:?}")
                 })
