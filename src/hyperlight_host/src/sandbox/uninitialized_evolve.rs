@@ -138,7 +138,7 @@ fn evolve_in_proc<'a>(
             // We have to make this a reference to the trait object rather
             // than the trait object itself, because `dyn FnMut` is not sized
             // so we can't compile without the reference.
-            let trait_obj: &dyn FnMut(u16, u64) = &closure.unwrap();
+            let trait_obj: &dyn FnMut(u16, u64) -> Result<()> = &closure;
             // Now get a _reference to the reference_, to prepare to coerce
             // to a raw pointer.
             let trait_obj_ref = &trait_obj;
