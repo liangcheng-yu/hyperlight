@@ -30,7 +30,6 @@ use tracing::instrument;
 /// host-implemented functions you need to be available to the guest, then
 /// call either `initialize` or `evolve to transform your
 /// `UninitializedSandbox` into an initialized `Sandbox`.
-#[allow(unused)]
 pub struct UninitializedSandbox<'a> {
     // Registered host functions
     host_functions: FunctionsMap<'a>,
@@ -150,6 +149,15 @@ impl<'a> HypervisorWrapperMgr for UninitializedSandbox<'a> {
     }
 }
 
+/// A `GuestBinary` is either a buffer containing the binary or a path to the binary
+#[derive(Debug)]
+pub enum GuestBinary {
+    /// A buffer containing the guest binary
+    Buffer(Vec<u8>),
+    /// A path to the guest binary
+    FilePath(String),
+}
+
 impl<'a> UninitializedSandbox<'a> {
     /// Create a new sandbox configured to run the binary at path
     /// `bin_path`.
@@ -157,19 +165,25 @@ impl<'a> UninitializedSandbox<'a> {
     /// The instrument attribute is used to generate tracing spans and also to emit an error should the Result be an error
     /// In order to ensure that the span is associated with any error (so we get the correlation id ) we set the level of the span to error
     /// the downside to this is that if there is no trace subscriber a log at level error or below will always emit a record for this regardless of if an error actually occurs
-    #[instrument(err(), skip(cfg), name = "UninitializedSandbox::new")]
+    #[instrument(err(), skip(guest_binary, cfg), name = "UninitializedSandbox::new")]
     pub fn new(
-        bin_path: String,
+        guest_binary: GuestBinary,
         cfg: Option<SandboxMemoryConfiguration>,
         sandbox_run_options: Option<SandboxRunOptions>,
     ) -> Result<Self> {
-        // Make sure the binary exists
+        // If the guest binary is a file make sure it exists
 
-        let path = Path::new(&bin_path)
-            .canonicalize()
-            .map_err(|e| anyhow!("Error {} File Path {}", e, &bin_path))?;
-        path.try_exists()
-            .map_err(|e| anyhow!("Error {} File Path {}", e, &bin_path))?;
+        let guest_binary = match guest_binary {
+            GuestBinary::FilePath(binary_path) => {
+                let path = Path::new(&binary_path)
+                    .canonicalize()
+                    .map_err(|e| anyhow!("Error {} File Path {}", e, binary_path))?;
+                path.try_exists()
+                    .map_err(|e| anyhow!("Error {} File Path {}", e, binary_path))?;
+                GuestBinary::FilePath(path.to_str().unwrap().to_string())
+            }
+            GuestBinary::Buffer(buffer) => GuestBinary::Buffer(buffer),
+        };
 
         let sandbox_run_options =
             sandbox_run_options.unwrap_or(SandboxRunOptions::RUN_IN_HYPERVISOR);
@@ -189,7 +203,7 @@ impl<'a> UninitializedSandbox<'a> {
         let mem_cfg = cfg.unwrap_or_default();
         let mut mem_mgr = UninitializedSandbox::load_guest_binary(
             mem_cfg,
-            &bin_path,
+            &guest_binary,
             run_from_process_memory,
             run_from_guest_binary,
         )?;
@@ -270,15 +284,25 @@ impl<'a> UninitializedSandbox<'a> {
     /// as `false`, this function calls `SandboxMemoryManager::load_guest_binary_into_memory`.
     pub(super) fn load_guest_binary(
         mem_cfg: SandboxMemoryConfiguration,
-        bin_path_str: &str,
+        guest_binary: &GuestBinary,
         run_from_process_memory: bool,
         run_from_guest_binary: bool,
     ) -> Result<SandboxMemoryManager> {
-        let mut pe_info = PEInfo::from_file(bin_path_str)?;
+        let mut pe_info = match guest_binary {
+            GuestBinary::FilePath(bin_path_str) => PEInfo::from_file(bin_path_str)?,
+            GuestBinary::Buffer(buffer) => PEInfo::new(buffer)?,
+        };
+
         if run_from_guest_binary {
+            let path = match guest_binary {
+                GuestBinary::FilePath(bin_path_str) => bin_path_str,
+                GuestBinary::Buffer(_) => {
+                    anyhow::bail!("Cannot run from guest binary when guest binary is a buffer")
+                }
+            };
             SandboxMemoryManager::load_guest_binary_using_load_library(
                 mem_cfg,
-                bin_path_str,
+                path,
                 &mut pe_info,
                 run_from_process_memory,
             )
@@ -299,10 +323,9 @@ impl<'a> UninitializedSandbox<'a> {
 
     /// Initialize the `Sandbox` from an `UninitializedSandbox`.
     /// Receives a callback function to be called during initialization.
-    #[allow(unused)]
     #[instrument(err(Debug), skip_all)]
     pub(super) fn initialize<F: Fn(&mut UninitializedSandbox<'a>) -> Result<()> + 'a>(
-        mut self,
+        self,
         callback: Option<F>,
     ) -> Result<Sandbox<'a>> {
         match callback {
@@ -328,6 +351,7 @@ mod tests {
         },
         mem::config::SandboxMemoryConfiguration,
         sandbox::host_funcs::CallHostPrint,
+        sandbox::uninitialized::GuestBinary,
         testing::simple_guest_path,
         UninitializedSandbox,
     };
@@ -340,6 +364,7 @@ mod tests {
     use std::path::PathBuf;
     use std::thread;
     use std::{
+        fs,
         io::{Read, Write},
         sync::{Arc, Mutex},
     };
@@ -353,14 +378,18 @@ mod tests {
         // Guest Binary exists at path
 
         let binary_path = simple_guest_path().unwrap();
-        let sandbox = UninitializedSandbox::new(binary_path.clone(), None, None);
+        let sandbox =
+            UninitializedSandbox::new(GuestBinary::FilePath(binary_path.clone()), None, None);
         assert!(sandbox.is_ok());
 
         // Guest Binary does not exist at path
 
         let binary_path_does_not_exist = binary_path.trim_end_matches(".exe").to_string();
-        let uninitialized_sandbox =
-            UninitializedSandbox::new(binary_path_does_not_exist, None, None);
+        let uninitialized_sandbox = UninitializedSandbox::new(
+            GuestBinary::FilePath(binary_path_does_not_exist),
+            None,
+            None,
+        );
         assert!(uninitialized_sandbox.is_err());
 
         // Non default memory configuration
@@ -375,7 +404,8 @@ mod tests {
             Some(0x1000),
         );
 
-        let uninitialized_sandbox = UninitializedSandbox::new(binary_path.clone(), Some(cfg), None);
+        let uninitialized_sandbox =
+            UninitializedSandbox::new(GuestBinary::FilePath(binary_path.clone()), Some(cfg), None);
         assert!(uninitialized_sandbox.is_ok());
 
         // Invalid sandbox_run_options
@@ -383,11 +413,15 @@ mod tests {
         let sandbox_run_options =
             SandboxRunOptions::RUN_FROM_GUEST_BINARY | SandboxRunOptions::RECYCLE_AFTER_RUN;
 
-        let uninitialized_sandbox =
-            UninitializedSandbox::new(binary_path.clone(), None, Some(sandbox_run_options));
+        let uninitialized_sandbox = UninitializedSandbox::new(
+            GuestBinary::FilePath(binary_path.clone()),
+            None,
+            Some(sandbox_run_options),
+        );
         assert!(uninitialized_sandbox.is_err());
 
-        let uninitialized_sandbox = UninitializedSandbox::new(binary_path, None, None);
+        let uninitialized_sandbox =
+            UninitializedSandbox::new(GuestBinary::FilePath(binary_path), None, None);
         assert!(uninitialized_sandbox.is_ok());
 
         // Get a Sandbox from an uninitialized sandbox without a call back function
@@ -410,7 +444,7 @@ mod tests {
         let writer_func = Arc::new(Mutex::new(writer));
 
         let mut uninitialized_sandbox = UninitializedSandbox::new(
-            simple_guest_path().expect("Guest Binary Missing"),
+            GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
             None,
             None,
         )
@@ -430,6 +464,36 @@ mod tests {
         drop(sandbox);
 
         assert_eq!(&received_msg, "test");
+
+        // Test with a valid guest binary buffer
+
+        let binary_path = simple_guest_path().unwrap();
+        let sandbox = UninitializedSandbox::new(
+            GuestBinary::Buffer(fs::read(binary_path).unwrap()),
+            None,
+            None,
+        );
+        assert!(sandbox.is_ok());
+
+        // Test with a invalid guest binary buffer
+
+        let binary_path = simple_guest_path().unwrap();
+        let mut bytes = fs::read(binary_path).unwrap();
+        let _ = bytes.split_off(100);
+        let sandbox = UninitializedSandbox::new(GuestBinary::Buffer(bytes), None, None);
+        assert!(sandbox.is_err());
+
+        // Test with a valid guest binary buffer when trying to load library
+        #[cfg(os = "windows")]
+        {
+            let binary_path = simple_guest_path().unwrap();
+            let sandbox = UninitializedSandbox::new(
+                GuestBinary::Buffer(fs::read(&binary_path).unwrap()),
+                None,
+                Some(SandboxRunOptions::RUN_FROM_GUEST_BINARY),
+            );
+            assert!(sandbox.is_err());
+        }
     }
 
     #[test]
@@ -438,14 +502,20 @@ mod tests {
 
         let simple_guest_path = simple_guest_path().unwrap();
 
-        UninitializedSandbox::load_guest_binary(cfg, simple_guest_path.as_str(), false, false)
-            .unwrap();
+        UninitializedSandbox::load_guest_binary(
+            cfg,
+            &GuestBinary::FilePath(simple_guest_path.clone()),
+            false,
+            false,
+        )
+        .unwrap();
     }
 
     #[test]
     fn test_stack_guard() {
         let simple_guest_path = simple_guest_path().unwrap();
-        let sbox = UninitializedSandbox::new(simple_guest_path, None, None).unwrap();
+        let sbox = UninitializedSandbox::new(GuestBinary::FilePath(simple_guest_path), None, None)
+            .unwrap();
         let res = sbox.check_stack_guard();
         assert!(
             res.is_ok(),
@@ -461,7 +531,7 @@ mod tests {
     fn test_host_functions() {
         let uninitialized_sandbox = || {
             UninitializedSandbox::new(
-                simple_guest_path().expect("Guest Binary Missing"),
+                GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
                 None,
                 None,
             )
@@ -545,8 +615,12 @@ mod tests {
     fn test_load_guest_binary_load_lib() {
         let cfg = SandboxMemoryConfiguration::default();
         let simple_guest_path = simple_guest_path().unwrap();
-        let mgr_res =
-            UninitializedSandbox::load_guest_binary(cfg, simple_guest_path.as_str(), true, true);
+        let mgr_res = UninitializedSandbox::load_guest_binary(
+            cfg,
+            &GuestBinary::FilePath(simple_guest_path.clone()),
+            true,
+            true,
+        );
         #[cfg(target_os = "linux")]
         {
             assert!(mgr_res.is_err())
@@ -573,7 +647,7 @@ mod tests {
         let writer_func = Arc::new(Mutex::new(writer));
 
         let mut sandbox = UninitializedSandbox::new(
-            simple_guest_path().expect("Guest Binary Missing"),
+            GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
             None,
             None,
         )
@@ -610,7 +684,7 @@ mod tests {
         let writer_func = Arc::new(Mutex::new(writer));
 
         let mut sandbox = UninitializedSandbox::new(
-            simple_guest_path().expect("Guest Binary Missing"),
+            GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
             None,
             None,
         )
@@ -635,7 +709,7 @@ mod tests {
 
         let writer_func = Arc::new(Mutex::new(fn_writer));
         let mut sandbox = UninitializedSandbox::new(
-            simple_guest_path().expect("Guest Binary Missing"),
+            GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
             None,
             None,
         )
@@ -658,7 +732,7 @@ mod tests {
         let writer_method = Arc::new(Mutex::new(writer_closure));
 
         let mut sandbox = UninitializedSandbox::new(
-            simple_guest_path().expect("Guest Binary Missing"),
+            GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
             None,
             None,
         )
@@ -694,7 +768,8 @@ mod tests {
             let unintializedsandbox = {
                 let err_string = format!("failed to create UninitializedSandbox {i}");
                 let err_str = err_string.as_str();
-                UninitializedSandbox::new(simple_guest_path, None, None).expect(err_str)
+                UninitializedSandbox::new(GuestBinary::FilePath(simple_guest_path), None, None)
+                    .expect(err_str)
             };
 
             {
@@ -798,7 +873,7 @@ mod tests {
             let mut binary_path = simple_guest_path().unwrap();
             binary_path.push_str("does_not_exist");
 
-            let sbox = UninitializedSandbox::new(binary_path, None, None);
+            let sbox = UninitializedSandbox::new(GuestBinary::FilePath(binary_path), None, None);
             assert!(sbox.is_err());
 
             // Now we should still be in span 1 but span 2 should be created (we created entered and exited span 2 when we called UninitializedSandbox::new)
@@ -876,7 +951,8 @@ mod tests {
             let mut invalid_binary_path = simple_guest_path().unwrap();
             invalid_binary_path.push_str("does_not_exist");
 
-            let sbox = UninitializedSandbox::new(invalid_binary_path, None, None);
+            let sbox =
+                UninitializedSandbox::new(GuestBinary::FilePath(invalid_binary_path), None, None);
             assert!(sbox.is_err());
 
             // When tracing is creating log records it will create a log
@@ -899,7 +975,7 @@ mod tests {
 
             assert!(logcall
                 .args
-                .starts_with("UninitializedSandbox::new; bin_path"));
+                .starts_with("UninitializedSandbox::new; sandbox_run_options"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
 
             // Log record 2
@@ -948,7 +1024,7 @@ mod tests {
             valid_binary_path.push("initialized.rs");
 
             let sbox = UninitializedSandbox::new(
-                valid_binary_path.into_os_string().into_string().unwrap(),
+                GuestBinary::FilePath(valid_binary_path.into_os_string().into_string().unwrap()),
                 None,
                 None,
             );
@@ -971,7 +1047,7 @@ mod tests {
 
             assert!(logcall
                 .args
-                .starts_with("UninitializedSandbox::new; bin_path"));
+                .starts_with("UninitializedSandbox::new; sandbox_run_options"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
 
             // Log record 3
@@ -1013,7 +1089,11 @@ mod tests {
             // Now we have set the max level to error, so we should not see any log calls as the following should not create an error
 
             let sbox = {
-                let res = UninitializedSandbox::new(simple_guest_path().unwrap(), None, None);
+                let res = UninitializedSandbox::new(
+                    GuestBinary::FilePath(simple_guest_path().unwrap()),
+                    None,
+                    None,
+                );
                 res.map_err(|e| anyhow!("could not create a new UninitializedSandbox: {e:?}"))
                     .unwrap()
             };

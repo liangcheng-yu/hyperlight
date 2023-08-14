@@ -16,7 +16,7 @@ mod outb;
 mod run_options;
 /// Functionality for creating uninitialized sandboxes, manipulating them,
 /// and converting them to initialized sandboxes.
-mod uninitialized;
+pub(crate) mod uninitialized;
 /// Functionality for properly converting `UninitailizedSandbox`es to
 /// initialized `Sandbox`es.
 mod uninitialized_evolve;
@@ -113,6 +113,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     use crate::hypervisor::kvm::test_cfg::TEST_CONFIG as KVM_TEST_CONFIG;
     use crate::sandbox::host_funcs::CallHostPrint;
+    use crate::sandbox::uninitialized::GuestBinary;
     use crate::UninitializedSandbox;
     use crate::{testing::simple_guest_path, Sandbox};
     use anyhow::Result;
@@ -138,8 +139,9 @@ mod tests {
 
         for i in 0..10 {
             let simple_guest_path = simple_guest_path().expect("Guest Binary Missing");
-            let unintializedsandbox = UninitializedSandbox::new(simple_guest_path, None, None)
-                .unwrap_or_else(|_| panic!("Failed to create UninitializedSandbox {}", i));
+            let unintializedsandbox =
+                UninitializedSandbox::new(GuestBinary::FilePath(simple_guest_path), None, None)
+                    .unwrap_or_else(|_| panic!("Failed to create UninitializedSandbox {}", i));
 
             unintializedsandbox_queue
                 .push(unintializedsandbox)
