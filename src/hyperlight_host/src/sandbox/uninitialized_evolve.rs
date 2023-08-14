@@ -125,7 +125,12 @@ fn evolve_in_proc<'a>(
             // This is an important distinction because the latter has a
             // "fat" pointer that contains a reference to both the executable
             // code and the context over which the original closure closes.
-            let closure = |port: u16, payload: u64| outb_hdl.call(port, payload);
+            let closure = |port: u16, payload: u64| {
+                outb_hdl
+                    .lock()
+                    .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                    .call(port, payload)
+            };
             // Now we're coercing to a trait object, which means the compiler
             // guarantees we have a "fat" pointer that contains both a ref
             // to code and state.
