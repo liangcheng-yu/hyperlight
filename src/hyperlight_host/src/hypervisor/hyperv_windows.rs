@@ -355,11 +355,11 @@ pub mod tests {
         assert!(copy_surrogate_exe());
 
         let outb_handler = {
-            let func: Box<dyn FnMut(u16, u64)> = Box::new(|_, _| -> Result<()> { Ok(()) });
+            let func: Box<dyn FnMut(u16, u64)> = Box::new(|_, _| -> anyhow::Result<()> { Ok(()) });
             Arc::new(Mutex::new(OutBHandler::from(func)))
         };
         let mem_access_handler = {
-            let func: Box<dyn FnMut()> = Box::new(|| -> Result<()> { Ok(()) });
+            let func: Box<dyn FnMut()> = Box::new(|| -> anyhow::Result<()> { Ok(()) });
             Arc::new(Mutex::new(MemAccessHandler::from(func)))
         };
         test_initialise(
