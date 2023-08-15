@@ -268,7 +268,7 @@ impl Hypervisor for HypervWindowsDriver {
                         outb_hdl
                             .lock()
                             .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-                            .call(exit_context.Anonymous.IoPortAccess.PortNumber, 0);
+                            .call(exit_context.Anonymous.IoPortAccess.PortNumber, 0)?;
 
                         // Move rip forward to next instruction (size of current instruction is in lower byte of InstructionLength_Cr8_Reserverd)
                         let registers = HashMap::from([(
@@ -289,7 +289,7 @@ impl Hypervisor for HypervWindowsDriver {
                         mem_access_hdl
                             .lock()
                             .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-                            .call();
+                            .call()?;
                         return self.throw_exit_exception(exit_context.ExitReason);
                     }
                     _ => {
