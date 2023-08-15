@@ -1,6 +1,6 @@
 use super::windows_hypervisor_platform as whp;
 use super::{
-    handlers::{MemAccessHandlerRc, OutBHandlerRc},
+    handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
     windows_hypervisor_platform::{VMPartition, VMProcessor},
     Hypervisor, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT,
     CR4_PAE, EFER_LMA, EFER_LME,
@@ -190,8 +190,8 @@ impl Hypervisor for HypervWindowsDriver {
         peb_address: RawPtr,
         seed: u64,
         page_size: u32,
-        outb_hdl: OutBHandlerRc,
-        mem_access_hdl: MemAccessHandlerRc,
+        outb_hdl: OutBHandlerWrapper,
+        mem_access_hdl: MemAccessHandlerWrapper,
     ) -> Result<()> {
         self.registers.insert(
             WhvRegisterNameWrapper(WHvX64RegisterRcx),
@@ -213,8 +213,8 @@ impl Hypervisor for HypervWindowsDriver {
 
     fn execute_until_halt(
         &mut self,
-        outb_hdl: OutBHandlerRc,
-        mem_access_hdl: MemAccessHandlerRc,
+        outb_hdl: OutBHandlerWrapper,
+        mem_access_hdl: MemAccessHandlerWrapper,
     ) -> Result<()> {
         let bytes_written: Option<*mut usize> = None;
         let bytes_read: Option<*mut usize> = None;
@@ -265,7 +265,10 @@ impl Hypervisor for HypervWindowsDriver {
                 match exit_context.ExitReason {
                     // WHvRunVpExitReasonX64IoPortAccess
                     WHV_RUN_VP_EXIT_REASON(2i32) => {
-                        outb_hdl.call(exit_context.Anonymous.IoPortAccess.PortNumber, 0);
+                        outb_hdl
+                            .lock()
+                            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                            .call(exit_context.Anonymous.IoPortAccess.PortNumber, 0)?;
 
                         // Move rip forward to next instruction (size of current instruction is in lower byte of InstructionLength_Cr8_Reserverd)
                         let registers = HashMap::from([(
@@ -283,7 +286,10 @@ impl Hypervisor for HypervWindowsDriver {
                     }
                     // WHvRunVpExitReasonMemoryAccess
                     WHV_RUN_VP_EXIT_REASON(1i32) => {
-                        mem_access_hdl.call();
+                        mem_access_hdl
+                            .lock()
+                            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                            .call()?;
                         return self.throw_exit_exception(exit_context.ExitReason);
                     }
                     _ => {
@@ -299,8 +305,8 @@ impl Hypervisor for HypervWindowsDriver {
     fn dispatch_call_from_host(
         &mut self,
         dispatch_func_addr: RawPtr,
-        outb_hdl: OutBHandlerRc,
-        mem_access_hdl: MemAccessHandlerRc,
+        outb_hdl: OutBHandlerWrapper,
+        mem_access_hdl: MemAccessHandlerWrapper,
     ) -> Result<()> {
         let registers = HashMap::from([(
             WhvRegisterNameWrapper(WHvX64RegisterRip),
@@ -329,14 +335,14 @@ impl Hypervisor for HypervWindowsDriver {
 pub mod tests {
     use crate::{
         hypervisor::{
-            handlers::{MemAccessHandlerFn, OutBHandlerFn},
+            handlers::{MemAccessHandler, OutBHandler},
             tests::test_initialise,
         },
         mem::{layout::SandboxMemoryLayout, ptr::GuestPtr, ptr_offset::Offset},
         testing::surrogate_binary::copy_surrogate_exe,
     };
     use serial_test::serial;
-    use std::rc::Rc;
+    use std::sync::{Arc, Mutex};
 
     use super::HypervWindowsDriver;
 
@@ -349,12 +355,14 @@ pub mod tests {
         assert!(copy_surrogate_exe());
 
         let outb_handler = {
-            let func: Box<dyn Fn(u16, u64)> = Box::new(|_, _| {});
-            Rc::new(OutBHandlerFn::from(func))
+            let func: Box<dyn FnMut(u16, u64) -> anyhow::Result<()>> =
+                Box::new(|_, _| -> anyhow::Result<()> { Ok(()) });
+            Arc::new(Mutex::new(OutBHandler::from(func)))
         };
         let mem_access_handler = {
-            let func: Box<dyn Fn()> = Box::new(|| {});
-            Rc::new(MemAccessHandlerFn::from(func))
+            let func: Box<dyn FnMut() -> anyhow::Result<()>> =
+                Box::new(|| -> anyhow::Result<()> { Ok(()) });
+            Arc::new(Mutex::new(MemAccessHandler::from(func)))
         };
         test_initialise(
             outb_handler,

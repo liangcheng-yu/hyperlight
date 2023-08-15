@@ -6,16 +6,15 @@ pub(crate) mod function_definition;
 pub(crate) mod function_details;
 
 use self::function_definition::HostFunctionDefinition;
-use super::types::{ParameterValue, ReturnValue};
+use super::types::ParameterValue;
+use super::HyperlightFunction;
 use super::{param_type::SupportedParameterType, ret_type::SupportedReturnType};
+use crate::sandbox::host_funcs::HostFuncs;
 use crate::sandbox::UninitializedSandbox;
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
 
-pub(crate) type HyperlightFunction<'a> =
-    Arc<Mutex<Box<dyn FnMut(Vec<ParameterValue>) -> anyhow::Result<ReturnValue> + 'a + Send>>>;
-
-/// A Hyperlight function that takes no arguments and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
+/// A host function that takes no arguments and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
 pub(crate) trait HostFunction0<'a, R: SupportedReturnType<R>> {
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
@@ -36,14 +35,14 @@ where
         });
         sandbox.register_host_function(
             &HostFunctionDefinition::new(name.to_string(), None, R::get_hyperlight_type()),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
     }
 }
 
-/// A Hyperlight function that takes 1 argument P1 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
+/// A host function that takes 1 argument P1 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
 pub(crate) trait HostFunction1<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
@@ -78,14 +77,14 @@ where
                 Some(vec![P1::get_hyperlight_type()]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
     }
 }
 
-/// A Hyperlight function that takes 2 arguments P1 and P2 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
+/// A host function that takes 2 arguments P1 and P2 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
 pub(crate) trait HostFunction2<
     'a,
     P1: SupportedParameterType<P1>,
@@ -124,14 +123,14 @@ where
                 Some(vec![P1::get_hyperlight_type(), P2::get_hyperlight_type()]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
     }
 }
 
-/// A Hyperlight function that takes 3 arguments P1, P2 and P3 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
+/// A host function that takes 3 arguments P1, P2 and P3 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
 pub(crate) trait HostFunction3<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
@@ -177,14 +176,14 @@ where
                 ]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
     }
 }
 
-/// A Hyperlight function that takes 4 arguments P1, P2, P3 and P4 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
+/// A host function that takes 4 arguments P1, P2, P3 and P4 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
 pub(crate) trait HostFunction4<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
@@ -234,14 +233,14 @@ where
                 ]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
     }
 }
 
-/// A Hyperlight function that takes 5 arguments P1, P2, P3, P4 and P5 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
+/// A host function that takes 5 arguments P1, P2, P3, P4 and P5 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
 pub(crate) trait HostFunction5<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
@@ -295,14 +294,14 @@ where
                 ]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
     }
 }
 
-/// A Hyperlight function that takes 6 arguments P1, P2, P3, P4, P5 and P6 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
+/// A host function that takes 6 arguments P1, P2, P3, P4, P5 and P6 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
 pub(crate) trait HostFunction6<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
@@ -361,14 +360,14 @@ where
                 ]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
     }
 }
 
-/// A Hyperlight function that takes 7 arguments P1, P2, P3, P4, P5, P6 and P7 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
+/// A host function that takes 7 arguments P1, P2, P3, P4, P5, P6 and P7 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
 pub(crate) trait HostFunction7<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
@@ -431,14 +430,14 @@ where
                 ]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
     }
 }
 
-/// A Hyperlight function that takes 8 arguments P1, P2, P3, P4, P5, P6, P7 and P8 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
+/// A host function that takes 8 arguments P1, P2, P3, P4, P5, P6, P7 and P8 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
 pub(crate) trait HostFunction8<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
@@ -505,14 +504,14 @@ where
                 ]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
     }
 }
 
-/// A Hyperlight function that takes 9 arguments P1, P2, P3, P4, P5, P6, P7, P8 and P9 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
+/// A host function that takes 9 arguments P1, P2, P3, P4, P5, P6, P7, P8 and P9 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
 pub(crate) trait HostFunction9<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
@@ -583,14 +582,14 @@ where
                 ]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())
     }
 }
 
-/// A Hyperlight function that takes 10 arguments P1, P2, P3, P4, P5, P6, P7, P8, P9 and P10 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
+/// A host function that takes 10 arguments P1, P2, P3, P4, P5, P6, P7, P8, P9 and P10 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
 pub(crate) trait HostFunction10<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
@@ -665,7 +664,7 @@ where
                 ]),
                 R::get_hyperlight_type(),
             ),
-            Arc::new(Mutex::new(func)),
+            HyperlightFunction::new(func),
         )?;
 
         Ok(())

@@ -24,3 +24,27 @@ pub(crate) mod ret_type;
 /// host. This includes the types of parameters and return values that are
 /// supported in Hyperlight.
 pub(crate) mod types;
+
+use self::types::{ParameterValue, ReturnValue};
+use std::sync::{Arc, Mutex};
+
+type HLFunc<'a> =
+    Arc<Mutex<Box<dyn FnMut(Vec<ParameterValue>) -> anyhow::Result<ReturnValue> + 'a + Send>>>;
+
+/// Generic HyperlightFunction
+#[derive(Clone)]
+pub struct HyperlightFunction<'a>(HLFunc<'a>);
+
+impl<'a> HyperlightFunction<'a> {
+    pub(crate) fn new<F>(f: F) -> Self
+    where
+        F: FnMut(Vec<ParameterValue>) -> anyhow::Result<ReturnValue> + 'a + Send,
+    {
+        Self(Arc::new(Mutex::new(Box::new(f))))
+    }
+
+    pub(crate) fn call(&self, args: Vec<ParameterValue>) -> anyhow::Result<ReturnValue> {
+        let mut f = self.0.lock().unwrap();
+        f(args)
+    }
+}

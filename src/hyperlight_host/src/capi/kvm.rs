@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use anyhow::Result;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 fn get_driver_mut(ctx: &mut Context, handle: Handle) -> Result<&mut KVMDriver> {
     Context::get_mut(handle, &mut ctx.kvm_drivers, |b| {
@@ -119,8 +119,8 @@ pub unsafe extern "C" fn kvm_initialise(
                     peb_addr.into(),
                     seed,
                     page_size,
-                    Rc::new(outb_func),
-                    Rc::new(mem_access_func),
+                    Arc::new(Mutex::new(outb_func)),
+                    Arc::new(Mutex::new(mem_access_func)),
                 )
                 .map(|_| Handle::new_empty())
         })
@@ -151,8 +151,8 @@ pub unsafe extern "C" fn kvm_dispatch_call_from_host(
             (*driver)
                 .dispatch_call_from_host(
                     dispatch_func_addr.into(),
-                    Rc::new(outb_func),
-                    Rc::new(mem_access_func),
+                    Arc::new(Mutex::new(outb_func)),
+                    Arc::new(Mutex::new(mem_access_func)),
                 )
                 .map(|_| Handle::new_empty())
         })

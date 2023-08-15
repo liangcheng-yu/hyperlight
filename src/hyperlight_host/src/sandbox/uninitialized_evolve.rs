@@ -4,7 +4,7 @@ use crate::func::exports::get_os_page_size;
 #[cfg(target_os = "windows")]
 use crate::mem::ptr::RawPtr;
 use crate::{
-    hypervisor::handlers::{MemAccessHandlerRc, OutBHandlerRc},
+    hypervisor::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
     Sandbox, UninitializedSandbox,
 };
 #[cfg(target_os = "linux")]
@@ -16,8 +16,8 @@ use tracing::instrument;
 #[instrument(err(Debug), skip_all)]
 pub(super) fn evolve_impl<'a>(
     mut u_sbox: UninitializedSandbox<'a>,
-    outb_hdl: OutBHandlerRc,
-    mem_access_hdl: MemAccessHandlerRc,
+    outb_hdl: OutBHandlerWrapper,
+    mem_access_hdl: MemAccessHandlerWrapper,
 ) -> Result<Sandbox<'a>> {
     let run_from_proc_mem = u_sbox.run_from_process_memory;
     if run_from_proc_mem {
@@ -44,10 +44,10 @@ pub(super) fn evolve_impl<'a>(
     }
 }
 
-fn evolve_in_proc(
-    mut u_sbox: UninitializedSandbox<'_>,
-    outb_hdl: OutBHandlerRc,
-) -> Result<Sandbox<'_>> {
+fn evolve_in_proc<'a>(
+    mut u_sbox: UninitializedSandbox<'a>,
+    outb_hdl: OutBHandlerWrapper,
+) -> Result<Sandbox<'a>> {
     #[cfg(target_os = "linux")]
     {
         // Note from old C# implementation of this function:
@@ -114,7 +114,7 @@ fn evolve_in_proc(
         ///
         /// Additionally, there are explanatory comments inside the function's
         /// implementation.
-        fn outb_hdl_as_fn_ptr(outb_hdl: OutBHandlerRc) -> *const (u16, u64) {
+        fn outb_hdl_as_fn_ptr(outb_hdl: OutBHandlerWrapper) -> *const (u16, u64) {
             use std::os::raw::c_void;
 
             // first, we need to define a closure that calls outb_hdl.call.
@@ -125,7 +125,12 @@ fn evolve_in_proc(
             // This is an important distinction because the latter has a
             // "fat" pointer that contains a reference to both the executable
             // code and the context over which the original closure closes.
-            let closure = |port: u16, payload: u64| outb_hdl.call(port, payload);
+            let closure = |port: u16, payload: u64| {
+                outb_hdl
+                    .lock()
+                    .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                    .call(port, payload)
+            };
             // Now we're coercing to a trait object, which means the compiler
             // guarantees we have a "fat" pointer that contains both a ref
             // to code and state.
@@ -133,7 +138,7 @@ fn evolve_in_proc(
             // We have to make this a reference to the trait object rather
             // than the trait object itself, because `dyn FnMut` is not sized
             // so we can't compile without the reference.
-            let trait_obj: &dyn FnMut(u16, u64) = &closure;
+            let trait_obj: &dyn FnMut(u16, u64) -> Result<()> = &closure;
             // Now get a _reference to the reference_, to prepare to coerce
             // to a raw pointer.
             let trait_obj_ref = &trait_obj;
@@ -177,28 +182,30 @@ fn evolve_in_proc(
 mod tests {
     use super::evolve_impl;
     use crate::{
-        hypervisor::handlers::{MemAccessHandlerFn, OutBHandlerFn},
+        hypervisor::handlers::{MemAccessHandler, OutBHandler},
         sandbox::uninitialized::GuestBinary,
         testing::{callback_guest_path, simple_guest_path},
         UninitializedSandbox,
     };
-    use anyhow::anyhow;
-    use std::rc::Rc;
+    use anyhow::{anyhow, Result};
+    use std::sync::{Arc, Mutex};
 
     #[test]
     fn test_evolve() {
         let guest_bin_paths = vec![simple_guest_path().unwrap(), callback_guest_path().unwrap()];
-        let outb_rc = {
-            let cb: Box<dyn Fn(u16, u64)> = Box::new(|_, _| {
+        let outb_arc = {
+            let cb: Box<dyn FnMut(u16, u64) -> Result<()>> = Box::new(|_, _| -> Result<()> {
                 println!("outb callback in test_evolve");
+                Ok(())
             });
-            Rc::new(OutBHandlerFn::from(cb))
+            Arc::new(Mutex::new(OutBHandler::from(cb)))
         };
-        let mem_access_rc = {
-            let cb: Box<dyn Fn()> = Box::new(|| {
+        let mem_access_arc = {
+            let cb: Box<dyn FnMut() -> Result<()>> = Box::new(|| -> Result<()> {
                 println!("mem access callback in test_evolve");
+                Ok(())
             });
-            Rc::new(MemAccessHandlerFn::from(cb))
+            Arc::new(Mutex::new(MemAccessHandler::from(cb)))
         };
         for guest_bin_path in guest_bin_paths {
             let u_sbox = UninitializedSandbox::new(
@@ -207,7 +214,7 @@ mod tests {
                 None,
             )
             .unwrap();
-            evolve_impl(u_sbox, outb_rc.clone(), mem_access_rc.clone())
+            evolve_impl(u_sbox, outb_arc.clone(), mem_access_arc.clone())
                 .map_err(|e| {
                     anyhow!("error evolving sandbox with guest binary {guest_bin_path}: {e:?}")
                 })
@@ -220,13 +227,13 @@ mod tests {
         use crate::SandboxRunOptions;
 
         let guest_bin_paths = vec![simple_guest_path().unwrap(), callback_guest_path().unwrap()];
-        let outb_rc = {
-            let cb: Box<dyn Fn(u16, u64)> = Box::new(|_, _| {});
-            Rc::new(OutBHandlerFn::from(cb))
+        let outb_arc = {
+            let cb: Box<dyn FnMut(u16, u64) -> Result<()>> = Box::new(|_, _| Ok(()));
+            Arc::new(Mutex::new(OutBHandler::from(cb)))
         };
-        let mem_access_rc = {
-            let cb: Box<dyn Fn()> = Box::new(|| {});
-            Rc::new(MemAccessHandlerFn::from(cb))
+        let mem_access_arc = {
+            let cb: Box<dyn FnMut() -> Result<()>> = Box::new(|| Ok(()));
+            Arc::new(Mutex::new(MemAccessHandler::from(cb)))
         };
         for guest_bin_path in guest_bin_paths {
             let u_sbox: UninitializedSandbox<'_> = UninitializedSandbox::new(
@@ -239,11 +246,11 @@ mod tests {
             {
                 let err = format!("error evolving sandbox with guest binary {guest_bin_path}");
                 let err_str = err.as_str();
-                evolve_impl(u_sbox, outb_rc.clone(), mem_access_rc.clone()).expect(err_str);
+                evolve_impl(u_sbox, outb_arc.clone(), mem_access_arc.clone()).expect(err_str);
             }
             #[cfg(target_os = "linux")]
             {
-                let res = evolve_impl(u_sbox, outb_rc.clone(), mem_access_rc.clone());
+                let res = evolve_impl(u_sbox, outb_arc.clone(), mem_access_arc.clone());
                 assert!(res.is_err());
             }
         }

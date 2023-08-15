@@ -1,6 +1,6 @@
 use crate::{
     func::exports::get_os_page_size,
-    hypervisor::handlers::{MemAccessHandlerRc, OutBHandlerRc},
+    hypervisor::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
     hypervisor::Hypervisor,
     mem::{
         layout::SandboxMemoryLayout,
@@ -15,22 +15,28 @@ use rand::Rng;
 
 /// A container with convenience methods attached for an
 /// `Option<Box<dyn Hypervisor>>`
-pub(crate) struct HypervisorWrapper(Option<Box<dyn Hypervisor>>);
+pub struct HypervisorWrapper(Option<Box<dyn Hypervisor>>);
+
 impl From<Option<Box<dyn Hypervisor>>> for HypervisorWrapper {
     fn from(value: Option<Box<dyn Hypervisor>>) -> Self {
         Self(value)
     }
 }
 
+pub trait HypervisorWrapperMgr {
+    fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper;
+    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper;
+}
+
 impl HypervisorWrapper {
-    fn get_hypervisor(&self) -> Result<&dyn Hypervisor> {
+    pub fn get_hypervisor(&self) -> Result<&dyn Hypervisor> {
         self.0
             .as_ref()
             .map(|h| h.as_ref())
             .ok_or(anyhow!("no hypervisor available for sandbox"))
     }
 
-    fn get_hypervisor_mut(&mut self) -> Result<&mut dyn Hypervisor> {
+    pub fn get_hypervisor_mut(&mut self) -> Result<&mut dyn Hypervisor> {
         match self.0.as_mut() {
             None => bail!("no hypervisor available for sandbox"),
             Some(h) => Ok(h.as_mut()),
@@ -40,8 +46,8 @@ impl HypervisorWrapper {
     pub(super) fn initialise(
         &mut self,
         mem_mgr: &SandboxMemoryManager,
-        outb_hdl: OutBHandlerRc,
-        mem_access_hdl: MemAccessHandlerRc,
+        outb_hdl: OutBHandlerWrapper,
+        mem_access_hdl: MemAccessHandlerWrapper,
     ) -> Result<()> {
         let seed = {
             let mut rng = rand::thread_rng();
@@ -58,25 +64,22 @@ impl HypervisorWrapper {
 
     /// Get the stack pointer -- the value of the RSP register --
     /// the contained `Hypervisor` had
-    #[allow(unused)]
-    pub(super) fn orig_rsp(&self) -> Result<GuestPtr> {
+    pub fn orig_rsp(&self) -> Result<GuestPtr> {
         let hv = self.get_hypervisor()?;
         let orig_rsp = hv.orig_rsp()?;
         GuestPtr::try_from(RawPtr::from(orig_rsp))
     }
 
-    #[allow(unused)]
-    pub(super) fn reset_rsp(&mut self, new_rsp: GuestPtr) -> Result<()> {
+    pub fn reset_rsp(&mut self, new_rsp: GuestPtr) -> Result<()> {
         let hv = self.get_hypervisor_mut()?;
         hv.reset_rsp(new_rsp.absolute()?)
     }
 
-    #[allow(unused)]
-    pub(super) fn dispatch_call_from_host(
+    pub fn dispatch_call_from_host(
         &mut self,
         dispatch_func_addr: GuestPtr,
-        outb_hdl: OutBHandlerRc,
-        mem_access_hdl: MemAccessHandlerRc,
+        outb_hdl: OutBHandlerWrapper,
+        mem_access_hdl: MemAccessHandlerWrapper,
     ) -> Result<()> {
         let hv = self.get_hypervisor_mut()?;
         let dispatch_raw_ptr = RawPtr::from(dispatch_func_addr.absolute()?);

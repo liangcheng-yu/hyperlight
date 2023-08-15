@@ -15,8 +15,8 @@ pub(crate) mod log_level;
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
 
-/// A Hyperlight function that takes no arguments and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait GuestFunction<R> {
+/// A simple guest function that takes no arguments and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
+pub trait GuestFunction<R> {
     fn call(&self) -> Result<R>;
 }
 

@@ -1,11 +1,12 @@
+use super::guest_funcs::GuestFuncs;
+use super::hypervisor::HypervisorWrapperMgr;
+use super::mem_mgr::MemMgr;
+use super::FunctionsMap;
+use super::{host_funcs::default_writer_func, host_funcs::HostFuncs, initialized::Sandbox};
 use super::{
-    host_funcs::default_writer_func, host_funcs::HostFuncs, host_funcs::HostFunctionsMap,
-    initialized::Sandbox,
+    host_funcs::CallHostPrint, hypervisor::HypervisorWrapper, run_options::SandboxRunOptions,
 };
-use super::{host_funcs::CallHostPrint, run_options::SandboxRunOptions};
-use super::{hypervisor::HypervisorWrapper, mem_mgr::MemMgr};
-use crate::func::host::function_definition::HostFunctionDefinition;
-use crate::func::host::{HostFunction1, HyperlightFunction};
+use crate::func::host::HostFunction1;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::mem::ptr::RawPtr;
 use crate::mem::{
@@ -15,7 +16,6 @@ use crate::mem::{
 use crate::sandbox_state::transition::Noop;
 use crate::sandbox_state::{sandbox::EvolvableSandbox, transition::MutatingCallback};
 use anyhow::{anyhow, Result};
-use std::collections::HashMap;
 use std::ffi::c_void;
 use std::ops::Add;
 use std::option::Option;
@@ -32,12 +32,23 @@ use tracing::instrument;
 /// `UninitializedSandbox` into an initialized `Sandbox`.
 pub struct UninitializedSandbox<'a> {
     // Registered host functions
-    host_functions: HostFunctionsMap<'a>,
+    host_functions: FunctionsMap<'a>,
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
     pub(super) hv: HypervisorWrapper,
     pub(super) run_from_process_memory: bool,
+    dynamic_methods: FunctionsMap<'a>,
+}
+
+impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for UninitializedSandbox<'a> {
+    fn get_uninitialized_sandbox(&self) -> &crate::sandbox::UninitializedSandbox<'a> {
+        self
+    }
+
+    fn get_uninitialized_sandbox_mut(&mut self) -> &mut crate::sandbox::UninitializedSandbox<'a> {
+        self
+    }
 }
 
 impl<'a> std::fmt::Debug for UninitializedSandbox<'a> {
@@ -93,8 +104,22 @@ impl<'a>
 }
 
 impl<'a> HostFuncs<'a> for UninitializedSandbox<'a> {
-    fn get_host_funcs(&self) -> &HostFunctionsMap<'a> {
+    fn get_host_funcs(&self) -> &FunctionsMap<'a> {
         &self.host_functions
+    }
+
+    fn get_host_funcs_mut(&mut self) -> &mut FunctionsMap<'a> {
+        &mut self.host_functions
+    }
+}
+
+impl<'a> GuestFuncs<'a> for UninitializedSandbox<'a> {
+    fn get_dynamic_methods(&self) -> &FunctionsMap<'a> {
+        &self.dynamic_methods
+    }
+
+    fn get_dynamic_methods_mut(&mut self) -> &mut FunctionsMap<'a> {
+        &mut self.dynamic_methods
     }
 }
 
@@ -114,9 +139,18 @@ impl<'a> MemMgr for UninitializedSandbox<'a> {
     }
 }
 
-#[derive(Debug)]
+impl<'a> HypervisorWrapperMgr for UninitializedSandbox<'a> {
+    fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper {
+        &self.hv
+    }
+
+    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper {
+        &mut self.hv
+    }
+}
 
 /// A `GuestBinary` is either a buffer containing the binary or a path to the binary
+#[derive(Debug)]
 pub enum GuestBinary {
     /// A buffer containing the guest binary
     Buffer(Vec<u8>),
@@ -199,9 +233,10 @@ impl<'a> UninitializedSandbox<'a> {
         };
 
         let mut sandbox = Self {
-            host_functions: HashMap::new(),
+            host_functions: FunctionsMap::new(),
             mem_mgr,
             stack_guard,
+            dynamic_methods: FunctionsMap::new(),
             hv: hv.into(),
             run_from_process_memory,
         };
@@ -213,19 +248,6 @@ impl<'a> UninitializedSandbox<'a> {
 
     fn create_stack_guard() -> [u8; STACK_COOKIE_LEN] {
         rand::random::<[u8; STACK_COOKIE_LEN]>()
-    }
-
-    /// Register a host function with the sandbox.
-    pub(crate) fn register_host_function(
-        &mut self,
-        hfd: &HostFunctionDefinition,
-        func: HyperlightFunction<'a>,
-    ) -> Result<()> {
-        self.host_functions
-            .insert(hfd.function_name.to_string(), func);
-        let buffer: Vec<u8> = hfd.try_into()?;
-        self.mem_mgr.write_host_function_definition(&buffer)?;
-        Ok(())
     }
 
     /// Call the entry point inside this `Sandbox`
@@ -482,7 +504,7 @@ mod tests {
 
         UninitializedSandbox::load_guest_binary(
             cfg,
-            &GuestBinary::FilePath(simple_guest_path.clone()),
+            &GuestBinary::FilePath(simple_guest_path),
             false,
             false,
         )
@@ -595,7 +617,7 @@ mod tests {
         let simple_guest_path = simple_guest_path().unwrap();
         let mgr_res = UninitializedSandbox::load_guest_binary(
             cfg,
-            &GuestBinary::FilePath(simple_guest_path.clone()),
+            &GuestBinary::FilePath(simple_guest_path),
             true,
             true,
         );

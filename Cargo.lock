@@ -538,7 +538,6 @@ dependencies = [
  "pretty_assertions",
  "proc-maps",
  "proptest",
- "quote",
  "rand",
  "readonly",
  "scroll",

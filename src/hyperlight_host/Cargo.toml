@@ -20,7 +20,6 @@ rand = { version = "0.8.5" }
 cfg-if = { version = "1.0.0" }
 libc = { version = "0.2.147" }
 paste = "1.0"
-quote = "1.0"
 scroll = { version = "0.11", default_features = false }
 readonly = { version = "0.2" }
 flatbuffers = "23.5.26"

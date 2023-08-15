@@ -1,5 +1,5 @@
 use super::{
-    handlers::{MemAccessHandlerRc, OutBHandlerRc},
+    handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
     Hypervisor, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT,
     CR4_PAE, EFER_LMA, EFER_LME,
 };
@@ -280,7 +280,7 @@ impl HypervLinuxDriver {
     fn handle_io_port_intercept(
         &mut self,
         msg: hv_message,
-        outb_handle_fn: OutBHandlerRc,
+        outb_handle_fn: OutBHandlerWrapper,
     ) -> Result<()> {
         let io_message = msg.to_ioport_info()?;
         let port_number = io_message.port_number;
@@ -288,7 +288,10 @@ impl HypervLinuxDriver {
         let rip = io_message.header.rip;
         let instruction_length = io_message.header.instruction_length() as u64;
 
-        outb_handle_fn.call(port_number, rax);
+        outb_handle_fn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+            .call(port_number, rax)?;
 
         self.update_rip(RawPtr::from(rip + instruction_length))
     }
@@ -300,8 +303,8 @@ impl Hypervisor for HypervLinuxDriver {
         peb_addr: RawPtr,
         seed: u64,
         page_size: u32,
-        outb_hdl: OutBHandlerRc,
-        mem_access_hdl: MemAccessHandlerRc,
+        outb_hdl: OutBHandlerWrapper,
+        mem_access_hdl: MemAccessHandlerWrapper,
     ) -> Result<()> {
         self.registers.insert(
             hv_register_name_HV_X64_REGISTER_RCX,
@@ -323,8 +326,8 @@ impl Hypervisor for HypervLinuxDriver {
 
     fn execute_until_halt(
         &mut self,
-        outb_handle_fn: OutBHandlerRc,
-        mem_access_fn: MemAccessHandlerRc,
+        outb_handle_fn: OutBHandlerWrapper,
+        mem_access_fn: MemAccessHandlerWrapper,
     ) -> Result<()> {
         /// Run the given `vcpu` until the next interrupt and return an `Ok`
         /// with the `hv_message` representing the interrupt.
@@ -364,7 +367,10 @@ impl Hypervisor for HypervLinuxDriver {
                 // in this case, we need to call the mem_access_fn callback and
                 // then fail
                 UNMAPPED_GPA_MESSAGE => {
-                    mem_access_fn.call();
+                    mem_access_fn
+                        .lock()
+                        .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                        .call()?;
                     let msg_type = run_res.header.message_type;
                     bail!("Linux HyperV unmapped GPA. exit_reason = {:?}", msg_type);
                 }
@@ -376,8 +382,8 @@ impl Hypervisor for HypervLinuxDriver {
     fn dispatch_call_from_host(
         &mut self,
         dispatch_func_addr: RawPtr,
-        outb_handle_fn: OutBHandlerRc,
-        mem_access_fn: MemAccessHandlerRc,
+        outb_handle_fn: OutBHandlerWrapper,
+        mem_access_fn: MemAccessHandlerWrapper,
     ) -> Result<()> {
         self.update_rip(dispatch_func_addr)?;
         self.execute_until_halt(outb_handle_fn, mem_access_fn)

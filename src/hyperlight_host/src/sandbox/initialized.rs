@@ -1,21 +1,63 @@
+use super::guest_funcs::{CallGuestFunction, GuestFuncs};
 use super::guest_mgr::GuestMgr;
+use super::hypervisor::HypervisorWrapperMgr;
 use super::uninitialized::UninitializedSandbox;
-use super::{guest_funcs::CallGuestFunction, hypervisor::HypervisorWrapper};
+use super::FunctionsMap;
+use super::{host_funcs::CallHostFunction, hypervisor::HypervisorWrapper, mem_mgr::MemMgr};
 use super::{host_funcs::CallHostPrint, outb::OutBAction};
 use super::{host_funcs::HostFuncs, outb::outb_log};
-use super::{
-    host_funcs::{CallHostFunction, HostFunctionsMap},
-    mem_mgr::MemMgr,
-};
 use crate::flatbuffers::hyperlight::generated::ErrorCode;
-use crate::func::function_call::{FunctionCall, FunctionCallType};
-use crate::func::types::{ParameterValue, ReturnType};
+use crate::func::types::ParameterValue;
 use crate::mem::mgr::SandboxMemoryManager;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::sandbox_state::reset::RestoreSandbox;
 use anyhow::{bail, Result};
 use log::error;
 use std::sync::atomic::AtomicI32;
+use std::sync::Arc;
+
+/// A container to atomically keep track of whether a sandbox is currently executing a guest call. Primarily
+/// used to prevent concurrent execution of guest calls.
+///
+/// 0 = not executing a guest call
+/// 1 = executing `execute_in_host`
+/// 2 = executing a `call_guest_function_by_name`
+#[derive(Clone)]
+pub struct ExecutingGuestCall(Arc<AtomicI32>);
+
+impl ExecutingGuestCall {
+    pub fn new(val: i32) -> Self {
+        Self(Arc::new(AtomicI32::new(val)))
+    }
+
+    pub fn load(&self) -> i32 {
+        self.0.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    pub fn store(&self, val: i32) {
+        self.0.store(val, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    pub fn compare_exchange(&self, current: i32, new: i32) -> Result<i32> {
+        self.0
+            .compare_exchange(
+                current,
+                new,
+                std::sync::atomic::Ordering::SeqCst,
+                std::sync::atomic::Ordering::SeqCst,
+            )
+            .map_err(|_| anyhow::anyhow!("compare_exchange failed"))
+    }
+}
+
+impl PartialEq for ExecutingGuestCall {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.load(std::sync::atomic::Ordering::SeqCst)
+            == other.0.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+impl Eq for ExecutingGuestCall {}
 
 /// The primary mechanism to interact with VM partitions that run Hyperlight
 /// guest binaries.
@@ -26,14 +68,25 @@ use std::sync::atomic::AtomicI32;
 #[allow(unused)]
 pub struct Sandbox<'a> {
     // Registered host functions
-    host_functions: HostFunctionsMap<'a>,
+    host_functions: FunctionsMap<'a>,
     // The memory manager for the sandbox.
     mem_mgr: SandboxMemoryManager,
     stack_guard: [u8; STACK_COOKIE_LEN],
-    executing_guest_call: AtomicI32,
+    executing_guest_call: ExecutingGuestCall,
     needs_state_reset: bool,
     num_runs: i32,
+    dynamic_methods: FunctionsMap<'a>,
     hv: HypervisorWrapper,
+}
+
+impl<'a> crate::sandbox_state::sandbox::InitializedSandbox<'a> for Sandbox<'a> {
+    fn get_initialized_sandbox(&self) -> &crate::sandbox::Sandbox<'a> {
+        self
+    }
+
+    fn get_initialized_sandbox_mut(&mut self) -> &mut crate::sandbox::Sandbox<'a> {
+        self
+    }
 }
 
 impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
@@ -42,17 +95,32 @@ impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
             host_functions: val.get_host_funcs().clone(),
             mem_mgr: val.get_mem_mgr().clone(),
             stack_guard: *val.get_stack_cookie(),
-            executing_guest_call: AtomicI32::new(0),
+            executing_guest_call: ExecutingGuestCall::new(0),
             needs_state_reset: false,
             num_runs: 0,
+            dynamic_methods: val.get_dynamic_methods().clone(),
             hv: val.hv,
         }
     }
 }
 
 impl<'a> HostFuncs<'a> for Sandbox<'a> {
-    fn get_host_funcs(&self) -> &HostFunctionsMap<'a> {
+    fn get_host_funcs(&self) -> &FunctionsMap<'a> {
         &self.host_functions
+    }
+
+    fn get_host_funcs_mut(&mut self) -> &mut FunctionsMap<'a> {
+        &mut self.host_functions
+    }
+}
+
+impl<'a> GuestFuncs<'a> for Sandbox<'a> {
+    fn get_dynamic_methods(&self) -> &FunctionsMap<'a> {
+        &self.dynamic_methods
+    }
+
+    fn get_dynamic_methods_mut(&mut self) -> &mut FunctionsMap<'a> {
+        &mut self.dynamic_methods
     }
 }
 
@@ -76,11 +144,11 @@ impl<'a> std::fmt::Debug for Sandbox<'a> {
 }
 
 impl<'a> GuestMgr for Sandbox<'a> {
-    fn get_executing_guest_call(&self) -> &AtomicI32 {
+    fn get_executing_guest_call(&self) -> &ExecutingGuestCall {
         &self.executing_guest_call
     }
 
-    fn get_executing_guest_call_mut(&mut self) -> &mut AtomicI32 {
+    fn get_executing_guest_call_mut(&mut self) -> &mut ExecutingGuestCall {
         &mut self.executing_guest_call
     }
 
@@ -123,9 +191,19 @@ impl<'a> MemMgr for Sandbox<'a> {
     }
 }
 
+impl<'a> HypervisorWrapperMgr for Sandbox<'a> {
+    fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper {
+        &self.hv
+    }
+
+    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper {
+        &mut self.hv
+    }
+}
+
 impl<'a> Sandbox<'a> {
-    #[allow(unused)]
-    pub(crate) fn handle_outb(&mut self, port: u16, byte: u8) -> Result<()> {
+    /// Handles OutB operations from the guest.
+    pub fn handle_outb(&mut self, port: u16, _byte: u64) -> Result<()> {
         match port.into() {
             OutBAction::Log => outb_log(&self.mem_mgr),
             OutBAction::CallFunction => {
@@ -140,19 +218,23 @@ impl<'a> Sandbox<'a> {
                 // TODO
                 todo!();
             }
-            _ => {
-                // TODO
-                todo!();
-            }
         }
+    }
+
+    /// Handles Stack Overflows.
+    pub fn handle_mmio_exit(&mut self) -> Result<()> {
+        if !self.check_stack_guard()? {
+            bail!("Stack overflow detected");
+        }
+
+        Ok(())
     }
 
     /// Check for a guest error and return an `Err` if one was found,
     /// and `Ok` if one was not found.
     /// TODO: remove this when we hook it up to the rest of the
     /// sandbox in https://github.com/deislabs/hyperlight/pull/727
-    #[allow(unused)]
-    fn check_for_guest_error(&self) -> Result<()> {
+    pub fn check_for_guest_error(&self) -> Result<()> {
         let guest_err = self.mem_mgr.get_guest_error()?;
         match guest_err.code {
             ErrorCode::NoError => Ok(()),
@@ -174,42 +256,5 @@ impl<'a> Sandbox<'a> {
                 bail!(err_msg);
             }
         }
-    }
-
-    #[allow(unused)]
-    pub(crate) fn dispatch_call_from_host(
-        &mut self,
-        function_name: String,
-        return_type: ReturnType,
-        args: Option<Vec<ParameterValue>>,
-    ) -> Result<i32> {
-        let p_dispatch = self.mem_mgr.get_pointer_to_dispatch_function()?;
-
-        let fc = FunctionCall::new(function_name, args, FunctionCallType::Host, return_type);
-
-        let buffer: Vec<u8> = fc.try_into()?;
-
-        self.mem_mgr.write_guest_function_call(&buffer)?;
-
-        #[allow(clippy::if_same_then_else)]
-        if self.mem_mgr.is_in_process() {
-            let dispatch: fn() = unsafe { std::mem::transmute(p_dispatch) };
-            // Q: Why does this function not take `args` and doesn't return `return_type`?
-            //
-            // A: That's because we've already written the function call details to memory
-            // with `self.mem_mgr.write_guest_function_call(&buffer)?;`
-            // and the `dispatch` function can directly access that via shared memory.
-            dispatch();
-        } else {
-            // TODO: For this, we're missing some sort of API
-            // to get the current Hypervisor set by `set_up_hypervisor_partition`
-            // in `UninitializedSandbox`. Once that's done, we should be able to
-            // to something like this: `self.mem_mgr.get_hypervisor().dispatch(...)`
-        }
-
-        self.check_stack_guard()?;
-        self.check_for_guest_error()?;
-
-        self.mem_mgr.get_return_value()
     }
 }

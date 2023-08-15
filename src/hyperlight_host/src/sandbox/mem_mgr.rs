@@ -2,8 +2,8 @@ use crate::mem::mgr::{SandboxMemoryManager, STACK_COOKIE_LEN};
 use anyhow::Result;
 use tracing::instrument;
 
-pub(crate) type StackCookie = [u8; STACK_COOKIE_LEN];
-pub(crate) trait MemMgr {
+pub type StackCookie = [u8; STACK_COOKIE_LEN];
+pub trait MemMgr {
     /// Get an immutable reference to the internally-stored
     /// `SandboxMemoryManager`
     fn get_mem_mgr(&self) -> &SandboxMemoryManager;

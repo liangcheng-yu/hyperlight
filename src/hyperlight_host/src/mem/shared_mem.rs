@@ -47,7 +47,7 @@ type Writer<'a, T> = Box<dyn Fn(T) -> Result<Vec<u8>>>;
 // Marking this type Sync is safe as it is intended to only ever used from a single thread.
 
 #[derive(Debug)]
-pub(crate) struct PtrCVoidMut(*mut c_void);
+pub struct PtrCVoidMut(*mut c_void);
 
 impl PtrCVoidMut {
     #[cfg(target_os = "windows")]

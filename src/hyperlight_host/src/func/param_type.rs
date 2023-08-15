@@ -3,7 +3,7 @@ use anyhow::{bail, Result};
 use crate::func::types::{ParameterType, ParameterValue};
 
 /// This is a marker trait that is used to indicate that a type is a valid Hyperlight parameter type.
-pub(crate) trait SupportedParameterType<T> {
+pub trait SupportedParameterType<T> {
     fn get_hyperlight_type() -> ParameterType;
     fn get_hyperlight_value(&self) -> ParameterValue;
     fn get_inner(a: ParameterValue) -> Result<T>;

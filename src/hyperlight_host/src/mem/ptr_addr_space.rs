@@ -2,14 +2,14 @@ use super::{layout::SandboxMemoryLayout, shared_mem::SharedMemory};
 use anyhow::Result;
 
 /// A representation of a specific address space
-pub(crate) trait AddressSpace: std::cmp::Eq {
+pub trait AddressSpace: std::cmp::Eq {
     /// The base address for this address space
     fn base(&self) -> u64;
 }
 
 /// The address space for the guest executable
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct GuestAddressSpace(u64);
+pub struct GuestAddressSpace(u64);
 impl GuestAddressSpace {
     /// Create a new instance of a `GuestAddressSpace`
     pub(crate) fn new() -> Result<Self> {
