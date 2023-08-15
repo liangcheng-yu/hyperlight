@@ -82,14 +82,6 @@ impl TryFrom<(Offset, &SharedMemory)> for HostPtr {
 /// Convenience type for representing a pointer into the guest address space
 pub type GuestPtr = Ptr<GuestAddressSpace>;
 
-impl From<u64> for GuestPtr {
-    fn from(val: u64) -> Self {
-        let addr_space = GuestAddressSpace::new().unwrap();
-        let offset = Offset::from(val);
-        Ptr::from_offset(addr_space, offset)
-    }
-}
-
 impl TryFrom<RawPtr> for GuestPtr {
     type Error = anyhow::Error;
     /// Create a new `GuestPtr` from the given `guest_raw_ptr`, which must

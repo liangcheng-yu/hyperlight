@@ -12,6 +12,7 @@ use crate::{
     hypervisor::handlers::{
         MemAccessHandler, MemAccessHandlerFunction, OutBHandler, OutBHandlerFunction,
     },
+    mem::ptr::RawPtr,
     sandbox_state::{reset::RestoreSandbox, sandbox::InitializedSandbox},
     Sandbox,
 };
@@ -184,11 +185,13 @@ pub trait CallGuestFunction<'a>:
                 Arc::new(Mutex::new(MemAccessHandler::from(cb)))
             };
 
+            let p_dispatch_rp: RawPtr = p_dispatch.into();
+
             sbox.lock()
                 .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
                 .get_hypervisor_wrapper_mut()
                 .dispatch_call_from_host(
-                    p_dispatch.into(),
+                    p_dispatch_rp.try_into()?,
                     outb_arc.clone(),
                     mem_access_arc.clone(),
                 )?;
