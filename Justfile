@@ -65,7 +65,6 @@ clippy:
     cargo clippy --all-targets --all-features -- -D warnings
 
 clippy-apply-fix-unix:
-    cargo clippy --fix -all
     cargo clippy --fix --all
 clippy-apply-fix-windows:
     cargo clippy --target x86_64-pc-windows-msvc --all
