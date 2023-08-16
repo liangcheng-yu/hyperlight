@@ -91,7 +91,7 @@ pub trait CallGuestFunction<'a>:
     }
 
     #[instrument]
-    fn call_guest_function_by_name<P>(
+    fn call_guest_function_by_name(
         &mut self,
         name: &str,
         ret: ReturnType,
