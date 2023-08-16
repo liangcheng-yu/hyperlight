@@ -1,8 +1,6 @@
 use super::guest_funcs::CallGuestFunction;
-use super::guest_mgr::GuestMgr;
 use super::hypervisor::HypervisorWrapperMgr;
 use super::uninitialized::UninitializedSandbox;
-use super::FunctionsMap;
 use super::{guest_mgr::GuestMgr, host_funcs::HostFuncsWrapper};
 use super::{
     hypervisor::HypervisorWrapper,
@@ -98,18 +96,6 @@ impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
         }
     }
 }
-
-impl<'a> HostFuncs<'a> for Sandbox<'a> {
-    fn get_host_funcs(&self) -> &FunctionsMap<'a> {
-        &self.host_functions
-    }
-
-    fn get_host_funcs_mut(&mut self) -> &mut FunctionsMap<'a> {
-        &mut self.host_functions
-    }
-}
-
-impl<'a> CallHostFunction<'a> for Sandbox<'a> {}
 
 impl<'a> MemMgrWrapperGetter for Sandbox<'a> {
     fn get_mem_mgr_wrapper(&self) -> &MemMgrWrapper {

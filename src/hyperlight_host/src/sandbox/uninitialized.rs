@@ -1,6 +1,6 @@
 use super::FunctionsMap;
 use super::{
-    guest_funcs::GuestFuncs, mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper,
+    mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper,
     uninitialized_evolve::evolve_impl,
 };
 use super::{host_funcs::default_writer_func, initialized::Sandbox};
@@ -102,18 +102,6 @@ impl<'a>
         Ok(Sandbox::from(self))
     }
 }
-
-impl<'a> HostFuncs<'a> for UninitializedSandbox<'a> {
-    fn get_host_funcs(&self) -> &FunctionsMap<'a> {
-        &self.host_functions
-    }
-
-    fn get_host_funcs_mut(&mut self) -> &mut FunctionsMap<'a> {
-        &mut self.host_functions
-    }
-}
-
-impl<'a> CallHostPrint<'a> for UninitializedSandbox<'a> {}
 
 impl<'a> HypervisorWrapperMgr<'a> for UninitializedSandbox<'a> {
     fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper<'a> {
@@ -219,10 +207,9 @@ impl<'a> UninitializedSandbox<'a> {
         };
 
         let mut sandbox = Self {
-            host_functions: FunctionsMap::new(),
-            mem_mgr: mem_mgr_wrapper,
-            stack_guard,
-            hv: hv,
+            host_funcs,
+            mgr: mem_mgr_wrapper,
+            hv,
             run_from_process_memory,
         };
 

@@ -15,7 +15,6 @@ use crate::{
     Sandbox,
 };
 use anyhow::{bail, Result};
-use std::sync::{Arc, Mutex};
 use tracing::instrument;
 
 // `ShouldRelease` is an internal construct that represents a
