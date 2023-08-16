@@ -64,6 +64,14 @@ fmt:
 clippy:
     cargo clippy --all-targets --all-features -- -D warnings
 
+clippy-apply-fix-unix:
+    cargo clippy --fix -all
+    cargo clippy --fix --all
+clippy-apply-fix-windows:
+    cargo clippy --target x86_64-pc-windows-msvc --all
+fmt-apply:
+    cargo fmt --all
+
 gen-all-fbs-rust-code:
     for fbs in `find src -name "*.fbs"`; do flatc -r --rust-module-root-file --gen-all -o ./src/hyperlight_host/src/flatbuffers/ $fbs; done
     cargo fmt --all
