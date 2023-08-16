@@ -1,7 +1,5 @@
+use super::{guest_mgr::GuestMgr, hypervisor::HypervisorWrapperMgr, mem_mgr::MemMgrWrapperGetter};
 use std::sync::{Arc, Mutex};
-use super::{
-    guest_mgr::GuestMgr, hypervisor::HypervisorWrapperMgr, mem_mgr::MemMgrWrapperGetter,
-};
 
 use crate::{
     func::{

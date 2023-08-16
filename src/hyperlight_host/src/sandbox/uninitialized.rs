@@ -1,12 +1,10 @@
-
-use super::{
-    mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper,
-    uninitialized_evolve::evolve_impl,
-};
 use super::{host_funcs::default_writer_func, initialized::Sandbox};
 use super::{host_funcs::HostFuncsWrapper, hypervisor::HypervisorWrapperMgr};
 use super::{hypervisor::HypervisorWrapper, run_options::SandboxRunOptions};
 use super::{mem_access::mem_access_handler_wrapper, mem_mgr::MemMgrWrapperGetter};
+use super::{
+    mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper, uninitialized_evolve::evolve_impl,
+};
 use crate::func::host::HostFunction1;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::mem::ptr::RawPtr;
