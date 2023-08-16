@@ -1,13 +1,12 @@
 use std::sync::{Arc, Mutex};
 
-use super::{guest_mgr::GuestMgr, hypervisor::HypervisorWrapperMgr, FunctionsMap};
+use super::{guest_mgr::GuestMgr, hypervisor::HypervisorWrapperMgr};
 use crate::{
     func::{
         function_call::{FunctionCall, FunctionCallType},
         guest::GuestFunction,
         param_type::SupportedParameterType,
         types::{ParameterValue, ReturnType},
-        HyperlightFunction,
     },
     hypervisor::handlers::{
         MemAccessHandler, MemAccessHandlerFunction, OutBHandler, OutBHandlerFunction,
@@ -204,20 +203,6 @@ pub trait CallGuestFunction<'a>:
     }
 }
 
-pub trait GuestFuncs<'a> {
-    /// `get_dynamic_methods` is used to get the dynamic guest methods.
-    fn get_dynamic_methods(&self) -> &FunctionsMap<'a>;
-
-    /// `get_dynamic_methods_mut` is used to get a mutable reference to the dynamic guest methods.
-    fn get_dynamic_methods_mut(&mut self) -> &mut FunctionsMap<'a>;
-
-    /// `add_dynamic_method` is used to register a dynamic guest method onto the Sandbox.
-    fn add_dynamic_method(&mut self, name: &str, func: HyperlightFunction<'a>) {
-        self.get_dynamic_methods_mut()
-            .insert(name.to_string(), func);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::sandbox::uninitialized::GuestBinary;
@@ -248,7 +233,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_call_guest_function() {
         let uninitialized_sandbox = || {
             UninitializedSandbox::new(

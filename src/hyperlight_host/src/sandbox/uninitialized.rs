@@ -1,4 +1,3 @@
-use super::guest_funcs::GuestFuncs;
 use super::hypervisor::HypervisorWrapperMgr;
 use super::mem_mgr::MemMgr;
 use super::FunctionsMap;
@@ -38,7 +37,6 @@ pub struct UninitializedSandbox<'a> {
     stack_guard: [u8; STACK_COOKIE_LEN],
     pub(super) hv: HypervisorWrapper,
     pub(super) run_from_process_memory: bool,
-    dynamic_methods: FunctionsMap<'a>,
 }
 
 impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for UninitializedSandbox<'a> {
@@ -110,16 +108,6 @@ impl<'a> HostFuncs<'a> for UninitializedSandbox<'a> {
 
     fn get_host_funcs_mut(&mut self) -> &mut FunctionsMap<'a> {
         &mut self.host_functions
-    }
-}
-
-impl<'a> GuestFuncs<'a> for UninitializedSandbox<'a> {
-    fn get_dynamic_methods(&self) -> &FunctionsMap<'a> {
-        &self.dynamic_methods
-    }
-
-    fn get_dynamic_methods_mut(&mut self) -> &mut FunctionsMap<'a> {
-        &mut self.dynamic_methods
     }
 }
 
@@ -236,7 +224,6 @@ impl<'a> UninitializedSandbox<'a> {
             host_functions: FunctionsMap::new(),
             mem_mgr,
             stack_guard,
-            dynamic_methods: FunctionsMap::new(),
             hv: hv.into(),
             run_from_process_memory,
         };
