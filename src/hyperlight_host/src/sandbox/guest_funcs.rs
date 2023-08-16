@@ -96,8 +96,7 @@ pub trait CallGuestFunction<'a>:
         name: &str,
         ret: ReturnType,
         args: Option<Vec<ParameterValue>>,
-    ) -> Result<i32>
-    {
+    ) -> Result<i32> {
         let sbox = Arc::new(Mutex::new(self.get_initialized_sandbox_mut()));
 
         let should_reset = sbox
