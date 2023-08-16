@@ -135,7 +135,7 @@ pub trait CallGuestFunction<'a>:
         let fc = FunctionCall::new(
             function_name.to_string(),
             args,
-            FunctionCallType::Host,
+            FunctionCallType::Guest,
             return_type,
         );
 
