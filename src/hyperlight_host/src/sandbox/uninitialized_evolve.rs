@@ -1,27 +1,37 @@
-use super::mem_mgr::MemMgr;
+use super::hypervisor::HypervisorWrapperMgr;
 #[cfg(target_os = "windows")]
 use crate::func::exports::get_os_page_size;
 #[cfg(target_os = "windows")]
 use crate::mem::ptr::RawPtr;
-use crate::{
-    hypervisor::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
-    Sandbox, UninitializedSandbox,
-};
+use crate::sandbox::mem_mgr::MemMgrWrapperGetter;
+use crate::{hypervisor::handlers::OutBHandlerWrapper, Sandbox, UninitializedSandbox};
 #[cfg(target_os = "linux")]
 use anyhow::bail;
 use anyhow::Result;
 use tracing::instrument;
 
-#[allow(unused)]
+pub(super) type CBFunc<'a> = Box<dyn FnOnce(&mut UninitializedSandbox<'a>) -> Result<()> + 'a>;
+
+/// The implementation for evolving `UninitializedSandbox`es to
+/// `Sandbox`es.
+///
+/// Note that `cb_opt`'s type has been carefully considered.
+/// Particularly, it's not using a constrained generic to define
+/// the type of the callback because if it did, you'd have to provide
+/// type hints to the compiler if you want to pass `None` to the function.
+/// With this type signature, you can pass `None` without having to do that.
+///
+/// If this doesn't make sense and you want to change this type,
+/// please reach out to a Hyperlight developer before making the change.
 #[instrument(err(Debug), skip_all)]
 pub(super) fn evolve_impl<'a>(
     mut u_sbox: UninitializedSandbox<'a>,
-    outb_hdl: OutBHandlerWrapper,
-    mem_access_hdl: MemAccessHandlerWrapper,
+    cb_opt: Option<CBFunc<'a>>,
 ) -> Result<Sandbox<'a>> {
+    let outb_wrapper = u_sbox.get_hypervisor_wrapper().get_outb_hdl_wrapper();
     let run_from_proc_mem = u_sbox.run_from_process_memory;
     if run_from_proc_mem {
-        evolve_in_proc(u_sbox, outb_hdl)
+        evolve_in_proc(u_sbox, outb_wrapper)
     } else {
         let mem_mgr = {
             // we are gonna borrow u_sbox mutably below in our
@@ -32,14 +42,19 @@ pub(super) fn evolve_impl<'a>(
             // luckily, cloning SandboxMemoryManagers is cheap, so we can do
             // that and avoid the borrow going out of this scope by moving the
             // clone
-            let mgr = u_sbox.get_mem_mgr();
+            let mgr = u_sbox.mgr.as_ref();
             mgr.clone()
         };
 
-        u_sbox
-            .hv
-            .initialise(&mem_mgr, outb_hdl.clone(), mem_access_hdl.clone())
-            .unwrap();
+        {
+            let hv = &mut u_sbox.hv;
+            hv.initialise(&mem_mgr)
+        }?;
+
+        if let Some(cb) = cb_opt {
+            cb(&mut u_sbox)?;
+        }
+
         Ok(Sandbox::from(u_sbox))
     }
 }
@@ -91,7 +106,7 @@ fn evolve_in_proc<'a>(
         //
         // - u_sbox being marked mut and unused
         // - outb_hdl being unused
-        let _ = u_sbox.get_mem_mgr_mut();
+        let _ = u_sbox.get_mem_mgr_wrapper_mut();
         let _ = outb_hdl;
         bail!("in-process execution is not supported on linux");
     }
@@ -160,7 +175,7 @@ fn evolve_in_proc<'a>(
             closure_ptr_ptr as *const (u16, u64)
         }
 
-        let mgr = u_sbox.get_mem_mgr_mut();
+        let mgr = u_sbox.get_mem_mgr_wrapper_mut().as_mut();
         let outb_ptr = outb_hdl_as_fn_ptr(outb_hdl.clone());
         mgr.set_outb_address(outb_ptr as u64)?;
         let peb_address = {
@@ -182,31 +197,15 @@ fn evolve_in_proc<'a>(
 mod tests {
     use super::evolve_impl;
     use crate::{
-        hypervisor::handlers::{MemAccessHandler, OutBHandler},
         sandbox::uninitialized::GuestBinary,
         testing::{callback_guest_path, simple_guest_path},
         UninitializedSandbox,
     };
-    use anyhow::{anyhow, Result};
-    use std::sync::{Arc, Mutex};
+    use anyhow::anyhow;
 
     #[test]
     fn test_evolve() {
         let guest_bin_paths = vec![simple_guest_path().unwrap(), callback_guest_path().unwrap()];
-        let outb_arc = {
-            let cb: Box<dyn FnMut(u16, u64) -> Result<()>> = Box::new(|_, _| -> Result<()> {
-                println!("outb callback in test_evolve");
-                Ok(())
-            });
-            Arc::new(Mutex::new(OutBHandler::from(cb)))
-        };
-        let mem_access_arc = {
-            let cb: Box<dyn FnMut() -> Result<()>> = Box::new(|| -> Result<()> {
-                println!("mem access callback in test_evolve");
-                Ok(())
-            });
-            Arc::new(Mutex::new(MemAccessHandler::from(cb)))
-        };
         for guest_bin_path in guest_bin_paths {
             let u_sbox = UninitializedSandbox::new(
                 GuestBinary::FilePath(guest_bin_path.clone()),
@@ -214,7 +213,7 @@ mod tests {
                 None,
             )
             .unwrap();
-            evolve_impl(u_sbox, outb_arc.clone(), mem_access_arc.clone())
+            evolve_impl(u_sbox, None)
                 .map_err(|e| {
                     anyhow!("error evolving sandbox with guest binary {guest_bin_path}: {e:?}")
                 })
@@ -227,14 +226,6 @@ mod tests {
         use crate::SandboxRunOptions;
 
         let guest_bin_paths = vec![simple_guest_path().unwrap(), callback_guest_path().unwrap()];
-        let outb_arc = {
-            let cb: Box<dyn FnMut(u16, u64) -> Result<()>> = Box::new(|_, _| Ok(()));
-            Arc::new(Mutex::new(OutBHandler::from(cb)))
-        };
-        let mem_access_arc = {
-            let cb: Box<dyn FnMut() -> Result<()>> = Box::new(|| Ok(()));
-            Arc::new(Mutex::new(MemAccessHandler::from(cb)))
-        };
         for guest_bin_path in guest_bin_paths {
             let u_sbox: UninitializedSandbox<'_> = UninitializedSandbox::new(
                 GuestBinary::FilePath(guest_bin_path.clone()),
@@ -246,11 +237,11 @@ mod tests {
             {
                 let err = format!("error evolving sandbox with guest binary {guest_bin_path}");
                 let err_str = err.as_str();
-                evolve_impl(u_sbox, outb_arc.clone(), mem_access_arc.clone()).expect(err_str);
+                evolve_impl(u_sbox, None).expect(err_str);
             }
             #[cfg(target_os = "linux")]
             {
-                let res = evolve_impl(u_sbox, outb_arc.clone(), mem_access_arc.clone());
+                let res = evolve_impl(u_sbox, None);
                 assert!(res.is_err());
             }
         }

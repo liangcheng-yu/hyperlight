@@ -9,7 +9,6 @@ pub(crate) static LOGGER: Logger = Logger {};
 static LOG_TRACER: Lazy<LogTracer> = Lazy::new(LogTracer::new);
 static INITLOGGER: Once = Once::new();
 #[derive(Clone, Eq, PartialEq)]
-#[readonly::make]
 pub(crate) struct LogCall {
     pub(crate) level: Level,
     pub(crate) args: String,

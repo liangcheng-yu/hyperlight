@@ -1,6 +1,7 @@
-use std::sync::{Arc, Mutex};
-
-use super::{guest_mgr::GuestMgr, hypervisor::HypervisorWrapperMgr, FunctionsMap};
+use super::{
+    guest_mgr::GuestMgr, hypervisor::HypervisorWrapperMgr, mem_mgr::MemMgrWrapperGetter,
+    FunctionsMap,
+};
 use crate::{
     func::{
         function_call::{FunctionCall, FunctionCallType},
@@ -9,15 +10,12 @@ use crate::{
         types::{ParameterValue, ReturnType},
         HyperlightFunction,
     },
-    hypervisor::handlers::{
-        MemAccessHandler, MemAccessHandlerFunction, OutBHandler, OutBHandlerFunction,
-    },
-    mem::ptr::RawPtr,
+    mem::ptr::{GuestPtr, RawPtr},
     sandbox_state::{reset::RestoreSandbox, sandbox::InitializedSandbox},
     Sandbox,
 };
-
 use anyhow::{bail, Result};
+use std::sync::{Arc, Mutex};
 use tracing::instrument;
 
 // `ShouldRelease` is an internal construct that represents a
@@ -57,7 +55,11 @@ impl<'a, 'b> Drop for ShouldReset<'a, 'b> {
 
 /// Enables the host to call functions in the guest and have the sandbox state reset at the start of the call
 pub trait CallGuestFunction<'a>:
-    GuestMgr + RestoreSandbox + HypervisorWrapperMgr + InitializedSandbox<'a>
+    GuestMgr
+    + RestoreSandbox<'a>
+    + HypervisorWrapperMgr<'a>
+    + MemMgrWrapperGetter
+    + InitializedSandbox<'a>
 {
     fn execute_in_host<T, R>(&mut self, function: T) -> Result<R>
     where
@@ -139,7 +141,8 @@ pub trait CallGuestFunction<'a>:
         return_type: ReturnType,
         args: Option<Vec<ParameterValue>>,
     ) -> Result<i32> {
-        let p_dispatch = self.get_mem_mgr().get_pointer_to_dispatch_function()?;
+        let mem_mgr = self.get_mem_mgr_wrapper().as_ref();
+        let p_dispatch = mem_mgr.get_pointer_to_dispatch_function()?;
 
         let fc = FunctionCall::new(
             function_name.to_string(),
@@ -150,9 +153,11 @@ pub trait CallGuestFunction<'a>:
 
         let buffer: Vec<u8> = fc.try_into()?;
 
-        self.get_mem_mgr_mut().write_guest_function_call(&buffer)?;
+        self.get_mem_mgr_wrapper_mut()
+            .as_mut()
+            .write_guest_function_call(&buffer)?;
 
-        if self.get_mem_mgr().is_in_process() {
+        if self.get_mem_mgr_wrapper().as_ref().is_in_process() {
             let dispatch: fn() = unsafe { std::mem::transmute(p_dispatch) };
             // Q: Why does this function not take `args` and doesn't return `return_type`?
             //
@@ -163,44 +168,20 @@ pub trait CallGuestFunction<'a>:
         } else {
             let sbox = Arc::new(Mutex::new(self.get_initialized_sandbox_mut()));
 
-            let outb_arc = {
-                let outb_sbox = sbox.clone();
-                let cb: OutBHandlerFunction<'_> = Box::new(move |port, byte| -> Result<()> {
-                    outb_sbox
-                        .lock()
-                        .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-                        .handle_outb(port, byte)
-                });
-                Arc::new(Mutex::new(OutBHandler::from(cb)))
-            };
-
-            let mem_access_arc = {
-                let mem_access_sbox = sbox.clone();
-                let cb: MemAccessHandlerFunction<'_> = Box::new(move || -> Result<()> {
-                    mem_access_sbox
-                        .lock()
-                        .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-                        .handle_mmio_exit()
-                });
-                Arc::new(Mutex::new(MemAccessHandler::from(cb)))
-            };
-
-            let p_dispatch_rp: RawPtr = p_dispatch.into();
-
+            let p_dispatch_gp = {
+                let p_dispatch_rp = RawPtr::from(p_dispatch);
+                GuestPtr::try_from(p_dispatch_rp)
+            }?;
             sbox.lock()
                 .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
                 .get_hypervisor_wrapper_mut()
-                .dispatch_call_from_host(
-                    p_dispatch_rp.try_into()?,
-                    outb_arc.clone(),
-                    mem_access_arc.clone(),
-                )?;
+                .dispatch_call_from_host(p_dispatch_gp)?;
         }
 
-        self.check_stack_guard()?; // <- wrapper around mem_mgr `check_for_stack_guard`
+        self.get_mem_mgr_wrapper().check_stack_guard()?; // <- wrapper around mem_mgr `check_for_stack_guard`
         self.get_initialized_sandbox().check_for_guest_error()?;
 
-        self.get_mem_mgr().get_return_value()
+        self.get_mem_mgr_wrapper().as_ref().get_return_value()
     }
 }
 
@@ -220,9 +201,9 @@ pub trait GuestFuncs<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::sandbox::uninitialized::GuestBinary;
-    use crate::testing::simple_guest_path;
     use crate::UninitializedSandbox;
+    use crate::{sandbox::uninitialized::GuestBinary, sandbox_state::transition::MutatingCallback};
+    use crate::{sandbox_state::sandbox::EvolvableSandbox, testing::simple_guest_path};
 
     use super::*;
     use std::{
@@ -267,7 +248,7 @@ mod tests {
         {
             let usbox = uninitialized_sandbox();
             let mut sandbox = usbox
-                .initialize(Some(init))
+                .evolve(MutatingCallback::from(init))
                 .expect("Failed to initialize sandbox");
             let result = sandbox.execute_in_host(Arc::new(Mutex::new(test_function0)));
             assert_eq!(result.unwrap(), 42);
@@ -277,7 +258,7 @@ mod tests {
         {
             let usbox = uninitialized_sandbox();
             let mut sandbox = usbox
-                .initialize(Some(init))
+                .evolve(MutatingCallback::from(init))
                 .expect("Failed to initialize sandbox");
             let result = sandbox.execute_in_host(Arc::new(Mutex::new(test_function1)));
             assert!(result.is_ok());
@@ -287,7 +268,7 @@ mod tests {
         {
             let usbox = uninitialized_sandbox();
             let mut sandbox = usbox
-                .initialize(Some(init))
+                .evolve(MutatingCallback::from(init))
                 .expect("Failed to initialize sandbox");
             let result = sandbox.execute_in_host(Arc::new(Mutex::new(move || test_function2(42))));
             assert_eq!(result.unwrap(), 42);
@@ -303,7 +284,7 @@ mod tests {
             for _ in 0..10 {
                 let usbox = uninitialized_sandbox();
                 let mut sandbox = usbox
-                    .initialize(Some(init))
+                    .evolve(MutatingCallback::from(init))
                     .expect("Failed to initialize sandbox");
                 let count = Arc::clone(&count);
                 let order = Arc::clone(&order);

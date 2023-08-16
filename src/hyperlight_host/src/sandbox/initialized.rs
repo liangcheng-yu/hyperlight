@@ -1,15 +1,13 @@
 use super::guest_funcs::{CallGuestFunction, GuestFuncs};
-use super::guest_mgr::GuestMgr;
 use super::hypervisor::HypervisorWrapperMgr;
 use super::uninitialized::UninitializedSandbox;
 use super::FunctionsMap;
-use super::{host_funcs::CallHostFunction, hypervisor::HypervisorWrapper, mem_mgr::MemMgr};
-use super::{host_funcs::CallHostPrint, outb::OutBAction};
-use super::{host_funcs::HostFuncs, outb::outb_log};
+use super::{guest_mgr::GuestMgr, host_funcs::HostFuncsWrapper};
+use super::{
+    hypervisor::HypervisorWrapper,
+    mem_mgr::{MemMgrWrapper, MemMgrWrapperGetter},
+};
 use crate::flatbuffers::hyperlight::generated::ErrorCode;
-use crate::func::types::ParameterValue;
-use crate::mem::mgr::SandboxMemoryManager;
-use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::sandbox_state::reset::RestoreSandbox;
 use anyhow::{bail, Result};
 use log::error;
@@ -68,15 +66,14 @@ impl Eq for ExecutingGuestCall {}
 #[allow(unused)]
 pub struct Sandbox<'a> {
     // Registered host functions
-    host_functions: FunctionsMap<'a>,
+    pub(crate) host_functions: HostFuncsWrapper<'a>,
     // The memory manager for the sandbox.
-    mem_mgr: SandboxMemoryManager,
-    stack_guard: [u8; STACK_COOKIE_LEN],
+    mgr: MemMgrWrapper,
     executing_guest_call: ExecutingGuestCall,
     needs_state_reset: bool,
     num_runs: i32,
     dynamic_methods: FunctionsMap<'a>,
-    hv: HypervisorWrapper,
+    hv: HypervisorWrapper<'a>,
 }
 
 impl<'a> crate::sandbox_state::sandbox::InitializedSandbox<'a> for Sandbox<'a> {
@@ -92,25 +89,14 @@ impl<'a> crate::sandbox_state::sandbox::InitializedSandbox<'a> for Sandbox<'a> {
 impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
     fn from(val: UninitializedSandbox<'a>) -> Self {
         Self {
-            host_functions: val.get_host_funcs().clone(),
-            mem_mgr: val.get_mem_mgr().clone(),
-            stack_guard: *val.get_stack_cookie(),
+            host_functions: val.host_funcs.clone(),
+            mgr: val.mgr.clone(),
             executing_guest_call: ExecutingGuestCall::new(0),
             needs_state_reset: false,
             num_runs: 0,
             dynamic_methods: val.get_dynamic_methods().clone(),
             hv: val.hv,
         }
-    }
-}
-
-impl<'a> HostFuncs<'a> for Sandbox<'a> {
-    fn get_host_funcs(&self) -> &FunctionsMap<'a> {
-        &self.host_functions
-    }
-
-    fn get_host_funcs_mut(&mut self) -> &mut FunctionsMap<'a> {
-        &mut self.host_functions
     }
 }
 
@@ -124,20 +110,36 @@ impl<'a> GuestFuncs<'a> for Sandbox<'a> {
     }
 }
 
-impl<'a> CallHostFunction<'a> for Sandbox<'a> {}
+impl<'a> MemMgrWrapperGetter for Sandbox<'a> {
+    fn get_mem_mgr_wrapper(&self) -> &MemMgrWrapper {
+        &self.mgr
+    }
+
+    fn get_mem_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper {
+        &mut self.mgr
+    }
+}
+
+impl<'a> HypervisorWrapperMgr<'a> for Sandbox<'a> {
+    fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper<'a> {
+        &self.hv
+    }
+
+    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper<'a> {
+        &mut self.hv
+    }
+}
 
 impl<'a> CallGuestFunction<'a> for Sandbox<'a> {}
 
-impl<'a> RestoreSandbox for Sandbox<'a> {}
-
-impl<'a> CallHostPrint<'a> for Sandbox<'a> {}
+impl<'a> RestoreSandbox<'a> for Sandbox<'a> {}
 
 impl<'a> crate::sandbox_state::sandbox::Sandbox for Sandbox<'a> {}
 
 impl<'a> std::fmt::Debug for Sandbox<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Sandbox")
-            .field("stack_guard", &self.stack_guard)
+            .field("stack_guard", &self.mgr.get_stack_cookie())
             .field("num_host_funcs", &self.host_functions.len())
             .finish()
     }
@@ -177,68 +179,16 @@ impl<'a> GuestMgr for Sandbox<'a> {
     }
 }
 
-impl<'a> MemMgr for Sandbox<'a> {
-    fn get_mem_mgr(&self) -> &SandboxMemoryManager {
-        &self.mem_mgr
-    }
-
-    fn get_mem_mgr_mut(&mut self) -> &mut SandboxMemoryManager {
-        &mut self.mem_mgr
-    }
-
-    fn get_stack_cookie(&self) -> &super::mem_mgr::StackCookie {
-        &self.stack_guard
-    }
-}
-
-impl<'a> HypervisorWrapperMgr for Sandbox<'a> {
-    fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper {
-        &self.hv
-    }
-
-    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper {
-        &mut self.hv
-    }
-}
-
 impl<'a> Sandbox<'a> {
-    /// Handles OutB operations from the guest.
-    pub fn handle_outb(&mut self, port: u16, _byte: u64) -> Result<()> {
-        match port.into() {
-            OutBAction::Log => outb_log(&self.mem_mgr),
-            OutBAction::CallFunction => {
-                let call = self.mem_mgr.get_host_function_call()?;
-                let name = call.function_name.clone();
-                let args: Vec<ParameterValue> = call.parameters.clone().unwrap_or(vec![]);
-                let res = self.call_host_function(&name, args)?;
-                self.mem_mgr.write_response_from_host_method_call(&res)?;
-                Ok(())
-            }
-            OutBAction::Abort => {
-                // TODO
-                todo!();
-            }
-        }
-    }
-
-    /// Handles Stack Overflows.
-    pub fn handle_mmio_exit(&mut self) -> Result<()> {
-        if !self.check_stack_guard()? {
-            bail!("Stack overflow detected");
-        }
-
-        Ok(())
-    }
-
     /// Check for a guest error and return an `Err` if one was found,
     /// and `Ok` if one was not found.
     /// TODO: remove this when we hook it up to the rest of the
     /// sandbox in https://github.com/deislabs/hyperlight/pull/727
     pub fn check_for_guest_error(&self) -> Result<()> {
-        let guest_err = self.mem_mgr.get_guest_error()?;
+        let guest_err = self.mgr.as_ref().get_guest_error()?;
         match guest_err.code {
             ErrorCode::NoError => Ok(()),
-            ErrorCode::OutbError => match self.mem_mgr.get_host_error()? {
+            ErrorCode::OutbError => match self.mgr.as_ref().get_host_error()? {
                 Some(host_err) => bail!("[OutB Error] {:?}: {:?}", guest_err.code, host_err),
                 None => Ok(()),
             },

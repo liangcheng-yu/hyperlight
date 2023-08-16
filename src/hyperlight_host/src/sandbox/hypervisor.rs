@@ -15,40 +15,48 @@ use rand::Rng;
 
 /// A container with convenience methods attached for an
 /// `Option<Box<dyn Hypervisor>>`
-pub struct HypervisorWrapper(Option<Box<dyn Hypervisor>>);
+pub struct HypervisorWrapper<'a> {
+    hv: Option<Box<dyn Hypervisor>>,
+    outb_hdl: OutBHandlerWrapper<'a>,
+    mem_access_hdl: MemAccessHandlerWrapper<'a>,
+}
 
-impl From<Option<Box<dyn Hypervisor>>> for HypervisorWrapper {
-    fn from(value: Option<Box<dyn Hypervisor>>) -> Self {
-        Self(value)
+pub trait HypervisorWrapperMgr<'a> {
+    fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper<'a>;
+    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper<'a>;
+}
+
+impl<'a> HypervisorWrapper<'a> {
+    pub(super) fn new(
+        hv: Option<Box<dyn Hypervisor>>,
+        outb_hdl: OutBHandlerWrapper<'a>,
+        mem_access_hdl: MemAccessHandlerWrapper<'a>,
+    ) -> Self {
+        Self {
+            hv,
+            outb_hdl,
+            mem_access_hdl,
+        }
     }
-}
-
-pub trait HypervisorWrapperMgr {
-    fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper;
-    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper;
-}
-
-impl HypervisorWrapper {
     pub fn get_hypervisor(&self) -> Result<&dyn Hypervisor> {
-        self.0
+        self.hv
             .as_ref()
             .map(|h| h.as_ref())
             .ok_or(anyhow!("no hypervisor available for sandbox"))
     }
 
     pub fn get_hypervisor_mut(&mut self) -> Result<&mut dyn Hypervisor> {
-        match self.0.as_mut() {
+        match self.hv.as_mut() {
             None => bail!("no hypervisor available for sandbox"),
             Some(h) => Ok(h.as_mut()),
         }
     }
 
-    pub(super) fn initialise(
-        &mut self,
-        mem_mgr: &SandboxMemoryManager,
-        outb_hdl: OutBHandlerWrapper,
-        mem_access_hdl: MemAccessHandlerWrapper,
-    ) -> Result<()> {
+    pub(super) fn get_outb_hdl_wrapper(&self) -> OutBHandlerWrapper<'a> {
+        self.outb_hdl.clone()
+    }
+
+    pub(super) fn initialise(&mut self, mem_mgr: &SandboxMemoryManager) -> Result<()> {
         let seed = {
             let mut rng = rand::thread_rng();
             rng.gen::<u64>()
@@ -58,6 +66,8 @@ impl HypervisorWrapper {
             RawPtr::from(peb_u64)
         };
         let page_size = u32::try_from(get_os_page_size())?;
+        let outb_hdl = self.outb_hdl.clone();
+        let mem_access_hdl = self.mem_access_hdl.clone();
         let hv = self.get_hypervisor_mut()?;
         hv.initialise(peb_addr, seed, page_size, outb_hdl, mem_access_hdl)
     }
@@ -75,12 +85,9 @@ impl HypervisorWrapper {
         hv.reset_rsp(new_rsp.absolute()?)
     }
 
-    pub fn dispatch_call_from_host(
-        &mut self,
-        dispatch_func_addr: GuestPtr,
-        outb_hdl: OutBHandlerWrapper,
-        mem_access_hdl: MemAccessHandlerWrapper,
-    ) -> Result<()> {
+    pub fn dispatch_call_from_host(&mut self, dispatch_func_addr: GuestPtr) -> Result<()> {
+        let outb_hdl = self.outb_hdl.clone();
+        let mem_access_hdl = self.mem_access_hdl.clone();
         let hv = self.get_hypervisor_mut()?;
         let dispatch_raw_ptr = RawPtr::from(dispatch_func_addr.absolute()?);
         hv.dispatch_call_from_host(dispatch_raw_ptr, outb_hdl, mem_access_hdl)

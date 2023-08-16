@@ -2,12 +2,11 @@ use super::{bool::register_boolean, c_func::CFunc, mem_mgr::register_mem_mgr};
 use super::{context::Context, sandbox_compat::Sandbox};
 use super::{handle::Handle, sandbox_compat::EitherImpl};
 use crate::sandbox::host_funcs::default_writer_func;
-use crate::sandbox::mem_mgr::MemMgr;
 use crate::sandbox::uninitialized::GuestBinary;
+use crate::sandbox_state::transition::Noop;
 use crate::{capi::strings::get_string, mem::config::SandboxMemoryConfiguration};
 use crate::{func::host::HostFunction1, sandbox};
 use crate::{mem::ptr::RawPtr, sandbox_state::sandbox::EvolvableSandbox};
-use crate::{sandbox::host_funcs::CallHostPrint, sandbox_state::transition::Noop};
 use crate::{
     sandbox::is_hypervisor_present as check_hypervisor,
     sandbox::is_supported_platform as check_platform, SandboxRunOptions,
@@ -177,7 +176,7 @@ pub unsafe extern "C" fn sandbox_get_memory_mgr(ctx: *mut Context, sbox_hdl: Han
     CFunc::new("sandbox_get_memory_mgr", ctx)
         .and_then_mut(|ctx, _| {
             let sbox = Sandbox::get(ctx, sbox_hdl)?;
-            let mem_mgr = sbox.to_uninit()?.get_mem_mgr();
+            let mem_mgr = sbox.to_uninit()?.mgr.as_ref();
             Ok(register_mem_mgr(ctx, mem_mgr.clone()))
         })
         .ok_or_err_hdl()
@@ -208,7 +207,7 @@ pub unsafe extern "C" fn sandbox_call_host_print(
             let msg = c_str.to_str()?;
             let sbox = Sandbox::get_mut(ctx, sbox_hdl)?;
             let rsbox = sbox.to_uninit_mut()?;
-            rsbox.host_print(String::from(msg))?;
+            rsbox.host_funcs.host_print(String::from(msg))?;
             Ok(Handle::new_empty())
         })
         .ok_or_err_hdl()

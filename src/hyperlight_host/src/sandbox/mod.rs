@@ -8,6 +8,9 @@ pub(crate) mod host_funcs;
 pub(crate) mod hypervisor;
 /// Functionality for dealing with completely initialized sandboxes
 mod initialized;
+/// Functionality for dealing with memory access from the VM guest
+/// executable
+mod mem_access;
 /// Functionality for interacting with a sandbox's internally-stored
 /// `SandboxMemoryManager`
 pub(crate) mod mem_mgr;
@@ -52,7 +55,7 @@ pub(crate) fn is_supported_platform() -> bool {
 }
 
 /// A `HashMap` to map function names to `HyperlightFunction`s.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct FunctionsMap<'a>(HashMap<String, HyperlightFunction<'a>>);
 
 impl<'a> FunctionsMap<'a> {
@@ -112,11 +115,9 @@ mod tests {
     use crate::hypervisor::hyperv_linux::test_cfg::TEST_CONFIG as HYPERV_TEST_CONFIG;
     #[cfg(target_os = "linux")]
     use crate::hypervisor::kvm::test_cfg::TEST_CONFIG as KVM_TEST_CONFIG;
-    use crate::sandbox::host_funcs::CallHostPrint;
-    use crate::sandbox::uninitialized::GuestBinary;
-    use crate::UninitializedSandbox;
+    use crate::{sandbox::uninitialized::GuestBinary, sandbox_state::transition::Noop};
+    use crate::{sandbox_state::sandbox::EvolvableSandbox, UninitializedSandbox};
     use crate::{testing::simple_guest_path, Sandbox};
-    use anyhow::Result;
     use crossbeam_queue::ArrayQueue;
     use std::{sync::Arc, thread};
 
@@ -157,11 +158,12 @@ mod tests {
                         panic!("Failed to pop UninitializedSandbox thread {}", i)
                     });
                     uninitialized_sandbox
+                        .host_funcs
                         .host_print(format!("Print from UninitializedSandbox on Thread {}\n", i))
                         .unwrap();
 
                     let sandbox = uninitialized_sandbox
-                        .initialize::<fn(&mut UninitializedSandbox<'_>) -> Result<()>>(None)
+                        .evolve(Noop::default())
                         .unwrap_or_else(|_| {
                             panic!("Failed to initialize UninitializedSandbox thread {}", i)
                         });
@@ -185,6 +187,7 @@ mod tests {
                         .pop()
                         .unwrap_or_else(|| panic!("Failed to pop Sandbox thread {}", i));
                     sandbox
+                        .host_functions
                         .host_print(format!("Print from Sandbox on Thread {}\n", i))
                         .unwrap();
                 })
