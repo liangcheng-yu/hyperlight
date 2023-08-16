@@ -59,11 +59,6 @@ pub(crate) fn is_supported_platform() -> bool {
 pub struct FunctionsMap<'a>(HashMap<String, HyperlightFunction<'a>>);
 
 impl<'a> FunctionsMap<'a> {
-    /// Create a new `HostFunctionsMap` with no entries.
-    pub fn new() -> Self {
-        Self(HashMap::new())
-    }
-
     /// Insert a new entry into the map.
     pub fn insert(&mut self, key: String, value: HyperlightFunction<'a>) {
         self.0.insert(key, value);

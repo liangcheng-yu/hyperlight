@@ -1,4 +1,4 @@
-use super::FunctionsMap;
+
 use super::{
     mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper,
     uninitialized_evolve::evolve_impl,

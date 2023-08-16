@@ -313,7 +313,7 @@ mod tests {
             // ^^^  None == RUN_IN_HYPERVISOR && one-shot Sandbox
         )?;
 
-        let sandbox = Arc::new(Mutex::new(usbox.initialize(Some(init))?));
+        let sandbox = Arc::new(Mutex::new(usbox.evolve(MutatingCallback::from(init))?));
 
         let func = Arc::new(Mutex::new(
             move |s: Arc<Mutex<&mut Sandbox>>| -> Result<()> {
