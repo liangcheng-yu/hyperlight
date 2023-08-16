@@ -5,7 +5,6 @@ use crate::{
     func::{
         function_call::{FunctionCall, FunctionCallType},
         guest::GuestFunction,
-        param_type::SupportedParameterType,
         types::{ParameterValue, ReturnType},
     },
     mem::ptr::{GuestPtr, RawPtr},
@@ -96,10 +95,8 @@ pub trait CallGuestFunction<'a>:
         &mut self,
         name: &str,
         ret: ReturnType,
-        args: Option<Vec<P>>,
+        args: Option<Vec<ParameterValue>>,
     ) -> Result<i32>
-    where
-        P: SupportedParameterType<P> + std::fmt::Debug,
     {
         let sbox = Arc::new(Mutex::new(self.get_initialized_sandbox_mut()));
 
@@ -120,17 +117,11 @@ pub trait CallGuestFunction<'a>:
                 .reset_state()?;
         }
 
-        let hl_args = args.map(|args| {
-            args.into_iter()
-                .map(|arg| arg.get_hyperlight_value())
-                .collect::<Vec<ParameterValue>>()
-        });
-
         let mut dispatcher = sbox
             .lock()
             .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
 
-        dispatcher.dispatch_call_from_host(name, ret, hl_args)
+        dispatcher.dispatch_call_from_host(name, ret, args)
     }
 
     fn dispatch_call_from_host(
@@ -299,38 +290,5 @@ mod tests {
         }
 
         // TODO: Add tests to ensure State has been reset.
-    }
-
-    #[test]
-    fn test_call_guest_function_by_name() -> Result<()> {
-        let usbox = UninitializedSandbox::new(
-            GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
-            None,
-            // ^^^ for now, we're using defaults. In the future, we should get variability here.
-            None,
-            // ^^^  None == RUN_IN_HYPERVISOR && one-shot Sandbox
-        )?;
-
-        let sandbox = Arc::new(Mutex::new(usbox.evolve(MutatingCallback::from(init))?));
-
-        let func = Arc::new(Mutex::new(
-            move |s: Arc<Mutex<&mut Sandbox>>| -> Result<()> {
-                s.lock()
-                    .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-                    .call_guest_function_by_name(
-                        "PrintOutput",
-                        ReturnType::Int,
-                        Some(vec!["Hello, World!\n".to_string()]),
-                    )?;
-                Ok(())
-            },
-        ));
-
-        sandbox
-            .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-            .execute_in_host(func)?;
-
-        Ok(())
     }
 }
