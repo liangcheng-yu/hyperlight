@@ -1,9 +1,5 @@
-<<<<<<< HEAD
 use super::guest_funcs::CallGuestFunction;
 use super::guest_mgr::GuestMgr;
-=======
-use super::guest_funcs::{CallGuestFunction, GuestFuncs};
->>>>>>> dev
 use super::hypervisor::HypervisorWrapperMgr;
 use super::uninitialized::UninitializedSandbox;
 use super::FunctionsMap;

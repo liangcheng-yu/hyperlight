@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-use super::hypervisor::HypervisorWrapperMgr;
-use super::mem_mgr::MemMgr;
-=======
->>>>>>> dev
 use super::FunctionsMap;
 use super::{
     guest_funcs::GuestFuncs, mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper,
@@ -108,7 +103,6 @@ impl<'a>
     }
 }
 
-<<<<<<< HEAD
 impl<'a> HostFuncs<'a> for UninitializedSandbox<'a> {
     fn get_host_funcs(&self) -> &FunctionsMap<'a> {
         &self.host_functions
@@ -121,28 +115,9 @@ impl<'a> HostFuncs<'a> for UninitializedSandbox<'a> {
 
 impl<'a> CallHostPrint<'a> for UninitializedSandbox<'a> {}
 
-impl<'a> MemMgr for UninitializedSandbox<'a> {
-    fn get_mem_mgr(&self) -> &SandboxMemoryManager {
-        &self.mem_mgr
-    }
-
-    fn get_mem_mgr_mut(&mut self) -> &mut SandboxMemoryManager {
-        &mut self.mem_mgr
-=======
-impl<'a> GuestFuncs<'a> for UninitializedSandbox<'a> {
-    fn get_dynamic_methods(&self) -> &FunctionsMap<'a> {
-        &self.dynamic_methods
-    }
-
-    fn get_dynamic_methods_mut(&mut self) -> &mut FunctionsMap<'a> {
-        &mut self.dynamic_methods
-    }
-}
-
 impl<'a> HypervisorWrapperMgr<'a> for UninitializedSandbox<'a> {
     fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper<'a> {
         &self.hv
->>>>>>> dev
     }
 
     fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper<'a> {
