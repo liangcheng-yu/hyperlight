@@ -14,6 +14,7 @@ bitflags! {
         /// Recycle the sandbox after running
         const RECYCLE_AFTER_RUN = 0b00000010;
         /// Run from guest binary (windows only)
+        #[cfg(windows)]
         const RUN_FROM_GUEST_BINARY =0b00000100;
     }
 }

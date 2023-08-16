@@ -329,7 +329,7 @@ mod tests {
             None,
             // ^^^ for now, we're using defaults. In the future, we should get variability here.
             None,
-            // ^^^  None == RUN_IN_HYPERVISOR && RUN_FROM_GUEST_BINARY && one-shot Sandbox
+            // ^^^  None == RUN_IN_HYPERVISOR && one-shot Sandbox
         )?;
 
         let sandbox = Arc::new(Mutex::new(usbox.initialize(Some(init))?));
