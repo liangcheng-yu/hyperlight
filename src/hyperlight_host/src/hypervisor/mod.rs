@@ -91,7 +91,6 @@ pub(crate) mod tests {
         handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
         Hypervisor,
     };
-    use crate::sandbox::mem_mgr::MemMgr;
     use crate::{
         mem::{
             layout::SandboxMemoryLayout,
@@ -99,7 +98,7 @@ pub(crate) mod tests {
             ptr::{GuestPtr, RawPtr},
             ptr_offset::Offset,
         },
-        sandbox::{uninitialized::GuestBinary, UninitializedSandbox},
+        sandbox::{mem_mgr::MemMgrWrapperGetter, uninitialized::GuestBinary, UninitializedSandbox},
         testing::dummy_guest_path,
     };
     use anyhow::bail;
@@ -119,9 +118,12 @@ pub(crate) mod tests {
             bail!("test_initialise: file {} does not exist", filename);
         }
 
-        let sandbox =
+        let mut sandbox =
             UninitializedSandbox::new(GuestBinary::FilePath(filename.clone()), None, None)?;
-        let mut mem_mgr = sandbox.get_mem_mgr().clone();
+        let mem_mgr = {
+            let wrapper = sandbox.get_mem_mgr_wrapper_mut();
+            wrapper.as_mut()
+        };
         let shared_mem = &mem_mgr.shared_mem;
         let rsp_ptr = {
             let mem_size: u64 = shared_mem.mem_size().try_into()?;
@@ -135,7 +137,7 @@ pub(crate) mod tests {
             let offset = Offset::from(offset_u64);
             GuestPtr::try_from(offset)
         }?;
-        let mut hypervisor_impl = new_fn(&mem_mgr, rsp_ptr, pml4_ptr)?;
+        let mut hypervisor_impl = new_fn(mem_mgr, rsp_ptr, pml4_ptr)?;
 
         // call initialise on the hypervisor implementation with specific values
         // for PEB (process environment block) address, seed and page size.

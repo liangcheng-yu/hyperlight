@@ -1,9 +1,16 @@
-use crate::func::guest::log_data::GuestLogData;
-use crate::mem::mgr::SandboxMemoryManager;
+use std::sync::{Arc, Mutex};
+
+use crate::{
+    func::{guest::log_data::GuestLogData, types::ParameterValue},
+    hypervisor::handlers::{OutBHandlerFunction, OutBHandlerWrapper},
+};
+use crate::{hypervisor::handlers::OutBHandler, mem::mgr::SandboxMemoryManager};
 use anyhow::Result;
 use log::{warn, Level, Record};
 use tracing::instrument;
 use tracing_log::format_trace;
+
+use super::{host_funcs::HostFuncsWrapper, mem_mgr::MemMgrWrapper};
 
 pub(super) enum OutBAction {
     Log,
@@ -82,6 +89,48 @@ pub(super) fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Handles OutB operations from the guest.
+fn handle_outb_impl(
+    mem_mgr: &mut MemMgrWrapper,
+    host_funcs: &HostFuncsWrapper<'_>,
+    port: u16,
+    _byte: u64,
+) -> Result<()> {
+    match port.into() {
+        OutBAction::Log => outb_log(mem_mgr.as_ref()),
+        OutBAction::CallFunction => {
+            let call = mem_mgr.as_ref().get_host_function_call()?;
+            let name = call.function_name.clone();
+            let args: Vec<ParameterValue> = call.parameters.unwrap_or(vec![]);
+            let res = host_funcs.call_host_function(&name, args)?;
+            mem_mgr
+                .as_mut()
+                .write_response_from_host_method_call(&res)?;
+
+            Ok(())
+        }
+        OutBAction::Abort => {
+            // TODO
+            todo!();
+        }
+    }
+}
+
+/// Given a `MemMgrWrapper` and ` HostFuncsWrapper` -- both passed by _value_
+///  -- return an `OutBHandlerWrapper` wrapping the core OUTB handler logic.
+///
+/// TODO: pass at least the `host_funcs_wrapper` param by reference.
+pub(super) fn outb_handler_wrapper<'a>(
+    mut mem_mgr_wrapper: MemMgrWrapper,
+    host_funcs_wrapper: HostFuncsWrapper<'a>,
+) -> OutBHandlerWrapper<'a> {
+    let outb_func: OutBHandlerFunction<'a> = Box::new(move |port, payload| {
+        handle_outb_impl(&mut mem_mgr_wrapper, &host_funcs_wrapper, port, payload)
+    });
+    let outb_hdl = OutBHandler::<'a>::from(outb_func);
+    Arc::new(Mutex::new(outb_hdl))
 }
 
 #[cfg(test)]

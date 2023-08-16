@@ -9,7 +9,6 @@ use self::function_definition::HostFunctionDefinition;
 use super::types::ParameterValue;
 use super::HyperlightFunction;
 use super::{param_type::SupportedParameterType, ret_type::SupportedReturnType};
-use crate::sandbox::host_funcs::HostFuncs;
 use crate::sandbox::UninitializedSandbox;
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
@@ -33,7 +32,8 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(
+        sandbox.host_funcs.register_host_function(
+            sandbox.mgr.as_mut(),
             &HostFunctionDefinition::new(name.to_string(), None, R::get_hyperlight_type()),
             HyperlightFunction::new(func),
         )?;
@@ -71,7 +71,8 @@ where
                     .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?(p1)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(
+        sandbox.host_funcs.register_host_function(
+            sandbox.mgr.as_mut(),
             &HostFunctionDefinition::new(
                 name.to_string(),
                 Some(vec![P1::get_hyperlight_type()]),
@@ -117,7 +118,8 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(
+        sandbox.host_funcs.register_host_function(
+            sandbox.mgr.as_mut(),
             &HostFunctionDefinition::new(
                 name.to_string(),
                 Some(vec![P1::get_hyperlight_type(), P2::get_hyperlight_type()]),
@@ -166,7 +168,8 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(
+        sandbox.host_funcs.register_host_function(
+            sandbox.mgr.as_mut(),
             &HostFunctionDefinition::new(
                 name.to_string(),
                 Some(vec![
@@ -222,7 +225,8 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(
+        sandbox.host_funcs.register_host_function(
+            sandbox.mgr.as_mut(),
             &HostFunctionDefinition::new(
                 name.to_string(),
                 Some(vec![
@@ -282,7 +286,8 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(
+        sandbox.host_funcs.register_host_function(
+            sandbox.mgr.as_mut(),
             &HostFunctionDefinition::new(
                 name.to_string(),
                 Some(vec![
@@ -347,7 +352,8 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(
+        sandbox.host_funcs.register_host_function(
+            sandbox.mgr.as_mut(),
             &HostFunctionDefinition::new(
                 name.to_string(),
                 Some(vec![
@@ -416,7 +422,8 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(
+        sandbox.host_funcs.register_host_function(
+            sandbox.mgr.as_mut(),
             &HostFunctionDefinition::new(
                 name.to_string(),
                 Some(vec![
@@ -489,7 +496,8 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(
+        sandbox.host_funcs.register_host_function(
+            sandbox.mgr.as_mut(),
             &HostFunctionDefinition::new(
                 name.to_string(),
                 Some(vec![
@@ -566,7 +574,8 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(
+        sandbox.host_funcs.register_host_function(
+            sandbox.mgr.as_mut(),
             &HostFunctionDefinition::new(
                 name.to_string(),
                 Some(vec![
@@ -647,7 +656,8 @@ where
             )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.register_host_function(
+        sandbox.host_funcs.register_host_function(
+            sandbox.mgr.as_mut(),
             &HostFunctionDefinition::new(
                 name.to_string(),
                 Some(vec![

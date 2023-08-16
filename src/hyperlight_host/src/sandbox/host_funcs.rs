@@ -1,45 +1,61 @@
-use crate::func::{
-    host::function_definition::HostFunctionDefinition,
-    types::{ParameterValue, ReturnValue},
-    HyperlightFunction,
+use crate::{
+    func::{
+        host::function_definition::HostFunctionDefinition,
+        types::{ParameterValue, ReturnValue},
+        HyperlightFunction,
+    },
+    mem::mgr::SandboxMemoryManager,
 };
-use crate::sandbox_state::sandbox::Sandbox;
 use anyhow::{anyhow, Result};
 use is_terminal::IsTerminal;
 use std::io::stdout;
 use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-use super::{mem_mgr::MemMgr, FunctionsMap};
+use super::FunctionsMap;
 
-pub(crate) trait HostFuncs<'a>: Sandbox + MemMgr {
-    fn get_host_funcs(&self) -> &FunctionsMap<'a>;
+#[derive(Default, Clone)]
+pub(crate) struct HostFuncsWrapper<'a>(FunctionsMap<'a>);
 
-    fn get_host_funcs_mut(&mut self) -> &mut FunctionsMap<'a>;
+impl<'a> From<FunctionsMap<'a>> for HostFuncsWrapper<'a> {
+    fn from(funcs_map: FunctionsMap<'a>) -> Self {
+        Self(funcs_map)
+    }
+}
+
+impl<'a> HostFuncsWrapper<'a> {
+    fn get_host_funcs(&self) -> &FunctionsMap<'a> {
+        &self.0
+    }
+
+    fn get_host_funcs_mut(&mut self) -> &mut FunctionsMap<'a> {
+        &mut self.0
+    }
+
+    pub(super) fn len(&self) -> usize {
+        self.0.len()
+    }
 
     /// Register a host function with the sandbox.
-    fn register_host_function(
+    pub(crate) fn register_host_function(
         &mut self,
+        mgr: &mut SandboxMemoryManager,
         hfd: &HostFunctionDefinition,
         func: HyperlightFunction<'a>,
     ) -> Result<()> {
         self.get_host_funcs_mut()
             .insert(hfd.function_name.to_string(), func);
         let buffer: Vec<u8> = hfd.try_into()?;
-        self.get_mem_mgr_mut()
-            .write_host_function_definition(&buffer)?;
+        mgr.write_host_function_definition(&buffer)?;
         Ok(())
     }
-}
 
-/// Call the host-print function called `"writer_func"`
-pub(crate) trait CallHostPrint<'a>: HostFuncs<'a> {
     /// Assuming a host function called `"writer_func"` exists, and takes a
     /// single string parameter, call it with the given `msg` parameter.
     ///
     /// Return `Ok` if the function was found and was of the right signature,
     /// and `Err` otherwise.
-    fn host_print(&mut self, msg: String) -> Result<()> {
+    pub(crate) fn host_print(&mut self, msg: String) -> Result<()> {
         call_host_func_impl(
             self.get_host_funcs(),
             "writer_func",
@@ -48,10 +64,6 @@ pub(crate) trait CallHostPrint<'a>: HostFuncs<'a> {
 
         Ok(())
     }
-}
-
-/// Generalized functionality to call an arbitrary host function on a `Sandbox`
-pub(crate) trait CallHostFunction<'a>: HostFuncs<'a> {
     /// From the set of registered host functions, attempt to get the one
     /// named `name`. If it exists, call it with the given arguments list
     /// `args` and return its result.
@@ -59,7 +71,11 @@ pub(crate) trait CallHostFunction<'a>: HostFuncs<'a> {
     /// Return `Err` if no such function exists,
     /// its parameter list doesn't match `args`, or there was another error
     /// getting, configuring or calling the function.
-    fn call_host_function(&mut self, name: &str, args: Vec<ParameterValue>) -> Result<ReturnValue> {
+    pub(super) fn call_host_function(
+        &self,
+        name: &str,
+        args: Vec<ParameterValue>,
+    ) -> Result<ReturnValue> {
         call_host_func_impl(self.get_host_funcs(), name, args)
     }
 }

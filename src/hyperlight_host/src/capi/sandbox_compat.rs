@@ -1,5 +1,6 @@
+use crate::sandbox::mem_mgr::MemMgrWrapperGetter;
+
 use super::{context::Context, handle::Handle, hdl::Hdl};
-use crate::sandbox::mem_mgr::MemMgr;
 use anyhow::{anyhow, bail, Result};
 
 /// Either an initialized or uninitialized sandbox. This enum is used
@@ -76,8 +77,8 @@ impl Sandbox {
 
     pub(crate) fn check_stack_guard(&self) -> Result<bool> {
         match &self.inner {
-            EitherImpl::Uninit(sbox) => sbox.check_stack_guard(),
-            EitherImpl::Init(sbox) => sbox.check_stack_guard(),
+            EitherImpl::Uninit(sbox) => sbox.get_mem_mgr_wrapper().check_stack_guard(),
+            EitherImpl::Init(sbox) => sbox.get_mem_mgr_wrapper().check_stack_guard(),
         }
     }
 }

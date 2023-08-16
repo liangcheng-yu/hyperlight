@@ -9,14 +9,12 @@ use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::shared_mem::SharedMemory;
 use anyhow::{anyhow, Result};
 use flatbuffers::WIPOffset;
-use readonly;
 use std::convert::{TryFrom, TryInto};
 
 use super::types::ReturnType;
 
 /// `Functioncall` represents a call to a function in the guest or host.
 #[derive(Clone)]
-#[readonly::make]
 pub(crate) struct FunctionCall {
     /// The function name
     pub(crate) function_name: String,

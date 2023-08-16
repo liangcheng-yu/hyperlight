@@ -14,7 +14,7 @@ crate-type = ["cdylib"]
 [dependencies]
 cty = { version = "0.2.2" }
 goblin = { version = "0.7.1" }
-anyhow = { version = "1.0.72" }
+anyhow = { version = "1.0.74" }
 byteorder = { version = "1.4.3" }
 rand = { version = "0.8.5" }
 cfg-if = { version = "1.0.0" }
@@ -86,4 +86,4 @@ proc-maps = "0.3.1"
 
 [build-dependencies]
 cbindgen = { version = "0.24.5" }
-anyhow = { version = "1.0.72" }
+anyhow = { version = "1.0.74" }

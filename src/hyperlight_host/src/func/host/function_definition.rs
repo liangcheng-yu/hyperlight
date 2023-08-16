@@ -9,10 +9,8 @@ use crate::{
 };
 use anyhow::{anyhow, Result};
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
-use readonly;
 
 /// The definition of a function exposed from the host to the guest
-#[readonly::make]
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub(crate) struct HostFunctionDefinition {
     /// The function name

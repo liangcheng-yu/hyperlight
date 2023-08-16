@@ -8,7 +8,6 @@ use anyhow::{anyhow, bail, Error, Result};
 use std::mem::size_of;
 
 /// The guest log data for a VM sandbox
-#[readonly::make]
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub(crate) struct GuestLogData {
     pub(crate) message: String,

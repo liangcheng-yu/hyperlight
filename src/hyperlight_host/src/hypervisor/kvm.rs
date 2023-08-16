@@ -352,12 +352,12 @@ mod tests {
     fn test_init() {
         should_run_kvm_linux_test!();
         let outb_handler = {
-            let func: Box<dyn FnMut(u16, u64) -> Result<()>> =
+            let func: Box<dyn FnMut(u16, u64) -> Result<()> + Send> =
                 Box::new(|_, _| -> Result<()> { Ok(()) });
             Arc::new(Mutex::new(OutBHandler::from(func)))
         };
         let mem_access_handler = {
-            let func: Box<dyn FnMut() -> Result<()>> = Box::new(|| -> Result<()> { Ok(()) });
+            let func: Box<dyn FnMut() -> Result<()> + Send> = Box::new(|| -> Result<()> { Ok(()) });
             Arc::new(Mutex::new(MemAccessHandler::from(func)))
         };
         test_initialise(

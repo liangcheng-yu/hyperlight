@@ -1,25 +1,30 @@
+<<<<<<< HEAD
 use super::hypervisor::HypervisorWrapperMgr;
 use super::mem_mgr::MemMgr;
+=======
+>>>>>>> dev
 use super::FunctionsMap;
-use super::{host_funcs::default_writer_func, host_funcs::HostFuncs, initialized::Sandbox};
 use super::{
-    host_funcs::CallHostPrint, hypervisor::HypervisorWrapper, run_options::SandboxRunOptions,
+    guest_funcs::GuestFuncs, mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper,
+    uninitialized_evolve::evolve_impl,
 };
+use super::{host_funcs::default_writer_func, initialized::Sandbox};
+use super::{host_funcs::HostFuncsWrapper, hypervisor::HypervisorWrapperMgr};
+use super::{hypervisor::HypervisorWrapper, run_options::SandboxRunOptions};
+use super::{mem_access::mem_access_handler_wrapper, mem_mgr::MemMgrWrapperGetter};
 use crate::func::host::HostFunction1;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::mem::ptr::RawPtr;
 use crate::mem::{
-    config::SandboxMemoryConfiguration, layout::SandboxMemoryLayout, mgr::SandboxMemoryManager,
-    pe::pe_info::PEInfo,
+    config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager, pe::pe_info::PEInfo,
 };
 use crate::sandbox_state::transition::Noop;
 use crate::sandbox_state::{sandbox::EvolvableSandbox, transition::MutatingCallback};
 use anyhow::{anyhow, Result};
-use std::ffi::c_void;
-use std::ops::Add;
 use std::option::Option;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use std::{ffi::c_void, ops::Add};
 use tracing::instrument;
 
 /// A preliminary `Sandbox`, not yet ready to execute guest code.
@@ -31,11 +36,9 @@ use tracing::instrument;
 /// `UninitializedSandbox` into an initialized `Sandbox`.
 pub struct UninitializedSandbox<'a> {
     // Registered host functions
-    host_functions: FunctionsMap<'a>,
-    // The memory manager for the sandbox.
-    mem_mgr: SandboxMemoryManager,
-    stack_guard: [u8; STACK_COOKIE_LEN],
-    pub(super) hv: HypervisorWrapper,
+    pub(crate) host_funcs: HostFuncsWrapper<'a>,
+    pub(crate) mgr: MemMgrWrapper,
+    pub(super) hv: HypervisorWrapper<'a>,
     pub(super) run_from_process_memory: bool,
 }
 
@@ -52,8 +55,8 @@ impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for Uninitializ
 impl<'a> std::fmt::Debug for UninitializedSandbox<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("UninitializedSandbox")
-            .field("stack_guard", &self.stack_guard)
-            .field("num_host_funcs", &self.host_functions.len())
+            .field("stack_guard", &self.mgr.get_stack_cookie())
+            .field("num_host_funcs", &self.host_funcs.len())
             .finish()
     }
 }
@@ -74,11 +77,15 @@ where
     ///
     /// If you need to do this transition without a callback, use the
     /// `EvolvableSandbox` implementation that takes a `Noop`.
-    fn evolve(mut self, tsn: MutatingCallback<UninitializedSandbox<'a>, F>) -> Result<Sandbox<'a>> {
-        tsn.call(&mut self)?;
+    fn evolve(self, tsn: MutatingCallback<'a, UninitializedSandbox<'a>, F>) -> Result<Sandbox<'a>> {
+        let cb_box = {
+            let cb = move |u_sbox: &mut UninitializedSandbox<'a>| tsn.call(u_sbox);
+            Box::new(cb)
+        };
+        let i_sbox = evolve_impl(self, Some(cb_box))?;
         // TODO: snapshot memory here so we can take the returned
         // Sandbox and revert back to an UninitializedSandbox
-        Ok(Sandbox::from(self))
+        Ok(i_sbox)
     }
 }
 
@@ -101,6 +108,7 @@ impl<'a>
     }
 }
 
+<<<<<<< HEAD
 impl<'a> HostFuncs<'a> for UninitializedSandbox<'a> {
     fn get_host_funcs(&self) -> &FunctionsMap<'a> {
         &self.host_functions
@@ -120,20 +128,35 @@ impl<'a> MemMgr for UninitializedSandbox<'a> {
 
     fn get_mem_mgr_mut(&mut self) -> &mut SandboxMemoryManager {
         &mut self.mem_mgr
+=======
+impl<'a> GuestFuncs<'a> for UninitializedSandbox<'a> {
+    fn get_dynamic_methods(&self) -> &FunctionsMap<'a> {
+        &self.dynamic_methods
     }
 
-    fn get_stack_cookie(&self) -> &super::mem_mgr::StackCookie {
-        &self.stack_guard
+    fn get_dynamic_methods_mut(&mut self) -> &mut FunctionsMap<'a> {
+        &mut self.dynamic_methods
     }
 }
 
-impl<'a> HypervisorWrapperMgr for UninitializedSandbox<'a> {
-    fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper {
+impl<'a> HypervisorWrapperMgr<'a> for UninitializedSandbox<'a> {
+    fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper<'a> {
         &self.hv
+>>>>>>> dev
     }
 
-    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper {
+    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper<'a> {
         &mut self.hv
+    }
+}
+
+impl<'a> MemMgrWrapperGetter for UninitializedSandbox<'a> {
+    fn get_mem_mgr_wrapper(&self) -> &MemMgrWrapper {
+        &self.mgr
+    }
+
+    fn get_mem_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper {
+        &mut self.mgr
     }
 }
 
@@ -189,42 +212,42 @@ impl<'a> UninitializedSandbox<'a> {
         }
 
         let mem_cfg = cfg.unwrap_or_default();
-        let mut mem_mgr = UninitializedSandbox::load_guest_binary(
-            mem_cfg,
-            &guest_binary,
-            run_from_process_memory,
-            run_from_guest_binary,
-        )?;
-
-        // <WriteMemoryLayout>
-        let layout = mem_mgr.layout;
-        let shared_mem = mem_mgr.get_shared_mem_mut();
-        let mem_size = shared_mem.mem_size();
-        let guest_offset = if run_from_process_memory {
-            shared_mem.base_addr()
-        } else {
-            SandboxMemoryLayout::BASE_ADDRESS
+        let mut mem_mgr_wrapper = {
+            let mut mgr = UninitializedSandbox::load_guest_binary(
+                mem_cfg,
+                &guest_binary,
+                run_from_process_memory,
+                run_from_guest_binary,
+            )?;
+            let stack_guard = Self::create_stack_guard();
+            mgr.set_stack_guard(&stack_guard)?;
+            MemMgrWrapper::new(mgr, stack_guard)
         };
-        layout.write(shared_mem, guest_offset, mem_size)?;
-        // </WriteMemoryLayout>
 
-        let stack_guard = Self::create_stack_guard();
-        mem_mgr.set_stack_guard(&stack_guard)?;
+        mem_mgr_wrapper.write_memory_layout(run_from_process_memory)?;
 
         // The default writer function is to write to stdout with green text.
         let default_writer = Arc::new(Mutex::new(default_writer_func));
-        let hv = if !run_from_process_memory {
-            let h = Self::set_up_hypervisor_partition(&mut mem_mgr)?;
+        let hv_opt = if !run_from_process_memory {
+            let h = Self::set_up_hypervisor_partition(mem_mgr_wrapper.as_mut())?;
             Some(h)
         } else {
             None
         };
 
+        let host_funcs = HostFuncsWrapper::default();
+
+        let hv = {
+            let outb_wrapper = outb_handler_wrapper(mem_mgr_wrapper.clone(), host_funcs.clone());
+            let mem_access_wrapper = mem_access_handler_wrapper(mem_mgr_wrapper.clone());
+            HypervisorWrapper::new(hv_opt, outb_wrapper, mem_access_wrapper)
+        };
+
         let mut sandbox = Self {
             host_functions: FunctionsMap::new(),
-            mem_mgr,
+            mem_mgr: mem_mgr_wrapper,
             stack_guard,
-            hv: hv.into(),
+            hv: hv,
             run_from_process_memory,
         };
 
@@ -247,8 +270,9 @@ impl<'a> UninitializedSandbox<'a> {
         type EntryPoint = extern "C" fn(i64, u64, u32) -> i32;
         let entry_point: EntryPoint = {
             let addr = {
-                let offset = self.mem_mgr.entrypoint_offset;
-                self.mem_mgr.load_addr.clone().add(offset)
+                let mgr = self.get_mem_mgr_wrapper().as_ref();
+                let offset = mgr.entrypoint_offset;
+                mgr.load_addr.clone().add(offset)
             };
 
             let fn_location = u64::from(addr) as *const c_void;
@@ -307,42 +331,30 @@ impl<'a> UninitializedSandbox<'a> {
             )
         }
     }
-
-    /// Initialize the `Sandbox` from an `UninitializedSandbox`.
-    /// Receives a callback function to be called during initialization.
-    #[instrument(err(Debug), skip_all)]
-    pub(super) fn initialize<F: Fn(&mut UninitializedSandbox<'a>) -> Result<()> + 'a>(
-        self,
-        callback: Option<F>,
-    ) -> Result<Sandbox<'a>> {
-        match callback {
-            Some(cb) => self.evolve(MutatingCallback::from(cb)),
-            None => self.evolve(Noop::default()),
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::sandbox::mem_mgr::MemMgr;
-    use crate::testing::{
-        log_values::test_value_as_str, logger::Logger as TestLogger, logger::LOGGER as TEST_LOGGER,
-        tracing_subscriber::TracingSubscriber as TestSubcriber,
-    };
-    use crate::Sandbox;
-    use crate::SandboxRunOptions;
     use crate::{
         func::{
             host::{HostFunction1, HostFunction2},
             types::{ParameterValue, ReturnValue},
         },
         mem::config::SandboxMemoryConfiguration,
-        sandbox::host_funcs::CallHostPrint,
         sandbox::uninitialized::GuestBinary,
         testing::simple_guest_path,
         UninitializedSandbox,
     };
-    use crate::{sandbox::host_funcs::CallHostFunction, testing::log_values::try_to_strings};
+    use crate::{sandbox::mem_mgr::MemMgrWrapperGetter, SandboxRunOptions};
+    use crate::{
+        sandbox_state::sandbox::EvolvableSandbox,
+        testing::{
+            log_values::test_value_as_str, logger::Logger as TestLogger,
+            logger::LOGGER as TEST_LOGGER, tracing_subscriber::TracingSubscriber as TestSubcriber,
+        },
+    };
+    use crate::{sandbox_state::transition::MutatingCallback, Sandbox};
+    use crate::{sandbox_state::transition::Noop, testing::log_values::try_to_strings};
     use anyhow::{anyhow, Result};
     use crossbeam_queue::ArrayQueue;
     use log::Level;
@@ -413,9 +425,7 @@ mod tests {
 
         // Get a Sandbox from an uninitialized sandbox without a call back function
 
-        let sandbox = uninitialized_sandbox
-            .unwrap()
-            .initialize::<fn(&mut UninitializedSandbox<'_>) -> Result<()>>(None);
+        let sandbox = uninitialized_sandbox.unwrap().evolve(Noop::default());
         assert!(sandbox.is_ok());
 
         // Test with  init callback function
@@ -442,10 +452,12 @@ mod tests {
             .expect("Failed to register writer function");
 
         fn init(uninitialized_sandbox: &mut UninitializedSandbox) -> Result<()> {
-            uninitialized_sandbox.host_print("test".to_string())
+            uninitialized_sandbox
+                .host_funcs
+                .host_print("test".to_string())
         }
 
-        let sandbox = uninitialized_sandbox.initialize(Some(init));
+        let sandbox = uninitialized_sandbox.evolve(MutatingCallback::from(init));
         assert!(sandbox.is_ok());
 
         drop(sandbox);
@@ -503,7 +515,7 @@ mod tests {
         let simple_guest_path = simple_guest_path().unwrap();
         let sbox = UninitializedSandbox::new(GuestBinary::FilePath(simple_guest_path), None, None)
             .unwrap();
-        let res = sbox.check_stack_guard();
+        let res = sbox.get_mem_mgr_wrapper().check_stack_guard();
         assert!(
             res.is_ok(),
             "UninitializedSandbox::check_stack_guard returned an error"
@@ -535,11 +547,12 @@ mod tests {
             let test_func0 = Arc::new(Mutex::new(test0));
             test_func0.register(&mut usbox, "test0").unwrap();
 
-            let sandbox = usbox.initialize(Some(init));
+            let sandbox = usbox.evolve(MutatingCallback::from(init));
             assert!(sandbox.is_ok());
-            let mut sandbox = sandbox.unwrap();
+            let sandbox = sandbox.unwrap();
 
             let res = sandbox
+                .host_functions
                 .call_host_function("test0", vec![ParameterValue::Int(1)])
                 .unwrap();
 
@@ -553,11 +566,12 @@ mod tests {
             let test_func1 = Arc::new(Mutex::new(test1));
             test_func1.register(&mut usbox, "test1").unwrap();
 
-            let sandbox = usbox.initialize(Some(init));
+            let sandbox = usbox.evolve(MutatingCallback::from(init));
             assert!(sandbox.is_ok());
-            let mut sandbox = sandbox.unwrap();
+            let sandbox = sandbox.unwrap();
 
             let res = sandbox
+                .host_functions
                 .call_host_function(
                     "test1",
                     vec![ParameterValue::Int(1), ParameterValue::Int(2)],
@@ -577,22 +591,22 @@ mod tests {
             let test_func2 = Arc::new(Mutex::new(test2));
             test_func2.register(&mut usbox, "test2").unwrap();
 
-            let sandbox = usbox.initialize(Some(init));
+            let sandbox = usbox.evolve(MutatingCallback::from(init));
             assert!(sandbox.is_ok());
-            let mut sandbox = sandbox.unwrap();
+            let sandbox = sandbox.unwrap();
 
-            let res = sandbox.call_host_function("test2", vec![]);
+            let res = sandbox.host_functions.call_host_function("test2", vec![]);
             assert!(res.is_err());
         }
 
         // calling a function that doesn't exist
         {
             let usbox = uninitialized_sandbox();
-            let sandbox = usbox.initialize(Some(init));
+            let sandbox = usbox.evolve(MutatingCallback::from(init));
             assert!(sandbox.is_ok());
-            let mut sandbox = sandbox.unwrap();
+            let sandbox = sandbox.unwrap();
 
-            let res = sandbox.call_host_function("test4", vec![]);
+            let res = sandbox.host_functions.call_host_function("test4", vec![]);
             assert!(res.is_err());
         }
     }
@@ -644,7 +658,7 @@ mod tests {
             .register(&mut sandbox, "writer_func")
             .expect("Failed to register writer function");
 
-        sandbox.host_print("test".to_string()).unwrap();
+        sandbox.host_funcs.host_print("test".to_string()).unwrap();
 
         drop(sandbox);
 
@@ -681,7 +695,7 @@ mod tests {
             .register(&mut sandbox, "writer_func")
             .expect("Failed to register writer function");
 
-        sandbox.host_print("test2".to_string()).unwrap();
+        sandbox.host_funcs.host_print("test2".to_string()).unwrap();
 
         let mut buffer = String::new();
         file.read_to_string(&mut buffer).unwrap();
@@ -706,7 +720,7 @@ mod tests {
             .register(&mut sandbox, "writer_func")
             .expect("Failed to register writer function");
 
-        sandbox.host_print("test2".to_string()).unwrap();
+        sandbox.host_funcs.host_print("test2".to_string()).unwrap();
 
         // writer as a method
 
@@ -729,7 +743,7 @@ mod tests {
             .register(&mut sandbox, "writer_func")
             .expect("Failed to register writer function");
 
-        sandbox.host_print("test3".to_string()).unwrap();
+        sandbox.host_funcs.host_print("test3".to_string()).unwrap();
     }
 
     struct TestHostPrint {}
@@ -778,11 +792,12 @@ mod tests {
                         panic!("Failed to pop UninitializedSandbox thread {}", i)
                     });
                     uninitialized_sandbox
+                        .host_funcs
                         .host_print(format!("Print from UninitializedSandbox on Thread {}\n", i))
                         .unwrap();
 
                     let sandbox = uninitialized_sandbox
-                        .initialize::<fn(&mut UninitializedSandbox<'_>) -> Result<()>>(None)
+                        .evolve(Noop::default())
                         .unwrap_or_else(|_| {
                             panic!("Failed to initialize UninitializedSandbox thread {}", i)
                         });
@@ -806,6 +821,7 @@ mod tests {
                         .pop()
                         .unwrap_or_else(|| panic!("Failed to pop Sandbox thread {}", i));
                     sandbox
+                        .host_functions
                         .host_print(format!("Print from Sandbox on Thread {}\n", i))
                         .unwrap();
                 })
@@ -1084,7 +1100,7 @@ mod tests {
                 res.map_err(|e| anyhow!("could not create a new UninitializedSandbox: {e:?}"))
                     .unwrap()
             };
-            let _ = sbox.initialize::<fn(&mut UninitializedSandbox<'_>) -> Result<()>>(None);
+            let _ = sbox.evolve(Noop::default());
 
             let num_calls = TEST_LOGGER.num_log_calls();
             assert_eq!(0, num_calls);

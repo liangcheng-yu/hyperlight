@@ -5,7 +5,6 @@ use crate::flatbuffers::hyperlight::generated::{
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::shared_mem::SharedMemory;
 use anyhow::{anyhow, bail, Result};
-use readonly;
 use std::convert::{TryFrom, TryInto};
 
 /// The error code of a `GuestError`.
@@ -13,7 +12,6 @@ pub(crate) type Code = ErrorCode;
 
 /// `GuestError` represents an error taht occurred in the Hyperlight Guest.
 #[derive(Debug, Clone)]
-#[readonly::make]
 pub(crate) struct GuestError {
     /// The error code.
     pub(crate) code: Code,
