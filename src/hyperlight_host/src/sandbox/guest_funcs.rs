@@ -83,7 +83,8 @@ pub trait CallGuestFunction<'a>:
         sbox.lock()
             .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
             .reset_state()?;
-        function.call()
+
+        function.call(sbox.clone())
         // ^^^ ensures that only one call can be made concurrently
         // because `GuestFunction` is implemented for `Arc<Mutex<T>>`
         // so we'll be locking on the function call. There are tests
@@ -216,14 +217,14 @@ mod tests {
     };
 
     // simple function
-    fn test_function0() -> Result<i32> {
+    fn test_function0(_: Arc<Mutex<&mut Sandbox>>) -> Result<i32> {
         Ok(42)
     }
 
     struct GuestStruct;
 
     // function that return type unsupported by the host
-    fn test_function1() -> Result<GuestStruct> {
+    fn test_function1(_: Arc<Mutex<&mut Sandbox>>) -> Result<GuestStruct> {
         Ok(GuestStruct)
     }
 
@@ -232,8 +233,13 @@ mod tests {
         Ok(param)
     }
 
+    // blank convenience init function for transitioning between a usbox and a isbox
+    fn init(_: &mut UninitializedSandbox) -> Result<()> {
+        Ok(())
+    }
+
     #[test]
-    fn test_call_guest_function() {
+    fn test_execute_in_host() {
         let uninitialized_sandbox = || {
             UninitializedSandbox::new(
                 GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
@@ -242,10 +248,6 @@ mod tests {
             )
             .unwrap()
         };
-
-        fn init(_: &mut UninitializedSandbox) -> Result<()> {
-            Ok(())
-        }
 
         // test_function0
         {
@@ -273,7 +275,9 @@ mod tests {
             let mut sandbox = usbox
                 .initialize(Some(init))
                 .expect("Failed to initialize sandbox");
-            let result = sandbox.execute_in_host(Arc::new(Mutex::new(move || test_function2(42))));
+            let result = sandbox.execute_in_host(Arc::new(Mutex::new(
+                move |_: Arc<Mutex<&mut Sandbox>>| test_function2(42),
+            )));
             assert_eq!(result.unwrap(), 42);
         }
 
@@ -292,11 +296,13 @@ mod tests {
                 let count = Arc::clone(&count);
                 let order = Arc::clone(&order);
                 let handle = thread::spawn(move || {
-                    let result = sandbox.execute_in_host(Arc::new(Mutex::new(move || {
-                        let mut num = count.lock().unwrap();
-                        *num += 1;
-                        Ok(*num)
-                    })));
+                    let result = sandbox.execute_in_host(Arc::new(Mutex::new(
+                        move |_: Arc<Mutex<&mut Sandbox>>| {
+                            let mut num = count.lock().unwrap();
+                            *num += 1;
+                            Ok(*num)
+                        },
+                    )));
                     order.lock().unwrap().push(result.unwrap());
                 });
                 handles.push(handle);
@@ -314,5 +320,38 @@ mod tests {
         }
 
         // TODO: Add tests to ensure State has been reset.
+    }
+
+    #[test]
+    fn test_call_guest_function_by_name() -> Result<()> {
+        let usbox = UninitializedSandbox::new(
+            GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
+            None,
+            // ^^^ for now, we're using defaults. In the future, we should get variability here.
+            None,
+            // ^^^  None == RUN_IN_HYPERVISOR && RUN_FROM_GUEST_BINARY && one-shot Sandbox
+        )?;
+
+        let sandbox = Arc::new(Mutex::new(usbox.initialize(Some(init))?));
+
+        let func = Arc::new(Mutex::new(
+            move |s: Arc<Mutex<&mut Sandbox>>| -> Result<()> {
+                s.lock()
+                    .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                    .call_guest_function_by_name(
+                        "PrintOutput",
+                        ReturnType::Int,
+                        Some(vec!["Hello, World!\n".to_string()]),
+                    )?;
+                Ok(())
+            },
+        ));
+
+        sandbox
+            .lock()
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+            .execute_in_host(func)?;
+
+        Ok(())
     }
 }
