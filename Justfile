@@ -67,7 +67,7 @@ clippy:
 clippy-apply-fix-unix:
     cargo clippy --fix --all
 clippy-apply-fix-windows:
-    cargo clippy --target x86_64-pc-windows-msvc --all
+    cargo clippy --target x86_64-pc-windows-msvc --fix --all
 fmt-apply:
     cargo fmt --all
 
