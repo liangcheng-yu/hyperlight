@@ -290,4 +290,37 @@ mod tests {
 
         // TODO: Add tests to ensure State has been reset.
     }
+
+    #[test]
+    fn test_call_guest_function_by_name() -> Result<()> {
+        let usbox = UninitializedSandbox::new(
+            GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
+            None,
+            // ^^^ for now, we're using defaults. In the future, we should get variability here.
+            None,
+            // ^^^  None == RUN_IN_HYPERVISOR && one-shot Sandbox
+        )?;
+
+        let sandbox = Arc::new(Mutex::new(usbox.evolve(MutatingCallback::from(init))?));
+
+        let func = Arc::new(Mutex::new(
+            move |s: Arc<Mutex<&mut Sandbox>>| -> Result<()> {
+                s.lock()
+                    .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                    .call_guest_function_by_name(
+                        "PrintOutput",
+                        ReturnType::Int,
+                        Some(vec![ParameterValue::String("Hello, World!\n".to_string())]),
+                    )?;
+                Ok(())
+            },
+        ));
+
+        sandbox
+            .lock()
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+            .execute_in_host(func)?;
+
+        Ok(())
+    }
 }
