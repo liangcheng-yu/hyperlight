@@ -15,19 +15,21 @@ pub(crate) mod log_level;
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
 
+use crate::Sandbox;
+
 /// A simple guest function that takes no arguments and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
 pub trait GuestFunction<R> {
-    fn call(&self) -> Result<R>;
+    fn call(&self, s: Arc<Mutex<&mut Sandbox>>) -> Result<R>;
 }
 
 impl<'a, T, R> GuestFunction<R> for Arc<Mutex<T>>
 where
-    T: FnMut() -> anyhow::Result<R> + 'a + Send,
+    T: FnMut(Arc<Mutex<&mut Sandbox>>) -> anyhow::Result<R> + 'a + Send,
 {
-    fn call(&self) -> Result<R> {
+    fn call(&self, s: Arc<Mutex<&mut Sandbox>>) -> Result<R> {
         let result = self
             .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?()?;
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?(s)?;
         Ok(result)
     }
 }

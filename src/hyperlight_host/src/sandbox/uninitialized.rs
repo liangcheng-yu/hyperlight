@@ -1,12 +1,10 @@
-use super::FunctionsMap;
-use super::{
-    guest_funcs::GuestFuncs, mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper,
-    uninitialized_evolve::evolve_impl,
-};
 use super::{host_funcs::default_writer_func, initialized::Sandbox};
 use super::{host_funcs::HostFuncsWrapper, hypervisor::HypervisorWrapperMgr};
 use super::{hypervisor::HypervisorWrapper, run_options::SandboxRunOptions};
 use super::{mem_access::mem_access_handler_wrapper, mem_mgr::MemMgrWrapperGetter};
+use super::{
+    mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper, uninitialized_evolve::evolve_impl,
+};
 use crate::func::host::HostFunction1;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::mem::ptr::RawPtr;
@@ -35,7 +33,6 @@ pub struct UninitializedSandbox<'a> {
     pub(crate) mgr: MemMgrWrapper,
     pub(super) hv: HypervisorWrapper<'a>,
     pub(super) run_from_process_memory: bool,
-    dynamic_methods: FunctionsMap<'a>,
 }
 
 impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for UninitializedSandbox<'a> {
@@ -101,16 +98,6 @@ impl<'a>
         // TODO: snapshot memory here so we can take the returned
         // Sandbox and revert back to an UninitializedSandbox
         Ok(Sandbox::from(self))
-    }
-}
-
-impl<'a> GuestFuncs<'a> for UninitializedSandbox<'a> {
-    fn get_dynamic_methods(&self) -> &FunctionsMap<'a> {
-        &self.dynamic_methods
-    }
-
-    fn get_dynamic_methods_mut(&mut self) -> &mut FunctionsMap<'a> {
-        &mut self.dynamic_methods
     }
 }
 
@@ -220,7 +207,6 @@ impl<'a> UninitializedSandbox<'a> {
         let mut sandbox = Self {
             host_funcs,
             mgr: mem_mgr_wrapper,
-            dynamic_methods: FunctionsMap::new(),
             hv,
             run_from_process_memory,
         };

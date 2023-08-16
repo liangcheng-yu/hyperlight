@@ -1,21 +1,17 @@
-use super::{
-    guest_mgr::GuestMgr, hypervisor::HypervisorWrapperMgr, mem_mgr::MemMgrWrapperGetter,
-    FunctionsMap,
-};
+use super::{guest_mgr::GuestMgr, hypervisor::HypervisorWrapperMgr, mem_mgr::MemMgrWrapperGetter};
+use std::sync::{Arc, Mutex};
+
 use crate::{
     func::{
         function_call::{FunctionCall, FunctionCallType},
         guest::GuestFunction,
-        param_type::SupportedParameterType,
         types::{ParameterValue, ReturnType},
-        HyperlightFunction,
     },
     mem::ptr::{GuestPtr, RawPtr},
     sandbox_state::{reset::RestoreSandbox, sandbox::InitializedSandbox},
     Sandbox,
 };
 use anyhow::{bail, Result};
-use std::sync::{Arc, Mutex};
 use tracing::instrument;
 
 // `ShouldRelease` is an internal construct that represents a
@@ -86,7 +82,8 @@ pub trait CallGuestFunction<'a>:
         sbox.lock()
             .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
             .reset_state()?;
-        function.call()
+
+        function.call(sbox.clone())
         // ^^^ ensures that only one call can be made concurrently
         // because `GuestFunction` is implemented for `Arc<Mutex<T>>`
         // so we'll be locking on the function call. There are tests
@@ -98,11 +95,8 @@ pub trait CallGuestFunction<'a>:
         &mut self,
         name: &str,
         ret: ReturnType,
-        args: Option<Vec<P>>,
-    ) -> Result<i32>
-    where
-        P: SupportedParameterType<P> + std::fmt::Debug,
-    {
+        args: Option<Vec<ParameterValue>>,
+    ) -> Result<i32> {
         let sbox = Arc::new(Mutex::new(self.get_initialized_sandbox_mut()));
 
         let should_reset = sbox
@@ -122,17 +116,11 @@ pub trait CallGuestFunction<'a>:
                 .reset_state()?;
         }
 
-        let hl_args = args.map(|args| {
-            args.into_iter()
-                .map(|arg| arg.get_hyperlight_value())
-                .collect::<Vec<ParameterValue>>()
-        });
-
         let mut dispatcher = sbox
             .lock()
             .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?;
 
-        dispatcher.dispatch_call_from_host(name, ret, hl_args)
+        dispatcher.dispatch_call_from_host(name, ret, args)
     }
 
     fn dispatch_call_from_host(
@@ -185,20 +173,6 @@ pub trait CallGuestFunction<'a>:
     }
 }
 
-pub trait GuestFuncs<'a> {
-    /// `get_dynamic_methods` is used to get the dynamic guest methods.
-    fn get_dynamic_methods(&self) -> &FunctionsMap<'a>;
-
-    /// `get_dynamic_methods_mut` is used to get a mutable reference to the dynamic guest methods.
-    fn get_dynamic_methods_mut(&mut self) -> &mut FunctionsMap<'a>;
-
-    /// `add_dynamic_method` is used to register a dynamic guest method onto the Sandbox.
-    fn add_dynamic_method(&mut self, name: &str, func: HyperlightFunction<'a>) {
-        self.get_dynamic_methods_mut()
-            .insert(name.to_string(), func);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::UninitializedSandbox;
@@ -212,14 +186,14 @@ mod tests {
     };
 
     // simple function
-    fn test_function0() -> Result<i32> {
+    fn test_function0(_: Arc<Mutex<&mut Sandbox>>) -> Result<i32> {
         Ok(42)
     }
 
     struct GuestStruct;
 
     // function that return type unsupported by the host
-    fn test_function1() -> Result<GuestStruct> {
+    fn test_function1(_: Arc<Mutex<&mut Sandbox>>) -> Result<GuestStruct> {
         Ok(GuestStruct)
     }
 
@@ -228,9 +202,13 @@ mod tests {
         Ok(param)
     }
 
+    // blank convenience init function for transitioning between a usbox and a isbox
+    fn init(_: &mut UninitializedSandbox) -> Result<()> {
+        Ok(())
+    }
+
     #[test]
-    #[ignore]
-    fn test_call_guest_function() {
+    fn test_execute_in_host() {
         let uninitialized_sandbox = || {
             UninitializedSandbox::new(
                 GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
@@ -239,10 +217,6 @@ mod tests {
             )
             .unwrap()
         };
-
-        fn init(_: &mut UninitializedSandbox) -> Result<()> {
-            Ok(())
-        }
 
         // test_function0
         {
@@ -270,7 +244,9 @@ mod tests {
             let mut sandbox = usbox
                 .evolve(MutatingCallback::from(init))
                 .expect("Failed to initialize sandbox");
-            let result = sandbox.execute_in_host(Arc::new(Mutex::new(move || test_function2(42))));
+            let result = sandbox.execute_in_host(Arc::new(Mutex::new(
+                move |_: Arc<Mutex<&mut Sandbox>>| test_function2(42),
+            )));
             assert_eq!(result.unwrap(), 42);
         }
 
@@ -289,11 +265,13 @@ mod tests {
                 let count = Arc::clone(&count);
                 let order = Arc::clone(&order);
                 let handle = thread::spawn(move || {
-                    let result = sandbox.execute_in_host(Arc::new(Mutex::new(move || {
-                        let mut num = count.lock().unwrap();
-                        *num += 1;
-                        Ok(*num)
-                    })));
+                    let result = sandbox.execute_in_host(Arc::new(Mutex::new(
+                        move |_: Arc<Mutex<&mut Sandbox>>| {
+                            let mut num = count.lock().unwrap();
+                            *num += 1;
+                            Ok(*num)
+                        },
+                    )));
                     order.lock().unwrap().push(result.unwrap());
                 });
                 handles.push(handle);

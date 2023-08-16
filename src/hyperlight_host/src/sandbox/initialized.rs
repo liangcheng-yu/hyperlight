@@ -1,7 +1,6 @@
-use super::guest_funcs::{CallGuestFunction, GuestFuncs};
+use super::guest_funcs::CallGuestFunction;
 use super::hypervisor::HypervisorWrapperMgr;
 use super::uninitialized::UninitializedSandbox;
-use super::FunctionsMap;
 use super::{guest_mgr::GuestMgr, host_funcs::HostFuncsWrapper};
 use super::{
     hypervisor::HypervisorWrapper,
@@ -72,7 +71,6 @@ pub struct Sandbox<'a> {
     executing_guest_call: ExecutingGuestCall,
     needs_state_reset: bool,
     num_runs: i32,
-    dynamic_methods: FunctionsMap<'a>,
     hv: HypervisorWrapper<'a>,
 }
 
@@ -94,19 +92,8 @@ impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
             executing_guest_call: ExecutingGuestCall::new(0),
             needs_state_reset: false,
             num_runs: 0,
-            dynamic_methods: val.get_dynamic_methods().clone(),
             hv: val.hv,
         }
-    }
-}
-
-impl<'a> GuestFuncs<'a> for Sandbox<'a> {
-    fn get_dynamic_methods(&self) -> &FunctionsMap<'a> {
-        &self.dynamic_methods
-    }
-
-    fn get_dynamic_methods_mut(&mut self) -> &mut FunctionsMap<'a> {
-        &mut self.dynamic_methods
     }
 }
 

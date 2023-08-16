@@ -82,7 +82,7 @@ namespace Hyperlight
                             HyperlightLogger.LogInformation($"Skipping delegate {fieldInfo.Name} as it has an implementation. Use the ExposeToGuestAttribute to explictly exclude this delegate", GetType().Name);
                             continue;
                         }
-                        CreateDymanicMethod(fieldInfo, target);
+                        CreateDynamicMethod(fieldInfo, target);
                     }
                 }
             }
@@ -138,7 +138,7 @@ namespace Hyperlight
                 sandbox.WriteHostFunctionDetails();
             }
         }
-        private void CreateDymanicMethod(FieldInfo fieldInfo, object target)
+        private void CreateDynamicMethod(FieldInfo fieldInfo, object target)
         {
             var dynamicMethod = CreateOrAddDynamicMethod(fieldInfo);
             fieldInfo.SetValue(target, dynamicMethod.Value.CreateDelegate(fieldInfo.FieldType, this));
@@ -401,7 +401,7 @@ namespace Hyperlight
                 HyperlightException.LogAndThrowException<ArgumentException>($"Hyperlight does not support binding a function to a delegate field that is already bound, {memberName} is already bound.", GetType().Name);
             }
 
-            CreateDymanicMethod(fieldInfo, instance);
+            CreateDynamicMethod(fieldInfo, instance);
         }
 
         public void ExposeHostMethod(string methodName, object instance)
