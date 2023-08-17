@@ -17,7 +17,7 @@ use windows::Win32::System::Hypervisor::{
     WHvX64RegisterCr3, WHvX64RegisterCr4, WHvX64RegisterCs, WHvX64RegisterEfer, WHvX64RegisterR8,
     WHvX64RegisterRcx, WHvX64RegisterRdx, WHvX64RegisterRflags, WHvX64RegisterRip,
     WHvX64RegisterRsp, WHV_REGISTER_NAME, WHV_REGISTER_VALUE, WHV_RUN_VP_EXIT_CONTEXT,
-    WHV_RUN_VP_EXIT_REASON, WHV_UINT128, WHV_UINT128_0,
+    WHV_RUN_VP_EXIT_REASON, WHV_UINT128, WHV_UINT128_0, WHV_X64_IO_PORT_ACCESS_CONTEXT,
 };
 
 /// Wrapper around WHV_REGISTER_NAME so we can impl
@@ -270,11 +270,13 @@ impl Hypervisor for HypervWindowsDriver {
                             .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
                             .call(exit_context.Anonymous.IoPortAccess.PortNumber, 0)?;
 
-                        // Move rip forward to next instruction (size of current instruction is in lower byte of InstructionLength_Cr8_Reserverd)
+                        // Move rip forward to next instruction (size of current instruction is in lower byte of _bitfield
+                        // see https://learn.microsoft.com/en-us/virtualization/api/hypervisor-platform/funcs/whvexitcontextdatatypes)
+                        let instruction_count = exit_context.VpContext._bitfield & 0xF;
                         let registers = HashMap::from([(
                             WhvRegisterNameWrapper(WHvX64RegisterRip),
                             WHV_REGISTER_VALUE {
-                                Reg64: (exit_context.VpContext.Reserved & 0xF) as u64,
+                                Reg64: exit_context.VpContext.Rip + instruction_count as u64,
                             },
                         )]);
                         self.processor.set_registers(&registers)?;
