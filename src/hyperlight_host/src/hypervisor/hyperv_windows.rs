@@ -17,7 +17,7 @@ use windows::Win32::System::Hypervisor::{
     WHvX64RegisterCr3, WHvX64RegisterCr4, WHvX64RegisterCs, WHvX64RegisterEfer, WHvX64RegisterR8,
     WHvX64RegisterRcx, WHvX64RegisterRdx, WHvX64RegisterRflags, WHvX64RegisterRip,
     WHvX64RegisterRsp, WHV_REGISTER_NAME, WHV_REGISTER_VALUE, WHV_RUN_VP_EXIT_CONTEXT,
-    WHV_RUN_VP_EXIT_REASON, WHV_UINT128, WHV_UINT128_0, WHV_X64_IO_PORT_ACCESS_CONTEXT,
+    WHV_RUN_VP_EXIT_REASON, WHV_UINT128, WHV_UINT128_0,
 };
 
 /// Wrapper around WHV_REGISTER_NAME so we can impl
