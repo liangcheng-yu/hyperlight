@@ -11,7 +11,7 @@ use crate::sandbox_state::reset::RestoreSandbox;
 use anyhow::{bail, Result};
 use log::error;
 use std::sync::atomic::AtomicI32;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 /// A container to atomically keep track of whether a sandbox is currently executing a guest call. Primarily
 /// used to prevent concurrent execution of guest calls.
@@ -65,7 +65,7 @@ impl Eq for ExecutingGuestCall {}
 #[allow(unused)]
 pub struct Sandbox<'a> {
     // Registered host functions
-    pub(crate) host_functions: HostFuncsWrapper<'a>,
+    pub(crate) host_functions: Arc<Mutex<HostFuncsWrapper<'a>>>,
     // The memory manager for the sandbox.
     mgr: MemMgrWrapper,
     executing_guest_call: ExecutingGuestCall,
@@ -87,7 +87,7 @@ impl<'a> crate::sandbox_state::sandbox::InitializedSandbox<'a> for Sandbox<'a> {
 impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
     fn from(val: UninitializedSandbox<'a>) -> Self {
         Self {
-            host_functions: val.host_funcs.clone(),
+            host_functions: val.host_funcs,
             mgr: val.mgr.clone(),
             executing_guest_call: ExecutingGuestCall::new(0),
             needs_state_reset: false,
@@ -127,7 +127,6 @@ impl<'a> std::fmt::Debug for Sandbox<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Sandbox")
             .field("stack_guard", &self.mgr.get_stack_cookie())
-            .field("num_host_funcs", &self.host_functions.len())
             .finish()
     }
 }

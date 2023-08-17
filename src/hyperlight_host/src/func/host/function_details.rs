@@ -28,6 +28,17 @@ impl HostFunctionDetails {
         Self { host_functions }
     }
 
+    /// Insert a host function into the host function details.
+    pub(crate) fn insert_host_function(&mut self, host_function: HostFunctionDefinition) {
+        match &mut self.host_functions {
+            Some(host_functions) => host_functions.push(host_function),
+            None => {
+                let host_functions = vec![host_function];
+                self.host_functions = Some(host_functions);
+            }
+        }
+    }
+
     /// Write the host function details to the shared memory.
     pub(crate) fn write_to_memory(
         self,

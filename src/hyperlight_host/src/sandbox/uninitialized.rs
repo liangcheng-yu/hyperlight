@@ -29,7 +29,7 @@ use tracing::instrument;
 /// `UninitializedSandbox` into an initialized `Sandbox`.
 pub struct UninitializedSandbox<'a> {
     // Registered host functions
-    pub(crate) host_funcs: HostFuncsWrapper<'a>,
+    pub(crate) host_funcs: Arc<Mutex<HostFuncsWrapper<'a>>>,
     pub(crate) mgr: MemMgrWrapper,
     pub(super) hv: HypervisorWrapper<'a>,
     pub(super) run_from_process_memory: bool,
@@ -49,7 +49,6 @@ impl<'a> std::fmt::Debug for UninitializedSandbox<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("UninitializedSandbox")
             .field("stack_guard", &self.mgr.get_stack_cookie())
-            .field("num_host_funcs", &self.host_funcs.len())
             .finish()
     }
 }
@@ -196,7 +195,7 @@ impl<'a> UninitializedSandbox<'a> {
             None
         };
 
-        let host_funcs = HostFuncsWrapper::default();
+        let host_funcs = Arc::new(Mutex::new(HostFuncsWrapper::default()));
 
         let hv = {
             let outb_wrapper = outb_handler_wrapper(mem_mgr_wrapper.clone(), host_funcs.clone());
@@ -211,7 +210,7 @@ impl<'a> UninitializedSandbox<'a> {
             run_from_process_memory,
         };
 
-        default_writer.register(&mut sandbox, "writer_func")?;
+        default_writer.register(&mut sandbox, "HostPrint")?;
 
         Ok(sandbox)
     }
@@ -408,12 +407,14 @@ mod tests {
         .expect("Failed to create sandbox");
 
         writer_func
-            .register(&mut uninitialized_sandbox, "writer_func")
+            .register(&mut uninitialized_sandbox, "HostPrint")
             .expect("Failed to register writer function");
 
         fn init(uninitialized_sandbox: &mut UninitializedSandbox) -> Result<()> {
             uninitialized_sandbox
                 .host_funcs
+                .lock()
+                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
                 .host_print("test".to_string())
         }
 
@@ -511,8 +512,12 @@ mod tests {
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
-            let res = sandbox
-                .host_functions
+            let host_funcs = sandbox.host_functions.lock();
+
+            assert!(host_funcs.is_ok());
+
+            let res = host_funcs
+                .unwrap()
                 .call_host_function("test0", vec![ParameterValue::Int(1)])
                 .unwrap();
 
@@ -530,8 +535,12 @@ mod tests {
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
-            let res = sandbox
-                .host_functions
+            let host_funcs = sandbox.host_functions.lock();
+
+            assert!(host_funcs.is_ok());
+
+            let res = host_funcs
+                .unwrap()
                 .call_host_function(
                     "test1",
                     vec![ParameterValue::Int(1), ParameterValue::Int(2)],
@@ -555,7 +564,11 @@ mod tests {
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
-            let res = sandbox.host_functions.call_host_function("test2", vec![]);
+            let host_funcs = sandbox.host_functions.lock();
+
+            assert!(host_funcs.is_ok());
+
+            let res = host_funcs.unwrap().call_host_function("test2", vec![]);
             assert!(res.is_err());
         }
 
@@ -566,7 +579,11 @@ mod tests {
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
-            let res = sandbox.host_functions.call_host_function("test4", vec![]);
+            let host_funcs = sandbox.host_functions.lock();
+
+            assert!(host_funcs.is_ok());
+
+            let res = host_funcs.unwrap().call_host_function("test4", vec![]);
             assert!(res.is_err());
         }
     }
@@ -615,10 +632,14 @@ mod tests {
         .expect("Failed to create sandbox");
 
         writer_func
-            .register(&mut sandbox, "writer_func")
+            .register(&mut sandbox, "HostPrint")
             .expect("Failed to register writer function");
 
-        sandbox.host_funcs.host_print("test".to_string()).unwrap();
+        let host_funcs = sandbox.host_funcs.lock();
+
+        assert!(host_funcs.is_ok());
+
+        host_funcs.unwrap().host_print("test".to_string()).unwrap();
 
         drop(sandbox);
 
@@ -652,10 +673,14 @@ mod tests {
         .expect("Failed to create sandbox");
 
         writer_func
-            .register(&mut sandbox, "writer_func")
+            .register(&mut sandbox, "HostPrint")
             .expect("Failed to register writer function");
 
-        sandbox.host_funcs.host_print("test2".to_string()).unwrap();
+        let host_funcs = sandbox.host_funcs.lock();
+
+        assert!(host_funcs.is_ok());
+
+        host_funcs.unwrap().host_print("test2".to_string()).unwrap();
 
         let mut buffer = String::new();
         file.read_to_string(&mut buffer).unwrap();
@@ -677,10 +702,14 @@ mod tests {
         .expect("Failed to create sandbox");
 
         writer_func
-            .register(&mut sandbox, "writer_func")
+            .register(&mut sandbox, "HostPrint")
             .expect("Failed to register writer function");
 
-        sandbox.host_funcs.host_print("test2".to_string()).unwrap();
+        let host_funcs = sandbox.host_funcs.lock();
+
+        assert!(host_funcs.is_ok());
+
+        host_funcs.unwrap().host_print("test2".to_string()).unwrap();
 
         // writer as a method
 
@@ -700,10 +729,14 @@ mod tests {
         .expect("Failed to create sandbox");
 
         writer_method
-            .register(&mut sandbox, "writer_func")
+            .register(&mut sandbox, "HostPrint")
             .expect("Failed to register writer function");
 
-        sandbox.host_funcs.host_print("test3".to_string()).unwrap();
+        let host_funcs = sandbox.host_funcs.lock();
+
+        assert!(host_funcs.is_ok());
+
+        host_funcs.unwrap().host_print("test3".to_string()).unwrap();
     }
 
     struct TestHostPrint {}
@@ -748,11 +781,16 @@ mod tests {
                 let uq = unintializedsandbox_queue.clone();
                 let sq = sandbox_queue.clone();
                 thread::spawn(move || {
-                    let mut uninitialized_sandbox = uq.pop().unwrap_or_else(|| {
+                    let uninitialized_sandbox = uq.pop().unwrap_or_else(|| {
                         panic!("Failed to pop UninitializedSandbox thread {}", i)
                     });
-                    uninitialized_sandbox
-                        .host_funcs
+
+                    let host_funcs = uninitialized_sandbox.host_funcs.lock();
+
+                    assert!(host_funcs.is_ok());
+
+                    host_funcs
+                        .unwrap()
                         .host_print(format!("Print from UninitializedSandbox on Thread {}\n", i))
                         .unwrap();
 
@@ -777,11 +815,16 @@ mod tests {
             .map(|i| {
                 let sq = sandbox_queue.clone();
                 thread::spawn(move || {
-                    let mut sandbox = sq
+                    let sandbox = sq
                         .pop()
                         .unwrap_or_else(|| panic!("Failed to pop Sandbox thread {}", i));
-                    sandbox
-                        .host_functions
+
+                    let host_funcs = sandbox.host_functions.lock();
+
+                    assert!(host_funcs.is_ok());
+
+                    host_funcs
+                        .unwrap()
                         .host_print(format!("Print from Sandbox on Thread {}\n", i))
                         .unwrap();
                 })
