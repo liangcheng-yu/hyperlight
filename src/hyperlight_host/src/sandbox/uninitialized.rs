@@ -394,7 +394,7 @@ mod tests {
 
         let writer = |msg| {
             received_msg = msg;
-            Ok(())
+            Ok(0)
         };
 
         let writer_func = Arc::new(Mutex::new(writer));
@@ -411,11 +411,12 @@ mod tests {
             .expect("Failed to register writer function");
 
         fn init(uninitialized_sandbox: &mut UninitializedSandbox) -> Result<()> {
-            uninitialized_sandbox
+            let _res = uninitialized_sandbox
                 .host_funcs
                 .lock()
                 .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-                .host_print("test".to_string())
+                .host_print("test".to_string())?;
+            Ok(())
         }
 
         let sandbox = uninitialized_sandbox.evolve(MutatingCallback::from(init));
@@ -619,7 +620,7 @@ mod tests {
 
         let writer = |msg| {
             received_msg = msg;
-            Ok(())
+            Ok(0)
         };
 
         let writer_func = Arc::new(Mutex::new(writer));
@@ -658,9 +659,9 @@ mod tests {
         let mut captured_file = NamedTempFile::new().unwrap();
         let mut file = captured_file.reopen().unwrap();
 
-        let writer = |msg: String| -> Result<()> {
+        let writer = |msg: String| -> Result<i32> {
             captured_file.write_all(msg.as_bytes()).unwrap();
-            Ok(())
+            Ok(0)
         };
 
         let writer_func = Arc::new(Mutex::new(writer));
@@ -688,9 +689,9 @@ mod tests {
 
         // writer as a function
 
-        fn fn_writer(msg: String) -> Result<()> {
+        fn fn_writer(msg: String) -> Result<i32> {
             assert_eq!(msg, "test2");
-            Ok(())
+            Ok(0)
         }
 
         let writer_func = Arc::new(Mutex::new(fn_writer));
@@ -746,9 +747,9 @@ mod tests {
             TestHostPrint {}
         }
 
-        fn write(&mut self, msg: String) -> Result<()> {
+        fn write(&mut self, msg: String) -> Result<i32> {
             assert_eq!(msg, "test3");
-            Ok(())
+            Ok(0)
         }
     }
 

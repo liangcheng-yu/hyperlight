@@ -60,14 +60,13 @@ impl<'a> HostFuncsWrapper<'a> {
     ///
     /// Return `Ok` if the function was found and was of the right signature,
     /// and `Err` otherwise.
-    pub(crate) fn host_print(&mut self, msg: String) -> Result<()> {
-        call_host_func_impl(
+    pub(crate) fn host_print(&mut self, msg: String) -> Result<i32> {
+        let res = call_host_func_impl(
             self.get_host_funcs(),
             "HostPrint",
             vec![ParameterValue::String(msg)],
         )?;
-
-        Ok(())
+        res.try_into()
     }
     /// From the set of registered host functions, attempt to get the one
     /// named `name`. If it exists, call it with the given arguments list
@@ -98,11 +97,11 @@ fn call_host_func_impl(
 }
 
 // The default writer function is to write to stdout with green text.
-pub(crate) fn default_writer_func(s: String) -> Result<()> {
+pub(crate) fn default_writer_func(s: String) -> Result<i32> {
     match stdout().is_terminal() {
         false => {
             print!("{}", s);
-            Ok(())
+            Ok(0)
         }
         true => {
             let mut stdout = StandardStream::stdout(ColorChoice::Auto);
@@ -111,7 +110,7 @@ pub(crate) fn default_writer_func(s: String) -> Result<()> {
             stdout.set_color(&color_spec)?;
             stdout.write_all(s.as_bytes())?;
             stdout.reset()?;
-            Ok(())
+            Ok(0)
         }
     }
 }

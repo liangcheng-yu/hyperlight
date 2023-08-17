@@ -47,12 +47,12 @@ pub unsafe extern "C" fn sandbox_new(
             let sandbox_run_options =
                 Some(SandboxRunOptions::from_bits_truncate(sandbox_run_options));
 
-            let writer_func = Arc::new(Mutex::new(move |s: String| -> Result<()> {
+            let writer_func = Arc::new(Mutex::new(move |s: String| -> Result<i32> {
                 match print_output_handler {
                     Some(f) => {
                         let c_str = std::ffi::CString::new(s)?;
                         f(c_str.as_ptr());
-                        Ok(())
+                        Ok(0)
                     }
                     None => default_writer_func(s),
                 }
