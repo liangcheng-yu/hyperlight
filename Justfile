@@ -3,6 +3,7 @@ alias build-rust-debug := build-rust
 set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
 default-target:= "debug"
+set dotenv-load
 
 init:
     git submodule update --init --recursive
@@ -36,13 +37,13 @@ test-rust target=default-target:
     cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_trace -- --ignored
     cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_drop -- --ignored
 
-test-dotnet-hl:
-    cd src/tests/Hyperlight.Tests && dotnet test || cd ../../../
+test-dotnet-hl target=default-target:
+    cd src/tests/Hyperlight.Tests && dotnet test -c {{ target }} || cd ../../../
 
-test-dotnet-nativehost:
-    cd src/examples/NativeHost && dotnet run -- -nowait || cd ../../../
+test-dotnet-nativehost target=default-target:
+    cd src/examples/NativeHost && dotnet run -c {{ target }} -- -nowait || cd ../../../
 
-test-dotnet: test-dotnet-hl test-dotnet-nativehost
+test-dotnet target=default-target: (test-dotnet-hl target) (test-dotnet-nativehost target)
 
 test-capi target=default-target:
     cd src/hyperlight_host && just run-tests-capi {{ target }} || cd ../../
@@ -53,7 +54,7 @@ build-capi target=default-target:
 valgrind-capi target=default-target:
     cd src/hyperlight_host && just valgrind-tests-capi {{ target }} || cd ../../
 
-test: test-rust test-dotnet valgrind-capi test-capi
+test target=default-target: (test-rust target) (test-dotnet target) (valgrind-capi target) (test-capi target)
 
 check:
     cargo check

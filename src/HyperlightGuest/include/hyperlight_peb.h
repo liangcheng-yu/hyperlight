@@ -50,6 +50,7 @@ typedef struct
     uint64_t guestErrorBufferSize;
     char* pCode;
     void* pOutb;
+    void *pOutbContext;
     InputData inputdata;
     OutputData outputdata;
     GuestHeapData guestheapData;

@@ -229,9 +229,27 @@ impl SandboxMemoryManager {
 
     /// Sets `addr` to the correct offset in the memory referenced by
     /// `shared_mem` to indicate the address of the outb pointer
+    /// TODO: this function is only in C#. Remove it once we have a full Rust Sandbox
     pub(crate) fn set_outb_address(&mut self, addr: u64) -> Result<()> {
-        let offset = self.layout.get_out_b_pointer_offset();
+        let offset = self.layout.get_outb_pointer_offset();
         self.shared_mem.write_u64(offset, addr)
+    }
+
+    /// Sets `addr` to the correct offset in the memory referenced by
+    /// `shared_mem` to indicate the address of the outb pointer and context for calling outb function
+    #[cfg(target_os = "windows")]
+    pub(crate) fn set_outb_address_and_context(&mut self, addr: u64, context: u64) -> Result<()> {
+        let offset = self.layout.get_outb_pointer_offset();
+        self.shared_mem.write_u64(offset, addr)?;
+        let offset = self.layout.get_outb_context_offset();
+        self.shared_mem.write_u64(offset, context)
+    }
+
+    /// Gets the context for calling outb function
+    #[cfg(target_os = "windows")]
+    pub(crate) fn get_outb_context(&self) -> Result<u64> {
+        self.shared_mem
+            .read_u64(self.layout.get_outb_context_offset())
     }
 
     /// Get the address of the dispatch function in memory

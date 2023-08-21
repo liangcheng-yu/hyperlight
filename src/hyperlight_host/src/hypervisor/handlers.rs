@@ -20,8 +20,7 @@ pub(crate) type OutBHandlerFunction<'a> = Box<dyn FnMut(u16, u64) -> Result<()> 
 
 /// A `OutBHandler` implementation using a `OutBHandlerFunction`
 ///
-/// Note: This handler must live for as long as the its Sandbox or for
-/// static in the case of its C API usage.
+/// Note: This handler must live no longer than the `Sandbox` to which it belongs
 pub(crate) struct OutBHandler<'a>(Arc<Mutex<OutBHandlerFunction<'a>>>);
 
 impl<'a> From<OutBHandlerFunction<'a>> for OutBHandler<'a> {

@@ -446,11 +446,11 @@ mod tests {
         assert!(sandbox.is_err());
 
         // Test with a valid guest binary buffer when trying to load library
-        #[cfg(os = "windows")]
+        #[cfg(target_os = "windows")]
         {
             let binary_path = simple_guest_path().unwrap();
             let sandbox = UninitializedSandbox::new(
-                GuestBinary::Buffer(fs::read(&binary_path).unwrap()),
+                GuestBinary::Buffer(fs::read(binary_path).unwrap()),
                 None,
                 Some(SandboxRunOptions::RUN_FROM_GUEST_BINARY),
             );

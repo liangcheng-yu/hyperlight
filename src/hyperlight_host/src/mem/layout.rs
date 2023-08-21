@@ -54,8 +54,12 @@ struct GuestError {
 
 #[repr(C)]
 struct CodeAndOutBPointers {
+    // This is a pointer to the code that is to be executed in the guest.
     code_pointer: u64,
+    // This is a pointer to the outb function that is used when running in process
     outb_pointer: u64,
+    // This is a pointer to the rust object to allow C to callback to the outb function exposed from Rust.
+    outb_context: u64,
 }
 
 #[repr(C)]
@@ -333,10 +337,18 @@ impl SandboxMemoryLayout {
     }
 
     /// Get the offset in guest memory to the OutB pointer.
-    pub(crate) fn get_out_b_pointer_offset(&self) -> Offset {
+    pub(crate) fn get_outb_pointer_offset(&self) -> Offset {
         // The outb pointer is immediately after the code pointer
         // in the `CodeAndOutBPointers` struct which is a u64
         self.code_and_outb_pointer_offset + size_of::<u64>()
+    }
+
+    #[cfg(target_os = "windows")]
+    /// Get the offset in guest memory to the OutB context.
+    pub(crate) fn get_outb_context_offset(&self) -> Offset {
+        // The outb context is immediately after the outb pointer
+        // in the `CodeAndOutBPointers` struct which is a u64
+        self.get_outb_pointer_offset() + size_of::<u64>()
     }
 
     /// Get the offset in guest memory to the output data pointer.

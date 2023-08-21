@@ -27,7 +27,9 @@ __chkstk PROC
     lea         r10,[rsp+18h]                       ; get the current stack address
     sub         r10,rax                             ; calculate the new stack address
     mov         r11,qword ptr [pPeb]                ; get the minimum allowed stack address 
-    mov         r11,qword ptr [r11+78h]             ; Make sure to update this address if the PEB structure changes
+    mov         r11,qword ptr [r11+80h]             ; Make sure to update this address if the PEB structure changes, 
+                                                    ; the value added to R11 regsiter here is the number of bytes offset from the start of the PEB to the adress of the stack. 
+                                                    ; hence if there are any fields added in the PEB this needs to be updated. See the comments in layout.rs for an explanation of the layout and fields
     cmp         r10,r11                             ; check if this allocation would exceed top of stack.
     jae         csret
     xor         edx,edx                             ; if the allocation would call stack overflow set the parameters for set error and call it

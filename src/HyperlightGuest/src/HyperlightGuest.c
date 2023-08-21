@@ -15,7 +15,11 @@ ns(GuestFunctionDetails_table_t) GuestFunctions;
 unsigned int OSPageSize = 0;
 
 bool runningInHyperlight = true;
+// TODO: This function is only used by C# code, once we have a Rust Hyperlight C API we can remove this. 
 void (*outb_ptr)(uint16_t port, uint8_t value) = NULL;
+// This function calls outb in process , as the function being called is a Rust Object we need both the function pointer 
+// and the object pointer to make the call from C.
+void (*outb_ptr_with_context)(void *context, uint16_t port, uint8_t value) = NULL;
 
 /// <summary>
 /// This function is required by dlmalloc, its used to get a pseudo radom number , its only called once when malloc is initialized.
@@ -115,7 +119,7 @@ void outb(uint16_t port, uint8_t value)
     {
         hloutb(port, value);
     }
-    else if (NULL != outb_ptr)
+    else if (NULL != outb_ptr_with_context)
     {
         // We were passed a function pointer for outb - Use it
 
@@ -130,7 +134,15 @@ void outb(uint16_t port, uint8_t value)
         // TODO: Enable if Linux in process is supported.
         // uint64_t rsi = getrsi();
         // uint64_t rdi = getrdi();
-        outb_ptr(port, value);
+        // TODO: Remove the if and the else branch once we have a Rust Hyperlight C API
+        if (pPeb->pOutbContext != NULL)
+        {
+            outb_ptr_with_context(pPeb->pOutbContext, port, value);
+        }
+        else
+        {
+            outb_ptr(port, value);
+        }
         // setrsi(rsi);
         // setrdi(rdi);
     }
@@ -1061,8 +1073,10 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int o
     {
         OSPageSize = (unsigned int)osPageSize;
         // Either in WHP partition (hyperlight) or in memory.  If in memory, outb_ptr will be non-NULL
+        // TODO: Remove the following line once we have a full Rust based C API for Hyperlight.
         outb_ptr = (void (*)(uint16_t, uint8_t))pPeb->pOutb;
-        if (outb_ptr)
+        outb_ptr_with_context = (void (*)(void *, uint16_t, uint8_t))pPeb->pOutb;
+        if (outb_ptr_with_context)
             runningInHyperlight = false;
 
         pPeb->guest_function_dispatch_ptr = (uint64_t)DispatchFunction;

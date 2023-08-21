@@ -6,6 +6,8 @@ valgrind-command := if os() == "windows" { "echo 'valgrind not supported on wind
 test-command := if os() == "windows" { "./scripts/test-command.bat" } else { "./scripts/test-command.sh" }
 clang-checks := if os() == "windows" { "-Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" } else { "-Wall -Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" }
 default-target:= "debug"
+gen-suppressions:= if os() == "windows" { " " } else { "GEN_SUPPRESSIONS_ON=1 LOG_FILE_ON=1" }
+set dotenv-load
 
 build target=default-target:
     cargo build --verbose --profile={{ if target == "debug" {"dev"} else { target } }}
@@ -31,6 +33,6 @@ build-tests-capi target=default-target: (build target)
 run-tests-capi target=default-target: (build-tests-capi target)
     {{test-command}} {{target}}
 valgrind-tests-capi target=default-target: (build-tests-capi target)
-    GEN_SUPPRESSIONS_ON=1 LOG_FILE_ON=0 {{valgrind-command}} {{target}}
+    {{valgrind-command}} {{target}}
 valgrind-tests-capi-gen-suppressions target=default-target: (build-tests-capi target)
-    GEN_SUPPRESSIONS_ON=1 LOG_FILE_ON=1 {{valgrind-command}} {{target}} 1
+   {{gen-suppressions}} {{valgrind-command}} {{target}}

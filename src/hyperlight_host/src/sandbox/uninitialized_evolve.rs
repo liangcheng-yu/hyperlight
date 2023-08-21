@@ -2,12 +2,18 @@ use super::hypervisor::HypervisorWrapperMgr;
 #[cfg(target_os = "windows")]
 use crate::func::exports::get_os_page_size;
 #[cfg(target_os = "windows")]
+use crate::hypervisor::handlers::OutBHandlerCaller;
+#[cfg(target_os = "windows")]
 use crate::mem::ptr::RawPtr;
 use crate::sandbox::mem_mgr::MemMgrWrapperGetter;
 use crate::{hypervisor::handlers::OutBHandlerWrapper, Sandbox, UninitializedSandbox};
 #[cfg(target_os = "linux")]
 use anyhow::bail;
 use anyhow::Result;
+#[cfg(target_os = "windows")]
+use std::os::raw::c_void;
+#[cfg(target_os = "windows")]
+use std::sync::{Arc, Mutex};
 use tracing::instrument;
 
 pub(super) type CBFunc<'a> = Box<dyn FnOnce(&mut UninitializedSandbox<'a>) -> Result<()> + 'a>;
@@ -57,6 +63,22 @@ pub(super) fn evolve_impl<'a>(
 
         Ok(Sandbox::from(u_sbox))
     }
+}
+
+#[cfg(target_os = "windows")]
+// This function allows us to call the OutBHandler from the guest when running in process
+// As it is only called from the guest we need to allow dead code
+// NOTE: This is not part of the C Hyperlight API , it is intended only to be called in proc through a pointer passed to the guest
+extern "C" fn call_outb(ptr: *mut Arc<Mutex<dyn OutBHandlerCaller>>, port: u16, data: u64) {
+    let outb_handlercaller = unsafe { Box::from_raw(ptr) };
+    let res = outb_handlercaller
+        .lock()
+        .expect("Error Locking")
+        .call(port, data);
+    assert!(res.is_ok());
+    // Leak the box so that it is not dropped when the function returns
+    // the box will be dropped when the sandbox is dropped
+    Box::leak(outb_handlercaller);
 }
 
 fn evolve_in_proc<'a>(
@@ -112,72 +134,15 @@ fn evolve_in_proc<'a>(
     }
     #[cfg(target_os = "windows")]
     {
-        /// Get a C-compatible function pointer for the given outb_hdl.
-        /// This function is purposely declared within this compile-time
-        /// flag because it should only be used herein
-        /// (really, it should never be used, but we have to do so here).
-        ///
-        /// Generally speaking, `outb_hdl_as_fn_ptr` does some pointer
-        /// tricks to get a pointer to something C-compatible that looks
-        /// like a `void (u16, u64)` to C, so we can then set that address
-        /// as the outb handler function and call the entry point.
-        ///
-        /// See https://stackoverflow.com/a/38997480 for the detail that
-        /// inspired this method, and
-        /// https://stackoverflow.com/questions/32270030/how-do-i-convert-a-rust-closure-to-a-c-style-callback
-        /// for some additional information.
-        ///
-        /// Additionally, there are explanatory comments inside the function's
-        /// implementation.
-        fn outb_hdl_as_fn_ptr(outb_hdl: OutBHandlerWrapper) -> *const (u16, u64) {
-            use std::os::raw::c_void;
+        // To be able to call outb from the guest we need to provide both the address of the function and a pointer to
+        // OutBHandlerWrapper, the guest can then call call_outb passing he pointer to OutBHandlerWrapper as the first argument
 
-            // first, we need to define a closure that calls outb_hdl.call.
-            // this is actually a necessary step because Rust distinguishes,
-            // in the type system, between a closure and a Fn/FnOnce/FnMut.
-            //
-            // The former is a closure, while the latter is a trait object.
-            // This is an important distinction because the latter has a
-            // "fat" pointer that contains a reference to both the executable
-            // code and the context over which the original closure closes.
-            let closure = |port: u16, payload: u64| {
-                outb_hdl
-                    .lock()
-                    .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-                    .call(port, payload)
-            };
-            // Now we're coercing to a trait object, which means the compiler
-            // guarantees we have a "fat" pointer that contains both a ref
-            // to code and state.
-            //
-            // We have to make this a reference to the trait object rather
-            // than the trait object itself, because `dyn FnMut` is not sized
-            // so we can't compile without the reference.
-            let trait_obj: &dyn FnMut(u16, u64) -> Result<()> = &closure;
-            // Now get a _reference to the reference_, to prepare to coerce
-            // to a raw pointer.
-            let trait_obj_ref = &trait_obj;
-            // Now we want a _pointer_ to the reference to the trait object.
-            // That means we want to get a pointer to the `&dyn FnMut`,
-            // so we're coercing our `trait_obj_ref` to a `*const c_void`.
-            //
-            // Note the compiler doesn't guarantee we can cast right to
-            // that, so we have to first cast to a `*const _` -- which
-            // gets us from reference-land to pointer-land -- and then cast
-            // that intermediate type to `*const c_void` -- which is the same
-            // as a void pointer in C. In other words, we end up with a
-            // pointer to anything we want, hence the wild unsafety of this
-            // code and this function as a whole.
-            let closure_ptr_ptr = trait_obj_ref as *const _ as *const c_void;
-            // Finally, now we have a `*const c_void`, which is a pointer to
-            // anything (and demonstrates our complete disregard for the type
-            // system!), so we can cast that to our desired type..
-            closure_ptr_ptr as *const (u16, u64)
-        }
+        // The box we create here is evenutally dropped in the Sandbox drop function
+        let context = Box::into_raw(Box::new(outb_hdl)) as u64;
+        let outb_ptr = call_outb as *const c_void as u64;
 
         let mgr = u_sbox.get_mem_mgr_wrapper_mut().as_mut();
-        let outb_ptr = outb_hdl_as_fn_ptr(outb_hdl.clone());
-        mgr.set_outb_address(outb_ptr as u64)?;
+        mgr.set_outb_address_and_context(outb_ptr, context)?;
         let peb_address = {
             let base_addr = u64::try_from(mgr.shared_mem.base_addr())?;
             mgr.get_peb_address(base_addr)

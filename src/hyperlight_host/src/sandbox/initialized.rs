@@ -7,6 +7,8 @@ use super::{
     mem_mgr::{MemMgrWrapper, MemMgrWrapperGetter},
 };
 use crate::flatbuffers::hyperlight::generated::ErrorCode;
+#[cfg(target_os = "windows")]
+use crate::hypervisor::handlers::OutBHandlerCaller;
 use crate::sandbox_state::reset::RestoreSandbox;
 use anyhow::{bail, Result};
 use log::error;
@@ -72,6 +74,25 @@ pub struct Sandbox<'a> {
     needs_state_reset: bool,
     num_runs: i32,
     hv: HypervisorWrapper<'a>,
+}
+
+// If we are running in proc then we need to drop the outbhandlerwrapper that was leaked and written
+// to shared memory
+#[cfg(target_os = "windows")]
+impl<'a> Drop for Sandbox<'a> {
+    fn drop(&mut self) {
+        let mgr = self.mgr.as_ref();
+        let run_from_proc_mem = mgr.run_from_process_memory;
+        if run_from_proc_mem {
+            let mgr = self.mgr.as_ref();
+            if let Ok(ctx) = mgr.get_outb_context() {
+                if ctx != 0 {
+                    let _outb_handlercaller: Box<Arc<Mutex<dyn OutBHandlerCaller>>> =
+                        unsafe { Box::from_raw(ctx as *mut Arc<Mutex<dyn OutBHandlerCaller>>) };
+                }
+            }
+        }
+    }
 }
 
 impl<'a> crate::sandbox_state::sandbox::InitializedSandbox<'a> for Sandbox<'a> {
