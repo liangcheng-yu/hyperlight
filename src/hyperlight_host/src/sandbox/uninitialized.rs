@@ -411,11 +411,12 @@ mod tests {
             .expect("Failed to register writer function");
 
         fn init(uninitialized_sandbox: &mut UninitializedSandbox) -> Result<()> {
-            let _res = uninitialized_sandbox
+            uninitialized_sandbox
                 .host_funcs
                 .lock()
                 .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
                 .host_print("test".to_string())?;
+
             Ok(())
         }
 
