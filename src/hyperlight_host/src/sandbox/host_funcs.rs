@@ -1,6 +1,7 @@
 use crate::{
     func::{
         host::function_definition::HostFunctionDefinition,
+        host::function_details::HostFunctionDetails,
         types::{ParameterValue, ReturnValue},
         HyperlightFunction,
     },
@@ -15,25 +16,26 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use super::FunctionsMap;
 
 #[derive(Default, Clone)]
-pub(crate) struct HostFuncsWrapper<'a>(FunctionsMap<'a>);
-
-impl<'a> From<FunctionsMap<'a>> for HostFuncsWrapper<'a> {
-    fn from(funcs_map: FunctionsMap<'a>) -> Self {
-        Self(funcs_map)
-    }
+pub(crate) struct HostFuncsWrapper<'a> {
+    functions_map: FunctionsMap<'a>,
+    function_details: HostFunctionDetails,
 }
 
 impl<'a> HostFuncsWrapper<'a> {
     fn get_host_funcs(&self) -> &FunctionsMap<'a> {
-        &self.0
+        &self.functions_map
     }
 
     fn get_host_funcs_mut(&mut self) -> &mut FunctionsMap<'a> {
-        &mut self.0
+        &mut self.functions_map
     }
 
-    pub(super) fn len(&self) -> usize {
-        self.0.len()
+    fn get_host_func_details(&self) -> &HostFunctionDetails {
+        &self.function_details
+    }
+
+    fn get_host_func_details_mut(&mut self) -> &mut HostFunctionDetails {
+        &mut self.function_details
     }
 
     /// Register a host function with the sandbox.
@@ -45,24 +47,26 @@ impl<'a> HostFuncsWrapper<'a> {
     ) -> Result<()> {
         self.get_host_funcs_mut()
             .insert(hfd.function_name.to_string(), func);
-        let buffer: Vec<u8> = hfd.try_into()?;
-        mgr.write_host_function_definition(&buffer)?;
+        self.get_host_func_details_mut()
+            .insert_host_function(hfd.clone());
+        let buffer: Vec<u8> = self.get_host_func_details().try_into()?;
+        mgr.write_buffer_host_function_details(&buffer)?;
+
         Ok(())
     }
 
-    /// Assuming a host function called `"writer_func"` exists, and takes a
+    /// Assuming a host function called `"HostPrint"` exists, and takes a
     /// single string parameter, call it with the given `msg` parameter.
     ///
     /// Return `Ok` if the function was found and was of the right signature,
     /// and `Err` otherwise.
-    pub(crate) fn host_print(&mut self, msg: String) -> Result<()> {
-        call_host_func_impl(
+    pub(crate) fn host_print(&mut self, msg: String) -> Result<i32> {
+        let res = call_host_func_impl(
             self.get_host_funcs(),
-            "writer_func",
+            "HostPrint",
             vec![ParameterValue::String(msg)],
         )?;
-
-        Ok(())
+        res.try_into()
     }
     /// From the set of registered host functions, attempt to get the one
     /// named `name`. If it exists, call it with the given arguments list
@@ -93,11 +97,11 @@ fn call_host_func_impl(
 }
 
 // The default writer function is to write to stdout with green text.
-pub(crate) fn default_writer_func(s: String) -> Result<()> {
+pub(crate) fn default_writer_func(s: String) -> Result<i32> {
     match stdout().is_terminal() {
         false => {
             print!("{}", s);
-            Ok(())
+            Ok(0)
         }
         true => {
             let mut stdout = StandardStream::stdout(ColorChoice::Auto);
@@ -106,7 +110,7 @@ pub(crate) fn default_writer_func(s: String) -> Result<()> {
             stdout.set_color(&color_spec)?;
             stdout.write_all(s.as_bytes())?;
             stdout.reset()?;
-            Ok(())
+            Ok(0)
         }
     }
 }

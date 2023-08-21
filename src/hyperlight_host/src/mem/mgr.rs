@@ -18,10 +18,7 @@ use crate::{
             function_call::GuestFunctionCall,
             log_data::GuestLogData,
         },
-        host::{
-            function_call::HostFunctionCall, function_definition::HostFunctionDefinition,
-            function_details::HostFunctionDetails,
-        },
+        host::{function_call::HostFunctionCall, function_details::HostFunctionDetails},
         types::ReturnValue,
     },
 };
@@ -476,12 +473,6 @@ impl SandboxMemoryManager {
         let host_function_call = HostFunctionCall {};
         let layout = self.layout;
         host_function_call.write(buffer, self.get_shared_mem_mut(), &layout)
-    }
-
-    /// Writes a host function definition to memory
-    pub(crate) fn write_host_function_definition(&mut self, buffer: &[u8]) -> Result<()> {
-        let layout = self.layout;
-        HostFunctionDefinition::write(buffer, self.get_shared_mem_mut(), &layout)
     }
 
     pub(crate) fn write_response_from_host_method_call(&mut self, res: &ReturnValue) -> Result<()> {

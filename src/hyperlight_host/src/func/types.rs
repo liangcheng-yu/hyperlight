@@ -274,8 +274,8 @@ impl ReturnValue {
         layout: &SandboxMemoryLayout,
     ) -> Result<()> {
         let input_data_offset = layout.input_data_buffer_offset;
-        let function_call_buffer = Vec::<u8>::try_from(self)?;
-        shared_mem.copy_from_slice(function_call_buffer.as_slice(), input_data_offset)
+        let function_call_ret_val_buffer = Vec::<u8>::try_from(self)?;
+        shared_mem.copy_from_slice(function_call_ret_val_buffer.as_slice(), input_data_offset)
     }
 }
 

@@ -149,11 +149,15 @@ mod tests {
                 let uq = unintializedsandbox_queue.clone();
                 let sq = sandbox_queue.clone();
                 thread::spawn(move || {
-                    let mut uninitialized_sandbox = uq.pop().unwrap_or_else(|| {
+                    let uninitialized_sandbox = uq.pop().unwrap_or_else(|| {
                         panic!("Failed to pop UninitializedSandbox thread {}", i)
                     });
-                    uninitialized_sandbox
-                        .host_funcs
+                    let host_funcs = uninitialized_sandbox.host_funcs.lock();
+
+                    assert!(host_funcs.is_ok());
+
+                    host_funcs
+                        .unwrap()
                         .host_print(format!("Print from UninitializedSandbox on Thread {}\n", i))
                         .unwrap();
 
@@ -178,11 +182,15 @@ mod tests {
             .map(|i| {
                 let sq = sandbox_queue.clone();
                 thread::spawn(move || {
-                    let mut sandbox = sq
+                    let sandbox = sq
                         .pop()
                         .unwrap_or_else(|| panic!("Failed to pop Sandbox thread {}", i));
-                    sandbox
-                        .host_functions
+                    let host_funcs = sandbox.host_functions.lock();
+
+                    assert!(host_funcs.is_ok());
+
+                    host_funcs
+                        .unwrap()
                         .host_print(format!("Print from Sandbox on Thread {}\n", i))
                         .unwrap();
                 })

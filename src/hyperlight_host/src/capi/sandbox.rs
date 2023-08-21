@@ -47,12 +47,12 @@ pub unsafe extern "C" fn sandbox_new(
             let sandbox_run_options =
                 Some(SandboxRunOptions::from_bits_truncate(sandbox_run_options));
 
-            let writer_func = Arc::new(Mutex::new(move |s: String| -> Result<()> {
+            let writer_func = Arc::new(Mutex::new(move |s: String| -> Result<i32> {
                 match print_output_handler {
                     Some(f) => {
                         let c_str = std::ffi::CString::new(s)?;
                         f(c_str.as_ptr());
-                        Ok(())
+                        Ok(0)
                     }
                     None => default_writer_func(s),
                 }
@@ -63,7 +63,7 @@ pub unsafe extern "C" fn sandbox_new(
                 Some(mem_cfg),
                 sandbox_run_options,
             )?;
-            writer_func.register(&mut sbox, "writer_func")?;
+            writer_func.register(&mut sbox, "HostPrint")?;
             Ok(Sandbox::from(sbox).register(ctx))
         })
         .ok_or_err_hdl()
@@ -207,7 +207,11 @@ pub unsafe extern "C" fn sandbox_call_host_print(
             let msg = c_str.to_str()?;
             let sbox = Sandbox::get_mut(ctx, sbox_hdl)?;
             let rsbox = sbox.to_uninit_mut()?;
-            rsbox.host_funcs.host_print(String::from(msg))?;
+            rsbox
+                .host_funcs
+                .lock()
+                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                .host_print(String::from(msg))?;
             Ok(Handle::new_empty())
         })
         .ok_or_err_hdl()

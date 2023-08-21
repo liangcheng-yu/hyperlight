@@ -270,11 +270,13 @@ impl Hypervisor for HypervWindowsDriver {
                             .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
                             .call(exit_context.Anonymous.IoPortAccess.PortNumber, 0)?;
 
-                        // Move rip forward to next instruction (size of current instruction is in lower byte of InstructionLength_Cr8_Reserverd)
+                        // Move rip forward to next instruction (size of current instruction is in lower byte of _bitfield
+                        // see https://learn.microsoft.com/en-us/virtualization/api/hypervisor-platform/funcs/whvexitcontextdatatypes)
+                        let instruction_count = exit_context.VpContext._bitfield & 0xF;
                         let registers = HashMap::from([(
                             WhvRegisterNameWrapper(WHvX64RegisterRip),
                             WHV_REGISTER_VALUE {
-                                Reg64: (exit_context.VpContext.Reserved & 0xF) as u64,
+                                Reg64: exit_context.VpContext.Rip + instruction_count as u64,
                             },
                         )]);
                         self.processor.set_registers(&registers)?;

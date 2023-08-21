@@ -5,9 +5,8 @@ use crate::{
         ParameterType as FbParameterType,
     },
     func::types::{ParameterType, ReturnType},
-    mem::{layout::SandboxMemoryLayout, shared_mem::SharedMemory},
 };
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
 
 /// The definition of a function exposed from the host to the guest
@@ -33,31 +32,6 @@ impl HostFunctionDefinition {
             parameter_types,
             return_type,
         }
-    }
-
-    /// Write to Memory
-    pub(crate) fn write(
-        buff: &[u8],
-        shared_memory: &mut SharedMemory,
-        layout: &SandboxMemoryLayout,
-    ) -> Result<()> {
-        let buffer_size = {
-            let size_u64 = shared_memory.read_u64(layout.get_output_data_size_offset())?;
-            usize::try_from(size_u64)
-                .map_err(|_| anyhow!("could not convert buffer size u64 ({}) to usize", size_u64))
-        }?;
-
-        if buff.len() > buffer_size {
-            return Err(anyhow!(
-                "Host function definition buffer {} is too big for the output data buffer {}",
-                buff.len(),
-                buffer_size
-            ));
-        }
-
-        shared_memory.copy_from_slice(buff, layout.host_function_definitions_offset)?;
-
-        Ok(())
     }
 
     /// Convert this `HostFunctionDefinition` into a `WIPOffset<FbHostFunctionDefinition>`.

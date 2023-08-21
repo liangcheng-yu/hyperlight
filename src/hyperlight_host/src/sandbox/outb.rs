@@ -94,7 +94,7 @@ pub(super) fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
 /// Handles OutB operations from the guest.
 fn handle_outb_impl(
     mem_mgr: &mut MemMgrWrapper,
-    host_funcs: &HostFuncsWrapper<'_>,
+    host_funcs: Arc<Mutex<HostFuncsWrapper<'_>>>,
     port: u16,
     _byte: u64,
 ) -> Result<()> {
@@ -104,7 +104,10 @@ fn handle_outb_impl(
             let call = mem_mgr.as_ref().get_host_function_call()?;
             let name = call.function_name.clone();
             let args: Vec<ParameterValue> = call.parameters.unwrap_or(vec![]);
-            let res = host_funcs.call_host_function(&name, args)?;
+            let res = host_funcs
+                .lock()
+                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                .call_host_function(&name, args)?;
             mem_mgr
                 .as_mut()
                 .write_response_from_host_method_call(&res)?;
@@ -124,10 +127,15 @@ fn handle_outb_impl(
 /// TODO: pass at least the `host_funcs_wrapper` param by reference.
 pub(super) fn outb_handler_wrapper<'a>(
     mut mem_mgr_wrapper: MemMgrWrapper,
-    host_funcs_wrapper: HostFuncsWrapper<'a>,
+    host_funcs_wrapper: Arc<Mutex<HostFuncsWrapper<'a>>>,
 ) -> OutBHandlerWrapper<'a> {
     let outb_func: OutBHandlerFunction<'a> = Box::new(move |port, payload| {
-        handle_outb_impl(&mut mem_mgr_wrapper, &host_funcs_wrapper, port, payload)
+        handle_outb_impl(
+            &mut mem_mgr_wrapper,
+            host_funcs_wrapper.clone(),
+            port,
+            payload,
+        )
     });
     let outb_hdl = OutBHandler::<'a>::from(outb_func);
     Arc::new(Mutex::new(outb_hdl))
