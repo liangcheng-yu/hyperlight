@@ -1,7 +1,6 @@
 use anyhow::{anyhow, bail, Result};
 use cbindgen::{Builder, Config};
 use std::env;
-use std::path::Path;
 
 fn main() -> Result<()> {
     let header_file_path = match env::var("GITHUB_WORKSPACE") {
@@ -21,6 +20,7 @@ fn main() -> Result<()> {
     // the location of the binary to the rust build.
     #[cfg(target_os = "windows")]
     {
+        use std::path::Path;
         let profile = env::var("PROFILE")?;
         let surrogate_path = match env::var("GITHUB_WORKSPACE") {
             Ok(ws) => format!(
