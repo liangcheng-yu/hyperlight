@@ -158,10 +158,15 @@ Visual Studio Code does not currently support mixed mode debugging, to debug gue
 
  1. Edit $PROFILE
  1. Add the following to the profile, this assumes that you have installed clang via Visual Studio and are happy to add the developer shell to your default pwsh profile.
+ 
+ Note: You may not have the $PROFILE file created yet and you may have to create a new file and then update it.
 
+Gather the vs instance id for your dev environment by running `vswhere.exe -legacy -prerelease -format json` and look for the instance id of your VS installation. (vswhere.exe can be downloaded from [here](https://github.com/microsoft/vswhere/releases))
+
+Replace the <instance_id> appropriately and copy it to the script file pointed by the $PROFILE.
  ```PowerShell
 Import-Module "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
-Enter-VsDevShell 001cb2cc -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64" 
+Enter-VsDevShell <instance_id> -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64" 
  ```
 
 ### WSL2 or Linux
