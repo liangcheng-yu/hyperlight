@@ -1,3 +1,4 @@
+use super::FunctionsMap;
 use crate::{
     func::{
         host::function_definition::HostFunctionDefinition,
@@ -12,8 +13,6 @@ use is_terminal::IsTerminal;
 use std::io::stdout;
 use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-
-use super::FunctionsMap;
 
 #[derive(Default, Clone)]
 pub(crate) struct HostFuncsWrapper<'a> {
@@ -49,6 +48,11 @@ impl<'a> HostFuncsWrapper<'a> {
             .insert(hfd.function_name.to_string(), func);
         self.get_host_func_details_mut()
             .insert_host_function(hfd.clone());
+        // Functions need to be sorted so that they are serialised in sorted order
+        // this is required in order for flatbuffers C implementation used in the Gues Library
+        // to be able to search the functions by name.
+        self.get_host_func_details_mut()
+            .sort_host_functions_by_name();
         let buffer: Vec<u8> = self.get_host_func_details().try_into()?;
         mgr.write_buffer_host_function_details(&buffer)?;
 

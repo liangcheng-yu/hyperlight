@@ -1,17 +1,17 @@
 use super::{guest_mgr::GuestMgr, hypervisor::HypervisorWrapperMgr, mem_mgr::MemMgrWrapperGetter};
-use std::sync::{Arc, Mutex};
 
 use crate::{
     func::{
         function_call::{FunctionCall, FunctionCallType},
         guest::GuestFunction,
-        types::{ParameterValue, ReturnType},
+        types::{ParameterValue, ReturnType, ReturnValue},
     },
     mem::ptr::{GuestPtr, RawPtr},
     sandbox_state::{reset::RestoreSandbox, sandbox::InitializedSandbox},
     Sandbox,
 };
 use anyhow::{bail, Result};
+use std::sync::{Arc, Mutex};
 use tracing::instrument;
 
 // `ShouldRelease` is an internal construct that represents a
@@ -57,6 +57,7 @@ pub trait CallGuestFunction<'a>:
     + MemMgrWrapperGetter
     + InitializedSandbox<'a>
 {
+    /// Executes as closure that can call the guest
     fn execute_in_host<T, R>(&mut self, function: T) -> Result<R>
     where
         T: GuestFunction<R>,
@@ -91,12 +92,13 @@ pub trait CallGuestFunction<'a>:
     }
 
     #[instrument]
+    /// Calls a guest function by name
     fn call_guest_function_by_name(
         &mut self,
         name: &str,
         ret: ReturnType,
         args: Option<Vec<ParameterValue>>,
-    ) -> Result<i32> {
+    ) -> Result<ReturnValue> {
         let sbox = Arc::new(Mutex::new(self.get_initialized_sandbox_mut()));
 
         let should_reset = sbox
@@ -122,13 +124,13 @@ pub trait CallGuestFunction<'a>:
 
         dispatcher.dispatch_call_from_host(name, ret, args)
     }
-
+    /// Calls a host function by name
     fn dispatch_call_from_host(
         &mut self,
         function_name: &str,
         return_type: ReturnType,
         args: Option<Vec<ParameterValue>>,
-    ) -> Result<i32> {
+    ) -> Result<ReturnValue> {
         let mem_mgr = self.get_mem_mgr_wrapper().as_ref();
         let p_dispatch = mem_mgr.get_pointer_to_dispatch_function()?;
 
@@ -169,12 +171,15 @@ pub trait CallGuestFunction<'a>:
         self.get_mem_mgr_wrapper().check_stack_guard()?; // <- wrapper around mem_mgr `check_for_stack_guard`
         self.get_initialized_sandbox().check_for_guest_error()?;
 
-        self.get_mem_mgr_wrapper().as_ref().get_return_value()
+        self.get_mem_mgr_wrapper()
+            .as_ref()
+            .get_function_call_result()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::sandbox::is_hypervisor_present;
     use crate::UninitializedSandbox;
     use crate::{sandbox::uninitialized::GuestBinary, sandbox_state::transition::MutatingCallback};
     use crate::{sandbox_state::sandbox::EvolvableSandbox, testing::simple_guest_path};
@@ -293,6 +298,13 @@ mod tests {
 
     #[test]
     fn test_call_guest_function_by_name() -> Result<()> {
+        // This test relies upon a Hypervisor being present so for now
+        // we will skip it if there isnt one.
+        if !is_hypervisor_present() {
+            println!("Skipping test_call_guest_function_by_name because no hypervisor is present");
+            return Ok(());
+        }
+
         let usbox = UninitializedSandbox::new(
             GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
             None,
@@ -302,25 +314,26 @@ mod tests {
         )?;
 
         let sandbox = Arc::new(Mutex::new(usbox.evolve(MutatingCallback::from(init))?));
-
+        let msg = "Hello, World!!\n".to_string();
+        let len = msg.len() as i32;
         let func = Arc::new(Mutex::new(
-            move |s: Arc<Mutex<&mut Sandbox>>| -> Result<()> {
+            move |s: Arc<Mutex<&mut Sandbox>>| -> Result<ReturnValue> {
                 s.lock()
                     .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
                     .call_guest_function_by_name(
                         "PrintOutput",
                         ReturnType::Int,
-                        Some(vec![ParameterValue::String("Hello, World!\n".to_string())]),
-                    )?;
-                Ok(())
+                        Some(vec![ParameterValue::String(msg.clone())]),
+                    )
             },
         ));
 
-        sandbox
+        let result = sandbox
             .lock()
             .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
             .execute_in_host(func)?;
 
+        assert_eq!(result, ReturnValue::Int(len));
         Ok(())
     }
 }

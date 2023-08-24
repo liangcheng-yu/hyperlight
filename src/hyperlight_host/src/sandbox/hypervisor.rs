@@ -20,9 +20,11 @@ pub struct HypervisorWrapper<'a> {
     outb_hdl: OutBHandlerWrapper<'a>,
     mem_access_hdl: MemAccessHandlerWrapper<'a>,
 }
-
+/// A trait for getting a `HypervisorWrapper` from a type
 pub trait HypervisorWrapperMgr<'a> {
+    /// Get the immutable `HypervisorWrapper`
     fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper<'a>;
+    /// Get the mutable `HypervisorWrapper`
     fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper<'a>;
 }
 
@@ -38,13 +40,14 @@ impl<'a> HypervisorWrapper<'a> {
             mem_access_hdl,
         }
     }
+    /// Get an immutable contained `Hypervisor` if it exists
     pub fn get_hypervisor(&self) -> Result<&dyn Hypervisor> {
         self.hv
             .as_ref()
             .map(|h| h.as_ref())
             .ok_or(anyhow!("no hypervisor available for sandbox"))
     }
-
+    /// Get an mutable contained `Hypervisor` if it exists
     pub fn get_hypervisor_mut(&mut self) -> Result<&mut dyn Hypervisor> {
         match self.hv.as_mut() {
             None => bail!("no hypervisor available for sandbox"),
@@ -80,11 +83,13 @@ impl<'a> HypervisorWrapper<'a> {
         GuestPtr::try_from(RawPtr::from(orig_rsp))
     }
 
+    /// Reset the stack pointer
     pub fn reset_rsp(&mut self, new_rsp: GuestPtr) -> Result<()> {
         let hv = self.get_hypervisor_mut()?;
         hv.reset_rsp(new_rsp.absolute()?)
     }
 
+    /// Dispacth a call from the host to the guest
     pub fn dispatch_call_from_host(&mut self, dispatch_func_addr: GuestPtr) -> Result<()> {
         let outb_hdl = self.outb_hdl.clone();
         let mem_access_hdl = self.mem_access_hdl.clone();

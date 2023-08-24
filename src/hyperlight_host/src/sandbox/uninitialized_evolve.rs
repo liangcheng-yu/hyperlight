@@ -37,7 +37,7 @@ pub(super) fn evolve_impl<'a>(
     let outb_wrapper = u_sbox.get_hypervisor_wrapper().get_outb_hdl_wrapper();
     let run_from_proc_mem = u_sbox.run_from_process_memory;
     if run_from_proc_mem {
-        evolve_in_proc(u_sbox, outb_wrapper)
+        evolve_in_proc(&mut u_sbox, outb_wrapper)?;
     } else {
         let mem_mgr = {
             // we are gonna borrow u_sbox mutably below in our
@@ -56,13 +56,12 @@ pub(super) fn evolve_impl<'a>(
             let hv = &mut u_sbox.hv;
             hv.initialise(&mem_mgr)
         }?;
-
-        if let Some(cb) = cb_opt {
-            cb(&mut u_sbox)?;
-        }
-
-        Ok(Sandbox::from(u_sbox))
     }
+    if let Some(cb) = cb_opt {
+        cb(&mut u_sbox)?;
+    }
+
+    Ok(Sandbox::from(u_sbox))
 }
 
 #[cfg(target_os = "windows")]
@@ -81,10 +80,10 @@ extern "C" fn call_outb(ptr: *mut Arc<Mutex<dyn OutBHandlerCaller>>, port: u16, 
     Box::leak(outb_handlercaller);
 }
 
-fn evolve_in_proc<'a>(
-    mut u_sbox: UninitializedSandbox<'a>,
+fn evolve_in_proc(
+    u_sbox: &mut UninitializedSandbox<'_>,
     outb_hdl: OutBHandlerWrapper,
-) -> Result<Sandbox<'a>> {
+) -> Result<()> {
     #[cfg(target_os = "linux")]
     {
         // Note from old C# implementation of this function:
@@ -153,8 +152,7 @@ fn evolve_in_proc<'a>(
             let mut rng = rand::thread_rng();
             rng.gen::<u64>()
         };
-        unsafe { u_sbox.call_entry_point(RawPtr::from(peb_address), seed, page_size) }?;
-        Ok(Sandbox::from(u_sbox))
+        unsafe { u_sbox.call_entry_point(RawPtr::from(peb_address), seed, page_size) }
     }
 }
 

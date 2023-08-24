@@ -5,6 +5,7 @@ use super::{mem_access::mem_access_handler_wrapper, mem_mgr::MemMgrWrapperGetter
 use super::{
     mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper, uninitialized_evolve::evolve_impl,
 };
+
 use crate::func::host::HostFunction1;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::mem::ptr::RawPtr;
@@ -32,7 +33,7 @@ pub struct UninitializedSandbox<'a> {
     pub(crate) host_funcs: Arc<Mutex<HostFuncsWrapper<'a>>>,
     pub(crate) mgr: MemMgrWrapper,
     pub(super) hv: HypervisorWrapper<'a>,
-    pub(super) run_from_process_memory: bool,
+    pub(crate) run_from_process_memory: bool,
 }
 
 impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for UninitializedSandbox<'a> {
@@ -94,9 +95,18 @@ impl<'a>
     /// run your own code during the transition, use the `EvolvableSandbox`
     /// implementation that accepts a `MutatingCallback`
     fn evolve(self, _: Noop<UninitializedSandbox<'a>, Sandbox<'a>>) -> Result<Sandbox<'a>> {
+        // TODO: the following if statement is to stop evovle_impl being called when we run in proc (it ends up calling the entrypoint in the guest twice)
+        // Since we are not using the NOOP version of evolve in Hyperlight WASM we can use the if statement below to avoid the call to evolve_impl
+        // Once we fix up the Hypervisor C API this should be removed and replaced with the code commented out on line 106
+        let i_sbox = if self.run_from_process_memory {
+            Ok(Sandbox::from(self))
+        } else {
+            evolve_impl(self, None)
+        }?;
+        //let i_sbox = evolve_impl(self, None)?;
         // TODO: snapshot memory here so we can take the returned
         // Sandbox and revert back to an UninitializedSandbox
-        Ok(Sandbox::from(self))
+        Ok(i_sbox)
     }
 }
 

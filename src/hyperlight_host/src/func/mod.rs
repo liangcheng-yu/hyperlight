@@ -25,8 +25,11 @@ pub(crate) mod ret_type;
 /// supported in Hyperlight.
 pub(crate) mod types;
 
-use self::types::{ParameterValue, ReturnValue};
+pub use ret_type::SupportedReturnType;
 use std::sync::{Arc, Mutex};
+pub use types::ParameterValue;
+pub use types::ReturnType;
+pub use types::ReturnValue;
 
 type HLFunc<'a> =
     Arc<Mutex<Box<dyn FnMut(Vec<ParameterValue>) -> anyhow::Result<ReturnValue> + 'a + Send>>>;
@@ -48,3 +51,8 @@ impl<'a> HyperlightFunction<'a> {
         f(args)
     }
 }
+
+/// Re-export for `get_stack_boundary` function
+pub use exports::get_stack_boundary;
+/// Re-export for `HostFunction0` trait
+pub use host::HostFunction0;

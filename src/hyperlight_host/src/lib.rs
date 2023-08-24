@@ -44,8 +44,8 @@
 /// handle_free(sbox_hdl);
 /// context_free(ctx);
 /// ```
-#[deny(dead_code, missing_docs, unused_mut)]
 pub mod capi;
+#[deny(dead_code, missing_docs, unused_mut)]
 /// Dealing with errors, including errors across VM boundaries
 pub(crate) mod error;
 /// FlatBuffers-related utilities and (mostly) generated code
@@ -106,6 +106,30 @@ pub mod sandbox_state;
 #[cfg(test)]
 pub(crate) mod testing;
 
+/// The re-export for `get_stack_boundary` function
+pub use func::get_stack_boundary;
+/// Re-export for `HostFunction0` trait
+pub use func::HostFunction0;
+/// The re-export for the `SandboxMemoryConfiguration` type
+pub use mem::SandboxMemoryConfiguration;
+/// The re-export for the `is_hypervisor_present` type
+pub use sandbox::is_hypervisor_present;
+/// The re-export for the `GuestBinary` type
+pub use sandbox::uninitialized::GuestBinary;
+/// Re-export for `CallGuestFunction` trait
+pub use sandbox::CallGuestFunction;
+/// Re-export for `ExecutingGuestCall` type
+pub use sandbox::ExecutingGuestCall;
+/// Re-export for `GuestMgr` trait
+pub use sandbox::GuestMgr;
+/// Re-export for `HypervisorWrapper` trait
+pub use sandbox::HypervisorWrapper;
+/// Re-export for `HypervisorWrapperMgr` type
+pub use sandbox::HypervisorWrapperMgr;
+/// Re-export for `MemMgrWrapper` type
+pub use sandbox::MemMgrWrapper;
+/// Re-export for `MemMgrWrapperGetter` trait
+pub use sandbox::MemMgrWrapperGetter;
 /// The re-export for the `Sandbox` type
 pub use sandbox::Sandbox;
 /// The re-export for the `SandboxRunOptions` type

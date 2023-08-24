@@ -103,6 +103,7 @@ jobs:
       run:  dotnet run -c ${{ matrix.config }} -- -nowait
       working-directory: src/examples/NativeHost
     - name: Upload Test Results
+      if: always()
       uses: actions/upload-artifact@v3
       with:
         name: test-results-${{ matrix.config }}
@@ -215,7 +216,8 @@ jobs:
       shell: bash
       run: dotnet test -c ${{ matrix.config }} --logger "trx;verbosity=detailed;LogFilePrefix=linux-${{ matrix.config }}-${{ matrix.hypervisor }}" --blame
       working-directory: src/tests/Hyperlight.Tests
-    - name: Upload Artifacts
+    - name: Upload Test Results
+      if: always()        
       uses: actions/upload-artifact@v3
       with:
         name: test-results-${{ matrix.config }}-${{ matrix.hypervisor }}

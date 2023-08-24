@@ -7,12 +7,16 @@ use tracing::instrument;
 
 pub type StackCookie = [u8; STACK_COOKIE_LEN];
 
+/// A trait that gets the memory manager wrapper.
 pub trait MemMgrWrapperGetter {
+    /// Get an immutable reference to the memory manager wrapper.
     fn get_mem_mgr_wrapper(&self) -> &MemMgrWrapper;
+    /// Get a mutable reference to the memory manager wrapper.
     fn get_mem_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper;
 }
 
 #[derive(Clone)]
+/// A wrapper around the memory manager and stack cookie.
 pub struct MemMgrWrapper(SandboxMemoryManager, StackCookie);
 
 impl MemMgrWrapper {

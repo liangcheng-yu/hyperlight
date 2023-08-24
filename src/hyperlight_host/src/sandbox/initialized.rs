@@ -25,18 +25,22 @@ use std::sync::{Arc, Mutex};
 pub struct ExecutingGuestCall(Arc<AtomicI32>);
 
 impl ExecutingGuestCall {
+    /// Create a new `ExecutingGuestCall` with the provided value.
     pub fn new(val: i32) -> Self {
         Self(Arc::new(AtomicI32::new(val)))
     }
 
+    /// Load the value of the `ExecutingGuestCall`.
     pub fn load(&self) -> i32 {
         self.0.load(std::sync::atomic::Ordering::SeqCst)
     }
 
+    /// Store a value in the `ExecutingGuestCall`.
     pub fn store(&self, val: i32) {
         self.0.store(val, std::sync::atomic::Ordering::SeqCst);
     }
 
+    /// Compare and exchange the value of the `ExecutingGuestCall`.
     pub fn compare_exchange(&self, current: i32, new: i32) -> Result<i32> {
         self.0
             .compare_exchange(
@@ -72,7 +76,8 @@ pub struct Sandbox<'a> {
     mgr: MemMgrWrapper,
     executing_guest_call: ExecutingGuestCall,
     needs_state_reset: bool,
-    num_runs: i32,
+    /// The number of times that this Sandbox has been run
+    pub num_runs: i32,
     hv: HypervisorWrapper<'a>,
 }
 

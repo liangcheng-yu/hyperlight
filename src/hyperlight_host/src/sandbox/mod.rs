@@ -24,10 +24,26 @@ pub(crate) mod uninitialized;
 /// initialized `Sandbox`es.
 mod uninitialized_evolve;
 
+/// Re-export for `CallGuestFunction` trait
+pub use guest_funcs::CallGuestFunction;
+/// Re-export for `GuestMgr` trait
+pub use guest_mgr::GuestMgr;
+/// Re-export for `HypervisorWrapper` trait
+pub use hypervisor::HypervisorWrapper;
+/// Re-export for `HypervisorWrapperMgr` type
+pub use hypervisor::HypervisorWrapperMgr;
+/// Re-export for `ExecutingGuestCall` type
+pub use initialized::ExecutingGuestCall;
 /// Re-export for `Sandbox` type
 pub use initialized::Sandbox;
+/// Re-export for `MemMgrWrapper` type
+pub use mem_mgr::MemMgrWrapper;
+/// Re-export for `MemMgrWrapperGetter` trait
+pub use mem_mgr::MemMgrWrapperGetter;
 /// Re-export for `SandboxRunOptions` type
 pub use run_options::SandboxRunOptions;
+/// Re-export for `GuestBinary` type
+pub use uninitialized::GuestBinary;
 /// Re-export for `UninitializedSandbox` type
 pub use uninitialized::UninitializedSandbox;
 
@@ -87,7 +103,7 @@ impl<'a> Eq for FunctionsMap<'a> {}
 /// this sandbox.
 ///
 //  Returns a boolean indicating whether a suitable hypervisor is present.
-pub(crate) fn is_hypervisor_present() -> bool {
+pub fn is_hypervisor_present() -> bool {
     #[cfg(target_os = "linux")]
     {
         hyperv_linux::is_hypervisor_present().unwrap_or(false)

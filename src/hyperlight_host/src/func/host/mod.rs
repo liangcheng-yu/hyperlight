@@ -14,7 +14,8 @@ use anyhow::Result;
 use std::sync::{Arc, Mutex};
 
 /// A host function that takes no arguments and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait HostFunction0<'a, R: SupportedReturnType<R>> {
+pub trait HostFunction0<'a, R: SupportedReturnType<R>> {
+    /// Register the host function with the sandbox.
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 

@@ -39,6 +39,16 @@ impl HostFunctionDetails {
         }
     }
 
+    /// Sort the host functions by name.
+    pub(crate) fn sort_host_functions_by_name(&mut self) {
+        match &mut self.host_functions {
+            Some(host_functions) => {
+                host_functions.sort_by(|a, b| a.function_name.cmp(&b.function_name))
+            }
+            None => {}
+        }
+    }
+
     /// Write the host function details to the shared memory.
     pub(crate) fn write_to_memory(
         self,

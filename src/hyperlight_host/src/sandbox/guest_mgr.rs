@@ -1,6 +1,7 @@
 use super::initialized::ExecutingGuestCall;
 use log::error;
 
+/// The Guest Manager trait
 pub trait GuestMgr {
     /// Get an immutable reference to the internally-stored
     /// `executing_guest_call` flag

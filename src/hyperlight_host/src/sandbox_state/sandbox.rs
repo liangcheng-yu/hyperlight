@@ -27,6 +27,10 @@ pub trait UninitializedSandbox<'a>: Sandbox {
     fn get_uninitialized_sandbox(&self) -> &crate::sandbox::UninitializedSandbox<'a>;
 
     fn get_uninitialized_sandbox_mut(&mut self) -> &mut crate::sandbox::UninitializedSandbox<'a>;
+
+    fn is_running_in_process(&self) -> bool {
+        self.get_uninitialized_sandbox().run_from_process_memory
+    }
 }
 
 /// A utility trait to recognize a Sandbox that has been initialized.

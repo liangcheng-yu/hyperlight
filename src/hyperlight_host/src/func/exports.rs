@@ -4,9 +4,12 @@ use std::time::{Duration, SystemTimeError};
 #[cfg(target_os = "windows")]
 use windows::Win32::System::Threading::GetCurrentThreadStackLimits;
 
+// TODO: this function is only required by WASM Guest, it should be moved to the Rust implementation of Hyperlight WASM
+// This can only be done once we have a Rust implementation of Hyperlight and a C API for the Rust implementation of Hyperlight WASM.
+
 /// This is required by os_thread_get_stack_boundary() in WAMR
 /// (which is needed to handle AOT compiled WASM)
-pub(crate) fn get_stack_boundary() -> Result<u64> {
+pub fn get_stack_boundary() -> Result<u64> {
     #[cfg(target_os = "linux")]
     {
         //TODO: This should be implemented for Linux if we re-enable in process support on Linux.
@@ -34,6 +37,7 @@ pub(crate) fn get_stack_boundary() -> Result<u64> {
     }
 }
 
+// TODO: this function is only required by WASM Guest, it should be removed. The Rust implementation of Hyperlight WASM has its own implementation, but this can only be done once we have a C API for the Rust implementation of Hyperlight WASM.
 /// Get the time since the Unix Epoch as a `Duration`.
 ///
 /// Required by `os_time_get_boot_microsecond()` in WAMR for
@@ -45,10 +49,11 @@ pub(crate) fn get_stack_boundary() -> Result<u64> {
 ///
 /// While this problem is unlikely to be a problem for short-lived
 /// VMs, the failure mode is nevertheless being exposed to callers.
-pub(crate) fn get_dur_since_epoch() -> Result<Duration, SystemTimeError> {
+pub fn get_dur_since_epoch() -> Result<Duration, SystemTimeError> {
     SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
 }
 
+// TODO: once the C API for the Hyperlight is done this function should be removed.
 pub(crate) fn get_os_page_size() -> usize {
     page_size::get()
 }

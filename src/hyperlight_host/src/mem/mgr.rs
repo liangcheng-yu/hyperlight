@@ -516,7 +516,7 @@ impl SandboxMemoryManager {
     }
 
     /// Reads a function call result from memory
-    pub(crate) fn get_function_call_result(&mut self) -> Result<ReturnValue> {
+    pub(crate) fn get_function_call_result(&self) -> Result<ReturnValue> {
         ReturnValue::try_from((&self.shared_mem, &self.layout))
     }
 
