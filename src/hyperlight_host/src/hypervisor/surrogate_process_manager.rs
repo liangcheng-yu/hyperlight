@@ -4,8 +4,12 @@ use anyhow::{anyhow, bail, Result};
 use core::ffi::c_void;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use log::error;
+use rust_embed::RustEmbed;
+use std::fs::File;
+use std::io::Write;
 use std::mem::size_of;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use tracing::info;
 use windows::core::PCSTR;
 use windows::s;
 use windows::Win32::Foundation::{GetLastError, HANDLE};
@@ -19,6 +23,12 @@ use windows::Win32::System::Memory::{VirtualAllocEx, MEM_COMMIT, MEM_RESERVE, PA
 use windows::Win32::System::Threading::{
     CreateProcessA, CREATE_SUSPENDED, PROCESS_INFORMATION, STARTUPINFOA,
 };
+
+// TODO: get folder from env var that the cargo build script sets
+#[derive(RustEmbed)]
+#[folder = "$SURROGATE_DIR"]
+#[include = "HyperlightSurrogate.exe"]
+struct Asset;
 
 /// This is the name of the surrogate process binary that will be used to create surrogate processes.
 /// The process does nothing , it just sleeps forever. Its only purpose is to provide a host for memory that will be mapped
@@ -86,23 +96,10 @@ pub(crate) struct SurrogateProcessManager {
 
 impl SurrogateProcessManager {
     fn new() -> Result<Self> {
-        // TODO: we need a better way to package and locate
-        // the surrogate process binary. see the following GH issue for
-        // more detail:
-        //
-        // https://github.com/deislabs/hyperlight/issues/852
-        let surrogate_process_path = std::env::current_exe()?
-            .parent()
-            .ok_or("could not get parent directory of current executable")
-            .map_err(|e| anyhow!(e))?
-            .join(SURROGATE_PROCESS_BINARY_NAME);
+        ensure_surrogate_process_exe()?;
+        let surrogate_process_path =
+            get_surrogate_process_dir()?.join(SURROGATE_PROCESS_BINARY_NAME);
 
-        if !Path::new(&surrogate_process_path).exists() {
-            bail!(
-                "get_surrogate_process_manager: file {} does not exist",
-                &surrogate_process_path.display()
-            );
-        }
         let (sender, receiver) = unbounded();
         let job_handle = create_job_object()?;
         let surrogate_process_manager = SurrogateProcessManager {
@@ -236,6 +233,37 @@ fn create_job_object() -> Result<HANDLE> {
     Ok(job_object)
 }
 
+fn get_surrogate_process_dir() -> Result<PathBuf> {
+    let binding = std::env::current_exe()?;
+    let path = binding
+        .parent()
+        .ok_or("could not get parent directory of current executable")
+        .map_err(|e| anyhow!(e))?;
+
+    Ok(path.to_path_buf())
+}
+
+fn ensure_surrogate_process_exe() -> Result<()> {
+    let surrogate_process_path = get_surrogate_process_dir()?.join(SURROGATE_PROCESS_BINARY_NAME);
+
+    if !Path::new(&surrogate_process_path).exists() {
+        info!(
+            "{} does not exit, copying to {}",
+            SURROGATE_PROCESS_BINARY_NAME,
+            &surrogate_process_path.display()
+        );
+
+        let exe = Asset::get(SURROGATE_PROCESS_BINARY_NAME)
+            .ok_or("could not find embedded surrogate binary")
+            .map_err(|e| anyhow!(e))?;
+
+        let mut f = File::create(&surrogate_process_path)?;
+        f.write_all(exe.data.as_ref())?;
+    }
+
+    Ok(())
+}
+
 /// Creates a surrogate process and adds it to the job object.
 /// Process is created suspended, its only used as a host for memory
 /// the memory is allocated and freed when the process is returned to the pool.
@@ -291,7 +319,6 @@ fn create_surrogate_process(surrogate_process_path: &Path, job_handle: &HANDLE) 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testing::surrogate_binary::copy_surrogate_exe;
     use rand::{thread_rng, Rng};
     use serial_test::serial;
     use std::ffi::CStr;
@@ -308,8 +335,6 @@ mod tests {
     #[test]
     #[serial]
     fn test_surrogate_process_manager() {
-        assert!(copy_surrogate_exe());
-
         let mut threads = Vec::new();
         // create more threads than surrogate processes as we want to test that
         // the manager can handle multiple threads requesting processes at the

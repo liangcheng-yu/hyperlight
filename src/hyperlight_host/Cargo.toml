@@ -35,7 +35,11 @@ tracing-log = "0.1.3"
 tracing-core = "0.1.31"
 uuid = { version = "1.4.1", features = ["v4"] }
 tracing-subscriber = { version = "0.3.17", features = ["json"] }
+<<<<<<< HEAD
 hyperlight_testing = { path = "../hyperlight_testing"}
+=======
+rust-embed = { version = "8.0.0", features = ["include-exclude", "interpolate-folder-path"] }
+>>>>>>> 74ba51f (Using rust-embed to embed HyperlightSurrogate.exe into hyperlight_host)
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.48.0", features = [

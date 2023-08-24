@@ -341,7 +341,6 @@ pub mod tests {
             tests::test_initialise,
         },
         mem::{layout::SandboxMemoryLayout, ptr::GuestPtr, ptr_offset::Offset},
-        testing::surrogate_binary::copy_surrogate_exe,
     };
     use serial_test::serial;
     use std::sync::{Arc, Mutex};
@@ -354,8 +353,6 @@ pub mod tests {
     #[test]
     #[serial]
     fn test_init() {
-        assert!(copy_surrogate_exe());
-
         let outb_handler = {
             let func: Box<dyn FnMut(u16, u64) -> anyhow::Result<()> + Send> =
                 Box::new(|_, _| -> anyhow::Result<()> { Ok(()) });
