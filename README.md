@@ -25,6 +25,8 @@ This repo contains Hyperlight along with a couple of sample guest applications t
 - [src/NativeHost](./src/examples/NativeHost) - This is a "driver" program used for testing. It knows how to run the Hyperlight Guest programs applications that live within the `src/test/Guests` directory (see below) within sandboxes. If you are developing Hyperlight itself, you'll need this program, but if you're using the library to build your own applications, you won't need this project.
 - [src/HyperlightSurrogate](./src/HyperlightSurrogate) - This is a tiny application that is simply used as a sub-process for the host. When the host runs on Windows with the Windows Hypervisor Platform (WHP, e.g. Hyper-V), it launches several of these surrogates, assigns memory to them, and then launches partitions from there.
   - The use of surrogates is a temporary workaround on Windows until WHP allows us to create more than one partition per running process.
+  
+  Note: for the rust implementation of hyperlight the surrogate binary gets embeded into the `hyperlight_host` library and extracted at runtime.
 - [src/tests](./src/tests) - Tests for the host
   - [src/test/Guests](./src/tests/Guests) This directory contains two Hyperlight Guest programs written in C, which are intended to be launched within partitions as "guests".
   - Some of the Rust tests use [proptest](https://docs.rs/proptest/latest/proptest/index.html) to do property-based testing (a [QuickCheck](https://en.wikipedia.org/wiki/QuickCheck) variant specifically). Read more about `proptest` in the [`proptest` book](https://altsysrq.github.io/proptest-book/), and in this useful [LogRocket blog post](https://blog.logrocket.com/property-based-testing-in-rust-with-proptest/).

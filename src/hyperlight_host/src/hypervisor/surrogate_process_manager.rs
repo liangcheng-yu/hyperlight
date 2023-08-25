@@ -5,7 +5,7 @@ use core::ffi::c_void;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use log::error;
 use rust_embed::RustEmbed;
-use std::fs::File;
+use std::fs::{remove_file, File};
 use std::io::Write;
 use std::mem::size_of;
 use std::path::{Path, PathBuf};
@@ -24,7 +24,10 @@ use windows::Win32::System::Threading::{
     CreateProcessA, CREATE_SUSPENDED, PROCESS_INFORMATION, STARTUPINFOA,
 };
 
-// TODO: get folder from env var that the cargo build script sets
+// Use the rust-embed crate to embed the HyperlightSurrogate.exe
+// binary in the hyperlight_host library to make dependency management easier.
+// $SURROGATE_DIR is set by hyperlight_host's build.rs script.
+// https://docs.rs/rust-embed/latest/rust_embed/
 #[derive(RustEmbed)]
 #[folder = "$SURROGATE_DIR"]
 #[include = "HyperlightSurrogate.exe"]
@@ -237,16 +240,29 @@ fn get_surrogate_process_dir() -> Result<PathBuf> {
     let binding = std::env::current_exe()?;
     let path = binding
         .parent()
-        .ok_or("could not get parent directory of current executable")
-        .map_err(|e| anyhow!(e))?;
+        .ok_or_else(|| anyhow!("could not get parent directory of current executable"))?;
 
     Ok(path.to_path_buf())
 }
 
 fn ensure_surrogate_process_exe() -> Result<()> {
     let surrogate_process_path = get_surrogate_process_dir()?.join(SURROGATE_PROCESS_BINARY_NAME);
+    let p = Path::new(&surrogate_process_path);
 
-    if !Path::new(&surrogate_process_path).exists() {
+    #[cfg(debug_assertions)]
+    {
+        // In debug build we want to always update the surrogate binary
+        // so delete it if it exists.
+        if p.exists() {
+            info!(
+                "deleting surrogate binary at {}",
+                &surrogate_process_path.display()
+            );
+            remove_file(p)?;
+        }
+    }
+
+    if !p.exists() {
         info!(
             "{} does not exit, copying to {}",
             SURROGATE_PROCESS_BINARY_NAME,
@@ -254,8 +270,7 @@ fn ensure_surrogate_process_exe() -> Result<()> {
         );
 
         let exe = Asset::get(SURROGATE_PROCESS_BINARY_NAME)
-            .ok_or("could not find embedded surrogate binary")
-            .map_err(|e| anyhow!(e))?;
+            .ok_or_else(|| anyhow!("could not find embedded surrogate binary"))?;
 
         let mut f = File::create(&surrogate_process_path)?;
         f.write_all(exe.data.as_ref())?;
