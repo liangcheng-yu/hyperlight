@@ -5,7 +5,7 @@ use core::ffi::c_void;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use log::error;
 use rust_embed::RustEmbed;
-use std::fs::{remove_file, File};
+use std::fs::File;
 use std::io::Write;
 use std::mem::size_of;
 use std::path::{Path, PathBuf};
@@ -258,7 +258,7 @@ fn ensure_surrogate_process_exe() -> Result<()> {
                 "deleting surrogate binary at {}",
                 &surrogate_process_path.display()
             );
-            remove_file(p)?;
+            std::fs::remove_file(p)?;
         }
     }
 
