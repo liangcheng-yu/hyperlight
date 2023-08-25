@@ -61,7 +61,7 @@ jobs:
       - name: fmt
         run: cargo fmt --all -- --check
       - name: clippy
-        run: cargo clippy --all-targets --all-features --profile=${{ matrix.config }} -- -D warnings 
+        run: just clippy ${{ matrix.config }}
       - name: Install Just
         uses: extractions/setup-just@v1
         env:

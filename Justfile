@@ -62,8 +62,8 @@ fmt-check:
     cargo fmt --all -- --check
 fmt: 
     cargo fmt
-clippy:
-    cargo clippy --all-targets --all-features -- -D warnings
+clippy target=default-target:
+    cargo clippy --all-targets --all-features --profile={{ if target == "debug" {"dev"} else { target } }} -- -D warnings
 
 clippy-apply-fix-unix:
     cargo clippy --fix --all
