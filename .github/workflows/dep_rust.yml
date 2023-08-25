@@ -58,16 +58,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.71.0
         with:
           components: clippy, rustfmt
-      - name: fmt
-        run: cargo fmt --all -- --check
-      - name: clippy
-        run: just clippy ${{ matrix.config }}
       - name: Install Just
         uses: extractions/setup-just@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           just-version: '1.5.0' # optional semver specification, otherwise latest
+      - name: fmt
+        run: cargo fmt --all -- --check
+      - name: clippy
+        run: just clippy ${{ matrix.config }}
       - name: Enable WHP on Windows
         if: ${{ (runner.os == 'Windows')}}
         run: Enable-WindowsOptionalFeature -Online -FeatureName HyperVisorPlatform
