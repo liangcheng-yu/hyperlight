@@ -72,7 +72,7 @@ The previous sections detailed how to create C APIs from Rust, which is most of 
 A C# "stub" is a function declaration, written in C# syntax, for an external function (common .Net terminology for this is a "P/Invoke function"). Such a function commonly looks like this:
 
 ```csharp
-[DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+[DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
 [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
 private static extern NativeHandle ${FUNC_NAME}(
     NativeContext context,

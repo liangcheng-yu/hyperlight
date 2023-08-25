@@ -29,9 +29,10 @@ use tracing::instrument;
 /// call either `initialize` or `evolve to transform your
 /// `UninitializedSandbox` into an initialized `Sandbox`.
 pub struct UninitializedSandbox<'a> {
-    // Registered host functions
-    pub(crate) host_funcs: Arc<Mutex<HostFuncsWrapper<'a>>>,
-    pub(crate) mgr: MemMgrWrapper,
+    /// Registered host functions
+    pub host_funcs: Arc<Mutex<HostFuncsWrapper<'a>>>,
+    /// The memory manager for the sandbox.
+    pub mgr: MemMgrWrapper,
     pub(super) hv: HypervisorWrapper<'a>,
     pub(crate) run_from_process_memory: bool,
 }
@@ -230,7 +231,9 @@ impl<'a> UninitializedSandbox<'a> {
     }
 
     /// Call the entry point inside this `Sandbox`
-    pub(crate) unsafe fn call_entry_point(
+    ///
+    /// # Safety
+    pub unsafe fn call_entry_point(
         &self,
         peb_address: RawPtr,
         seed: u64,
@@ -304,17 +307,16 @@ impl<'a> UninitializedSandbox<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::testing::log_values::try_to_strings;
     use crate::{
         func::{
             host::{HostFunction1, HostFunction2},
             types::{ParameterValue, ReturnValue},
         },
         mem::config::SandboxMemoryConfiguration,
-        sandbox::uninitialized::GuestBinary,
-        testing::simple_guest_path,
-        UninitializedSandbox,
+        sandbox::{mem_mgr::MemMgrWrapperGetter, uninitialized::GuestBinary},
+        Sandbox, SandboxRunOptions, UninitializedSandbox,
     };
-    use crate::{sandbox::mem_mgr::MemMgrWrapperGetter, SandboxRunOptions};
     use crate::{
         sandbox_state::sandbox::EvolvableSandbox,
         testing::{
@@ -322,10 +324,10 @@ mod tests {
             logger::LOGGER as TEST_LOGGER, tracing_subscriber::TracingSubscriber as TestSubcriber,
         },
     };
-    use crate::{sandbox_state::transition::MutatingCallback, Sandbox};
-    use crate::{sandbox_state::transition::Noop, testing::log_values::try_to_strings};
+    use crate::{sandbox_state::transition::MutatingCallback, sandbox_state::transition::Noop};
     use anyhow::{anyhow, Result};
     use crossbeam_queue::ArrayQueue;
+    use hyperlight_testing::simple_guest_path;
     use log::Level;
     use serde_json::{Map, Value};
     use serial_test::serial;

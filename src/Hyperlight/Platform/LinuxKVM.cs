@@ -14,7 +14,7 @@ namespace Hyperlight.Native
 
         //TODO: investigate why we cannot use SafeDirectory here
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         [return: MarshalAs(UnmanagedType.U1)]
         private static extern bool is_kvm_present();

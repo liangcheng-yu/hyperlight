@@ -53,7 +53,8 @@ pub fn get_dur_since_epoch() -> Result<Duration, SystemTimeError> {
     SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
 }
 
+/// Get the page size for the operating system
 // TODO: once the C API for the Hyperlight is done this function should be removed.
-pub(crate) fn get_os_page_size() -> usize {
+pub fn get_os_page_size() -> usize {
     page_size::get()
 }

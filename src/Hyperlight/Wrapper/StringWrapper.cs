@@ -76,7 +76,7 @@ namespace Hyperlight.Wrapper
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
 #pragma warning disable CA2101 // Specify marshaling for P/Invoke string arguments
 
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern unsafe NativeHandle string_new(
             NativeContext ctx,

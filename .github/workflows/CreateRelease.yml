@@ -145,11 +145,11 @@ jobs:
           ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib
           src/HyperlightGuest/include/hyperlight.h
           src/HyperlightGuest/third_party/printf/printf.h
-          hyperlight_host.h
-          libhyperlight_host.so
-          libhyperlight_host.d
-          hyperlight_host.dll
-          hyperlight_host.pdb
+          hyperlight_capi.h
+          libhyperlight_capi.so
+          libhyperlight_capi.d
+          hyperlight_capi.dll
+          hyperlight_capi.pdb
     - name: Create Release (latest)
       # Only create a latest release if we are on the dev branch
       if: ${{ github.ref=='refs/heads/dev' }}
@@ -168,11 +168,11 @@ jobs:
           ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib
           src/HyperlightGuest/include/hyperlight.h
           src/HyperlightGuest/third_party/printf/printf.h
-          hyperlight_host.h
-          libhyperlight_host.so
-          libhyperlight_host.d
-          hyperlight_host.dll
-          hyperlight_host.pdb
+          hyperlight_capi.h
+          libhyperlight_capi.so
+          libhyperlight_capi.d
+          hyperlight_capi.dll
+          hyperlight_capi.pdb
           src/Hyperlight/bin/x64/Debug/Deislabs.HyperLight.*.nupkg
           src/Hyperlight/bin/x64/Debug/Deislabs.HyperLight.*.snupkg
           src/HyperlightDependencies/bin/x64/Debug/Deislabs.HyperlightDependencies.*.nupkg
@@ -200,20 +200,20 @@ jobs:
         with:
           name: Debug_assets
           path: | 
-            target/debug/libhyperlight_host.so
-            target/debug/libhyperlight_host.d
+            target/debug/libhyperlight_capi.so
+            target/debug/libhyperlight_capi.d
       - name: Upload shared object file for release
         uses: actions/upload-artifact@v3
         with:
           name: Release_assets
           path: | 
-            target/release/libhyperlight_host.so
-            target/release/libhyperlight_host.d
+            target/release/libhyperlight_capi.so
+            target/release/libhyperlightcapi.d
       - name: Upload header file
         uses: actions/upload-artifact@v3
         with:
-          name: hyperlight_host.h
-          path: src/hyperlight_host/include/hyperlight_host.h
+          name: hyperlight_capi.h
+          path: src/hyperlight_cpi/include/hyperlight_capi.h
   build-rust-windows:
     # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
     if:  ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }} 
@@ -232,10 +232,10 @@ jobs:
         with:
           name: Debug_assets
           path: |
-            target/debug/hyperlight_host.dll
-            target/debug/hyperlight_host.pdb
+            target/debug/hyperlight_capi.dll
+            target/debug/hyperlight_capi.pdb
       - name: Upload release DLL file
         uses: actions/upload-artifact@v3
         with:
           name: Release_assets
-          path: target/release/hyperlight_host.dll
+          path: target/release/hyperlight_capi.dll

@@ -48,12 +48,10 @@ where
 }
 
 /// A host function that takes 1 argument P1 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait HostFunction1<
-    'a,
-    P1: SupportedParameterType<P1> + Clone + 'a,
-    R: SupportedReturnType<R>,
->
+/// A Hyperlight function that takes 1 argument P1 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
+pub trait HostFunction1<'a, P1: SupportedParameterType<P1> + Clone + 'a, R: SupportedReturnType<R>>
 {
+    /// Registers `self` with the given `UninitializedSandbox` under the given name `name`.
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 

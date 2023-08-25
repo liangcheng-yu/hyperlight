@@ -26,12 +26,12 @@ namespace Hyperlight.Wrapper
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
 
 
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         [return: MarshalAs(UnmanagedType.U1)]
         private static extern bool handle_is_uint_64(NativeContext ctx, NativeHandle hdl);
 
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern ulong handle_get_uint_64(NativeContext ctx, NativeHandle hdl);
 

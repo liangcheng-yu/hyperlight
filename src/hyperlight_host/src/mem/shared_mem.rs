@@ -47,6 +47,7 @@ type Writer<'a, T> = Box<dyn Fn(T) -> Result<Vec<u8>>>;
 // Marking this type Sync is safe as it is intended to only ever used from a single thread.
 
 #[derive(Debug)]
+/// Pointer to a mutable `c_void` object.
 pub struct PtrCVoidMut(*mut c_void);
 
 impl PtrCVoidMut {
@@ -103,7 +104,7 @@ impl Drop for PtrAndSize {
 /// however, that only the last clone to be dropped will cause the underlying
 /// memory to be freed.
 #[derive(Debug)]
-pub(crate) struct SharedMemory {
+pub struct SharedMemory {
     ptr_and_size: Arc<PtrAndSize>,
 }
 
@@ -120,7 +121,7 @@ impl SharedMemory {
     /// size in bytes.
     ///
     /// Return `Err` if shared memory could not be allocated.
-    pub(crate) fn new(min_size_bytes: usize) -> Result<Self> {
+    pub fn new(min_size_bytes: usize) -> Result<Self> {
         cfg_if::cfg_if! {
             if #[cfg(unix)] {
                 use anyhow::bail;
@@ -183,7 +184,7 @@ impl SharedMemory {
     /// This function should not be used to do pointer artithmetic.
     /// Only use it to get the base address of the memory map so you
     /// can do things like calculate offsets, etc...
-    pub(crate) fn base_addr(&self) -> usize {
+    pub fn base_addr(&self) -> usize {
         self.raw_ptr() as usize
     }
 
@@ -191,7 +192,7 @@ impl SharedMemory {
     /// `[offset, offset + from_bytes.len()]` are valid, copy all
     /// bytes from `from_bytes` in order to `self` and return `Ok`.
     /// Otherwise, return `Err`.
-    pub(crate) fn copy_from_slice(&mut self, from_bytes: &[u8], offset: Offset) -> Result<()> {
+    pub fn copy_from_slice(&mut self, from_bytes: &[u8], offset: Offset) -> Result<()> {
         bounds_check!(offset, self.mem_size());
         bounds_check!(offset + from_bytes.len(), self.mem_size());
         unsafe { self.copy_from_slice_subset(from_bytes, from_bytes.len(), offset) }
@@ -227,10 +228,13 @@ impl SharedMemory {
     /// the very beginning of the guest memory (offset 0).
     ///
     /// ```rust
+    /// # use anyhow::{anyhow, Result};
+    /// # use hyperlight_host::mem::shared_mem::SharedMemory;
     /// let mut ret_vec = vec![b'\0'; 20];
-    /// shared_mem.copy_to_slice(ret_vec.as_mut_slice(), 0)?
+    /// let shared_mem = SharedMemory::new(1024).unwrap();
+    /// shared_mem.copy_to_slice(ret_vec.as_mut_slice(), 0.into());
     /// ```
-    pub(crate) fn copy_to_slice(&self, slc: &mut [u8], offset: Offset) -> Result<()> {
+    pub fn copy_to_slice(&self, slc: &mut [u8], offset: Offset) -> Result<()> {
         bounds_check!(offset, self.mem_size());
         bounds_check!(offset + slc.len(), self.mem_size());
         let src_ptr = {
@@ -277,7 +281,7 @@ impl SharedMemory {
     ///
     /// The return value is guaranteed to be the size of memory
     /// of which `self.raw_ptr()` points to the beginning.
-    pub(crate) fn mem_size(&self) -> usize {
+    pub fn mem_size(&self) -> usize {
         self.ptr_and_size.size
     }
 
@@ -307,7 +311,7 @@ impl SharedMemory {
     /// if the value between `offset` and `offset + <64 bits>`
     /// was successfully decoded to a little-endian `i64`,
     /// and `Err` otherwise.
-    pub(crate) fn read_i32(&self, offset: Offset) -> Result<i32> {
+    pub fn read_i32(&self, offset: Offset) -> Result<i32> {
         self.read(
             offset,
             Box::new(|mut c| c.read_i32::<LittleEndian>().map_err(|e| anyhow!(e))),
@@ -339,7 +343,7 @@ impl SharedMemory {
 
     /// Write `val` into shared memory at the given offset
     /// from the start of shared memory
-    pub(crate) fn write_u64(&mut self, offset: Offset, val: u64) -> Result<()> {
+    pub fn write_u64(&mut self, offset: Offset, val: u64) -> Result<()> {
         self.write(
             offset,
             val,
@@ -356,7 +360,7 @@ impl SharedMemory {
     /// If `Ok` is returned, `self` will have been modified
     /// in-place. Otherwise, no modifications will have been
     /// made.
-    pub(crate) fn write_i32(&mut self, offset: Offset, val: i32) -> Result<()> {
+    pub fn write_i32(&mut self, offset: Offset, val: i32) -> Result<()> {
         self.write(
             offset,
             val,

@@ -26,10 +26,12 @@ This repo contains Hyperlight along with a couple of sample guest applications t
 - [src/HyperlightSurrogate](./src/HyperlightSurrogate) - This is a tiny application that is simply used as a sub-process for the host. When the host runs on Windows with the Windows Hypervisor Platform (WHP, e.g. Hyper-V), it launches several of these surrogates, assigns memory to them, and then launches partitions from there.
   - The use of surrogates is a temporary workaround on Windows until WHP allows us to create more than one partition per running process.
 - [src/tests](./src/tests) - Tests for the host
-  - [`src/test/Guests](./src/tests/Guests) This directory contains two Hyperlight Guest programs written in C, which are intended to be launched within partitions as "guests".
+  - [src/test/Guests](./src/tests/Guests) This directory contains two Hyperlight Guest programs written in C, which are intended to be launched within partitions as "guests".
   - Some of the Rust tests use [proptest](https://docs.rs/proptest/latest/proptest/index.html) to do property-based testing (a [QuickCheck](https://en.wikipedia.org/wiki/QuickCheck) variant specifically). Read more about `proptest` in the [`proptest` book](https://altsysrq.github.io/proptest-book/), and in this useful [LogRocket blog post](https://blog.logrocket.com/property-based-testing-in-rust-with-proptest/).
 - [src/HyperlightDependencies](./src/HyperlightDependencies) - This directory contains a dotnet assmebly which can be used to build a wrapper around Hyperlight such as  [Hyperlight WASM](https://github.com/deislabs/hyperlight-wasm).
-- [src/hyperlight-host](./src/hyperlight_host) - This is the in-progress rewrite of the Hyperlight host into rust. See [the design document](https://hackmd.io/@arschles/hl-rust-port) for more information about this work, and see below for details on how to use this code.
+- [src/hyperlight-capi](./src/hyperlight_capi/) - C-API bindings for the in-progress rewrite of the Hyperlight host into Rust.
+- [src/hyperlight-host](./src/hyperlight_host) - This is the in-progress rewrite of the Hyperlight host into Rust. See [the design document](https://hackmd.io/@arschles/hl-rust-port) for more information about this work, and see below for details on how to use this code.
+- [src/hyperlight-testing](./src/hyperlight_testing/) - Shared testing code for Hyperlight projects build int Rust.
 
 ## Quickstart
 
@@ -152,7 +154,6 @@ Visual Studio Code does not currently support mixed mode debugging, to debug gue
 1. [cbindgen](https://github.com/eqrion/cbindgen) `cargo install cbindgen`
 1. [pwsh](https://github.com/PowerShell/PowerShell)
 1. [dotnet](https://learn.microsoft.com/en-us/dotnet/core/install/windows)
-
 
  Create powershell function to use developer shell as shell:
 

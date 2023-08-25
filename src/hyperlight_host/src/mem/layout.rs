@@ -131,61 +131,61 @@ struct GuestStack {
 ///
 
 #[derive(Copy, Clone, Debug)]
-pub(crate) struct SandboxMemoryLayout {
+pub struct SandboxMemoryLayout {
     sandbox_memory_config: SandboxMemoryConfiguration,
     /// The peb offset into this sandbox.
-    pub(crate) peb_offset: Offset,
+    pub peb_offset: Offset,
     /// The stack size of this sandbox.
-    pub(crate) stack_size: usize,
+    pub stack_size: usize,
     /// The heap size of this sandbox.
-    pub(crate) heap_size: usize,
+    pub heap_size: usize,
     /// The offset to the start of host functions within this sandbox.
-    pub(crate) host_functions_offset: Offset,
+    pub host_functions_offset: Offset,
     /// The offset to the start of host exceptions within this sandbox.
-    pub(crate) host_exception_offset: Offset,
+    pub host_exception_offset: Offset,
     /// The offset to the pointer to the guest error buffer within this sandbox.
-    pub(crate) guest_error_buffer_pointer_offset: Offset,
+    pub guest_error_buffer_pointer_offset: Offset,
     /// The offset to the size of the guest error buffer within this sandbox.
-    pub(crate) guest_error_buffer_size_offset: Offset,
+    pub guest_error_buffer_size_offset: Offset,
     /// The offset to the start of both code and the outb function
     /// pointers within this sandbox.
-    pub(crate) code_and_outb_pointer_offset: Offset,
+    pub code_and_outb_pointer_offset: Offset,
     /// The offset to the start of input data within this sandbox.
-    pub(crate) input_data_offset: Offset,
+    pub input_data_offset: Offset,
     /// The offset to the start of output data within this sandbox.
-    pub(crate) output_data_offset: Offset,
+    pub output_data_offset: Offset,
     /// The offset to the start of the guest heap within this sandbox.
-    pub(crate) heap_data_offset: Offset,
+    pub heap_data_offset: Offset,
     /// The offset to the start of the guest stack within this sandbox.
-    pub(crate) stack_data_offset: Offset,
+    pub stack_data_offset: Offset,
     /// The size of code inside this sandbox.
-    pub(crate) code_size: usize,
+    pub code_size: usize,
     /// The offset to the start of the definitions of host functions inside
     /// this sandbox.
-    pub(crate) host_function_definitions_offset: Offset,
+    pub host_function_definitions_offset: Offset,
     /// The offset to the start of the buffer for host exceptions inside
     /// this sandbox.
-    pub(crate) host_exception_buffer_offset: Offset,
+    pub host_exception_buffer_offset: Offset,
     /// The offset to the start of guest errors inside this sandbox.
-    pub(crate) guest_error_buffer_offset: Offset,
+    pub guest_error_buffer_offset: Offset,
     /// The offset to the start of the input data buffer inside this
     /// sandbox.
-    pub(crate) input_data_buffer_offset: Offset,
+    pub input_data_buffer_offset: Offset,
     /// The offset to the start of the output data buffer inside this
     /// sandbox.
-    pub(crate) output_data_buffer_offset: Offset,
+    pub output_data_buffer_offset: Offset,
     /// The offset to the start of the guest heap buffer inside this
     /// sandbox.
-    pub(crate) guest_heap_buffer_offset: Offset,
+    pub guest_heap_buffer_offset: Offset,
     /// The offset to the start of the guest stack buffer inside this
     /// sandbox.
-    pub(crate) guest_stack_buffer_offset: Offset,
+    pub guest_stack_buffer_offset: Offset,
     /// The peb address inside this sandbox.
-    pub(crate) peb_address: usize,
+    pub peb_address: usize,
     /// The offset to the guest security cookie
-    pub(crate) guest_security_cookie_seed_offset: Offset,
+    pub guest_security_cookie_seed_offset: Offset,
     /// The offset to the guest dispatch function pointer
-    pub(crate) guest_dispatch_function_ptr_offset: Offset,
+    pub guest_dispatch_function_ptr_offset: Offset,
 }
 impl SandboxMemoryLayout {
     /// Four Kilobytes (16^3 bytes) - used to round the total amount of memory
@@ -212,7 +212,7 @@ impl SandboxMemoryLayout {
     const MAX_MEMORY_SIZE: usize = 0x3FEF0000;
 
     /// The base address of the sandbox's memory.
-    pub(crate) const BASE_ADDRESS: usize = 0x0200000;
+    pub const BASE_ADDRESS: usize = 0x0200000;
 
     /// The absolute address (assuming sandbox memory starts at BASE_ADDRESS) into
     /// sandbox memory where code starts.

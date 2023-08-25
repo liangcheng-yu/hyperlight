@@ -1,18 +1,18 @@
 use anyhow::Result;
 /// Handlers for Hypervisor custom logic
-pub(crate) mod handlers;
+pub mod handlers;
 /// HyperV-on-linux functionality
 #[cfg(target_os = "linux")]
-pub(crate) mod hyperv_linux;
+pub mod hyperv_linux;
 #[cfg(target_os = "windows")]
 /// Hyperv-on-windows functionality
 pub(crate) mod hyperv_windows;
 #[cfg(target_os = "linux")]
 /// Hypervisor-generic memory utilities
-pub(crate) mod hypervisor_mem;
+pub mod hypervisor_mem;
 #[cfg(target_os = "linux")]
 /// Functionality to manipulate KVM-based virtual machines
-pub(crate) mod kvm;
+pub mod kvm;
 #[cfg(target_os = "windows")]
 /// Hyperlight Surrogate Process
 pub(crate) mod surrogate_process;

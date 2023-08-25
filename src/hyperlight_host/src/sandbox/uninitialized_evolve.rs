@@ -159,12 +159,9 @@ fn evolve_in_proc(
 #[cfg(test)]
 mod tests {
     use super::evolve_impl;
-    use crate::{
-        sandbox::uninitialized::GuestBinary,
-        testing::{callback_guest_path, simple_guest_path},
-        UninitializedSandbox,
-    };
+    use crate::{sandbox::uninitialized::GuestBinary, UninitializedSandbox};
     use anyhow::anyhow;
+    use hyperlight_testing::{callback_guest_path, simple_guest_path};
 
     #[test]
     fn test_evolve() {

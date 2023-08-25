@@ -4,7 +4,7 @@ use log::Level;
 
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub(crate) enum LogLevel {
+pub enum LogLevel {
     Trace = 0,
     Debug = 1,
     Information = 2,

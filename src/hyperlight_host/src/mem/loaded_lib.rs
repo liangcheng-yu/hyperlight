@@ -115,7 +115,7 @@ fn set_guest_binary_boolean(val: bool) -> bool {
 mod tests {
     use super::set_guest_binary_boolean;
     use super::LoadedLib;
-    use crate::testing::{simple_guest_buf, simple_guest_path};
+    use hyperlight_testing::{simple_guest_buf, simple_guest_path};
     use serial_test::serial;
 
     /// universal test for all LoadedLib-related functionality. It's necessary

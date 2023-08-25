@@ -48,7 +48,7 @@ jobs:
     - name: Remove Submodule
       run: git rm munit
       shell: pwsh   
-      working-directory: src/hyperlight_host/tests_capi
+      working-directory: src/hyperlight_capi/tests_capi
     - name: Setup dotnet
       uses: actions/setup-dotnet@v3.2.0
       with:
@@ -71,7 +71,7 @@ jobs:
       uses: microsoft/setup-msbuild@v1.3
       with:
         msbuild-architecture: x64
-    - name: Download hyperlight_host.dll
+    - name: Download hyperlight_capi.dll
       uses: actions/download-artifact@v3
       with:
         name: ${{ matrix.config}}_assets 
@@ -153,7 +153,7 @@ jobs:
     - name: Remove Submodule
       run: git rm munit
       shell: bash  
-      working-directory: src/hyperlight_host/tests_capi
+      working-directory: src/hyperlight_capi/tests_capi
     - name: Setup dotnet (not on hyperv)
       if: ${{ (matrix.hypervisor != 'hyperv') }}
       uses: actions/setup-dotnet@v3.2.0
@@ -175,7 +175,7 @@ jobs:
       with:
         name: guest-binaries-${{ matrix.config }}
         path: src/tests/Guests/
-    - name: Download libhyperlight_host.so
+    - name: Download libhyperlight_capi.so
       uses: actions/download-artifact@v3
       with:
         name: ${{ matrix.config }}_assets

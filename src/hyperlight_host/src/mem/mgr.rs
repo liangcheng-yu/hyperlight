@@ -51,10 +51,13 @@ pub struct SandboxMemoryManager {
     /// Whether or not to run a sandbox in-process
     pub(crate) run_from_process_memory: bool,
     mem_snapshot: Option<SharedMemorySnapshot>,
-    pub(crate) shared_mem: SharedMemory,
+    /// Shared memory for the Sandbox
+    pub shared_mem: SharedMemory,
     pub(crate) layout: SandboxMemoryLayout,
-    pub(crate) load_addr: RawPtr,
-    pub(crate) entrypoint_offset: Offset,
+    /// Pointer to where to load memory from
+    pub load_addr: RawPtr,
+    /// Offset for the execution entrypoint from `load_addr`
+    pub entrypoint_offset: Offset,
     /// This field must be present, even though it's not read,
     /// so that its underlying resources are properly dropped at
     /// the right time.
@@ -114,7 +117,7 @@ impl SandboxMemoryManager {
 
     /// Set up the hypervisor partition in the given `SharedMemory` parameter
     /// `shared_mem`, with the given memory size `mem_size`
-    pub(crate) fn set_up_hypervisor_partition(&mut self, mem_size: u64) -> Result<u64> {
+    pub fn set_up_hypervisor_partition(&mut self, mem_size: u64) -> Result<u64> {
         // Add 0x200000 because that's the start of mapped memory
         // For MSVC, move rsp down by 0x28.  This gives the called 'main'
         // function the appearance that rsp was was 16 byte aligned before
@@ -179,7 +182,7 @@ impl SandboxMemoryManager {
     /// For more details on PEBs, please see the following link:
     ///
     /// https://en.wikipedia.org/wiki/Process_Environment_Block
-    pub(crate) fn get_peb_address(&self, start_addr: u64) -> Result<u64> {
+    pub fn get_peb_address(&self, start_addr: u64) -> Result<u64> {
         match self.run_from_process_memory {
             true => {
                 let updated_offset = self.layout.get_in_process_peb_offset() + start_addr;
@@ -197,7 +200,7 @@ impl SandboxMemoryManager {
     /// Create a new memory snapshot of the given `SharedMemory` and
     /// store it internally. Return an `Ok(())` if the snapshot
     /// operation succeeded, and an `Err` otherwise.
-    pub(crate) fn snapshot_state(&mut self) -> Result<()> {
+    pub fn snapshot_state(&mut self) -> Result<()> {
         let snap = &mut self.mem_snapshot;
         if let Some(snapshot) = snap {
             snapshot.replace_snapshot()
@@ -211,7 +214,7 @@ impl SandboxMemoryManager {
     /// Restore memory from the pre-existing snapshot and return
     /// `Ok(())`. Return an `Err` if there was no pre-existing
     /// snapshot, or there was but there was an error restoring.
-    pub(crate) fn restore_state(&mut self) -> Result<()> {
+    pub fn restore_state(&mut self) -> Result<()> {
         let snap = &mut self.mem_snapshot;
         if let Some(snapshot) = snap {
             snapshot.restore_from_snapshot()
@@ -222,7 +225,7 @@ impl SandboxMemoryManager {
 
     /// Get the return value of an executable that ran, or an `Err`
     /// if no such return value was present.
-    pub(crate) fn get_return_value(&self) -> Result<i32> {
+    pub fn get_return_value(&self) -> Result<i32> {
         let offset = self.layout.output_data_buffer_offset;
         self.shared_mem.read_i32(offset)
     }
@@ -230,7 +233,7 @@ impl SandboxMemoryManager {
     /// Sets `addr` to the correct offset in the memory referenced by
     /// `shared_mem` to indicate the address of the outb pointer
     /// TODO: this function is only in C#. Remove it once we have a full Rust Sandbox
-    pub(crate) fn set_outb_address(&mut self, addr: u64) -> Result<()> {
+    pub fn set_outb_address(&mut self, addr: u64) -> Result<()> {
         let offset = self.layout.get_outb_pointer_offset();
         self.shared_mem.write_u64(offset, addr)
     }
@@ -253,7 +256,7 @@ impl SandboxMemoryManager {
     }
 
     /// Get the address of the dispatch function in memory
-    pub(crate) fn get_pointer_to_dispatch_function(&self) -> Result<u64> {
+    pub fn get_pointer_to_dispatch_function(&self) -> Result<u64> {
         let guest_dispatch_function_ptr = self
             .shared_mem
             .read_u64(self.layout.get_dispatch_function_pointer_offset())?;
@@ -267,14 +270,14 @@ impl SandboxMemoryManager {
     }
 
     /// Get the length of the host exception
-    pub(crate) fn get_host_error_length(&self) -> Result<i32> {
+    pub fn get_host_error_length(&self) -> Result<i32> {
         let offset = self.layout.get_host_exception_offset();
         // The host exception field is expected to contain a 32-bit length followed by the exception data.
         self.shared_mem.read_i32(offset)
     }
 
     /// Get a bool indicating if there is a host error
-    pub(crate) fn has_host_error(&self) -> Result<bool> {
+    pub fn has_host_error(&self) -> Result<bool> {
         let offset = self.layout.get_host_exception_offset();
         // The host exception field is expected to contain a 32-bit length followed by the exception data.
         let len = self.shared_mem.read_i32(offset)?;
@@ -289,7 +292,7 @@ impl SandboxMemoryManager {
     /// have this function return a Vec<u8> instead of requiring
     /// the user pass in a slice of the same length as returned by
     /// self.get_host_error_length()
-    pub(crate) fn get_host_error_data(&self, exception_data_slc: &mut [u8]) -> Result<()> {
+    pub fn get_host_error_data(&self, exception_data_slc: &mut [u8]) -> Result<()> {
         let offset = self.layout.get_host_exception_offset();
         let len = self.get_host_error_length()?;
 
@@ -335,7 +338,7 @@ impl SandboxMemoryManager {
 
     /// This function writes an error to guest memory and is intended to be
     /// used when the host's outb handler code raises an error.
-    pub(crate) fn write_outb_error(
+    pub fn write_outb_error(
         &mut self,
         guest_error_msg: &Vec<u8>,
         host_exception_data: &Vec<u8>,
@@ -372,7 +375,7 @@ impl SandboxMemoryManager {
     }
 
     /// Get the guest error data
-    pub(crate) fn get_guest_error(&self) -> Result<GuestError> {
+    pub fn get_guest_error(&self) -> Result<GuestError> {
         GuestError::try_from((&self.shared_mem, &self.layout))
     }
 
@@ -473,33 +476,34 @@ impl SandboxMemoryManager {
     }
 
     /// Writes host function details to memory
-    pub(crate) fn write_buffer_host_function_details(&mut self, buffer: &[u8]) -> Result<()> {
+    pub fn write_buffer_host_function_details(&mut self, buffer: &[u8]) -> Result<()> {
         let host_function_details = HostFunctionDetails::try_from(buffer)?;
         let layout = self.layout;
         host_function_details.write_to_memory(self.get_shared_mem_mut(), &layout)
     }
 
     /// Writes a guest function call to memory
-    pub(crate) fn write_guest_function_call(&mut self, buffer: &[u8]) -> Result<()> {
+    pub fn write_guest_function_call(&mut self, buffer: &[u8]) -> Result<()> {
         let guest_function_call = GuestFunctionCall {};
         let layout = self.layout;
         guest_function_call.write(buffer, self.get_shared_mem_mut(), &layout)
     }
 
     /// Writes a host function call to memory
-    pub(crate) fn write_host_function_call(&mut self, buffer: &[u8]) -> Result<()> {
+    pub fn write_host_function_call(&mut self, buffer: &[u8]) -> Result<()> {
         let host_function_call = HostFunctionCall {};
         let layout = self.layout;
         host_function_call.write(buffer, self.get_shared_mem_mut(), &layout)
     }
 
-    pub(crate) fn write_response_from_host_method_call(&mut self, res: &ReturnValue) -> Result<()> {
+    /// TODO:
+    pub fn write_response_from_host_method_call(&mut self, res: &ReturnValue) -> Result<()> {
         let (shared_mem, layout) = (&mut self.shared_mem, &mut self.layout);
         res.write_to_memory(shared_mem, layout)
     }
 
     /// Reads a host function call from memory
-    pub(crate) fn get_host_function_call(&self) -> Result<FunctionCall> {
+    pub fn get_host_function_call(&self) -> Result<FunctionCall> {
         let host_function_call = HostFunctionCall {};
         let layout = self.layout;
         let buffer = host_function_call.read(self.get_shared_mem(), &layout)?;
@@ -516,12 +520,12 @@ impl SandboxMemoryManager {
     }
 
     /// Reads a function call result from memory
-    pub(crate) fn get_function_call_result(&self) -> Result<ReturnValue> {
+    pub fn get_function_call_result(&self) -> Result<ReturnValue> {
         ReturnValue::try_from((&self.shared_mem, &self.layout))
     }
 
     /// Read guest log data from the `SharedMemory` contained within `self`
-    pub(crate) fn read_guest_log_data(&self) -> Result<GuestLogData> {
+    pub fn read_guest_log_data(&self) -> Result<GuestLogData> {
         GuestLogData::try_from((&self.shared_mem, self.layout))
     }
 }
@@ -580,8 +584,9 @@ mod tests {
             config::SandboxMemoryConfiguration, layout::SandboxMemoryLayout, pe::pe_info::PEInfo,
             ptr::RawPtr, ptr_offset::Offset, shared_mem::SharedMemory,
         },
-        testing::{bytes_for_path, callback_guest_buf, simple_guest_buf},
+        testing::bytes_for_path,
     };
+    use hyperlight_testing::{callback_guest_buf, simple_guest_buf};
     use serde_json::to_string;
     #[cfg(target_os = "windows")]
     use serial_test::serial;
@@ -615,7 +620,8 @@ mod tests {
     #[test]
     #[serial]
     fn load_guest_binary_using_load_library() {
-        use crate::{mem::mgr::SandboxMemoryManager, testing::simple_guest_path};
+        use crate::mem::mgr::SandboxMemoryManager;
+        use hyperlight_testing::simple_guest_path;
 
         let cfg = SandboxMemoryConfiguration::default();
         let guest_path = simple_guest_buf();

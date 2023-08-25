@@ -9,7 +9,7 @@ use kvm_bindings::{kvm_segment, kvm_userspace_memory_region};
 use kvm_ioctls::{Cap::UserMemory, Kvm, VcpuExit, VcpuFd, VmFd};
 
 /// Return `Ok(())` if the KVM API is available, or `Err` otherwise
-pub(crate) fn is_hypervisor_present() -> Result<()> {
+pub fn is_hypervisor_present() -> Result<()> {
     let kvm = Kvm::new()?;
     let ver = kvm.get_api_version();
     if -1 == ver {
@@ -26,7 +26,7 @@ pub(crate) fn is_hypervisor_present() -> Result<()> {
 
 /// A Hypervisor driver for KVM on Linux
 #[derive(Debug)]
-pub(crate) struct KVMDriver {
+pub struct KVMDriver {
     // kvm and vm_fd are not used but must be present so they're properly
     // dropped.
     // prefix them with underscore so clippy doesn't complain they're unused
@@ -44,7 +44,7 @@ impl KVMDriver {
     ///
     /// TODO: when rust rewrite is complete, change `rsp` and `pml4_addr`
     /// params to be of type `GuestPtr`.
-    pub(crate) fn new(
+    pub fn new(
         host_addr: u64,
         pml4_addr: u64,
         mem_size: u64,

@@ -65,16 +65,16 @@ namespace Hyperlight.Wrapper
 #pragma warning disable CA1707 // Remove the underscores from member name
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
 
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         [return: MarshalAs(UnmanagedType.U1)]
         private static extern bool handle_is_guest_log_data(NativeContext ctx, NativeHandle hdl);
 
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern IntPtr handle_get_guest_log_data_flatbuffer(NativeContext ctx, NativeHandle hdl);
 
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         [return: MarshalAs(UnmanagedType.U1)]
         private static extern bool guest_log_data_flatbuffer_free(IntPtr bufferPtr);

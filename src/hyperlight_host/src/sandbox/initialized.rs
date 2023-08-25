@@ -70,10 +70,10 @@ impl Eq for ExecutingGuestCall {}
 /// generate one of these.
 #[allow(unused)]
 pub struct Sandbox<'a> {
-    // Registered host functions
-    pub(crate) host_functions: Arc<Mutex<HostFuncsWrapper<'a>>>,
-    // The memory manager for the sandbox.
-    mgr: MemMgrWrapper,
+    /// Registered host functions
+    pub host_functions: Arc<Mutex<HostFuncsWrapper<'a>>>,
+    /// The memory manager for the sandbox.
+    pub mgr: MemMgrWrapper,
     executing_guest_call: ExecutingGuestCall,
     needs_state_reset: bool,
     /// The number of times that this Sandbox has been run

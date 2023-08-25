@@ -11,13 +11,13 @@ use flatbuffers::{FlatBufferBuilder, WIPOffset};
 
 /// The definition of a function exposed from the host to the guest
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub(crate) struct HostFunctionDefinition {
+pub struct HostFunctionDefinition {
     /// The function name
-    pub(crate) function_name: String,
+    pub function_name: String,
     /// The type of the parameter values for the host function call.
-    pub(crate) parameter_types: Option<Vec<ParameterType>>,
+    pub parameter_types: Option<Vec<ParameterType>>,
     /// The type of the return value from the host function call
-    pub(crate) return_type: ReturnType,
+    pub return_type: ReturnType,
 }
 
 impl HostFunctionDefinition {

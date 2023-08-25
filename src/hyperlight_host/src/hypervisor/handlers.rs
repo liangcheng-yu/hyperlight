@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 /// a Hypervisor's virtual CPU (vCPU) informs Hyperlight the guest
 /// has initiated an outb operation.
 pub trait OutBHandlerCaller: Sync + Send {
+    /// Function that gets called when an outb operation has occurred.
     fn call(&mut self, port: u16, payload: u64) -> Result<()>;
 }
 
@@ -41,8 +42,9 @@ impl<'a> OutBHandlerCaller for OutBHandler<'a> {
 
 /// The trait representing custom logic to handle the case when
 /// a Hypervisor's virtual CPU (vCPU) informs Hyperlight a memory access
-/// outside the designated address space has occured.
+/// outside the designated address space has occurred.
 pub trait MemAccessHandlerCaller: Send {
+    /// Function that gets called when unexpected memory access has occurred.
     fn call(&mut self) -> Result<()>;
 }
 

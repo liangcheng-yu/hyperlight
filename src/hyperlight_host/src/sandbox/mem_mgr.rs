@@ -5,18 +5,20 @@ use crate::mem::{
 use anyhow::Result;
 use tracing::instrument;
 
+/// StackCookie
 pub type StackCookie = [u8; STACK_COOKIE_LEN];
 
-/// A trait that gets the memory manager wrapper.
+/// Convenience wrapper around a sandbox's memory management functionality,
+/// intended for general use when constructing sandboxes.
 pub trait MemMgrWrapperGetter {
-    /// Get an immutable reference to the memory manager wrapper.
+    /// Get an immutable reference to the internally stored `MemMgrWrapper`
     fn get_mem_mgr_wrapper(&self) -> &MemMgrWrapper;
-    /// Get a mutable reference to the memory manager wrapper.
+    /// Get a mutable reference to the internally stored `MemMgrWrapper`
     fn get_mem_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper;
 }
 
 #[derive(Clone)]
-/// A wrapper around the memory manager and stack cookie.
+/// A container with methods for accessing `SandboxMemoryManager` and other related objects
 pub struct MemMgrWrapper(SandboxMemoryManager, StackCookie);
 
 impl MemMgrWrapper {
@@ -41,7 +43,7 @@ impl MemMgrWrapper {
     /// and `Ok(false)` otherwise. Return `Err` if it could not be found or
     /// there was some other error.
     #[instrument(err(Debug), skip(self))]
-    pub(crate) fn check_stack_guard(&self) -> Result<bool> {
+    pub fn check_stack_guard(&self) -> Result<bool> {
         self.get_mgr().check_stack_guard(*self.get_stack_cookie())
     }
 

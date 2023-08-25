@@ -11,7 +11,7 @@ namespace Hyperlight.Core
 #pragma warning restore CA1815
     {
         // NOTE: do not change the order of these struct fields without
-        // also changing the fields in src/hyperlight_host/src/mem/config.rs
+        // also changing the fields in src/hyperlight_capi/src/mem/config.rs
         // to match
 
         /// <summary>
@@ -212,7 +212,7 @@ namespace Hyperlight.Core
 
 #pragma warning disable CA1707 // Remove the underscores from member name
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern SandboxMemoryConfiguration mem_config_new(
             ulong inputSize,
@@ -224,7 +224,7 @@ namespace Hyperlight.Core
             ulong heapSizeOverride
         );
 
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern SandboxMemoryConfiguration mem_config_default();
 

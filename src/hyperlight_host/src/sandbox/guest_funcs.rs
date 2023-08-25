@@ -179,12 +179,12 @@ pub trait CallGuestFunction<'a>:
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::sandbox::is_hypervisor_present;
+    use crate::sandbox_state::sandbox::EvolvableSandbox;
     use crate::UninitializedSandbox;
     use crate::{sandbox::uninitialized::GuestBinary, sandbox_state::transition::MutatingCallback};
-    use crate::{sandbox_state::sandbox::EvolvableSandbox, testing::simple_guest_path};
-
-    use super::*;
+    use hyperlight_testing::simple_guest_path;
     use std::{
         sync::{Arc, Mutex},
         thread,

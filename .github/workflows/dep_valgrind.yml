@@ -58,7 +58,7 @@ jobs:
           echo "HYPERV_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
           echo "HYPERV_SHOULD_HAVE_STABLE_API=false" >> $GITHUB_ENV
       - name: Set up munit
-        working-directory: src/hyperlight_host/tests_capi
+        working-directory: src/hyperlight_capi/tests_capi
         run: |
           git submodule init
           git submodule update
@@ -105,6 +105,6 @@ jobs:
         run: | 
             cargo valgrind test capi
       - name: Valgrind C tests
-        working-directory: src/hyperlight_host
+        working-directory: src/hyperlight_capi
         run: just valgrind-tests-capi  ${{ matrix.config }}
 

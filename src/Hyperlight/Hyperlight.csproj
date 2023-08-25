@@ -33,13 +33,13 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </Content>
-    <Content Condition="'$(RuntimeIdentifier)'=='win-x64' or ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$(RuntimeIdentifier)'=='')" Include="..\..\target\$(Configuration.toLower())\hyperlight_host.dll" Pack="true" PackagePath="native">
-      <Link>hyperlight_host.dll</Link>
+    <Content Condition="'$(RuntimeIdentifier)'=='win-x64' or ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$(RuntimeIdentifier)'=='')" Include="..\..\target\$(Configuration.toLower())\hyperlight_capi.dll" Pack="true" PackagePath="native">
+      <Link>hyperlight_capi.dll</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </Content>
-    <Content Condition="Exists('..\..\target\$(Configuration.toLower())\libhyperlight_host.so')" Include="..\..\target\$(Configuration.toLower())\libhyperlight_host.so" Pack="true" PackagePath="native">
-      <Link>libhyperlight_host.so</Link>
+    <Content Condition="Exists('..\..\target\$(Configuration.toLower())\libhyperlight_capi.so')" Include="..\..\target\$(Configuration.toLower())\libhyperlight_capi.so" Pack="true" PackagePath="native">
+      <Link>libhyperlight_capi.so</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </Content>

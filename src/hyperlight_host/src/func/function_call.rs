@@ -15,7 +15,7 @@ use super::types::ReturnType;
 
 /// `Functioncall` represents a call to a function in the guest or host.
 #[derive(Clone)]
-pub(crate) struct FunctionCall {
+pub struct FunctionCall {
     /// The function name
     pub(crate) function_name: String,
     /// The parameters for the function call.
@@ -28,7 +28,7 @@ impl FunctionCall {
     // because we're not using the work in `dispatch_call_from_host` yet,
     // this function appears unused. Once we've incorparated it, we can remove
     // this lint.
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub(crate) fn new(
         function_name: String,
         parameters: Option<Vec<ParameterValue>>,

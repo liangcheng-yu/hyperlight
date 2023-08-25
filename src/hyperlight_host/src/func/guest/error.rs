@@ -8,20 +8,20 @@ use anyhow::{anyhow, bail, Result};
 use std::convert::{TryFrom, TryInto};
 
 /// The error code of a `GuestError`.
-pub(crate) type Code = ErrorCode;
+pub type Code = ErrorCode;
 
 /// `GuestError` represents an error taht occurred in the Hyperlight Guest.
 #[derive(Debug, Clone)]
-pub(crate) struct GuestError {
+pub struct GuestError {
     /// The error code.
-    pub(crate) code: Code,
+    pub code: Code,
     /// The error message.
-    pub(crate) message: String,
+    pub message: String,
 }
 
 impl GuestError {
     /// Create a new GuestError.
-    pub(crate) fn new(code: Code, message: String) -> Self {
+    pub fn new(code: Code, message: String) -> Self {
         Self { code, message }
     }
 
@@ -35,7 +35,7 @@ impl GuestError {
     }
 
     /// Write the guest error to the shared memory.
-    pub(crate) fn write_to_memory(
+    pub fn write_to_memory(
         self,
         guest_mem: &mut SharedMemory,
         layout: &SandboxMemoryLayout,

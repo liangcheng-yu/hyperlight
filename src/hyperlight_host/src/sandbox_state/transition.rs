@@ -12,7 +12,7 @@ use anyhow::Result;
 ///
 /// For example, if you have the following structs:
 ///
-/// ```rust
+/// ```ignore
 /// struct MySandbox1 {}
 /// struct MySandbox2 {}
 ///
@@ -24,7 +24,7 @@ use anyhow::Result;
 /// `MySandbox1` and `MySandbox2`, and a devolve transition that requires
 /// a callback between `MySandbox2` and `MySandbox` as follows:
 ///
-/// ```rust
+/// ```ignore
 /// impl EvolvableSandbox<
 ///     MySandbox1,
 ///     MySandbox2,
@@ -98,8 +98,8 @@ impl<Cur: Sandbox, Next: Sandbox> TransitionMetadata<Cur, Next> for Noop<Cur, Ne
 /// `MutatingCallback::from`, as in the following code (assuming `MySandbox`
 /// is a `Sandbox` implementation):
 ///
-/// ```rust
-/// let my_cb_fn: FnOnce(&mut MySandbox) -> anyhow::Result<()> = |_sbox| {
+/// ```ignore
+/// let my_cb_fn: dyn FnOnce(&mut MySandbox) -> anyhow::Result<()> = |_sbox| {
 ///     println!("hello world!");
 /// };
 /// let mutating_cb = MutatingCallback::from(my_cb_fn);

@@ -126,7 +126,7 @@ internal sealed class KVM : Hypervisor, IDisposable
     //TODO: investigate why we cannot use SafeDirectory here
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
 
-    [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+    [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
     private static extern NativeHandle kvm_create_driver(
         NativeContext ctx,
@@ -137,7 +137,7 @@ internal sealed class KVM : Hypervisor, IDisposable
         ulong rsp
     );
 
-    [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+    [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
     private static extern NativeHandle kvm_dispatch_call_from_host(
         NativeContext ctx,
@@ -147,7 +147,7 @@ internal sealed class KVM : Hypervisor, IDisposable
         ulong dispatch_func_addr
     );
 
-    [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+    [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
     private static extern NativeHandle kvm_initialise(
         NativeContext ctx,
@@ -159,7 +159,7 @@ internal sealed class KVM : Hypervisor, IDisposable
         uint pageSize
     );
 
-    [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+    [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
     private static extern NativeHandle kvm_set_rsp(
         NativeContext ctx,

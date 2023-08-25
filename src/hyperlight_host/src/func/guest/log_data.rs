@@ -9,13 +9,14 @@ use std::mem::size_of;
 
 /// The guest log data for a VM sandbox
 #[derive(Eq, PartialEq, Debug, Clone)]
-pub(crate) struct GuestLogData {
-    pub(crate) message: String,
-    pub(crate) source: String,
-    pub(crate) level: LogLevel,
-    pub(crate) caller: String,
-    pub(crate) source_file: String,
-    pub(crate) line: u32,
+#[allow(missing_docs)]
+pub struct GuestLogData {
+    pub message: String,
+    pub source: String,
+    pub level: LogLevel,
+    pub caller: String,
+    pub source_file: String,
+    pub line: u32,
 }
 
 impl GuestLogData {

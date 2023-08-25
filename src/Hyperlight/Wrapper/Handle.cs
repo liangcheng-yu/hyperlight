@@ -199,11 +199,11 @@ namespace Hyperlight.Wrapper
 #pragma warning disable CA1707 // Remove the underscores from member name
 #pragma warning disable CA1401 // P/Invoke method should not be visible
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         public static extern HandleStatus handle_get_status(NativeHandle hdl);
 
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         [return: MarshalAs(UnmanagedType.U1)]
         public static extern bool handle_free(
@@ -211,21 +211,21 @@ namespace Hyperlight.Wrapper
             NativeHandle handle
         );
 
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle handle_new_err(
             NativeContext ctx,
             [In] byte[] errMsg
         );
 
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle int_32_new(
             NativeContext ctx,
             int val
         );
 
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle int_64_new(
             NativeContext ctx,

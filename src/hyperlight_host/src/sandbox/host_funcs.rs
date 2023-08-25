@@ -15,7 +15,8 @@ use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 #[derive(Default, Clone)]
-pub(crate) struct HostFuncsWrapper<'a> {
+/// A Wrapper around details of functions exposed by the Host
+pub struct HostFuncsWrapper<'a> {
     functions_map: FunctionsMap<'a>,
     function_details: HostFunctionDetails,
 }
@@ -38,7 +39,7 @@ impl<'a> HostFuncsWrapper<'a> {
     }
 
     /// Register a host function with the sandbox.
-    pub(crate) fn register_host_function(
+    pub fn register_host_function(
         &mut self,
         mgr: &mut SandboxMemoryManager,
         hfd: &HostFunctionDefinition,
@@ -64,7 +65,7 @@ impl<'a> HostFuncsWrapper<'a> {
     ///
     /// Return `Ok` if the function was found and was of the right signature,
     /// and `Err` otherwise.
-    pub(crate) fn host_print(&mut self, msg: String) -> Result<i32> {
+    pub fn host_print(&mut self, msg: String) -> Result<i32> {
         let res = call_host_func_impl(
             self.get_host_funcs(),
             "HostPrint",
@@ -100,8 +101,8 @@ fn call_host_func_impl(
     func.call(args)
 }
 
-// The default writer function is to write to stdout with green text.
-pub(crate) fn default_writer_func(s: String) -> Result<i32> {
+/// The default writer function is to write to stdout with green text.
+pub fn default_writer_func(s: String) -> Result<i32> {
     match stdout().is_terminal() {
         false => {
             print!("{}", s);

@@ -26,7 +26,7 @@ use std::env;
 /// Determine whether the HyperV for Linux hypervisor API is present
 /// and functional. If `REQUIRE_STABLE_API` is true, determines only whether a
 /// stable API for the Linux HyperV hypervisor is present.
-pub(crate) fn is_hypervisor_present() -> Result<bool> {
+pub fn is_hypervisor_present() -> Result<bool> {
     let mshv = Mshv::new()?;
     match mshv.check_stable() {
         Ok(stable) => {
@@ -63,7 +63,7 @@ type RegistersHashMap = HashMap<hv_register_name, hv_register_value>;
 
 /// A Hypervisor driver for HyperV-on-Linux. This hypervisor is often
 /// called the Microsoft Hypervisor Platform (MSHV)
-pub(crate) struct HypervLinuxDriver {
+pub struct HypervLinuxDriver {
     _mshv: Mshv,
     vm_fd: VmFd,
     vcpu_fd: VcpuFd,
@@ -94,11 +94,7 @@ impl HypervLinuxDriver {
     /// the underlying virtual CPU after this function returns. Call the
     /// `apply_registers` method to do that, or more likely call
     /// `initialise` to do it for you.
-    pub(crate) fn new(
-        addrs: &HypervisorAddrs,
-        rsp_ptr: GuestPtr,
-        pml4_ptr: GuestPtr,
-    ) -> Result<Self> {
+    pub fn new(addrs: &HypervisorAddrs, rsp_ptr: GuestPtr, pml4_ptr: GuestPtr) -> Result<Self> {
         match is_hypervisor_present() {
             Ok(true) => (),
             Ok(false) => bail!(
@@ -140,7 +136,7 @@ impl HypervLinuxDriver {
     /// If you want to manually apply registers to the stored vCPU, call
     /// `apply_registers`. `initialise` and `dispatch_call_from_host` will
     /// also do so automatically.
-    fn add_registers(
+    pub fn add_registers(
         vcpu: &mut VcpuFd,
         registers: &mut RegistersHashMap,
         addrs: &HypervisorAddrs,
@@ -236,7 +232,7 @@ impl HypervLinuxDriver {
     ///
     /// Call `add_registers` prior to this function to add to the internal
     /// register list.
-    pub(crate) fn apply_registers(&self) -> Result<()> {
+    pub fn apply_registers(&self) -> Result<()> {
         let mut regs_vec: Vec<hv_register_assoc> = Vec::new();
         for (k, v) in &self.registers {
             regs_vec.push(hv_register_assoc {
@@ -266,7 +262,7 @@ impl HypervLinuxDriver {
     ///
     /// This function will apply only the value of the given register on the
     /// internally stored virtual CPU, but no others in the pending list.
-    pub(crate) fn update_register_u64(&mut self, name: hv_register_name, val: u64) -> Result<()> {
+    pub fn update_register_u64(&mut self, name: hv_register_name, val: u64) -> Result<()> {
         self.registers
             .insert(name, hv_register_value { reg64: val });
         let reg = hv_register_assoc {

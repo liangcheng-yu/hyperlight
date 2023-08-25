@@ -1,29 +1,29 @@
 /// Configuration needed to establish a sandbox's memory layout.
 pub mod config;
 /// Functionality to establish a sandbox's memory layout.
-pub(crate) mod layout;
+pub mod layout;
 /// Safe wrapper around an HINSTANCE created by the windows
 /// `LoadLibrary` call
 #[cfg(target_os = "windows")]
 pub(crate) mod loaded_lib;
 /// Functionality taht wraps a `SandboxMemoryLayout` and a
 /// `SandboxMemoryConfig` to mutate a sandbox's memory as necessary.
-pub(crate) mod mgr;
+pub mod mgr;
 /// Functionality to read and mutate a PE file in a structured manner.
 pub(crate) mod pe;
 /// Structures to represent pointers into guest and host memory
-pub(crate) mod ptr;
+pub mod ptr;
 /// Structures to represent memory address spaces into which pointers
 /// point.
 pub(crate) mod ptr_addr_space;
 /// Structures to represent an offset into a memory space
-pub(crate) mod ptr_offset;
+pub mod ptr_offset;
 /// A wrapper around unsafe functionality to create and initialize
 /// a memory region for a guest running in a sandbox.
-pub(crate) mod shared_mem;
+pub mod shared_mem;
 /// A wrapper around a `SharedMemory` and a snapshot in time
 /// of the memory therein
-pub(crate) mod shared_mem_snapshot;
+pub mod shared_mem_snapshot;
 /// Utilities for writing shared memory tests
 #[cfg(test)]
 pub(crate) mod shared_mem_tests;

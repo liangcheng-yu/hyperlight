@@ -20,7 +20,7 @@ fn main() -> Result<()> {
         .with_config(cfg)
         .with_crate(crate_dir)
         .generate()
-        .expect("Unable to generate bindings")
+        .expect("Unable to generate FlatBuffers bindings for hyperlight_host")
         .write_to_file(header_file_path);
 
     Ok(())

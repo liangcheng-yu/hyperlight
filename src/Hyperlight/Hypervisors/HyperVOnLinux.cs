@@ -138,7 +138,7 @@ namespace Hyperlight.Hypervisors
         //TODO: investigate why we cannot use SafeDirectory here
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
 
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle hyperv_linux_create_driver(
             NativeContext ctx,
@@ -147,7 +147,7 @@ namespace Hyperlight.Hypervisors
             ulong pml4
         );
 
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle hyperv_linux_dispatch_call_from_host(
             NativeContext ctx,
@@ -157,7 +157,7 @@ namespace Hyperlight.Hypervisors
             ulong dispatch_func_addr
         );
 
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle hyperv_linux_initialise(
             NativeContext ctx,
@@ -169,7 +169,7 @@ namespace Hyperlight.Hypervisors
             uint page_size
         );
 
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle hyperv_linux_set_rsp(
             NativeContext ctx,

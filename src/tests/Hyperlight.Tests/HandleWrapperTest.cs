@@ -76,7 +76,7 @@ namespace Hyperlight.Tests
             Assert.True(hdl.IsInvalid()); // NullContext should also be detected as an invalid handle
         }
 
-        [DllImport("hyperlight_host", SetLastError = false, ExactSpelling = true)]
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle int_32_new(
                     NativeContext ctx,

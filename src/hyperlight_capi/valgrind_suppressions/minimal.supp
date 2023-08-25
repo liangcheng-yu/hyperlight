@@ -1,0 +1,229 @@
+{
+   munit_reachable
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:munit_maybe_concat
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+   fun:munit_suite_main_custom
+   fun:munit_suite_main
+   fun:main
+}
+{
+   suppress_test_map_user_memory_region_4
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vm*map_user_memory*
+   fun:map_vm_memory_region
+   fun:test_map_user_memory_region
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   suppress_test_map_user_memory_region_5
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
+   fun:unmap_vm_memory_region
+   fun:test_map_user_memory_region
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   suppress_test_run_vpcu_3
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vm*map_user_memory*
+   fun:unmap_vm_memory_region
+   fun:test_run_vpcu
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   suppress_test_run_vpcu_4
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vm*map_user_memory*
+   fun:map_vm_memory_region
+   fun:test_run_vpcu
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   set_reg_release_1
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*vcpu*set_reg*
+   fun:set_registers
+   fun:test_set_registers
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+   fun:munit_suite_main_custom
+   fun:munit_suite_main
+}
+{
+   set_reg_release_2
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:_*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
+   fun:set_registers
+   fun:test_run_vpcu
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+   fun:munit_suite_main_custom
+   fun:munit_suite_main
+}
+{
+   suppres_leak_for_lazy_tracing_subcriber_init
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:alloc
+   fun:*alloc*alloc*Global*alloc_impl*
+   fun:_*alloc*alloc*Global*core*alloc*Allocator*allocate*
+   fun:*hashbrown*raw*alloc*inner*do_alloc*
+   fun:*hashbrown*raw*RawTableInner*new_uninitialized*
+   fun:*hashbrown*raw*RawTableInner*fallible_with_capacity*
+   fun:*hashbrown*raw*RawTableInner*prepare_resize*
+   fun:resize_inner<alloc::alloc::Global>
+   fun:reserve_rehash_inner<alloc::alloc::Global>
+   fun:*hashbrown*raw*RawTable*reserve_rehash*
+   fun:*hashbrown*raw*RawTable*reserve*
+   fun:*hashbrown*raw*RawTable*insert*
+   fun:*hashbrown*map*HashMap*insert*
+   fun:*std*collections*hash*map*HashMap*insert*
+}
+{
+   <insert_a_suppression_name_here>
+    Memcheck:Param
+    ioctl(generic)
+    fun:ioctl
+    fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+    fun:*mshv_ioctls*ioctls*vm*Vm*map_user_memory*
+    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+    fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+    fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+    fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+    fun:*hyperlight_capi*sandbox*sandbox_new*closure*
+    fun:*hyperlight_capi*c_func*CFunc*and_then_mut*closure*closure*
+    fun:*core*result*Result*8and_then*
+    fun:*hyperlight_capi*c_func*CFunc*and_then_mut*closure*
+    fun:*core*result*Result*and_then*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioct*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux1*HypervLinuxDriver*add_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_capi*sandbox*sandbox_new*closure*
+   fun:*5hyperlight_capi*c_func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_capi*c_func*CFunc*and_then_mut*closure*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*as*core*ops*drop*Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core*ptr*drop_in_place*core*option*Option*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core*ptr*drop_in_place*hyperlight_host*sandbox*hypervisor*HypervisorWrapper*
+   fun:*core*ptr*drop_in_place*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*hyperlight_capi*sandbox_compat*EitherImpl*
+   fun:*core*ptr*drop_in_place*hyperlight_capi*sandbox_compat*Sandbox*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*as*core..ops..drop..Drop*4drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core*ptr*drop_in_place*core*option*Option*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core*ptr*drop_in_place*hyperlight_host*sandbox*hypervisor*HypervisorWrapper*
+   fun:*core*ptr*drop_in_place*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*hyperlight_capi*sandbox_compat*EitherImpl*
+   fun:*core*ptr*drop_in_place*hyperlight_capi*sandbox_compat*Sandbox*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_uti*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_capi*sandbox*sandbox_new*closure*
+   fun:*hyperlight_capi*func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_capi*c_func*CFunc*and_then_mut*closure*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_capi*sandbox*sandbox_new*closure*
+   fun:*hyperlight_capi*c_func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_capi*c_func*CFunc*and_then_mut*closure*
+   fun:*core*result*Result*8and_then*
+}

@@ -225,7 +225,7 @@ mod tests {
     use anyhow::Result;
     use std::fs;
 
-    use crate::testing::{callback_guest_path, simple_guest_path};
+    use hyperlight_testing::{callback_guest_path, simple_guest_path};
 
     struct PEFileTest {
         path: String,

@@ -3,23 +3,23 @@ pub(crate) mod guest_funcs;
 /// Functionality for managing the guest
 pub(crate) mod guest_mgr;
 /// Functionality for reading, but not modifying host functions
-pub(crate) mod host_funcs;
+pub mod host_funcs;
 /// Functionality for dealing with `Sandbox`es that contain Hypervisors
 pub(crate) mod hypervisor;
 /// Functionality for dealing with completely initialized sandboxes
-mod initialized;
+pub mod initialized;
 /// Functionality for dealing with memory access from the VM guest
 /// executable
 mod mem_access;
 /// Functionality for interacting with a sandbox's internally-stored
 /// `SandboxMemoryManager`
-pub(crate) mod mem_mgr;
+pub mod mem_mgr;
 mod outb;
 /// Options for configuring a sandbox
 mod run_options;
 /// Functionality for creating uninitialized sandboxes, manipulating them,
 /// and converting them to initialized sandboxes.
-pub(crate) mod uninitialized;
+pub mod uninitialized;
 /// Functionality for properly converting `UninitailizedSandbox`es to
 /// initialized `Sandbox`es.
 mod uninitialized_evolve;
@@ -62,7 +62,7 @@ use std::collections::HashMap;
 /// Determine if this is a supported platform for Hyperlight
 ///
 /// Returns a boolean indicating whether this is a supported platform.
-pub(crate) fn is_supported_platform() -> bool {
+pub fn is_supported_platform() -> bool {
     #[cfg(not(target_os = "linux"))]
     #[cfg(not(target_os = "windows"))]
     return false;
@@ -88,6 +88,11 @@ impl<'a> FunctionsMap<'a> {
     /// Get the length of the map.
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    /// Returns true if the map is empty, otherwise false
+    pub fn is_empty(&self) -> bool {
+        self.0.len() == 0
     }
 }
 
@@ -126,10 +131,11 @@ mod tests {
     use crate::hypervisor::hyperv_linux::test_cfg::TEST_CONFIG as HYPERV_TEST_CONFIG;
     #[cfg(target_os = "linux")]
     use crate::hypervisor::kvm::test_cfg::TEST_CONFIG as KVM_TEST_CONFIG;
+    use crate::Sandbox;
     use crate::{sandbox::uninitialized::GuestBinary, sandbox_state::transition::Noop};
     use crate::{sandbox_state::sandbox::EvolvableSandbox, UninitializedSandbox};
-    use crate::{testing::simple_guest_path, Sandbox};
     use crossbeam_queue::ArrayQueue;
+    use hyperlight_testing::simple_guest_path;
     use std::{sync::Arc, thread};
 
     #[test]

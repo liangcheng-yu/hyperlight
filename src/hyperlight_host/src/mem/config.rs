@@ -1,6 +1,6 @@
 use std::cmp::max;
 
-use crate::capi::option_when;
+use crate::option_when;
 
 use super::pe::pe_info::PEInfo;
 

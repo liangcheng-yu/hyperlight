@@ -46,13 +46,13 @@ test-dotnet-nativehost target=default-target:
 test-dotnet target=default-target: (test-dotnet-hl target) (test-dotnet-nativehost target)
 
 test-capi target=default-target:
-    cd src/hyperlight_host && just run-tests-capi {{ target }} || cd ../../
+    cd src/hyperlight_capi && just run-tests-capi {{ target }} || cd ../../
 
 build-capi target=default-target:
-    cd src/hyperlight_host && just build-tests-capi {{ target }} || cd ../../
+    cd src/hyperlight_capi && just build-tests-capi {{ target }} || cd ../../
 
 valgrind-capi target=default-target:
-    cd src/hyperlight_host && just valgrind-tests-capi {{ target }} || cd ../../
+    cd src/hyperlight_capi && just valgrind-tests-capi {{ target }} || cd ../../
 
 test target=default-target: (test-rust target) (test-dotnet target) (valgrind-capi target) (test-capi target)
 

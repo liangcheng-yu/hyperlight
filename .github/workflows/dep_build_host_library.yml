@@ -45,27 +45,29 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         just-version: '1.5.0' # optional semver specification, otherwise latest
-    - name: Build hyperlight_host library
-      working-directory: src/hyperlight_host
+    - name: Build hyperlight_capi library
+      working-directory: src/hyperlight_capi
       run: just build ${{ matrix.config }}
       env:
         RUST_BACKTRACE: 1
-    - name: upload hyperlight_host.h
+    - name: upload hyperlight_capi.h
       uses: actions/upload-artifact@v3
       with:
-        name: hyperlight_host.h
-        path: src/hyperlight_host/include/hyperlight_host.h
-    - name: upload hyperlight_host.dll (Windows only)
+        name: hyperlight_capi.h
+        path: src/hyperlight_capi/include/hyperlight_capi.h
+    - name: upload hyperlight_capi.dll (Windows only)
       uses: actions/upload-artifact@v3
       if: runner.os == 'Windows'
       with:
         name: ${{ matrix.config }}_assets
-        path: target/${{ matrix.config }}/hyperlight_host.dll
-    - name: upload libhyperlight_host.so (Linux only)
+        path: |
+          target/${{ matrix.config }}/hyperlight_capi.dll
+          target/${{ matrix.config }}/hyperlight_capi.pdb
+    - name: upload libhyperlight_capi.so (Linux only)
       uses: actions/upload-artifact@v3
       if: runner.os == 'Linux'
       with:
         name: ${{ matrix.config }}_assets
         path: |
-          target/${{ matrix.config }}/libhyperlight_host.so
-          target/${{ matrix.config }}/libhyperlight_host.d
+          target/${{ matrix.config }}/libhyperlight_capi.so
+          target/${{ matrix.config }}/libhyperlight_capi.d

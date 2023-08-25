@@ -1,0 +1,766 @@
+{
+   get_reg_release_1
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_advanced_registers*
+   fun:hyperv_linux_create_driver
+   fun:test_hyperv_linux_create_driver
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   hyperv_linux_get_reg_release_2
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_advanced_registers*
+   fun:hyperv_linux_create_driver
+   fun:test_hyperv_linux_create_driver
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   get_reg_release_3
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
+   fun:hyperv_linux_create_driver_simple
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+   fun:munit_suite_main_custom
+}
+{
+   get_reg_release_4
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*execute_until_halt*
+   fun:hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+   fun:munit_suite_main_custom
+}
+{
+   get_reg_release_5
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_advanced_registers*
+   fun:hyperv_linux_create_driver
+   fun:test_hyperv_linux_create_driver
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_suite_main_custom
+}
+
+{
+   get_reg_debug_1
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
+   fun:hyperv_linux_create_driver_simple
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   get_reg_debug_2
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
+   fun:hyperv_linux_create_driver_simple
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   get_reg_debug_3
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_advanced_registers*
+   fun:hyperv_linux_create_driver
+   fun:test_hyperv_linux_create_driver
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+}
+{
+   get_reg_debug_4
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_advanced_registers*
+   fun:hyperv_linux_create_driver
+   fun:test_hyperv_linux_create_driver
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+}
+{
+   get_reg_debug_5
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_advanced_registers*
+   fun:hyperv_linux_create_driver
+   fun:test_hyperv_linux_create_driver
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+}
+{
+   get_reg_debug_6
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_advanced_registers*
+   fun:hyperv_linux_create_driver
+   fun:test_hyperv_linux_create_driver
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+}
+{
+   get_reg_debug_7
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
+   fun:hyperv_linux_create_driver_simple
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   get_reg_debug_8
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
+   fun:hyperv_linux_create_driver_simple
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   get_reg_debug_9
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_advanced_registers*
+   fun:hyperv_linux_create_driver
+   fun:test_hyperv_linux_create_driver
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+}
+{
+   get_reg_debug_10
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
+   fun:hyperv_linux_create_driver_simple
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   set_reg_release_1
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*apply_registers*
+   fun:hyperv_linux_apply_registers
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+   fun:munit_suite_main_custom
+}
+{
+   set_reg_release_2
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*execute_until_halt*
+   fun:hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+   fun:munit_suite_main_custom
+}
+{
+   set_reg_release_3
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*execute_until_halt*
+   fun:hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_suite_main_custom
+   fun:(below main)
+}
+{
+   set_reg_debug_2
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*update_rip*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*handle_io_port_intercept*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver18execute_until_halt*
+   fun:hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+}
+{
+   set_reg_debug_4
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*update_rip*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*handle_io_port_intercept*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver18execute_until_halt*
+   fun:hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+}
+{
+   set_reg_debug_6
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*update_rip*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*handle_io_port_intercept*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver18execute_until_halt*
+   fun:hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+}
+{
+   set_reg_debug_8
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*update_rip*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*handle_io_port_intercept*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver18execute_until_halt*
+   fun:hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+}
+{
+   set_reg_debug_9
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*update_register*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*update_rip*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*handle_io_port_intercept*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver18execute_until_halt*
+   fun:hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+}
+{
+   map_user_memory_release_1
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:hyperv_linux_create_driver
+   fun:test_hyperv_linux_create_driver
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+   fun:munit_suite_main_custom
+}
+{
+   map_user_memory_release_2
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:hyperv_linux_create_driver
+   fun:test_hyperv_linux_create_driver
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+   fun:munit_suite_main_custom
+}
+{
+   map_user_memory_release_3
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:hyperv_linux_create_driver_simple
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+   fun:munit_suite_main_custom
+}
+{
+   map_user_memory_release_4
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:hyperv_linux_create_driver
+   fun:test_hyperv_linux_create_driver
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_suite_main_custom
+   fun:(below main)
+}
+{
+   map_user_memory_release_5
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:hyperv_linux_create_driver_simple
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_suite_main_custom
+   fun:(below main)
+}
+{
+   map_user_memory_debug_1
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:hyperv_linux_create_driver_simple
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   map_user_memory_debug_2
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:hyperv_linux_create_driver_simple
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   map_user_memory_debug_2
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:hyperv_linux_create_driver
+   fun:test_hyperv_linux_create_driver
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   map_user_memory_debug_3
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:hyperv_linux_create_driver
+   fun:test_hyperv_linux_create_driver
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   map_user_memory_debug_4
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:hyperv_linux_create_driver
+   fun:test_hyperv_linux_create_driver
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   map_user_memory_debug_5
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:hyperv_linux_create_driver
+   fun:test_hyperv_linux_create_driver
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   map_user_memory_debug_6
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:hyperv_linux_create_driver_simple
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   map_user_memory_debug_7
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:hyperv_linux_create_driver
+   fun:test_hyperv_linux_create_driver
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   map_user_memory_debug_8
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:hyperv_linux_create_driver_simple
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run
+}
+{
+   get_reg_release_6
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
+   fun:hyperv_linux_create_driver_simple
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_suite_main_custom
+   fun:(below main)
+}
+{
+   set_reg_release_4
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*apply_registers*
+   fun:hyperv_linux_apply_registers
+   fun:test_hyperv_linux_execute_until_halt
+   fun:munit_test_runner_exec
+   fun:munit_test_runner_run_test_with_params
+   fun:munit_test_runner_run_test
+   fun:munit_test_runner_run_suite
+   fun:munit_test_runner_run_suite
+   fun:munit_suite_main_custom
+   fun:(below main)
+}
+{
+   <insert_a_suppression_name_here>
+    Memcheck:Param
+    ioctl(generic)
+    fun:ioctl
+    fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+    fun:*mshv_ioctls*ioctls*vm*Vm*map_user_memory*
+    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+    fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+    fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+    fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+    fun:*hyperlight_capi*sandbox*sandbox_new*closure*
+    fun:*hyperlight_capi*c_func*CFunc*and_then_mut*closure*closure*
+    fun:*core*result*Result*8and_then*
+    fun:*hyperlight_capi*c_func*CFunc*and_then_mut*closure*
+    fun:*core*result*Result*and_then*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioct*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux1*HypervLinuxDriver*add_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_capi*sandbox*sandbox_new*closure*
+   fun:*5hyperlight_capi*c_func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_capi*c_func*CFunc*and_then_mut*closure*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*as*core*ops*drop*Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core*ptr*drop_in_place*core*option*Option*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core*ptr*drop_in_place*hyperlight_host*sandbox*hypervisor*HypervisorWrapper*
+   fun:*core*ptr*drop_in_place*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*hyperlight_capi*sandbox_compat*EitherImpl*
+   fun:*core*ptr*drop_in_place*hyperlight_capi*sandbox_compat*Sandbox*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*as*core..ops..drop..Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core*ptr*drop_in_place*core*option*Option*alloc*boxed*Box*dyn*hyperlight_host*hypervisor*Hypervisor*
+   fun:*core*ptr*drop_in_place*hyperlight_host*sandbox*hypervisor*HypervisorWrapper*
+   fun:*core*ptr*drop_in_place*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*alloc*boxed*Box*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*
+   fun:*core*ptr*drop_in_place*hyperlight_capi*sandbox_compat*EitherImpl*
+   fun:*core*ptr*drop_in_place*hyperlight_capi*sandbox_compat*Sandbox*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_uti*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_capi*sandbox*sandbox_new*closure*
+   fun:*hyperlight_capi*func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_capi*c_func*CFunc*and_then_mut*closure*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_capi*sandbox*sandbox_new*closure*
+   fun:*hyperlight_capi*c_func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+   fun:*hyperlight_capi*c_func*CFunc*and_then_mut*closure*
+   fun:*core*result*Result*and_then*
+}
