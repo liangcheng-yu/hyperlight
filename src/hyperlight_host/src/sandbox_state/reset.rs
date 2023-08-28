@@ -1,9 +1,8 @@
+use super::sandbox::Sandbox;
 use crate::sandbox::{
     guest_mgr::GuestMgr, hypervisor::HypervisorWrapperMgr, mem_mgr::MemMgrWrapperGetter,
 };
 use anyhow::Result;
-
-use super::sandbox::Sandbox;
 
 pub trait RestoreSandbox<'a>:
     GuestMgr + HypervisorWrapperMgr<'a> + MemMgrWrapperGetter + Sandbox
@@ -29,7 +28,7 @@ pub trait RestoreSandbox<'a>:
             let mem_mgr = self.get_mem_mgr_wrapper_mut().as_mut();
             mem_mgr.restore_state()?;
             if !mem_mgr.run_from_process_memory {
-                let hv = self.get_hypervisor_wrapper_mut().get_hypervisor_mut()?;
+                let hv = self.get_hypervisor_wrapper_mut()?.get_hypervisor_mut()?;
 
                 hv.reset_rsp(hv.orig_rsp()?)?;
             }

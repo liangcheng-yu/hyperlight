@@ -30,11 +30,24 @@ use tracing::instrument;
 /// `UninitializedSandbox` into an initialized `Sandbox`.
 pub struct UninitializedSandbox<'a> {
     /// Registered host functions
-    pub host_funcs: Arc<Mutex<HostFuncsWrapper<'a>>>,
+    pub(crate) host_funcs: Arc<Mutex<HostFuncsWrapper<'a>>>,
     /// The memory manager for the sandbox.
-    pub mgr: MemMgrWrapper,
-    pub(super) hv: HypervisorWrapper<'a>,
+    pub(crate) mgr: MemMgrWrapper,
+    pub(super) hv: Arc<HypervisorWrapper<'a>>,
     pub(crate) run_from_process_memory: bool,
+    pub(super) recycle_after_run: bool,
+}
+
+impl<'a> From<Sandbox<'a>> for UninitializedSandbox<'a> {
+    fn from(value: Sandbox<'a>) -> Self {
+        Self {
+            host_funcs: value.host_functions.clone(),
+            mgr: value.mgr.clone(),
+            hv: value.hv.clone(),
+            run_from_process_memory: value.run_from_process_memory,
+            recycle_after_run: value.recycle_after_run,
+        }
+    }
 }
 
 impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for UninitializedSandbox<'a> {
@@ -116,8 +129,9 @@ impl<'a> HypervisorWrapperMgr<'a> for UninitializedSandbox<'a> {
         &self.hv
     }
 
-    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper<'a> {
-        &mut self.hv
+    fn get_hypervisor_wrapper_mut(&mut self) -> Result<&mut HypervisorWrapper<'a>> {
+        Arc::get_mut(&mut self.hv)
+            .ok_or_else(|| anyhow!("could not get mutable hypervisor wrapper"))
     }
 }
 
@@ -175,10 +189,8 @@ impl<'a> UninitializedSandbox<'a> {
             || sandbox_run_options.contains(SandboxRunOptions::RUN_FROM_GUEST_BINARY);
         let run_from_guest_binary =
             sandbox_run_options.contains(SandboxRunOptions::RUN_FROM_GUEST_BINARY);
-
-        if run_from_guest_binary
-            && sandbox_run_options.contains(SandboxRunOptions::RECYCLE_AFTER_RUN)
-        {
+        let recycle_after_run = sandbox_run_options.contains(SandboxRunOptions::RECYCLE_AFTER_RUN);
+        if run_from_guest_binary && recycle_after_run {
             anyhow::bail!("Recycle after run at is not supported when running from guest binary.");
         }
 
@@ -217,8 +229,9 @@ impl<'a> UninitializedSandbox<'a> {
         let mut sandbox = Self {
             host_funcs,
             mgr: mem_mgr_wrapper,
-            hv,
+            hv: Arc::new(hv),
             run_from_process_memory,
+            recycle_after_run,
         };
 
         default_writer.register(&mut sandbox, "HostPrint")?;
@@ -226,6 +239,11 @@ impl<'a> UninitializedSandbox<'a> {
         Ok(sandbox)
     }
 
+    /// Clone the internally-stored `Arc` holding the `HostFuncsWrapper`
+    /// managed by `self`, then return it.
+    pub fn get_host_funcs(&self) -> Arc<Mutex<HostFuncsWrapper<'a>>> {
+        self.host_funcs.clone()
+    }
     fn create_stack_guard() -> [u8; STACK_COOKIE_LEN] {
         rand::random::<[u8; STACK_COOKIE_LEN]>()
     }

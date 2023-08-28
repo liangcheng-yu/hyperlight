@@ -764,3 +764,37 @@
    fun:*hyperlight_capi*c_func*CFunc*and_then_mut*closure*
    fun:*core*result*Result*and_then*
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
+   fun:*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*as*core..ops..drop..Drop*drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*alloc..boxed..Box*dyn*hyperlight_host..hypervisor..Hypervisor*
+   fun:*core*ptr*drop_in_place*core..option..Option*alloc..boxed..Box*dyn*hyperlight_host..hypervisor..Hypervisor*
+   fun:*core*ptr*drop_in_place*hyperlight_host..sandbox..hypervisor..HypervisorWrapper*
+   fun:*alloc*sync*Arc*drop_slow*
+   fun:*alloc..sync..Arc*as*core..ops..drop..Drop*drop*
+   fun:*core*ptr*drop_in_place*alloc..sync..Arc*hyperlight_host..sandbox..hypervisor..HypervisorWrapper*
+   fun:*core*ptr*drop_in_place*hyperlight_host..sandbox..uninitialized..UninitializedSandbox*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*unmap_user_memory*
+   fun:*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*as*core..ops..drop..Drop*
+   fun:*core*ptr*drop_in_place*hyperlight_host..hypervisor..hyperv_linux..HypervLinuxDriver*
+   fun:*core*ptr*drop_in_place*alloc..boxed..Box*dyn*hyperlight_host..hypervisor..Hypervisor*
+   fun:*core*ptr*drop_in_place*core..option..Option*alloc..boxed..Box*dyn*hyperlight_host..hypervisor..Hypervisor*
+   fun:*core*ptr*drop_in_place*hyperlight_host..sandbox..hypervisor..HypervisorWrapper*
+   fun:*alloc*sync*Arc*drop_slow*
+   fun:*alloc..sync..Arc*as*core..ops..drop..Drop*
+   fun:*core*ptr*drop_in_place*alloc..sync..Arc*hyperlight_host..sandbox..hypervisor..HypervisorWrapper*
+   fun:*core*ptr*drop_in_place*hyperlight_host..sandbox..uninitialized..UninitializedSandbox*
+}

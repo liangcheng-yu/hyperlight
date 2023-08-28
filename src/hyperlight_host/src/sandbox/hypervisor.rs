@@ -22,10 +22,14 @@ pub struct HypervisorWrapper<'a> {
 }
 /// A trait for getting a `HypervisorWrapper` from a type
 pub trait HypervisorWrapperMgr<'a> {
-    /// Get the immutable `HypervisorWrapper`
+    /// Get a reference to a `HypervisorWrapper` stored inside `self`
     fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper<'a>;
-    /// Get the mutable `HypervisorWrapper`
-    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper<'a>;
+    /// Get a mutable reference to a `HypervisorWrapper` stored inside `self`.
+    /// Return an `Err` if no mutable reference can be provided. Such an error
+    /// will most likely be returned when the `HypervisorWrapper` is stored
+    /// inside an `Rc` or `Arc`, and there is at least one other clone of it,
+    /// making a mutable reference impossible to get.
+    fn get_hypervisor_wrapper_mut(&mut self) -> Result<&mut HypervisorWrapper<'a>>;
 }
 
 impl<'a> HypervisorWrapper<'a> {

@@ -3,11 +3,11 @@ use super::{context::Context, sandbox_compat::Sandbox};
 use super::{handle::Handle, sandbox_compat::EitherImpl};
 use crate::strings::get_string;
 use anyhow::{bail, Result};
-use hyperlight_host::mem::config::SandboxMemoryConfiguration;
 use hyperlight_host::sandbox::host_funcs::default_writer_func;
 use hyperlight_host::sandbox::uninitialized::GuestBinary;
 use hyperlight_host::sandbox_state::transition::Noop;
 use hyperlight_host::{func::host::HostFunction1, sandbox};
+use hyperlight_host::{mem::config::SandboxMemoryConfiguration, MemMgrWrapperGetter};
 use hyperlight_host::{mem::ptr::RawPtr, sandbox_state::sandbox::EvolvableSandbox};
 use hyperlight_host::{
     sandbox::is_hypervisor_present as check_hypervisor,
@@ -177,7 +177,7 @@ pub unsafe extern "C" fn sandbox_get_memory_mgr(ctx: *mut Context, sbox_hdl: Han
     CFunc::new("sandbox_get_memory_mgr", ctx)
         .and_then_mut(|ctx, _| {
             let sbox = Sandbox::get(ctx, sbox_hdl)?;
-            let mem_mgr = sbox.to_uninit()?.mgr.as_ref();
+            let mem_mgr = sbox.to_uninit()?.get_mem_mgr_wrapper().as_ref();
             Ok(register_mem_mgr(ctx, mem_mgr.clone()))
         })
         .ok_or_err_hdl()
@@ -209,7 +209,7 @@ pub unsafe extern "C" fn sandbox_call_host_print(
             let sbox = Sandbox::get_mut(ctx, sbox_hdl)?;
             let rsbox = sbox.to_uninit_mut()?;
             rsbox
-                .host_funcs
+                .get_host_funcs()
                 .lock()
                 .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
                 .host_print(String::from(msg))?;

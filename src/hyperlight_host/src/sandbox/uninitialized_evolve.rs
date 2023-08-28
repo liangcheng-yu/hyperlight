@@ -7,13 +7,15 @@ use crate::hypervisor::handlers::OutBHandlerCaller;
 use crate::mem::ptr::RawPtr;
 use crate::sandbox::mem_mgr::MemMgrWrapperGetter;
 use crate::{hypervisor::handlers::OutBHandlerWrapper, Sandbox, UninitializedSandbox};
+use anyhow::anyhow;
 #[cfg(target_os = "linux")]
 use anyhow::bail;
 use anyhow::Result;
 #[cfg(target_os = "windows")]
 use std::os::raw::c_void;
+use std::sync::Arc;
 #[cfg(target_os = "windows")]
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use tracing::instrument;
 
 pub(super) type CBFunc<'a> = Box<dyn FnOnce(&mut UninitializedSandbox<'a>) -> Result<()> + 'a>;
@@ -39,6 +41,7 @@ pub(super) fn evolve_impl<'a>(
     if run_from_proc_mem {
         evolve_in_proc(&mut u_sbox, outb_wrapper)?;
     } else {
+        let orig_rsp = u_sbox.get_hypervisor_wrapper().orig_rsp()?;
         let mem_mgr = {
             // we are gonna borrow u_sbox mutably below in our
             // get_hypervisor_mut call, so we need to borrow it
@@ -53,9 +56,17 @@ pub(super) fn evolve_impl<'a>(
         };
 
         {
-            let hv = &mut u_sbox.hv;
+            let hv = Arc::get_mut(&mut u_sbox.hv)
+                .ok_or_else(|| anyhow!("could not get mutable hypervisor wrapper"))?;
             hv.initialise(&mem_mgr)
         }?;
+
+        if u_sbox.recycle_after_run {
+            u_sbox.get_mem_mgr_wrapper_mut().as_mut().snapshot_state()?;
+        }
+        if u_sbox.run_from_process_memory {
+            u_sbox.get_hypervisor_wrapper_mut()?.reset_rsp(orig_rsp)?;
+        }
     }
     if let Some(cb) = cb_opt {
         cb(&mut u_sbox)?;

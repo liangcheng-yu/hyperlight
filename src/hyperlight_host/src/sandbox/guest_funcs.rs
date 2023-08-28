@@ -1,5 +1,4 @@
 use super::{guest_mgr::GuestMgr, hypervisor::HypervisorWrapperMgr, mem_mgr::MemMgrWrapperGetter};
-
 use crate::{
     func::{
         function_call::{FunctionCall, FunctionCallType},
@@ -164,7 +163,7 @@ pub trait CallGuestFunction<'a>:
             }?;
             sbox.lock()
                 .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-                .get_hypervisor_wrapper_mut()
+                .get_hypervisor_wrapper_mut()?
                 .dispatch_call_from_host(p_dispatch_gp)?;
         }
 

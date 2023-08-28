@@ -6,11 +6,14 @@ use super::{
     hypervisor::HypervisorWrapper,
     mem_mgr::{MemMgrWrapper, MemMgrWrapperGetter},
 };
-use crate::flatbuffers::hyperlight::generated::ErrorCode;
 #[cfg(target_os = "windows")]
 use crate::hypervisor::handlers::OutBHandlerCaller;
 use crate::sandbox_state::reset::RestoreSandbox;
-use anyhow::{bail, Result};
+use crate::{
+    flatbuffers::hyperlight::generated::ErrorCode,
+    sandbox_state::{sandbox::DevolvableSandbox, transition::Noop},
+};
+use anyhow::{anyhow, bail, Result};
 use log::error;
 use std::sync::atomic::AtomicI32;
 use std::sync::{Arc, Mutex};
@@ -71,25 +74,26 @@ impl Eq for ExecutingGuestCall {}
 #[allow(unused)]
 pub struct Sandbox<'a> {
     /// Registered host functions
-    pub host_functions: Arc<Mutex<HostFuncsWrapper<'a>>>,
+    pub(crate) host_functions: Arc<Mutex<HostFuncsWrapper<'a>>>,
     /// The memory manager for the sandbox.
-    pub mgr: MemMgrWrapper,
+    pub(crate) mgr: MemMgrWrapper,
     executing_guest_call: ExecutingGuestCall,
     needs_state_reset: bool,
     /// The number of times that this Sandbox has been run
     pub num_runs: i32,
-    hv: HypervisorWrapper<'a>,
+    pub(super) hv: Arc<HypervisorWrapper<'a>>,
+    pub(super) run_from_process_memory: bool,
+    pub(super) recycle_after_run: bool,
 }
 
-// If we are running in proc then we need to drop the outbhandlerwrapper that was leaked and written
-// to shared memory
 #[cfg(target_os = "windows")]
 impl<'a> Drop for Sandbox<'a> {
+    /// If we are running in-process, we need to drop the `OutBHandlerWrapper`
+    /// that was leaked and written to shared memory.
     fn drop(&mut self) {
         let mgr = self.mgr.as_ref();
         let run_from_proc_mem = mgr.run_from_process_memory;
         if run_from_proc_mem {
-            let mgr = self.mgr.as_ref();
             if let Ok(ctx) = mgr.get_outb_context() {
                 if ctx != 0 {
                     let _outb_handlercaller: Box<Arc<Mutex<dyn OutBHandlerCaller>>> =
@@ -119,6 +123,8 @@ impl<'a> From<UninitializedSandbox<'a>> for Sandbox<'a> {
             needs_state_reset: false,
             num_runs: 0,
             hv: val.hv,
+            run_from_process_memory: val.run_from_process_memory,
+            recycle_after_run: val.recycle_after_run,
         }
     }
 }
@@ -138,8 +144,9 @@ impl<'a> HypervisorWrapperMgr<'a> for Sandbox<'a> {
         &self.hv
     }
 
-    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper<'a> {
-        &mut self.hv
+    fn get_hypervisor_wrapper_mut(&mut self) -> Result<&mut HypervisorWrapper<'a>> {
+        Arc::get_mut(&mut self.hv)
+            .ok_or_else(|| anyhow!("could not get mutable hypervisor wrapper"))
     }
 }
 
@@ -191,6 +198,41 @@ impl<'a> GuestMgr for Sandbox<'a> {
     }
 }
 
+impl<'a>
+    DevolvableSandbox<
+        Sandbox<'a>,
+        UninitializedSandbox<'a>,
+        Noop<Sandbox<'a>, UninitializedSandbox<'a>>,
+    > for Sandbox<'a>
+{
+    /// Consume `self` and move it back to an `UninitializedSandbox`. The
+    /// devolving process entails the following:
+    ///
+    /// - If `self` was a recyclable sandbox, restore its state from a
+    /// previous state snapshot
+    /// - If `self` was using in-process mode, reset the stack pointer
+    /// (RSP register, to be specific) to what it was when the sandbox
+    /// was first created.
+    fn devolve(
+        self,
+        _tsn: Noop<Sandbox<'a>, UninitializedSandbox<'a>>,
+    ) -> Result<UninitializedSandbox<'a>> {
+        let recycle_after_run = self.recycle_after_run;
+        let run_from_process_memory = self.run_from_process_memory;
+        let mut ret = UninitializedSandbox::from(self);
+        if recycle_after_run {
+            ret.mgr.as_mut().restore_state()?;
+        }
+        if !run_from_process_memory {
+            let orig_rsp = ret.hv.get_hypervisor()?.orig_rsp()?;
+            Arc::get_mut(&mut ret.hv)
+                .ok_or_else(|| anyhow!("could not get mutable hypervisor wrapper"))?
+                .get_hypervisor_mut()?
+                .reset_rsp(orig_rsp)?;
+        }
+        Ok(ret)
+    }
+}
 impl<'a> Sandbox<'a> {
     /// Check for a guest error and return an `Err` if one was found,
     /// and `Ok` if one was not found.
