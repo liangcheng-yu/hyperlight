@@ -258,9 +258,6 @@ fn ensure_surrogate_process_exe() -> Result<()> {
         let embeded_file_sha = sha256::digest(exe.data.as_ref());
         let file_on_disk_sha = sha256::try_digest(&p)?;
 
-        println!("embded file sha: {}", &embeded_file_sha);
-        println!("file on disk sha: {}", &file_on_disk_sha);
-
         if embeded_file_sha != file_on_disk_sha {
             println!(
                 "sha of embedded surrorate '{}' does not match sha of file on disk '{}' - deleting surrogate binary at {}",
