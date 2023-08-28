@@ -249,13 +249,23 @@ fn ensure_surrogate_process_exe() -> Result<()> {
     let surrogate_process_path = get_surrogate_process_dir()?.join(SURROGATE_PROCESS_BINARY_NAME);
     let p = Path::new(&surrogate_process_path);
 
-    #[cfg(debug_assertions)]
-    {
-        // In debug build we want to always update the surrogate binary
-        // so delete it if it exists.
-        if p.exists() {
-            info!(
-                "deleting surrogate binary at {}",
+    let exe = Asset::get(SURROGATE_PROCESS_BINARY_NAME)
+        .ok_or_else(|| anyhow!("could not find embedded surrogate binary"))?;
+
+    if p.exists() {
+        // check to see if sha's match and if not delete the file so we'll extract
+        // the embedded file below.
+        let embeded_file_sha = sha256::digest(exe.data.as_ref());
+        let file_on_disk_sha = sha256::try_digest(&p)?;
+
+        println!("embded file sha: {}", &embeded_file_sha);
+        println!("file on disk sha: {}", &file_on_disk_sha);
+
+        if embeded_file_sha != file_on_disk_sha {
+            println!(
+                "sha of embedded surrorate '{}' does not match sha of file on disk '{}' - deleting surrogate binary at {}",
+                embeded_file_sha,
+                file_on_disk_sha,
                 &surrogate_process_path.display()
             );
             std::fs::remove_file(p)?;
@@ -268,9 +278,6 @@ fn ensure_surrogate_process_exe() -> Result<()> {
             SURROGATE_PROCESS_BINARY_NAME,
             &surrogate_process_path.display()
         );
-
-        let exe = Asset::get(SURROGATE_PROCESS_BINARY_NAME)
-            .ok_or_else(|| anyhow!("could not find embedded surrogate binary"))?;
 
         let mut f = File::create(&surrogate_process_path)?;
         f.write_all(exe.data.as_ref())?;
