@@ -118,7 +118,7 @@ jobs:
     - name: Download header file
       uses: "actions/download-artifact@v3"
       with:
-        name: hyperlight_host.h
+        name: hyperlight_capi.h
     - name: Download artifacts
       uses: "actions/download-artifact@v3"
       with:
