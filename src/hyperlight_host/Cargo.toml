@@ -36,7 +36,7 @@ tracing-core = "0.1.31"
 uuid = { version = "1.4.1", features = ["v4"] }
 tracing-subscriber = { version = "0.3.17", features = ["json"] }
 hyperlight_testing = { path = "../hyperlight_testing"}
-rust-embed = { version = "8.0.0", features = ["include-exclude", "interpolate-folder-path"] }
+rust-embed = { version = "8.0.0", features = ["debug-embed", "include-exclude", "interpolate-folder-path"] }
 sha256 = "1.4.0"
 
 [target.'cfg(windows)'.dependencies]
