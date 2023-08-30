@@ -118,7 +118,7 @@ jobs:
     - name: Download header file
       uses: "actions/download-artifact@v3"
       with:
-        name: hyperlight_host.h
+        name: hyperlight_capi.h
     - name: Download artifacts
       uses: "actions/download-artifact@v3"
       with:
@@ -199,6 +199,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Debug_assets
+          if-no-files-found: error
           path: | 
             target/debug/libhyperlight_capi.so
             target/debug/libhyperlight_capi.d
@@ -206,6 +207,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Release_assets
+          if-no-files-found: error
           path: | 
             target/release/libhyperlight_capi.so
             target/release/libhyperlightcapi.d
@@ -213,7 +215,8 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: hyperlight_capi.h
-          path: src/hyperlight_cpi/include/hyperlight_capi.h
+          if-no-files-found: error
+          path: src/hyperlight_capi/include/hyperlight_capi.h
   build-rust-windows:
     # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
     if:  ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }} 
@@ -231,6 +234,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Debug_assets
+          if-no-files-found: error
           path: |
             target/debug/hyperlight_capi.dll
             target/debug/hyperlight_capi.pdb
@@ -238,4 +242,5 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Release_assets
+          if-no-files-found: error
           path: target/release/hyperlight_capi.dll
