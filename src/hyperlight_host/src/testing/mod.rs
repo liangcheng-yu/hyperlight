@@ -6,8 +6,6 @@ use std::fs;
 use std::path::PathBuf;
 pub(crate) mod log_values;
 pub(crate) mod logger;
-#[cfg(target_os = "windows")]
-pub(crate) mod surrogate_binary;
 pub(crate) mod tracing_subscriber;
 
 pub(crate) fn dummy_guest_buf() -> PathBuf {

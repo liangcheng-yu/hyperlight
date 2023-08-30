@@ -23,8 +23,7 @@ This repo contains Hyperlight along with a couple of sample guest applications t
 - [src/Hyperlight](./src/Hyperlight) - This is the "host", which launches binaries within a Hypervisor partition.
 - [src/HyperlightGuest](./src/HyperlightGuest) - This is a library to make it easy to write Hyperlight Guest programs.
 - [src/NativeHost](./src/examples/NativeHost) - This is a "driver" program used for testing. It knows how to run the Hyperlight Guest programs applications that live within the `src/test/Guests` directory (see below) within sandboxes. If you are developing Hyperlight itself, you'll need this program, but if you're using the library to build your own applications, you won't need this project.
-- [src/HyperlightSurrogate](./src/HyperlightSurrogate) - This is a tiny application that is simply used as a sub-process for the host. When the host runs on Windows with the Windows Hypervisor Platform (WHP, e.g. Hyper-V), it launches several of these surrogates, assigns memory to them, and then launches partitions from there.
-  - The use of surrogates is a temporary workaround on Windows until WHP allows us to create more than one partition per running process.
+- [src/HyperlightSurrogate](./src/HyperlightSurrogate) - See [below](#hyperlightsurrogate) for more information.
 - [src/tests](./src/tests) - Tests for the host
   - [src/test/Guests](./src/tests/Guests) This directory contains two Hyperlight Guest programs written in C, which are intended to be launched within partitions as "guests".
   - Some of the Rust tests use [proptest](https://docs.rs/proptest/latest/proptest/index.html) to do property-based testing (a [QuickCheck](https://en.wikipedia.org/wiki/QuickCheck) variant specifically). Read more about `proptest` in the [`proptest` book](https://altsysrq.github.io/proptest-book/), and in this useful [LogRocket blog post](https://blog.logrocket.com/property-based-testing-in-rust-with-proptest/).
@@ -32,6 +31,23 @@ This repo contains Hyperlight along with a couple of sample guest applications t
 - [src/hyperlight-capi](./src/hyperlight_capi/) - C-API bindings for the in-progress rewrite of the Hyperlight host into Rust.
 - [src/hyperlight-host](./src/hyperlight_host) - This is the in-progress rewrite of the Hyperlight host into Rust. See [the design document](https://hackmd.io/@arschles/hl-rust-port) for more information about this work, and see below for details on how to use this code.
 - [src/hyperlight-testing](./src/hyperlight_testing/) - Shared testing code for Hyperlight projects build int Rust.
+
+### HyperlightSurrogate
+
+HyperlightSurrogate.exe is a tiny application that is needed in order to create multiple partitions per process when the host runs on Windows with the Windows Hypervisor Platform (WHP, e-g Hyper-V). This binary does nothing and its purpose is to provide a host for memory that will be mapped into partitions via the `WHvMapGpaRange2` Windows API which gets passed a handle to a process.
+
+> Note: The use of surrogates is a temporary workaround on Windows until WHP allows us to create more than one partition per running process.
+
+These surrogate processes are managed by the host via the [surrogate_process_manager](./src/hyperlight_host/src/hypervisor/surrogate_process_manager.rs) which will launch several of these surrogates (up to the 512), assign memory to them, then launch partitions from there, and reuse them as necessary.
+
+HyperlightSurrogate.exe gets embded into the `hyperlight_host` rust library for Windows and is extracted at runtime next to the executable when the surrogate process manager is initialized.
+This means that `hyperlight_host` has a build dependency on the HyperlightSurrogate.exe which is not built in rust.
+
+To build HyperlightSurrogate.exe run the following from a [Visual Studio Command Prompt](https://docs.microsoft.com/en-us/visualstudio/ide/reference/command-prompt-powershell?view=vs-2022)
+
+```cmd
+msbuild hyperlight.sln -target:HyperlightSurrogate:Result /p:Configuraiton={Debug|Release}
+```
 
 ## Quickstart
 
