@@ -223,6 +223,22 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v3
+      ###
+      ### Build HyperlightSurrogate.exe
+      ###
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.3
+        with:
+          msbuild-architecture: x64
+      - name: Build HyperlightSurrogate.exe Debug
+        run: msbuild -m hyperlight.sln -target:HyperlightSurrogate:Rebuild /p:Configuration=Debug
+        shell: pwsh
+      - name: Build HyperlightSurrogate.exe Release
+        run: msbuild -m hyperlight.sln -target:HyperlightSurrogate:Rebuild /p:Configuration=Release
+        shell: pwsh
+      ###
+      ### Build rust stuff
+      ###
       - uses: dtolnay/rust-toolchain@1.71.0
         with:
           components: clippy, rustfmt
