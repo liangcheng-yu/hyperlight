@@ -183,7 +183,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.71.0
+      - uses: dtolnay/rust-toolchain@1.74
         with:
           components: clippy, rustfmt
       - uses: extractions/setup-just@v1
@@ -191,6 +191,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           just-version: '1.5.0' # optional semver specification, otherwise latest
+      # We need to use the nightly rust tool change to enable registry-auth / to connec to ADO feeds.
+      - name: rustup nightly
+        run: rustup default nightly
+      - name: Cargo login
+        env:
+          PAT: ${{ secrets.ADO_CARGO_RO_PAT}}
+        run: just cargo-login-ci
       - name: Build Debug
         run: cargo build --verbose
       - name: Build Release 

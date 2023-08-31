@@ -28,6 +28,46 @@ This document outlines how the various cargo feeds hosted in AzureDevOps were se
     just cargo-login
     ```
 
+## Cargo Login for CI
+
+Our CI jobs use PATs to login to the AzureDevOps cargo feeds.
+Most CI jobs should use a PAT with the `Packaging (read)` scope (release jobs will need the `Packaging (read and write)` scope).
+
+To login into internal cargo feeds using a PAT run `just cargo-login-ci` and ensure the `PAT` environment variable is set with a PAT with the appropriate scope.
+
+Example using a read-only PAT:
+
+```yaml
+- name: Cargo login
+  env:
+    PAT: ${{ secrets.ADO_CARGO_RO_PAT}}
+  run: just cargo-login-ci
+```
+
+### Rotating PATs
+
+1. Generate a new PAT
+
+     1. Navigate to https://dev.azure.com/AzureContainerUpstream/_usersSettings/tokens
+
+    1. Click `+ New Token` button
+
+    1. Set an appropriate time
+
+    1. Selected either `Packaging (read)` or `Packaging (read and write)` scope as appropriate
+
+    1. Click `Create`
+
+    1. Take note of the PAT
+
+1. Update the github Secrets
+
+    1. Navigate to https://github.com/deislabs/hyperlight/settings/secrets/actions
+
+    1. Click the `Edit` button for the appropriate secret - **ADO_CARGO_RO_PAT** for read-only access or **ADO_CARGO_RW_PAT** for read-write access
+
+    1. Paste the new PAT into the `Value` field and click `Update secret` button.
+
 ## rust-vmm crates
 
 Cargo requires that all dependant crates be published to a cargo feed in order to publish a crate.

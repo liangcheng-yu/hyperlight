@@ -1,2 +1,8 @@
 [profile.release]         
 panic = 'abort'         # Always abort, this is mainly to ensure that panics cannot unwind across FFI boundaries.
+
+[registries]
+hyperlight_redist = { index = "sparse+https://pkgs.dev.azure.com/AzureContainerUpstream/hyperlight/_packaging/hyperlight_redist/Cargo/index/" }
+
+[unstable]
+registry-auth = true
