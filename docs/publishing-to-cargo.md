@@ -48,7 +48,7 @@ Example using a read-only PAT:
 
 1. Generate a new PAT
 
-     1. Navigate to https://dev.azure.com/AzureContainerUpstream/_usersSettings/tokens
+    1. Navigate to https://dev.azure.com/AzureContainerUpstream/_usersSettings/tokens
 
     1. Click `+ New Token` button
 

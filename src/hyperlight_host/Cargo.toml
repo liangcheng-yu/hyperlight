@@ -35,7 +35,7 @@ tracing-log = "0.1.3"
 tracing-core = "0.1.31"
 uuid = { version = "1.4.1", features = ["v4"] }
 tracing-subscriber = { version = "0.3.17", features = ["json"] }
-hyperlight_testing = { path = "../hyperlight_testing"}
+hyperlight_testing = { path = "../hyperlight_testing", version = "*", registry = "hyperlight_packages" }
 rust-embed = { version = "8.0.0", features = ["debug-embed", "include-exclude", "interpolate-folder-path"] }
 sha256 = "1.4.0"
 

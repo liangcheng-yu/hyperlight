@@ -823,7 +823,8 @@ dependencies = [
 [[package]]
 name = "mshv-bindings"
 version = "0.1.1"
-source = "git+https://github.com/rust-vmm/mshv?rev=52edcf4#52edcf423c5c641c5669c0abe345a7e094619cea"
+source = "sparse+https://pkgs.dev.azure.com/AzureContainerUpstream/hyperlight/_packaging/hyperlight_redist/Cargo/index/"
+checksum = "b14bee079beca94d29374389d71ce761e4b550800151f40f94577aef3aa08da2"
 dependencies = [
  "libc",
  "vmm-sys-util",
@@ -833,7 +834,8 @@ dependencies = [
 [[package]]
 name = "mshv-ioctls"
 version = "0.1.1"
-source = "git+https://github.com/rust-vmm/mshv?rev=52edcf4#52edcf423c5c641c5669c0abe345a7e094619cea"
+source = "sparse+https://pkgs.dev.azure.com/AzureContainerUpstream/hyperlight/_packaging/hyperlight_redist/Cargo/index/"
+checksum = "f05cf0b9f3885372033b36ff08e111edb49a8e571b051526a0ebd551f480f48d"
 dependencies = [
  "libc",
  "mshv-bindings",
