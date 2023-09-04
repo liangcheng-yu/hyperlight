@@ -83,5 +83,5 @@ windows = { version = "0.48.0", features = [
 proc-maps = "0.3.1"
 
 [build-dependencies]
-cbindgen = { version = "0.24.5" }
+cbindgen = { version = "0.25.0" }
 anyhow = { version = "1.0.75" }
