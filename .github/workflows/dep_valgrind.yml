@@ -32,7 +32,7 @@ jobs:
             config: debug
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up env vars for kvm-linux tests
         if: ${{ (matrix.hypervisor == 'kvm') }}
         run: |

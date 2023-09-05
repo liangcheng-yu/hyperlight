@@ -44,7 +44,7 @@ jobs:
             config: release
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Add msbuild to PATH
         if: ${{ (runner.os == 'Windows') }}  
         uses: microsoft/setup-msbuild@v1.3

@@ -41,7 +41,7 @@ jobs:
       DOTNET_INSTALL_DIR: "./.dotnet"
       RUST_BACKTRACE: 1
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
     # this is a workaround for the issue described at https://github.com/dotnet/sourcelink/issues/675 , it supresses the warning about the sourcelink package not being found.
@@ -146,7 +146,7 @@ jobs:
     env:
       RUST_BACKTRACE: 1
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
     # this is a workaround for the issue described at https://github.com/dotnet/sourcelink/issues/675 , it supresses the warning about the sourcelink package not being found.
