@@ -90,5 +90,12 @@ cargo-login:
     az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo login --registry hyperlight_packages
 
 cargo-login-ci:
+    echo "PAT: $PAT"
+    echo -n PAT:$PAT | base64
     echo Basic $(echo -n PAT:$PAT | base64) | cargo login --registry hyperlight_redist
     echo Basic $(echo -n PAT:$PAT | base64) | cargo login --registry hyperlight_packages
+    cat ~/.cargo/credentials.toml
+
+cargo-login-ci-windows:
+    "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo login --registry hyperlight_redist
+    "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo login --registry hyperlight_packages

@@ -40,7 +40,7 @@ Example using a read-only PAT:
 ```yaml
 - name: Cargo login
   env:
-    PAT: ${{ secrets.ADO_CARGO_RO_PAT}}
+    PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
   run: just cargo-login-ci
 ```
 

@@ -10,21 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@1.71.0
-        with:
-          components: clippy, rustfmt
-      - uses: extractions/setup-just@v1
+      - uses: ./.github/actions/hyperlight-workflows-setup
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          just-version: '1.5.0' # optional semver specification, otherwise latest
-      # We need to use the nightly rust tool change to enable registry-auth / to connec to ADO feeds.
-      - name: rustup nightly
-        run: rustup default nightly
-      - name: Cargo login
-        env:
-          PAT: ${{ secrets.ADO_CARGO_RW_PAT}}
-        run: just cargo-login-ci
+          PAT: ${{ secrets.ADO_CARGO_RW_PAT }}
       - name: Publish hyperlight-testing
         run: cargo publish --dry-run --manifest-path ./src/hyperlight_testing/Cargo.toml --registry hyperlight_packages
 
@@ -34,20 +23,10 @@ jobs:
       - publish-hyperlight_testing
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@1.71.0
-        with:
-          components: clippy, rustfmt
-      - uses: extractions/setup-just@v1
+      - uses: ./.github/actions/hyperlight-workflows-setup
+      - name: Cargo login (read-write)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          just-version: '1.5.0' # optional semver specification, otherwise latest
-      # We need to use the nightly rust tool change to enable registry-auth / to connec to ADO feeds.
-      - name: rustup nightly
-        run: rustup default nightly
-      - name: Cargo login
-        env:
-          PAT: ${{ secrets.ADO_CARGO_RW_PAT}}
+          PAT: ${{ secrets.ADO_CARGO_RW_PAT }}
         run: just cargo-login-ci
       - name: Publish hyperlight-host 
         # --no-verify is needed because the build.rs script generates ./include/hyperlight_host.h 
@@ -60,22 +39,14 @@ jobs:
       - publish-hyperlight_host
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@1.71.0
-        with:
-          components: clippy, rustfmt
-      - uses: extractions/setup-just@v1
+      - uses: ./.github/actions/hyperlight-workflows-setup
+      - name: Cargo login (read-write)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          just-version: '1.5.0' # optional semver specification, otherwise latest
-      # We need to use the nightly rust tool change to enable registry-auth / to connec to ADO feeds.
-      - name: rustup nightly
-        run: rustup default nightly
-      - name: Cargo login
-        env:
-          PAT: ${{ secrets.ADO_CARGO_RW_PAT}}
+          PAT: ${{ secrets.ADO_CARGO_RW_PAT }}
         run: just cargo-login-ci
       - name: Publish hyperlight-capi
-        run: cargo publish --manifest-path ./src/hyperlight_capi/Cargo.toml --registry  --no-verify
+        # --no-verify is needed because the build.rs script generates ./include/hyperlight_capi.h 
+        # and cargo does not want you to omdify files outside of OUT_DIR
+        run: cargo publish --manifest-path ./src/hyperlight_capi/Cargo.toml --registry hyperlight_packages --no-verify
 
 

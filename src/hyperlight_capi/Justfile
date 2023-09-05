@@ -10,6 +10,8 @@ gen-suppressions:= if os() == "windows" { " " } else { "GEN_SUPPRESSIONS_ON=1 LO
 default-target:= "debug"
 
 build target=default-target:
+    cargo --version
+    cat ~/.cargo/credentials.toml
     cargo build --verbose --profile={{ if target == "debug" {"dev"} else { target } }}
 
 build-test-rust target=default-target:  (build target)

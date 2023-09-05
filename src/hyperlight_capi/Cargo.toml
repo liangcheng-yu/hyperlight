@@ -23,7 +23,6 @@ tracing-subscriber = { version = "0.3.17", features = ["json"] }
 uuid =  { version ="1.4.1", features = ["v4"] }
 
 [target.'cfg(unix)'.dependencies]
-# mshv-bindings = {git = "https://github.com/rust-vmm/mshv", rev="52edcf4" }
 mshv-bindings = { version = "0.1.1", registry = "hyperlight_redist" }
 
 [build-dependencies]
