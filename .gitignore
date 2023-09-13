@@ -456,7 +456,8 @@ $RECYCLE.BIN/
 /downloads
 
 # Rust build artifacts
-/target
+**/**target
+**Cargo.lock
 /src/tests/Hyperlight.Tests/libhyperlight_host
 /src/tests/Hyperlight.Tests/hyperlight_host
 /src/examples/NativeHost/libhyperlight_host

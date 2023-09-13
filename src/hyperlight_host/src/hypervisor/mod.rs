@@ -99,7 +99,7 @@ pub(crate) mod tests {
             ptr_offset::Offset,
         },
         sandbox::{mem_mgr::MemMgrWrapperGetter, uninitialized::GuestBinary, UninitializedSandbox},
-        testing::dummy_guest_path, SandboxRunOptions,
+        testing::dummy_guest_path,
     };
     use anyhow::bail;
     use anyhow::{anyhow, Result};
@@ -153,7 +153,7 @@ pub(crate) mod tests {
         // into it, and run the CPU to completion (e.g., a HLT interrupt)
         hypervisor_impl
             .initialise(
-                RawPtr::from(0x230123),
+                RawPtr::from(0x230000),
                 1234567890,
                 4096,
                 outb_hdl,
