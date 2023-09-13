@@ -24,7 +24,12 @@ build-dotnet:
     cd src/Hyperlight && dotnet build || cd ../../
     cd src/examples/NativeHost && dotnet build || cd ../../../
 
-build-rust target=default-target:
+cargo-update:
+    # run cargo update --dry-run with nightly toolchain to pull deps from private cargo feeds
+    # but do not actually perform any updates
+    cargo +nightly update --dry-run
+
+build-rust target=default-target: cargo-update
     cargo build --verbose --profile={{ if target == "debug" {"dev"} else { target } }}
 
 build: build-rust build-dotnet
@@ -89,11 +94,8 @@ cargo-login:
     az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo login --registry hyperlight_packages
 
 cargo-login-ci:
-    echo "PAT: $PAT"
-    echo -n PAT:$PAT | base64
     echo Basic $(echo -n PAT:$PAT | base64) | cargo +nightly login --registry hyperlight_redist
     echo Basic $(echo -n PAT:$PAT | base64) | cargo +nightly login --registry hyperlight_packages
-    cat ~/.cargo/credentials.toml
 
 cargo-login-ci-windows:
     "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo +nightly login --registry hyperlight_redist

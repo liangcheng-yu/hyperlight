@@ -187,8 +187,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
-      - name: check cargo creds
-        run: cat ~/.cargo/credentials.toml
       - name: Build Debug
         run: cargo build --verbose
       - name: Build Release 
