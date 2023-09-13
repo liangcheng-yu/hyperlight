@@ -1,20 +1,9 @@
 # dummyguest in rs
 
-This is dummyguest, but written in rust.
-
-## x86_64-pc-windows-gnu
-
-### Building
-
-To build, run:
+This is dummyguest, but written in rust. Here's how to build it:
 
 ```
-RUSTFLAGS="-L/home/dchiarlone/repos/hyperlight/release -C linker-flavor=ld -C link-arg=-T/home/dchiarlone/repos/hyperlight/src/tests/rust_guests/dummyguest/linker_script.ld" cargo build --target x86_64-pc-windows-gnu --release --no-default-features
-```
+cargo build --release --target x86_64-pc-windows-msvc
 
-### Pre-reqs
-
-```
-rustup target add x86_64-pc-windows-gnu
-sudo apt-get install mingw-w64
+link.exe /NOLOGO /NXCOMPAT /SAFESEH:NO /RELEASE /ENTRY:"entryPoint" /SUBSYSTEM:NATIVE .\target\x86_64-pc-windows-msvc\release\libdummyguest.rlib /LIBPATH:"C:\Users\danbugs\repos\hyperlight\x64\debug\" /OUT:"C:\Users\danbugs\repos\hyperlight\src\tests\Guests\dummyguest\x64\debug\dummyguest_new.exe" /ERRORREPORT:NONE /ALIGN:512 /NODEFAULTLIB /HEAP:"131072,131072" /DYNAMICBASE /STACK:"65536,65536" /MACHINE:X64
 ```
