@@ -5,7 +5,9 @@ name: Build Host Library
 # See README.md in this directory for more information about workflow_call
 on:
   workflow_call:
-  workflow_dispatch:
+    secrets:
+      ADO_CARGO_RO_path:
+        required: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -38,8 +40,6 @@ jobs:
       with:
         fetch-depth: 0
     - uses: ./.github/actions/hyperlight-workflows-setup
-      with:
-        cargo-pat: ${{ secrets.ADO_CARGO_RO_PAT }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
@@ -53,12 +53,6 @@ jobs:
       if: ${{ (runner.os == 'Windows') }}  
       run: msbuild -m hyperlight.sln -target:HyperlightSurrogate:Rebuild /p:Configuration=${{ matrix.config }} /p:ContinuousIntegrationBuild=true
       shell: pwsh
-    - name: Cargo login
-      if: ${{ (runner.os == 'Linux') }}  
-      run: just cargo-login-ci
-      env:
-        PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
-      shell: bash
     - name: Build hyperlight_capi library
       run: |
         cd src/hyperlight_capi

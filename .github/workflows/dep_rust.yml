@@ -4,6 +4,9 @@ name: Rust Tests and Lints
 # See README.md in this directory for more information about workflow_call
 on:
   workflow_call:
+    secrets:
+      ADO_CARGO_RO_PAT:
+        required: true
   
 env:
   CARGO_TERM_COLOR: always

@@ -85,17 +85,16 @@ gen-all-fbs-c-code:
 gen-all-fbs: gen-all-fbs-rust-code gen-all-fbs-c-code gen-all-fbs-csharp-code
 
 cargo-login:
-    # az login
     az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo login --registry hyperlight_redist
     az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo login --registry hyperlight_packages
 
 cargo-login-ci:
     echo "PAT: $PAT"
     echo -n PAT:$PAT | base64
-    echo Basic $(echo -n PAT:$PAT | base64) | cargo login --registry hyperlight_redist
-    echo Basic $(echo -n PAT:$PAT | base64) | cargo login --registry hyperlight_packages
+    echo Basic $(echo -n PAT:$PAT | base64) | cargo +nightly login --registry hyperlight_redist
+    echo Basic $(echo -n PAT:$PAT | base64) | cargo +nightly login --registry hyperlight_packages
     cat ~/.cargo/credentials.toml
 
 cargo-login-ci-windows:
-    "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo login --registry hyperlight_redist
-    "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo login --registry hyperlight_packages
+    "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo +nightly login --registry hyperlight_redist
+    "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo +nightly login --registry hyperlight_packages

@@ -8,15 +8,18 @@ on:
 jobs:
   build-host-library:
     uses: ./.github/workflows/dep_build_host_library.yml
+    secrets: inherit
   build-guest-binaries:
     uses: ./.github/workflows/dep_build_guest_binaries.yml
     needs: [build-host-library]
   rust:
     uses: ./.github/workflows/dep_rust.yml
     needs: [build-guest-binaries]
+    secrets: inherit
   valgrind:
     uses: ./.github/workflows/dep_valgrind.yml
     needs: [build-guest-binaries]
+    secrets: inherit
 
   #####
   # start build-on-windows

@@ -2,10 +2,6 @@
 
 name: 'Hyperlight Workflow Setup'
 description: 'Common setup steps for GitHub workflows in the Hyperlight project'
-inputs:
-  cargo-pat:
-    description: 'PAT used for logging into to CARGO feeds'
-    required: true
 
 runs:
   using: composite
@@ -21,35 +17,24 @@ runs:
     ### Linux setup
     ###
     - name: rustup nightly
-        # We need to use the nightly rust tool change to enable registry-auth / to connect to ADO feeds.
+      # We need to use the nightly rust tool change to enable registry-auth / to connect to ADO feeds.
       if: ${{ (runner.os == 'Linux') }}  
       run: rustup default nightly
-      shell: bash
-    - name: env
-      if : ${{ (runner.os == 'Linux') }}
-      run: env
       shell: bash
     - name: Cargo login
       if: ${{ (runner.os == 'Linux') }}  
       run: just cargo-login-ci
-      shell: bash
-    - name: creds
-      if: ${{ (runner.os == 'Linux') }}
-      run: cat ~/.cargo/credentials.toml
       shell: bash
 
       ###
       ### Windows setup
       ###
     - name: rustup nightly
-        # We need to use the nightly rust tool change to enable registry-auth / to connect to ADO feeds.
+      # We need to use the nightly rust tool change to enable registry-auth / to connect to ADO feeds.
       if: ${{ (runner.os == 'Windows') }}  
       run: rustup default nightly
       shell: pwsh
     - name: Cargo login
       if: ${{ (runner.os == 'Windows') }}
       run: just cargo-login-ci-windows
-      env:
-        PAT: ${{ inputs.cargo-pat }}
       shell: pwsh
-    

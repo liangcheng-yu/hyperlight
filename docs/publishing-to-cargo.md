@@ -6,7 +6,9 @@ This document outlines how the various cargo feeds hosted in AzureDevOps were se
 
 ### One time setup
 
-1. Ensure `reigstiry-auth` is enable in your `.cargo/config.toml`
+1. Ensure `registry-auth` is enable in your `.cargo/config.toml`
+
+   > Note: Currently `registty-auth` requires using the `nightly` toolchain (cargo 1.74.0-nightly (80eca0e58 2023-08-19) at the time of this writing)
 
     ```toml
     [unstable]
