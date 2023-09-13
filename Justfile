@@ -63,17 +63,22 @@ test target=default-target: (test-rust target) (test-dotnet target) (valgrind-ca
 
 check:
     cargo check
+
 fmt-check:
     cargo fmt --all -- --check
+
 fmt: 
     cargo fmt
-clippy target=default-target:
+
+clippy target=default-target: cargo-update
     cargo clippy --all-targets --all-features --profile={{ if target == "debug" {"dev"} else { target } }} -- -D warnings
 
-clippy-apply-fix-unix:
+clippy-apply-fix-unix: cargo-update
     cargo clippy --fix --all
-clippy-apply-fix-windows:
+
+clippy-apply-fix-windows: cargo-update:
     cargo clippy --target x86_64-pc-windows-msvc --fix --all
+
 fmt-apply:
     cargo fmt --all
 
