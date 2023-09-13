@@ -76,7 +76,7 @@ clippy target=default-target: cargo-update
 clippy-apply-fix-unix: cargo-update
     cargo clippy --fix --all
 
-clippy-apply-fix-windows: cargo-update:
+clippy-apply-fix-windows: cargo-update
     cargo clippy --target x86_64-pc-windows-msvc --fix --all
 
 fmt-apply:
