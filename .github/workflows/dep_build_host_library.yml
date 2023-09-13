@@ -6,7 +6,7 @@ name: Build Host Library
 on:
   workflow_call:
     secrets:
-      ADO_CARGO_RO_path:
+      ADO_CARGO_RO_PAT:
         required: true
 
 env:
