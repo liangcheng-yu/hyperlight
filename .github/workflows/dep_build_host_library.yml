@@ -5,6 +5,7 @@ name: Build Host Library
 # See README.md in this directory for more information about workflow_call
 on:
   workflow_call:
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
