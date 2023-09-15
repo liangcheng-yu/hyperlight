@@ -27,6 +27,7 @@ This document outlines how the various cargo feeds hosted in AzureDevOps were se
 1. From the repo root run:
 
     ```bash
+    az login
     just cargo-login
     ```
 

@@ -160,9 +160,38 @@ Visual Studio Code does not currently support mixed mode debugging, to debug gue
 
 ## The Rust Host Rewrite (`hyperlight_host`)
 
-## Prerequisites
+### Prerequisites
 
-### Windows
+The hyperlight Rust projects currently require connecting to Microsoft internal cargo feeds to pull some dependencies.
+To do do this please ensure the following:
+
+1. You are a member of the [AzureContainerUpstream Hyperlight project]('https://dev.azure.com/AzureContainerUpstream/hyperlight')
+
+    - Contact project maintainers if you need access.
+
+1. You have the 'az cli' installed and are logged in to AzureDevops
+
+    - (https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
+
+1. You have the rust nightly toolchain installed (this is just needed for pulling crates!)
+
+   - `rustup default nightly`
+
+To connect to the cargo feeds run the following commands from the root of the repo:
+
+```console
+az login
+just cargo-login
+```
+
+To verify access to our cargo feeds run:
+
+```console
+cargo +nightly update --dry-run
+```
+
+See [publishing-to-cargo.md](./docs/publishing-to-cargo.md) for more information.
+#### Windows
 
 1. [Rust](https://www.rust-lang.org/tools/install)
 1. [Clang](https://clang.llvm.org/get_started.html).  If you have Visual Studio instructions are [here](https://docs.microsoft.com/en-us/cpp/build/clang-support-msbuild?view=msvc-170).
@@ -186,7 +215,7 @@ Import-Module "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\
 Enter-VsDevShell <instance_id> -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64" 
  ```
 
-### WSL2 or Linux
+#### WSL2 or Linux
 
 Prerequisites:
 

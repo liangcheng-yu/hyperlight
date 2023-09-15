@@ -95,8 +95,8 @@ gen-all-fbs-c-code:
 gen-all-fbs: gen-all-fbs-rust-code gen-all-fbs-c-code gen-all-fbs-csharp-code
 
 cargo-login:
-    az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo login --registry hyperlight_redist
-    az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo login --registry hyperlight_packages
+    az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo +nightly login --registry hyperlight_redist
+    az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo +nightly login --registry hyperlight_packages
 
 cargo-login-ci:
     echo Basic $(echo -n PAT:$PAT | base64) | cargo +nightly login --registry hyperlight_redist
