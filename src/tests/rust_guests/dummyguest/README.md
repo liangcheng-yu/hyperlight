@@ -1,4 +1,4 @@
-# dummyguest in rs
+# The "dummy" guest in Rust
 
 This is dummyguest, but written in rust. Here's how to build it:
 
