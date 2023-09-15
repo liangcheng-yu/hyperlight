@@ -1,6 +1,8 @@
 # The "dummy" guest in Rust
 
-This is dummyguest, but written in rust. Here's how to build it:
+This is the dummy guest, written in Rust. The purpose of this guest binary is only for use with Hyperlight tests. It utilizes no Rust functionality and allocates no memory, so it's useful for a wide range of lower-level tests.
+
+The command to build this guest, which you must run on windows (to get access to the linker `link.exe`) is as follows:
 
 ```
 cargo build --release --target x86_64-pc-windows-msvc
