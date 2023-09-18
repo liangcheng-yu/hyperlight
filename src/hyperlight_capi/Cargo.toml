@@ -14,21 +14,21 @@ crate-type = ["cdylib"]
 anyhow = { version = "1.0.72" }
 cfg-if = { version = "1.0.0" }
 flatbuffers = "23.5.26"
-hyperlight_host = { path = "../hyperlight_host"}
+hyperlight_host = { path = "../hyperlight_host", version = "*", registry = "hyperlight_packages" }
 libc = { version = "0.2.148" }
 rand = { version = "0.8.5" }
-hyperlight_testing = { path = "../hyperlight_testing"}
+hyperlight_testing = { path = "../hyperlight_testing", version = "*", registry = "hyperlight_packages" }
 tracing = { version ="0.1.37", features = ["log"] }
 tracing-subscriber = { version = "0.3.17", features = ["json"] }
 uuid =  { version ="1.4.1", features = ["v4"] }
 
 [target.'cfg(unix)'.dependencies]
-mshv-bindings = {git = "https://github.com/rust-vmm/mshv", rev="52edcf4" }
+mshv-bindings = { version = "0.1.1", registry = "hyperlight_redist" }
 
 [build-dependencies]
 anyhow = { version = "1.0.72" }
 cbindgen = { version = "0.26.0" }
 
 [dev-dependencies]
-hyperlight_host = { path = "../hyperlight_host"}
-hyperlight_testing = { path = "../hyperlight_testing"}
+hyperlight_host = { path = "../hyperlight_host" }
+hyperlight_testing = { path = "../hyperlight_testing" }

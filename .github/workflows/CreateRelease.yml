@@ -183,14 +183,10 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.71.0
-        with:
-          components: clippy, rustfmt
-      - uses: extractions/setup-just@v1
+      - uses: ./.github/actions/hyperlight-workflows-setup
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          just-version: '1.5.0' # optional semver specification, otherwise latest
+          PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
       - name: Build Debug
         run: cargo build --verbose
       - name: Build Release 
@@ -239,9 +235,10 @@ jobs:
       ###
       ### Build rust stuff
       ###
-      - uses: dtolnay/rust-toolchain@1.71.0
-        with:
-          components: clippy, rustfmt
+      - uses: ./.github/actions/hyperlight-workflows-setup
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
       - name: Build Debug
         run: cargo build --verbose
       - name: Build Release

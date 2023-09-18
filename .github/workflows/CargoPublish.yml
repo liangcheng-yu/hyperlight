@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Publish crates to intenral cargo registry
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish-hyperlight_testing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/hyperlight-workflows-setup
+        env:
+          PAT: ${{ secrets.ADO_CARGO_RW_PAT }}
+      - name: Publish hyperlight-testing
+        run: cargo +nighly publish --manifest-path ./src/hyperlight_testing/Cargo.toml --registry hyperlight_packages
+
+  publish-hyperlight_host:
+    runs-on: ubuntu-latest
+    needs:
+      - publish-hyperlight_testing
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/hyperlight-workflows-setup
+      - name: Cargo login (read-write)
+        env:
+          PAT: ${{ secrets.ADO_CARGO_RW_PAT }}
+        run: just cargo-login-ci
+      - name: Publish hyperlight-host 
+        # --no-verify is needed because the build.rs script generates ./include/hyperlight_host.h 
+        # and cargo does not want you to modify files outside of OUT_DIR
+        run: cargo +nightly publish --manifest-path ./src/hyperlight_host/Cargo.toml --registry hyperlight_packages --no-verify
+
+  publish-hyperlight_capi:
+    runs-on: ubuntu-latest
+    needs:
+      - publish-hyperlight_host
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/hyperlight-workflows-setup
+      - name: Cargo login (read-write)
+        env:
+          PAT: ${{ secrets.ADO_CARGO_RW_PAT }}
+        run: just cargo-login-ci
+      - name: Publish hyperlight-capi
+        # --no-verify is needed because the build.rs script generates ./include/hyperlight_capi.h 
+        # and cargo does not want you to modify files outside of OUT_DIR
+        run: cargo +nightly publish --manifest-path ./src/hyperlight_capi/Cargo.toml --registry hyperlight_packages --no-verify
+
+

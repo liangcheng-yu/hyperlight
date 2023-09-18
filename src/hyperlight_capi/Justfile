@@ -9,7 +9,12 @@ gen-suppressions:= if os() == "windows" { " " } else { "GEN_SUPPRESSIONS_ON=1 LO
 
 default-target:= "debug"
 
-build target=default-target:
+cargo-update:
+    # run cargo update --dry-run with nightly toolchain to pull deps from private cargo feeds
+    # but do not actually perform any updates
+    cargo +nightly update --dry-run
+
+build target=default-target: cargo-update
     cargo build --verbose --profile={{ if target == "debug" {"dev"} else { target } }}
 
 build-test-rust target=default-target:  (build target)
