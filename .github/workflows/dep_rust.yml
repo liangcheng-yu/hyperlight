@@ -4,6 +4,9 @@ name: Rust Tests and Lints
 # See README.md in this directory for more information about workflow_call
 on:
   workflow_call:
+    secrets:
+      ADO_CARGO_RO_PAT:
+        required: true
   
 env:
   CARGO_TERM_COLOR: always
@@ -55,15 +58,10 @@ jobs:
         if: ${{ (runner.os == 'Windows') }}  
         run: msbuild -m hyperlight.sln -target:HyperlightSurrogate:Rebuild /p:Configuration=${{ matrix.config }} /p:ContinuousIntegrationBuild=true
         shell: pwsh
-      - uses: dtolnay/rust-toolchain@1.71.0
-        with:
-          components: clippy, rustfmt
-      - name: Install Just
-        uses: extractions/setup-just@v1
+      - uses: ./.github/actions/hyperlight-workflows-setup
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          just-version: '1.5.0' # optional semver specification, otherwise latest
+          PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
       - name: fmt
         run: cargo fmt --all -- --check
       - name: clippy

@@ -24,7 +24,12 @@ build-dotnet:
     cd src/Hyperlight && dotnet build || cd ../../
     cd src/examples/NativeHost && dotnet build || cd ../../../
 
-build-rust target=default-target:
+cargo-update:
+    # run cargo update --dry-run with nightly toolchain to pull deps from private cargo feeds
+    # but do not actually perform any updates
+    cargo +nightly update --dry-run
+
+build-rust target=default-target: cargo-update
     cargo build --verbose --profile={{ if target == "debug" {"dev"} else { target } }}
 
 build: build-rust build-dotnet
@@ -58,17 +63,22 @@ test target=default-target: (test-rust target) (test-dotnet target) (valgrind-ca
 
 check:
     cargo check
+
 fmt-check:
     cargo fmt --all -- --check
+
 fmt: 
     cargo fmt
-clippy target=default-target:
+
+clippy target=default-target: cargo-update
     cargo clippy --all-targets --all-features --profile={{ if target == "debug" {"dev"} else { target } }} -- -D warnings
 
-clippy-apply-fix-unix:
+clippy-apply-fix-unix: cargo-update
     cargo clippy --fix --all
-clippy-apply-fix-windows:
+
+clippy-apply-fix-windows: cargo-update
     cargo clippy --target x86_64-pc-windows-msvc --fix --all
+
 fmt-apply:
     cargo fmt --all
 
@@ -83,3 +93,15 @@ gen-all-fbs-c-code:
     for fbs in `find src -name "*.fbs"`; do flatcc -a -o ./src/HyperlightGuest/include/flatbuffers/generated $fbs; done
 
 gen-all-fbs: gen-all-fbs-rust-code gen-all-fbs-c-code gen-all-fbs-csharp-code
+
+cargo-login:
+    az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo +nightly login --registry hyperlight_redist
+    az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo +nightly login --registry hyperlight_packages
+
+cargo-login-ci:
+    echo Basic $(echo -n PAT:$PAT | base64) | cargo +nightly login --registry hyperlight_redist
+    echo Basic $(echo -n PAT:$PAT | base64) | cargo +nightly login --registry hyperlight_packages
+
+cargo-login-ci-windows:
+    "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo +nightly login --registry hyperlight_redist
+    "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo +nightly login --registry hyperlight_packages
