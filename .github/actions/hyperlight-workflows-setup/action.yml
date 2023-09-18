@@ -19,7 +19,7 @@ runs:
     - name: rustup nightly
       # We need to use the nightly rust tool change to enable registry-auth / to connect to ADO feeds.
       if: ${{ (runner.os == 'Linux') }}  
-      run: rustup default nightly
+      run: rustup install nightly
       shell: bash
     - name: Cargo login
       if: ${{ (runner.os == 'Linux') }}  
@@ -32,7 +32,7 @@ runs:
     - name: rustup nightly
       # We need to use the nightly rust tool change to enable registry-auth / to connect to ADO feeds.
       if: ${{ (runner.os == 'Windows') }}  
-      run: rustup default nightly
+      run: rustup install nightly
       shell: pwsh
     - name: Cargo login
       if: ${{ (runner.os == 'Windows') }}

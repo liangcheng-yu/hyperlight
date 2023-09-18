@@ -175,7 +175,7 @@ To do do this please ensure the following:
 
 1. You have the rust nightly toolchain installed (this is just needed for pulling crates!)
 
-   - `rustup default nightly`
+   - `rustup install nightly`
 
 To connect to the cargo feeds run the following commands from the root of the repo:
 

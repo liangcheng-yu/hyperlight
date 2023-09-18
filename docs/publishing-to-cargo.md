@@ -6,9 +6,15 @@ This document outlines how the various cargo feeds hosted in AzureDevOps were se
 
 ### One time setup
 
-1. Ensure `registry-auth` is enable in your `.cargo/config.toml`
+1. Install the **nightly** rust toolchain (cargo 1.74.0-nightly (80eca0e58 2023-08-19) at the time of this writing) which is needed registry auth in cargo.
 
-   > Note: Currently `registty-auth` requires using the `nightly` toolchain (cargo 1.74.0-nightly (80eca0e58 2023-08-19) at the time of this writing)
+   > Note: Currently `registry-auth` requires using the `nightly` toolchain (cargo 1.74.0-nightly (80eca0e58 2023-08-19) at the time of this writing)
+
+    ```command
+    rustup install nightly
+    ```
+
+1. Ensure `registry-auth` is enable in your `.cargo/config.toml` file
 
     ```toml
     [unstable]
