@@ -27,7 +27,7 @@ mshv-bindings = {git = "https://github.com/rust-vmm/mshv", rev="52edcf4" }
 
 [build-dependencies]
 anyhow = { version = "1.0.72" }
-cbindgen = { version = "0.25.0" }
+cbindgen = { version = "0.26.0" }
 
 [dev-dependencies]
 hyperlight_host = { path = "../hyperlight_host"}
