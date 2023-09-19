@@ -5,5 +5,6 @@ panic = 'abort'         # Always abort, this is mainly to ensure that panics can
 hyperlight_redist = { index = "sparse+https://pkgs.dev.azure.com/AzureContainerUpstream/hyperlight/_packaging/hyperlight_redist/Cargo/index/" }
 hyperlight_packages = { index = "sparse+https://pkgs.dev.azure.com/AzureContainerUpstream/hyperlight/_packaging/hyperlight_packages_test/Cargo/index/" }
 
-[unstable]
-registry-auth = true
+[registry]
+global-credential-providers = ["cargo:token"]
+
