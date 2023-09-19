@@ -187,6 +187,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
+      - name: cargo nightly update
+        run: just cargo-update  # fetch packages from ADO feeds with nightly toolchain
       - name: Build Debug
         run: cargo build --verbose
       - name: Build Release 
@@ -239,6 +241,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
+      - name: cargo nightly update
+        run: just cargo-update # fetch packages from ADO feeds with nightly toolchain
       - name: Build Debug
         run: cargo build --verbose
       - name: Build Release
