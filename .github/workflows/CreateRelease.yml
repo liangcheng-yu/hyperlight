@@ -8,7 +8,7 @@ on:
   create:
   workflow_dispatch:
   push:
-    branches: [ release/*, dev ]
+    branches: [ 'release/**', dev ]
 
 jobs:
   publish:
