@@ -295,6 +295,42 @@ mod tests {
         // TODO: Add tests to ensure State has been reset.
     }
 
+    // test_call_guest_function_by_name() but it calls smallVar
+    #[test]
+    fn test_call_guest_function_by_name_small_var() -> Result<()> {
+        // This test relies upon a Hypervisor being present so for now
+        // we will skip it if there isnt one.
+        if !is_hypervisor_present() {
+            println!("Skipping test_call_guest_function_by_name because no hypervisor is present");
+            return Ok(());
+        }
+
+        let usbox = UninitializedSandbox::new(
+            GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
+            None,
+            // ^^^ for now, we're using defaults. In the future, we should get variability here.
+            None,
+            // ^^^  None == RUN_IN_HYPERVISOR && one-shot Sandbox
+        )?;
+
+        let sandbox = Arc::new(Mutex::new(usbox.evolve(MutatingCallback::from(init))?));
+        let func = Arc::new(Mutex::new(
+            move |s: Arc<Mutex<&mut Sandbox>>| -> Result<ReturnValue> {
+                s.lock()
+                    .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                    .call_guest_function_by_name("smallVar", ReturnType::Int, None)
+            },
+        ));
+
+        let result = sandbox
+            .lock()
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+            .execute_in_host(func)?;
+
+        assert_eq!(result, ReturnValue::Int(2048));
+        Ok(())
+    }
+
     #[test]
     fn test_call_guest_function_by_name() -> Result<()> {
         // This test relies upon a Hypervisor being present so for now

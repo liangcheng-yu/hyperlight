@@ -24,8 +24,8 @@ pub extern "C" fn HyperlightMain() {
 #[no_mangle]
 #[allow(non_snake_case)]
 pub extern "C" fn smallVar() -> *const u8 {
-    let _buffer: [u8; 1024] = [0; 1024];
-    return unsafe { GetFlatBufferResultFromInt(1024) };
+    let _buffer: [u8; 2048] = [0; 2048];
+    return unsafe { GetFlatBufferResultFromInt(2048) };
 }
 
 extern "C" {
