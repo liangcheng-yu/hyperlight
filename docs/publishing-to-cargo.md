@@ -6,19 +6,19 @@ This document outlines how the various cargo feeds hosted in AzureDevOps were se
 
 ### One time setup
 
-1. Install the **nightly** rust toolchain (cargo 1.74.0-nightly (80eca0e58 2023-08-19) at the time of this writing) which is needed registry auth in cargo.
+1. Install the **nightly** rust toolchain (cargo 1.74.0-nightly (b4ddf95ad 2023-09-18) at the time of this writing) which is needed registry auth in cargo.
 
-   > Note: Currently `registry-auth` requires using the `nightly` toolchain (cargo 1.74.0-nightly (80eca0e58 2023-08-19) at the time of this writing)
+   > Note: Currently `registry auth` requires using the `nightly` toolchain cargo 1.74.0-nightly (b4ddf95ad 2023-09-18) at the time of this writing)
 
     ```command
     rustup install nightly
     ```
 
-1. Ensure `registry-auth` is enable in your `.cargo/config.toml` file
+1. Ensure `cargo:token` credential provider is enabled in your `.cargo/config.toml` file
 
     ```toml
-    [unstable]
-    registry-auth = true
+    [registry]
+    global-credential-providers = ["cargo:token"]
     ```
 
 1. Add the following your global cargo config file `$HOME/.cargo/config.toml`
@@ -26,6 +26,7 @@ This document outlines how the various cargo feeds hosted in AzureDevOps were se
     ```toml
     [registries]
     hyperlight_redist = { index = "sparse+https://pkgs.dev.azure.com/AzureContainerUpstream/hyperlight/_packaging/hyperlight_redist/Cargo/index/" }
+    hyperlight_packages = { index = "sparse+https://pkgs.dev.azure.com/AzureContainerUpstream/hyperlight/_packaging/hyperlight_packages_test/Cargo/index/" }
     ```
 
 ### Login to AzureDevops cargo feeds
