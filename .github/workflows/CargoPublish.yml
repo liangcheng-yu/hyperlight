@@ -14,7 +14,7 @@ jobs:
         env:
           PAT: ${{ secrets.ADO_CARGO_RW_PAT }}
       - name: Publish hyperlight-testing
-        run: cargo +nighly publish --manifest-path ./src/hyperlight_testing/Cargo.toml --registry hyperlight_packages
+        run: cargo +nightly publish --manifest-path ./src/hyperlight_testing/Cargo.toml --registry hyperlight_packages
 
   publish-hyperlight_host:
     runs-on: ubuntu-latest
