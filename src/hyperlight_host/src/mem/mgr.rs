@@ -1,7 +1,6 @@
 #[cfg(target_os = "windows")]
 use super::loaded_lib::LoadedLib;
 use super::{
-    config::SandboxMemoryConfiguration,
     layout::SandboxMemoryLayout,
     pe::{headers::PEHeaders, pe_info::PEInfo},
     ptr::{GuestPtr, RawPtr},
@@ -21,6 +20,7 @@ use crate::{
         host::{function_call::HostFunctionCall, function_details::HostFunctionDetails},
         types::ReturnValue,
     },
+    sandbox::SandboxConfiguration,
 };
 use anyhow::{anyhow, bail, Result};
 use core::mem::size_of;
@@ -396,7 +396,7 @@ impl SandboxMemoryManager {
     ///     - If we're not running with in-memory mode, this value will be
     ///     into guest memory
     pub(crate) fn load_guest_binary_into_memory(
-        cfg: SandboxMemoryConfiguration,
+        cfg: SandboxConfiguration,
         pe_info: &mut PEInfo,
         run_from_process_memory: bool,
     ) -> Result<Self> {
@@ -443,7 +443,7 @@ impl SandboxMemoryManager {
     /// [`LoadLibraryA`](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibrarya)
     /// function.
     pub(crate) fn load_guest_binary_using_load_library(
-        cfg: SandboxMemoryConfiguration,
+        cfg: SandboxConfiguration,
         guest_bin_path: &str,
         pe_info: &mut PEInfo,
         run_from_process_memory: bool,
@@ -537,7 +537,7 @@ impl SandboxMemoryManager {
 /// `SharedMemory`, load address as calculated by `load_addr_fn`,
 /// and calculated entrypoint offset, in order.
 fn load_guest_binary_common<F>(
-    cfg: SandboxMemoryConfiguration,
+    cfg: SandboxConfiguration,
     pe_info: &PEInfo,
     code_size: usize,
     load_addr_fn: F,
@@ -581,9 +581,10 @@ mod tests {
     use crate::{
         error::HyperlightError,
         mem::{
-            config::SandboxMemoryConfiguration, layout::SandboxMemoryLayout, pe::pe_info::PEInfo,
-            ptr::RawPtr, ptr_offset::Offset, shared_mem::SharedMemory,
+            layout::SandboxMemoryLayout, pe::pe_info::PEInfo, ptr::RawPtr, ptr_offset::Offset,
+            shared_mem::SharedMemory,
         },
+        sandbox::SandboxConfiguration,
         testing::bytes_for_path,
     };
     use hyperlight_testing::{callback_guest_buf, simple_guest_buf};
@@ -599,7 +600,7 @@ mod tests {
             let pe_info = PEInfo::new(guest_bytes.as_slice()).unwrap();
             let stack_size_override = 0x3000;
             let heap_size_override = 0x10000;
-            let cfg = SandboxMemoryConfiguration {
+            let cfg = SandboxConfiguration {
                 stack_size_override,
                 heap_size_override,
                 ..Default::default()
@@ -623,7 +624,7 @@ mod tests {
         use crate::mem::mgr::SandboxMemoryManager;
         use hyperlight_testing::simple_guest_path;
 
-        let cfg = SandboxMemoryConfiguration::default();
+        let cfg = SandboxConfiguration::default();
         let guest_path = simple_guest_buf();
         let guest_bytes = bytes_for_path(guest_path).unwrap();
         let mut pe_info = PEInfo::new(guest_bytes.as_slice()).unwrap();
@@ -640,7 +641,7 @@ mod tests {
     /// successfully do the read but get no error back
     #[test]
     fn get_host_error_none() {
-        let cfg = SandboxMemoryConfiguration::default();
+        let cfg = SandboxConfiguration::default();
         let layout = SandboxMemoryLayout::new(cfg, 0x10000, 0x10000, 0x10000).unwrap();
         let mut shared_mem = SharedMemory::new(layout.get_memory_size().unwrap()).unwrap();
         let mem_size = shared_mem.mem_size();
@@ -662,7 +663,7 @@ mod tests {
     /// write a host error to shared memory, then try to read it back out
     #[test]
     fn round_trip_host_error() {
-        let cfg = SandboxMemoryConfiguration::default();
+        let cfg = SandboxConfiguration::default();
         let layout = SandboxMemoryLayout::new(cfg, 0x10000, 0x10000, 0x10000).unwrap();
         let mem_size = layout.get_memory_size().unwrap();
         // write a host error and then try to read it back

@@ -1,5 +1,3 @@
-/// Configuration needed to establish a sandbox's memory layout.
-pub mod config;
 /// Functionality to establish a sandbox's memory layout.
 pub mod layout;
 /// Safe wrapper around an HINSTANCE created by the windows
@@ -30,5 +28,3 @@ pub(crate) mod shared_mem_tests;
 /// An extension trait for adding types like `Offset`s to
 /// types like pointers
 pub(crate) mod try_add_ext;
-/// Re-export for `SandboxMemoryConfiguration` type
-pub use config::SandboxMemoryConfiguration;

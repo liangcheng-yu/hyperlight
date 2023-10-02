@@ -3,11 +3,11 @@ use super::{context::Context, sandbox_compat::Sandbox};
 use super::{handle::Handle, sandbox_compat::EitherImpl};
 use crate::strings::get_string;
 use anyhow::{bail, Result};
-use hyperlight_host::sandbox::host_funcs::default_writer_func;
 use hyperlight_host::sandbox::uninitialized::GuestBinary;
+use hyperlight_host::sandbox::{host_funcs::default_writer_func, SandboxConfiguration};
 use hyperlight_host::sandbox_state::transition::Noop;
+use hyperlight_host::MemMgrWrapperGetter;
 use hyperlight_host::{func::host::HostFunction1, sandbox};
-use hyperlight_host::{mem::config::SandboxMemoryConfiguration, MemMgrWrapperGetter};
 use hyperlight_host::{mem::ptr::RawPtr, sandbox_state::sandbox::EvolvableSandbox};
 use hyperlight_host::{
     sandbox::is_hypervisor_present as check_hypervisor,
@@ -38,7 +38,7 @@ pub unsafe extern "C" fn sandbox_new(
     // Further, it's small enough to allow a copy from the caller's stack
     // frame to this function's stack frame, rather than going through all
     // the heap allocation and `Handle` mechanics.
-    mem_cfg: SandboxMemoryConfiguration,
+    cfg: SandboxConfiguration,
     sandbox_run_options: u32,
     print_output_handler: Option<extern "C" fn(*const c_char)>,
 ) -> Handle {
@@ -61,7 +61,7 @@ pub unsafe extern "C" fn sandbox_new(
 
             let mut sbox = sandbox::UninitializedSandbox::new(
                 GuestBinary::FilePath(bin_path.to_string()),
-                Some(mem_cfg),
+                Some(cfg),
                 sandbox_run_options,
             )?;
             writer_func.register(&mut sbox, "HostPrint")?;
@@ -161,7 +161,7 @@ pub extern "C" fn is_hypervisor_present() -> bool {
     check_hypervisor()
 }
 
-/// get a reference to a `SandboxMemoryConfiguration` stored in `ctx`
+/// get a reference to a `SandboxConfiguration` stored in `ctx`
 /// and pointed to by `handle`.
 ///
 /// TODO: this is temporary until we have a complete C API for the Sandbox

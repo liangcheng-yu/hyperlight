@@ -1,3 +1,5 @@
+/// Configuration needed to establish a sandbox.
+pub mod config;
 /// Functionality for interacting with guest calls
 pub(crate) mod guest_funcs;
 /// Functionality for managing the guest
@@ -24,6 +26,8 @@ pub mod uninitialized;
 /// initialized `Sandbox`es.
 mod uninitialized_evolve;
 
+/// Re-export for `SandboxConfiguration` type
+pub use config::SandboxConfiguration;
 /// Re-export for `CallGuestFunction` trait
 pub use guest_funcs::CallGuestFunction;
 /// Re-export for `GuestMgr` trait

@@ -144,9 +144,9 @@ pub(super) fn outb_handler_wrapper<'a>(
 #[cfg(test)]
 mod tests {
     use super::outb_log;
-    use crate::mem::config::SandboxMemoryConfiguration;
+
     use crate::mem::mgr::SandboxMemoryManager;
-    use crate::sandbox::outb::GuestLogData;
+    use crate::sandbox::{outb::GuestLogData, SandboxConfiguration};
     use crate::testing::simple_guest_pe_info;
     use crate::testing::{logger::Logger, logger::LOGGER};
     use crate::{func::guest::log_level::LogLevel, testing::log_values::test_value_as_str};
@@ -172,7 +172,7 @@ mod tests {
         let new_mgr = || {
             let mut pe_info = simple_guest_pe_info().unwrap();
             SandboxMemoryManager::load_guest_binary_into_memory(
-                SandboxMemoryConfiguration::default(),
+                SandboxConfiguration::default(),
                 &mut pe_info,
                 false,
             )
@@ -264,7 +264,7 @@ mod tests {
             let new_mgr = || {
                 let mut pe_info = simple_guest_pe_info().unwrap();
                 SandboxMemoryManager::load_guest_binary_into_memory(
-                    SandboxMemoryConfiguration::default(),
+                    SandboxConfiguration::default(),
                     &mut pe_info,
                     false,
                 )

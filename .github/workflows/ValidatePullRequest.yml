@@ -42,7 +42,7 @@ jobs:
             platform: x64
     env:
       DOTNET_INSTALL_DIR: "./.dotnet"
-      RUST_BACKTRACE: 1
+      RUST_BACKTRACE: FULL
     steps:
     - uses: actions/checkout@v4
       with:
@@ -147,7 +147,7 @@ jobs:
             platform: x64
             hypervisor: hyperv
     env:
-      RUST_BACKTRACE: 1
+      RUST_BACKTRACE: FULL
     steps:
     - uses: actions/checkout@v4
       with:

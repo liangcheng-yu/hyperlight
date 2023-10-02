@@ -5,6 +5,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Hyperlight;
+using Hyperlight.Core;
 using HyperlightDependencies;
 
 namespace NativeHost
@@ -75,9 +76,12 @@ namespace NativeHost
                 Console.WriteLine($"Running guest binary {guestBinary} by loading exe into memory");
                 Console.WriteLine();
 
+                var config = new SandboxConfiguration();
+
                 SandboxBuilder builder = new SandboxBuilder()
                     .WithGuestBinaryPath(guestBinaryPath)
-                    .WithRunOptions(options);
+                    .WithRunOptions(options)
+                    .WithConfig(config);
 
                 using (var sandbox = builder.Build())
                 {
@@ -98,7 +102,8 @@ namespace NativeHost
                 var exposedMethods = new ExposedMethods();
                 builder = new SandboxBuilder()
                     .WithGuestBinaryPath(guestBinaryPath)
-                    .WithRunOptions(options);
+                    .WithRunOptions(options)
+                    .WithConfig(config);
 
                 using (var sandbox = builder.Build())
                 {
@@ -137,7 +142,8 @@ namespace NativeHost
                 builder = new SandboxBuilder()
                     .WithGuestBinaryPath(guestBinaryPath)
                     .WithRunOptions(options)
-                    .WithInitFunction(func);
+                    .WithInitFunction(func)
+                    .WithConfig(config);
 
                 using (var sandbox = builder.Build())
                 {
@@ -164,7 +170,8 @@ namespace NativeHost
                         var sboxBuilder = new SandboxBuilder()
                             .WithGuestBinaryPath(guestBinaryPath)
                             .WithRunOptions(options)
-                            .WithWriter(writer);
+                            .WithWriter(writer)
+                            .WithConfig(config);
                         using (var sandbox = sboxBuilder.Build())
                         {
                             var guestMethods = new ExposedMethods();
@@ -203,7 +210,8 @@ namespace NativeHost
                         var sboxBuilder = new SandboxBuilder()
                             .WithGuestBinaryPath(guestBinaryPath)
                             .WithRunOptions(options)
-                            .WithWriter(writer);
+                            .WithWriter(writer)
+                            .WithConfig(config);
                         using (var sandbox = sboxBuilder.Build())
                         {
                             sandbox.ExposeAndBindMembers(exposedMethods);
@@ -235,6 +243,9 @@ namespace NativeHost
 
                 Console.WriteLine($"Running {numberofparallelInstances} parallel instances of guest binary {guestBinary} in Hypervisor sandbox");
                 Console.WriteLine();
+
+                var config = new SandboxConfiguration();
+
                 stopWatch = Stopwatch.StartNew();
 
                 Parallel.For(0, numberofparallelInstances, i =>
@@ -243,7 +254,8 @@ namespace NativeHost
                     {
                         var sboxBuilder = new SandboxBuilder()
                             .WithGuestBinaryPath(guestBinaryPath)
-                            .WithWriter(writer);
+                            .WithWriter(writer)
+                            .WithConfig(config);
                         using (var sandbox = sboxBuilder.Build())
                         {
                             var guestMethods = new ExposedMethods();
@@ -280,7 +292,8 @@ namespace NativeHost
                         var exposedMethods = new ExposedMethods();
                         var sboxBuilder = new SandboxBuilder()
                             .WithGuestBinaryPath(guestBinaryPath)
-                            .WithWriter(writer);
+                            .WithWriter(writer)
+                            .WithConfig(config);
                         using (var sandbox = sboxBuilder.Build())
                         {
                             sandbox.ExposeAndBindMembers(exposedMethods);
@@ -328,7 +341,8 @@ namespace NativeHost
                             .WithGuestBinaryPath(guestBinaryPath)
                             .WithRunOptions(options)
                             .WithInitFunction(func)
-                            .WithWriter(writer);
+                            .WithWriter(writer)
+                            .WithConfig(config);
 
                         using (var sandbox = sandboxBuilder.Build())
                         {
@@ -368,7 +382,8 @@ namespace NativeHost
                         var sboxBuilder = new SandboxBuilder()
                             .WithGuestBinaryPath(guestBinaryPath)
                             .WithRunOptions(options)
-                            .WithWriter(writer);
+                            .WithWriter(writer)
+                            .WithConfig(config);
                         using (var hypervisorSandbox = sboxBuilder.Build())
                         {
                             hypervisorSandbox.ExposeAndBindMembers(exposedMethods);

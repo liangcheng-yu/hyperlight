@@ -74,7 +74,7 @@ fn validate_host_function_call_buffer(function_call_buffer: &[u8]) -> Result<()>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mem::config::SandboxMemoryConfiguration;
+    use crate::sandbox::SandboxConfiguration;
     use crate::testing::get_host_function_call_test_data;
     use anyhow::Result;
 
@@ -82,7 +82,7 @@ mod tests {
     fn write_to_memory() -> Result<()> {
         let test_data = get_host_function_call_test_data();
         let host_function_call = HostFunctionCall {};
-        let memory_config = SandboxMemoryConfiguration::new(0, 0, 0, 0, 0, None, None);
+        let memory_config = SandboxConfiguration::new(0, 0, 0, 0, 0, None, None, None, None);
         let mut shared_memory = SharedMemory::new(32768)?;
         let memory_layout = SandboxMemoryLayout::new(memory_config, 4096, 4096, 4096)?;
         let result = host_function_call.write(&test_data, &mut shared_memory, &memory_layout);
@@ -98,7 +98,7 @@ mod tests {
 
         let test_data = get_host_function_call_test_data();
         let host_function_call = HostFunctionCall {};
-        let memory_config = SandboxMemoryConfiguration::new(0, 1024, 0, 0, 0, None, None);
+        let memory_config = SandboxConfiguration::new(0, 1024, 0, 0, 0, None, None, None, None);
         let memory_layout = SandboxMemoryLayout::new(memory_config, 4096, 4096, 4096)?;
         let mem_size = memory_layout.get_memory_size()?;
         let mut shared_memory = SharedMemory::new(mem_size)?;

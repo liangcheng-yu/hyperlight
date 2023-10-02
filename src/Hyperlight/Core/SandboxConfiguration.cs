@@ -6,7 +6,7 @@ namespace Hyperlight.Core
     [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
     // Override equals and operator equals on value types
 #pragma warning disable CA1815
-    public readonly struct SandboxMemoryConfiguration
+    public readonly struct SandboxConfiguration
     // Override equals and operator equals on value types
 #pragma warning restore CA1815
     {
@@ -54,6 +54,20 @@ namespace Hyperlight.Core
         public ulong HeapSizeOverride { get; init; }
 
         /// <summary>
+        /// defines the heap size to be allocated for the guest.
+        /// if set to 0 or not defined, the heap size will be determined
+        /// from the guest executable's PE file header
+        /// </summary>
+        public ushort MaxExecutionTime { get; init; }
+
+        /// <summary>
+        /// defines the heap size to be allocated for the guest.
+        /// if set to 0 or not defined, the heap size will be determined
+        /// from the guest executable's PE file header
+        /// </summary>
+        public byte MaxWaitForCancellation { get; init; }
+
+        /// <summary>
         /// Create a new SandboxMemoryConfiguration, with default
         /// values.
         /// 
@@ -61,9 +75,9 @@ namespace Hyperlight.Core
         /// doesn't auto-implement a param-free ctor that assigns
         /// 0 to all fields.
         /// </summary>
-        public SandboxMemoryConfiguration()
+        public SandboxConfiguration()
         {
-            this = mem_config_default();
+            this = config_default();
         }
 
         /// <summary>
@@ -84,24 +98,28 @@ namespace Hyperlight.Core
         /// <param name="guestErrorMessageSize">
         /// The size in guest memory to reserve for guest errors
         /// </param>
-        public SandboxMemoryConfiguration(
+        public SandboxConfiguration(
             ulong inputDataSize,
             ulong outputDataSize,
             ulong hostFunctionDefinitionSize,
             ulong hostExceptionSize,
             ulong guestErrorMessageSize,
             ulong stackSizeOverride = 0,
-            ulong heapSizeOverride = 0
+            ulong heapSizeOverride = 0,
+            ushort maxExecutionTime =0,
+            byte maxWaitForCancellation=0
         )
         {
-            var config = mem_config_new(
+            var config = config_new(
                 inputDataSize,
                 outputDataSize,
                 hostFunctionDefinitionSize,
                 hostExceptionSize,
                 guestErrorMessageSize,
                 stackSizeOverride,
-                heapSizeOverride
+                heapSizeOverride,
+                maxExecutionTime,
+                maxWaitForCancellation
             );
             this.GuestErrorBufferSize = config.GuestErrorBufferSize;
             this.HostFunctionDefinitionSize = config.HostFunctionDefinitionSize;
@@ -110,11 +128,13 @@ namespace Hyperlight.Core
             this.OutputDataSize = config.OutputDataSize;
             this.HeapSizeOverride = config.HeapSizeOverride;
             this.StackSizeOverride = config.StackSizeOverride;
+            this.MaxExecutionTime = config.MaxExecutionTime;
+            this.MaxWaitForCancellation = config.MaxWaitForCancellation;
         }
 
-        public SandboxMemoryConfiguration WithInputDataSize(ulong size)
+        public SandboxConfiguration WithInputDataSize(ulong size)
         {
-            return new SandboxMemoryConfiguration()
+            return new SandboxConfiguration()
             {
                 InputDataSize = size,
                 OutputDataSize = this.OutputDataSize,
@@ -122,13 +142,15 @@ namespace Hyperlight.Core
                 HostExceptionSize = this.HostExceptionSize,
                 GuestErrorBufferSize = this.GuestErrorBufferSize,
                 HeapSizeOverride = this.HeapSizeOverride,
-                StackSizeOverride = this.StackSizeOverride
+                StackSizeOverride = this.StackSizeOverride,
+                MaxExecutionTime = this.MaxExecutionTime,
+                MaxWaitForCancellation = this.MaxWaitForCancellation
             };
         }
 
-        public SandboxMemoryConfiguration WithOutputDataSize(ulong size)
+        public SandboxConfiguration WithOutputDataSize(ulong size)
         {
-            return new SandboxMemoryConfiguration()
+            return new SandboxConfiguration()
             {
                 InputDataSize = this.InputDataSize,
                 OutputDataSize = size,
@@ -136,13 +158,14 @@ namespace Hyperlight.Core
                 HostExceptionSize = this.HostExceptionSize,
                 GuestErrorBufferSize = this.GuestErrorBufferSize,
                 HeapSizeOverride = this.HeapSizeOverride,
-                StackSizeOverride = this.StackSizeOverride
+                MaxExecutionTime = this.MaxExecutionTime,
+                MaxWaitForCancellation = this.MaxWaitForCancellation
             };
         }
 
-        public SandboxMemoryConfiguration WithHostFunctionDefinitionSize(ulong size)
+        public SandboxConfiguration WithHostFunctionDefinitionSize(ulong size)
         {
-            return new SandboxMemoryConfiguration()
+            return new SandboxConfiguration()
             {
                 InputDataSize = this.InputDataSize,
                 OutputDataSize = this.OutputDataSize,
@@ -150,13 +173,15 @@ namespace Hyperlight.Core
                 HostExceptionSize = this.HostExceptionSize,
                 GuestErrorBufferSize = this.GuestErrorBufferSize,
                 HeapSizeOverride = this.HeapSizeOverride,
-                StackSizeOverride = this.StackSizeOverride
+                StackSizeOverride = this.StackSizeOverride,
+                MaxExecutionTime = this.MaxExecutionTime,
+                MaxWaitForCancellation = this.MaxWaitForCancellation
             };
         }
 
-        public SandboxMemoryConfiguration WithHostExceptionSize(ulong size)
+        public SandboxConfiguration WithHostExceptionSize(ulong size)
         {
-            return new SandboxMemoryConfiguration()
+            return new SandboxConfiguration()
             {
                 InputDataSize = this.InputDataSize,
                 OutputDataSize = this.OutputDataSize,
@@ -164,13 +189,15 @@ namespace Hyperlight.Core
                 HostExceptionSize = size,
                 GuestErrorBufferSize = this.GuestErrorBufferSize,
                 HeapSizeOverride = this.HeapSizeOverride,
-                StackSizeOverride = this.StackSizeOverride
+                StackSizeOverride = this.StackSizeOverride,
+                MaxExecutionTime = this.MaxExecutionTime,
+                MaxWaitForCancellation = this.MaxWaitForCancellation
             };
         }
 
-        public SandboxMemoryConfiguration WithGuestErrorBufferSize(ulong size)
+        public SandboxConfiguration WithGuestErrorBufferSize(ulong size)
         {
-            return new SandboxMemoryConfiguration()
+            return new SandboxConfiguration()
             {
                 InputDataSize = this.InputDataSize,
                 OutputDataSize = this.OutputDataSize,
@@ -178,13 +205,15 @@ namespace Hyperlight.Core
                 HostExceptionSize = this.HostExceptionSize,
                 GuestErrorBufferSize = size,
                 HeapSizeOverride = this.HeapSizeOverride,
-                StackSizeOverride = this.StackSizeOverride
+                StackSizeOverride = this.StackSizeOverride,
+                MaxExecutionTime = this.MaxExecutionTime,
+                MaxWaitForCancellation = this.MaxWaitForCancellation
             };
         }
 
-        public SandboxMemoryConfiguration WithHeapSizeOverride(ulong size)
+        public SandboxConfiguration WithHeapSizeOverride(ulong size)
         {
-            return new SandboxMemoryConfiguration()
+            return new SandboxConfiguration()
             {
                 InputDataSize = this.InputDataSize,
                 OutputDataSize = this.OutputDataSize,
@@ -192,13 +221,15 @@ namespace Hyperlight.Core
                 HostExceptionSize = this.HostExceptionSize,
                 GuestErrorBufferSize = this.GuestErrorBufferSize,
                 HeapSizeOverride = size,
-                StackSizeOverride = this.StackSizeOverride
+                StackSizeOverride = this.StackSizeOverride,
+                MaxExecutionTime = this.MaxExecutionTime,
+                MaxWaitForCancellation = this.MaxWaitForCancellation
             };
         }
 
-        public SandboxMemoryConfiguration WithStackSizeOverride(ulong size)
+        public SandboxConfiguration WithStackSizeOverride(ulong size)
         {
-            return new SandboxMemoryConfiguration()
+            return new SandboxConfiguration()
             {
                 InputDataSize = this.InputDataSize,
                 OutputDataSize = this.OutputDataSize,
@@ -206,7 +237,41 @@ namespace Hyperlight.Core
                 HostExceptionSize = this.HostExceptionSize,
                 GuestErrorBufferSize = this.GuestErrorBufferSize,
                 HeapSizeOverride = this.HeapSizeOverride,
-                StackSizeOverride = size
+                StackSizeOverride = size,
+                MaxExecutionTime = this.MaxExecutionTime,
+                MaxWaitForCancellation = this.MaxWaitForCancellation
+            };
+        }
+
+        public SandboxConfiguration WithMaxExecutionTimeOverride(ushort maxExecutionTime)
+        {
+            return new SandboxConfiguration()
+            {
+                InputDataSize = this.InputDataSize,
+                OutputDataSize = this.OutputDataSize,
+                HostFunctionDefinitionSize = this.HostFunctionDefinitionSize,
+                HostExceptionSize = this.HostExceptionSize,
+                GuestErrorBufferSize = this.GuestErrorBufferSize,
+                HeapSizeOverride = this.HeapSizeOverride,
+                StackSizeOverride = this.StackSizeOverride,
+                MaxExecutionTime = maxExecutionTime,
+                MaxWaitForCancellation = this.MaxWaitForCancellation
+            };
+        }
+
+        public SandboxConfiguration MaxWaitForCancellationOverride(byte maxWaitForCancellation)
+        {
+            return new SandboxConfiguration()
+            {
+                InputDataSize = this.InputDataSize,
+                OutputDataSize = this.OutputDataSize,
+                HostFunctionDefinitionSize = this.HostFunctionDefinitionSize,
+                HostExceptionSize = this.HostExceptionSize,
+                GuestErrorBufferSize = this.GuestErrorBufferSize,
+                HeapSizeOverride = this.HeapSizeOverride,
+                StackSizeOverride = this.StackSizeOverride,
+                MaxExecutionTime = this.MaxWaitForCancellation,
+                MaxWaitForCancellation = maxWaitForCancellation
             };
         }
 
@@ -214,19 +279,21 @@ namespace Hyperlight.Core
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
         [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern SandboxMemoryConfiguration mem_config_new(
+        private static extern SandboxConfiguration config_new(
             ulong inputSize,
             ulong outputSize,
             ulong hostFunctionDefinitionSize,
             ulong hostExceptionSize,
             ulong guestErrorBufferSize,
             ulong stackSizeOverride,
-            ulong heapSizeOverride
+            ulong heapSizeOverride,
+            ushort maxExecutionTime,
+            byte maxWaitForCancellation
         );
 
         [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern SandboxMemoryConfiguration mem_config_default();
+        private static extern SandboxConfiguration config_default();
 
 #pragma warning restore CA1707 // Remove the underscores from member name
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

@@ -9,15 +9,15 @@ use super::{
 use crate::func::host::HostFunction1;
 use crate::mem::mgr::STACK_COOKIE_LEN;
 use crate::mem::ptr::RawPtr;
-use crate::mem::{
-    config::SandboxMemoryConfiguration, mgr::SandboxMemoryManager, pe::pe_info::PEInfo,
-};
+use crate::mem::{mgr::SandboxMemoryManager, pe::pe_info::PEInfo};
+use crate::sandbox::SandboxConfiguration;
 use crate::sandbox_state::transition::Noop;
 use crate::sandbox_state::{sandbox::EvolvableSandbox, transition::MutatingCallback};
 use anyhow::{anyhow, Result};
 use std::option::Option;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use std::{ffi::c_void, ops::Add};
 use tracing::instrument;
 
@@ -164,7 +164,7 @@ impl<'a> UninitializedSandbox<'a> {
     #[instrument(err(), skip(guest_binary, cfg), name = "UninitializedSandbox::new")]
     pub fn new(
         guest_binary: GuestBinary,
-        cfg: Option<SandboxMemoryConfiguration>,
+        cfg: Option<SandboxConfiguration>,
         sandbox_run_options: Option<SandboxRunOptions>,
     ) -> Result<Self> {
         // If the guest binary is a file make sure it exists
@@ -194,10 +194,10 @@ impl<'a> UninitializedSandbox<'a> {
             anyhow::bail!("Recycle after run at is not supported when running from guest binary.");
         }
 
-        let mem_cfg = cfg.unwrap_or_default();
+        let sandbox_cfg = cfg.unwrap_or_default();
         let mut mem_mgr_wrapper = {
             let mut mgr = UninitializedSandbox::load_guest_binary(
-                mem_cfg,
+                sandbox_cfg,
                 &guest_binary,
                 run_from_process_memory,
                 run_from_guest_binary,
@@ -223,7 +223,13 @@ impl<'a> UninitializedSandbox<'a> {
         let hv = {
             let outb_wrapper = outb_handler_wrapper(mem_mgr_wrapper.clone(), host_funcs.clone());
             let mem_access_wrapper = mem_access_handler_wrapper(mem_mgr_wrapper.clone());
-            HypervisorWrapper::new(hv_opt, outb_wrapper, mem_access_wrapper)
+            HypervisorWrapper::new(
+                hv_opt,
+                outb_wrapper,
+                mem_access_wrapper,
+                Duration::from_millis(sandbox_cfg.max_execution_time as u64),
+                Duration::from_millis(sandbox_cfg.max_wait_for_cancellation as u64),
+            )
         };
 
         let mut sandbox = Self {
@@ -284,7 +290,7 @@ impl<'a> UninitializedSandbox<'a> {
     /// return an `Err`. Otherwise, if `run_from_guest_binary` is passed
     /// as `false`, this function calls `SandboxMemoryManager::load_guest_binary_into_memory`.
     pub(super) fn load_guest_binary(
-        mem_cfg: SandboxMemoryConfiguration,
+        cfg: SandboxConfiguration,
         guest_binary: &GuestBinary,
         run_from_process_memory: bool,
         run_from_guest_binary: bool,
@@ -302,7 +308,7 @@ impl<'a> UninitializedSandbox<'a> {
                 }
             };
             SandboxMemoryManager::load_guest_binary_using_load_library(
-                mem_cfg,
+                cfg,
                 path,
                 &mut pe_info,
                 run_from_process_memory,
@@ -315,7 +321,7 @@ impl<'a> UninitializedSandbox<'a> {
             })
         } else {
             SandboxMemoryManager::load_guest_binary_into_memory(
-                mem_cfg,
+                cfg,
                 &mut pe_info,
                 run_from_process_memory,
             )
@@ -331,8 +337,7 @@ mod tests {
             host::{HostFunction1, HostFunction2},
             types::{ParameterValue, ReturnValue},
         },
-        mem::config::SandboxMemoryConfiguration,
-        sandbox::{mem_mgr::MemMgrWrapperGetter, uninitialized::GuestBinary},
+        sandbox::{mem_mgr::MemMgrWrapperGetter, uninitialized::GuestBinary, SandboxConfiguration},
         Sandbox, SandboxRunOptions, UninitializedSandbox,
     };
     use crate::{
@@ -351,6 +356,7 @@ mod tests {
     use serial_test::serial;
     use std::path::PathBuf;
     use std::thread;
+    use std::time::Duration;
     use std::{
         fs,
         io::{Read, Write},
@@ -382,7 +388,7 @@ mod tests {
 
         // Non default memory configuration
 
-        let cfg = SandboxMemoryConfiguration::new(
+        let cfg = SandboxConfiguration::new(
             0x1000,
             0x1000,
             0x1000,
@@ -390,6 +396,8 @@ mod tests {
             0x1000,
             Some(0x1000),
             Some(0x1000),
+            Some(Duration::from_millis(1001)),
+            Some(Duration::from_millis(9)),
         );
 
         let uninitialized_sandbox =
@@ -490,7 +498,7 @@ mod tests {
 
     #[test]
     fn test_load_guest_binary_manual() {
-        let cfg = SandboxMemoryConfiguration::default();
+        let cfg = SandboxConfiguration::default();
 
         let simple_guest_path = simple_guest_path().unwrap();
 
@@ -623,7 +631,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_load_guest_binary_load_lib() {
-        let cfg = SandboxMemoryConfiguration::default();
+        let cfg = SandboxConfiguration::default();
         let simple_guest_path = simple_guest_path().unwrap();
         let mgr_res = UninitializedSandbox::load_guest_binary(
             cfg,

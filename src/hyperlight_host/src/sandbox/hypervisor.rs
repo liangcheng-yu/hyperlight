@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::{
     func::exports::get_os_page_size,
     hypervisor::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
@@ -19,6 +21,8 @@ pub struct HypervisorWrapper<'a> {
     hv: Option<Box<dyn Hypervisor>>,
     outb_hdl: OutBHandlerWrapper<'a>,
     mem_access_hdl: MemAccessHandlerWrapper<'a>,
+    max_execution_time: Duration,
+    max_wait_for_cancellation: Duration,
 }
 /// A trait for getting a `HypervisorWrapper` from a type
 pub trait HypervisorWrapperMgr<'a> {
@@ -37,22 +41,26 @@ impl<'a> HypervisorWrapper<'a> {
         hv: Option<Box<dyn Hypervisor>>,
         outb_hdl: OutBHandlerWrapper<'a>,
         mem_access_hdl: MemAccessHandlerWrapper<'a>,
+        max_execution_time: Duration,
+        max_wait_for_cancellation: Duration,
     ) -> Self {
         Self {
             hv,
             outb_hdl,
             mem_access_hdl,
+            max_execution_time,
+            max_wait_for_cancellation,
         }
     }
     /// Get an immutable contained `Hypervisor` if it exists
-    pub fn get_hypervisor(&self) -> Result<&dyn Hypervisor> {
+    pub(crate) fn get_hypervisor(&self) -> Result<&dyn Hypervisor> {
         self.hv
             .as_ref()
             .map(|h| h.as_ref())
             .ok_or(anyhow!("no hypervisor available for sandbox"))
     }
     /// Get an mutable contained `Hypervisor` if it exists
-    pub fn get_hypervisor_mut(&mut self) -> Result<&mut dyn Hypervisor> {
+    pub(crate) fn get_hypervisor_mut(&mut self) -> Result<&mut dyn Hypervisor> {
         match self.hv.as_mut() {
             None => bail!("no hypervisor available for sandbox"),
             Some(h) => Ok(h.as_mut()),
@@ -75,8 +83,18 @@ impl<'a> HypervisorWrapper<'a> {
         let page_size = u32::try_from(get_os_page_size())?;
         let outb_hdl = self.outb_hdl.clone();
         let mem_access_hdl = self.mem_access_hdl.clone();
+        let max_execution_time = self.max_execution_time;
+        let max_wait_for_cancellation = self.max_wait_for_cancellation;
         let hv = self.get_hypervisor_mut()?;
-        hv.initialise(peb_addr, seed, page_size, outb_hdl, mem_access_hdl)
+        hv.initialise(
+            peb_addr,
+            seed,
+            page_size,
+            outb_hdl,
+            mem_access_hdl,
+            max_execution_time,
+            max_wait_for_cancellation,
+        )
     }
 
     /// Get the stack pointer -- the value of the RSP register --
@@ -93,13 +111,21 @@ impl<'a> HypervisorWrapper<'a> {
         hv.reset_rsp(new_rsp.absolute()?)
     }
 
-    /// Dispacth a call from the host to the guest
+    /// Dispatch a call from the host to the guest
     pub fn dispatch_call_from_host(&mut self, dispatch_func_addr: GuestPtr) -> Result<()> {
         let outb_hdl = self.outb_hdl.clone();
         let mem_access_hdl = self.mem_access_hdl.clone();
+        let max_execution_time = self.max_execution_time;
+        let max_wait_for_cancellation = self.max_wait_for_cancellation;
         let hv = self.get_hypervisor_mut()?;
         let dispatch_raw_ptr = RawPtr::from(dispatch_func_addr.absolute()?);
-        hv.dispatch_call_from_host(dispatch_raw_ptr, outb_hdl, mem_access_hdl)
+        hv.dispatch_call_from_host(
+            dispatch_raw_ptr,
+            outb_hdl,
+            mem_access_hdl,
+            max_execution_time,
+            max_wait_for_cancellation,
+        )
     }
 }
 

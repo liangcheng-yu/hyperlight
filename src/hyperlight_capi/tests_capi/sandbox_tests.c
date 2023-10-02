@@ -45,7 +45,7 @@ MunitResult test_host_print(const MunitParameter params[], void *fixture)
 {
 #ifdef __linux__
     Context *ctx = context_new("test correlation id");
-    SandboxMemoryConfiguration mem_cfg = {
+    SandboxConfiguration cfg = {
         .guest_error_buffer_size = 4096,
         .host_function_definition_size = 4096,
         .input_data_size = 4096,
@@ -58,7 +58,7 @@ MunitResult test_host_print(const MunitParameter params[], void *fixture)
 #endif
     handle_assert_no_error(ctx, binary);
 
-    Handle sbx = sandbox_new(ctx, binary, mem_cfg, 0, host_print);
+    Handle sbx = sandbox_new(ctx, binary, cfg, 0, host_print);
     handle_assert_no_error(ctx, sbx);
 
     sandbox_call_host_print(ctx, sbx, "Hello, world!");

@@ -162,10 +162,8 @@ mod test {
     use super::GuestLogData;
     use crate::{
         func::guest::log_level::LogLevel,
-        mem::{
-            config::SandboxMemoryConfiguration, layout::SandboxMemoryLayout,
-            shared_mem::SharedMemory,
-        },
+        mem::{layout::SandboxMemoryLayout, shared_mem::SharedMemory},
+        sandbox::SandboxConfiguration,
     };
 
     #[test]
@@ -182,8 +180,7 @@ mod test {
             // copy the encoded Vec<u8> into shared memory so we can
             // turn around and pull the bytes out and try to decode
             let layout =
-                SandboxMemoryLayout::new(SandboxMemoryConfiguration::default(), 12, 12, 12)
-                    .unwrap();
+                SandboxMemoryLayout::new(SandboxConfiguration::default(), 12, 12, 12).unwrap();
             let mut shared_mem = SharedMemory::new(layout.get_memory_size().unwrap()).unwrap();
             gld.write_to_memory(&mut shared_mem, &layout).unwrap();
             GuestLogData::try_from((&shared_mem, layout)).unwrap()

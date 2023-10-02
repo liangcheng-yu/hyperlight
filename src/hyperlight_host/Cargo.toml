@@ -38,6 +38,8 @@ tracing-subscriber = { version = "0.3.17", features = ["json"] }
 hyperlight_testing = { path = "../hyperlight_testing", version = "*", registry = "hyperlight_packages" }
 rust-embed = { version = "8.0.0", features = ["debug-embed", "include-exclude", "interpolate-folder-path"] }
 sha256 = "1.4.0"
+vmm-sys-util = "0.11.0"
+crossbeam = "0.8.0"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.48.0", features = [

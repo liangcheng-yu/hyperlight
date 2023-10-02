@@ -10,6 +10,7 @@ on:
   
 env:
   CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: FULL
 
 jobs:
   # this job requires the build-guest-binaries job be complete prior to 

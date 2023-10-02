@@ -4,8 +4,8 @@ use super::{
     CR4_PAE, EFER_LMA, EFER_LME,
 };
 
-use crate::mem::ptr::RawPtr;
 use crate::{hypervisor::hypervisor_mem::HypervisorAddrs, mem::ptr::GuestPtr};
+use crate::{hypervisor::HyperlightExit, mem::ptr::RawPtr};
 use anyhow::{anyhow, bail, Result};
 use mshv_bindings::{
     hv_message, hv_message_type, hv_message_type_HVMSG_UNMAPPED_GPA,
@@ -20,8 +20,8 @@ use mshv_bindings::{
 };
 use mshv_ioctls::{Mshv, VcpuFd, VmFd};
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
-use std::env;
+use std::{any::Any, env};
+use std::{collections::HashMap, time::Duration};
 
 /// Determine whether the HyperV for Linux hypervisor API is present
 /// and functional. If `REQUIRE_STABLE_API` is true, determines only whether a
@@ -272,28 +272,13 @@ impl HypervLinuxDriver {
         };
         self.vcpu_fd.set_reg(&[reg]).map_err(|e| anyhow!(e))
     }
-
-    fn handle_io_port_intercept(
-        &mut self,
-        msg: hv_message,
-        outb_handle_fn: OutBHandlerWrapper,
-    ) -> Result<()> {
-        let io_message = msg.to_ioport_info()?;
-        let port_number = io_message.port_number;
-        let rax = io_message.rax;
-        let rip = io_message.header.rip;
-        let instruction_length = io_message.header.instruction_length() as u64;
-
-        outb_handle_fn
-            .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-            .call(port_number, rax)?;
-
-        self.update_rip(RawPtr::from(rip + instruction_length))
-    }
 }
 
 impl Hypervisor for HypervLinuxDriver {
+    fn as_mut_hypervisor(&mut self) -> &mut dyn Hypervisor {
+        self as &mut dyn Hypervisor
+    }
+
     fn initialise(
         &mut self,
         peb_addr: RawPtr,
@@ -301,6 +286,8 @@ impl Hypervisor for HypervLinuxDriver {
         page_size: u32,
         outb_hdl: OutBHandlerWrapper,
         mem_access_hdl: MemAccessHandlerWrapper,
+        max_execution_time: Duration,
+        max_wait_for_cancellation: Duration,
     ) -> Result<()> {
         self.registers.insert(
             hv_register_name_HV_X64_REGISTER_RCX,
@@ -317,62 +304,71 @@ impl Hypervisor for HypervLinuxDriver {
             hv_register_value { reg32: page_size },
         );
         self.apply_registers()?;
-        self.execute_until_halt(outb_hdl, mem_access_hdl)
+        self.execute_until_halt(
+            outb_hdl,
+            mem_access_hdl,
+            max_execution_time,
+            max_wait_for_cancellation,
+        )
+    }
+    fn handle_io(
+        &mut self,
+        port: u16,
+        data: Vec<u8>,
+        rip: u64,
+        instruction_length: u64,
+        outb_handle_fn: OutBHandlerWrapper,
+    ) -> Result<()> {
+        let payload = data[..8]
+            .try_into()
+            .map_err(|e| anyhow!("error converting slice to array {}", e))?;
+        outb_handle_fn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+            .call(port, u64::from_le_bytes(payload))?;
+
+        self.update_rip(RawPtr::from(rip + instruction_length))
     }
 
-    fn execute_until_halt(
-        &mut self,
-        outb_handle_fn: OutBHandlerWrapper,
-        mem_access_fn: MemAccessHandlerWrapper,
-    ) -> Result<()> {
-        /// Run the given `vcpu` until the next interrupt and return an `Ok`
-        /// with the `hv_message` representing the interrupt.
-        ///
-        /// Will return an `Ok` if _any_ interrupt was successfully made,
-        /// even if the caller considers it a "failure".
-        ///
-        /// Note: this is defined as a static function (an `fn`) rather than
-        /// a closure (an `Fn`, `FnMut`, or `FnOnce`) because we can't close
-        /// over `self.vcpu` so we can mutate it below. Defining this as a
-        /// `fn` ensures the compiler will prevent us from closing over
-        /// anything. If you're modifying this function and need to access
-        /// more state inside `execute_until_halt`, pass it as a parameter to
-        /// `run_vcpu`.
-        fn run_vcpu(vcpu: &VcpuFd) -> Result<hv_message> {
-            let hv_message: hv_message = Default::default();
-            vcpu.run(hv_message).map_err(|e| anyhow!(e))
-        }
-
+    fn run(&mut self) -> Result<super::HyperlightExit> {
         const HALT_MESSAGE: hv_message_type = hv_message_type_HVMSG_X64_HALT;
         const IO_PORT_INTERCEPT_MESSAGE: hv_message_type =
             hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT;
         const UNMAPPED_GPA_MESSAGE: hv_message_type = hv_message_type_HVMSG_UNMAPPED_GPA;
-        loop {
-            let run_res = run_vcpu(&self.vcpu_fd)?;
-            match run_res.header.message_type {
-                // we've succeeded if we get a halt, so we can return success
-                HALT_MESSAGE => return Ok(()),
-                // on an IO port intercept, we have to handle a message sent
-                // from the guest.
+
+        let hv_message: hv_message = Default::default();
+        let result = match &self.vcpu_fd.run(hv_message) {
+            Ok(m) => match m.header.message_type {
+                HALT_MESSAGE => HyperlightExit::Halt(),
                 IO_PORT_INTERCEPT_MESSAGE => {
-                    self.handle_io_port_intercept(run_res, outb_handle_fn.clone())?;
+                    let io_message = m.to_ioport_info()?;
+                    let port_number = io_message.port_number;
+                    let rip = io_message.header.rip;
+                    let rax = io_message.rax;
+                    let instruction_length = io_message.header.instruction_length() as u64;
+
+                    HyperlightExit::IoOut(
+                        port_number,
+                        rax.to_le_bytes().to_vec(),
+                        rip,
+                        instruction_length,
+                    )
                 }
-                // "unmapped GPA" indicates a request to a guest physical
-                // address (GPA) that is not mapped to valid memory.
-                //
-                // in this case, we need to call the mem_access_fn callback and
-                // then fail
                 UNMAPPED_GPA_MESSAGE => {
-                    mem_access_fn
-                        .lock()
-                        .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-                        .call()?;
-                    let msg_type = run_res.header.message_type;
-                    bail!("Linux HyperV unmapped GPA. exit_reason = {:?}", msg_type);
+                    let mimo_message = m.to_memory_info()?;
+                    let addr = mimo_message.guest_physical_address;
+                    HyperlightExit::Mmio(addr)
                 }
                 other => bail!("unknown Hyper-V run message type {:?}", other),
-            }
-        }
+            },
+            Err(e) => match e.errno() {
+                // we send a signal to the thread to cancel execution this results in EINTR being returned by KVM so we return Cancelled
+                libc::EINTR => HyperlightExit::Cancelled(),
+                libc::EAGAIN => HyperlightExit::Retry(),
+                _ => anyhow::bail!("Error running VCPU {:?}", e),
+            },
+        };
+        Ok(result)
     }
 
     fn dispatch_call_from_host(
@@ -380,9 +376,16 @@ impl Hypervisor for HypervLinuxDriver {
         dispatch_func_addr: RawPtr,
         outb_handle_fn: OutBHandlerWrapper,
         mem_access_fn: MemAccessHandlerWrapper,
+        max_execution_time: Duration,
+        max_wait_for_cancellation: Duration,
     ) -> Result<()> {
         self.update_rip(dispatch_func_addr)?;
-        self.execute_until_halt(outb_handle_fn, mem_access_fn)
+        self.execute_until_halt(
+            outb_handle_fn,
+            mem_access_fn,
+            max_execution_time,
+            max_wait_for_cancellation,
+        )
     }
 
     fn reset_rsp(&mut self, rsp: u64) -> Result<()> {
@@ -391,6 +394,10 @@ impl Hypervisor for HypervLinuxDriver {
 
     fn orig_rsp(&self) -> Result<u64> {
         self.orig_rsp.absolute()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

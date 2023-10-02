@@ -9,6 +9,7 @@ use hyperlight_host::hypervisor::{
     Hypervisor,
 };
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 fn get_driver_mut(ctx: &mut Context, handle: Handle) -> Result<&mut KVMDriver> {
     Context::get_mut(handle, &mut ctx.kvm_drivers, |b| {
@@ -119,6 +120,9 @@ pub unsafe extern "C" fn kvm_initialise(
                     page_size,
                     Arc::new(Mutex::new(outb_func)),
                     Arc::new(Mutex::new(mem_access_func)),
+                    // These are set to the defaults in SandboxConfiguration, once we migrate the C# Sandbox to use the Rust Sandbox this API should be deleted so defaulting these for now should be fine
+                    Duration::from_millis(1000),
+                    Duration::from_millis(10),
                 )
                 .map(|_| Handle::new_empty())
         })
@@ -134,6 +138,8 @@ pub unsafe extern "C" fn kvm_initialise(
 /// - Created with `context_new`
 /// - Not yet freed with `context_free`
 /// - Not modified, except by calling functions in the Hyperlight C API
+///
+// TODO: Update the API to allow for passing max execution time and max wait time for cancellation
 #[no_mangle]
 pub unsafe extern "C" fn kvm_dispatch_call_from_host(
     ctx: *mut Context,
@@ -151,6 +157,9 @@ pub unsafe extern "C" fn kvm_dispatch_call_from_host(
                     dispatch_func_addr.into(),
                     Arc::new(Mutex::new(outb_func)),
                     Arc::new(Mutex::new(mem_access_func)),
+                    // These are set to the defaults in SandboxConfiguration, once we migrate the C# Sandbox to use the Rust Sandbox this API should be deleted so defaulting these for now should be fine
+                    Duration::from_millis(1000),
+                    Duration::from_millis(10),
                 )
                 .map(|_| Handle::new_empty())
         })

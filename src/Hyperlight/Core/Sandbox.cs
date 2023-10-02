@@ -105,8 +105,8 @@ namespace Hyperlight
         /// <param name="errorMessageLogger">
         /// Optional ILogger to use for logging
         /// </param>
-        /// <param name="sandboxMemoryConfiguration">
-        /// Optional memory configuration with which to create this sandbox
+        /// <param name="sandboxConfiguration">
+        /// Optional configuration with which to create this sandbox
         /// </param>
         /// <param name="getCorrelationIdFunc">
         /// Optional function called by the Sandbox to get the correlationId
@@ -129,7 +129,7 @@ namespace Hyperlight
             StringWriter? writer = null,
             string? correlationId = null,
             ILogger? errorMessageLogger = null,
-            SandboxMemoryConfiguration? sandboxMemoryConfiguration = null,
+            SandboxConfiguration? sandboxConfiguration = null,
             Func<string>? getCorrelationIdFunc = null
         )
         {
@@ -148,7 +148,7 @@ namespace Hyperlight
             // Use the function to get the correlationId
 
             UpdateCorrelationId();
-            var memCfg = sandboxMemoryConfiguration ?? new SandboxMemoryConfiguration();
+            var config = sandboxConfiguration ?? new SandboxConfiguration();
 
             if (!IsSupportedPlatform)
             {
@@ -189,7 +189,7 @@ namespace Hyperlight
                     sandbox_new(
                         this.context.ctx,
                         binPathHdl.HandleWrapper.handle,
-                        memCfg,
+                        config,
                         (uint)(runOptions ?? SandboxRunOptions.None)
                     ),
                     true
@@ -963,7 +963,7 @@ namespace Hyperlight
         private static extern NativeHandle sandbox_new(
             NativeContext ctx,
             NativeHandle binPathHdl,
-            SandboxMemoryConfiguration memCfg,
+            SandboxConfiguration config,
             uint sandboxRunOptions
         );
 

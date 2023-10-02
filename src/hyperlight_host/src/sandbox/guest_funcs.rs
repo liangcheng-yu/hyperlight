@@ -183,11 +183,13 @@ mod tests {
     use crate::sandbox_state::sandbox::EvolvableSandbox;
     use crate::UninitializedSandbox;
     use crate::{sandbox::uninitialized::GuestBinary, sandbox_state::transition::MutatingCallback};
-    use hyperlight_testing::simple_guest_path;
+    use hyperlight_testing::{callback_guest_path, simple_guest_path};
     use std::{
         sync::{Arc, Mutex},
         thread,
     };
+
+    use crate::func::host::HostFunction0;
 
     // simple function
     fn test_function0(_: Arc<Mutex<&mut Sandbox>>) -> Result<i32> {
@@ -333,6 +335,103 @@ mod tests {
             .execute_in_host(func)?;
 
         assert_eq!(result, ReturnValue::Int(len));
+        Ok(())
+    }
+
+    // Test that we can terminate a VCPU that has been running the VCPU for too long.
+    #[test]
+    fn test_terminate_vcpu_spinning_cpu() -> Result<()> {
+        // This test relies upon a Hypervisor being present so for now
+        // we will skip it if there isnt one.
+        if !is_hypervisor_present() {
+            println!("Skipping test_call_guest_function_by_name because no hypervisor is present");
+            return Ok(());
+        }
+        let usbox = UninitializedSandbox::new(
+            GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
+            None,
+            None,
+        )?;
+
+        let sandbox = Arc::new(Mutex::new(usbox.evolve(MutatingCallback::from(init))?));
+        let func = Arc::new(Mutex::new(
+            move |s: Arc<Mutex<&mut Sandbox>>| -> Result<ReturnValue> {
+                println!(
+                    "Calling Guest Function Spin - this should be cancelled by the host after 1000ms"
+                );
+                s.lock()
+                    .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                    .call_guest_function_by_name("Spin", ReturnType::Void, None)
+            },
+        ));
+
+        let result = sandbox
+            .lock()
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+            .execute_in_host(func);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Execution was cancelled by the host."
+        );
+
+        Ok(())
+    }
+    // This test is to capture the case where the guest execution is running a hsot function when cancelled and that host function
+    // is never going to return.
+    // The host function that is called will end after 5 seconds, but by this time the cancellation will have given up
+    // (using default timeout settings)  , so this tests looks for the error "Failed to cancel guest execution".
+    // Eventually once we fix https://github.com/deislabs/hyperlight/issues/951 this test should be updated.
+
+    #[test]
+    fn test_terminate_vcpu_calling_host_spinning_cpu() -> Result<()> {
+        // This test relies upon a Hypervisor being present so for now
+        // we will skip it if there isnt one.
+        if !is_hypervisor_present() {
+            println!("Skipping test_call_guest_function_by_name because no hypervisor is present");
+            return Ok(());
+        }
+        let mut usbox = UninitializedSandbox::new(
+            GuestBinary::FilePath(callback_guest_path().expect("Guest Binary Missing")),
+            None,
+            None,
+        )?;
+
+        // Make this host call run for 5 seconds
+
+        fn spin() -> Result<()> {
+            thread::sleep(std::time::Duration::from_secs(5));
+            Ok(())
+        }
+
+        let host_spin_func = Arc::new(Mutex::new(spin));
+
+        host_spin_func.register(&mut usbox, "Spin")?;
+
+        let sandbox = Arc::new(Mutex::new(usbox.evolve(MutatingCallback::from(init))?));
+        let func = Arc::new(Mutex::new(
+            move |s: Arc<Mutex<&mut Sandbox>>| -> Result<ReturnValue> {
+                println!(
+                    "Calling Guest Function CallHostSpin - this should fail to cancel the guest execution after 5 seconds"
+                );
+                s.lock()
+                    .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                    .call_guest_function_by_name("CallHostSpin", ReturnType::Void, None)
+            },
+        ));
+
+        let result = sandbox
+            .lock()
+            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+            .execute_in_host(func);
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .starts_with("Failed to cancel guest execution"));
+
         Ok(())
     }
 }

@@ -65,8 +65,6 @@ pub(crate) mod testing;
 pub use func::get_stack_boundary;
 /// Re-export for `HostFunction0` trait
 pub use func::HostFunction0;
-/// The re-export for the `SandboxMemoryConfiguration` type
-pub use mem::SandboxMemoryConfiguration;
 /// The re-export for the `is_hypervisor_present` type
 pub use sandbox::is_hypervisor_present;
 /// The re-export for the `GuestBinary` type

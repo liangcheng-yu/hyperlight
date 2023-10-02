@@ -1,7 +1,8 @@
 #[cfg(test)]
 use super::ptr::HostPtr;
-use super::{config::SandboxMemoryConfiguration, shared_mem::SharedMemory};
+use super::shared_mem::SharedMemory;
 use crate::mem::ptr_offset::Offset;
+use crate::sandbox::SandboxConfiguration;
 use anyhow::{anyhow, Result};
 use paste::paste;
 use rand::rngs::OsRng;
@@ -87,12 +88,12 @@ struct GuestStack {
 
 // Following these structures are the memory buffers as follows:
 //
-// Host Function definitions - length sandboxMemoryConfiguration.HostFunctionDefinitionSize
-// Host Exception Details - length sandboxMemoryConfiguration.HostExceptionSize , this contains details of any Host Exception that occurred in outb function
+// Host Function definitions - length SandboxConfiguration.HostFunctionDefinitionSize
+// Host Exception Details - length SandboxConfiguration.HostExceptionSize , this contains details of any Host Exception that occurred in outb function
 // it contains a 32 bit length following by a json serialisation of any error that occurred.
-// Guest Error Buffer - length sandboxMemoryConfiguration.GuestErrorBufferSize this contains the details of any guest error that occurre, it is serialised and deserialised using flatbuffers.
-// Input Data Buffer - length sandboxMemoryConfiguration.InputDataSize this is a buffer that is used for input data to the host program
-// Output Data Buffer - length sandboxMemoryConfiguration.OutputDataSize this is a buffer that is used for output data from host program
+// Guest Error Buffer - length SandboxConfiguration.GuestErrorBufferSize this contains the details of any guest error that occurre, it is serialised and deserialised using flatbuffers.
+// Input Data Buffer - length SandboxConfiguration.InputDataSize this is a buffer that is used for input data to the host program
+// Output Data Buffer - length SandboxConfiguration.OutputDataSize this is a buffer that is used for output data from host program
 // Guest Heap - length heapSize this is a memory buffer provided to the guest to be used as heap memory.
 // Guest Stack - length stackSize this is the memory used for the guest stack (in reality the stack may be slightly bigger or smaller as the total memory size is rounded up to nearest 4K and there is a 16 bte stack guard written to the top of the stack).
 
@@ -103,21 +104,21 @@ struct GuestStack {
 /// for illustration)
 ///
 /// - `HostDefinitions` - the length of this is the `HostFunctionDefinitionSize`
-/// field from `SandboxMemoryConfiguration`
+/// field from `SandboxConfiguration`
 ///
 /// - `HostExceptionData` - memory that contains details of any Host Exception that
 /// occurred in outb function. it contains a 32 bit length following by a json
 /// serialisation of any error that occurred. the length of this field is
-/// `HostExceptionSize` from` `SandboxMemoryConfiguration`
+/// `HostExceptionSize` from` `SandboxConfiguration`
 ///
 /// - `GuestError` - contains an buffer for any guest error that occurred.
-/// the length of this field is `GuestErrorBufferSize` from `SandboxMemoryConfiguration`
+/// the length of this field is `GuestErrorBufferSize` from `SandboxConfiguration`
 ///
 /// - `InputData` -  this is a buffer that is used for input data to the host program.
-/// the length of this field is `InputDataSize` from `SandboxMemoryConfiguration`
+/// the length of this field is `InputDataSize` from `SandboxConfiguration`
 ///
 /// - `OutputData` - this is a buffer that is used for output data from host program.
-/// the length of this field is `OutputDataSize` from `SandboxMemoryConfiguration`
+/// the length of this field is `OutputDataSize` from `SandboxConfiguration`
 ///
 /// - `GuestHeap` - this is a buffer that is used for heap data in the guest. the length
 /// of this field is returned by the `heap_size()` method of this struct
@@ -132,7 +133,7 @@ struct GuestStack {
 
 #[derive(Copy, Clone, Debug)]
 pub struct SandboxMemoryLayout {
-    sandbox_memory_config: SandboxMemoryConfiguration,
+    sandbox_memory_config: SandboxConfiguration,
     /// The peb offset into this sandbox.
     pub peb_offset: Offset,
     /// The stack size of this sandbox.
@@ -219,9 +220,9 @@ impl SandboxMemoryLayout {
     pub(crate) const GUEST_CODE_ADDRESS: usize = Self::BASE_ADDRESS + Self::CODE_OFFSET;
 
     /// Create a new `SandboxMemoryLayout` with the given
-    /// `SandboxMemoryConfiguration`, code size and stack/heap size.
+    /// `SandboxConfiguration`, code size and stack/heap size.
     pub(crate) fn new(
-        cfg: SandboxMemoryConfiguration,
+        cfg: SandboxConfiguration,
         code_size: usize,
         stack_size: usize,
         heap_size: usize,
