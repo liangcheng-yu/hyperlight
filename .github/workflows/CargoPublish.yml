@@ -9,7 +9,7 @@ jobs:
   publish-hyperlight_testing:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/hyperlight-workflows-setup
         env:
           PAT: ${{ secrets.ADO_CARGO_RW_PAT }}
@@ -21,7 +21,7 @@ jobs:
     needs:
       - publish-hyperlight_testing
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/hyperlight-workflows-setup
       - name: Cargo login (read-write)
         env:
@@ -37,7 +37,7 @@ jobs:
     needs:
       - publish-hyperlight_host
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/hyperlight-workflows-setup
       - name: Cargo login (read-write)
         env:
