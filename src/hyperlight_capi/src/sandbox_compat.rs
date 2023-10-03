@@ -1,23 +1,37 @@
 extern crate hyperlight_host;
 use super::{context::Context, handle::Handle, hdl::Hdl};
 use anyhow::{anyhow, bail, Result};
-use hyperlight_host::sandbox::mem_mgr::MemMgrWrapperGetter;
+use hyperlight_host::sandbox_state::sandbox::Sandbox as GenericSandbox;
 use hyperlight_host::UninitializedSandbox;
 
 /// Either an initialized or uninitialized sandbox. This enum is used
 /// to allow our `Sandbox` wrapper type to store both an uninitailized
 /// or initialized sandbox at the same time.
-pub(crate) enum EitherImpl {
+pub(crate) enum SandboxImpls {
     Uninit(Box<hyperlight_host::sandbox::uninitialized::UninitializedSandbox<'static>>),
-    Init(Box<hyperlight_host::sandbox::initialized::Sandbox<'static>>),
+    InitMultiUse(Box<hyperlight_host::MultiUseSandbox<'static>>),
+    InitSingleUse(Box<hyperlight_host::SingleUseSandbox<'static>>),
 }
 
 /// This is the C API for the `Sandbox` type.
 pub(crate) struct Sandbox {
-    inner: EitherImpl,
+    /// whether or not the sandbox stored herein, when initialized, should
+    /// be a `MultiUseSandbox` or a `SingleUseSandbox`.
+    should_recycle: bool,
+    inner: SandboxImpls,
 }
 
 impl Sandbox {
+    pub(super) fn from_uninit(
+        should_recycle: bool,
+        u_sbox: hyperlight_host::sandbox::uninitialized::UninitializedSandbox<'static>,
+    ) -> Self {
+        Self {
+            should_recycle,
+            inner: SandboxImpls::Uninit(Box::new(u_sbox)),
+        }
+    }
+
     /// Get an immutable reference to a `Sandbox` stored in `ctx` and
     /// pointed to by `handle`.
     pub(crate) fn get(ctx: &Context, hdl: Handle) -> Result<&Self> {
@@ -30,23 +44,32 @@ impl Sandbox {
         Context::get_mut(hdl, &mut ctx.sandboxes, |h| matches!(h, Hdl::Sandbox(_)))
     }
 
-    /// Find the `Sandbox` in `ctx` referenced by `hdl`. If it was found,
-    /// remove the `EitherImpl` from it. Then, pass that `EitherImpl` to
-    /// `cb_fn`. If `cb_fn` returns an `Ok`, set the new `EitherImpl` value
-    /// to the `Sandbox`'s inner value and re-insert the `Sandbox` into `ctx`
-    /// with the same `Handle` `hdl`. If anything went wrong along the way,
-    /// return an `Err`. If an error occurred and the `Sandbox` was already
-    /// removed from `ctx`, do not re-insert it into `ctx`.
-    pub(crate) fn replace<F>(ctx: &mut Context, hdl: Handle, cb_fn: F) -> Result<()>
+    /// Find the `Sandbox` in `ctx` referenced by `hdl`, remove it from `ctx`,
+    /// then evolve it by calling `cb_fn`. Store `cb_fn`'s newly-returned
+    /// `SandboxImpls` instance in `ctx`. On a successful return, the given
+    /// `hdl` will point to the newly evolved sandbox.
+    ///
+    /// Returns an error in the following cases:
+    ///
+    /// - No `Sandbox` exists in `ctx` for the given handle
+    /// - The `Sandbox` was found but it was already initialized
+    /// - `cb_fn` returned an error
+    ///
+    /// On any error, the sandbox will be removed from `ctx`
+    pub(super) fn evolve<CbFn>(ctx: &mut Context, hdl: Handle, cb_fn: CbFn) -> Result<()>
     where
-        F: FnOnce(EitherImpl) -> Result<EitherImpl>,
+        CbFn: FnOnce(bool, Box<UninitializedSandbox<'static>>) -> Result<SandboxImpls>,
     {
         let mut sbox = ctx
             .sandboxes
             .remove(&hdl.key())
             .ok_or(anyhow!("no sandbox exists for the given handle"))?;
-        let new_impl = cb_fn(sbox.inner)?;
-        sbox.inner = new_impl;
+        let recycle = sbox.should_recycle;
+        let new_sbox = match sbox.inner {
+            SandboxImpls::Uninit(u_sbox) => cb_fn(recycle, u_sbox),
+            _ => bail!("evolve: sandbox was already initialized"),
+        }?;
+        sbox.inner = new_sbox;
         ctx.sandboxes.insert(hdl.key(), sbox);
         Ok(())
     }
@@ -62,7 +85,7 @@ impl Sandbox {
     /// Otherwise, return an `Err`
     pub(crate) fn to_uninit(&self) -> Result<&UninitializedSandbox<'static>> {
         match &self.inner {
-            EitherImpl::Uninit(sbox) => Ok(sbox),
+            SandboxImpls::Uninit(sbox) => Ok(sbox),
             _ => bail!("attempted to get immutable uninitialzied sandbox from an initialized one"),
         }
     }
@@ -71,43 +94,46 @@ impl Sandbox {
     /// Otherwise, return an `Err`
     pub(crate) fn to_uninit_mut(&mut self) -> Result<&mut UninitializedSandbox<'static>> {
         match &mut self.inner {
-            EitherImpl::Uninit(sbox) => Ok(sbox),
+            SandboxImpls::Uninit(sbox) => Ok(sbox),
             _ => bail!("attempted to get mutable uninitialzied sandbox from an initialized one"),
         }
     }
 
     pub(crate) fn check_stack_guard(&self) -> Result<bool> {
         match &self.inner {
-            EitherImpl::Uninit(sbox) => sbox.get_mem_mgr_wrapper().check_stack_guard(),
-            EitherImpl::Init(sbox) => sbox.get_mem_mgr_wrapper().check_stack_guard(),
+            SandboxImpls::Uninit(sbox) => sbox.check_stack_guard(),
+            SandboxImpls::InitSingleUse(sbox) => sbox.check_stack_guard(),
+            SandboxImpls::InitMultiUse(sbox) => sbox.check_stack_guard(),
         }
     }
 }
 
-impl From<hyperlight_host::sandbox::initialized::Sandbox<'static>> for Sandbox {
-    fn from(value: hyperlight_host::sandbox::initialized::Sandbox<'static>) -> Self {
+impl From<hyperlight_host::SingleUseSandbox<'static>> for Sandbox {
+    fn from(value: hyperlight_host::SingleUseSandbox<'static>) -> Self {
         Sandbox {
-            inner: EitherImpl::Init(Box::new(value)),
+            should_recycle: false,
+            inner: SandboxImpls::InitSingleUse(Box::new(value)),
         }
     }
 }
 
-impl From<hyperlight_host::sandbox::uninitialized::UninitializedSandbox<'static>> for Sandbox {
-    fn from(value: hyperlight_host::sandbox::uninitialized::UninitializedSandbox<'static>) -> Self {
+impl From<hyperlight_host::MultiUseSandbox<'static>> for Sandbox {
+    fn from(value: hyperlight_host::MultiUseSandbox<'static>) -> Self {
         Sandbox {
-            inner: EitherImpl::Uninit(Box::new(value)),
+            should_recycle: true,
+            inner: SandboxImpls::InitMultiUse(Box::new(value)),
         }
     }
 }
 
-impl AsRef<EitherImpl> for Sandbox {
-    fn as_ref(&self) -> &EitherImpl {
+impl AsRef<SandboxImpls> for Sandbox {
+    fn as_ref(&self) -> &SandboxImpls {
         &self.inner
     }
 }
 
-impl AsMut<EitherImpl> for Sandbox {
-    fn as_mut(&mut self) -> &mut EitherImpl {
+impl AsMut<SandboxImpls> for Sandbox {
+    fn as_mut(&mut self) -> &mut SandboxImpls {
         &mut self.inner
     }
 }

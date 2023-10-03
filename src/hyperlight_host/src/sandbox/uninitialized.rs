@@ -1,19 +1,19 @@
-use super::{host_funcs::default_writer_func, initialized::Sandbox};
+use super::{
+    host_funcs::default_writer_func,
+    uninitialized_evolve::{evolve_impl_multi_use, evolve_impl_single_use},
+};
 use super::{host_funcs::HostFuncsWrapper, hypervisor::HypervisorWrapperMgr};
 use super::{hypervisor::HypervisorWrapper, run_options::SandboxRunOptions};
 use super::{mem_access::mem_access_handler_wrapper, mem_mgr::MemMgrWrapperGetter};
-use super::{
-    mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper, uninitialized_evolve::evolve_impl,
-};
-
-use crate::func::host::HostFunction1;
-use crate::mem::mgr::STACK_COOKIE_LEN;
+use super::{mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper};
 use crate::mem::ptr::RawPtr;
 use crate::mem::{mgr::SandboxMemoryManager, pe::pe_info::PEInfo};
 use crate::sandbox::SandboxConfiguration;
 use crate::sandbox_state::transition::Noop;
 use crate::sandbox_state::{sandbox::EvolvableSandbox, transition::MutatingCallback};
-use anyhow::{anyhow, Result};
+use crate::{func::host::HostFunction1, MultiUseSandbox};
+use crate::{mem::mgr::STACK_COOKIE_LEN, SingleUseSandbox};
+use anyhow::{anyhow, bail, Result};
 use std::option::Option;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -33,21 +33,8 @@ pub struct UninitializedSandbox<'a> {
     pub(crate) host_funcs: Arc<Mutex<HostFuncsWrapper<'a>>>,
     /// The memory manager for the sandbox.
     pub(crate) mgr: MemMgrWrapper,
-    pub(super) hv: Arc<HypervisorWrapper<'a>>,
+    pub(super) hv: HypervisorWrapper<'a>,
     pub(crate) run_from_process_memory: bool,
-    pub(super) recycle_after_run: bool,
-}
-
-impl<'a> From<Sandbox<'a>> for UninitializedSandbox<'a> {
-    fn from(value: Sandbox<'a>) -> Self {
-        Self {
-            host_funcs: value.host_functions.clone(),
-            mgr: value.mgr.clone(),
-            hv: value.hv.clone(),
-            run_from_process_memory: value.run_from_process_memory,
-            recycle_after_run: value.recycle_after_run,
-        }
-    }
 }
 
 impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for UninitializedSandbox<'a> {
@@ -68,12 +55,43 @@ impl<'a> std::fmt::Debug for UninitializedSandbox<'a> {
     }
 }
 
-impl<'a> crate::sandbox_state::sandbox::Sandbox for UninitializedSandbox<'a> {}
+impl<'a> crate::sandbox_state::sandbox::Sandbox for UninitializedSandbox<'a> {
+    fn check_stack_guard(&self) -> Result<bool> {
+        self.mgr.check_stack_guard()
+    }
+}
 
 impl<'a, F>
     EvolvableSandbox<
         UninitializedSandbox<'a>,
-        Sandbox<'a>,
+        SingleUseSandbox<'a>,
+        MutatingCallback<'a, UninitializedSandbox<'a>, F>,
+    > for UninitializedSandbox<'a>
+where
+    F: FnOnce(&mut UninitializedSandbox<'a>) -> Result<()> + 'a,
+{
+    /// Evolve `self` into a `SingleUseSandbox`, executing a caller-provided
+    /// callback during the transition process.
+    ///
+    /// If you need to do this transition without a callback, use the
+    /// `EvolvableSandbox` implementation that takes a `Noop`.
+    fn evolve(
+        self,
+        tsn: MutatingCallback<'a, UninitializedSandbox<'a>, F>,
+    ) -> Result<SingleUseSandbox<'a>> {
+        let cb_box = {
+            let cb = move |u_sbox: &mut UninitializedSandbox<'a>| tsn.call(u_sbox);
+            Box::new(cb)
+        };
+        let i_sbox = evolve_impl_single_use(self, Some(cb_box))?;
+        Ok(i_sbox)
+    }
+}
+
+impl<'a, F>
+    EvolvableSandbox<
+        UninitializedSandbox<'a>,
+        MultiUseSandbox<'a>,
         MutatingCallback<'a, UninitializedSandbox<'a>, F>,
     > for UninitializedSandbox<'a>
 where
@@ -84,12 +102,15 @@ where
     ///
     /// If you need to do this transition without a callback, use the
     /// `EvolvableSandbox` implementation that takes a `Noop`.
-    fn evolve(self, tsn: MutatingCallback<'a, UninitializedSandbox<'a>, F>) -> Result<Sandbox<'a>> {
+    fn evolve(
+        self,
+        tsn: MutatingCallback<'a, UninitializedSandbox<'a>, F>,
+    ) -> Result<MultiUseSandbox<'a>> {
         let cb_box = {
             let cb = move |u_sbox: &mut UninitializedSandbox<'a>| tsn.call(u_sbox);
             Box::new(cb)
         };
-        let i_sbox = evolve_impl(self, Some(cb_box))?;
+        let i_sbox = evolve_impl_multi_use(self, Some(cb_box))?;
         // TODO: snapshot memory here so we can take the returned
         // Sandbox and revert back to an UninitializedSandbox
         Ok(i_sbox)
@@ -99,25 +120,55 @@ where
 impl<'a>
     EvolvableSandbox<
         UninitializedSandbox<'a>,
-        Sandbox<'a>,
-        Noop<UninitializedSandbox<'a>, Sandbox<'a>>,
+        SingleUseSandbox<'a>,
+        Noop<UninitializedSandbox<'a>, SingleUseSandbox<'a>>,
     > for UninitializedSandbox<'a>
 {
-    /// Evolve `self` to a `Sandbox` without any additional metadata.
+    /// Evolve `self` to a `SingleUseSandbox` without any additional metadata.
     ///
     /// If you want to pass a callback to this state transition so you can
     /// run your own code during the transition, use the `EvolvableSandbox`
     /// implementation that accepts a `MutatingCallback`
-    fn evolve(self, _: Noop<UninitializedSandbox<'a>, Sandbox<'a>>) -> Result<Sandbox<'a>> {
+    fn evolve(
+        self,
+        _: Noop<UninitializedSandbox<'a>, SingleUseSandbox<'a>>,
+    ) -> Result<SingleUseSandbox<'a>> {
         // TODO: the following if statement is to stop evovle_impl being called when we run in proc (it ends up calling the entrypoint in the guest twice)
         // Since we are not using the NOOP version of evolve in Hyperlight WASM we can use the if statement below to avoid the call to evolve_impl
         // Once we fix up the Hypervisor C API this should be removed and replaced with the code commented out on line 106
         let i_sbox = if self.run_from_process_memory {
-            Ok(Sandbox::from(self))
+            Ok(SingleUseSandbox::from_uninit(self))
         } else {
-            evolve_impl(self, None)
+            evolve_impl_single_use(self, None)
         }?;
-        //let i_sbox = evolve_impl(self, None)?;
+        Ok(i_sbox)
+    }
+}
+
+impl<'a>
+    EvolvableSandbox<
+        UninitializedSandbox<'a>,
+        MultiUseSandbox<'a>,
+        Noop<UninitializedSandbox<'a>, MultiUseSandbox<'a>>,
+    > for UninitializedSandbox<'a>
+{
+    /// Evolve `self` to a `MultiUseSandbox` without any additional metadata.
+    ///
+    /// If you want to pass a callback to this state transition so you can
+    /// run your own code during the transition, use the `EvolvableSandbox`
+    /// implementation that accepts a `MutatingCallback`
+    fn evolve(
+        self,
+        _: Noop<UninitializedSandbox<'a>, MultiUseSandbox<'a>>,
+    ) -> Result<MultiUseSandbox<'a>> {
+        // TODO: the following if statement is to stop evovle_impl being called when we run in proc (it ends up calling the entrypoint in the guest twice)
+        // Since we are not using the NOOP version of evolve in Hyperlight WASM we can use the if statement below to avoid the call to evolve_impl
+        // Once we fix up the Hypervisor C API this should be removed and replaced with the code commented out on line 106
+        let i_sbox = if self.run_from_process_memory {
+            Ok(MultiUseSandbox::from_uninit(self))
+        } else {
+            evolve_impl_multi_use(self, None)
+        }?;
         // TODO: snapshot memory here so we can take the returned
         // Sandbox and revert back to an UninitializedSandbox
         Ok(i_sbox)
@@ -129,9 +180,8 @@ impl<'a> HypervisorWrapperMgr<'a> for UninitializedSandbox<'a> {
         &self.hv
     }
 
-    fn get_hypervisor_wrapper_mut(&mut self) -> Result<&mut HypervisorWrapper<'a>> {
-        Arc::get_mut(&mut self.hv)
-            .ok_or_else(|| anyhow!("could not get mutable hypervisor wrapper"))
+    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper<'a> {
+        &mut self.hv
     }
 }
 
@@ -181,18 +231,10 @@ impl<'a> UninitializedSandbox<'a> {
             GuestBinary::Buffer(buffer) => GuestBinary::Buffer(buffer),
         };
 
-        let sandbox_run_options =
-            sandbox_run_options.unwrap_or(SandboxRunOptions::RUN_IN_HYPERVISOR);
+        let run_opts = sandbox_run_options.unwrap_or_default();
 
-        let run_from_process_memory = sandbox_run_options
-            .contains(SandboxRunOptions::RUN_IN_PROCESS)
-            || sandbox_run_options.contains(SandboxRunOptions::RUN_FROM_GUEST_BINARY);
-        let run_from_guest_binary =
-            sandbox_run_options.contains(SandboxRunOptions::RUN_FROM_GUEST_BINARY);
-        let recycle_after_run = sandbox_run_options.contains(SandboxRunOptions::RECYCLE_AFTER_RUN);
-        if run_from_guest_binary && recycle_after_run {
-            anyhow::bail!("Recycle after run at is not supported when running from guest binary.");
-        }
+        let run_from_process_memory = run_opts.is_in_memory();
+        let run_from_guest_binary = run_opts.is_run_from_guest_binary();
 
         let sandbox_cfg = cfg.unwrap_or_default();
         let mut mem_mgr_wrapper = {
@@ -235,9 +277,8 @@ impl<'a> UninitializedSandbox<'a> {
         let mut sandbox = Self {
             host_funcs,
             mgr: mem_mgr_wrapper,
-            hv: Arc::new(hv),
+            hv,
             run_from_process_memory,
-            recycle_after_run,
         };
 
         default_writer.register(&mut sandbox, "HostPrint")?;
@@ -254,15 +295,31 @@ impl<'a> UninitializedSandbox<'a> {
         rand::random::<[u8; STACK_COOKIE_LEN]>()
     }
 
-    /// Call the entry point inside this `Sandbox`
+    /// Call the entry point inside this `Sandbox` and return `Ok(())` if
+    /// the entry point returned successfully. This function only applies to
+    /// sandboxes with in-process mode turned on (e.g.
+    /// `SandboxRunOptions::RunInProcess` passed as run options to the
+    /// `UninitializedSandbox::new` function). If in-process mode is not
+    /// turned on this function does nothing and immediately returns an `Err`.
     ///
     /// # Safety
+    ///
+    /// The given `peb_address` parameter must be an address in the guest
+    /// memory corresponding to the start of the process
+    /// environment block (PEB). If running with in-process mode, it must
+    /// be an address into the host memory that points to the PEB.
+    ///
+    /// Additionally, `page_size` must correspond to the operating system's
+    /// chosen size of a virtual memory page.
     pub unsafe fn call_entry_point(
         &self,
         peb_address: RawPtr,
         seed: u64,
         page_size: u32,
     ) -> Result<()> {
+        if !self.run_from_process_memory {
+            bail!("call_entry_point is only available with in-process mode");
+        }
         type EntryPoint = extern "C" fn(i64, u64, u32) -> i32;
         let entry_point: EntryPoint = {
             let addr = {
@@ -331,14 +388,16 @@ impl<'a> UninitializedSandbox<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::testing::log_values::try_to_strings;
+    #[cfg(target_os = "windows")]
+    use crate::SandboxRunOptions;
     use crate::{
         func::{
             host::{HostFunction1, HostFunction2},
             types::{ParameterValue, ReturnValue},
         },
-        sandbox::{mem_mgr::MemMgrWrapperGetter, uninitialized::GuestBinary, SandboxConfiguration},
-        Sandbox, SandboxRunOptions, UninitializedSandbox,
+        sandbox::SandboxConfiguration,
+        sandbox::{mem_mgr::MemMgrWrapperGetter, uninitialized::GuestBinary},
+        UninitializedSandbox,
     };
     use crate::{
         sandbox_state::sandbox::EvolvableSandbox,
@@ -348,6 +407,7 @@ mod tests {
         },
     };
     use crate::{sandbox_state::transition::MutatingCallback, sandbox_state::transition::Noop};
+    use crate::{testing::log_values::try_to_strings, MultiUseSandbox};
     use anyhow::{anyhow, Result};
     use crossbeam_queue::ArrayQueue;
     use hyperlight_testing::simple_guest_path;
@@ -404,26 +464,12 @@ mod tests {
             UninitializedSandbox::new(GuestBinary::FilePath(binary_path.clone()), Some(cfg), None);
         assert!(uninitialized_sandbox.is_ok());
 
-        // Invalid sandbox_run_options
-
-        let sandbox_run_options =
-            SandboxRunOptions::RUN_FROM_GUEST_BINARY | SandboxRunOptions::RECYCLE_AFTER_RUN;
-
-        let uninitialized_sandbox = UninitializedSandbox::new(
-            GuestBinary::FilePath(binary_path.clone()),
-            None,
-            Some(sandbox_run_options),
-        );
-        assert!(uninitialized_sandbox.is_err());
-
         let uninitialized_sandbox =
-            UninitializedSandbox::new(GuestBinary::FilePath(binary_path), None, None);
-        assert!(uninitialized_sandbox.is_ok());
+            UninitializedSandbox::new(GuestBinary::FilePath(binary_path), None, None).unwrap();
 
         // Get a Sandbox from an uninitialized sandbox without a call back function
 
-        let sandbox = uninitialized_sandbox.unwrap().evolve(Noop::default());
-        assert!(sandbox.is_ok());
+        let _sandbox: MultiUseSandbox<'_> = uninitialized_sandbox.evolve(Noop::default()).unwrap();
 
         // Test with  init callback function
         // TODO: replace this with a test that registers and calls functions once we have that functionality
@@ -458,7 +504,8 @@ mod tests {
             Ok(())
         }
 
-        let sandbox = uninitialized_sandbox.evolve(MutatingCallback::from(init));
+        let sandbox: Result<MultiUseSandbox<'_>> =
+            uninitialized_sandbox.evolve(MutatingCallback::from(init));
         assert!(sandbox.is_ok());
 
         drop(sandbox);
@@ -490,7 +537,7 @@ mod tests {
             let sandbox = UninitializedSandbox::new(
                 GuestBinary::Buffer(fs::read(binary_path).unwrap()),
                 None,
-                Some(SandboxRunOptions::RUN_FROM_GUEST_BINARY),
+                Some(SandboxRunOptions::RunInProcess(true)),
             );
             assert!(sandbox.is_err());
         }
@@ -548,11 +595,11 @@ mod tests {
             let test_func0 = Arc::new(Mutex::new(test0));
             test_func0.register(&mut usbox, "test0").unwrap();
 
-            let sandbox = usbox.evolve(MutatingCallback::from(init));
+            let sandbox: Result<MultiUseSandbox<'_>> = usbox.evolve(MutatingCallback::from(init));
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
-            let host_funcs = sandbox.host_functions.lock();
+            let host_funcs = sandbox.host_funcs.lock();
 
             assert!(host_funcs.is_ok());
 
@@ -571,11 +618,11 @@ mod tests {
             let test_func1 = Arc::new(Mutex::new(test1));
             test_func1.register(&mut usbox, "test1").unwrap();
 
-            let sandbox = usbox.evolve(MutatingCallback::from(init));
+            let sandbox: Result<MultiUseSandbox<'_>> = usbox.evolve(MutatingCallback::from(init));
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
-            let host_funcs = sandbox.host_functions.lock();
+            let host_funcs = sandbox.host_funcs.lock();
 
             assert!(host_funcs.is_ok());
 
@@ -600,11 +647,11 @@ mod tests {
             let test_func2 = Arc::new(Mutex::new(test2));
             test_func2.register(&mut usbox, "test2").unwrap();
 
-            let sandbox = usbox.evolve(MutatingCallback::from(init));
+            let sandbox: Result<MultiUseSandbox<'_>> = usbox.evolve(MutatingCallback::from(init));
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
-            let host_funcs = sandbox.host_functions.lock();
+            let host_funcs = sandbox.host_funcs.lock();
 
             assert!(host_funcs.is_ok());
 
@@ -615,11 +662,11 @@ mod tests {
         // calling a function that doesn't exist
         {
             let usbox = uninitialized_sandbox();
-            let sandbox = usbox.evolve(MutatingCallback::from(init));
+            let sandbox: Result<MultiUseSandbox<'_>> = usbox.evolve(MutatingCallback::from(init));
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
-            let host_funcs = sandbox.host_functions.lock();
+            let host_funcs = sandbox.host_funcs.lock();
 
             assert!(host_funcs.is_ok());
 
@@ -795,7 +842,7 @@ mod tests {
     #[test]
     fn check_create_and_use_sandbox_on_different_threads() {
         let unintializedsandbox_queue = Arc::new(ArrayQueue::<UninitializedSandbox>::new(10));
-        let sandbox_queue = Arc::new(ArrayQueue::<Sandbox>::new(10));
+        let sandbox_queue = Arc::new(ArrayQueue::<MultiUseSandbox<'_>>::new(10));
 
         for i in 0..10 {
             let simple_guest_path = simple_guest_path().expect("Guest Binary Missing");
@@ -859,7 +906,7 @@ mod tests {
                         .pop()
                         .unwrap_or_else(|| panic!("Failed to pop Sandbox thread {}", i));
 
-                    let host_funcs = sandbox.host_functions.lock();
+                    let host_funcs = sandbox.host_funcs.lock();
 
                     assert!(host_funcs.is_ok());
 
@@ -1143,7 +1190,7 @@ mod tests {
                 res.map_err(|e| anyhow!("could not create a new UninitializedSandbox: {e:?}"))
                     .unwrap()
             };
-            let _ = sbox.evolve(Noop::default());
+            let _: Result<MultiUseSandbox<'_>> = sbox.evolve(Noop::default());
 
             let num_calls = TEST_LOGGER.num_log_calls();
             assert_eq!(0, num_calls);

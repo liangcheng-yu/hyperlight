@@ -69,10 +69,8 @@ pub use func::HostFunction0;
 pub use sandbox::is_hypervisor_present;
 /// The re-export for the `GuestBinary` type
 pub use sandbox::uninitialized::GuestBinary;
-/// Re-export for `CallGuestFunction` trait
-pub use sandbox::CallGuestFunction;
 /// Re-export for `ExecutingGuestCall` type
-pub use sandbox::ExecutingGuestCall;
+// pub use sandbox::ExecutingGuestCall;
 /// Re-export for `GuestMgr` trait
 pub use sandbox::GuestMgr;
 /// Re-export for `HypervisorWrapper` trait
@@ -83,10 +81,14 @@ pub use sandbox::HypervisorWrapperMgr;
 pub use sandbox::MemMgrWrapper;
 /// Re-export for `MemMgrWrapperGetter` trait
 pub use sandbox::MemMgrWrapperGetter;
-/// The re-export for the `Sandbox` type
-pub use sandbox::Sandbox;
+/// A sandbox that can call be used to make multiple calls to guest functions,
+/// and otherwise reused multiple times
+pub use sandbox::MultiUseSandbox;
 /// The re-export for the `SandboxRunOptions` type
 pub use sandbox::SandboxRunOptions;
+/// A sandbox that can be used at most once to call a guest function, and
+/// then must be discarded.
+pub use sandbox::SingleUseSandbox;
 /// The re-export for the `UninitializedSandbox` type
 pub use sandbox::UninitializedSandbox;
 

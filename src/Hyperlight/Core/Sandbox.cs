@@ -30,10 +30,30 @@ namespace Hyperlight
     [Flags]
     public enum SandboxRunOptions
     {
-        None = 0,
-        RunInProcess = 1,
-        RecycleAfterRun = 2,
-        RunFromGuestBinary = 4,
+        /// <summary>
+        /// Run guest code in a hypervisor most appropriate to the platform
+        /// on which Hyperlight is running.
+        /// </summary>
+        None = 0b00001,
+        /// <summary>
+        /// Run guest code directly in the same memory space as the running
+        /// executable, rather than within a hypervisor.
+        ///
+        /// This option is meant for debugging only. Do not use in production.
+        /// Available only on Windows.
+        /// </summary>
+        RunInProcess = 0b00010,
+        /// <summary>
+        /// Recycle the sandbox after each execution.
+        /// </summary>
+        RecycleAfterRun = 0b00100,
+        /// <summary>
+        /// Run directly from a guest binary using the Windows LoadLibary
+        /// API.
+        /// 
+        /// Only available with RunInProcess, and thus only on Windows.
+        /// </summary>
+        RunFromGuestBinary = 0b01000,
     }
     public class Sandbox : IDisposable, ISandboxRegistration
     {

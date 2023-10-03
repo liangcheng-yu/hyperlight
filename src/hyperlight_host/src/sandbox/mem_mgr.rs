@@ -18,7 +18,8 @@ pub trait MemMgrWrapperGetter {
 }
 
 #[derive(Clone)]
-/// A container with methods for accessing `SandboxMemoryManager` and other related objects
+/// A container with methods for accessing `SandboxMemoryManager` and other
+/// related objects
 pub struct MemMgrWrapper(SandboxMemoryManager, StackCookie);
 
 impl MemMgrWrapper {
@@ -26,11 +27,11 @@ impl MemMgrWrapper {
         Self(mgr, stack_cookie)
     }
 
-    fn get_mgr(&self) -> &SandboxMemoryManager {
+    pub(super) fn get_mgr(&self) -> &SandboxMemoryManager {
         &self.0
     }
 
-    fn get_mgr_mut(&mut self) -> &mut SandboxMemoryManager {
+    pub(super) fn get_mgr_mut(&mut self) -> &mut SandboxMemoryManager {
         &mut self.0
     }
     pub(super) fn get_stack_cookie(&self) -> &StackCookie {

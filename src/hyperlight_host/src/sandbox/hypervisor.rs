@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::MutexGuard, time::Duration};
 
 use crate::{
     func::exports::get_os_page_size,
@@ -14,11 +14,14 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Result};
 use rand::Rng;
+use std::fmt::Debug;
+use std::sync::{Arc, Mutex};
 
 /// A container with convenience methods attached for an
 /// `Option<Box<dyn Hypervisor>>`
+#[derive(Clone)]
 pub struct HypervisorWrapper<'a> {
-    hv: Option<Box<dyn Hypervisor>>,
+    hv_opt: Option<Arc<Mutex<Box<dyn Hypervisor>>>>,
     outb_hdl: OutBHandlerWrapper<'a>,
     mem_access_hdl: MemAccessHandlerWrapper<'a>,
     max_execution_time: Duration,
@@ -33,37 +36,49 @@ pub trait HypervisorWrapperMgr<'a> {
     /// will most likely be returned when the `HypervisorWrapper` is stored
     /// inside an `Rc` or `Arc`, and there is at least one other clone of it,
     /// making a mutable reference impossible to get.
-    fn get_hypervisor_wrapper_mut(&mut self) -> Result<&mut HypervisorWrapper<'a>>;
+    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper<'a>;
 }
 
 impl<'a> HypervisorWrapper<'a> {
     pub(super) fn new(
-        hv: Option<Box<dyn Hypervisor>>,
+        hv_opt_box: Option<Box<dyn Hypervisor>>,
         outb_hdl: OutBHandlerWrapper<'a>,
         mem_access_hdl: MemAccessHandlerWrapper<'a>,
         max_execution_time: Duration,
         max_wait_for_cancellation: Duration,
     ) -> Self {
         Self {
-            hv,
+            hv_opt: hv_opt_box.map(|hv| {
+                let mutx = Mutex::from(hv);
+                Arc::from(mutx)
+            }),
             outb_hdl,
             mem_access_hdl,
             max_execution_time,
             max_wait_for_cancellation,
         }
     }
-    /// Get an immutable contained `Hypervisor` if it exists
-    pub(crate) fn get_hypervisor(&self) -> Result<&dyn Hypervisor> {
-        self.hv
-            .as_ref()
-            .map(|h| h.as_ref())
-            .ok_or(anyhow!("no hypervisor available for sandbox"))
-    }
-    /// Get an mutable contained `Hypervisor` if it exists
-    pub(crate) fn get_hypervisor_mut(&mut self) -> Result<&mut dyn Hypervisor> {
-        match self.hv.as_mut() {
+
+    /// if an internal `Hypervisor` exists, lock it and return a `MutexGuard`
+    /// containing it.
+    ///
+    /// This `MutexGuard` represents exclusive read/write ownership of
+    /// the underlying `Hypervisor`, so if this method returns an `Ok`,
+    /// the value inside that `Ok` can be written or read.
+    ///
+    /// When the returned `MutexGuard` goes out of scope, the underlying lock
+    /// will be released and the read/write guarantees will no longer be
+    /// valid (the compiler won't let you do any operations on it, though,
+    /// so you don't have to worry much about this consequence).
+    pub(crate) fn get_hypervisor(&self) -> Result<MutexGuard<Box<dyn Hypervisor>>> {
+        match self.hv_opt.as_ref() {
             None => bail!("no hypervisor available for sandbox"),
-            Some(h) => Ok(h.as_mut()),
+            Some(h_arc_mut) => {
+                let h_ref_mutex = Arc::as_ref(h_arc_mut);
+                h_ref_mutex
+                    .lock()
+                    .map_err(|_| anyhow!("unable to lock hypervisor"))
+            }
         }
     }
 
@@ -85,7 +100,7 @@ impl<'a> HypervisorWrapper<'a> {
         let mem_access_hdl = self.mem_access_hdl.clone();
         let max_execution_time = self.max_execution_time;
         let max_wait_for_cancellation = self.max_wait_for_cancellation;
-        let hv = self.get_hypervisor_mut()?;
+        let mut hv = self.get_hypervisor()?;
         hv.initialise(
             peb_addr,
             seed,
@@ -100,14 +115,24 @@ impl<'a> HypervisorWrapper<'a> {
     /// Get the stack pointer -- the value of the RSP register --
     /// the contained `Hypervisor` had
     pub fn orig_rsp(&self) -> Result<GuestPtr> {
-        let hv = self.get_hypervisor()?;
+        let hv = self
+            .hv_opt
+            .as_ref()
+            .ok_or_else(|| anyhow!("no hypervisor present"))?
+            .lock()
+            .map_err(|_| anyhow!("couldn't lock hypervisor"))?;
         let orig_rsp = hv.orig_rsp()?;
         GuestPtr::try_from(RawPtr::from(orig_rsp))
     }
 
     /// Reset the stack pointer
     pub fn reset_rsp(&mut self, new_rsp: GuestPtr) -> Result<()> {
-        let hv = self.get_hypervisor_mut()?;
+        let mut hv = self
+            .hv_opt
+            .as_mut()
+            .ok_or_else(|| anyhow!("no hypervisor present"))?
+            .lock()
+            .map_err(|_| anyhow!("couldn't lock hypervisor"))?;
         hv.reset_rsp(new_rsp.absolute()?)
     }
 
@@ -117,7 +142,7 @@ impl<'a> HypervisorWrapper<'a> {
         let mem_access_hdl = self.mem_access_hdl.clone();
         let max_execution_time = self.max_execution_time;
         let max_wait_for_cancellation = self.max_wait_for_cancellation;
-        let hv = self.get_hypervisor_mut()?;
+        let mut hv = self.get_hypervisor()?;
         let dispatch_raw_ptr = RawPtr::from(dispatch_func_addr.absolute()?);
         hv.dispatch_call_from_host(
             dispatch_raw_ptr,
@@ -206,5 +231,13 @@ impl<'a> UninitializedSandbox<'a> {
                 bail!("Windows platform detected but no hypervisor available")
             }
         }
+    }
+}
+
+impl<'a> Debug for HypervisorWrapper<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HypervisorWrapper")
+            .field("has_hypervisor", &self.hv_opt.is_some())
+            .finish()
     }
 }

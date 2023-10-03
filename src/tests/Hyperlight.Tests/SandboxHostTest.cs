@@ -1001,7 +1001,7 @@ namespace Hyperlight.Tests
             }
         }
 
-        [Fact]
+        [FactSkipIfNotWindows]
         public void Test_Maximum_Memory_Size()
         {
             var correlationId = Guid.NewGuid().ToString("N");
@@ -1829,8 +1829,8 @@ namespace Hyperlight.Tests
                     }
                 });
                 Assert.NotNull(ex);
-                Assert.IsType<NotSupportedException>(ex);
-                Assert.Equal($"Cannot run in process on Linux CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+                Assert.IsType<HyperlightException>(ex);
+                Assert.Equal($"In-process mode is currently only available on Windows CorrelationId: {correlationId} Source: NativeHandleWrapperErrorExtensions", ex.Message);
             }
         }
 

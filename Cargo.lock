@@ -663,6 +663,7 @@ name = "hyperlight_capi"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bitflags 2.4.0",
  "cbindgen",
  "cfg-if",
  "flatbuffers",

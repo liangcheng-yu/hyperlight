@@ -152,8 +152,16 @@ mod tests {
     struct MySandbox1 {}
     #[derive(Debug, Eq, PartialEq, Clone)]
     struct MySandbox2 {}
-    impl Sandbox for MySandbox1 {}
-    impl Sandbox for MySandbox2 {}
+    impl Sandbox for MySandbox1 {
+        fn check_stack_guard(&self) -> Result<bool> {
+            Ok(true)
+        }
+    }
+    impl Sandbox for MySandbox2 {
+        fn check_stack_guard(&self) -> Result<bool> {
+            Ok(true)
+        }
+    }
 
     impl EvolvableSandbox<MySandbox1, MySandbox2, Noop<MySandbox1, MySandbox2>> for MySandbox1 {
         fn evolve(self, _: Noop<MySandbox1, MySandbox2>) -> Result<MySandbox2> {

@@ -1,6 +1,7 @@
 use super::{bool::register_boolean, c_func::CFunc, mem_mgr::register_mem_mgr};
 use super::{context::Context, sandbox_compat::Sandbox};
-use super::{handle::Handle, sandbox_compat::EitherImpl};
+use super::{handle::Handle, sandbox_compat::SandboxImpls};
+use crate::sandbox_run_options::SandboxRunOptions;
 use crate::strings::get_string;
 use anyhow::{bail, Result};
 use hyperlight_host::sandbox::uninitialized::GuestBinary;
@@ -11,7 +12,7 @@ use hyperlight_host::{func::host::HostFunction1, sandbox};
 use hyperlight_host::{mem::ptr::RawPtr, sandbox_state::sandbox::EvolvableSandbox};
 use hyperlight_host::{
     sandbox::is_hypervisor_present as check_hypervisor,
-    sandbox::is_supported_platform as check_platform, SandboxRunOptions,
+    sandbox::is_supported_platform as check_platform,
 };
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
@@ -45,8 +46,8 @@ pub unsafe extern "C" fn sandbox_new(
     CFunc::new("sandbox_new", ctx)
         .and_then_mut(|ctx, _| {
             let bin_path = get_string(ctx, bin_path_hdl)?;
-            let sandbox_run_options =
-                Some(SandboxRunOptions::from_bits_truncate(sandbox_run_options));
+            let run_opts = SandboxRunOptions::from_bits_truncate(sandbox_run_options);
+            let should_recycle = run_opts.should_recycle();
 
             let writer_func = Arc::new(Mutex::new(move |s: String| -> Result<i32> {
                 match print_output_handler {
@@ -59,13 +60,14 @@ pub unsafe extern "C" fn sandbox_new(
                 }
             }));
 
+            let core_run_opts = run_opts.try_into()?;
             let mut sbox = sandbox::UninitializedSandbox::new(
                 GuestBinary::FilePath(bin_path.to_string()),
                 Some(cfg),
-                sandbox_run_options,
+                Some(core_run_opts),
             )?;
             writer_func.register(&mut sbox, "HostPrint")?;
-            Ok(Sandbox::from(sbox).register(ctx))
+            Ok(Sandbox::from_uninit(should_recycle, sbox).register(ctx))
         })
         .ok_or_err_hdl()
 }
@@ -85,15 +87,16 @@ pub unsafe extern "C" fn sandbox_new(
 pub unsafe extern "C" fn sandbox_initialize(ctx: *mut Context, sbox_hdl: Handle) -> Handle {
     CFunc::new("sandbox_initialize", ctx)
         .and_then_mut(|ctx, _| {
-            Sandbox::replace(ctx, sbox_hdl, |old| {
-                let uninit = match old {
-                    EitherImpl::Uninit(u) => u,
-                    _ => bail!(
-                        "sandbox_initialize: expected an uninitialized sandbox but didn't get one"
-                    ),
-                };
-                let newly_init = uninit.evolve(Noop::default())?;
-                Ok(EitherImpl::Init(Box::new(newly_init)))
+            Sandbox::evolve(ctx, sbox_hdl, |should_reuse, u_sbox| {
+                if should_reuse {
+                    let mu_sbox: hyperlight_host::MultiUseSandbox<'_> =
+                        u_sbox.evolve(Noop::default())?;
+                    Ok(SandboxImpls::InitMultiUse(Box::new(mu_sbox)))
+                } else {
+                    let su_sbox: hyperlight_host::SingleUseSandbox<'_> =
+                        u_sbox.evolve(Noop::default())?;
+                    Ok(SandboxImpls::InitSingleUse(Box::new(su_sbox)))
+                }
             })?;
             Ok(Handle::new_empty())
         })

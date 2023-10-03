@@ -120,6 +120,9 @@ pub mod sandbox;
 /// C-compatible types and functionality for wrapping the rust-native
 /// `*Sandbox` types
 pub mod sandbox_compat;
+/// Options for creating types of sandboxes via the Hyperilght C API
+/// (e.g. reusable, in-process, etc...)
+pub mod sandbox_run_options;
 /// C-compatible API functions to manage guest / shared memory.
 pub mod shared_mem;
 /// C-compatible API functions to manage guest memory snapshots
