@@ -123,6 +123,15 @@ impl<'a> MultiUseSandbox<'a> {
         Ok(())
     }
 
+    /// Reset the internal guest function run counter to 0.
+    ///
+    /// TODO: this is a hack to allow hyperlight-wasm to properly
+    /// initialize its structures while also ensuring it can schedule
+    /// subsequent guest calls properly
+    pub fn reset_num_runs(&mut self) {
+        self.num_runs = 0
+    }
+
     /// Restore the Sandbox's state
     fn restore_state(&mut self) -> Result<()> {
         if self.needs_state_reset {

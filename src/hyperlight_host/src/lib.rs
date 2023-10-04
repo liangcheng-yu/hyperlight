@@ -65,12 +65,12 @@ pub(crate) mod testing;
 pub use func::get_stack_boundary;
 /// Re-export for `HostFunction0` trait
 pub use func::HostFunction0;
+/// Re-export for `ExecutingGuestCall` type
+pub use sandbox::guest_call_exec::ExecutingGuestCall;
 /// The re-export for the `is_hypervisor_present` type
 pub use sandbox::is_hypervisor_present;
 /// The re-export for the `GuestBinary` type
 pub use sandbox::uninitialized::GuestBinary;
-/// Re-export for `ExecutingGuestCall` type
-// pub use sandbox::ExecutingGuestCall;
 /// Re-export for `GuestMgr` trait
 pub use sandbox::GuestMgr;
 /// Re-export for `HypervisorWrapper` trait
