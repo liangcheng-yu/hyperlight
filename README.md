@@ -8,6 +8,8 @@ Hyperlight supports running applications using the [Windows Hypervisor Platform]
 
 >WARNING: This is experimental code. It is not considered production-grade by its developers, neither is it "supported" software.
 
+>If you are a Hyperlight developer, and are looking to release a new Cargo version, please see [docs/release.md](./docs/release.md).
+
 ## The Hyperlight Sandbox and Guest Applications
 
 Hyperlight runs applications in a "sandbox" that it provides. A sandbox is a VM partition along with a very small runtime Hyperlight provides. Since Hyperlight runs guest applications within a Sandbox without a kernel or operating system, all guest applications must be written specifically for the Hyperlight runtime. The intention is that most developers will not need to write such applications, but will take advantage of pre-existing applications written for Hyperlight.
