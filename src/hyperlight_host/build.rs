@@ -20,29 +20,11 @@ fn main() -> Result<()> {
     // the location of the binary to the rust build.
     #[cfg(target_os = "windows")]
     {
-        use anyhow::bail;
-        use std::path::Path;
-
+        // Set $PROFILE env var during rust build so we can
+        // use it with RustEmbed to specify which HyperlightSurrogate.exe
+        // to include as an embedded resource in the surrograte_process_manager
         let profile = env::var("PROFILE")?;
-        let surrogate_path = match env::var("GITHUB_WORKSPACE") {
-            Ok(ws) => format!(
-                "{}/src/HyperlightSurrogate/x64/{}/HyperlightSurrogate.exe",
-                ws, profile
-            ),
-            Err(_) => format!(
-                "../HyperlightSurrogate/x64/{}/HyperlightSurrogate.exe",
-                profile
-            ),
-        };
-
-        if !Path::new(&surrogate_path).exists() {
-            bail!("can't find surrogate binary at {}\nplease run 'msbuild hyperlight.sln' from the Hyperlight repo root", &surrogate_path);
-        }
-
-        let surrogate_dir = Path::new(&surrogate_path).parent().unwrap();
-
-        // rust-embed requires specify a folder so just pass the directory name here
-        println!("cargo:rustc-env=SURROGATE_DIR={}", surrogate_dir.display())
+        println!("cargo:rustc-env=PROFILE={}", profile)
     }
 
     let crate_dir = env::var("CARGO_MANIFEST_DIR")?;
