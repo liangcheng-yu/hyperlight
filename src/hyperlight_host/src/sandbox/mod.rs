@@ -42,10 +42,6 @@ mod uninitialized_evolve;
 
 /// Re-export for `SandboxConfiguration` type
 pub use config::SandboxConfiguration;
-/// Re-export for `ExecutingGuestCall` type
-// pub use guest_call_exec::ExecutingGuestCall;
-/// Re-export for `CallGuestFunction` trait
-// pub use guest_funcs::CallGuestFunction;
 /// Re-export for `GuestMgr` trait
 pub use guest_mgr::GuestMgr;
 /// Re-export for `HypervisorWrapper` trait
