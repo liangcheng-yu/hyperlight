@@ -286,6 +286,14 @@ impl<'a> UninitializedSandbox<'a> {
         Ok(sandbox)
     }
 
+    pub(crate) fn from_multi_use(sbox: MultiUseSandbox<'a>) -> Self {
+        Self {
+            host_funcs: sbox.host_funcs.clone(),
+            mgr: sbox.mem_mgr.clone(),
+            hv: sbox.hv.clone(),
+            run_from_process_memory: sbox.run_from_process_memory,
+        }
+    }
     /// Clone the internally-stored `Arc` holding the `HostFuncsWrapper`
     /// managed by `self`, then return it.
     pub fn get_host_funcs(&self) -> Arc<Mutex<HostFuncsWrapper<'a>>> {

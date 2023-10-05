@@ -1,10 +1,13 @@
-#[cfg(test)]
 use super::host_funcs::HostFuncsWrapper;
 use super::initialized_multi_use_release::{ShouldRelease, ShouldReset};
 use super::{guest_call_exec::ExecutingGuestCall, guest_funcs::dispatch_call_from_host};
 use crate::{
     func::{guest::GuestFunction, ParameterValue, ReturnType, ReturnValue},
-    sandbox_state::sandbox::Sandbox,
+    mem::ptr::{GuestPtr, RawPtr},
+    sandbox_state::{
+        sandbox::{DevolvableSandbox, Sandbox},
+        transition::Noop,
+    },
     GuestMgr, HypervisorWrapper, HypervisorWrapperMgr, MemMgrWrapper, MemMgrWrapperGetter,
     UninitializedSandbox,
 };
@@ -16,7 +19,6 @@ use tracing::instrument;
 /// any limits to how many
 #[derive(Clone)]
 pub struct MultiUseSandbox<'a> {
-    #[cfg(test)]
     pub(super) host_funcs: Arc<Mutex<HostFuncsWrapper<'a>>>,
     needs_state_reset: bool,
     executing_guest_call: ExecutingGuestCall,
@@ -34,7 +36,6 @@ impl<'a> MultiUseSandbox<'a> {
     /// (as a `From` implementation would be)
     pub(super) fn from_uninit(val: UninitializedSandbox<'a>) -> MultiUseSandbox<'a> {
         Self {
-            #[cfg(test)]
             host_funcs: val.host_funcs,
             needs_state_reset: false,
             executing_guest_call: ExecutingGuestCall::new(0),
@@ -217,6 +218,37 @@ impl<'a> MemMgrWrapperGetter for MultiUseSandbox<'a> {
     }
     fn get_mem_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper {
         &mut self.mem_mgr
+    }
+}
+
+impl<'a>
+    DevolvableSandbox<
+        MultiUseSandbox<'a>,
+        UninitializedSandbox<'a>,
+        Noop<MultiUseSandbox<'a>, UninitializedSandbox<'a>>,
+    > for MultiUseSandbox<'a>
+{
+    /// Consume `self` and move it back to an `UninitializedSandbox`. The
+    /// devolving process entails the following:
+    ///
+    /// - If `self` was a recyclable sandbox, restore its state from a
+    /// previous state snapshot
+    /// - If `self` was using in-process mode, reset the stack pointer
+    /// (RSP register, to be specific) to what it was when the sandbox
+    /// was first created.
+    fn devolve(
+        self,
+        _tsn: Noop<MultiUseSandbox<'a>, UninitializedSandbox<'a>>,
+    ) -> Result<UninitializedSandbox<'a>> {
+        let run_from_proc = self.run_from_process_memory;
+        let mut ret = UninitializedSandbox::from_multi_use(self);
+        ret.mgr.as_mut().restore_state()?;
+        if run_from_proc {
+            let orig_rsp_raw = ret.hv.get_hypervisor()?.orig_rsp()?;
+            let orig_rsp = GuestPtr::try_from(RawPtr::from(orig_rsp_raw))?;
+            ret.hv.reset_rsp(orig_rsp)?;
+        }
+        Ok(ret)
     }
 }
 

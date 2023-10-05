@@ -25,6 +25,7 @@ pub mod ret_type;
 /// supported in Hyperlight.
 pub mod types;
 
+pub use param_type::SupportedParameterType;
 pub use ret_type::SupportedReturnType;
 use std::sync::{Arc, Mutex};
 pub use types::ParameterValue;

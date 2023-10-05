@@ -93,13 +93,14 @@ where
 }
 
 /// A host function that takes 2 arguments P1 and P2 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait HostFunction2<
+pub trait HostFunction2<
     'a,
     P1: SupportedParameterType<P1>,
     P2: SupportedParameterType<P2>,
     R: SupportedReturnType<R>,
 >
 {
+    /// Registers `self` with the given `UninitializedSandbox` under the given name `name`.
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
@@ -144,7 +145,7 @@ where
 }
 
 /// A host function that takes 3 arguments P1, P2 and P3 (which must implement `SupportedParameterType`), and returns an `Anyhow::Result` of type `R` (which must implement `SupportedReturnType`).
-pub(crate) trait HostFunction3<
+pub trait HostFunction3<
     'a,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
@@ -152,6 +153,7 @@ pub(crate) trait HostFunction3<
     R: SupportedReturnType<R>,
 >
 {
+    /// Registers `self` with the given `UninitializedSandbox` under the given name `name`.
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
 }
 
