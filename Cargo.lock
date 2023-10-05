@@ -684,7 +684,6 @@ dependencies = [
  "anyhow",
  "bitflags 2.4.0",
  "byteorder",
- "cbindgen",
  "cfg-if",
  "crossbeam",
  "crossbeam-channel",
