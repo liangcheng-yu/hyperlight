@@ -6,30 +6,28 @@ This document details the process of releasing a new version of Hyperlight to th
 
 When the `dev` branch has reached a state in which you want to release a new Cargo version, you should create a tag. Although you can do this from the GitHub releases page, we currently recommend doing the tag from the command line (we will revisit this in the future). Do so with the following commands:
 
-```shell
+```bash
 $ git tag -a v0.3.4 -m"A brief description of the release"
+$ git push origin v0.3.4 # if you've named your git remote for the deislabs/hyperlight repo differently, change 'origin' to your remote name
 ```
 
 >Note: we'll use `v0.3.4` as the version for the above and all subsequent instructions. You should replace this with the version you're releasing. Make sure your version follows [SemVer](https://semver.org) conventions as closely as possible, and is prefixed with a `v` character
 
-## Create a GitHub release
+## Create a release branch (no manual steps)
 
-After you've created your tag, do the following:
+After you push your new tag in the previous section, the ["Create a Release Branch"](https://github.com/deislabs/hyperlight/actions/workflows/CreateReleaseBranch.yml) CI job will automatically run. When this job completes, a new `release/v0.3.4` branch will be automatically created for you.
 
-1. Go to the GitHub releases page to [draft a new release](https://github.com/deislabs/hyperlight/releases/new)
-2. Select the tag you just created (`v0.3.4` in the previous example)
-3. Add a title for your release
-4. Click the "Generate release notes" button to auto-generate a changelog
-5. Check "Set as a pre-release" (for now; we will change this in the future)
-6. Click the green "Publish release" button
+## Create a new GitHub release (no manual steps)
 
-## Change versions in `Cargo.toml` files
+After the previous CI job runs to create the new release branch, the ["Create a Release"](https://github.com/deislabs/hyperlight/actions/workflows/CreateRelease.yml) job will see the new branch and automatically run. When this job is done, a new [GitHub release](https://github.com/deislabs/hyperlight/releases) will be created for you. This release is not strictly necessary for releasing a new cargo crate to the internal feed, but it is necessary to house other artifacts (e.g. `simpleguest.exe`, `callbackguest.exe`, etc)
 
-After you've created the release, some CI jobs will run. When they finish, you'll have a new branch in the repository called `release/v0.3.4`. The second-to-last step before we can publish a new version is to update the `Cargo.toml` files in the repository to reflect the new version. Do so by doing the following:
+## Update versions in the `Cargo.toml` files
+
+After the release branch was created (in the "Create a release branch" section above), you have to open a PR against that branch to reflect the new version. Do so by doing the following:
 
 1. Cutting a new branch from `release/v0.3.4`:
     ```shell
-    $ git checkout -b v0.3.4-versions origin/release/v0.3.4
+    $ git checkout -b v0.3.4-cargo-toml origin/release/v0.3.4
     ```
 2. Updating the following files to reflect the `0.3.4` version (note the lack of the `v` prefix!):
     - [`hyperlight_host/Cargo.toml`](/src/hyperlight_host/Cargo.toml)
