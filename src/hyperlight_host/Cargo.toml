@@ -3,6 +3,12 @@ name = "hyperlight_host"
 version = "0.1.0"
 edition = "2021"
 
+include = [
+  "cbindgen.toml",
+  "*.rs",
+  "bin/**/*.exe",
+]
+
 [lib]
 # https://docs.rust-embedded.org/book/interoperability/rust-with-c.html
 name = "hyperlight_host"
