@@ -28,9 +28,7 @@ jobs:
           PAT: ${{ secrets.ADO_CARGO_RW_PAT }}
         run: just cargo-login-ci
       - name: Publish hyperlight-host 
-        # --no-verify is needed because the build.rs script generates ./include/hyperlight_host.h 
-        # and cargo does not want you to modify files outside of OUT_DIR
-        run: cargo +nightly publish --manifest-path ./src/hyperlight_host/Cargo.toml --registry hyperlight_packages --no-verify
+        run: cargo +nightly publish --manifest-path ./src/hyperlight_host/Cargo.toml --registry hyperlight_packages
 
   publish-hyperlight_capi:
     runs-on: ubuntu-latest
