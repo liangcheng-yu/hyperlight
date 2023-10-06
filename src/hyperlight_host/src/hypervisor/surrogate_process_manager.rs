@@ -29,14 +29,14 @@ use windows::Win32::System::Threading::{
 // $SURROGATE_DIR is set by hyperlight_host's build.rs script.
 // https://docs.rs/rust-embed/latest/rust_embed/
 #[derive(RustEmbed)]
-#[folder = "bin/x64/$PROFILE"]
-#[include = "HyperlightSurrogate.exe"]
+#[folder = "$HYPERLIGHT_SURROGATE_DIR"] //#[folder = "C:/src/github.com/deislabs/hyperlight/target/debug"]
+#[include = "hyperlight_surrogate.exe"]
 struct Asset;
 
 /// This is the name of the surrogate process binary that will be used to create surrogate processes.
 /// The process does nothing , it just sleeps forever. Its only purpose is to provide a host for memory that will be mapped
 /// into the guest using the `WHvMapGpaRange2` API.
-pub(crate) const SURROGATE_PROCESS_BINARY_NAME: &str = "HyperlightSurrogate.exe";
+pub(crate) const SURROGATE_PROCESS_BINARY_NAME: &str = "hyperlight_surrogate.exe";
 
 /// The maximum number of surrogate processes that can be created.
 /// (This is a factor of limitations in the `WHvMapGpaRange2` API which only allows 512 different process handles).

@@ -2,5 +2,6 @@
 members = [
     "src/hyperlight_capi",
     "src/hyperlight_host",
+    "src/hyperlight_surrogate",
     "src/hyperlight_testing",
 ]

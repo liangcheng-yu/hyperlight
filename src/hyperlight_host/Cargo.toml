@@ -3,14 +3,15 @@ name = "hyperlight_host"
 version = "0.1.0"
 edition = "2021"
 
-include = [
-  "*.rs",
-  "bin/**/*.exe",
-]
-
 [lib]
 # https://docs.rust-embedded.org/book/interoperability/rust-with-c.html
 name = "hyperlight_host"
+
+# [[bin]]
+#name = "hyperlight_surrogate"
+#path = "src/hyperlight_surrogate/bin/main.rs"
+#test = true
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -91,3 +92,4 @@ proc-maps = "0.3.1"
 
 [build-dependencies]
 anyhow = { version = "1.0.75" }
+hyperlight_surrogate = { path = "../hyperlight_surrogate", artifact = ["bin:hyperlight_surrogate"]}

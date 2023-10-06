@@ -12,15 +12,15 @@ default-target:= "debug"
 cargo-update:
     # run cargo update --dry-run with nightly toolchain to pull deps from private cargo feeds
     # but do not actually perform any updates
-    cargo +nightly update --dry-run
+    cargo +nightly update --dry-run -Z bindeps
 
 build target=default-target: cargo-update
-    cargo build --verbose --profile={{ if target == "debug" {"dev"} else { target } }}
+    cargo +nightly -Z bindeps build --verbose --profile={{ if target == "debug" {"dev"} else { target } }} 
 
 build-test-rust target=default-target:  (build target)
     # tracing tests cannot run with other tests
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} -- --skip test_trace
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_trace 
+    cargo +nightly  test --profile={{ if target == "debug" {"dev"} else { target } }} -Z bindeps -- --skip test_trace
+    cargo +nightly test --profile={{ if target == "debug" {"dev"} else { target } }} -Z bindeps test_trace 
 
 build-tests-capi target=default-target: (build target)
     clang \
