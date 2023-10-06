@@ -3,15 +3,18 @@ name = "hyperlight_host"
 version = "0.1.0"
 edition = "2021"
 
+# note: src/hyperlight_surrogate/** is not included in package due to
+# https://github.com/rust-lang/cargo/issues/8597
+# try to build in a temp directory??
+include = [
+    "src/hyperlight_surrogate/Cargo.toml", 
+    "src/hyperlight_surrogate/src/main.rs",
+    "*.rs",
+]
+
 [lib]
 # https://docs.rust-embedded.org/book/interoperability/rust-with-c.html
 name = "hyperlight_host"
-
-# [[bin]]
-#name = "hyperlight_surrogate"
-#path = "src/hyperlight_surrogate/bin/main.rs"
-#test = true
-
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -92,4 +95,3 @@ proc-maps = "0.3.1"
 
 [build-dependencies]
 anyhow = { version = "1.0.75" }
-hyperlight_surrogate = { path = "../hyperlight_surrogate", artifact = ["bin:hyperlight_surrogate"]}

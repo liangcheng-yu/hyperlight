@@ -29,7 +29,7 @@ use windows::Win32::System::Threading::{
 // $SURROGATE_DIR is set by hyperlight_host's build.rs script.
 // https://docs.rs/rust-embed/latest/rust_embed/
 #[derive(RustEmbed)]
-#[folder = "$HYPERLIGHT_SURROGATE_DIR"] //#[folder = "C:/src/github.com/deislabs/hyperlight/target/debug"]
+#[folder = "$HYPERLIGHT_SURROGATE_DIR"]
 #[include = "hyperlight_surrogate.exe"]
 struct Asset;
 

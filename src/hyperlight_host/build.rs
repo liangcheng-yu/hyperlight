@@ -11,14 +11,36 @@ fn main() -> Result<()> {
     // the location of the binary to the rust build.
     #[cfg(target_os = "windows")]
     {
+        // Build hyperlight_surrogate and
         // Set $HYPERLIGHT_SURROGATE_DIR env var during rust build so we can
         // use it with RustEmbed to specify where hyperlight_surrogate.exe is
         // to include as an embedded resource in the surrograte_process_manager
-        let surrogate_bin_dep_path = std::env::var("CARGO_BIN_FILE_HYPERLIGHT_SURROGATE_HYPERLIGHT_SURROGATE")?;
-        let surrogate_bin_dir = std::path::Path::new(&surrogate_bin_dep_path)
-        .parent()
-        .ok_or_else(|| anyhow::anyhow!("unable to find directory for hyperlight_surrogate.exe"))?;
-        println!("cargo:rustc-env=HYPERLIGHT_SURROGATE_DIR={}", &surrogate_bin_dir.display());
+
+        let out_dir = std::env::var("OUT_DIR")?;
+        // Note: When we build hyperlight_surrogate.exe CARGO_TARGET_DIR cannot
+        // be the same as the CARGO_TARGET_DIR for the hyperlight_host otherwise
+        // the build script will hang. Using a sub directory works tho!
+        // xref - https://github.com/rust-lang/cargo/issues/6412
+        let target_dir = std::path::PathBuf::from(out_dir).join("..\\..\\hls");
+
+        let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")?;
+        let target_manifest_path = std::path::PathBuf::from(manifest_dir).join("src\\hyperlight_surrogate\\Cargo.toml");
+
+        let _process = std::process::Command::new("cargo")
+            .env("CARGO_TARGET_DIR", &target_dir)
+            .arg("build")
+            .arg("--manifest-path")
+            .arg(&target_manifest_path)
+            .arg("--verbose")
+            .output()
+            .unwrap();
+
+        let profile = std::env::var("PROFILE")?;
+        println!("cargo:rustc-env=PROFILE={}", profile);
+        let surrogate_binary_dir = std::path::PathBuf::from(&target_dir)
+            .join(profile);
+
+        println!("cargo:rustc-env=HYPERLIGHT_SURROGATE_DIR={}", &surrogate_binary_dir.display());
     }
 
     Ok(())
