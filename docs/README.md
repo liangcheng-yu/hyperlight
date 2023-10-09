@@ -1,10 +1,29 @@
 # Hyperlight Project Documentation
 
+Hyperlight is a SDK for running isolated workloads inside of hypervisors (e.g. KVM, Hyper-V) without the overhead of booting a full guest operating system inside the virtual machine.
+
+By eliminating this overhead, Hyperlight can execute arbitrary code more efficiently. It's primarily aimed at supporting functions-as-a-service workloads, where a user's code must be loaded into memory and executed very quickly with high density.
+
+## Basics: Hyperlight internals
+
+Hyperlight achieves these efficiencies by removing all operating system functionality from inside the virtual machine, and instead requiring all guest binaries be run directly on the virtual CPU (vCPU). This key requirement means all Hyperlight guest binaries must not only be compiled to run on the vCPU's architecture, but also must be statically linked to specialized libraries to support their functionality (e.g. there are no syscalls whatsoever available). Roughly similar to Unikernel technologies, we provide a guest library (currently in C, but we have some preliminary plans to move to Rust for in-guest binary execution) to which guest binaries can be statically linked.
+
+Given a guest, then, Hyperlight takes some simple steps prior to executing it, including the following:
+
+- Provisioning memory
+- Configuring specialized regions of memory
+- Provisioning a virtual machine (VM) and CPU with the platform-appropriate hypervisor API, and mapping memory into the VM
+- Configuring virtual registers for the vCPU
+- Executing the vCPU at a specified instruction pointer
+
+## Basics: Hyperlight architecture
+
+This project is composed internally of several internal components, depicted in the below diagram:
+
+![Hyperlight architecture](./assets/hyperlight_arch.png)
+
+## Further reading
+
 * [Glossary](./glossary.md)
 * [How code gets executed in a VM](./rough-execution-detail.md)
-
-Hyperlight is a SDK for running isolated workloads without the overhead of a full guest operating system.
-The goal is to consume fewer host resources, and reduce workload startup latency.
-
-<!-- TODO: Define the scope of the project, and what is out-of-scope -->
-<!-- TODO: Provide examples of how Hyperlight is intended to be used by calling applications and the types of workloads/call-patterns that it is suitable for -->
+* [Security considerations](./security.md)
