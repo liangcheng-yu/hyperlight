@@ -7,7 +7,7 @@ edition = "2021"
 # https://github.com/rust-lang/cargo/issues/8597
 # try to build in a temp directory??
 include = [
-    "src/hyperlight_surrogate/Cargo.toml", 
+    "src/hyperlight_surrogate/Cargo.toml_temp_name", 
     "src/hyperlight_surrogate/src/main.rs",
     "*.rs",
 ]
