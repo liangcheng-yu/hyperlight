@@ -39,13 +39,21 @@ fn main() -> Result<()> {
         let target_dir = std::path::PathBuf::from(&out_dir).join("..\\..\\hls");
 
         let profile = std::env::var("PROFILE")?;
+        // we need to pass 'dev' as the profile when compiling debug assests in rust...
+        let mut build_profile = profile.clone();
+        if build_profile.to_lowercase() == "debug" {
+            build_profile = "dev".to_string();
+        }
+
         let _process = std::process::Command::new("cargo")
             .env("CARGO_TARGET_DIR", &target_dir)
             .arg("build")
             .arg("--manifest-path")
             .arg(&target_manifest_path)
             .arg("--profile")
-            .arg(&profile)
+            //.arg(&profile)
+            //.arg("dev")
+            .arg(build_profile)
             .arg("--verbose")
             .output()
             .unwrap();
