@@ -3,16 +3,16 @@ use super::hypervisor::HypervisorWrapperMgr;
 use crate::func::exports::get_os_page_size;
 #[cfg(target_os = "windows")]
 use crate::hypervisor::handlers::OutBHandlerCaller;
+#[cfg(target_os = "linux")]
+use crate::log_then_return;
 #[cfg(target_os = "windows")]
 use crate::mem::ptr::RawPtr;
+use crate::Result;
 use crate::{
     hypervisor::handlers::OutBHandlerWrapper, sandbox_state::sandbox::Sandbox, SingleUseSandbox,
     UninitializedSandbox,
 };
 use crate::{sandbox::mem_mgr::MemMgrWrapperGetter, MultiUseSandbox};
-#[cfg(target_os = "linux")]
-use anyhow::bail;
-use anyhow::Result;
 #[cfg(target_os = "windows")]
 use std::os::raw::c_void;
 #[cfg(target_os = "windows")]
@@ -158,7 +158,7 @@ fn evolve_in_proc(
         // - outb_hdl being unused
         let _ = u_sbox.get_mem_mgr_wrapper_mut();
         let _ = outb_hdl;
-        bail!("in-process execution is not supported on linux");
+        log_then_return!("in-process execution is not supported on linux");
     }
     #[cfg(target_os = "windows")]
     {
@@ -189,7 +189,6 @@ fn evolve_in_proc(
 mod tests {
     use super::evolve_impl_multi_use;
     use crate::{sandbox::uninitialized::GuestBinary, UninitializedSandbox};
-    use anyhow::anyhow;
     use hyperlight_testing::{callback_guest_path, simple_guest_path};
 
     #[test]
@@ -202,11 +201,7 @@ mod tests {
                 None,
             )
             .unwrap();
-            evolve_impl_multi_use(u_sbox, None)
-                .map_err(|e| {
-                    anyhow!("error evolving sandbox with guest binary {guest_bin_path}: {e:?}")
-                })
-                .unwrap();
+            evolve_impl_multi_use(u_sbox, None).unwrap();
         }
     }
 

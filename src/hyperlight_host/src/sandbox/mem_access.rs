@@ -1,14 +1,15 @@
 use std::sync::{Arc, Mutex};
 
 use super::mem_mgr::MemMgrWrapper;
+use crate::error::HyperlightError::StackOverflow;
 use crate::hypervisor::handlers::{
     MemAccessHandler, MemAccessHandlerFunction, MemAccessHandlerWrapper,
 };
-use anyhow::{bail, Result};
+use crate::{log_then_return, Result};
 
 pub(super) fn handle_mem_access_impl(wrapper: &MemMgrWrapper) -> Result<()> {
     if !wrapper.check_stack_guard()? {
-        bail!("Stack overflow detected");
+        log_then_return!(StackOverflow());
     }
 
     Ok(())

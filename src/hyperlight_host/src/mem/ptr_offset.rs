@@ -1,4 +1,5 @@
-use anyhow::{anyhow, Result};
+use crate::error::HyperlightError;
+use crate::Result;
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use std::convert::From;
 use std::ops::Add;
@@ -41,14 +42,14 @@ impl From<Offset> for u64 {
 }
 
 impl TryFrom<Offset> for i64 {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(val: Offset) -> Result<i64> {
-        i64::try_from(val.0).map_err(|_| anyhow!("couldn't convert Offset ({:?}) to i64", val))
+        Ok(i64::try_from(val.0)?)
     }
 }
 
 impl TryFrom<i64> for Offset {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(val: i64) -> Result<Offset> {
         let val_u64 = u64::try_from(val)?;
         Ok(Offset::from(val_u64))
@@ -56,25 +57,23 @@ impl TryFrom<i64> for Offset {
 }
 
 impl TryFrom<usize> for Offset {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(val: usize) -> Result<Offset> {
-        u64::try_from(val)
-            .map(Offset::from)
-            .map_err(|_| anyhow!("couldn't convert usize ({:?}) to Offset", val))
+        Ok(u64::try_from(val).map(Offset::from)?)
     }
 }
 
 /// Convert an `Offset` to a `usize`, returning an `Err` if the
 /// conversion couldn't be made.
 impl TryFrom<&Offset> for usize {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(val: &Offset) -> Result<usize> {
-        usize::try_from(val.0).map_err(|e| anyhow!("converting Offset to usize: {}", e))
+        Ok(usize::try_from(val.0)?)
     }
 }
 
 impl TryFrom<Offset> for usize {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(val: Offset) -> Result<usize> {
         usize::try_from(&val)
     }

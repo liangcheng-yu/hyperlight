@@ -1,9 +1,10 @@
 #[cfg(test)]
 use super::ptr::HostPtr;
 use super::shared_mem::SharedMemory;
+use crate::error::HyperlightError::{GuestOffsetIsInvalid, MemoryRequestTooBig};
 use crate::mem::ptr_offset::Offset;
 use crate::sandbox::SandboxConfiguration;
-use anyhow::{anyhow, Result};
+use crate::Result;
 use paste::paste;
 use rand::rngs::OsRng;
 use rand::RngCore;
@@ -452,7 +453,7 @@ impl SandboxMemoryLayout {
         // 0x3FEF0000 physical total memory)
 
         if size > Self::MAX_MEMORY_SIZE {
-            Err(anyhow!("Memory requested exceeds maximum size allowed"))
+            Err(MemoryRequestTooBig(size, Self::MAX_MEMORY_SIZE))
         } else {
             Ok(size)
         }
@@ -486,10 +487,7 @@ impl SandboxMemoryLayout {
         if guest_offset != SandboxMemoryLayout::BASE_ADDRESS
             && guest_offset != shared_mem.base_addr()
         {
-            return Err(anyhow!(
-                "Guest offset {} is not a valid guest offset",
-                guest_offset
-            ));
+            return Err(GuestOffsetIsInvalid(guest_offset));
         }
 
         // Set up Guest Error Fields

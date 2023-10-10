@@ -1,12 +1,12 @@
 use super::guest_funcs::dispatch_call_from_host;
 use crate::HypervisorWrapperMgr;
 use crate::MemMgrWrapperGetter;
+use crate::Result;
 use crate::{
     func::{guest::GuestFunction, ParameterValue, ReturnType, ReturnValue},
     sandbox_state::sandbox::Sandbox,
     HypervisorWrapper, MemMgrWrapper, UninitializedSandbox,
 };
-use anyhow::Result;
 use std::marker::PhantomData;
 
 /// A sandbox implementation that supports calling no more than 1 guest

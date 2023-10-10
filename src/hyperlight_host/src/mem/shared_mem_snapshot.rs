@@ -1,6 +1,6 @@
 use super::ptr_offset::Offset;
 use super::shared_mem::SharedMemory;
-use anyhow::Result;
+use crate::Result;
 
 /// A wrapper around a `SharedMemory` reference and a snapshot
 /// of the memory therein

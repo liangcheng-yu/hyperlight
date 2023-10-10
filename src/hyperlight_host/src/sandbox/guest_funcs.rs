@@ -1,4 +1,5 @@
 use super::guest_err::check_for_guest_error;
+use crate::Result;
 use crate::{
     func::{
         function_call::{FunctionCall, FunctionCallType},
@@ -7,7 +8,6 @@ use crate::{
     mem::ptr::{GuestPtr, RawPtr},
     HypervisorWrapperMgr, MemMgrWrapperGetter,
 };
-use anyhow::Result;
 
 /// Call a guest function by name, using the given `hv_mem_mgr_getter`.
 pub(super) fn dispatch_call_from_host<
@@ -78,11 +78,12 @@ pub(super) fn dispatch_call_from_host<
 mod tests {
     use super::*;
     use crate::func::host::HostFunction0;
+    use crate::HyperlightError;
+    use crate::Result;
     use crate::UninitializedSandbox;
     use crate::{sandbox::is_hypervisor_present, SingleUseSandbox};
     use crate::{sandbox::uninitialized::GuestBinary, sandbox_state::transition::MutatingCallback};
     use crate::{sandbox_state::sandbox::EvolvableSandbox, MultiUseSandbox};
-    use anyhow::anyhow;
     use hyperlight_testing::callback_guest_path;
     use hyperlight_testing::simple_guest_path;
     use std::{
@@ -218,7 +219,7 @@ mod tests {
         let len = msg.len() as i32;
         let func = Arc::new(Mutex::new(
             |sbox_arc: Arc<Mutex<MultiUseSandbox>>| -> Result<ReturnValue> {
-                let mut sbox = sbox_arc.lock().map_err(|_| anyhow!("error locking!"))?;
+                let mut sbox = sbox_arc.lock()?;
                 sbox.call_guest_function_by_name(
                     "PrintOutput",
                     ReturnType::Int,
@@ -259,24 +260,22 @@ mod tests {
                 println!(
                     "Calling Guest Function Spin - this should be cancelled by the host after 1000ms"
                 );
-                s.lock()
-                    .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                s.lock()?
                     .call_guest_function_by_name("Spin", ReturnType::Void, None)
             };
             Arc::new(Mutex::new(f))
         };
 
-        let result = sandbox
-            .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-            .execute_in_host(func);
+        let result = sandbox.lock()?.execute_in_host(func);
 
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "Execution was cancelled by the host."
-        );
-
+        match result.unwrap_err() {
+            HyperlightError::ExecutionCanceledByHost() => {}
+            e => panic!(
+                "Expected HyperlightError::ExecutionCanceledByHost() but got {:?}",
+                e
+            ),
+        }
         Ok(())
     }
     // This test is to capture the case where the guest execution is running a hsot function when cancelled and that host function
@@ -319,23 +318,19 @@ mod tests {
                 println!(
                     "Calling Guest Function CallHostSpin - this should fail to cancel the guest execution after 5 seconds"
                 );
-                s.lock()
-                    .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                s.lock()?
                     .call_guest_function_by_name("CallHostSpin", ReturnType::Void, None)
             },
         ));
 
-        let result = sandbox
-            .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-            .execute_in_host(func);
-
+        let result = sandbox.lock()?.execute_in_host(func);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .starts_with("Failed to cancel guest execution"));
-
+        match result.unwrap_err() {
+            HyperlightError::HostFailedToCancelGuestExecution() => {}
+            #[cfg(target_os = "linux")]
+            HyperlightError::HostFailedToCancelGuestExecutionSendingSignals(_) => {}
+            e => panic!("Unexpected Error got {:?}", e),
+        }
         Ok(())
     }
 }

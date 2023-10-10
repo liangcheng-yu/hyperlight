@@ -1,5 +1,5 @@
 use crate::mem::pe::base_relocations;
-use anyhow::{anyhow, bail, Result};
+use crate::{log_then_return, Result};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use goblin::pe::{optional_header::OptionalHeader, PE};
 use std::io::Cursor;
@@ -38,21 +38,21 @@ impl PEInfo {
     /// Returns `Ok` with the new `PEInfo` if `pe_bytes` is a valid
     /// PE file and could properly be parsed as such, and `Err` if not.
     pub(crate) fn new(pe_bytes: &[u8]) -> Result<Self> {
-        let pe = PE::parse(pe_bytes).map_err(|e| anyhow!(e))?;
+        let pe = PE::parse(pe_bytes)?;
 
         // Validate that the PE file has the expected characteristics up-front
         if pe.header.coff_header.machine != IMAGE_FILE_MACHINE_AMD64 {
-            bail!("unsupported PE file, contents is not a x64 File")
+            log_then_return!("unsupported PE file, contents is not a x64 File")
         }
 
         if !pe.is_64 {
-            bail!("unsupported PE file, not a PE32+ formatted file")
+            log_then_return!("unsupported PE file, not a PE32+ formatted file")
         }
 
         if (pe.header.coff_header.characteristics & CHARACTERISTICS_EXECUTABLE_IMAGE)
             != CHARACTERISTICS_EXECUTABLE_IMAGE
         {
-            bail!("unsupported PE file, not an executable image")
+            log_then_return!("unsupported PE file, not an executable image")
         }
 
         let optional_header = pe
@@ -63,7 +63,7 @@ impl PEInfo {
         if (pe.header.coff_header.characteristics & CHARACTERISTICS_RELOCS_STRIPPED)
             == CHARACTERISTICS_RELOCS_STRIPPED
         {
-            bail!("unsupported PE file, relocations have been removed")
+            log_then_return!("unsupported PE file, relocations have been removed")
         }
 
         Ok(Self {
@@ -131,7 +131,7 @@ impl PEInfo {
         let mut applied: usize = 0;
         for patch in patches {
             if patch.offset >= payload_len {
-                bail!("invalid offset is larger than the payload");
+                log_then_return!("invalid offset is larger than the payload");
             }
 
             cur.set_position(patch.offset as u64);
@@ -181,7 +181,11 @@ impl PEInfo {
                     let original_address = match cur.read_u64::<LittleEndian>() {
                         Ok(val) => val,
                         Err(e) => {
-                            bail!("error reading a 64bit value from the PE file at offset {offset}: {e}")
+                            log_then_return!(
+                                "error reading a 64bit value from the PE file at offset {}: {}",
+                                offset,
+                                e
+                            );
                         }
                     };
 
@@ -203,7 +207,9 @@ impl PEInfo {
                 IMAGE_REL_BASED_ABSOLUTE => (),
 
                 // Give up on any other relocation type
-                _ => bail!("unsupported relocation type {}", reloc.typ),
+                _ => {
+                    log_then_return!("unsupported relocation type {}", reloc.typ);
+                }
             }
         }
         Ok(patches)
@@ -222,7 +228,7 @@ pub(crate) struct RelocationPatch {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Result;
+    use crate::{new_error, Result};
     use std::fs;
 
     use hyperlight_testing::{callback_guest_path, simple_guest_path};
@@ -237,14 +243,16 @@ mod tests {
     fn pe_files() -> Result<Vec<PEFileTest>> {
         Ok(vec![
             PEFileTest {
-                path: simple_guest_path()?,
+                path: simple_guest_path()
+                    .map_err(|e| new_error!("Simple Guest Path Error {}", e))?,
                 stack_size: 65536,
                 heap_size: 131072,
                 load_address: 5368709120,
                 num_relocations: 1,
             },
             PEFileTest {
-                path: callback_guest_path()?,
+                path: callback_guest_path()
+                    .map_err(|e| new_error!("Callback Guest Path Error {}", e))?,
                 stack_size: 65536,
                 heap_size: 131072,
                 load_address: 5368709120,

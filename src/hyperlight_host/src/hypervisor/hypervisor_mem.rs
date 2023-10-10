@@ -1,7 +1,7 @@
 #[cfg(test)]
 use crate::mem::shared_mem::SharedMemory;
 #[cfg(test)]
-use anyhow::Result;
+use crate::Result;
 
 /// The list of addresses that are required to create a new
 /// `HypervLinuxDriver`

@@ -1,4 +1,4 @@
-use anyhow::Result;
+use crate::{new_error, Result};
 use std::sync::{atomic::AtomicI32, Arc};
 
 /// A container to atomically keep track of whether a sandbox is currently executing a guest call. Primarily
@@ -35,7 +35,7 @@ impl ExecutingGuestCall {
                 std::sync::atomic::Ordering::SeqCst,
                 std::sync::atomic::Ordering::SeqCst,
             )
-            .map_err(|_| anyhow::anyhow!("compare_exchange failed"))
+            .map_err(|e| new_error!("compare_exchange failed {}", e))
     }
 }
 

@@ -1,4 +1,4 @@
-use anyhow::Result;
+use crate::{HyperlightError, Result};
 
 use crate::flatbuffers::hyperlight::generated::size_prefixed_root_as_guest_function_details;
 
@@ -20,7 +20,7 @@ impl GuestFunctionDetails {
 }
 
 impl TryFrom<&[u8]> for GuestFunctionDetails {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
 
     fn try_from(bytes: &[u8]) -> Result<Self> {
         let guest_function_details_fb = size_prefixed_root_as_guest_function_details(bytes)?;
@@ -39,7 +39,7 @@ impl TryFrom<&[u8]> for GuestFunctionDetails {
 }
 
 impl TryFrom<&GuestFunctionDetails> for Vec<u8> {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
 
     fn try_from(guest_function_details: &GuestFunctionDetails) -> Result<Self> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();

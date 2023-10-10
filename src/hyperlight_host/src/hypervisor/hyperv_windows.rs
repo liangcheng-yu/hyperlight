@@ -6,8 +6,15 @@ use super::{
 };
 use super::{surrogate_process::SurrogateProcess, surrogate_process_manager::*};
 use super::{windows_hypervisor_platform as whp, HyperlightExit};
-use crate::mem::{ptr::RawPtr, shared_mem::PtrCVoidMut};
-use anyhow::{anyhow, bail, Result};
+use crate::Result;
+use crate::{
+    log_then_return,
+    mem::{ptr::RawPtr, shared_mem::PtrCVoidMut},
+};
+use crate::{
+    new_error,
+    HyperlightError::{NoHypervisorFound, WindowsErrorHResult},
+};
 use core::ffi::c_void;
 use std::any::Any;
 use std::collections::HashMap;
@@ -21,7 +28,6 @@ use windows::Win32::System::Hypervisor::{
     WHvX64RegisterRsp, WHV_PARTITION_HANDLE, WHV_REGISTER_NAME, WHV_REGISTER_VALUE,
     WHV_RUN_VP_EXIT_CONTEXT, WHV_RUN_VP_EXIT_REASON, WHV_UINT128, WHV_UINT128_0,
 };
-
 /// Wrapper around WHV_REGISTER_NAME so we can impl
 /// Hash on the struct.
 #[derive(PartialEq, Eq)]
@@ -62,8 +68,12 @@ impl HypervWindowsDriver {
     ) -> Result<Self> {
         match whp::is_hypervisor_present() {
             Ok(true) => (),
-            Ok(false) => bail!("hypervisor not present"),
-            Err(e) => bail!(e),
+            Ok(false) => {
+                log_then_return!(NoHypervisorFound());
+            }
+            Err(e) => {
+                log_then_return!(e);
+            }
         }
 
         // create and setup hypervisor partition
@@ -271,12 +281,10 @@ impl Hypervisor for HypervWindowsDriver {
         instruction_length: u64,
         outb_handle_fn: OutBHandlerWrapper,
     ) -> Result<()> {
-        let payload = data[..8]
-            .try_into()
-            .map_err(|e| anyhow!("error converting slice to array {}", e))?;
+        let payload = data[..8].try_into()?;
         outb_handle_fn
             .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+            .map_err(|e| new_error!("error locking {}", e))?
             .call(port, u64::from_le_bytes(payload))?;
         let registers = HashMap::from([(
             WhvRegisterNameWrapper(WHvX64RegisterRip),
@@ -312,7 +320,7 @@ impl Hypervisor for HypervWindowsDriver {
             .as_bool()
             {
                 let hresult = windows::Win32::Foundation::GetLastError();
-                bail!("WriteProcessMemory Error: {}", hresult.to_hresult());
+                log_then_return!(WindowsErrorHResult(hresult.to_hresult()));
             }
         }
 
@@ -331,7 +339,7 @@ impl Hypervisor for HypervWindowsDriver {
             .as_bool()
             {
                 let hresult = windows::Win32::Foundation::GetLastError();
-                bail!("ReadProcessMemory Error: {}", hresult.to_hresult())
+                log_then_return!(WindowsErrorHResult(hresult.to_hresult()));
             }
         }
 
@@ -383,6 +391,7 @@ impl Hypervisor for HypervWindowsDriver {
 
 #[cfg(test)]
 pub mod tests {
+    use crate::Result;
     use crate::{
         hypervisor::{
             handlers::{MemAccessHandler, OutBHandler},
@@ -402,13 +411,12 @@ pub mod tests {
     #[serial]
     fn test_init() {
         let outb_handler = {
-            let func: Box<dyn FnMut(u16, u64) -> anyhow::Result<()> + Send> =
-                Box::new(|_, _| -> anyhow::Result<()> { Ok(()) });
+            let func: Box<dyn FnMut(u16, u64) -> Result<()> + Send> =
+                Box::new(|_, _| -> Result<()> { Ok(()) });
             Arc::new(Mutex::new(OutBHandler::from(func)))
         };
         let mem_access_handler = {
-            let func: Box<dyn FnMut() -> anyhow::Result<()> + Send> =
-                Box::new(|| -> anyhow::Result<()> { Ok(()) });
+            let func: Box<dyn FnMut() -> Result<()> + Send> = Box::new(|| -> Result<()> { Ok(()) });
             Arc::new(Mutex::new(MemAccessHandler::from(func)))
         };
         test_initialise(

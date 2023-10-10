@@ -1,3 +1,9 @@
+use crate::error::HyperlightError::{
+    self, FailedToGetValueFromParameter, UnexpectedFlatBufferReturnValueType,
+    UnexpectedParameterValueType, UnexpectedReturnValueType, UnknownFlatBufferParameterType,
+    UnknownFlatBufferParameterValue, UnknownFlatBufferReturnType, VectorCapacityInCorrect,
+};
+use crate::Result;
 use crate::{
     flatbuffers::hyperlight::generated::{
         hlbool, hlboolArgs, hlint, hlintArgs, hllong, hllongArgs, hlsizeprefixedbuffer,
@@ -9,7 +15,7 @@ use crate::{
     },
     mem::{layout::SandboxMemoryLayout, shared_mem::SharedMemory},
 };
-use anyhow::{anyhow, bail, Result};
+use crate::{log_then_return, new_error};
 
 /// Supported parameter types with values for function calling.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,7 +48,7 @@ pub enum ParameterType {
 }
 
 /// Supported return types with values from function calling.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReturnValue {
     /// i32
     Int(i32),
@@ -77,7 +83,7 @@ pub enum ReturnType {
 }
 
 impl TryFrom<Parameter<'_>> for ParameterValue {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
 
     fn try_from(param: Parameter<'_>) -> Result<Self> {
         let value = param.value_type();
@@ -97,9 +103,11 @@ impl TryFrom<Parameter<'_>> for ParameterValue {
             FbParameterValue::hlvecbytes => param.value_as_hlvecbytes().map(|hlvecbytes| {
                 ParameterValue::VecBytes(hlvecbytes.value().unwrap_or_default().iter().collect())
             }),
-            _ => bail!("Unknown parameter type"),
+            other => {
+                log_then_return!(UnknownFlatBufferParameterValue(other));
+            }
         };
-        result.ok_or_else(|| anyhow!("Failed to get value from parameter"))
+        result.ok_or_else(FailedToGetValueFromParameter)
     }
 }
 
@@ -129,7 +137,7 @@ impl From<ReturnType> for FbReturnType {
 }
 
 impl TryFrom<FbParameterType> for ParameterType {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: FbParameterType) -> Result<Self> {
         match value {
             FbParameterType::hlint => Ok(ParameterType::Int),
@@ -137,13 +145,15 @@ impl TryFrom<FbParameterType> for ParameterType {
             FbParameterType::hlstring => Ok(ParameterType::String),
             FbParameterType::hlbool => Ok(ParameterType::Bool),
             FbParameterType::hlvecbytes => Ok(ParameterType::VecBytes),
-            _ => bail!("Unknown parameter type: {:?}", value),
+            _ => {
+                log_then_return!(UnknownFlatBufferParameterType(value));
+            }
         }
     }
 }
 
 impl TryFrom<FbReturnType> for ReturnType {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: FbReturnType) -> Result<Self> {
         match value {
             FbReturnType::hlint => Ok(ReturnType::Int),
@@ -152,117 +162,171 @@ impl TryFrom<FbReturnType> for ReturnType {
             FbReturnType::hlbool => Ok(ReturnType::Bool),
             FbReturnType::hlvoid => Ok(ReturnType::Void),
             FbReturnType::hlsizeprefixedbuffer => Ok(ReturnType::VecBytes),
-            _ => bail!("Unknown return type: {:?}", value),
+            _ => {
+                log_then_return!(UnknownFlatBufferReturnType(value));
+            }
         }
     }
 }
 
 impl TryFrom<ParameterValue> for i32 {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: ParameterValue) -> Result<Self> {
         match value {
             ParameterValue::Int(v) => Ok(v),
-            _ => bail!("Expected i32, got {:?}", value),
+            _ => {
+                log_then_return!(UnexpectedParameterValueType(
+                    value.clone(),
+                    "i32".to_string()
+                ));
+            }
         }
     }
 }
 
 impl TryFrom<ParameterValue> for i64 {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: ParameterValue) -> Result<Self> {
         match value {
             ParameterValue::Long(v) => Ok(v),
-            _ => bail!("Expected i64, got {:?}", value),
+            _ => {
+                log_then_return!(UnexpectedParameterValueType(
+                    value.clone(),
+                    String::from("i64")
+                ));
+            }
         }
     }
 }
 
 impl TryFrom<ParameterValue> for String {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: ParameterValue) -> Result<Self> {
         match value {
             ParameterValue::String(v) => Ok(v),
-            _ => bail!("Expected String, got {:?}", value),
+            _ => {
+                log_then_return!(UnexpectedParameterValueType(
+                    value.clone(),
+                    String::from("String")
+                ));
+            }
         }
     }
 }
 
 impl TryFrom<ParameterValue> for bool {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: ParameterValue) -> Result<Self> {
         match value {
             ParameterValue::Bool(v) => Ok(v),
-            _ => bail!("Expected bool, got {:?}", value),
+            _ => {
+                log_then_return!(UnexpectedParameterValueType(
+                    value.clone(),
+                    String::from("bool")
+                ));
+            }
         }
     }
 }
 
 impl TryFrom<ParameterValue> for Vec<u8> {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: ParameterValue) -> Result<Self> {
         match value {
             ParameterValue::VecBytes(v) => Ok(v),
-            _ => bail!("Expected Vec<u8>, got {:?}", value),
+            _ => {
+                log_then_return!(UnexpectedParameterValueType(
+                    value.clone(),
+                    String::from("Vec<u8>")
+                ));
+            }
         }
     }
 }
 
 impl TryFrom<ReturnValue> for i32 {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: ReturnValue) -> Result<Self> {
         match value {
             ReturnValue::Int(v) => Ok(v),
-            _ => bail!("Expected i32, got {:?}", value),
+            _ => {
+                log_then_return!(UnexpectedReturnValueType(
+                    value.clone(),
+                    String::from("i32")
+                ));
+            }
         }
     }
 }
 
 impl TryFrom<ReturnValue> for i64 {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: ReturnValue) -> Result<Self> {
         match value {
             ReturnValue::Long(v) => Ok(v),
-            _ => bail!("Expected i64, got {:?}", value),
+            _ => {
+                log_then_return!(UnexpectedReturnValueType(
+                    value.clone(),
+                    String::from("i64")
+                ));
+            }
         }
     }
 }
 
 impl TryFrom<ReturnValue> for String {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: ReturnValue) -> Result<Self> {
         match value {
             ReturnValue::String(v) => Ok(v),
-            _ => bail!("Expected String, got {:?}", value),
+            _ => {
+                log_then_return!(UnexpectedReturnValueType(
+                    value.clone(),
+                    String::from("String")
+                ));
+            }
         }
     }
 }
 
 impl TryFrom<ReturnValue> for bool {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: ReturnValue) -> Result<Self> {
         match value {
             ReturnValue::Bool(v) => Ok(v),
-            _ => bail!("Expected bool, got {:?}", value),
+            _ => {
+                log_then_return!(UnexpectedReturnValueType(
+                    value.clone(),
+                    String::from("bool")
+                ));
+            }
         }
     }
 }
 
 impl TryFrom<ReturnValue> for Vec<u8> {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: ReturnValue) -> Result<Self> {
         match value {
             ReturnValue::VecBytes(v) => Ok(v),
-            _ => bail!("Expected Vec<u8>, got {:?}", value),
+            _ => {
+                log_then_return!(UnexpectedReturnValueType(
+                    value.clone(),
+                    String::from("Vec<u8>")
+                ));
+            }
         }
     }
 }
 
 impl TryFrom<ReturnValue> for () {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: ReturnValue) -> Result<Self> {
         match value {
             ReturnValue::Void => Ok(()),
-            _ => bail!("Expected (), got {:?}", value),
+            _ => {
+                log_then_return!(UnexpectedReturnValueType(value.clone(), String::from("()")));
+            }
         }
     }
 }
@@ -280,25 +344,25 @@ impl ReturnValue {
 }
 
 impl TryFrom<FbFunctionCallResult<'_>> for ReturnValue {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(function_call_result_fb: FbFunctionCallResult<'_>) -> Result<Self> {
         match function_call_result_fb.return_value_type() {
             FbReturnValue::hlint => {
                 let hlint = function_call_result_fb
                     .return_value_as_hlint()
-                    .ok_or_else(|| anyhow!("Failed to get hlint from return value"))?;
+                    .ok_or_else(|| new_error!("Failed to get hlint from return value"))?;
                 Ok(ReturnValue::Int(hlint.value()))
             }
             FbReturnValue::hllong => {
                 let hllong = function_call_result_fb
                     .return_value_as_hllong()
-                    .ok_or_else(|| anyhow!("Failed to get hlong from return value"))?;
+                    .ok_or_else(|| new_error!("Failed to get hlong from return value"))?;
                 Ok(ReturnValue::Long(hllong.value()))
             }
             FbReturnValue::hlbool => {
                 let hlbool = function_call_result_fb
                     .return_value_as_hlbool()
-                    .ok_or_else(|| anyhow!("Failed to get hlbool from return value"))?;
+                    .ok_or_else(|| new_error!("Failed to get hlbool from return value"))?;
                 Ok(ReturnValue::Bool(hlbool.value()))
             }
             FbReturnValue::hlstring => {
@@ -319,27 +383,23 @@ impl TryFrom<FbFunctionCallResult<'_>> for ReturnValue {
                     };
                 Ok(ReturnValue::VecBytes(hlvecbytes.unwrap_or(vec![])))
             }
-            _ => {
-                bail!(
-                    "Unknown return value type: {:?}",
-                    function_call_result_fb.return_value_type()
-                )
+            other => {
+                log_then_return!(UnexpectedFlatBufferReturnValueType(other));
             }
         }
     }
 }
 
 impl TryFrom<&[u8]> for ReturnValue {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: &[u8]) -> Result<Self> {
-        let function_call_result_fb =
-            size_prefixed_root_as_function_call_result(value).map_err(|e| anyhow!(e))?;
+        let function_call_result_fb = size_prefixed_root_as_function_call_result(value)?;
         function_call_result_fb.try_into()
     }
 }
 
 impl TryFrom<&ReturnValue> for Vec<u8> {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: &ReturnValue) -> Result<Vec<u8>> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
         let result = match value {
@@ -435,7 +495,11 @@ impl TryFrom<&ReturnValue> for Vec<u8> {
 
         let length = unsafe { flatbuffers::read_scalar::<i32>(&result[..4]) };
         if result.capacity() != result.len() || result.capacity() != length as usize + 4 {
-            anyhow::bail!("The capacity of the vector is for FunctionCall is incorrect");
+            log_then_return!(VectorCapacityInCorrect(
+                result.capacity(),
+                result.len(),
+                length + 4
+            ));
         }
 
         Ok(result)
@@ -443,14 +507,13 @@ impl TryFrom<&ReturnValue> for Vec<u8> {
 }
 
 impl TryFrom<(&SharedMemory, &SandboxMemoryLayout)> for ReturnValue {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: (&SharedMemory, &SandboxMemoryLayout)) -> Result<Self> {
         // Get the size of the flatbuffer buffer from memory
 
         let fb_buffer_size = {
             let size_i32 = value.0.read_i32(value.1.output_data_buffer_offset)? + 4;
             usize::try_from(size_i32)
-                .map_err(|_| anyhow!("could not convert buffer size i32 ({}) to usize", size_i32))
         }?;
 
         let mut function_call_result_buffer = vec![0; fb_buffer_size];

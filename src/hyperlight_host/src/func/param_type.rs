@@ -1,4 +1,5 @@
-use anyhow::{bail, Result};
+use crate::HyperlightError::ParameterValueConversionFailure;
+use crate::{log_then_return, Result};
 
 use crate::func::types::{ParameterType, ParameterValue};
 
@@ -31,7 +32,9 @@ impl SupportedParameterType<String> for String {
     fn get_inner(a: ParameterValue) -> Result<String> {
         match a {
             ParameterValue::String(i) => Ok(i),
-            other => bail!("Invalid conversion: from {:?} to String", other),
+            other => {
+                log_then_return!(ParameterValueConversionFailure(other.clone(), "String"));
+            }
         }
     }
 }
@@ -48,7 +51,9 @@ impl SupportedParameterType<i32> for i32 {
     fn get_inner(a: ParameterValue) -> Result<i32> {
         match a {
             ParameterValue::Int(i) => Ok(i),
-            other => bail!("Invalid conversion: from {:?} to i32", other),
+            other => {
+                log_then_return!(ParameterValueConversionFailure(other.clone(), "i32"));
+            }
         }
     }
 }
@@ -65,7 +70,9 @@ impl SupportedParameterType<i64> for i64 {
     fn get_inner(a: ParameterValue) -> Result<i64> {
         match a {
             ParameterValue::Long(i) => Ok(i),
-            other => bail!("Invalid conversion: from {:?} to i64", other),
+            other => {
+                log_then_return!(ParameterValueConversionFailure(other.clone(), "i64"));
+            }
         }
     }
 }
@@ -82,7 +89,9 @@ impl SupportedParameterType<bool> for bool {
     fn get_inner(a: ParameterValue) -> Result<bool> {
         match a {
             ParameterValue::Bool(i) => Ok(i),
-            other => bail!("Invalid conversion: from {:?} to bool", other),
+            other => {
+                log_then_return!(ParameterValueConversionFailure(other.clone(), "bool"));
+            }
         }
     }
 }
@@ -99,7 +108,9 @@ impl SupportedParameterType<Vec<u8>> for Vec<u8> {
     fn get_inner(a: ParameterValue) -> Result<Vec<u8>> {
         match a {
             ParameterValue::VecBytes(i) => Ok(i),
-            other => bail!("Invalid conversion: from {:?} to Vec<u8>", other),
+            other => {
+                log_then_return!(ParameterValueConversionFailure(other.clone(), "Vec<u8>"));
+            }
         }
     }
 }

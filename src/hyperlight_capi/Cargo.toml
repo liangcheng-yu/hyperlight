@@ -25,6 +25,7 @@ hyperlight_testing = { path = "../hyperlight_testing", version = "*", registry =
 tracing = { version = "0.1.37", features = ["log"] }
 uuid = { version = "1.4.1", features = ["v4"] }
 bitflags = "2.4.0"
+log ="0.4.14"
 
 [target.'cfg(unix)'.dependencies]
 mshv-bindings = { version = "0.1.1", registry = "hyperlight_redist" }

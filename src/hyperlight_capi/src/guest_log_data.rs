@@ -1,8 +1,8 @@
 use super::{
     arrays::raw_vec::RawVec, context::Context, handle::Handle, hdl::Hdl, validate_context_or_panic,
 };
-use anyhow::Result;
 use hyperlight_host::func::guest::log_data::GuestLogData;
+use hyperlight_host::Result;
 use std::mem;
 
 /// Return true if the given handle `hdl` references a `GuestLogData` in `ctx`,

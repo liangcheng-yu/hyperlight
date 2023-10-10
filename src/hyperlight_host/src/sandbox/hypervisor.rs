@@ -1,5 +1,4 @@
-use std::{sync::MutexGuard, time::Duration};
-
+use crate::error::HyperlightError::NoHypervisorFound;
 use crate::{
     func::exports::get_os_page_size,
     hypervisor::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
@@ -12,7 +11,9 @@ use crate::{
     },
     UninitializedSandbox,
 };
-use anyhow::{anyhow, bail, Result};
+use crate::{log_then_return, Result};
+use std::{sync::MutexGuard, time::Duration};
+
 use rand::Rng;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
@@ -72,12 +73,12 @@ impl<'a> HypervisorWrapper<'a> {
     /// so you don't have to worry much about this consequence).
     pub(crate) fn get_hypervisor(&self) -> Result<MutexGuard<Box<dyn Hypervisor>>> {
         match self.hv_opt.as_ref() {
-            None => bail!("no hypervisor available for sandbox"),
+            None => {
+                log_then_return!(NoHypervisorFound());
+            }
             Some(h_arc_mut) => {
                 let h_ref_mutex = Arc::as_ref(h_arc_mut);
-                h_ref_mutex
-                    .lock()
-                    .map_err(|_| anyhow!("unable to lock hypervisor"))
+                Ok(h_ref_mutex.lock()?)
             }
         }
     }
@@ -115,24 +116,14 @@ impl<'a> HypervisorWrapper<'a> {
     /// Get the stack pointer -- the value of the RSP register --
     /// the contained `Hypervisor` had
     pub fn orig_rsp(&self) -> Result<GuestPtr> {
-        let hv = self
-            .hv_opt
-            .as_ref()
-            .ok_or_else(|| anyhow!("no hypervisor present"))?
-            .lock()
-            .map_err(|_| anyhow!("couldn't lock hypervisor"))?;
+        let hv = self.hv_opt.as_ref().ok_or_else(NoHypervisorFound)?.lock()?;
         let orig_rsp = hv.orig_rsp()?;
         GuestPtr::try_from(RawPtr::from(orig_rsp))
     }
 
     /// Reset the stack pointer
     pub fn reset_rsp(&mut self, new_rsp: GuestPtr) -> Result<()> {
-        let mut hv = self
-            .hv_opt
-            .as_mut()
-            .ok_or_else(|| anyhow!("no hypervisor present"))?
-            .lock()
-            .map_err(|_| anyhow!("couldn't lock hypervisor"))?;
+        let mut hv = self.hv_opt.as_mut().ok_or_else(NoHypervisorFound)?.lock()?;
         hv.reset_rsp(new_rsp.absolute()?)
     }
 
@@ -208,7 +199,9 @@ impl<'a> UninitializedSandbox<'a> {
                 )?;
                 Ok(Box::new(hv))
             } else {
-                bail!("Linux platform detected, but neither KVM nor Linux HyperV detected")
+                log_then_return!(
+                    "Linux platform detected, but neither KVM nor Linux HyperV detected"
+                );
             }
         }
         #[cfg(target_os = "windows")]
@@ -228,7 +221,7 @@ impl<'a> UninitializedSandbox<'a> {
                 )?;
                 Ok(Box::new(hv))
             } else {
-                bail!("Windows platform detected but no hypervisor available")
+                log_then_return!(NoHypervisorFound());
             }
         }
     }

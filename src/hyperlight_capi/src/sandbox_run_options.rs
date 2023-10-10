@@ -1,6 +1,6 @@
-use anyhow::{bail, Result};
 use bitflags::bitflags;
-use hyperlight_host::SandboxRunOptions as CoreSandboxRunOptions;
+use hyperlight_host::{log_then_return, Result};
+use hyperlight_host::{HyperlightError, SandboxRunOptions as CoreSandboxRunOptions};
 
 bitflags! {
     #[repr(C)]
@@ -38,7 +38,7 @@ bitflags! {
 /// considered. `0` values will be considered the same as a
 /// `CoreSandboxRunOptions::RunInHypervisor` type.
 impl TryFrom<SandboxRunOptions> for CoreSandboxRunOptions {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: SandboxRunOptions) -> Result<Self> {
         if value.is_empty() {
             // empty value is the same as the `u32` value of `0`, so
@@ -46,12 +46,12 @@ impl TryFrom<SandboxRunOptions> for CoreSandboxRunOptions {
             Ok(CoreSandboxRunOptions::RunInHypervisor)
         } else if value.contains(SandboxRunOptions::RUN_IN_PROCESS) {
             if value.contains(SandboxRunOptions::RUN_IN_HYPERVISOR) {
-                bail!("RUN_IN_PROCESS can't be configured with RUN_IN_HYPERVISOR");
+                log_then_return!("RUN_IN_PROCESS can't be configured with RUN_IN_HYPERVISOR");
             }
 
             #[cfg(target_os = "linux")]
             {
-                bail!("In-process mode is currently only available on Windows");
+                log_then_return!("In-process mode is currently only available on Windows");
             }
             #[cfg(target_os = "windows")]
             {
@@ -61,9 +61,9 @@ impl TryFrom<SandboxRunOptions> for CoreSandboxRunOptions {
             }
         } else if value.contains(SandboxRunOptions::RUN_IN_HYPERVISOR) {
             if value.contains(SandboxRunOptions::RUN_IN_PROCESS) {
-                bail!("RUN_IN_HYPERVISOR can't be configured with RUN_IN_PROCESS");
+                log_then_return!("RUN_IN_HYPERVISOR can't be configured with RUN_IN_PROCESS");
             } else if value.contains(SandboxRunOptions::RUN_FROM_GUEST_BINARY) {
-                bail!("RUN_IN_HYPERVISOR can't be configured with RUN_FROM_GUEST_BINARY")
+                log_then_return!("RUN_IN_HYPERVISOR can't be configured with RUN_FROM_GUEST_BINARY")
             }
 
             Ok(CoreSandboxRunOptions::RunInHypervisor)
@@ -79,19 +79,23 @@ impl TryFrom<SandboxRunOptions> for CoreSandboxRunOptions {
             // RUN_IN_PROCESS | RUN_FROM_GUEST_BINARY
             #[cfg(target_os = "linux")]
             {
-                bail!("RUN_FROM_GUEST_BINARY (and RUN_IN_PROCESS by extension) is currently only available on Windows");
+                log_then_return!("RUN_FROM_GUEST_BINARY (and RUN_IN_PROCESS by extension) is currently only available on Windows");
             }
             #[cfg(target_os = "windows")]
             {
                 if value.contains(SandboxRunOptions::RUN_IN_HYPERVISOR) {
-                    bail!("RUN_FROM_GUEST_BINARY can't be configured with RUN_IN_HYPERVISOR");
+                    log_then_return!(
+                        "RUN_FROM_GUEST_BINARY can't be configured with RUN_IN_HYPERVISOR"
+                    );
                 } else if value.contains(SandboxRunOptions::RECYCLE_AFTER_RUN) {
-                    bail!("RUN_FROM_GUEST_BINARY can't be configured with RECYCLE_AFTER_RUN");
+                    log_then_return!(
+                        "RUN_FROM_GUEST_BINARY can't be configured with RECYCLE_AFTER_RUN"
+                    );
                 }
                 Ok(CoreSandboxRunOptions::RunInProcess(true))
             }
         } else {
-            bail!("invalid SandboxRunOptions: {:?}", value)
+            log_then_return!("invalid SandboxRunOptions: {:?}", value);
         }
     }
 }

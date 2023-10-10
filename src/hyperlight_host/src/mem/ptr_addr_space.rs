@@ -1,5 +1,5 @@
 use super::{layout::SandboxMemoryLayout, shared_mem::SharedMemory};
-use anyhow::Result;
+use crate::Result;
 
 /// A representation of a specific address space
 pub trait AddressSpace: std::cmp::Eq {

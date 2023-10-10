@@ -6,14 +6,18 @@ use super::{host_funcs::HostFuncsWrapper, hypervisor::HypervisorWrapperMgr};
 use super::{hypervisor::HypervisorWrapper, run_options::SandboxRunOptions};
 use super::{mem_access::mem_access_handler_wrapper, mem_mgr::MemMgrWrapperGetter};
 use super::{mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper};
-use crate::mem::ptr::RawPtr;
 use crate::mem::{mgr::SandboxMemoryManager, pe::pe_info::PEInfo};
 use crate::sandbox::SandboxConfiguration;
 use crate::sandbox_state::transition::Noop;
 use crate::sandbox_state::{sandbox::EvolvableSandbox, transition::MutatingCallback};
+use crate::Result;
+use crate::{
+    error::HyperlightError::{CallEntryPointIsInProcOnly, GuestBinaryShouldBeAFile},
+    new_error,
+};
 use crate::{func::host::HostFunction1, MultiUseSandbox};
+use crate::{log_then_return, mem::ptr::RawPtr};
 use crate::{mem::mgr::STACK_COOKIE_LEN, SingleUseSandbox};
-use anyhow::{anyhow, bail, Result};
 use std::option::Option;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -221,11 +225,8 @@ impl<'a> UninitializedSandbox<'a> {
 
         let guest_binary = match guest_binary {
             GuestBinary::FilePath(binary_path) => {
-                let path = Path::new(&binary_path)
-                    .canonicalize()
-                    .map_err(|e| anyhow!("Error {} File Path {}", e, binary_path))?;
-                path.try_exists()
-                    .map_err(|e| anyhow!("Error {} File Path {}", e, binary_path))?;
+                let path = Path::new(&binary_path).canonicalize()?;
+                path.try_exists()?;
                 GuestBinary::FilePath(path.to_str().unwrap().to_string())
             }
             GuestBinary::Buffer(buffer) => GuestBinary::Buffer(buffer),
@@ -326,7 +327,7 @@ impl<'a> UninitializedSandbox<'a> {
         page_size: u32,
     ) -> Result<()> {
         if !self.run_from_process_memory {
-            bail!("call_entry_point is only available with in-process mode");
+            log_then_return!(CallEntryPointIsInProcOnly());
         }
         type EntryPoint = extern "C" fn(i64, u64, u32) -> i32;
         let entry_point: EntryPoint = {
@@ -369,20 +370,18 @@ impl<'a> UninitializedSandbox<'a> {
             let path = match guest_binary {
                 GuestBinary::FilePath(bin_path_str) => bin_path_str,
                 GuestBinary::Buffer(_) => {
-                    anyhow::bail!("Cannot run from guest binary when guest binary is a buffer")
+                    log_then_return!(GuestBinaryShouldBeAFile());
                 }
             };
+            // TODO: This produces the wrong error message on Linux and is possibly obsfucating the real error on Windows
             SandboxMemoryManager::load_guest_binary_using_load_library(
                 cfg,
                 path,
                 &mut pe_info,
                 run_from_process_memory,
             )
-            // TODO: This produces the wrong error message on Linux and is possibly obsfucating the real error on Windows
             .map_err(|_| {
-                let err_msg =
-                    "Only one instance of Sandbox is allowed when running from guest binary";
-                anyhow!(err_msg)
+                new_error!("Only one instance of Sandbox is allowed when running from guest binary")
             })
         } else {
             SandboxMemoryManager::load_guest_binary_into_memory(
@@ -396,6 +395,7 @@ impl<'a> UninitializedSandbox<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::Result;
     #[cfg(target_os = "windows")]
     use crate::SandboxRunOptions;
     use crate::{
@@ -416,7 +416,6 @@ mod tests {
     };
     use crate::{sandbox_state::transition::MutatingCallback, sandbox_state::transition::Noop};
     use crate::{testing::log_values::try_to_strings, MultiUseSandbox};
-    use anyhow::{anyhow, Result};
     use crossbeam_queue::ArrayQueue;
     use hyperlight_testing::simple_guest_path;
     use log::Level;
@@ -505,8 +504,7 @@ mod tests {
         fn init(uninitialized_sandbox: &mut UninitializedSandbox) -> Result<()> {
             uninitialized_sandbox
                 .host_funcs
-                .lock()
-                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                .lock()?
                 .host_print("test".to_string())?;
 
             Ok(())
@@ -1006,9 +1004,9 @@ mod tests {
 
                 #[cfg(target_os = "windows")]
                 let expected_error =
-                    "Error The system cannot find the file specified. (os error 2) File Path";
+                    "Reading Writing or Seeking data failed Os { code: 2, kind: NotFound, message: \"The system cannot find the file specified.\" }";
                 #[cfg(not(target_os = "windows"))]
-                let expected_error = "Error No such file or directory (os error 2) File Path";
+                let expected_error = "Reading Writing or Seeking data failed Os { code: 2, kind: NotFound, message: \"No such file or directory\" }";
 
                 let err_vals_res = try_to_strings([
                     (metadata_values_map, "level"),
@@ -1090,14 +1088,9 @@ mod tests {
 
             let logcall = TEST_LOGGER.get_log_call(2).unwrap();
             assert_eq!(Level::Error, logcall.level);
-            #[cfg(target_os = "windows")]
-            assert!(logcall.args.starts_with(
-                "error=Error The system cannot find the file specified. (os error 2) File Path"
-            ));
-            #[cfg(not(target_os = "windows"))]
             assert!(logcall
                 .args
-                .starts_with("error=Error No such file or directory (os error 2) File Path"));
+                .starts_with("error=Reading Writing or Seeking data failed Os"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
 
             // Log record 4
@@ -1151,36 +1144,36 @@ mod tests {
                 .starts_with("UninitializedSandbox::new; sandbox_run_options"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
 
-            // Log record 3
+            // Log record 2
 
             let logcall = TEST_LOGGER.get_log_call(1).unwrap();
             assert_eq!(Level::Info, logcall.level);
             assert!(logcall.args.starts_with("from_file; filename="));
             assert_eq!("hyperlight_host::mem::pe::pe_info", logcall.target);
 
-            // Log record 4
+            // Log record 3
 
             let logcall = TEST_LOGGER.get_log_call(2).unwrap();
             assert_eq!(Level::Info, logcall.level);
             assert!(logcall.args.starts_with("Loading PE file from"));
             assert_eq!("hyperlight_host::mem::pe::pe_info", logcall.target);
 
-            // Log record 5
+            // Log record 4
 
             let logcall = TEST_LOGGER.get_log_call(3).unwrap();
             assert_eq!(Level::Error, logcall.level);
-            assert!(logcall
-                .args
-                .starts_with("error=Malformed entity: DOS header is malformed"));
+            assert!(logcall.args.starts_with(
+                "error=PEFileProcessingFailure(Malformed(\"DOS header is malformed (signature "
+            ));
             assert_eq!("hyperlight_host::mem::pe::pe_info", logcall.target);
 
-            // Log record 6
+            // Log record 5
 
             let logcall = TEST_LOGGER.get_log_call(4).unwrap();
             assert_eq!(Level::Error, logcall.level);
-            assert!(logcall
-                .args
-                .starts_with("error=Malformed entity: DOS header is malformed"));
+            assert!(logcall.args.starts_with(
+                "error=Failure processing PE File Malformed(\"DOS header is malformed (signature "
+            ));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
         }
         {
@@ -1195,8 +1188,7 @@ mod tests {
                     None,
                     None,
                 );
-                res.map_err(|e| anyhow!("could not create a new UninitializedSandbox: {e:?}"))
-                    .unwrap()
+                res.unwrap()
             };
             let _: Result<MultiUseSandbox<'_>> = sbox.evolve(Noop::default());
 

@@ -1,6 +1,7 @@
 use super::host_funcs::HostFuncsWrapper;
 use super::initialized_multi_use_release::{ShouldRelease, ShouldReset};
 use super::{guest_call_exec::ExecutingGuestCall, guest_funcs::dispatch_call_from_host};
+use crate::error::HyperlightError::GuestFunctionCallAlreadyInProgress;
 use crate::{
     func::{guest::GuestFunction, ParameterValue, ReturnType, ReturnValue},
     mem::ptr::{GuestPtr, RawPtr},
@@ -11,7 +12,7 @@ use crate::{
     GuestMgr, HypervisorWrapper, HypervisorWrapperMgr, MemMgrWrapper, MemMgrWrapperGetter,
     UninitializedSandbox,
 };
-use anyhow::{bail, Result};
+use crate::{log_then_return, Result};
 use std::sync::{Arc, Mutex};
 use tracing::instrument;
 
@@ -85,21 +86,16 @@ impl<'a> MultiUseSandbox<'a> {
         let sbox_arc = Arc::new(Mutex::new(self.clone()));
         let mut sd = ShouldRelease::new(false, sbox_arc.clone());
         if sbox_arc
-            .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+            .lock()?
             .get_executing_guest_call_mut()
-            .compare_exchange(0, 1)
-            .map_err(|_| anyhow::anyhow!("Failed to verify status of guest function execution"))?
+            .compare_exchange(0, 1)?
             != 0
         {
-            bail!("Guest call already in progress");
+            log_then_return!(GuestFunctionCallAlreadyInProgress());
         }
 
         sd.toggle();
-        sbox_arc
-            .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-            .reset_state()?;
+        sbox_arc.lock()?.reset_state()?;
 
         func.call(sbox_arc)
         // ^^^ ensures that only one call can be made concurrently

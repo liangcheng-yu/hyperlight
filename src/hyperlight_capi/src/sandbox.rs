@@ -3,12 +3,12 @@ use super::{context::Context, sandbox_compat::Sandbox};
 use super::{handle::Handle, sandbox_compat::SandboxImpls};
 use crate::sandbox_run_options::SandboxRunOptions;
 use crate::strings::get_string;
-use anyhow::{bail, Result};
 use hyperlight_host::sandbox::uninitialized::GuestBinary;
 use hyperlight_host::sandbox::{host_funcs::default_writer_func, SandboxConfiguration};
 use hyperlight_host::sandbox_state::transition::Noop;
-use hyperlight_host::MemMgrWrapperGetter;
+use hyperlight_host::Result;
 use hyperlight_host::{func::host::HostFunction1, sandbox};
+use hyperlight_host::{log_then_return, MemMgrWrapperGetter};
 use hyperlight_host::{mem::ptr::RawPtr, sandbox_state::sandbox::EvolvableSandbox};
 use hyperlight_host::{
     sandbox::is_hypervisor_present as check_hypervisor,
@@ -205,7 +205,7 @@ pub unsafe extern "C" fn sandbox_call_host_print(
     CFunc::new("sandbox_call_host_print", ctx)
         .and_then_mut(|ctx, _| {
             if msg.is_null() {
-                bail!("String is null ptr");
+                log_then_return!("String is null ptr");
             }
             let c_str = std::ffi::CStr::from_ptr(msg);
             let msg = c_str.to_str()?;
@@ -213,8 +213,7 @@ pub unsafe extern "C" fn sandbox_call_host_print(
             let rsbox = sbox.to_uninit_mut()?;
             rsbox
                 .get_host_funcs()
-                .lock()
-                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                .lock()?
                 .host_print(String::from(msg))?;
             Ok(Handle::new_empty())
         })

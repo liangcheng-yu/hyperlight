@@ -1,7 +1,8 @@
 use super::ptr_addr_space::{AddressSpace, GuestAddressSpace, HostAddressSpace};
 use super::ptr_offset::Offset;
 use super::shared_mem::SharedMemory;
-use anyhow::{anyhow, Result};
+use crate::error::HyperlightError::{self, CheckedAddOverflow, RawPointerLessThanBaseAddress};
+use crate::Result;
 use std::ops::Add;
 
 /// A representation of a raw pointer inside a given address space.
@@ -25,7 +26,7 @@ impl Add<Offset> for RawPtr {
 }
 
 impl TryFrom<usize> for RawPtr {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(val: usize) -> Result<Self> {
         let val_u64 = u64::try_from(val)?;
         Ok(Self::from(val_u64))
@@ -33,14 +34,9 @@ impl TryFrom<usize> for RawPtr {
 }
 
 impl TryFrom<RawPtr> for usize {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(val: RawPtr) -> Result<usize> {
-        usize::try_from(val.0).map_err(|_| {
-            anyhow!(
-                "try_from converting RawPtr -> usize: could not convert raw pointer val {:?} to usize",
-                val.0
-            )
-        })
+        Ok(usize::try_from(val.0)?)
     }
 }
 
@@ -59,7 +55,7 @@ impl From<&RawPtr> for u64 {
 /// Convenience type for representing a pointer into the host address space
 pub(crate) type HostPtr = Ptr<HostAddressSpace>;
 impl TryFrom<(RawPtr, &SharedMemory)> for HostPtr {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     /// Create a new `HostPtr` from the given `host_raw_ptr`, which must
     /// be a pointer in the host's address space.
     fn try_from(tup: (RawPtr, &SharedMemory)) -> Result<Self> {
@@ -70,7 +66,7 @@ impl TryFrom<(RawPtr, &SharedMemory)> for HostPtr {
 }
 
 impl TryFrom<(Offset, &SharedMemory)> for HostPtr {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
 
     fn try_from(tup: (Offset, &SharedMemory)) -> Result<Self> {
         Ok(Self {
@@ -83,7 +79,7 @@ impl TryFrom<(Offset, &SharedMemory)> for HostPtr {
 pub type GuestPtr = Ptr<GuestAddressSpace>;
 
 impl TryFrom<RawPtr> for GuestPtr {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     /// Create a new `GuestPtr` from the given `guest_raw_ptr`, which must
     /// be a pointer in the guest's address space.
     fn try_from(raw: RawPtr) -> Result<Self> {
@@ -92,7 +88,7 @@ impl TryFrom<RawPtr> for GuestPtr {
 }
 
 impl TryFrom<Offset> for GuestPtr {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(val: Offset) -> Result<Self> {
         let addr_space = GuestAddressSpace::new()?;
         Ok(Ptr::from_offset(addr_space, val))
@@ -100,7 +96,7 @@ impl TryFrom<Offset> for GuestPtr {
 }
 
 impl TryFrom<i64> for GuestPtr {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(val: i64) -> Result<Self> {
         let offset = Offset::try_from(val)?;
         GuestPtr::try_from(offset)
@@ -108,7 +104,7 @@ impl TryFrom<i64> for GuestPtr {
 }
 
 impl TryFrom<GuestPtr> for i64 {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(val: GuestPtr) -> Result<Self> {
         let offset = val.offset();
         i64::try_from(offset)
@@ -156,13 +152,10 @@ impl<T: AddressSpace> Ptr<T> {
     /// the base address from `raw_ptr` succeeds (i.e. does not overflow)
     /// and a `Ptr<T>` can be successfully created
     fn from_raw_ptr(addr_space: T, raw_ptr: RawPtr) -> Result<Ptr<T>> {
-        let offset = raw_ptr.0.checked_sub(addr_space.base()).ok_or_else(|| {
-            anyhow!(
-                "from_raw_ptr: raw pointer ({:?}) was less than the base address ({:?})",
-                raw_ptr,
-                addr_space.base(),
-            )
-        })?;
+        let offset = raw_ptr
+            .0
+            .checked_sub(addr_space.base())
+            .ok_or_else(|| RawPointerLessThanBaseAddress(raw_ptr, addr_space.base()))?;
         Ok(Self {
             addr_space,
             offset: Offset::from(offset),
@@ -215,13 +208,9 @@ impl<T: AddressSpace> Ptr<T> {
     /// instead.
     pub(crate) fn absolute(&self) -> Result<u64> {
         let offset_u64: u64 = self.offset.into();
-        self.base().checked_add(offset_u64).ok_or_else(|| {
-            anyhow!(
-                "couldn't add pointer offset {} to base {}",
-                offset_u64,
-                self.base(),
-            )
-        })
+        self.base()
+            .checked_add(offset_u64)
+            .ok_or_else(|| CheckedAddOverflow(self.base(), offset_u64))
     }
 }
 
@@ -236,15 +225,10 @@ impl<T: AddressSpace> Add<Offset> for Ptr<T> {
 }
 
 impl<T: AddressSpace> TryFrom<Ptr<T>> for usize {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(val: Ptr<T>) -> Result<usize> {
         let abs = val.absolute()?;
-        usize::try_from(abs).map_err(|_| {
-            anyhow!(
-                "try_from Ptr -> usize: could not convert absolute address {:?} to usize",
-                abs
-            )
-        })
+        Ok(usize::try_from(abs)?)
     }
 }
 

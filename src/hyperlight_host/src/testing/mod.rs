@@ -1,5 +1,6 @@
 use crate::mem::pe::pe_info::PEInfo;
-use anyhow::{anyhow, Result};
+use crate::new_error;
+use crate::Result;
 use hex_literal::hex;
 use hyperlight_testing::{callback_guest_buf, simple_guest_buf, test_bin_base};
 use std::fs;
@@ -22,7 +23,7 @@ pub(crate) fn dummy_guest_path() -> Result<String> {
     let buf = dummy_guest_buf();
     buf.to_str()
         .map(|s| s.to_string())
-        .ok_or_else(|| anyhow!("couldn't convert dummy guest PathBuf to string"))
+        .ok_or_else(|| new_error!("couldn't convert dummy guest PathBuf to string"))
 }
 
 /// Get a `PEInfo` representing `simpleguest.exe`
@@ -43,9 +44,14 @@ pub(crate) fn bytes_for_path(path_buf: PathBuf) -> Result<Vec<u8>> {
     let guest_path = path_buf
         .as_path()
         .to_str()
-        .ok_or_else(|| anyhow!("couldn't convert guest {:?} to a path", path_buf))?;
-    let guest_bytes = fs::read(guest_path)
-        .map_err(|e| anyhow!("failed to open guest at path {guest_path} ({e})"))?;
+        .ok_or_else(|| new_error!("couldn't convert guest {:?} to a path", path_buf))?;
+    let guest_bytes = fs::read(guest_path).map_err(|e| {
+        new_error!(
+            "failed to open guest at path {} ({})",
+            guest_path.clone(),
+            e
+        )
+    })?;
     Ok(guest_bytes)
 }
 

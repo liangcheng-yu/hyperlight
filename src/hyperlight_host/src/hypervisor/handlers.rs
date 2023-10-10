@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use crate::{new_error, Result};
 use std::sync::{Arc, Mutex};
 
 /// The trait representing custom logic to handle the case when
@@ -32,10 +32,7 @@ impl<'a> From<OutBHandlerFunction<'a>> for OutBHandler<'a> {
 
 impl<'a> OutBHandlerCaller for OutBHandler<'a> {
     fn call(&mut self, port: u16, payload: u64) -> Result<()> {
-        let mut func = self
-            .0
-            .lock()
-            .map_err(|_| anyhow!("could not lock outb function"))?;
+        let mut func = self.0.lock()?;
         (func)(port, payload)
     }
 }
@@ -75,7 +72,7 @@ impl<'a> MemAccessHandlerCaller for MemAccessHandler<'a> {
         let mut func = self
             .0
             .lock()
-            .map_err(|_| anyhow!("could not lock mem access function"))?;
+            .map_err(|_| new_error!("could not lock mem access function"))?;
         (func)()
     }
 }

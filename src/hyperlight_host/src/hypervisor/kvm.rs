@@ -4,7 +4,8 @@ use super::{
     CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
 };
 use crate::mem::{layout::SandboxMemoryLayout, ptr::RawPtr};
-use anyhow::{anyhow, bail, Result};
+use crate::Result;
+use crate::{log_then_return, new_error};
 use kvm_bindings::{kvm_segment, kvm_userspace_memory_region};
 use kvm_ioctls::{Cap::UserMemory, Kvm, VcpuExit, VcpuFd, VmFd};
 use std::{any::Any, convert::TryFrom, time::Duration};
@@ -14,13 +15,13 @@ pub fn is_hypervisor_present() -> Result<()> {
     let kvm = Kvm::new()?;
     let ver = kvm.get_api_version();
     if -1 == ver {
-        bail!("KVM_GET_API_VERSION returned -1");
+        log_then_return!("KVM_GET_API_VERSION returned -1");
     } else if ver != 12 {
-        bail!("KVM_GET_API_VERSION returned {}, expected 12", ver);
+        log_then_return!("KVM_GET_API_VERSION returned {}, expected 12", ver);
     }
     let cap_user_mem = kvm.check_extension(UserMemory);
     if !cap_user_mem {
-        bail!("KVM_CAP_USER_MEMORY not supported");
+        log_then_return!("KVM_CAP_USER_MEMORY not supported");
     }
     Ok(())
 }
@@ -54,7 +55,9 @@ impl KVMDriver {
     ) -> Result<Self> {
         match is_hypervisor_present() {
             Ok(_) => (),
-            Err(e) => bail!(e),
+            Err(e) => {
+                log_then_return!(e);
+            }
         };
         let kvm = Kvm::new()?;
 
@@ -164,9 +167,7 @@ impl KVMDriver {
             Self::set_sreg_segment(&mut sregs.ss, SS_TYPE, SS_SELECTOR);
         }
 
-        vcpu_fd
-            .set_sregs(&sregs)
-            .map_err(|e| anyhow!("failed to set segment registers: {:?}", e))
+        Ok(vcpu_fd.set_sregs(&sregs)?)
     }
 }
 
@@ -228,12 +229,7 @@ impl Hypervisor for KVMDriver {
     fn reset_rsp(&mut self, rsp: u64) -> Result<()> {
         let mut regs = self.vcpu_fd.get_regs()?;
         regs.rsp = rsp;
-        self.vcpu_fd.set_regs(&regs).map_err(|e| {
-            anyhow!(
-                "reset_rsp: error setting new registers on KVM vCPU: {:?}",
-                e
-            )
-        })
+        Ok(self.vcpu_fd.set_regs(&regs)?)
     }
 
     fn orig_rsp(&self) -> Result<u64> {
@@ -258,7 +254,9 @@ impl Hypervisor for KVMDriver {
                 // we send a signal to the thread to cancel execution this results in EINTR being returned by KVM so we return Cancelled
                 libc::EINTR => HyperlightExit::Cancelled(),
                 libc::EAGAIN => HyperlightExit::Retry(),
-                _ => anyhow::bail!("Error running VCPU {:?}", e),
+                _ => {
+                    log_then_return!("Error running VCPU {:?}", e);
+                }
             },
             Ok(other) => HyperlightExit::Unknown(format!("Unexpected KVM Exit {:?}", other)),
         };
@@ -279,12 +277,12 @@ impl Hypervisor for KVMDriver {
         // of the data array, casted to a u64. thus, we need to make sure
         // the data array has at least one u8, then convert that to a u64
         if data.is_empty() {
-            bail!("no data was given in IO interrupt");
+            log_then_return!("no data was given in IO interrupt");
         } else {
             let payload_u64 = u64::from(data[0]);
             outb_handle_fn
                 .lock()
-                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                .map_err(|e| new_error!("Error Locking {}", e))?
                 .call(port, payload_u64)?;
         }
 
@@ -354,6 +352,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use super::KVMDriver;
+    use crate::Result;
     use crate::{
         hypervisor::{
             handlers::{MemAccessHandler, OutBHandler},
@@ -365,7 +364,6 @@ mod tests {
         mem::{layout::SandboxMemoryLayout, ptr::GuestPtr},
         should_run_kvm_linux_test,
     };
-    use anyhow::Result;
 
     #[test]
     fn test_init() {
