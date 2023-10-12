@@ -164,12 +164,15 @@ Visual Studio Code does not currently support mixed mode debugging, to debug gue
 
 ### Prerequisites
 
+#### Hyperlight Cargo Feed
+
 The hyperlight Rust projects currently require connecting to Microsoft internal cargo feeds to pull some dependencies.
 To do do this please ensure the following:
 
-1. You are a member of the [AzureContainerUpstream Hyperlight project]('https://dev.azure.com/AzureContainerUpstream/hyperlight')
+1. You have access to the [AzureContainerUpstream Hyperlight_packages Cargo feed]('https://dev.azure.com/AzureContainerUpstream/hyperlight/_artifacts/feed/hyperlight_packages_test')
 
     - Contact project maintainers if you need access.
+    - To grant access add users to the [**Hyperlight Cargo Reader** team](https://dev.azure.com/AzureContainerUpstream/hyperlight/_settings/teams)
 
 1. You have the 'az cli' installed and are logged in to AzureDevops
 
@@ -178,6 +181,8 @@ To do do this please ensure the following:
 1. You have the rust nightly toolchain installed (this is just needed for pulling crates!)
 
    - `rustup install nightly`
+
+   > Ensure your nightly toolchain is `cargo 1.75.0-nightly (794d0a825 2023-10-03)` or later
 
 To connect to the cargo feeds run the following commands from the root of the repo:
 
@@ -193,6 +198,7 @@ cargo +nightly update --dry-run
 ```
 
 See [publishing-to-cargo.md](./docs/publishing-to-cargo.md) for more information.
+
 #### Windows
 
 1. [Rust](https://www.rust-lang.org/tools/install)
