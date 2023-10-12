@@ -679,7 +679,7 @@ dependencies = [
 
 [[package]]
 name = "hyperlight_host"
-version = "0.1.0"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "bitflags 2.4.0",

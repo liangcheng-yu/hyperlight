@@ -3,7 +3,7 @@ use anyhow::Result;
 fn main() -> Result<()> {
     // re-run the build if this script is changed (or deleted!),
     // even if the rust code is completely unchanged.
-    println!("cargo:rerun-if-changed=*");
+    println!("cargo:rerun-if-changed=build.rs");
 
     // Windows requires the hyperlight_surrogate.exe binary to be next to the executable running
     // hyperlight. We are using rust-ebmed to include the binary in the hyperlight_host library
@@ -11,6 +11,8 @@ fn main() -> Result<()> {
     // the location of the binary to the rust build.
     #[cfg(target_os = "windows")]
     {
+        println!("cargo:rerun-if-changed=src/hyperlight_host/src/hyperlight_surrogate/**");
+        
         // Build hyperlight_surrogate and
         // Set $HYPERLIGHT_SURROGATE_DIR env var during rust build so we can
         // use it with RustEmbed to specify where hyperlight_surrogate.exe is
@@ -39,20 +41,18 @@ fn main() -> Result<()> {
         let target_dir = std::path::PathBuf::from(&out_dir).join("..\\..\\hls");
 
         let profile = std::env::var("PROFILE")?;
-        // we need to pass 'dev' as the profile when compiling debug assests in rust...
+        // we need to pass 'dev' as the profile when compiling debug assets in rust...
         let mut build_profile = profile.clone();
         if build_profile.to_lowercase() == "debug" {
             build_profile = "dev".to_string();
         }
 
-        let _process = std::process::Command::new("cargo")
+        std::process::Command::new("cargo")
             .env("CARGO_TARGET_DIR", &target_dir)
             .arg("build")
             .arg("--manifest-path")
             .arg(&target_manifest_path)
             .arg("--profile")
-            //.arg(&profile)
-            //.arg("dev")
             .arg(build_profile)
             .arg("--verbose")
             .output()
