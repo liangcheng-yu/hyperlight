@@ -9,7 +9,7 @@ use super::{
 };
 use crate::mem_access_handler::MemAccessHandlerWrapper;
 use crate::outb_handler::OutBHandlerWrapper;
-use anyhow::{bail, Error, Result};
+use hyperlight_host::error::HyperlightError;
 use hyperlight_host::func::function_call::FunctionCall;
 use hyperlight_host::func::guest::error::GuestError;
 use hyperlight_host::func::guest::log_data::GuestLogData;
@@ -18,9 +18,12 @@ use hyperlight_host::func::types::ReturnValue;
 use hyperlight_host::hypervisor::hyperv_linux::HypervLinuxDriver;
 #[cfg(target_os = "linux")]
 use hyperlight_host::hypervisor::kvm::KVMDriver;
+use hyperlight_host::log_then_return;
 use hyperlight_host::mem::mgr::SandboxMemoryManager;
 use hyperlight_host::mem::shared_mem::SharedMemory;
 use hyperlight_host::mem::shared_mem_snapshot::SharedMemorySnapshot;
+use hyperlight_host::new_error;
+use hyperlight_host::Result;
 use std::collections::HashMap;
 use std::ffi::{c_char, CStr};
 use std::sync::Once;
@@ -66,7 +69,7 @@ pub struct Context {
     /// The host's correlation Id for this context
     pub(crate) correlation_id: String,
     /// All `anyhow::Error`s stored in this context.
-    pub(crate) errs: HashMap<Key, Error>,
+    pub(crate) errs: HashMap<Key, HyperlightError>,
     /// All booleans stored in this context
     pub(crate) booleans: HashMap<Key, bool>,
     /// All `Sandbox`es stored in this context
@@ -126,8 +129,8 @@ impl Context {
     }
 
     /// A convenience function for `register`, typed specifically
-    /// for `Error` types.
-    pub(crate) fn register_err(&mut self, err: Error) -> Handle {
+    /// for `HyperlightError` types.
+    pub(crate) fn register_err(&mut self, err: HyperlightError) -> Handle {
         Self::register(err, &mut self.errs, Hdl::Err)
     }
 
@@ -147,11 +150,15 @@ impl Context {
     ) -> Result<&T> {
         let hdl = Hdl::try_from(handle)?;
         if !chk(&hdl) {
-            bail!("invalid handle")
+            log_then_return!("invalid handle");
         }
         match coll.get(&handle.key()) {
             Some(obj) => Ok(obj),
-            None => bail!("object {} not found for key {}", hdl, handle.key()),
+            None => Err(new_error!(
+                "object {} not found for key {}",
+                hdl,
+                handle.key()
+            )),
         }
     }
 
@@ -165,11 +172,13 @@ impl Context {
     ) -> Result<&mut T> {
         let hdl = Hdl::try_from(handle)?;
         if !chk(&hdl) {
-            bail!("invalid handle")
+            log_then_return!("invalid handle");
         }
         match coll.get_mut(&handle.key()) {
             Some(obj) => Ok(obj),
-            None => bail!("object {} not found for key {}", hdl, handle.key()),
+            None => {
+                log_then_return!("object {} not found for key {}", hdl, handle.key());
+            }
         }
     }
 
@@ -343,7 +352,7 @@ mod tests {
     use crate::hdl::Hdl;
     use crate::strings::get_string;
     use crate::{validate_context, validate_context_or_panic};
-    use anyhow::Result;
+    use hyperlight_host::Result;
 
     #[test]
     fn round_trip_string() -> Result<()> {

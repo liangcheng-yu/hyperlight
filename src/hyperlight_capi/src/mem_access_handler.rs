@@ -1,8 +1,9 @@
 use crate::context::Context;
 use crate::handle::Handle;
 use crate::hdl::Hdl;
-use anyhow::Result;
 use hyperlight_host::hypervisor::handlers::MemAccessHandlerCaller;
+use hyperlight_host::new_error;
+use hyperlight_host::Result;
 
 /// A FFI-friendly implementation of a `MemAccessHandler`. This type stores
 /// a standard C function pointer -- an `extern "C" fn()` -- and implements
@@ -60,7 +61,7 @@ pub unsafe extern "C" fn mem_access_handler_create(
     let ptr = match cb_ptr {
         Some(ptr) => ptr,
         None => {
-            let err = anyhow::Error::msg("invalid mem access handler callback");
+            let err = new_error!("invalid mem access handler callback");
             return (*ctx).register_err(err);
         }
     };

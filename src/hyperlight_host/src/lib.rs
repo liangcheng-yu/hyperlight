@@ -2,7 +2,7 @@
 /// compiled binaries within a very lightweight hypervisor environment.
 #[deny(dead_code, missing_docs, unused_mut)]
 /// Dealing with errors, including errors across VM boundaries
-pub(crate) mod error;
+pub mod error;
 /// FlatBuffers-related utilities and (mostly) generated code
 #[allow(non_camel_case_types)]
 pub(crate) mod flatbuffers;
@@ -61,20 +61,18 @@ pub mod sandbox_state;
 #[cfg(test)]
 pub(crate) mod testing;
 
+/// The re-export for the `HyperlightError` type
+pub use error::HyperlightError;
 /// The re-export for `get_stack_boundary` function
 pub use func::get_stack_boundary;
 /// Re-export for `HostFunction0` trait
 pub use func::HostFunction0;
-/// The re-export for the `SandboxMemoryConfiguration` type
-pub use mem::SandboxMemoryConfiguration;
+/// Re-export for `ExecutingGuestCall` type
+pub use sandbox::guest_call_exec::ExecutingGuestCall;
 /// The re-export for the `is_hypervisor_present` type
 pub use sandbox::is_hypervisor_present;
 /// The re-export for the `GuestBinary` type
 pub use sandbox::uninitialized::GuestBinary;
-/// Re-export for `CallGuestFunction` trait
-pub use sandbox::CallGuestFunction;
-/// Re-export for `ExecutingGuestCall` type
-pub use sandbox::ExecutingGuestCall;
 /// Re-export for `GuestMgr` trait
 pub use sandbox::GuestMgr;
 /// Re-export for `HypervisorWrapper` trait
@@ -85,10 +83,14 @@ pub use sandbox::HypervisorWrapperMgr;
 pub use sandbox::MemMgrWrapper;
 /// Re-export for `MemMgrWrapperGetter` trait
 pub use sandbox::MemMgrWrapperGetter;
-/// The re-export for the `Sandbox` type
-pub use sandbox::Sandbox;
+/// A sandbox that can call be used to make multiple calls to guest functions,
+/// and otherwise reused multiple times
+pub use sandbox::MultiUseSandbox;
 /// The re-export for the `SandboxRunOptions` type
 pub use sandbox::SandboxRunOptions;
+/// A sandbox that can be used at most once to call a guest function, and
+/// then must be discarded.
+pub use sandbox::SingleUseSandbox;
 /// The re-export for the `UninitializedSandbox` type
 pub use sandbox::UninitializedSandbox;
 
@@ -98,4 +100,36 @@ pub fn option_when<T>(val: T, cond: bool) -> Option<T> {
         true => Some(val),
         false => None,
     }
+}
+/// The universal `Result` type used throughout the Hyperlight codebase.
+pub type Result<T> = core::result::Result<T, error::HyperlightError>;
+
+// Logs an error then returns with it , more or less equivalent to the bail! macro in anyhow
+// but for HyperlightError instead of anyhow::Error
+#[macro_export]
+macro_rules! log_then_return {
+    ($msg:literal $(,)?) => {{
+        let __args = std::format_args!($msg);
+        let __err_msg = match __args.as_str() {
+            Some(msg) => String::from(msg),
+            None => std::format!($msg),
+        };
+        let __err = $crate::HyperlightError::Error(__err_msg);
+        log::error!("{}", __err);
+        return Err(__err);
+    }};
+    ($err:expr $(,)?) => {
+        log::error!("{}", $err);
+        return Err($err);
+    };
+    ($err:stmt $(,)?) => {
+        log::error!("{}", $err);
+        return Err($err);
+    };
+    ($fmtstr:expr, $($arg:tt)*) => {
+           let __err_msg = std::format!($fmtstr, $($arg)*);
+           let __err = $crate::error::HyperlightError::Error(__err_msg);
+           log::error!("{}", __err);
+           return Err(__err);
+    };
 }

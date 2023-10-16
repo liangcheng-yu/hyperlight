@@ -1,9 +1,8 @@
 use super::{surrogate_process::SurrogateProcess, wrappers::PSTRWrapper};
 use crate::mem::shared_mem::PtrCVoidMut;
-use anyhow::{anyhow, bail, Result};
+use crate::{log_then_return, new_error, Result};
 use core::ffi::c_void;
 use crossbeam_channel::{unbounded, Receiver, Sender};
-use log::error;
 use rust_embed::RustEmbed;
 use std::fs::File;
 use std::io::Write;
@@ -29,7 +28,7 @@ use windows::Win32::System::Threading::{
 // $SURROGATE_DIR is set by hyperlight_host's build.rs script.
 // https://docs.rs/rust-embed/latest/rust_embed/
 #[derive(RustEmbed)]
-#[folder = "$SURROGATE_DIR"]
+#[folder = "bin/x64/$PROFILE"]
 #[include = "HyperlightSurrogate.exe"]
 struct Asset;
 
@@ -123,10 +122,7 @@ impl SurrogateProcessManager {
         size: usize,
         memory_address: *const c_void,
     ) -> Result<SurrogateProcess> {
-        let process_handle = self
-            .process_receiver
-            .recv()
-            .map_err(|e| anyhow!(e.to_string()))?;
+        let process_handle = self.process_receiver.recv()?;
 
         let allocated_address = unsafe {
             VirtualAllocEx(
@@ -139,8 +135,7 @@ impl SurrogateProcessManager {
         };
 
         if allocated_address.is_null() {
-            error!("VirtualAllocEx failed for mem address {:?}", memory_address);
-            bail!("VirtualAllocEx failed");
+            log_then_return!("VirtualAllocEx failed for mem address {:?}", memory_address);
         }
 
         Ok(SurrogateProcess::new(
@@ -153,10 +148,7 @@ impl SurrogateProcessManager {
     /// This should be called from within a surrogate process's drop
     /// implementation, after process resources have been freed.
     pub(super) fn return_surrogate_process(&self, proc_handle: HANDLE) -> Result<()> {
-        self.process_sender
-            .clone()
-            .send(proc_handle)
-            .map_err(|e| anyhow!(e.to_string()))
+        Ok(self.process_sender.clone().send(proc_handle)?)
     }
 
     /// Creates all the surrogate process when the struct is first created.
@@ -207,8 +199,7 @@ fn create_job_object() -> Result<HANDLE> {
         CreateJobObjectA(
             Some(&security_attributes),
             s!("HyperlightSurrogateJobObject"),
-        )
-        .map_err(|e| anyhow!(e.to_string()))?
+        )?
     };
 
     unsafe {
@@ -229,7 +220,7 @@ fn create_job_object() -> Result<HANDLE> {
         )
         .as_bool()
         {
-            bail!("SetInformationJobObject failed");
+            log_then_return!("SetInformationJobObject failed");
         }
     };
 
@@ -240,7 +231,7 @@ fn get_surrogate_process_dir() -> Result<PathBuf> {
     let binding = std::env::current_exe()?;
     let path = binding
         .parent()
-        .ok_or_else(|| anyhow!("could not get parent directory of current executable"))?;
+        .ok_or_else(|| new_error!("could not get parent directory of current executable"))?;
 
     Ok(path.to_path_buf())
 }
@@ -250,7 +241,7 @@ fn ensure_surrogate_process_exe() -> Result<()> {
     let p = Path::new(&surrogate_process_path);
 
     let exe = Asset::get(SURROGATE_PROCESS_BINARY_NAME)
-        .ok_or_else(|| anyhow!("could not find embedded surrogate binary"))?;
+        .ok_or_else(|| new_error!("could not find embedded surrogate binary"))?;
 
     if p.exists() {
         // check to see if sha's match and if not delete the file so we'll extract
@@ -298,7 +289,7 @@ fn create_surrogate_process(surrogate_process_path: &Path, job_handle: &HANDLE) 
         let thread_attributes: SECURITY_ATTRIBUTES = Default::default();
         startup_info.cb = std::mem::size_of::<STARTUPINFOA>() as u32;
 
-        let cmd_line = surrogate_process_path.to_str().ok_or(anyhow!(
+        let cmd_line = surrogate_process_path.to_str().ok_or(new_error!(
             "failed to convert surrogate process path to a string"
         ))?;
         let p_cmd_line = &PSTRWrapper::try_from(cmd_line)?;
@@ -317,7 +308,7 @@ fn create_surrogate_process(surrogate_process_path: &Path, job_handle: &HANDLE) 
         );
 
         if !process_created.as_bool() {
-            bail!("Create Surrogate Process failed");
+            new_error!("Create Surrogate Process failed");
         }
 
         process_information.hProcess
@@ -326,7 +317,7 @@ fn create_surrogate_process(surrogate_process_path: &Path, job_handle: &HANDLE) 
     unsafe {
         if !AssignProcessToJobObject(*job_handle, process_handle).as_bool() {
             let hresult = GetLastError();
-            return Err(anyhow!(
+            return Err(new_error!(
                 "Assign SurrogateProcess To JobObject Failed: {}",
                 hresult.to_hresult()
             ));
@@ -376,18 +367,13 @@ mod tests {
                     let timer = Instant::now();
                     let surrogate_process = {
                         let res = surrogate_process_manager
-                            .get_surrogate_process(1024, allocated_address);
+                            .get_surrogate_process(1024, allocated_address)?;
                         let elapsed = timer.elapsed();
                         // Print out the time it took to get the process if its greater than 150ms (this is just to allow us to see that threads are blocking on the process queue)
                         if (elapsed.as_millis() as u64) > 150 {
                             println!("Get Process Time Thread {} Process {}: {:?}", t, p, elapsed);
                         }
-                        res.map_err(|e| {
-                            anyhow!(
-                                "get_surrogate_process error on thread {t}, process {p:?}: {e:?}"
-                            )
-                        })
-                        .unwrap()
+                        res
                     };
 
                     let mut result: BOOL = Default::default();

@@ -1,6 +1,6 @@
-use anyhow::Result;
+use crate::Result;
+use std::time::Duration;
 use std::time::SystemTime;
-use std::time::{Duration, SystemTimeError};
 #[cfg(target_os = "windows")]
 use windows::Win32::System::Threading::GetCurrentThreadStackLimits;
 
@@ -49,8 +49,8 @@ pub fn get_stack_boundary() -> Result<u64> {
 ///
 /// While this problem is unlikely to be a problem for short-lived
 /// VMs, the failure mode is nevertheless being exposed to callers.
-pub fn get_dur_since_epoch() -> Result<Duration, SystemTimeError> {
-    SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
+pub fn get_dur_since_epoch() -> Result<Duration> {
+    Ok(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?)
 }
 
 /// Get the page size for the operating system

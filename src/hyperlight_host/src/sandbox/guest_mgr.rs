@@ -1,4 +1,4 @@
-use super::initialized::ExecutingGuestCall;
+use super::guest_call_exec::ExecutingGuestCall;
 use log::error;
 
 /// The Guest Manager trait

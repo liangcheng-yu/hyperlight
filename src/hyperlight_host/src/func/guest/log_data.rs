@@ -1,10 +1,11 @@
 use super::log_level::LogLevel;
+use crate::error::HyperlightError::{self, FieldIsMissingInGuestLogData, VectorCapacityInCorrect};
 use crate::flatbuffers::hyperlight::generated::size_prefixed_root_as_guest_log_data;
 use crate::flatbuffers::hyperlight::generated::{
     GuestLogData as GuestLogDataFb, GuestLogDataArgs, LogLevel as LogLevelFb,
 };
 use crate::mem::{layout::SandboxMemoryLayout, shared_mem::SharedMemory};
-use anyhow::{anyhow, bail, Error, Result};
+use crate::{log_then_return, Result};
 use std::mem::size_of;
 
 /// The guest log data for a VM sandbox
@@ -60,16 +61,16 @@ impl GuestLogData {
 }
 
 impl TryFrom<Vec<u8>> for GuestLogData {
-    type Error = Error;
+    type Error = HyperlightError;
     fn try_from(raw_vec: Vec<u8>) -> Result<Self> {
         Self::try_from(raw_vec.as_slice())
     }
 }
 
 impl TryFrom<&[u8]> for GuestLogData {
-    type Error = Error;
+    type Error = HyperlightError;
     fn try_from(raw_bytes: &[u8]) -> Result<Self> {
-        let gld_gen = size_prefixed_root_as_guest_log_data(raw_bytes).map_err(|e| anyhow!(e))?;
+        let gld_gen = size_prefixed_root_as_guest_log_data(raw_bytes)?;
         let message = convert_generated_option("message", gld_gen.message())?;
         let source = convert_generated_option("source", gld_gen.source())?;
         let level = LogLevel::try_from(gld_gen.level())?;
@@ -89,7 +90,7 @@ impl TryFrom<&[u8]> for GuestLogData {
 }
 
 impl TryFrom<(&SharedMemory, SandboxMemoryLayout)> for GuestLogData {
-    type Error = Error;
+    type Error = HyperlightError;
     fn try_from(value: (&SharedMemory, SandboxMemoryLayout)) -> Result<Self> {
         let (shared_mem, layout) = value;
         let offset = layout.get_output_data_offset();
@@ -108,7 +109,7 @@ impl TryFrom<(&SharedMemory, SandboxMemoryLayout)> for GuestLogData {
 }
 
 impl TryFrom<&GuestLogData> for Vec<u8> {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: &GuestLogData) -> Result<Vec<u8>> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
         let message = builder.create_string(&value.message);
@@ -138,7 +139,11 @@ impl TryFrom<&GuestLogData> for Vec<u8> {
         let length = unsafe { flatbuffers::read_scalar::<i32>(&res[..4]) };
 
         if res.capacity() != res.len() || res.capacity() != length as usize + 4 {
-            bail!("The capacity of the vector is for GuestLogData is incorrect");
+            log_then_return!(VectorCapacityInCorrect(
+                res.capacity(),
+                res.len(),
+                length + 4
+            ));
         }
 
         Ok(res)
@@ -146,7 +151,7 @@ impl TryFrom<&GuestLogData> for Vec<u8> {
 }
 
 impl TryFrom<GuestLogData> for Vec<u8> {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: GuestLogData) -> Result<Vec<u8>> {
         (&value).try_into()
     }
@@ -154,7 +159,7 @@ impl TryFrom<GuestLogData> for Vec<u8> {
 
 fn convert_generated_option(field_name: &str, opt: Option<&str>) -> Result<String> {
     opt.map(|s| s.to_string())
-        .ok_or_else(|| Error::msg(format!("no {field_name} found in decoded GuestLogData")))
+        .ok_or_else(|| FieldIsMissingInGuestLogData(field_name.to_string()))
 }
 
 #[cfg(test)]
@@ -162,10 +167,8 @@ mod test {
     use super::GuestLogData;
     use crate::{
         func::guest::log_level::LogLevel,
-        mem::{
-            config::SandboxMemoryConfiguration, layout::SandboxMemoryLayout,
-            shared_mem::SharedMemory,
-        },
+        mem::{layout::SandboxMemoryLayout, shared_mem::SharedMemory},
+        sandbox::SandboxConfiguration,
     };
 
     #[test]
@@ -182,8 +185,7 @@ mod test {
             // copy the encoded Vec<u8> into shared memory so we can
             // turn around and pull the bytes out and try to decode
             let layout =
-                SandboxMemoryLayout::new(SandboxMemoryConfiguration::default(), 12, 12, 12)
-                    .unwrap();
+                SandboxMemoryLayout::new(SandboxConfiguration::default(), 12, 12, 12).unwrap();
             let mut shared_mem = SharedMemory::new(layout.get_memory_size().unwrap()).unwrap();
             gld.write_to_memory(&mut shared_mem, &layout).unwrap();
             GuestLogData::try_from((&shared_mem, layout)).unwrap()

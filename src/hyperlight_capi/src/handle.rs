@@ -182,7 +182,7 @@ mod tests {
     use super::super::hdl::Hdl;
     use super::Handle;
     use super::{new_key, Key};
-    use anyhow::Result;
+    use hyperlight_host::Result;
 
     #[test]
     fn new_empty() -> Result<()> {

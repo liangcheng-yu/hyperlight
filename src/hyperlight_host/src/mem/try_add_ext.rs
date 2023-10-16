@@ -1,5 +1,5 @@
 use super::ptr_offset::Offset;
-use anyhow::Result;
+use crate::Result;
 
 /// An extension trait intended for pointer types to which an
 /// offset can be added unsafely.

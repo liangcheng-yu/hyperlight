@@ -3,7 +3,7 @@ use crate::{validate_context, validate_context_or_panic};
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
-use anyhow::Result;
+use hyperlight_host::Result;
 
 fn get_i64(ctx: &Context, hdl: Handle) -> Result<&i64> {
     Context::get(hdl, &ctx.int64s, |h| matches!(h, Hdl::Int64(_)))

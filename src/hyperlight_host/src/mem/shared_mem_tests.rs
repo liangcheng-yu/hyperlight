@@ -1,5 +1,7 @@
 use super::{ptr_offset::Offset, shared_mem::SharedMemory};
-use anyhow::{bail, Result};
+use crate::log_then_return;
+use crate::new_error;
+use crate::Result;
 use std::clone::Clone;
 use std::cmp::PartialEq;
 use std::convert::TryFrom;
@@ -50,12 +52,12 @@ where
         writer(&mut sm, offset, initial_val.clone())?;
         let ret_val = reader(&sm, offset)?;
 
-        let initial_val_as_t = T::try_from(initial_val.clone())
-            .map_err(|_| anyhow::anyhow!("cannot convert types"))?;
+        let initial_val_as_t =
+            T::try_from(initial_val.clone()).map_err(|_| new_error!("cannot convert types"))?;
         if initial_val_as_t == ret_val {
             Ok(())
         } else {
-            bail!(
+            log_then_return!(
                 "(mem_size: {}, offset: {}, val: {:?}), actual returned val = {:?}",
                 mem_size,
                 u64::from(offset),
@@ -107,7 +109,9 @@ where
 /// it will be returned as an `Ok(_)`.
 fn swap_res<T>(r: Result<T>) -> Result<()> {
     match r {
-        Ok(_) => bail!("result was expected to be an error, but wasn't"),
+        Ok(_) => {
+            log_then_return!("result was expected to be an error, but wasn't");
+        }
         Err(_) => Ok(()),
     }
 }

@@ -1,4 +1,5 @@
-use anyhow::{bail, Result};
+use crate::HyperlightError::ReturnValueConversionFailure;
+use crate::{log_then_return, Result};
 
 use crate::func::types::{ReturnType, ReturnValue};
 
@@ -26,7 +27,9 @@ impl SupportedReturnType<()> for () {
     fn get_inner(a: ReturnValue) -> Result<()> {
         match a {
             ReturnValue::Void => Ok(()),
-            other => bail!("Invalid conversion: from {:?} to ()", other),
+            other => {
+                log_then_return!(ReturnValueConversionFailure(other.clone(), "()"));
+            }
         }
     }
 }
@@ -43,7 +46,9 @@ impl SupportedReturnType<String> for String {
     fn get_inner(a: ReturnValue) -> Result<String> {
         match a {
             ReturnValue::String(i) => Ok(i),
-            other => bail!("Invalid conversion: from {:?} to String", other),
+            other => {
+                log_then_return!(ReturnValueConversionFailure(other.clone(), "String"));
+            }
         }
     }
 }
@@ -60,7 +65,9 @@ impl SupportedReturnType<i32> for i32 {
     fn get_inner(a: ReturnValue) -> Result<i32> {
         match a {
             ReturnValue::Int(i) => Ok(i),
-            other => bail!("Invalid conversion: from {:?} to i32", other),
+            other => {
+                log_then_return!(ReturnValueConversionFailure(other.clone(), "i32"));
+            }
         }
     }
 }
@@ -77,7 +84,9 @@ impl SupportedReturnType<i64> for i64 {
     fn get_inner(a: ReturnValue) -> Result<i64> {
         match a {
             ReturnValue::Long(i) => Ok(i),
-            other => bail!("Invalid conversion: from {:?} to i64", other),
+            other => {
+                log_then_return!(ReturnValueConversionFailure(other.clone(), "i64"));
+            }
         }
     }
 }
@@ -94,7 +103,9 @@ impl SupportedReturnType<bool> for bool {
     fn get_inner(a: ReturnValue) -> Result<bool> {
         match a {
             ReturnValue::Bool(i) => Ok(i),
-            other => bail!("Invalid conversion: from {:?} to bool", other),
+            other => {
+                log_then_return!(ReturnValueConversionFailure(other.clone(), "bool"));
+            }
         }
     }
 }
@@ -111,7 +122,9 @@ impl SupportedReturnType<Vec<u8>> for Vec<u8> {
     fn get_inner(a: ReturnValue) -> Result<Vec<u8>> {
         match a {
             ReturnValue::VecBytes(i) => Ok(i),
-            other => bail!("Invalid conversion: from {:?} to Vec<u8>", other),
+            other => {
+                log_then_return!(ReturnValueConversionFailure(other.clone(), "Vec<u8>"));
+            }
         }
     }
 }

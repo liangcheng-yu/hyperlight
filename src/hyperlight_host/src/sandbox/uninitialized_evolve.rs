@@ -3,16 +3,19 @@ use super::hypervisor::HypervisorWrapperMgr;
 use crate::func::exports::get_os_page_size;
 #[cfg(target_os = "windows")]
 use crate::hypervisor::handlers::OutBHandlerCaller;
+#[cfg(target_os = "linux")]
+use crate::log_then_return;
 #[cfg(target_os = "windows")]
 use crate::mem::ptr::RawPtr;
-use crate::sandbox::mem_mgr::MemMgrWrapperGetter;
-use crate::{hypervisor::handlers::OutBHandlerWrapper, Sandbox, UninitializedSandbox};
-use anyhow::anyhow;
-#[cfg(target_os = "linux")]
-use anyhow::bail;
-use anyhow::Result;
+use crate::Result;
+use crate::{
+    hypervisor::handlers::OutBHandlerWrapper, sandbox_state::sandbox::Sandbox, SingleUseSandbox,
+    UninitializedSandbox,
+};
+use crate::{sandbox::mem_mgr::MemMgrWrapperGetter, MultiUseSandbox};
 #[cfg(target_os = "windows")]
 use std::os::raw::c_void;
+#[cfg(target_os = "windows")]
 use std::sync::Arc;
 #[cfg(target_os = "windows")]
 use std::sync::Mutex;
@@ -32,10 +35,14 @@ pub(super) type CBFunc<'a> = Box<dyn FnOnce(&mut UninitializedSandbox<'a>) -> Re
 /// If this doesn't make sense and you want to change this type,
 /// please reach out to a Hyperlight developer before making the change.
 #[instrument(err(Debug), skip_all)]
-pub(super) fn evolve_impl<'a>(
+fn evolve_impl<'a, TransformFunc, ResSandbox: Sandbox>(
     mut u_sbox: UninitializedSandbox<'a>,
     cb_opt: Option<CBFunc<'a>>,
-) -> Result<Sandbox<'a>> {
+    transform: TransformFunc,
+) -> Result<ResSandbox>
+where
+    TransformFunc: Fn(UninitializedSandbox<'a>) -> Result<ResSandbox>,
+{
     let outb_wrapper = u_sbox.get_hypervisor_wrapper().get_outb_hdl_wrapper();
     let run_from_proc_mem = u_sbox.run_from_process_memory;
     if run_from_proc_mem {
@@ -55,24 +62,35 @@ pub(super) fn evolve_impl<'a>(
             mgr.clone()
         };
 
-        {
-            let hv = Arc::get_mut(&mut u_sbox.hv)
-                .ok_or_else(|| anyhow!("could not get mutable hypervisor wrapper"))?;
-            hv.initialise(&mem_mgr)
-        }?;
-
-        if u_sbox.recycle_after_run {
-            u_sbox.get_mem_mgr_wrapper_mut().as_mut().snapshot_state()?;
-        }
+        { u_sbox.hv.initialise(&mem_mgr) }?;
         if u_sbox.run_from_process_memory {
-            u_sbox.get_hypervisor_wrapper_mut()?.reset_rsp(orig_rsp)?;
+            u_sbox.get_hypervisor_wrapper_mut().reset_rsp(orig_rsp)?;
         }
     }
     if let Some(cb) = cb_opt {
         cb(&mut u_sbox)?;
     }
 
-    Ok(Sandbox::from(u_sbox))
+    transform(u_sbox)
+}
+
+pub(super) fn evolve_impl_multi_use<'a>(
+    u_sbox: UninitializedSandbox<'a>,
+    cb_opt: Option<CBFunc<'a>>,
+) -> Result<MultiUseSandbox<'a>> {
+    evolve_impl(u_sbox, cb_opt, |mut u| {
+        // only snapshot state if we're a multi-use sandbox. do not
+        // call snapshot_state in the evolve_impl_single_use function
+        u.get_mem_mgr_wrapper_mut().as_mut().snapshot_state()?;
+        Ok(MultiUseSandbox::from_uninit(u))
+    })
+}
+
+pub(super) fn evolve_impl_single_use<'a>(
+    u_sbox: UninitializedSandbox<'a>,
+    cb_opt: Option<CBFunc<'a>>,
+) -> Result<SingleUseSandbox<'a>> {
+    evolve_impl(u_sbox, cb_opt, |u| Ok(SingleUseSandbox::from_uninit(u)))
 }
 
 #[cfg(target_os = "windows")]
@@ -140,7 +158,7 @@ fn evolve_in_proc(
         // - outb_hdl being unused
         let _ = u_sbox.get_mem_mgr_wrapper_mut();
         let _ = outb_hdl;
-        bail!("in-process execution is not supported on linux");
+        log_then_return!("in-process execution is not supported on linux");
     }
     #[cfg(target_os = "windows")]
     {
@@ -169,9 +187,8 @@ fn evolve_in_proc(
 
 #[cfg(test)]
 mod tests {
-    use super::evolve_impl;
+    use super::evolve_impl_multi_use;
     use crate::{sandbox::uninitialized::GuestBinary, UninitializedSandbox};
-    use anyhow::anyhow;
     use hyperlight_testing::{callback_guest_path, simple_guest_path};
 
     #[test]
@@ -182,17 +199,15 @@ mod tests {
                 GuestBinary::FilePath(guest_bin_path.clone()),
                 None,
                 None,
+                None,
             )
             .unwrap();
-            evolve_impl(u_sbox, None)
-                .map_err(|e| {
-                    anyhow!("error evolving sandbox with guest binary {guest_bin_path}: {e:?}")
-                })
-                .unwrap();
+            evolve_impl_multi_use(u_sbox, None).unwrap();
         }
     }
 
     #[test]
+    #[cfg(target_os = "windows")]
     fn test_evolve_in_proc() {
         use crate::SandboxRunOptions;
 
@@ -201,20 +216,13 @@ mod tests {
             let u_sbox: UninitializedSandbox<'_> = UninitializedSandbox::new(
                 GuestBinary::FilePath(guest_bin_path.clone()),
                 None,
-                Some(SandboxRunOptions::RUN_IN_PROCESS),
+                Some(SandboxRunOptions::RunInHypervisor),
+                None,
             )
             .unwrap();
-            #[cfg(target_os = "windows")]
-            {
-                let err = format!("error evolving sandbox with guest binary {guest_bin_path}");
-                let err_str = err.as_str();
-                evolve_impl(u_sbox, None).expect(err_str);
-            }
-            #[cfg(target_os = "linux")]
-            {
-                let res = evolve_impl(u_sbox, None);
-                assert!(res.is_err());
-            }
+            let err = format!("error evolving sandbox with guest binary {guest_bin_path}");
+            let err_str = err.as_str();
+            evolve_impl_multi_use(u_sbox, None).expect(err_str);
         }
     }
 }

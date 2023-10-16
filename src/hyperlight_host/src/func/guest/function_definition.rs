@@ -4,7 +4,7 @@ use crate::flatbuffers::hyperlight::generated::{
 };
 use crate::func::types::{ParameterType, ReturnType};
 use crate::mem::ptr::GuestPtr;
-use anyhow::Result;
+use crate::{HyperlightError, Result};
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
 
 /// The definition of a function exposed from the guest to the host
@@ -55,7 +55,7 @@ impl GuestFunctionDefinition {
 }
 
 impl TryFrom<FbGuestFunctionDefinition<'_>> for GuestFunctionDefinition {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
 
     fn try_from(value: FbGuestFunctionDefinition) -> Result<Self> {
         let function_name = value.function_name().to_string();
@@ -77,7 +77,7 @@ impl TryFrom<FbGuestFunctionDefinition<'_>> for GuestFunctionDefinition {
 }
 
 impl TryFrom<&[u8]> for GuestFunctionDefinition {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
 
     fn try_from(value: &[u8]) -> Result<Self> {
         let fb_guest_function_definition = flatbuffers::root::<FbGuestFunctionDefinition>(value)?;
@@ -87,7 +87,7 @@ impl TryFrom<&[u8]> for GuestFunctionDefinition {
 }
 
 impl TryFrom<&GuestFunctionDefinition> for Vec<u8> {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
 
     fn try_from(value: &GuestFunctionDefinition) -> Result<Self> {
         let mut builder = FlatBufferBuilder::new();
@@ -99,7 +99,7 @@ impl TryFrom<&GuestFunctionDefinition> for Vec<u8> {
 }
 
 impl TryFrom<GuestFunctionDefinition> for Vec<u8> {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
 
     fn try_from(value: GuestFunctionDefinition) -> Result<Self> {
         let bytes: Vec<u8> = (&value).try_into()?;

@@ -8,6 +8,8 @@ Hyperlight supports running applications using the [Windows Hypervisor Platform]
 
 >WARNING: This is experimental code. It is not considered production-grade by its developers, neither is it "supported" software.
 
+>If you are a Hyperlight developer, and are looking to release a new Cargo version, please see [docs/release.md](./docs/release.md).
+
 ## The Hyperlight Sandbox and Guest Applications
 
 Hyperlight runs applications in a "sandbox" that it provides. A sandbox is a VM partition along with a very small runtime Hyperlight provides. Since Hyperlight runs guest applications within a Sandbox without a kernel or operating system, all guest applications must be written specifically for the Hyperlight runtime. The intention is that most developers will not need to write such applications, but will take advantage of pre-existing applications written for Hyperlight.
@@ -160,9 +162,44 @@ Visual Studio Code does not currently support mixed mode debugging, to debug gue
 
 ## The Rust Host Rewrite (`hyperlight_host`)
 
-## Prerequisites
+### Prerequisites
 
-### Windows
+#### Hyperlight Cargo Feed
+
+The hyperlight Rust projects currently require connecting to Microsoft internal cargo feeds to pull some dependencies.
+To do do this please ensure the following:
+
+1. You have access to the [AzureContainerUpstream Hyperlight_packages Cargo feed]('https://dev.azure.com/AzureContainerUpstream/hyperlight/_artifacts/feed/hyperlight_packages_test')
+
+    - Contact project maintainers if you need access.
+    - To grant access add users to the [**Hyperlight Cargo Reader** team](https://dev.azure.com/AzureContainerUpstream/hyperlight/_settings/teams)
+
+1. You have the 'az cli' installed and are logged in to AzureDevops
+
+    - (https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
+
+1. You have the rust nightly toolchain installed (this is just needed for pulling crates!)
+
+   - `rustup install nightly`
+
+   > Ensure your nightly toolchain is `cargo 1.75.0-nightly (794d0a825 2023-10-03)` or later
+
+To connect to the cargo feeds run the following commands from the root of the repo:
+
+```console
+az login
+just cargo-login
+```
+
+To verify access to our cargo feeds run:
+
+```console
+cargo +nightly update --dry-run
+```
+
+See [publishing-to-cargo.md](./docs/publishing-to-cargo.md) for more information.
+
+#### Windows
 
 1. [Rust](https://www.rust-lang.org/tools/install)
 1. [Clang](https://clang.llvm.org/get_started.html).  If you have Visual Studio instructions are [here](https://docs.microsoft.com/en-us/cpp/build/clang-support-msbuild?view=msvc-170).
@@ -186,7 +223,7 @@ Import-Module "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\
 Enter-VsDevShell <instance_id> -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64" 
  ```
 
-### WSL2 or Linux
+#### WSL2 or Linux
 
 Prerequisites:
 

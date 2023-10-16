@@ -1,7 +1,6 @@
 #[cfg(target_os = "windows")]
 use super::loaded_lib::LoadedLib;
 use super::{
-    config::SandboxMemoryConfiguration,
     layout::SandboxMemoryLayout,
     pe::{headers::PEHeaders, pe_info::PEInfo},
     ptr::{GuestPtr, RawPtr},
@@ -10,7 +9,14 @@ use super::{
     shared_mem_snapshot::SharedMemorySnapshot,
 };
 use crate::{
-    error::HyperlightError,
+    error::HyperlightError::{
+        ExceptionDataLengthIncorrect, ExceptionMessageTooBig, JsonConversionFailure,
+        NoMemorySnapshot, UTF8SliceConversionFailure,
+    },
+    log_then_return,
+};
+use crate::{
+    error::HyperlightHostError,
     func::{
         function_call::{FunctionCall, ReadFunctionCallFromMemory, WriteFunctionCallToMemory},
         guest::{
@@ -21,8 +27,9 @@ use crate::{
         host::{function_call::HostFunctionCall, function_details::HostFunctionDetails},
         types::ReturnValue,
     },
+    sandbox::SandboxConfiguration,
 };
-use anyhow::{anyhow, bail, Result};
+use crate::{new_error, Result};
 use core::mem::size_of;
 use serde_json::from_str;
 use std::{cmp::Ordering, str::from_utf8};
@@ -189,7 +196,7 @@ impl SandboxMemoryManager {
                 Ok(u64::from(updated_offset))
             }
             false => u64::try_from(self.layout.peb_address).map_err(|_| {
-                anyhow!(
+                new_error!(
                     "get_peb_address: failed to convert peb_address ({}) to u64",
                     self.layout.peb_address
                 )
@@ -219,7 +226,7 @@ impl SandboxMemoryManager {
         if let Some(snapshot) = snap {
             snapshot.restore_from_snapshot()
         } else {
-            bail!("restore_state called with no valid snapshot");
+            log_then_return!(NoMemorySnapshot);
         }
     }
 
@@ -285,7 +292,7 @@ impl SandboxMemoryManager {
     }
 
     /// Get the error data that was written by the Hyperlight Host
-    /// Returns a `Result` containing 'Unit' or an error.
+    /// Returns a `Result` containing 'Unit' or an error.Error
     /// Writes the exception data to the buffer at `exception_data_ptr`.
     ///
     /// TODO: after the C API wrapper for this function goes away,
@@ -298,11 +305,7 @@ impl SandboxMemoryManager {
 
         let exception_data_slc_len = exception_data_slc.len();
         if exception_data_slc_len != len as usize {
-            bail!(
-                "Exception data length mismatch. Got {}, expected {}",
-                exception_data_slc_len,
-                len
-            );
+            log_then_return!(ExceptionDataLengthIncorrect(len, exception_data_slc_len));
         }
         // The host exception field is expected to contain a 32-bit length followed by the exception data.
         self.shared_mem
@@ -315,7 +318,7 @@ impl SandboxMemoryManager {
     /// it was found. Return `Ok(None)` if we succeeded in looking for
     /// one and it wasn't found. Return an `Err` if we did not succeed
     /// in looking for one.
-    pub(crate) fn get_host_error(&self) -> Result<Option<HyperlightError>> {
+    pub(crate) fn get_host_error(&self) -> Result<Option<HyperlightHostError>> {
         if self.has_host_error()? {
             let host_err_len = {
                 let len_i32 = self.get_host_error_length()?;
@@ -328,8 +331,9 @@ impl SandboxMemoryManager {
             // self.get_host_error_length()
             let mut host_err_data: Vec<u8> = vec![0; host_err_len];
             self.get_host_error_data(&mut host_err_data)?;
-            let host_err_json = from_utf8(&host_err_data)?;
-            let host_err: HyperlightError = from_str(host_err_json)?;
+            let host_err_json = from_utf8(&host_err_data).map_err(UTF8SliceConversionFailure)?;
+            let host_err: HyperlightHostError =
+                from_str(host_err_json).map_err(JsonConversionFailure)?;
             Ok(Some(host_err))
         } else {
             Ok(None)
@@ -343,7 +347,7 @@ impl SandboxMemoryManager {
         guest_error_msg: &Vec<u8>,
         host_exception_data: &Vec<u8>,
     ) -> Result<()> {
-        let message = String::from_utf8(guest_error_msg.to_owned()).map_err(|e| anyhow!(e))?;
+        let message = String::from_utf8(guest_error_msg.to_owned())?;
         let ge = GuestError::new(Code::OutbError, message);
         ge.write_to_memory(&mut self.shared_mem, &self.layout)?;
 
@@ -357,11 +361,10 @@ impl SandboxMemoryManager {
         // First four bytes of host exception are length
 
         if host_exception_data.len() > max_host_exception_size - size_of::<i32>() {
-            bail!(
-                "Host exception message is too large. Max size is {} Got {}",
-                max_host_exception_size,
-                host_exception_data.len()
-            );
+            log_then_return!(ExceptionMessageTooBig(
+                host_exception_data.len(),
+                max_host_exception_size - size_of::<i32>()
+            ));
         }
 
         self.shared_mem
@@ -396,7 +399,7 @@ impl SandboxMemoryManager {
     ///     - If we're not running with in-memory mode, this value will be
     ///     into guest memory
     pub(crate) fn load_guest_binary_into_memory(
-        cfg: SandboxMemoryConfiguration,
+        cfg: SandboxConfiguration,
         pe_info: &mut PEInfo,
         run_from_process_memory: bool,
     ) -> Result<Self> {
@@ -443,7 +446,7 @@ impl SandboxMemoryManager {
     /// [`LoadLibraryA`](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibrarya)
     /// function.
     pub(crate) fn load_guest_binary_using_load_library(
-        cfg: SandboxMemoryConfiguration,
+        cfg: SandboxConfiguration,
         guest_bin_path: &str,
         pe_info: &mut PEInfo,
         run_from_process_memory: bool,
@@ -471,7 +474,7 @@ impl SandboxMemoryManager {
             let _ = guest_bin_path;
             let _ = pe_info;
             let _ = run_from_process_memory;
-            bail!("load_guest_binary_using_load_library is only available on Windows")
+            log_then_return!("load_guest_binary_using_load_library is only available on Windows");
         }
     }
 
@@ -537,7 +540,7 @@ impl SandboxMemoryManager {
 /// `SharedMemory`, load address as calculated by `load_addr_fn`,
 /// and calculated entrypoint offset, in order.
 fn load_guest_binary_common<F>(
-    cfg: SandboxMemoryConfiguration,
+    cfg: SandboxConfiguration,
     pe_info: &PEInfo,
     code_size: usize,
     load_addr_fn: F,
@@ -553,7 +556,7 @@ where
     )?;
     let mut shared_mem = SharedMemory::new(layout.get_memory_size()?)?;
 
-    let load_addr = load_addr_fn(&shared_mem)?;
+    let load_addr: RawPtr = load_addr_fn(&shared_mem)?;
 
     let entrypoint_offset = Offset::from({
         // we have to create this intermediate variable to ensure
@@ -571,7 +574,6 @@ where
         let load_addr_u64: u64 = load_addr.clone().try_into()?;
         shared_mem.write_u64(offset, load_addr_u64)?;
     }
-
     Ok((layout, shared_mem, load_addr, entrypoint_offset))
 }
 
@@ -579,11 +581,12 @@ where
 mod tests {
     use super::SandboxMemoryManager;
     use crate::{
-        error::HyperlightError,
+        error::HyperlightHostError,
         mem::{
-            config::SandboxMemoryConfiguration, layout::SandboxMemoryLayout, pe::pe_info::PEInfo,
-            ptr::RawPtr, ptr_offset::Offset, shared_mem::SharedMemory,
+            layout::SandboxMemoryLayout, pe::pe_info::PEInfo, ptr::RawPtr, ptr_offset::Offset,
+            shared_mem::SharedMemory,
         },
+        sandbox::SandboxConfiguration,
         testing::bytes_for_path,
     };
     use hyperlight_testing::{callback_guest_buf, simple_guest_buf};
@@ -599,7 +602,7 @@ mod tests {
             let pe_info = PEInfo::new(guest_bytes.as_slice()).unwrap();
             let stack_size_override = 0x3000;
             let heap_size_override = 0x10000;
-            let cfg = SandboxMemoryConfiguration {
+            let cfg = SandboxConfiguration {
                 stack_size_override,
                 heap_size_override,
                 ..Default::default()
@@ -623,7 +626,7 @@ mod tests {
         use crate::mem::mgr::SandboxMemoryManager;
         use hyperlight_testing::simple_guest_path;
 
-        let cfg = SandboxMemoryConfiguration::default();
+        let cfg = SandboxConfiguration::default();
         let guest_path = simple_guest_buf();
         let guest_bytes = bytes_for_path(guest_path).unwrap();
         let mut pe_info = PEInfo::new(guest_bytes.as_slice()).unwrap();
@@ -640,7 +643,7 @@ mod tests {
     /// successfully do the read but get no error back
     #[test]
     fn get_host_error_none() {
-        let cfg = SandboxMemoryConfiguration::default();
+        let cfg = SandboxConfiguration::default();
         let layout = SandboxMemoryLayout::new(cfg, 0x10000, 0x10000, 0x10000).unwrap();
         let mut shared_mem = SharedMemory::new(layout.get_memory_size().unwrap()).unwrap();
         let mem_size = shared_mem.mem_size();
@@ -662,7 +665,7 @@ mod tests {
     /// write a host error to shared memory, then try to read it back out
     #[test]
     fn round_trip_host_error() {
-        let cfg = SandboxMemoryConfiguration::default();
+        let cfg = SandboxConfiguration::default();
         let layout = SandboxMemoryLayout::new(cfg, 0x10000, 0x10000, 0x10000).unwrap();
         let mem_size = layout.get_memory_size().unwrap();
         // write a host error and then try to read it back
@@ -679,7 +682,7 @@ mod tests {
             #[cfg(target_os = "windows")]
             None,
         );
-        let err = HyperlightError {
+        let err = HyperlightHostError {
             message: "test message".to_string(),
             source: "rust test".to_string(),
         };

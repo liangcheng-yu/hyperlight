@@ -3,20 +3,19 @@ use super::hdl::Hdl;
 use super::strings::{to_string, RawCString};
 use super::{arrays::raw_vec::RawVec, context::Context};
 use crate::{validate_context, validate_context_or_panic};
-use anyhow::Result;
-use anyhow::{anyhow, Error};
-
+use hyperlight_host::new_error;
+use hyperlight_host::Result;
 mod impls {
     use super::super::context::Context;
     use super::super::handle::Handle;
-    use anyhow::{anyhow, bail, Result};
+    use hyperlight_host::{log_then_return, Result};
     use std::fs::read;
 
     /// Returns a reference to the byte array
     pub(crate) fn get(ctx: &Context, handle: Handle) -> Result<&Vec<u8>> {
         match super::get_byte_array(ctx, handle) {
             Ok(bytes) => Ok(bytes),
-            _ => bail!("handle is not a byte array handle"),
+            _ => log_then_return!("handle is not a byte array handle"),
         }
     }
 
@@ -33,7 +32,7 @@ mod impls {
         // a more modern version of valgrind that doesn't consider
         // the NUL byte an issue. I've tested (and documented) with
         // 3.19 and all works fine there.
-        read(file_name).map_err(|e| anyhow!("Error reading file {}: {}", file_name, e))
+        Ok(read(file_name)?)
     }
 }
 
@@ -67,7 +66,7 @@ pub unsafe extern "C" fn byte_array_new(
     validate_context!(ctx);
 
     if arr_ptr.is_null() {
-        let err = Error::msg("array pointer passed to byte_array_new is NULL");
+        let err = new_error!("array pointer passed to byte_array_new is NULL");
         return (*ctx).register_err(err);
     }
     let raw_vec = RawVec::copy_from_ptr(arr_ptr as *mut u8, arr_len);
@@ -96,7 +95,7 @@ pub unsafe extern "C" fn byte_array_new_from_file(
     let vec_res = impls::new_from_file(&file_name_str);
     match vec_res {
         Ok(vec) => Context::register(vec, &mut (*ctx).byte_arrays, Hdl::ByteArray),
-        Err(err) => (*ctx).register_err(anyhow!(err)),
+        Err(err) => (*ctx).register_err(err),
     }
 }
 
@@ -182,7 +181,7 @@ mod tests {
     use super::super::handle_status::{handle_get_status, HandleStatus};
     use super::super::hdl::Hdl;
     use super::impls;
-    use anyhow::Result;
+    use hyperlight_host::Result;
     use hyperlight_testing::{callback_guest_path, simple_guest_path};
 
     #[test]

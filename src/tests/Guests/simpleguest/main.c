@@ -217,6 +217,14 @@ uint8_t* getSizePrefixedBuffer(const void* data, uint32_t length)
     return GetFlatBufferResultFromSizePrefixedBuffer((void*)data,length);
 }
 
+// Keep the CPU 100% busy forever
+uint8_t spin()
+{
+    while (true)
+    {
+    }
+    return GetFlatBufferResultFromVoid();
+}
 
 GENERATE_FUNCTION(simpleprintOutput,1,hlstring);
 GENERATE_FUNCTION(stackAllocate, 1, hlint);
@@ -238,6 +246,7 @@ GENERATE_FUNCTION(printTenArgs, 10, hlstring, hlint, hllong, hlstring, hlstring,
 GENERATE_FUNCTION(setByteArrayToZero, 2, hlvecbytes, hlint);
 GENERATE_FUNCTION(echo, 1, hlstring);
 GENERATE_FUNCTION(getSizePrefixedBuffer, 2, hlvecbytes, hlint);
+GENERATE_FUNCTION(spin, 0);
 
 void HyperlightMain()
 {
@@ -261,4 +270,5 @@ void HyperlightMain()
     RegisterFunction(FUNCTIONDETAILS("SetByteArrayToZero", setByteArrayToZero));
     RegisterFunction(FUNCTIONDETAILS("Echo", echo));
     RegisterFunction(FUNCTIONDETAILS("GetSizePrefixedBuffer", getSizePrefixedBuffer));
+    RegisterFunction(FUNCTIONDETAILS("Spin", spin));
 }

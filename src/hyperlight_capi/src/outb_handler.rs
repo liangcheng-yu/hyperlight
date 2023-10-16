@@ -1,7 +1,7 @@
 use crate::{context::Context, handle::Handle, hdl::Hdl};
-use anyhow::Result;
 use hyperlight_host::hypervisor::handlers::OutBHandlerCaller;
-
+use hyperlight_host::new_error;
+use hyperlight_host::Result;
 /// A FFI-friendly implementation of a `OutBHandler`. This type stores
 /// a standard C function pointer -- an `extern "C" fn(u16, u64)` -- and
 /// implements the `OutBHandler`'s `call` method by simply calling the
@@ -12,7 +12,7 @@ pub(crate) struct OutBHandlerWrapper {
 }
 
 impl OutBHandlerCaller for OutBHandlerWrapper {
-    fn call(&mut self, port: u16, payload: u64) -> anyhow::Result<()> {
+    fn call(&mut self, port: u16, payload: u64) -> Result<()> {
         (self.func)(port, payload);
         Ok(())
     }
@@ -60,7 +60,7 @@ pub unsafe extern "C" fn outb_fn_handler_create(
     let ptr = match cb_ptr {
         Some(ptr) => ptr,
         None => {
-            let err = anyhow::Error::msg("invalid outb handler callback");
+            let err = new_error!("invalid outb handler callback");
             return (*ctx).register_err(err);
         }
     };

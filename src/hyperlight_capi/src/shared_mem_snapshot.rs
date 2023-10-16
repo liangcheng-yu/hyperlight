@@ -1,10 +1,10 @@
 use super::{context::Context, handle::Handle, hdl::Hdl};
 use crate::validate_context;
-use anyhow::Result;
 use hyperlight_host::mem::shared_mem_snapshot::SharedMemorySnapshot;
+use hyperlight_host::Result;
 
 mod impls {
-    use anyhow::Result;
+    use hyperlight_host::Result;
 
     use crate::{context::Context, handle::Handle, hdl::Hdl, shared_mem::get_shared_memory};
     use hyperlight_host::mem::shared_mem_snapshot::SharedMemorySnapshot;

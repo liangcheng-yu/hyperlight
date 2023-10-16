@@ -1,4 +1,6 @@
 use super::FunctionsMap;
+use crate::HyperlightError::HostFunctionNotFound;
+use crate::Result;
 use crate::{
     func::{
         host::function_definition::HostFunctionDefinition,
@@ -8,7 +10,6 @@ use crate::{
     },
     mem::mgr::SandboxMemoryManager,
 };
-use anyhow::{anyhow, Result};
 use is_terminal::IsTerminal;
 use std::io::stdout;
 use std::io::Write;
@@ -96,13 +97,13 @@ fn call_host_func_impl(
 ) -> Result<ReturnValue> {
     let func = host_funcs
         .get(name)
-        .ok_or_else(|| anyhow!("Host function {} not found", name))?;
+        .ok_or_else(|| HostFunctionNotFound(name.to_string()))?;
 
     func.call(args)
 }
 
 /// The default writer function is to write to stdout with green text.
-pub fn default_writer_func(s: String) -> Result<i32> {
+pub(super) fn default_writer_func(s: String) -> Result<i32> {
     match stdout().is_terminal() {
         false => {
             print!("{}", s);
