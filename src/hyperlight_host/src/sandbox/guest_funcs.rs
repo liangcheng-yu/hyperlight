@@ -120,6 +120,7 @@ mod tests {
                 GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
                 None,
                 None,
+                None,
             )
             .unwrap()
         };
@@ -213,6 +214,7 @@ mod tests {
             // ^^^ for now, we're using defaults. In the future, we should get variability here.
             None,
             // ^^^  None == RUN_IN_HYPERVISOR && one-shot Sandbox
+            None,
         )?;
 
         let msg = "Hello, World!!\n".to_string();
@@ -247,6 +249,7 @@ mod tests {
         }
         let usbox = UninitializedSandbox::new(
             GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
+            None,
             None,
             None,
         )?;
@@ -294,6 +297,7 @@ mod tests {
         }
         let mut usbox = UninitializedSandbox::new(
             GuestBinary::FilePath(callback_guest_path().expect("Guest Binary Missing")),
+            None,
             None,
             None,
         )?;

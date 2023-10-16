@@ -36,14 +36,14 @@ MunitResult test_is_hypervisor_present(const MunitParameter params[], void *fixt
 #endif
 }
 
-void host_print(const char *str)
+int host_print(const char *str)
 {
     munit_assert_string_equal(str, "Hello, world!");
+    return 0;
 }
 
 MunitResult test_host_print(const MunitParameter params[], void *fixture)
 {
-#ifdef __linux__
     Context *ctx = context_new("test correlation id");
     SandboxConfiguration cfg = {
         .guest_error_buffer_size = 4096,
@@ -58,14 +58,13 @@ MunitResult test_host_print(const MunitParameter params[], void *fixture)
 #endif
     handle_assert_no_error(ctx, binary);
 
-    Handle sbx = sandbox_new(ctx, binary, cfg, 0, host_print);
+    Handle sbx = sandbox_new(ctx, binary, cfg, 0,host_print);
     handle_assert_no_error(ctx, sbx);
-
+   
     sandbox_call_host_print(ctx, sbx, "Hello, world!");
 
     handle_free(ctx, binary);
     handle_free(ctx, sbx);
     context_free(ctx);
-#endif
     return MUNIT_OK;
 }

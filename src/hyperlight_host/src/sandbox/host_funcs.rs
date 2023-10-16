@@ -103,7 +103,7 @@ fn call_host_func_impl(
 }
 
 /// The default writer function is to write to stdout with green text.
-pub fn default_writer_func(s: String) -> Result<i32> {
+pub(super) fn default_writer_func(s: String) -> Result<i32> {
     match stdout().is_terminal() {
         false => {
             print!("{}", s);

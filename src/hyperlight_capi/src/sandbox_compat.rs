@@ -21,16 +21,20 @@ pub(crate) struct Sandbox {
     /// be a `MultiUseSandbox` or a `SingleUseSandbox`.
     should_recycle: bool,
     inner: SandboxImpls,
+    // This is intentional to make sure the closure if not dropped until the Sandbox is dropped
+    _callback_writer_func: Option<Box<dyn Fn(String) -> Result<i32>>>,
 }
 
 impl Sandbox {
     pub(super) fn from_uninit(
         should_recycle: bool,
         u_sbox: hyperlight_host::sandbox::uninitialized::UninitializedSandbox<'static>,
+        callback_writer_func: Option<Box<dyn Fn(String) -> Result<i32>>>,
     ) -> Self {
         Self {
             should_recycle,
             inner: SandboxImpls::Uninit(Box::new(u_sbox)),
+            _callback_writer_func: callback_writer_func,
         }
     }
 
@@ -116,24 +120,6 @@ impl Sandbox {
             SandboxImpls::Uninit(sbox) => sbox.check_stack_guard(),
             SandboxImpls::InitSingleUse(sbox) => sbox.check_stack_guard(),
             SandboxImpls::InitMultiUse(sbox) => sbox.check_stack_guard(),
-        }
-    }
-}
-
-impl From<hyperlight_host::SingleUseSandbox<'static>> for Sandbox {
-    fn from(value: hyperlight_host::SingleUseSandbox<'static>) -> Self {
-        Sandbox {
-            should_recycle: false,
-            inner: SandboxImpls::InitSingleUse(Box::new(value)),
-        }
-    }
-}
-
-impl From<hyperlight_host::MultiUseSandbox<'static>> for Sandbox {
-    fn from(value: hyperlight_host::MultiUseSandbox<'static>) -> Self {
-        Sandbox {
-            should_recycle: true,
-            inner: SandboxImpls::InitMultiUse(Box::new(value)),
         }
     }
 }

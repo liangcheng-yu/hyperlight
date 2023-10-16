@@ -199,6 +199,7 @@ mod tests {
                 GuestBinary::FilePath(guest_bin_path.clone()),
                 None,
                 None,
+                None,
             )
             .unwrap();
             evolve_impl_multi_use(u_sbox, None).unwrap();
@@ -216,6 +217,7 @@ mod tests {
                 GuestBinary::FilePath(guest_bin_path.clone()),
                 None,
                 Some(SandboxRunOptions::RunInHypervisor),
+                None,
             )
             .unwrap();
             let err = format!("error evolving sandbox with guest binary {guest_bin_path}");

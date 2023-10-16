@@ -654,7 +654,7 @@ pub(crate) mod tests {
         }
 
         let mut sandbox =
-            UninitializedSandbox::new(GuestBinary::FilePath(filename.clone()), None, None)?;
+            UninitializedSandbox::new(GuestBinary::FilePath(filename.clone()), None, None, None)?;
         let mem_mgr = {
             let wrapper = sandbox.get_mem_mgr_wrapper_mut();
             wrapper.as_mut()

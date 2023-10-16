@@ -58,3 +58,5 @@ impl<'a> HyperlightFunction<'a> {
 pub use exports::get_stack_boundary;
 /// Re-export for `HostFunction0` trait
 pub use host::HostFunction0;
+/// Re-export for `HostFunction1` trait
+pub use host::HostFunction1;
