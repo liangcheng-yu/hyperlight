@@ -12,7 +12,7 @@ fn main() -> Result<()> {
     #[cfg(target_os = "windows")]
     {
         println!("cargo:rerun-if-changed=src/hyperlight_host/src/hyperlight_surrogate/**");
-        
+
         // Build hyperlight_surrogate and
         // Set $HYPERLIGHT_SURROGATE_DIR env var during rust build so we can
         // use it with RustEmbed to specify where hyperlight_surrogate.exe is
@@ -41,11 +41,11 @@ fn main() -> Result<()> {
         let target_dir = std::path::PathBuf::from(&out_dir).join("..\\..\\hls");
 
         let profile = std::env::var("PROFILE")?;
-        // we need to pass 'dev' as the profile when compiling debug assets in rust...
-        let mut build_profile = profile.clone();
-        if build_profile.to_lowercase() == "debug" {
-            build_profile = "dev".to_string();
-        }
+        let build_profile = if profile.to_lowercase() == "debug" {
+            "dev".to_string()
+        } else {
+            profile.clone()
+        };
 
         std::process::Command::new("cargo")
             .env("CARGO_TARGET_DIR", &target_dir)
