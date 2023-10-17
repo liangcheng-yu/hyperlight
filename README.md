@@ -36,15 +36,15 @@ This repo contains Hyperlight along with a couple of sample guest applications t
 
 ### HyperlightSurrogate
 
-HyperlightSurrogate.exe is a tiny application that is needed in order to create multiple partitions per process when the host runs on Windows with the Windows Hypervisor Platform (WHP, e-g Hyper-V). This binary does nothing and its purpose is to provide a host for memory that will be mapped into partitions via the `WHvMapGpaRange2` Windows API which gets passed a handle to a process.
+hyperlight_surrogate.exe is a tiny rust application that is needed in order to create multiple partitions per process when the host runs on Windows with the Windows Hypervisor Platform (WHP, e-g Hyper-V). This binary does nothing and its purpose is to provide a host for memory that will be mapped into partitions via the `WHvMapGpaRange2` Windows API which gets passed a handle to a process.
 
 > Note: The use of surrogates is a temporary workaround on Windows until WHP allows us to create more than one partition per running process.
 
 These surrogate processes are managed by the host via the [surrogate_process_manager](./src/hyperlight_host/src/hypervisor/surrogate_process_manager.rs) which will launch several of these surrogates (up to the 512), assign memory to them, then launch partitions from there, and reuse them as necessary.
 
-HyperlightSurrogate.exe gets embded into the `hyperlight_host` rust library for Windows and is extracted at runtime next to the executable when the surrogate process manager is initialized.
-This means that `hyperlight_host` has a build dependency on the HyperlightSurrogate.exe which is not built in rust.
+hyperlight_surrogate.exe gets built during `hyperlight_host`'s build script, gets embedded into the `hyperlight_host` rust library via [rust-embed](https://crates.io/crates/rust-embed), and is extracted at runtime next to the executable when the surrogate process manager is initialized.
 
+Initially HyperlightSurrogate.exe was written in C and performed the same function as the Rust version and this version is still referenced in the .NET solution.
 To build HyperlightSurrogate.exe run the following from a [Visual Studio Command Prompt](https://docs.microsoft.com/en-us/visualstudio/ide/reference/command-prompt-powershell?view=vs-2022)
 
 ```cmd
