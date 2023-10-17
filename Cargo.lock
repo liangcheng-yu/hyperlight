@@ -679,6 +679,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "hyperlight_guest_rs"
+version = "0.1.0"
+dependencies = [
+ "flatbuffers",
+]
+
+[[package]]
 name = "hyperlight_host"
 version = "0.1.0"
 dependencies = [

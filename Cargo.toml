@@ -3,4 +3,5 @@ members = [
     "src/hyperlight_capi",
     "src/hyperlight_host",
     "src/hyperlight_testing",
+    "src/hyperlight_guest_rs",
 ]
