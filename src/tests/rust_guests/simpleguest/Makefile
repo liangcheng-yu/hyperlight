@@ -18,7 +18,13 @@ link-windows:
 	@echo "Linking simpleguest"
 	@link.exe /NOLOGO /NXCOMPAT /SAFESEH:NO /RELEASE /ENTRY:"entryPoint" /SUBSYSTEM:NATIVE .\target\x86_64-pc-windows-msvc\release\libsimpleguest.rlib /LIBPATH:"..\..\..\..\x64\debug" /OUT:"..\..\Guests\simpleguest\x64\debug\simpleguest_new.exe" /ERRORREPORT:NONE /ALIGN:512 /NODEFAULTLIB /HEAP:"131072,131072" /DYNAMICBASE "HyperlightGuest.lib" /STACK:"65536,65536" /MACHINE:X64
 
-.PHONY: update
-update:
+.PHONY: update-linux
+update-linux:
 	@echo "Updating simpleguest binary"
 	@mv ../../Guests/simpleguest/x64/debug/simpleguest_new.exe ../../Hyperlight.Tests/bin/debug/net6.0/simpleguest.exe
+
+.PHONY: update-windows
+update-windows:
+	@echo "Updating simpleguest binary"
+	@del /F /Q ..\..\Hyperlight.Tests\bin\debug\net6.0\simpleguest.exe
+	@move /Y ..\..\Guests\simpleguest\x64\debug\simpleguest_new.exe ..\..\Hyperlight.Tests\bin\debug\net6.0\simpleguest.exe
