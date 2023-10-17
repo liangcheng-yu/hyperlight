@@ -1,3 +1,9 @@
+use super::types::ReturnType;
+
+use crate::error::HyperlightError::{
+    self, InvalidFlatBuffer, InvalidFunctionCallType, VectorCapacityInCorrect,
+};
+
 use crate::flatbuffers::hyperlight::generated::{
     hlbool, hlboolArgs, hlint, hlintArgs, hllong, hllongArgs, hlstring, hlstringArgs, hlvecbytes,
     hlvecbytesArgs, size_prefixed_root_as_function_call, FunctionCall as FbFunctionCall,
@@ -5,14 +11,12 @@ use crate::flatbuffers::hyperlight::generated::{
     ParameterArgs, ParameterValue as FbParameterValue,
 };
 use crate::func::types::ParameterValue;
+use crate::log_then_return;
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::shared_mem::SharedMemory;
-use anyhow::{anyhow, Result};
+use crate::Result;
 use flatbuffers::WIPOffset;
 use std::convert::{TryFrom, TryInto};
-
-use super::types::ReturnType;
-
 /// `Functioncall` represents a call to a function in the guest or host.
 #[derive(Clone)]
 pub struct FunctionCall {
@@ -54,16 +58,16 @@ pub(crate) enum FunctionCallType {
 }
 
 impl TryFrom<&[u8]> for FunctionCall {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: &[u8]) -> Result<Self> {
         let function_call_fb =
-            size_prefixed_root_as_function_call(value).map_err(|e| anyhow!(e))?;
+            size_prefixed_root_as_function_call(value).map_err(InvalidFlatBuffer)?;
         let function_name = function_call_fb.function_name();
         let function_call_type = match function_call_fb.function_call_type() {
             FbFunctionCallType::guest => FunctionCallType::Guest,
             FbFunctionCallType::host => FunctionCallType::Host,
-            _ => {
-                anyhow::bail!("Unknown function call type");
+            other => {
+                log_then_return!(InvalidFunctionCallType(other));
             }
         };
         let expected_return_type = function_call_fb.expected_return_type().try_into()?;
@@ -72,10 +76,7 @@ impl TryFrom<&[u8]> for FunctionCall {
             .parameters()
             .map(|v| {
                 v.iter()
-                    .map(|p| {
-                        p.try_into()
-                            .map_err(|e| anyhow!("Failed to convert parameter: {}", e))
-                    })
+                    .map(|p| p.try_into())
                     .collect::<Result<Vec<ParameterValue>>>()
             })
             .transpose()?;
@@ -90,7 +91,7 @@ impl TryFrom<&[u8]> for FunctionCall {
 }
 
 impl TryFrom<FunctionCall> for Vec<u8> {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: FunctionCall) -> Result<Vec<u8>> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
         let function_name = builder.create_string(&value.function_name);
@@ -206,7 +207,7 @@ impl TryFrom<FunctionCall> for Vec<u8> {
 
         let length = unsafe { flatbuffers::read_scalar::<i32>(&res[..4]) };
         if res.capacity() != res.len() || res.capacity() != length as usize + 4 {
-            anyhow::bail!("The capacity of the vector is for FunctionCall is incorrect");
+            log_then_return!(VectorCapacityInCorrect(res.capacity(), res.len(), length));
         }
 
         Ok(res)
@@ -229,11 +230,11 @@ pub(crate) trait ReadFunctionCallFromMemory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Result;
     use crate::{
         func::types::ReturnType,
         testing::{get_guest_function_call_test_data, get_host_function_call_test_data},
     };
-    use anyhow::Result;
 
     #[test]
     fn read_from_flatbuffer() -> Result<()> {

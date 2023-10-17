@@ -6,14 +6,15 @@ use super::mem_access_handler::MemAccessHandlerWrapper;
 use super::outb_handler::get_outb_handler_func;
 use crate::validate_context;
 use crate::{c_func::CFunc, outb_handler::OutBHandlerWrapper};
-use anyhow::Result;
 use hyperlight_host::hypervisor::hyperv_linux::{is_hypervisor_present, HypervLinuxDriver};
 use hyperlight_host::hypervisor::hypervisor_mem::HypervisorAddrs;
 use hyperlight_host::hypervisor::Hypervisor;
 use hyperlight_host::mem::ptr::{GuestPtr, RawPtr};
+use hyperlight_host::Result;
 use mshv_bindings::hv_register_name_HV_X64_REGISTER_RSP;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::Duration;
 
 fn get_driver_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut HypervLinuxDriver> {
     Context::get_mut(hdl, &mut ctx.hyperv_linux_drivers, |h| {
@@ -191,6 +192,9 @@ pub unsafe extern "C" fn hyperv_linux_initialise(
         page_size,
         Arc::new(Mutex::new(outb_func)),
         Arc::new(Mutex::new(mem_access_func)),
+        // These are set to the defaults in SandboxConfiguration, once we migrate the C# Sandbox to use the Rust Sandbox this API should be deleted so defaulting these for now should be fine
+        Duration::from_millis(1000),
+        Duration::from_millis(10),
     );
     match init_res {
         Ok(_) => Handle::new_empty(),
@@ -231,6 +235,9 @@ pub unsafe extern "C" fn hyperv_linux_execute_until_halt(
     match (*driver).execute_until_halt(
         Arc::new(Mutex::new(outb_func)),
         Arc::new(Mutex::new(mem_access_func)),
+        // These are set to the defaults in SandboxConfiguration, once we migrate the C# Sandbox to use the Rust Sandbox this API should be deleted so defaulting these for now should be fine
+        Duration::from_millis(1000),
+        Duration::from_millis(10),
     ) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
@@ -246,6 +253,7 @@ pub unsafe extern "C" fn hyperv_linux_execute_until_halt(
 /// - Created with `context_new`
 /// - Not yet freed with `context_free
 /// - Not modified, except by calling functions in the Hyperlight C API
+///
 #[no_mangle]
 pub unsafe extern "C" fn hyperv_linux_dispatch_call_from_host(
     ctx: *mut Context,
@@ -268,6 +276,9 @@ pub unsafe extern "C" fn hyperv_linux_dispatch_call_from_host(
         dispatch_func_addr.into(),
         Arc::new(Mutex::new(outb_func)),
         Arc::new(Mutex::new(mem_access_func)),
+        // These are set to the defaults in SandboxConfiguration, once we migrate the C# Sandbox to use the Rust Sandbox this API should be deleted so defaulting these for now should be fine
+        Duration::from_millis(1000),
+        Duration::from_millis(10),
     ) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),

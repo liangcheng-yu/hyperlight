@@ -1,4 +1,4 @@
-use anyhow::{Error, Result};
+use crate::Result;
 use goblin::pe::optional_header::OptionalHeader;
 use scroll::Pread;
 
@@ -87,7 +87,7 @@ impl<'a> Iterator for BaseRelocations<'a> {
 pub(crate) fn get_base_relocations(
     payload: &[u8],
     optional_header: OptionalHeader,
-) -> Result<Vec<BaseRelocation>, Error> {
+) -> Result<Vec<BaseRelocation>> {
     // Goblin doesn't implement retrieving base relocations (section relocations have a different format), so let's implement it here!
     // It would be nice to contribute this upstream later.
     // Go through each block in the relocations base table and parse the relocation entries

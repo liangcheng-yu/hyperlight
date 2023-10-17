@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use super::sandbox::Sandbox;
-use anyhow::Result;
+use crate::Result;
 
 /// Metadata about an evolution or devolution. Any `Sandbox` implementation
 /// that also implements `EvolvableSandbox` or `DevolvableSandbox`
@@ -87,7 +87,7 @@ impl<Cur: Sandbox, Next: Sandbox> TransitionMetadata<Cur, Next> for Noop<Cur, Ne
 /// other action, but the order in which this happens is completely up
 /// to the implementor.
 ///
-/// The `call` method returns an `anyhow::Result<()>`, which is intended
+/// The `call` method returns an `Result<()>`, which is intended
 /// to signal whether the callback was successful. Although the implementor of
 /// `EvolvableSandbox`/`DevolvableSandbox` will ultimately choose what to
 /// do in case of failure, it's recommended they fail the `evolve`/`devolve`
@@ -99,7 +99,7 @@ impl<Cur: Sandbox, Next: Sandbox> TransitionMetadata<Cur, Next> for Noop<Cur, Ne
 /// is a `Sandbox` implementation):
 ///
 /// ```ignore
-/// let my_cb_fn: dyn FnOnce(&mut MySandbox) -> anyhow::Result<()> = |_sbox| {
+/// let my_cb_fn: dyn FnOnce(&mut MySandbox) -> Result<()> = |_sbox| {
 ///     println!("hello world!");
 /// };
 /// let mutating_cb = MutatingCallback::from(my_cb_fn);
@@ -146,14 +146,22 @@ where
 mod tests {
     use super::{MutatingCallback, Noop};
     use crate::sandbox_state::sandbox::{DevolvableSandbox, EvolvableSandbox, Sandbox};
-    use anyhow::Result;
+    use crate::Result;
 
     #[derive(Debug, Eq, PartialEq, Clone)]
     struct MySandbox1 {}
     #[derive(Debug, Eq, PartialEq, Clone)]
     struct MySandbox2 {}
-    impl Sandbox for MySandbox1 {}
-    impl Sandbox for MySandbox2 {}
+    impl Sandbox for MySandbox1 {
+        fn check_stack_guard(&self) -> Result<bool> {
+            Ok(true)
+        }
+    }
+    impl Sandbox for MySandbox2 {
+        fn check_stack_guard(&self) -> Result<bool> {
+            Ok(true)
+        }
+    }
 
     impl EvolvableSandbox<MySandbox1, MySandbox2, Noop<MySandbox1, MySandbox2>> for MySandbox1 {
         fn evolve(self, _: Noop<MySandbox1, MySandbox2>) -> Result<MySandbox2> {

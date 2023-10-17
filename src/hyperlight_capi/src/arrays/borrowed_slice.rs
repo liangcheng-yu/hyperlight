@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use hyperlight_host::{log_then_return, Result};
 use std::panic::catch_unwind;
 
 /// Borrow the memory in the range
@@ -84,10 +84,12 @@ where
 {
     match catch_unwind(|| std::slice::from_raw_parts_mut(ptr, len)) {
         Ok(slc) => run(slc),
-        Err(e) => bail!(
-            "borrow_ptr_as_slice_mut: panic converting (ptr, len) to slice ({:?})",
-            e
-        ),
+        Err(e) => {
+            log_then_return!(
+                "borrow_ptr_as_slice_mut: panic converting (ptr, len) to slice ({:?})",
+                e
+            );
+        }
     }
 }
 
@@ -109,10 +111,12 @@ where
 {
     match catch_unwind(|| std::slice::from_raw_parts(ptr, len)) {
         Ok(slc) => run(slc),
-        Err(e) => bail!(
-            "borrow_ptr_as_slice: panic converting (ptr, len) to slice ({:?})",
-            e
-        ),
+        Err(e) => {
+            log_then_return!(
+                "borrow_ptr_as_slice: panic converting (ptr, len) to slice ({:?})",
+                e
+            );
+        }
     }
 }
 

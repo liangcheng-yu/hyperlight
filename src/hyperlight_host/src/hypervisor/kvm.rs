@@ -1,25 +1,27 @@
 use super::{
     handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
-    Hypervisor, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT,
-    CR4_PAE, EFER_LMA, EFER_LME,
+    HyperlightExit, Hypervisor, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR,
+    CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
 };
 use crate::mem::{layout::SandboxMemoryLayout, ptr::RawPtr};
-use anyhow::{anyhow, bail, Result};
+use crate::Result;
+use crate::{log_then_return, new_error};
 use kvm_bindings::{kvm_segment, kvm_userspace_memory_region};
 use kvm_ioctls::{Cap::UserMemory, Kvm, VcpuExit, VcpuFd, VmFd};
+use std::{any::Any, convert::TryFrom, time::Duration};
 
 /// Return `Ok(())` if the KVM API is available, or `Err` otherwise
 pub fn is_hypervisor_present() -> Result<()> {
     let kvm = Kvm::new()?;
     let ver = kvm.get_api_version();
     if -1 == ver {
-        bail!("KVM_GET_API_VERSION returned -1");
+        log_then_return!("KVM_GET_API_VERSION returned -1");
     } else if ver != 12 {
-        bail!("KVM_GET_API_VERSION returned {}, expected 12", ver);
+        log_then_return!("KVM_GET_API_VERSION returned {}, expected 12", ver);
     }
     let cap_user_mem = kvm.check_extension(UserMemory);
     if !cap_user_mem {
-        bail!("KVM_CAP_USER_MEMORY not supported");
+        log_then_return!("KVM_CAP_USER_MEMORY not supported");
     }
     Ok(())
 }
@@ -53,7 +55,9 @@ impl KVMDriver {
     ) -> Result<Self> {
         match is_hypervisor_present() {
             Ok(_) => (),
-            Err(e) => bail!(e),
+            Err(e) => {
+                log_then_return!(e);
+            }
         };
         let kvm = Kvm::new()?;
 
@@ -163,81 +167,33 @@ impl KVMDriver {
             Self::set_sreg_segment(&mut sregs.ss, SS_TYPE, SS_SELECTOR);
         }
 
-        vcpu_fd
-            .set_sregs(&sregs)
-            .map_err(|e| anyhow!("failed to set segment registers: {:?}", e))
-    }
-
-    fn handle_io(&self, port: u16, data: &[u8], outb_handle_fn: OutBHandlerWrapper) -> Result<()> {
-        let mut regs = self.vcpu_fd.get_regs()?;
-        let orig_rip = regs.rip;
-
-        // the payload param for the outb_handle_fn is the the first byte
-        // of the data array, casted to a u64. thus, we need to make sure
-        // the data array has at least one u8, then convert that to a u64
-        if data.is_empty() {
-            bail!("no data was given in IO interrupt");
-        } else {
-            let payload_u64 = u64::from(data[0]);
-            outb_handle_fn
-                .lock()
-                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-                .call(port, payload_u64)?;
-        }
-
-        //TODO: +1 may be a hack, but it works for now, need to figure out
-        // how to get the instruction length.
-        regs.rip = orig_rip + 1;
-        self.vcpu_fd.set_regs(&regs)?;
-        Ok(())
+        Ok(vcpu_fd.set_sregs(&sregs)?)
     }
 }
 
 impl Hypervisor for KVMDriver {
+    fn as_mut_hypervisor(&mut self) -> &mut dyn Hypervisor {
+        self as &mut dyn Hypervisor
+    }
+
     fn dispatch_call_from_host(
         &mut self,
         dispatch_func_addr: RawPtr,
         outb_handle_fn: OutBHandlerWrapper,
         mem_access_fn: MemAccessHandlerWrapper,
+        max_execution_time: Duration,
+        max_wait_for_cancellation: Duration,
     ) -> Result<()> {
         // Move rip to the DispatchFunction pointer
         let mut regs = self.vcpu_fd.get_regs()?;
         regs.rip = dispatch_func_addr.into();
         self.vcpu_fd.set_regs(&regs)?;
-        self.execute_until_halt(outb_handle_fn, mem_access_fn)
-    }
-
-    fn execute_until_halt(
-        &mut self,
-        outb_hdl: OutBHandlerWrapper,
-        mem_access_hdl: MemAccessHandlerWrapper,
-    ) -> Result<()> {
-        loop {
-            let run_res = self.vcpu_fd.run()?;
-            match run_res {
-                VcpuExit::Hlt => {
-                    return Ok(());
-                }
-                VcpuExit::IoOut(port, data) => self.handle_io(port, data, outb_hdl.clone())?,
-                VcpuExit::MmioRead(addr, data) => {
-                    mem_access_hdl
-                        .lock()
-                        .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-                        .call()?;
-                    bail!("MMIO read address {:#x}, data {:?}", addr, data);
-                }
-                VcpuExit::MmioWrite(addr, data) => {
-                    mem_access_hdl
-                        .lock()
-                        .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-                        .call()?;
-                    bail!("MMIO write address 0x{:x}, data {:?}", addr, data);
-                }
-                other => {
-                    bail!("Unexpected KVM message {:?}", other)
-                }
-            }
-        }
+        self.execute_until_halt(
+            outb_handle_fn,
+            mem_access_fn,
+            max_execution_time,
+            max_wait_for_cancellation,
+        )
     }
 
     /// Implementation of initialise for Hypervisor trait.
@@ -251,6 +207,8 @@ impl Hypervisor for KVMDriver {
         page_size: u32,
         outb_hdl: OutBHandlerWrapper,
         mem_access_hdl: MemAccessHandlerWrapper,
+        max_execution_time: Duration,
+        max_wait_for_cancellation: Duration,
     ) -> Result<()> {
         let mut regs = self.vcpu_fd.get_regs()?;
         regs.rip = self.entrypoint;
@@ -260,22 +218,81 @@ impl Hypervisor for KVMDriver {
         regs.rcx = peb_addr.into();
         regs.rflags = 0x2;
         self.vcpu_fd.set_regs(&regs)?;
-        self.execute_until_halt(outb_hdl.clone(), mem_access_hdl.clone())
+        self.execute_until_halt(
+            outb_hdl.clone(),
+            mem_access_hdl.clone(),
+            max_execution_time,
+            max_wait_for_cancellation,
+        )
     }
 
     fn reset_rsp(&mut self, rsp: u64) -> Result<()> {
         let mut regs = self.vcpu_fd.get_regs()?;
         regs.rsp = rsp;
-        self.vcpu_fd.set_regs(&regs).map_err(|e| {
-            anyhow!(
-                "reset_rsp: error setting new registers on KVM vCPU: {:?}",
-                e
-            )
-        })
+        Ok(self.vcpu_fd.set_regs(&regs)?)
     }
 
     fn orig_rsp(&self) -> Result<u64> {
         Ok(self.rsp)
+    }
+
+    fn run(&mut self) -> Result<HyperlightExit> {
+        let result = match self.vcpu_fd.run() {
+            Ok(VcpuExit::Hlt) => HyperlightExit::Halt(),
+            Ok(VcpuExit::IoOut(port, data)) => {
+                let regs = self.vcpu_fd.get_regs()?;
+                let rip = regs.rip;
+                //TODO: 1 may be a hack, but it works for now, need to figure out
+                // how to get the instruction length.
+                let instruction_length = 1;
+
+                HyperlightExit::IoOut(port, data.to_vec(), rip, instruction_length)
+            }
+            Ok(VcpuExit::MmioRead(addr, _)) => HyperlightExit::Mmio(addr),
+            Ok(VcpuExit::MmioWrite(addr, _)) => HyperlightExit::Mmio(addr),
+            Err(e) => match e.errno() {
+                // we send a signal to the thread to cancel execution this results in EINTR being returned by KVM so we return Cancelled
+                libc::EINTR => HyperlightExit::Cancelled(),
+                libc::EAGAIN => HyperlightExit::Retry(),
+                _ => {
+                    log_then_return!("Error running VCPU {:?}", e);
+                }
+            },
+            Ok(other) => HyperlightExit::Unknown(format!("Unexpected KVM Exit {:?}", other)),
+        };
+        Ok(result)
+    }
+
+    fn handle_io(
+        &mut self,
+        port: u16,
+        data: Vec<u8>,
+        rip: u64,
+        instruction_length: u64,
+        outb_handle_fn: OutBHandlerWrapper,
+    ) -> Result<()> {
+        let mut regs = self.vcpu_fd.get_regs()?;
+
+        // the payload param for the outb_handle_fn is the the first byte
+        // of the data array, casted to a u64. thus, we need to make sure
+        // the data array has at least one u8, then convert that to a u64
+        if data.is_empty() {
+            log_then_return!("no data was given in IO interrupt");
+        } else {
+            let payload_u64 = u64::from(data[0]);
+            outb_handle_fn
+                .lock()
+                .map_err(|e| new_error!("Error Locking {}", e))?
+                .call(port, payload_u64)?;
+        }
+
+        regs.rip = rip + instruction_length;
+        self.vcpu_fd.set_regs(&regs)?;
+        Ok(())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -335,6 +352,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use super::KVMDriver;
+    use crate::Result;
     use crate::{
         hypervisor::{
             handlers::{MemAccessHandler, OutBHandler},
@@ -346,7 +364,6 @@ mod tests {
         mem::{layout::SandboxMemoryLayout, ptr::GuestPtr},
         should_run_kvm_linux_test,
     };
-    use anyhow::Result;
 
     #[test]
     fn test_init() {

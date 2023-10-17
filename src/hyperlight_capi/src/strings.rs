@@ -2,8 +2,8 @@ use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::validate_context_or_panic;
-use anyhow::Result;
-use std::ffi::{CStr, CString, NulError};
+use hyperlight_host::Result;
+use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::string::String;
 
@@ -42,8 +42,8 @@ pub unsafe fn to_string(c_string: RawCString) -> String {
 /// - If this function returns `Ok(cstr)`, you must not
 /// modify `cstr` at all. If you do so, `free_c_string` may
 /// not work properly.
-pub(crate) fn to_c_string<T: Into<Vec<u8>>>(string: T) -> Result<RawCString, NulError> {
-    CString::new(string).map(|s| s.into_raw() as RawCString)
+pub(crate) fn to_c_string<T: Into<Vec<u8>>>(string: T) -> Result<RawCString> {
+    Ok(CString::new(string).map(|s| s.into_raw() as RawCString)?)
 }
 
 /// Get the string value of the given `Handle`, or `NULL` if

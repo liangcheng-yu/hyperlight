@@ -62,6 +62,9 @@ pub mod bool;
 pub mod byte_array;
 /// Wrapper utility for creating efficient and correct FFI functions
 pub(crate) mod c_func;
+/// C-compatible API functions to get basic information about
+/// configuration
+pub mod config;
 /// C-compatible API functions to manage `Context` objects, which
 /// are used as a specialized memory store for the Hyperlight C API.
 pub mod context;
@@ -103,9 +106,6 @@ pub mod kvm;
 /// C-compatible API functions for manipulating memory access
 /// handler callback functions
 pub mod mem_access_handler;
-/// C-compatible API functions to get basic information about
-/// memory configuration
-pub mod mem_cfg;
 /// C-compatible API functions to manage `SandboxMemoryLayout`
 /// structures.
 pub mod mem_layout;
@@ -120,6 +120,9 @@ pub mod sandbox;
 /// C-compatible types and functionality for wrapping the rust-native
 /// `*Sandbox` types
 pub mod sandbox_compat;
+/// Options for creating types of sandboxes via the Hyperilght C API
+/// (e.g. reusable, in-process, etc...)
+pub mod sandbox_run_options;
 /// C-compatible API functions to manage guest / shared memory.
 pub mod shared_mem;
 /// C-compatible API functions to manage guest memory snapshots

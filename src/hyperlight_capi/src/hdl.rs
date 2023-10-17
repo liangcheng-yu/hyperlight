@@ -1,10 +1,10 @@
 use super::handle::{Handle, Key, TypeID, EMPTY_KEY, INVALID_KEY, NULL_CONTEXT_KEY};
-use anyhow::bail;
+use hyperlight_host::{log_then_return, HyperlightError, Result};
 
 /// The type-safe adapter to `Handle`
 #[derive(Eq, Clone, PartialEq, Debug)]
 pub(crate) enum Hdl {
-    /// A reference to an `anyhow::Error`
+    /// A reference to an `HyperlightError`
     Err(Key),
     /// A reference to a `bool`
     Boolean(Key),
@@ -183,11 +183,11 @@ impl std::fmt::Display for Hdl {
 }
 
 impl std::convert::TryFrom<Handle> for Hdl {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
 
     /// Create an instance of `Self` from `hdl` if `hdl` represents
     /// a valid `Handle`.
-    fn try_from(hdl: Handle) -> anyhow::Result<Self> {
+    fn try_from(hdl: Handle) -> Result<Self> {
         let key = hdl.key();
         match hdl.type_id() {
             Self::ERROR_TYPE_ID => Ok(Hdl::Err(key)),
@@ -214,7 +214,9 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::HOST_FUNCTION_CALL_TYPE_ID => Ok(Hdl::HostFunctionCall(key)),
             Self::RETURN_VALUE_TYPE_ID => Ok(Hdl::ReturnValue(key)),
             Self::GUEST_LOG_DATA_TYPE_ID => Ok(Hdl::GuestLogData(key)),
-            _ => bail!("invalid handle type {}", hdl.type_id()),
+            _ => {
+                log_then_return!("invalid handle type {}", hdl.type_id());
+            }
         }
     }
 }
@@ -223,7 +225,7 @@ impl std::convert::TryFrom<Handle> for Hdl {
 mod tests {
     use super::super::handle::{new_key, Handle};
     use super::Hdl;
-    use anyhow::Result;
+    use hyperlight_host::Result;
 
     #[test]
     fn handle_type_id() -> Result<()> {

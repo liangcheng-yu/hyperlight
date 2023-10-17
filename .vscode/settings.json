@@ -1,6 +1,5 @@
 {
   "files.associations": {
-    "hyperlight_host.h": "c",
     "strings.h": "c",
     "stdbool.h": "c",
     "stdio.h": "c",

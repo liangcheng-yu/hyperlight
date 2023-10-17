@@ -1,5 +1,5 @@
 use super::hyperv_windows::WhvRegisterNameWrapper;
-use anyhow::Result;
+use crate::Result;
 use core::ffi::c_void;
 use std::collections::HashMap;
 use tracing::instrument;
@@ -101,7 +101,7 @@ impl VMProcessor {
         Ok(Self(part))
     }
 
-    fn get_partition_hdl(&self) -> WHV_PARTITION_HANDLE {
+    pub(super) fn get_partition_hdl(&self) -> WHV_PARTITION_HANDLE {
         let part = &self.0;
         part.0
     }

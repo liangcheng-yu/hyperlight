@@ -1,16 +1,15 @@
 use std::sync::{Arc, Mutex};
 
+use super::{host_funcs::HostFuncsWrapper, mem_mgr::MemMgrWrapper};
+use crate::Result;
 use crate::{
     func::{guest::log_data::GuestLogData, types::ParameterValue},
     hypervisor::handlers::{OutBHandlerFunction, OutBHandlerWrapper},
 };
 use crate::{hypervisor::handlers::OutBHandler, mem::mgr::SandboxMemoryManager};
-use anyhow::Result;
 use log::{warn, Level, Record};
 use tracing::instrument;
 use tracing_log::format_trace;
-
-use super::{host_funcs::HostFuncsWrapper, mem_mgr::MemMgrWrapper};
 
 pub(super) enum OutBAction {
     Log,
@@ -104,10 +103,7 @@ fn handle_outb_impl(
             let call = mem_mgr.as_ref().get_host_function_call()?;
             let name = call.function_name.clone();
             let args: Vec<ParameterValue> = call.parameters.unwrap_or(vec![]);
-            let res = host_funcs
-                .lock()
-                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-                .call_host_function(&name, args)?;
+            let res = host_funcs.lock()?.call_host_function(&name, args)?;
             mem_mgr
                 .as_mut()
                 .write_response_from_host_method_call(&res)?;
@@ -144,9 +140,9 @@ pub(super) fn outb_handler_wrapper<'a>(
 #[cfg(test)]
 mod tests {
     use super::outb_log;
-    use crate::mem::config::SandboxMemoryConfiguration;
+
     use crate::mem::mgr::SandboxMemoryManager;
-    use crate::sandbox::outb::GuestLogData;
+    use crate::sandbox::{outb::GuestLogData, SandboxConfiguration};
     use crate::testing::simple_guest_pe_info;
     use crate::testing::{logger::Logger, logger::LOGGER};
     use crate::{func::guest::log_level::LogLevel, testing::log_values::test_value_as_str};
@@ -172,7 +168,7 @@ mod tests {
         let new_mgr = || {
             let mut pe_info = simple_guest_pe_info().unwrap();
             SandboxMemoryManager::load_guest_binary_into_memory(
-                SandboxMemoryConfiguration::default(),
+                SandboxConfiguration::default(),
                 &mut pe_info,
                 false,
             )
@@ -264,7 +260,7 @@ mod tests {
             let new_mgr = || {
                 let mut pe_info = simple_guest_pe_info().unwrap();
                 SandboxMemoryManager::load_guest_binary_into_memory(
-                    SandboxMemoryConfiguration::default(),
+                    SandboxConfiguration::default(),
                     &mut pe_info,
                     false,
                 )

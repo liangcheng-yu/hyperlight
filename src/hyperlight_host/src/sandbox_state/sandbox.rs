@@ -1,5 +1,5 @@
 use super::transition::TransitionMetadata;
-use anyhow::Result;
+use crate::Result;
 use std::fmt::Debug;
 
 /// The minimal functionality of a Hyperlight sandbox. Most of the types
@@ -19,6 +19,14 @@ pub trait Sandbox: Sized + Debug {
     fn is_reusable(&self) -> bool {
         false
     }
+
+    /// Check to ensure the current stack cookie matches the one that
+    /// was selected when the stack was constructed.
+    ///
+    /// Return an `Err` if there was an error inspecting the stack, `Ok(false)`
+    /// if there was no such error but the stack guard doesn't match, and
+    /// `Ok(true)` in the same situation where the stack guard does match.
+    fn check_stack_guard(&self) -> Result<bool>;
 }
 
 /// A utility trait to recognize a Sandbox that has not yet been initialized.
@@ -31,48 +39,6 @@ pub trait UninitializedSandbox<'a>: Sandbox {
     fn is_running_in_process(&self) -> bool {
         self.get_uninitialized_sandbox().run_from_process_memory
     }
-}
-
-/// A utility trait to recognize a Sandbox that has been initialized.
-/// It allows retrieval of a strongly typed Sandbox.
-pub trait InitializedSandbox<'a>: Sandbox {
-    fn get_initialized_sandbox(&self) -> &crate::sandbox::Sandbox<'a>;
-
-    fn get_initialized_sandbox_mut(&mut self) -> &mut crate::sandbox::Sandbox<'a>;
-}
-
-/// A "final" sandbox implementation that has the following properties:
-///
-/// - Can execute guest code, potentially more than once
-/// - Can be devolved, but not evolved
-///
-/// These properties imply the following about `ReusablsSandbox`:
-///
-/// - Its `run` method borrows `&self` (rather than consuming it), so callers
-/// can run these sandboxes more than once.
-/// - It implements `DevolvableSandbox`, but not `EvolvableSandbox` so it
-/// can be evolved but not devolved
-pub trait ReusableSandbox: Sandbox {
-    fn is_reusable(&self) -> bool {
-        true
-    }
-
-    /// Borrow `self` and run this sandbox.
-    fn run(&self) -> Result<()>;
-}
-
-/// A fully-initialized sandbox that can run guest code or be devolved, but not
-/// both. Further, once either operation has occurred, the `OneShotSandbox`
-/// cannot be used again.
-pub trait OneShotSandbox: Sandbox {
-    fn is_reusable(&self) -> bool {
-        false
-    }
-
-    /// Consume `self` and run the sandbox.
-    ///
-    /// After this call, you can no longer use this `OneShotSandbox`
-    fn run(self) -> Result<()>;
 }
 
 /// A `Sandbox` that knows how to "evolve" into a next state.

@@ -58,6 +58,15 @@ uint8_t* callErrorMethod(const char* message)
     return sendMessagetoHostMethod("ErrorMethod", guestMessage, message);
 }
 
+// Calls a method n the host that should keep the CPU busy forever
+
+uint8_t* callHostSpin()
+{
+
+    native_symbol_thunk("Spin");
+    return GetFlatBufferResultFromVoid();
+}
+
 GENERATE_FUNCTION(printOutput, 1, hlstring);
 GENERATE_FUNCTION(guestFunction, 1, hlstring);
 GENERATE_FUNCTION(guestFunction1, 1, hlstring);
@@ -66,6 +75,7 @@ GENERATE_FUNCTION(guestFunction3, 1, hlstring);
 GENERATE_FUNCTION(guestFunction4, 0);
 GENERATE_FUNCTION(logMessage, 3, hlstring, hlstring, hlint);
 GENERATE_FUNCTION(callErrorMethod, 1, hlstring);
+GENERATE_FUNCTION(callHostSpin, 0);
 
 void HyperlightMain()
 {
@@ -77,4 +87,5 @@ void HyperlightMain()
     RegisterFunction(FUNCTIONDETAILS("GuestMethod4", guestFunction4));
     RegisterFunction(FUNCTIONDETAILS("LogMessage", logMessage));
     RegisterFunction(FUNCTIONDETAILS("CallErrorMethod", callErrorMethod));
+    RegisterFunction(FUNCTIONDETAILS("CallHostSpin", callHostSpin));
 }

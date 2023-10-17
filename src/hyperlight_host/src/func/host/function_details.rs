@@ -8,7 +8,7 @@ use crate::flatbuffers::hyperlight::generated::{
 use crate::func::host::function_definition::HostFunctionDefinition;
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::shared_mem::SharedMemory;
-use anyhow::{anyhow, bail, Result};
+use crate::{log_then_return, HyperlightError, Result};
 use flatbuffers::WIPOffset;
 use readonly;
 use std::convert::{TryFrom, TryInto};
@@ -61,11 +61,10 @@ impl HostFunctionDetails {
             let size_u64 =
                 guest_mem.read_u64(layout.get_host_function_definitions_size_offset())?;
             usize::try_from(size_u64)
-                .map_err(|_| anyhow!("could not convert buffer size u64 ({}) to usize", size_u64))
         }?;
 
         if host_function_call_buffer.len() > buffer_size {
-            bail!(
+            log_then_return!(
                 "Host Function Details buffer is too big for the host_function_definitions buffer"
             );
         }
@@ -87,10 +86,9 @@ impl From<Vec<HostFunctionDefinition>> for HostFunctionDetails {
 }
 
 impl TryFrom<&[u8]> for HostFunctionDetails {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: &[u8]) -> Result<Self> {
-        let host_function_details_fb =
-            size_prefixed_root_as_host_function_details(value).map_err(|e| anyhow!(e))?;
+        let host_function_details_fb = size_prefixed_root_as_host_function_details(value)?;
 
         let host_function_definitions = match host_function_details_fb.functions() {
             Some(hfd) => {
@@ -115,7 +113,7 @@ impl TryFrom<&[u8]> for HostFunctionDetails {
 }
 
 impl TryFrom<&HostFunctionDetails> for Vec<u8> {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: &HostFunctionDetails) -> Result<Vec<u8>> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
         let vec_host_function_definitions = match &value.host_functions {
@@ -152,7 +150,7 @@ impl TryFrom<&HostFunctionDetails> for Vec<u8> {
 
         let length = unsafe { flatbuffers::read_scalar::<i32>(&res[..4]) };
         if res.capacity() != res.len() || res.capacity() != length as usize + 4 {
-            anyhow::bail!("The capacity of the vector is for HostFunctionDetails is incorrect");
+            log_then_return!("The capacity of the vector is for HostFunctionDetails is incorrect");
         }
 
         Ok(res)
@@ -160,7 +158,7 @@ impl TryFrom<&HostFunctionDetails> for Vec<u8> {
 }
 
 impl TryFrom<HostFunctionDetails> for Vec<u8> {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: HostFunctionDetails) -> Result<Vec<u8>> {
         (&value).try_into()
     }
@@ -171,9 +169,9 @@ mod tests {
     use super::*;
     use crate::{
         func::types::{ParameterType, ReturnType},
-        mem::config::SandboxMemoryConfiguration,
+        sandbox::SandboxConfiguration,
+        Result,
     };
-    use anyhow::{Ok, Result};
     use hex_literal::hex;
 
     #[test]
@@ -198,7 +196,7 @@ mod tests {
     fn write_to_memory() -> Result<()> {
         let (test_data, _) = get_test_data();
         let host_function_details = HostFunctionDetails::try_from(test_data.as_slice())?;
-        let memory_config = SandboxMemoryConfiguration::new(0, 0, 0, 0, 0, None, None);
+        let memory_config = SandboxConfiguration::new(0, 0, 0, 0, 0, None, None, None, None);
         let mut shared_memory = SharedMemory::new(32768)?;
         let memory_layout = SandboxMemoryLayout::new(memory_config, 4096, 4096, 4096)?;
         let result = host_function_details.write_to_memory(&mut shared_memory, &memory_layout);
@@ -210,7 +208,7 @@ mod tests {
 
         let (test_data, _) = get_test_data();
         let host_function_details = HostFunctionDetails::try_from(test_data.as_slice())?;
-        let memory_config = SandboxMemoryConfiguration::new(1024, 0, 0, 0, 0, None, None);
+        let memory_config = SandboxConfiguration::new(1024, 0, 0, 0, 0, None, None, None, None);
         let memory_layout = SandboxMemoryLayout::new(memory_config, 4096, 4096, 4096)?;
         let mem_size = memory_layout.get_memory_size()?;
         let mut shared_memory = SharedMemory::new(mem_size)?;

@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+
+name: 'Hyperlight Workflow Setup'
+description: 'Common setup steps for GitHub workflows in the Hyperlight project'
+
+runs:
+  using: composite
+  steps:
+    - uses: dtolnay/rust-toolchain@1.71.0
+      with:
+        components: clippy, rustfmt
+    - uses: extractions/setup-just@v1
+      with:
+        just-version: '1.5.0' # optional semver specification, otherwise latest
+
+    ###
+    ### Linux setup
+    ###
+    - name: rustup nightly
+      # We need to use the nightly rust tool change to enable registry-auth / to connect to ADO feeds.
+      if: ${{ (runner.os == 'Linux') }}  
+      run: rustup install nightly
+      shell: bash
+    - name: Cargo login
+      if: ${{ (runner.os == 'Linux') }}  
+      run: just cargo-login-ci
+      shell: bash
+
+      ###
+      ### Windows setup
+      ###
+    - name: rustup nightly
+      # We need to use the nightly rust tool change to enable registry-auth / to connect to ADO feeds.
+      if: ${{ (runner.os == 'Windows') }}  
+      run: rustup install nightly
+      shell: pwsh
+    - name: Cargo login
+      if: ${{ (runner.os == 'Windows') }}
+      run: just cargo-login-ci-windows
+      shell: pwsh

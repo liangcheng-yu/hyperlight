@@ -1,6 +1,10 @@
 use super::ptr_offset::Offset;
 use super::try_add_ext::UnsafeTryAddExt;
-use anyhow::{anyhow, Result};
+#[cfg(target_os = "linux")]
+use crate::error::HyperlightError::MmapFailed;
+use crate::error::HyperlightError::{BoundsCheckFailed, IOError, MemoryAllocationFailed};
+use crate::log_then_return;
+use crate::Result;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 #[cfg(target_os = "linux")]
 use libc::{mmap, munmap};
@@ -18,11 +22,7 @@ use windows::Win32::System::Memory::{
 macro_rules! bounds_check {
     ($offset:expr, $size:expr) => {
         if $offset > $size {
-            anyhow::bail!(
-                "offset {} out of bounds (max size: size {})",
-                u64::from($offset),
-                $size,
-            );
+            log_then_return!(BoundsCheckFailed(u64::from($offset), $size));
         }
     };
 }
@@ -124,7 +124,6 @@ impl SharedMemory {
     pub fn new(min_size_bytes: usize) -> Result<Self> {
         cfg_if::cfg_if! {
             if #[cfg(unix)] {
-                use anyhow::bail;
                 use libc::{
                     size_t,
                     c_int,
@@ -147,7 +146,7 @@ impl SharedMemory {
                         0 as off_t,
                     );
                     if ptr == MAP_FAILED {
-                        bail!(std::io::Error::last_os_error())
+                        log_then_return!(MmapFailed(Error::last_os_error().raw_os_error()));
                     }
                     ptr
                 };
@@ -164,7 +163,11 @@ impl SharedMemory {
             }
         }
         match addr as i64 {
-            0 | -1 => anyhow::bail!("Memory Allocation Failed Error {}", Error::last_os_error()),
+            0 | -1 => {
+                log_then_return!(MemoryAllocationFailed(
+                    Error::last_os_error().raw_os_error()
+                ));
+            }
             _ => Ok(Self {
                 ptr_and_size: Arc::new(PtrAndSize {
                     ptr: PtrCVoidMut(addr),
@@ -228,7 +231,7 @@ impl SharedMemory {
     /// the very beginning of the guest memory (offset 0).
     ///
     /// ```rust
-    /// # use anyhow::{anyhow, Result};
+    /// # use hyperlight_host::Result;
     /// # use hyperlight_host::mem::shared_mem::SharedMemory;
     /// let mut ret_vec = vec![b'\0'; 20];
     /// let shared_mem = SharedMemory::new(1024).unwrap();
@@ -301,7 +304,7 @@ impl SharedMemory {
     pub(crate) fn read_u64(&self, offset: Offset) -> Result<u64> {
         self.read(
             offset,
-            Box::new(|mut c| c.read_u64::<LittleEndian>().map_err(|e| anyhow!(e))),
+            Box::new(|mut c| c.read_u64::<LittleEndian>().map_err(IOError)),
         )
     }
 
@@ -314,7 +317,7 @@ impl SharedMemory {
     pub fn read_i32(&self, offset: Offset) -> Result<i32> {
         self.read(
             offset,
-            Box::new(|mut c| c.read_i32::<LittleEndian>().map_err(|e| anyhow!(e))),
+            Box::new(|mut c| c.read_i32::<LittleEndian>().map_err(IOError)),
         )
     }
 
@@ -326,15 +329,15 @@ impl SharedMemory {
     pub(crate) fn read_u32(&self, offset: Offset) -> Result<u32> {
         self.read(
             offset,
-            Box::new(|mut c| c.read_u32::<LittleEndian>().map_err(|e| anyhow!(e))),
+            Box::new(|mut c| c.read_u32::<LittleEndian>().map_err(IOError)),
         )
     }
 
     /// Read a value of type T from the memory in `self`, using `reader`
     /// to do the conversion from bytes to the actual type
     fn read<T>(&self, offset: Offset, reader: Reader<T>) -> Result<T> {
-        bounds_check!(offset, self.mem_size() as u64);
-        bounds_check!(offset + size_of::<T>() as u64, self.mem_size() as u64);
+        bounds_check!(offset, self.mem_size());
+        bounds_check!(offset + size_of::<T>() as u64, self.mem_size());
         let slc = unsafe { self.as_slice() };
         let mut c = Cursor::new(slc);
         c.set_position(offset.into());
@@ -406,9 +409,10 @@ impl SharedMemory {
 #[cfg(test)]
 mod tests {
     use super::SharedMemory;
+    use crate::error::HyperlightError::IOError;
     use crate::mem::ptr_offset::Offset;
     use crate::mem::shared_mem_tests::read_write_test_suite;
-    use anyhow::{anyhow, Result};
+    use crate::Result;
     use byteorder::ReadBytesExt;
     use proptest::prelude::*;
 
@@ -418,10 +422,7 @@ mod tests {
     /// if the value in the range `[offset, offset + 8)`
     /// was successfully decoded to a `u8`, and `Err` otherwise.
     fn read_u8(shared_mem: &SharedMemory, offset: Offset) -> Result<u8> {
-        shared_mem.read(
-            offset,
-            Box::new(|mut c| c.read_u8().map_err(|e| anyhow!(e))),
-        )
+        shared_mem.read(offset, Box::new(|mut c| c.read_u8().map_err(IOError)))
     }
 
     #[test]

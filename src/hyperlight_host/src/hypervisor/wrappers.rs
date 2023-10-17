@@ -1,13 +1,14 @@
-use anyhow::{Error, Result};
 use std::ffi::CString;
 use windows::core::PSTR;
+
+use crate::{HyperlightError, Result};
 
 /// A wrapper for `windows::core::PSTR` values that ensures memory for the
 /// underlying string is properly dropped.
 pub(super) struct PSTRWrapper(*mut i8);
 
 impl TryFrom<&str> for PSTRWrapper {
-    type Error = Error;
+    type Error = HyperlightError;
     fn try_from(value: &str) -> Result<Self> {
         let c_str = CString::new(value)?;
         Ok(Self(c_str.into_raw()))

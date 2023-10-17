@@ -30,10 +30,30 @@ namespace Hyperlight
     [Flags]
     public enum SandboxRunOptions
     {
-        None = 0,
-        RunInProcess = 1,
-        RecycleAfterRun = 2,
-        RunFromGuestBinary = 4,
+        /// <summary>
+        /// Run guest code in a hypervisor most appropriate to the platform
+        /// on which Hyperlight is running.
+        /// </summary>
+        None = 0b00001,
+        /// <summary>
+        /// Run guest code directly in the same memory space as the running
+        /// executable, rather than within a hypervisor.
+        ///
+        /// This option is meant for debugging only. Do not use in production.
+        /// Available only on Windows.
+        /// </summary>
+        RunInProcess = 0b00010,
+        /// <summary>
+        /// Recycle the sandbox after each execution.
+        /// </summary>
+        RecycleAfterRun = 0b00100,
+        /// <summary>
+        /// Run directly from a guest binary using the Windows LoadLibary
+        /// API.
+        /// 
+        /// Only available with RunInProcess, and thus only on Windows.
+        /// </summary>
+        RunFromGuestBinary = 0b01000,
     }
     public class Sandbox : IDisposable, ISandboxRegistration
     {
@@ -105,8 +125,8 @@ namespace Hyperlight
         /// <param name="errorMessageLogger">
         /// Optional ILogger to use for logging
         /// </param>
-        /// <param name="sandboxMemoryConfiguration">
-        /// Optional memory configuration with which to create this sandbox
+        /// <param name="sandboxConfiguration">
+        /// Optional configuration with which to create this sandbox
         /// </param>
         /// <param name="getCorrelationIdFunc">
         /// Optional function called by the Sandbox to get the correlationId
@@ -129,7 +149,7 @@ namespace Hyperlight
             StringWriter? writer = null,
             string? correlationId = null,
             ILogger? errorMessageLogger = null,
-            SandboxMemoryConfiguration? sandboxMemoryConfiguration = null,
+            SandboxConfiguration? sandboxConfiguration = null,
             Func<string>? getCorrelationIdFunc = null
         )
         {
@@ -148,7 +168,7 @@ namespace Hyperlight
             // Use the function to get the correlationId
 
             UpdateCorrelationId();
-            var memCfg = sandboxMemoryConfiguration ?? new SandboxMemoryConfiguration();
+            var config = sandboxConfiguration ?? new SandboxConfiguration();
 
             if (!IsSupportedPlatform)
             {
@@ -189,7 +209,7 @@ namespace Hyperlight
                     sandbox_new(
                         this.context.ctx,
                         binPathHdl.HandleWrapper.handle,
-                        memCfg,
+                        config,
                         (uint)(runOptions ?? SandboxRunOptions.None)
                     ),
                     true
@@ -963,7 +983,7 @@ namespace Hyperlight
         private static extern NativeHandle sandbox_new(
             NativeContext ctx,
             NativeHandle binPathHdl,
-            SandboxMemoryConfiguration memCfg,
+            SandboxConfiguration config,
             uint sandboxRunOptions
         );
 

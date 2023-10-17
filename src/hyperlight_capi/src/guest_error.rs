@@ -2,8 +2,8 @@ use super::handle::Handle;
 use super::hdl::Hdl;
 use super::{arrays::raw_vec::RawVec, context::Context};
 use crate::validate_context_or_panic;
-use anyhow::Result;
 use hyperlight_host::func::guest::error::GuestError;
+use hyperlight_host::Result;
 use std::mem;
 
 /// Return true if the given handle `hdl` references a `GuestError` in `ctx`,

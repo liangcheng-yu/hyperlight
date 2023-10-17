@@ -1,13 +1,29 @@
+/// Configuration needed to establish a sandbox.
+pub mod config;
+/// Functionality to ensure multiple guest calls are not executing concurrently
+pub(crate) mod guest_call_exec;
+/// Functionality to inspect possible errors of a guest call
+mod guest_err;
 /// Functionality for interacting with guest calls
 pub(crate) mod guest_funcs;
 /// Functionality for managing the guest
 pub(crate) mod guest_mgr;
 /// Functionality for reading, but not modifying host functions
-pub mod host_funcs;
+mod host_funcs;
 /// Functionality for dealing with `Sandbox`es that contain Hypervisors
 pub(crate) mod hypervisor;
-/// Functionality for dealing with completely initialized sandboxes
-pub mod initialized;
+/// Common functionality shared across the initialized sandbox
+/// implementations `SingleUseSandbox` and `MultiUseSandbox`
+mod initialized;
+/// Functionality for dealing with initialized sandboxes that can
+/// call 0 or more guest functions
+pub mod initialized_multi_use;
+/// Functionality for automatically `Drop`-ing parts of a `MultiUseSandbox`,
+/// even in the case of failure
+mod initialized_multi_use_release;
+/// Functionality for dealing with initialized sandboxes that can
+/// call 0 or 1 guest functions, but no more
+pub mod initialized_single_use;
 /// Functionality for dealing with memory access from the VM guest
 /// executable
 mod mem_access;
@@ -24,18 +40,18 @@ pub mod uninitialized;
 /// initialized `Sandbox`es.
 mod uninitialized_evolve;
 
-/// Re-export for `CallGuestFunction` trait
-pub use guest_funcs::CallGuestFunction;
+/// Re-export for `SandboxConfiguration` type
+pub use config::SandboxConfiguration;
 /// Re-export for `GuestMgr` trait
 pub use guest_mgr::GuestMgr;
 /// Re-export for `HypervisorWrapper` trait
 pub use hypervisor::HypervisorWrapper;
 /// Re-export for `HypervisorWrapperMgr` type
 pub use hypervisor::HypervisorWrapperMgr;
-/// Re-export for `ExecutingGuestCall` type
-pub use initialized::ExecutingGuestCall;
-/// Re-export for `Sandbox` type
-pub use initialized::Sandbox;
+/// Re-export for the `MultiUseSandbox` type
+pub use initialized_multi_use::MultiUseSandbox;
+/// Re-export for `SingleUseSandbox` type
+pub use initialized_single_use::SingleUseSandbox;
 /// Re-export for `MemMgrWrapper` type
 pub use mem_mgr::MemMgrWrapper;
 /// Re-export for `MemMgrWrapperGetter` trait
@@ -131,7 +147,7 @@ mod tests {
     use crate::hypervisor::hyperv_linux::test_cfg::TEST_CONFIG as HYPERV_TEST_CONFIG;
     #[cfg(target_os = "linux")]
     use crate::hypervisor::kvm::test_cfg::TEST_CONFIG as KVM_TEST_CONFIG;
-    use crate::Sandbox;
+    use crate::MultiUseSandbox;
     use crate::{sandbox::uninitialized::GuestBinary, sandbox_state::transition::Noop};
     use crate::{sandbox_state::sandbox::EvolvableSandbox, UninitializedSandbox};
     use crossbeam_queue::ArrayQueue;
@@ -153,13 +169,17 @@ mod tests {
     #[test]
     fn check_create_and_use_sandbox_on_different_threads() {
         let unintializedsandbox_queue = Arc::new(ArrayQueue::<UninitializedSandbox>::new(10));
-        let sandbox_queue = Arc::new(ArrayQueue::<Sandbox>::new(10));
+        let sandbox_queue = Arc::new(ArrayQueue::<MultiUseSandbox>::new(10));
 
         for i in 0..10 {
             let simple_guest_path = simple_guest_path().expect("Guest Binary Missing");
-            let unintializedsandbox =
-                UninitializedSandbox::new(GuestBinary::FilePath(simple_guest_path), None, None)
-                    .unwrap_or_else(|_| panic!("Failed to create UninitializedSandbox {}", i));
+            let unintializedsandbox = UninitializedSandbox::new(
+                GuestBinary::FilePath(simple_guest_path),
+                None,
+                None,
+                None,
+            )
+            .unwrap_or_else(|_| panic!("Failed to create UninitializedSandbox {}", i));
 
             unintializedsandbox_queue
                 .push(unintializedsandbox)
@@ -207,7 +227,7 @@ mod tests {
                     let sandbox = sq
                         .pop()
                         .unwrap_or_else(|| panic!("Failed to pop Sandbox thread {}", i));
-                    let host_funcs = sandbox.host_functions.lock();
+                    let host_funcs = sandbox.host_funcs.lock();
 
                     assert!(host_funcs.is_ok());
 

@@ -9,7 +9,7 @@ namespace Hyperlight
     public class SandboxBuilder
     {
         private string? guestBinaryPath;
-        private SandboxMemoryConfiguration? config;
+        private SandboxConfiguration? config;
         private SandboxRunOptions? runOptions;
         private Action<ISandboxRegistration>? initFunction;
         private StringWriter? writer;
@@ -24,7 +24,7 @@ namespace Hyperlight
             return this;
         }
 
-        public SandboxBuilder WithConfig(SandboxMemoryConfiguration cfg)
+        public SandboxBuilder WithConfig(SandboxConfiguration cfg)
         {
             this.config = cfg;
             return this;
