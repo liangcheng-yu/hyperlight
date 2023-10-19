@@ -36,7 +36,7 @@ This repo contains Hyperlight along with a couple of sample guest applications t
 
 ### HyperlightSurrogate
 
-hyperlight_surrogate.exe is a tiny rust application that is needed in order to create multiple partitions per process when the host runs on Windows with the Windows Hypervisor Platform (WHP, e-g Hyper-V). This binary does nothing and its purpose is to provide a host for memory that will be mapped into partitions via the `WHvMapGpaRange2` Windows API which gets passed a handle to a process.
+hyperlight_surrogate.exe is a tiny Rust application we use to create multiple virtual machine (VM) partitions per process when running on Windows with the Windows Hypervisor Platform (WHP, e-g Hyper-V). This binary has no functionality. Its purpose is to provide a running process into which memory will be mapped via the `WHvMapGpaRange2` Windows API. Hyperlight does this memory mapping to pass parameters into, and fetch return values out of, a given VM partition.
 
 > Note: The use of surrogates is a temporary workaround on Windows until WHP allows us to create more than one partition per running process.
 
