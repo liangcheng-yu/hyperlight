@@ -1,6 +1,6 @@
-use super::host_funcs::HostFuncsWrapper;
 use super::initialized_multi_use_release::{ShouldRelease, ShouldReset};
 use super::{guest_call_exec::ExecutingGuestCall, guest_funcs::dispatch_call_from_host};
+use super::{host_funcs::HostFuncsWrapper, leaked_outb::LeakedOutBWrapper};
 use crate::error::HyperlightError::GuestFunctionCallAlreadyInProgress;
 use crate::{
     func::{guest::GuestFunction, ParameterValue, ReturnType, ReturnValue},
@@ -27,6 +27,9 @@ pub struct MultiUseSandbox<'a> {
     pub(super) mem_mgr: MemMgrWrapper,
     pub(super) run_from_process_memory: bool,
     pub(super) hv: HypervisorWrapper<'a>,
+    /// See the documentation for `SingleUseSandbox::_leaked_out_b` for
+    /// details on the purpose of this field.
+    _leaked_outb: Arc<Option<LeakedOutBWrapper<'a>>>,
 }
 
 impl<'a> MultiUseSandbox<'a> {
@@ -35,7 +38,10 @@ impl<'a> MultiUseSandbox<'a> {
     /// This function is not equivalent to doing an `evolve` from uninitialized
     /// to initialized, and is purposely not exposed publicly outside the crate
     /// (as a `From` implementation would be)
-    pub(super) fn from_uninit(val: UninitializedSandbox<'a>) -> MultiUseSandbox<'a> {
+    pub(super) fn from_uninit(
+        val: UninitializedSandbox<'a>,
+        leaked_outb: Option<LeakedOutBWrapper<'a>>,
+    ) -> MultiUseSandbox<'a> {
         Self {
             host_funcs: val.host_funcs,
             needs_state_reset: false,
@@ -44,6 +50,7 @@ impl<'a> MultiUseSandbox<'a> {
             mem_mgr: val.mgr,
             run_from_process_memory: val.run_from_process_memory,
             hv: val.hv,
+            _leaked_outb: Arc::new(leaked_outb),
         }
     }
 
@@ -245,17 +252,5 @@ impl<'a>
             ret.hv.reset_rsp(orig_rsp)?;
         }
         Ok(ret)
-    }
-}
-
-/// This `Drop` implementation is applicable to in-process execution only,
-/// and thus is applicable to windows builds only.
-///
-/// See the `super::initialized::drop_impl` method for more detail on why
-/// this exists and how it works.
-#[cfg(target_os = "windows")]
-impl<'a> Drop for MultiUseSandbox<'a> {
-    fn drop(&mut self) {
-        super::initialized::drop_impl(self.mem_mgr.as_ref())
     }
 }

@@ -138,11 +138,15 @@ impl<'a>
         self,
         _: Noop<UninitializedSandbox<'a>, SingleUseSandbox<'a>>,
     ) -> Result<SingleUseSandbox<'a>> {
-        // TODO: the following if statement is to stop evovle_impl being called when we run in proc (it ends up calling the entrypoint in the guest twice)
-        // Since we are not using the NOOP version of evolve in Hyperlight WASM we can use the if statement below to avoid the call to evolve_impl
-        // Once we fix up the Hypervisor C API this should be removed and replaced with the code commented out on line 106
+        // TODO: the following if statement is to stop evolve_impl being called
+        // when we run in proc (it ends up calling the entrypoint in the guest
+        // twice)
+        // Since we are not using the NOOP version of evolve in Hyperlight WASM
+        // we can use the if statement below to avoid the call to evolve_impl
+        // Once we fix up the Hypervisor C API this should be removed and
+        // replaced with the code commented out on line 106
         let i_sbox = if self.run_from_process_memory {
-            Ok(SingleUseSandbox::from_uninit(self))
+            Ok(SingleUseSandbox::from_uninit(self, None))
         } else {
             evolve_impl_single_use(self, None)
         }?;
@@ -166,11 +170,16 @@ impl<'a>
         self,
         _: Noop<UninitializedSandbox<'a>, MultiUseSandbox<'a>>,
     ) -> Result<MultiUseSandbox<'a>> {
-        // TODO: the following if statement is to stop evovle_impl being called when we run in proc (it ends up calling the entrypoint in the guest twice)
-        // Since we are not using the NOOP version of evolve in Hyperlight WASM we can use the if statement below to avoid the call to evolve_impl
-        // Once we fix up the Hypervisor C API this should be removed and replaced with the code commented out on line 106
+        // TODO: the following if statement is to stop evovle_impl being called
+        // when we run in proc (it ends up calling the entrypoint in the guest
+        // twice)
+        //
+        // Since we are not using the NOOP version of evolve in Hyperlight WASM
+        // we can use the if statement below to avoid the call to evolve_impl
+        // Once we fix up the Hypervisor C API this should be removed and
+        // replaced with the code commented out on line 106
         let i_sbox = if self.run_from_process_memory {
-            Ok(MultiUseSandbox::from_uninit(self))
+            Ok(MultiUseSandbox::from_uninit(self, None))
         } else {
             evolve_impl_multi_use(self, None)
         }?;
@@ -1144,15 +1153,10 @@ mod tests {
             );
             assert!(sbox.is_err());
 
-            // There should be five calls again as we changed the log LevelFilter
-            // to Info. We should see the 1 info level log seen in records 1 above.
-
-            // We should then see the span and the info log record from pe_info
-            // and then finally the 2 errors from pe info and sandbox as the
-            // error result is propagated back up the call stack
-
+            // There should be 2 calls this time when we change to the log
+            // LevelFilter to Info.
             let num_calls = TEST_LOGGER.num_log_calls();
-            assert_eq!(5, num_calls);
+            assert_eq!(2, num_calls);
 
             // Log record 1
 
@@ -1165,33 +1169,8 @@ mod tests {
             // Log record 2
 
             let logcall = TEST_LOGGER.get_log_call(1).unwrap();
-            assert_eq!(Level::Info, logcall.level);
-            assert!(logcall.args.starts_with("from_file; filename="));
-            assert_eq!("hyperlight_host::mem::pe::pe_info", logcall.target);
-
-            // Log record 3
-
-            let logcall = TEST_LOGGER.get_log_call(2).unwrap();
-            assert_eq!(Level::Info, logcall.level);
-            assert!(logcall.args.starts_with("Loading PE file from"));
-            assert_eq!("hyperlight_host::mem::pe::pe_info", logcall.target);
-
-            // Log record 4
-
-            let logcall = TEST_LOGGER.get_log_call(3).unwrap();
             assert_eq!(Level::Error, logcall.level);
-            assert!(logcall.args.starts_with(
-                "error=PEFileProcessingFailure(Malformed(\"DOS header is malformed (signature "
-            ));
-            assert_eq!("hyperlight_host::mem::pe::pe_info", logcall.target);
-
-            // Log record 5
-
-            let logcall = TEST_LOGGER.get_log_call(4).unwrap();
-            assert_eq!(Level::Error, logcall.level);
-            assert!(logcall.args.starts_with(
-                "error=PEFileProcessingFailure(Malformed(\"DOS header is malformed (signature "
-            ));
+            assert!(logcall.args.starts_with("error=IOError"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
         }
         {

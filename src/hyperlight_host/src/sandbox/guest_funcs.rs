@@ -199,23 +199,13 @@ mod tests {
         // TODO: Add tests to ensure State has been reset.
     }
 
-    #[test]
-    fn test_call_guest_function_by_name() -> Result<()> {
-        // This test relies upon a Hypervisor being present so for now
-        // we will skip it if there isnt one.
-        if !is_hypervisor_present() {
-            println!("Skipping test_call_guest_function_by_name because no hypervisor is present");
-            return Ok(());
-        }
-
-        let usbox = UninitializedSandbox::new(
-            GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
-            None,
-            // ^^^ for now, we're using defaults. In the future, we should get variability here.
-            None,
-            // ^^^  None == RUN_IN_HYPERVISOR && one-shot Sandbox
-            None,
-        )?;
+    #[track_caller]
+    fn guest_bin() -> GuestBinary {
+        GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing"))
+    }
+    #[track_caller]
+    fn test_call_guest_function_by_name(u_sbox: UninitializedSandbox<'_>) {
+        let mut mu_sbox: MultiUseSandbox<'_> = u_sbox.evolve(MutatingCallback::from(init)).unwrap();
 
         let msg = "Hello, World!!\n".to_string();
         let len = msg.len() as i32;
@@ -230,12 +220,52 @@ mod tests {
             },
         ));
 
-        let mut sandbox: MultiUseSandbox<'_> = usbox.evolve(MutatingCallback::from(init)).unwrap();
-
-        let result = sandbox.execute_in_host(func).unwrap();
+        let result = mu_sbox.execute_in_host(func).unwrap();
 
         assert_eq!(result, ReturnValue::Int(len));
-        Ok(())
+    }
+
+    #[test]
+    fn test_call_guest_function_by_name_hv() {
+        // in-hypervisor mode
+        let u_sbox = UninitializedSandbox::new(
+            guest_bin(),
+            // for now, we're using defaults. In the future, we should get
+            // variability below
+            None,
+            // by default, the below represents in-hypervisor mode
+            None,
+            // just use the built-in host print function
+            None,
+        )
+        .unwrap();
+        test_call_guest_function_by_name(u_sbox);
+    }
+
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn test_call_guest_function_by_name_in_proc_load_lib() {
+        let u_sbox = UninitializedSandbox::new(
+            guest_bin(),
+            None,
+            Some(crate::SandboxRunOptions::RunInProcess(true)),
+            None,
+        )
+        .unwrap();
+        test_call_guest_function_by_name(u_sbox);
+    }
+
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn test_call_guest_function_by_name_in_proc_manual() {
+        let u_sbox = UninitializedSandbox::new(
+            guest_bin(),
+            None,
+            Some(crate::SandboxRunOptions::RunInProcess(false)),
+            None,
+        )
+        .unwrap();
+        test_call_guest_function_by_name(u_sbox);
     }
 
     // Test that we can terminate a VCPU that has been running the VCPU for too long.

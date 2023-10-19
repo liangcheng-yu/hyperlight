@@ -1,4 +1,4 @@
-use super::guest_funcs::dispatch_call_from_host;
+use super::{guest_funcs::dispatch_call_from_host, leaked_outb::LeakedOutBWrapper};
 use crate::HypervisorWrapperMgr;
 use crate::MemMgrWrapperGetter;
 use crate::Result;
@@ -20,6 +20,13 @@ pub struct SingleUseSandbox<'a> {
     /// See https://github.com/rust-lang/rust/issues/68318#issuecomment-1066221968
     /// for more detail
     make_unsend: PhantomData<*mut ()>,
+    /// This field is a representation of a leaked outb handler. It exists
+    /// only to support in-process mode, and will be set to None in all
+    /// other cases. It is never actually used, and is only here so it
+    /// will be dropped and the leaked memory is cleaned up.
+    ///
+    /// See documentation for `LeakedOutB` for more details
+    _leaked_outb: Option<LeakedOutBWrapper<'a>>,
 }
 
 impl<'a> SingleUseSandbox<'a> {
@@ -34,11 +41,15 @@ impl<'a> SingleUseSandbox<'a> {
     /// function not publicly exposed. Finally, although it looks like it should be
     /// in a `From` implementation, it is purposely not, because external
     /// users would then see it and be able to use it.
-    pub(super) fn from_uninit(val: UninitializedSandbox<'a>) -> SingleUseSandbox<'a> {
+    pub(super) fn from_uninit(
+        val: UninitializedSandbox<'a>,
+        leaked_outb: Option<LeakedOutBWrapper<'a>>,
+    ) -> SingleUseSandbox<'a> {
         Self {
             mem_mgr: val.mgr,
             hv: val.hv,
             make_unsend: PhantomData,
+            _leaked_outb: leaked_outb,
         }
     }
 
@@ -107,17 +118,5 @@ impl<'a> MemMgrWrapperGetter for SingleUseSandbox<'a> {
     }
     fn get_mem_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper {
         &mut self.mem_mgr
-    }
-}
-
-/// This `Drop` implementation is applicable to in-process execution only,
-/// and thus is applicable to windows builds only.
-///
-/// See the `super::initialized::drop_impl` method for more detail on why
-/// this exists and how it works.
-#[cfg(target_os = "windows")]
-impl<'a> Drop for SingleUseSandbox<'a> {
-    fn drop(&mut self) {
-        super::initialized::drop_impl(self.mem_mgr.as_ref())
     }
 }

@@ -1,3 +1,5 @@
+/// Reusable structure to hold data and provide a `Drop` implementation
+pub(crate) mod custom_drop;
 /// Functionality to establish a sandbox's memory layout.
 pub mod layout;
 /// Safe wrapper around an HINSTANCE created by the windows
