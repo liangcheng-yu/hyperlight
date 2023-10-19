@@ -225,8 +225,7 @@ mod tests {
         assert_eq!(result, ReturnValue::Int(len));
     }
 
-    #[test]
-    fn test_call_guest_function_by_name_hv() {
+    fn call_guest_function_by_name_hv() {
         // in-hypervisor mode
         let u_sbox = UninitializedSandbox::new(
             guest_bin(),
@@ -240,6 +239,11 @@ mod tests {
         )
         .unwrap();
         test_call_guest_function_by_name(u_sbox);
+    }
+
+    #[test]
+    fn test_call_guest_function_by_name_hv() {
+        call_guest_function_by_name_hv();
     }
 
     #[test]
@@ -268,9 +272,7 @@ mod tests {
         test_call_guest_function_by_name(u_sbox);
     }
 
-    // Test that we can terminate a VCPU that has been running the VCPU for too long.
-    #[test]
-    fn test_terminate_vcpu_spinning_cpu() -> Result<()> {
+    fn terminate_vcpu_after_1000ms() -> Result<()> {
         // This test relies upon a Hypervisor being present so for now
         // we will skip it if there isnt one.
         if !is_hypervisor_present() {
@@ -311,7 +313,24 @@ mod tests {
         }
         Ok(())
     }
-    // This test is to capture the case where the guest execution is running a hsot function when cancelled and that host function
+
+    // Test that we can terminate a VCPU that has been running the VCPU for too long.
+    #[test]
+    fn test_terminate_vcpu_spinning_cpu() -> Result<()> {
+        terminate_vcpu_after_1000ms()?;
+        Ok(())
+    }
+
+    // Because the terminate logic uses TLS to store state we need to ensure that once we have called terminate
+    // on a thread we can create and initialize a new sandbox on that thread and it does not error
+    #[test]
+    fn test_terminate_vcpu_and_then_call_guest_function_on_the_same_host_thread() -> Result<()> {
+        terminate_vcpu_after_1000ms()?;
+        call_guest_function_by_name_hv();
+        Ok(())
+    }
+
+    // This test is to capture the case where the guest execution is running a host function when cancelled and that host function
     // is never going to return.
     // The host function that is called will end after 5 seconds, but by this time the cancellation will have given up
     // (using default timeout settings)  , so this tests looks for the error "Failed to cancel guest execution".

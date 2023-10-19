@@ -248,7 +248,7 @@ pub trait Hypervisor: Debug + Sync + Send {
         // if the spawned thread has not been joined, this may cause the main thread to hang.
         // There should be no cases where this happens apart from the 2 explicit ones below where thread cancellation fails
 
-        thread::scope(|s| {
+        let result = thread::scope(|s| {
             // Using builder spawn scoped so that we receive an error if the thread creation fails, otherwise we would just panic.
 
             let join_handle = thread::Builder::new()
@@ -469,7 +469,24 @@ pub trait Hypervisor: Debug + Sync + Send {
                 }
             };
             thread_execution_result
-        })
+        });
+
+        // Now we need to reset the TLS state so that the tls values are not set when we next enter this function on the host thread.
+
+        SPAWNED_THREAD.with(|st| {
+            *st.borrow_mut() = false;
+        });
+
+        CANCEL_RUN_REQUESTED.with(|crc| {
+            *crc.borrow_mut() = Arc::new(AtomicCell::new(false));
+        });
+        #[cfg(target_os = "linux")]
+        {
+            RUN_CANCELLED.with(|rc| {
+                *rc.borrow_mut() = Arc::new(AtomicCell::new(false));
+            });
+        }
+        result
     }
 
     /// Run the vCPU
