@@ -44,7 +44,7 @@ These surrogate processes are managed by the host via the [surrogate_process_man
 
 hyperlight_surrogate.exe gets built during `hyperlight_host`'s build script, gets embedded into the `hyperlight_host` rust library via [rust-embed](https://crates.io/crates/rust-embed), and is extracted at runtime next to the executable when the surrogate process manager is initialized.
 
-Initially HyperlightSurrogate.exe was written in C and performed the same function as the Rust version and this version is still referenced in the .NET solution.
+Initially, HyperlightSurrogate.exe was written in C and performed the same function as the Rust version. The C version is still referenced in the .NET solution (`.sln` file).
 To build HyperlightSurrogate.exe run the following from a [Visual Studio Command Prompt](https://docs.microsoft.com/en-us/visualstudio/ide/reference/command-prompt-powershell?view=vs-2022)
 
 ```cmd
