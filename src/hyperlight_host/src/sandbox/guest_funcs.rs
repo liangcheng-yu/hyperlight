@@ -215,21 +215,19 @@ mod tests {
             // ^^^ for now, we're using defaults. In the future, we should get variability here.
             None,
             // ^^^  None == RUN_IN_HYPERVISOR && one-shot Sandbox
+            None,
         )?;
 
-        let sandbox = Arc::new(Mutex::new(usbox.evolve(MutatingCallback::from(init))?));
         let func = Arc::new(Mutex::new(
-            move |s: Arc<Mutex<&mut Sandbox>>| -> Result<ReturnValue> {
-                s.lock()
-                    .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-                    .call_guest_function_by_name("smallVar", ReturnType::Int, None)
+            |sbox_arc: Arc<Mutex<MultiUseSandbox>>| -> Result<ReturnValue> {
+                let mut sbox = sbox_arc.lock()?;
+                sbox.call_guest_function_by_name("smallVar", ReturnType::Int, None)
             },
         ));
 
-        let result = sandbox
-            .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-            .execute_in_host(func)?;
+        let mut sandbox: MultiUseSandbox<'_> = usbox.evolve(MutatingCallback::from(init)).unwrap();
+
+        let result = sandbox.execute_in_host(func).unwrap();
 
         assert_eq!(result, ReturnValue::Int(2048));
         Ok(())

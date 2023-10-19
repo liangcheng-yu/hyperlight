@@ -1,11 +1,25 @@
 use crate::{
     flatbuffers::hyperlight::generated::{
-        root_as_function_call, ErrorCode, FunctionCall, FunctionCallType, GuestError,
-        GuestErrorArgs, GuestFunctionDetails, ParameterType, ParameterValue,
+        root_as_function_call, root_as_guest_function_details, ErrorCode, FunctionCall,
+        FunctionCallType, GuestError, GuestErrorArgs, GuestFunctionDefinition,
+        GuestFunctionDetails, GuestFunctionDetailsArgs, ParameterType, ParameterValue,
     },
     hyperlight_peb::HyperlightPEB,
 };
+use core::alloc::GlobalAlloc;
 use core::{alloc::Layout, ffi::c_void};
+use flatbuffers::{FlatBufferBuilder, ForwardsUOffset};
+use lazy_static::lazy_static;
+use mimalloc::MiMalloc;
+use spin::RwLock;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
+lazy_static! {
+    static ref GUEST_FUNCTION_BUILDER: RwLock<FlatBufferBuilder<'static>> =
+        RwLock::new(FlatBufferBuilder::new());
+}
 
 // `static mut`s like this only work in single-threaded scenarios.
 // In multi-threaded scenarios, we use the standard library primitives, but
@@ -13,10 +27,10 @@ use core::{alloc::Layout, ffi::c_void};
 
 static mut P_PEB: Option<*mut HyperlightPEB> = None;
 static mut RUNNING_IN_HYPERLIGHT: bool = true;
-static mut OS_PAGE_SIZE: u32 = 0;
 static mut OUTB_PTR: Option<fn(u16, u8)> = None;
 static mut OUTB_PTR_WITH_CONTEXT: Option<fn(*mut core::ffi::c_void, u16, u8)> = None;
 static mut GUEST_FUNCTIONS: Option<GuestFunctionDetails> = None;
+// ^^^ These might be in lazy_static too inside of a RwLock to make them thread-safe.
 
 fn write_error(error_code: u64, message: Option<&str>) {
     // Create a flatbuffer builder object
@@ -66,7 +80,7 @@ fn reset_error() {
 fn set_error(error_code: ErrorCode, message: &str) {
     write_error(error_code.0, Some(message));
     unsafe {
-        (*P_PEB.unwrap()).outputdata.output_data_buffer = -1 as *mut c_void;
+        (*P_PEB.unwrap()).outputdata.output_data_buffer = usize::MAX as *mut c_void;
     }
 }
 
@@ -160,23 +174,36 @@ fn call_guest_function(function_call: &FunctionCall) -> *mut u8 {
 
         return p_function(*function_call);
     } else {
+        extern "C" {
+            fn guest_dispatch_function(function_call: &FunctionCall) -> *mut u8;
+        }
+
         // If the function was not found call the GuestDispatchFunction method.
-        return guest_dispatch_function(function_call);
-        // ^^^ TODO: implement
+        unsafe {
+            return guest_dispatch_function(function_call);
+        }
     }
+}
+
+fn read_size_prefixed_flatbuffer(buffer: *const u8) -> (usize, &'static [u8]) {
+    assert!(!buffer.is_null());
+
+    // Read the size prefix.
+    let size_prefix = unsafe { *(buffer as *const u64) } as usize;
+
+    // Convert the raw pointer (after the prefix) to a slice.
+    let data_slice = unsafe { core::slice::from_raw_parts(buffer.add(8), size_prefix) };
+
+    (size_prefix, data_slice)
 }
 
 fn dispatch_function() {
     reset_error();
 
     // Read the Function Call FlatBuffer from memory
-    let size_prefix =
-        unsafe { flatbuffers_read_size_prefix((*P_PEB.unwrap()).inputdata.input_data_buffer) };
-    // ^^^ TODO: find equivalent
-    let buffer = size_prefix.buffer;
-    let size = size_prefix.size;
-
-    assert!(!buffer.is_null());
+    let (_, buffer) = unsafe {
+        read_size_prefixed_flatbuffer((*P_PEB.unwrap()).inputdata.input_data_buffer as *const u8)
+    };
 
     let function_call = root_as_function_call(buffer).unwrap();
 
@@ -187,31 +214,67 @@ fn dispatch_function() {
     }
 
     let result = call_guest_function(&function_call);
-    let result_size_prefix = flatbuffers_read_size_prefix(result);
-    // ^^^ TODO: find equivalent
-    let result_buffer = result_size_prefix.buffer;
-    let result_size = result_size_prefix.size;
-
-    assert!(!result_buffer.is_null());
+    let (result_size, result_buffer) = read_size_prefixed_flatbuffer(result);
 
     unsafe {
         core::ptr::copy(
-            result_buffer,
-            (*P_PEB.unwrap()).outputdata.output_data_buffer,
+            result_buffer.as_ptr(),
+            (*P_PEB.unwrap()).outputdata.output_data_buffer as *mut u8,
             result_size + 4,
         );
 
-        dealloc(
+        GLOBAL.dealloc(
             result as *mut u8,
             Layout::from_size_align_unchecked(result_size + 4, 1),
         );
-        // ^^^ TODO: find equivalent
+    }
+}
+
+pub fn initialise_function_table() {
+    let mut builder = GUEST_FUNCTION_BUILDER.write();
+    let functions_vec = builder.create_vector::<ForwardsUOffset<GuestFunctionDefinition>>(&[]);
+
+    let details = GuestFunctionDetails::create(
+        &mut builder,
+        &GuestFunctionDetailsArgs {
+            functions: Some(functions_vec),
+            ..Default::default()
+        },
+    );
+
+    builder.finish(details, None);
+}
+
+// Assuming a maximum size for your flatbuffers data.
+const MAX_FLATBUFFER_SIZE: usize = 4096;
+static mut FLATBUFFER_STORAGE: [u8; MAX_FLATBUFFER_SIZE] = [0; MAX_FLATBUFFER_SIZE];
+
+pub fn finalise_function_table() {
+    {
+        let builder = GUEST_FUNCTION_BUILDER.write();
+        let buffer = builder.finished_data();
+
+        // Copy the buffer data to the static storage
+        unsafe {
+            FLATBUFFER_STORAGE[..buffer.len()].copy_from_slice(buffer);
+        }
+    }
+
+    let guest_functions = unsafe { root_as_guest_function_details(&FLATBUFFER_STORAGE) }.unwrap();
+
+    let _guest_function_definitions = guest_functions.functions();
+
+    // TODO: Sort functions by name.
+
+    // Store the sorted buffer for later use (this is pseudo-code, adjust as needed).
+    unsafe {
+        GUEST_FUNCTIONS = Some(guest_functions);
     }
 }
 
 #[allow(non_snake_case)]
 #[no_mangle]
-pub extern "C" fn entryPoint(peb_address: i64, seed: i64, ops: i32) -> i32 {
+pub extern "C" fn entryPoint(peb_address: i64, _seed: i64, _ops: i32) -> i32 {
     unsafe {
         P_PEB = Some(peb_address as *mut HyperlightPEB);
 
@@ -244,23 +307,19 @@ pub extern "C" fn entryPoint(peb_address: i64, seed: i64, ops: i32) -> i32 {
         }
 
         (*P_PEB.unwrap()).guest_function_dispatch_ptr = dispatch_function as u64;
-        dlmalloc_set_footprint_limit((*P_PEB.unwrap()).guestheap_data.guest_heap_size);
-        // ^^^ TODO: find equivalent
+
+        // Note: Here, in C, we call `dlmalloc_set_footprint_limit`, but I
+        // don't think mimalloc has an equivalent.
 
         reset_error();
-        match initialise_function_table() {
-            // ^^^ TODO: implement
-            Ok(_) => {}
-            Err(_) => {
-                halt();
-                // ^^^ TODO: implement
-                return 0;
-            }
+        initialise_function_table(); // <- unlike in C, this can't fail in Rust
+
+        extern "C" {
+            fn hyperlight_main();
         }
+
         hyperlight_main();
-        // ^^^ TODO: implement
         finalise_function_table();
-        // ^^^ TODO: implement
 
         (*(P_PEB.unwrap())).outputdata.output_data_buffer = 0 as *mut c_void;
     }
