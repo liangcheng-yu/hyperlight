@@ -24,7 +24,7 @@ use windows::Win32::System::Threading::{
     CreateProcessA, CREATE_SUSPENDED, PROCESS_INFORMATION, STARTUPINFOA,
 };
 
-// Use the rust-embed crate to embed the hyperlights_urrogate.exe
+// Use the rust-embed crate to embed the hyperlights_surrogate.exe
 // binary in the hyperlight_host library to make dependency management easier.
 // $HYPERLIGHT_SURROGATE_DIR is set by hyperlight_host's build.rs script.
 // https://docs.rs/rust-embed/latest/rust_embed/
