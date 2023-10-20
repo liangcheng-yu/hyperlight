@@ -1,12 +1,7 @@
 [package]
 name = "hyperlight_host"
-version = "0.1.0"
+version = "0.2.3"
 edition = "2021"
-
-include = [
-  "*.rs",
-  "bin/**/*.exe",
-]
 
 [lib]
 # https://docs.rust-embedded.org/book/interoperability/rust-with-c.html
