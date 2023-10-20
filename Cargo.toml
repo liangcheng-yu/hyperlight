@@ -4,4 +4,5 @@ members = [
     "src/hyperlight_host",
     "src/hyperlight_testing",
     "src/hyperlight_guest_rs",
+    "src/tests/rust_guests/simpleguest",
 ]

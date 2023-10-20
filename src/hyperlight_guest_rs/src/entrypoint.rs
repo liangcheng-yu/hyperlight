@@ -1,14 +1,15 @@
 use crate::{
     flatbuffers::hyperlight::generated::{
-        root_as_function_call, root_as_guest_function_details, ErrorCode, FunctionCall,
-        FunctionCallType, GuestError, GuestErrorArgs, GuestFunctionDefinition,
-        GuestFunctionDetails, GuestFunctionDetailsArgs, ParameterType, ParameterValue,
+        hlint, hlintArgs, root_as_function_call, root_as_guest_function_details, ErrorCode,
+        FunctionCall, FunctionCallResult, FunctionCallResultArgs, FunctionCallType, GuestError,
+        GuestErrorArgs, GuestFunctionDefinition, GuestFunctionDefinitionArgs, GuestFunctionDetails,
+        GuestFunctionDetailsArgs, ParameterType, ParameterValue, ReturnType, ReturnValue,
     },
     hyperlight_peb::HyperlightPEB,
 };
 use core::alloc::GlobalAlloc;
 use core::{alloc::Layout, ffi::c_void};
-use flatbuffers::{FlatBufferBuilder, ForwardsUOffset};
+use flatbuffers::{FlatBufferBuilder, ForwardsUOffset, UnionWIPOffset, WIPOffset};
 use lazy_static::lazy_static;
 use mimalloc::MiMalloc;
 use spin::RwLock;
@@ -183,6 +184,74 @@ fn call_guest_function(function_call: &FunctionCall) -> *mut u8 {
             return guest_dispatch_function(function_call);
         }
     }
+}
+
+pub fn create_function_definition(
+    function_name: &str,
+    p_function: u64,
+    parameter_kinds: &[ParameterType],
+) -> WIPOffset<GuestFunctionDefinition<'static>> {
+    let mut builder = GUEST_FUNCTION_BUILDER.write();
+
+    // Create the name string
+    let name = builder.create_string(function_name);
+
+    // Create the parameter types vector
+    let parameters = builder.create_vector(parameter_kinds);
+
+    let return_type = ReturnType::hlint;
+
+    // Create the GuestFunctionDefinition and return its offset
+    GuestFunctionDefinition::create(
+        &mut builder,
+        &GuestFunctionDefinitionArgs {
+            function_name: Some(name),
+            parameters: Some(parameters),
+            return_type: return_type,
+            function_pointer: p_function as i64,
+            ..Default::default()
+        },
+    )
+}
+
+pub fn register_function(function_definition: WIPOffset<GuestFunctionDefinition<'static>>) {
+    let mut builder = GUEST_FUNCTION_BUILDER.write();
+    builder.push(function_definition); 
+}
+
+
+pub fn get_flatbuffer_result_from_int(value: u32) -> *mut u8 {
+    let mut builder = FlatBufferBuilder::new();
+    let hlint = hlint::create(
+        &mut builder,
+        &hlintArgs {
+            value: value as i32,
+        },
+    );
+
+    let rt = ReturnValue::hlint;
+    let rv = Some(hlint.as_union_value());
+
+    get_flatbuffer_result(&mut builder, rt, rv)
+}
+
+fn get_flatbuffer_result(
+    builder: &mut FlatBufferBuilder,
+    return_value_type: ReturnValue,
+    return_value: Option<WIPOffset<UnionWIPOffset>>,
+) -> *mut u8 {
+    let result_offset = FunctionCallResult::create(
+        builder,
+        &FunctionCallResultArgs {
+            return_value,
+            return_value_type,
+            ..Default::default()
+        },
+    );
+
+    builder.finish(result_offset, None);
+
+    builder.finished_data().as_ptr() as *mut u8
 }
 
 fn read_size_prefixed_flatbuffer(buffer: *const u8) -> (usize, &'static [u8]) {
