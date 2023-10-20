@@ -1,7 +1,9 @@
 extern crate hyperlight_host;
 use super::{context::Context, handle::Handle, hdl::Hdl};
-use anyhow::{anyhow, bail, Result};
+use hyperlight_host::log_then_return;
+use hyperlight_host::new_error;
 use hyperlight_host::sandbox_state::sandbox::Sandbox as GenericSandbox;
+use hyperlight_host::Result;
 use hyperlight_host::UninitializedSandbox;
 
 /// Either an initialized or uninitialized sandbox. This enum is used
@@ -19,16 +21,20 @@ pub(crate) struct Sandbox {
     /// be a `MultiUseSandbox` or a `SingleUseSandbox`.
     should_recycle: bool,
     inner: SandboxImpls,
+    // This is intentional to make sure the closure if not dropped until the Sandbox is dropped
+    _callback_writer_func: Option<Box<dyn Fn(String) -> Result<i32>>>,
 }
 
 impl Sandbox {
     pub(super) fn from_uninit(
         should_recycle: bool,
         u_sbox: hyperlight_host::sandbox::uninitialized::UninitializedSandbox<'static>,
+        callback_writer_func: Option<Box<dyn Fn(String) -> Result<i32>>>,
     ) -> Self {
         Self {
             should_recycle,
             inner: SandboxImpls::Uninit(Box::new(u_sbox)),
+            _callback_writer_func: callback_writer_func,
         }
     }
 
@@ -63,11 +69,13 @@ impl Sandbox {
         let mut sbox = ctx
             .sandboxes
             .remove(&hdl.key())
-            .ok_or(anyhow!("no sandbox exists for the given handle"))?;
+            .ok_or(new_error!("no sandbox exists for the given handle"))?;
         let recycle = sbox.should_recycle;
         let new_sbox = match sbox.inner {
             SandboxImpls::Uninit(u_sbox) => cb_fn(recycle, u_sbox),
-            _ => bail!("evolve: sandbox was already initialized"),
+            _ => {
+                log_then_return!("evolve: sandbox was already initialized");
+            }
         }?;
         sbox.inner = new_sbox;
         ctx.sandboxes.insert(hdl.key(), sbox);
@@ -86,7 +94,11 @@ impl Sandbox {
     pub(crate) fn to_uninit(&self) -> Result<&UninitializedSandbox<'static>> {
         match &self.inner {
             SandboxImpls::Uninit(sbox) => Ok(sbox),
-            _ => bail!("attempted to get immutable uninitialzied sandbox from an initialized one"),
+            _ => {
+                log_then_return!(
+                    "attempted to get immutable uninitialzied sandbox from an initialized one"
+                );
+            }
         }
     }
     /// Consume `self`, check if it holds a `sandbox::UninitializedSandbox`,
@@ -95,7 +107,11 @@ impl Sandbox {
     pub(crate) fn to_uninit_mut(&mut self) -> Result<&mut UninitializedSandbox<'static>> {
         match &mut self.inner {
             SandboxImpls::Uninit(sbox) => Ok(sbox),
-            _ => bail!("attempted to get mutable uninitialzied sandbox from an initialized one"),
+            _ => {
+                log_then_return!(
+                    "attempted to get mutable uninitialzied sandbox from an initialized one"
+                );
+            }
         }
     }
 
@@ -104,24 +120,6 @@ impl Sandbox {
             SandboxImpls::Uninit(sbox) => sbox.check_stack_guard(),
             SandboxImpls::InitSingleUse(sbox) => sbox.check_stack_guard(),
             SandboxImpls::InitMultiUse(sbox) => sbox.check_stack_guard(),
-        }
-    }
-}
-
-impl From<hyperlight_host::SingleUseSandbox<'static>> for Sandbox {
-    fn from(value: hyperlight_host::SingleUseSandbox<'static>) -> Self {
-        Sandbox {
-            should_recycle: false,
-            inner: SandboxImpls::InitSingleUse(Box::new(value)),
-        }
-    }
-}
-
-impl From<hyperlight_host::MultiUseSandbox<'static>> for Sandbox {
-    fn from(value: hyperlight_host::MultiUseSandbox<'static>) -> Self {
-        Sandbox {
-            should_recycle: true,
-            inner: SandboxImpls::InitMultiUse(Box::new(value)),
         }
     }
 }

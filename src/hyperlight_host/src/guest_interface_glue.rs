@@ -1,4 +1,6 @@
-use anyhow::{bail, Result};
+use crate::error::HyperlightError::GuestInterfaceUnsupportedType;
+use crate::log_then_return;
+use crate::Result;
 
 /// All the types that can be used as `Vec<ParameterValue>` or return types for a host
 /// function.
@@ -43,6 +45,8 @@ fn from_csharp_typename(value: &str) -> Result<SupportedParameterOrReturnType> {
         "System.Byte[]" => Ok(SupportedParameterOrReturnType::ByteArray),
         "System.IntPtr" => Ok(SupportedParameterOrReturnType::IntPtr),
         "System.UInt32" => Ok(SupportedParameterOrReturnType::UInt),
-        other => bail!("Unsupported type: {:?}", other),
+        other => {
+            log_then_return!(GuestInterfaceUnsupportedType(other.to_string()));
+        }
     }
 }

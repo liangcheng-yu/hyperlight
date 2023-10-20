@@ -2,7 +2,7 @@ use crate::mem::{
     layout::SandboxMemoryLayout,
     mgr::{SandboxMemoryManager, STACK_COOKIE_LEN},
 };
-use anyhow::Result;
+use crate::Result;
 use tracing::instrument;
 
 /// StackCookie

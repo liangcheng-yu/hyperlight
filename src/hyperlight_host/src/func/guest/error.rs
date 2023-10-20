@@ -1,10 +1,12 @@
 extern crate flatbuffers;
+
 use crate::flatbuffers::hyperlight::generated::{
     size_prefixed_root_as_guest_error, ErrorCode, GuestError as GuestErrorFb, GuestErrorArgs,
 };
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::shared_mem::SharedMemory;
-use anyhow::{anyhow, bail, Result};
+use crate::HyperlightError::{self, VectorCapacityInCorrect};
+use crate::{log_then_return, Result};
 use std::convert::{TryFrom, TryInto};
 
 /// The error code of a `GuestError`.
@@ -43,7 +45,7 @@ impl GuestError {
         let guest_error_buffer: Vec<u8> = self.try_into()?;
         let max_error_buffer_size = Self::get_memory_buffer_max_size(guest_mem, layout)?;
         if guest_error_buffer.len() as u64 > max_error_buffer_size {
-            bail!("The guest error message is too large to fit in the shared memory");
+            log_then_return!("The guest error message is too large to fit in the shared memory");
         }
         guest_mem.copy_from_slice(
             guest_error_buffer.as_slice(),
@@ -54,7 +56,7 @@ impl GuestError {
 }
 
 impl TryFrom<(&SharedMemory, &SandboxMemoryLayout)> for GuestError {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: (&SharedMemory, &SandboxMemoryLayout)) -> Result<Self> {
         let max_err_buffer_size = Self::get_memory_buffer_max_size(value.0, value.1)?;
         let mut guest_error_buffer = vec![b'0'; usize::try_from(max_err_buffer_size)?];
@@ -67,9 +69,9 @@ impl TryFrom<(&SharedMemory, &SandboxMemoryLayout)> for GuestError {
 }
 
 impl TryFrom<&[u8]> for GuestError {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: &[u8]) -> Result<Self> {
-        let guest_error_fb = size_prefixed_root_as_guest_error(value).map_err(|e| anyhow!(e))?;
+        let guest_error_fb = size_prefixed_root_as_guest_error(value)?;
         let code = guest_error_fb.code();
         let message = match guest_error_fb.message() {
             Some(message) => message.to_string(),
@@ -80,7 +82,7 @@ impl TryFrom<&[u8]> for GuestError {
 }
 
 impl TryFrom<&GuestError> for Vec<u8> {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: &GuestError) -> Result<Vec<u8>> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
         let message = builder.create_string(&value.message);
@@ -102,7 +104,11 @@ impl TryFrom<&GuestError> for Vec<u8> {
         let length = unsafe { flatbuffers::read_scalar::<i32>(&res[..4]) };
 
         if res.capacity() != res.len() || res.capacity() != length as usize + 4 {
-            anyhow::bail!("The capacity of the vector is for GuestError is incorrect");
+            log_then_return!(VectorCapacityInCorrect(
+                res.capacity(),
+                res.len(),
+                length + 4
+            ));
         }
 
         Ok(res)
@@ -110,7 +116,7 @@ impl TryFrom<&GuestError> for Vec<u8> {
 }
 
 impl TryFrom<GuestError> for Vec<u8> {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(value: GuestError) -> Result<Vec<u8>> {
         (&value).try_into()
     }

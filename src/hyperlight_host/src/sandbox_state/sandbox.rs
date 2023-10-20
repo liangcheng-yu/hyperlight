@@ -1,5 +1,5 @@
 use super::transition::TransitionMetadata;
-use anyhow::Result;
+use crate::Result;
 use std::fmt::Debug;
 
 /// The minimal functionality of a Hyperlight sandbox. Most of the types

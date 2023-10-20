@@ -1,4 +1,9 @@
-use anyhow::{anyhow, bail, Result};
+#[cfg(target_os = "linux")]
+use crate::error::HyperlightError::HostFailedToCancelGuestExecutionSendingSignals;
+use crate::error::HyperlightError::{ExecutionCanceledByHost, HostFailedToCancelGuestExecution};
+use crate::log_then_return;
+use crate::new_error;
+use crate::Result;
 use crossbeam::atomic::AtomicCell;
 #[cfg(target_os = "linux")]
 use libc::{c_void, pthread_kill, pthread_self, siginfo_t, ESRCH};
@@ -224,7 +229,9 @@ pub trait Hypervisor: Debug + Sync + Send {
             let hyperv_windows_driver: &HypervWindowsDriver =
                 match self.as_any().downcast_ref::<HypervWindowsDriver>() {
                     Some(b) => b,
-                    None => bail!("Expected a WindowsHypervisorDriver"),
+                    None => {
+                        log_then_return!("Expected a WindowsHypervisorDriver");
+                    }
                 };
             hyperv_windows_driver.get_partition_hdl()
         };
@@ -241,7 +248,7 @@ pub trait Hypervisor: Debug + Sync + Send {
         // if the spawned thread has not been joined, this may cause the main thread to hang.
         // There should be no cases where this happens apart from the 2 explicit ones below where thread cancellation fails
 
-        thread::scope(|s| {
+        let result = thread::scope(|s| {
             // Using builder spawn scoped so that we receive an error if the thread creation fails, otherwise we would just panic.
 
             let join_handle = thread::Builder::new()
@@ -280,7 +287,8 @@ pub trait Hypervisor: Debug + Sync + Send {
                         match register_signal_handler(SIGRTMIN(), handle_signal) {
                             Ok(_) => {}
                             Err(e) => {
-                                result = Err(anyhow!("failed to register signal handler: {:?}", e));
+                                result =
+                                    Err(new_error!("failed to register signal handler: {:?}", e));
                             }
                         }
 
@@ -306,7 +314,7 @@ pub trait Hypervisor: Debug + Sync + Send {
                             *done = true;
                         }
                         Err(e) => {
-                            result = Err(anyhow!("Error Locking {:?}", e));
+                            result = Err(new_error!("Error Locking {:?}", e));
                         }
                     }
                     // Even if the lock fails we should stll try and notify the main thread that we have completed
@@ -334,12 +342,12 @@ pub trait Hypervisor: Debug + Sync + Send {
                         // so we wont hang.
                         match cvar.wait_timeout(done, timeout) {
                             Ok(result) => Ok(result.1.timed_out()),
-                            Err(e) => Err(anyhow::anyhow!("Failed to wait for thread {:?}", e)),
+                            Err(e) => Err(new_error!("Failed to wait for thread {:?}", e)),
                         }
                     }
                     // Its fine to return an error from locking here as this would mean that the spawned thread has panicked while holding the lock
                     // so we wont hang.
-                    Err(e) => Err(anyhow::anyhow!("Error Locking {:?}", e)),
+                    Err(e) => Err(new_error!("Error Locking {:?}", e)),
                 }
             };
 
@@ -352,13 +360,17 @@ pub trait Hypervisor: Debug + Sync + Send {
                     false => match join_handle.join() {
                         Ok(result) => result,
                         // Its fine to return error here as we know that the spawned thread has completed
-                        Err(e) => anyhow::bail!("Join thread returned an error {:?}", e),
+                        Err(e) => {
+                            log_then_return!(new_error!("Join thread returned an error {:?}", e));
+                        }
                     },
                     // The wait timed out the spawned thread may not have completed
                     true => {
                         // Its fine to return an error from locking here as this would mean that the spawned thread has panicked while holding the lock
                         // so we wont hang.
-                        let done = lock.lock().map_err(|e| anyhow!("Error Locking {:?}", e))?;
+                        let done = lock
+                            .lock()
+                            .map_err(|e| new_error!("Error Locking {:?}", e))?;
 
                         // If the run vcpu did not complete between the time we returned from the wait_timeout
                         // and the time we acquired the lock then we need to cancel the execution.
@@ -400,7 +412,10 @@ pub trait Hypervisor: Debug + Sync + Send {
                                     Err(e) => {
                                         // This should only happen if the spawned thread has panicked while holding the lock
                                         // so its safe to bail here as we know that the spawned thread has completed.
-                                        bail!("Failed to wait for thread {:?}", e);
+                                        log_then_return!(new_error!(
+                                            "Failed to wait for thread {:?}",
+                                            e
+                                        ));
                                     }
                                 };
 
@@ -409,7 +424,10 @@ pub trait Hypervisor: Debug + Sync + Send {
                                     true => match join_handle.join() {
                                         Ok(result) => result,
                                         Err(e) => {
-                                            bail!("Failed to join thread {:?}", e);
+                                            log_then_return!(new_error!(
+                                                "Failed to join thread {:?}",
+                                                e
+                                            ));
                                         }
                                     },
                                     false => {
@@ -422,7 +440,7 @@ pub trait Hypervisor: Debug + Sync + Send {
                                         match join_handle.is_finished() {
                                             true => Ok(()),
                                             false => {
-                                                bail!("Failed to cancel guest execution")
+                                                log_then_return!(HostFailedToCancelGuestExecution());
                                             }
                                         }
                                     }
@@ -437,7 +455,7 @@ pub trait Hypervisor: Debug + Sync + Send {
                                 match join_handle.is_finished() {
                                     true => Ok(()),
                                     false => {
-                                        bail!("Failed to cancel guest execution {:?}", e)
+                                        log_then_return!(e);
                                     }
                                 }
                             }
@@ -446,10 +464,29 @@ pub trait Hypervisor: Debug + Sync + Send {
                 },
                 // Failed to get the lock, this means that the scoped thread has panicked while holding the lock
                 // we can bail here as we know that the thread has exited and the scope will join it implicitly.
-                Err(e) => bail!("Failed to wait for thread {:?}", e),
+                Err(e) => {
+                    log_then_return!("Failed to wait for thread {:?}", e);
+                }
             };
             thread_execution_result
-        })
+        });
+
+        // Now we need to reset the TLS state so that the tls values are not set when we next enter this function on the host thread.
+
+        SPAWNED_THREAD.with(|st| {
+            *st.borrow_mut() = false;
+        });
+
+        CANCEL_RUN_REQUESTED.with(|crc| {
+            *crc.borrow_mut() = Arc::new(AtomicCell::new(false));
+        });
+        #[cfg(target_os = "linux")]
+        {
+            RUN_CANCELLED.with(|rc| {
+                *rc.borrow_mut() = Arc::new(AtomicCell::new(false));
+            });
+        }
+        result
     }
 
     /// Run the vCPU
@@ -499,7 +536,7 @@ fn terminate_execution(
     {
         let thread_id = thread_details.load();
         if thread_id == u64::MAX {
-            bail!("Failed to get thread id to signal thread");
+            log_then_return!("Failed to get thread id to signal thread");
         }
         let mut count: i32 = 0;
         // We need to send the signal multiple times in case the thread was between checking if it should be cancelled
@@ -525,12 +562,12 @@ fn terminate_execution(
             let ret = unsafe { pthread_kill(thread_id, SIGRTMIN()) };
             // We may get ESRCH if we try to signal a thread that has already exited
             if ret < 0 && ret != ESRCH {
-                bail!("error {} calling pthread_kill", ret);
+                log_then_return!("error {} calling pthread_kill", ret);
             }
             thread::sleep(Duration::from_micros(500));
         }
         if !run_cancelled.load() {
-            bail!("Failed to cancel execution after sending {} signals", count);
+            log_then_return!(HostFailedToCancelGuestExecutionSendingSignals(count));
         }
     }
     #[cfg(target_os = "windows")]
@@ -538,7 +575,7 @@ fn terminate_execution(
         unsafe {
             // Its intentional that we panic on an error here, if we bail then we could hang forever
             WHvCancelRunVirtualProcessor(partition_handle, 0, 0)
-                .map_err(|e| anyhow!("Failed to cancel guest execution {:?}", e))?;
+                .map_err(|e| new_error!("Failed to cancel guest execution {:?}", e))?;
         };
     }
     Ok(())
@@ -563,7 +600,7 @@ impl VirtualCPU {
             if cancel_run_requested.load() {
                 #[cfg(target_os = "linux")]
                 run_cancelled.store(true);
-                bail!("Execution was cancelled by the host.");
+                log_then_return!(ExecutionCanceledByHost());
             }
 
             match hv.run()? {
@@ -576,19 +613,19 @@ impl VirtualCPU {
                     mem_access_fn
                         .clone()
                         .lock()
-                        .map_err(|e| anyhow!("error locking: {:?}", e))?
+                        .map_err(|e| new_error!("error locking: {:?}", e))?
                         .call()?;
-                    bail!("MMIO access address {:#x}", addr)
+                    log_then_return!("MMIO access address {:#x}", addr);
                 }
                 HyperlightExit::Cancelled() => {
                     // Shutdown is returned when the host has cancelled execution
                     // TODO: we should probably make the VM unusable after this
                     #[cfg(target_os = "linux")]
                     run_cancelled.store(true);
-                    bail!("Execution was cancelled by the host.");
+                    log_then_return!(ExecutionCanceledByHost());
                 }
                 HyperlightExit::Unknown(reason) => {
-                    bail!("Unexpected VM Exit {:?}", reason);
+                    log_then_return!("Unexpected VM Exit {:?}", reason);
                 }
                 HyperlightExit::Retry() => continue,
             }
@@ -603,6 +640,7 @@ pub(crate) mod tests {
         handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
         Hypervisor,
     };
+    use crate::Result;
     use crate::{
         mem::{
             layout::SandboxMemoryLayout,
@@ -610,11 +648,10 @@ pub(crate) mod tests {
             ptr::{GuestPtr, RawPtr},
             ptr_offset::Offset,
         },
+        new_error,
         sandbox::{mem_mgr::MemMgrWrapperGetter, uninitialized::GuestBinary, UninitializedSandbox},
         testing::dummy_guest_path,
     };
-    use anyhow::bail;
-    use anyhow::{anyhow, Result};
     use std::{path::Path, time::Duration};
 
     pub(crate) fn test_initialise<NewFn>(
@@ -627,11 +664,14 @@ pub(crate) mod tests {
     {
         let filename = dummy_guest_path()?;
         if !Path::new(&filename).exists() {
-            bail!("test_initialise: file {} does not exist", filename);
+            return Err(new_error!(
+                "test_initialise: file {} does not exist",
+                filename
+            ));
         }
 
         let mut sandbox =
-            UninitializedSandbox::new(GuestBinary::FilePath(filename.clone()), None, None)?;
+            UninitializedSandbox::new(GuestBinary::FilePath(filename.clone()), None, None, None)?;
         let mem_mgr = {
             let wrapper = sandbox.get_mem_mgr_wrapper_mut();
             wrapper.as_mut()
@@ -673,6 +713,6 @@ pub(crate) mod tests {
                 Duration::from_millis(1000),
                 Duration::from_millis(10),
             )
-            .map_err(|e| anyhow!("Error running hypervisor against {} ({:?})", filename, e))
+            .map_err(|e| new_error!("Error running hypervisor against {} ({:?})", filename, e))
     }
 }

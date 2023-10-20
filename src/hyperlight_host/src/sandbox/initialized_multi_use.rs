@@ -1,14 +1,18 @@
-#[cfg(test)]
-use super::host_funcs::HostFuncsWrapper;
 use super::initialized_multi_use_release::{ShouldRelease, ShouldReset};
 use super::{guest_call_exec::ExecutingGuestCall, guest_funcs::dispatch_call_from_host};
+use super::{host_funcs::HostFuncsWrapper, leaked_outb::LeakedOutBWrapper};
+use crate::error::HyperlightError::GuestFunctionCallAlreadyInProgress;
 use crate::{
     func::{guest::GuestFunction, ParameterValue, ReturnType, ReturnValue},
-    sandbox_state::sandbox::Sandbox,
+    mem::ptr::{GuestPtr, RawPtr},
+    sandbox_state::{
+        sandbox::{DevolvableSandbox, Sandbox},
+        transition::Noop,
+    },
     GuestMgr, HypervisorWrapper, HypervisorWrapperMgr, MemMgrWrapper, MemMgrWrapperGetter,
     UninitializedSandbox,
 };
-use anyhow::{bail, Result};
+use crate::{log_then_return, Result};
 use std::sync::{Arc, Mutex};
 use tracing::instrument;
 
@@ -16,7 +20,6 @@ use tracing::instrument;
 /// any limits to how many
 #[derive(Clone)]
 pub struct MultiUseSandbox<'a> {
-    #[cfg(test)]
     pub(super) host_funcs: Arc<Mutex<HostFuncsWrapper<'a>>>,
     needs_state_reset: bool,
     executing_guest_call: ExecutingGuestCall,
@@ -24,6 +27,9 @@ pub struct MultiUseSandbox<'a> {
     pub(super) mem_mgr: MemMgrWrapper,
     pub(super) run_from_process_memory: bool,
     pub(super) hv: HypervisorWrapper<'a>,
+    /// See the documentation for `SingleUseSandbox::_leaked_out_b` for
+    /// details on the purpose of this field.
+    _leaked_outb: Arc<Option<LeakedOutBWrapper<'a>>>,
 }
 
 impl<'a> MultiUseSandbox<'a> {
@@ -32,9 +38,11 @@ impl<'a> MultiUseSandbox<'a> {
     /// This function is not equivalent to doing an `evolve` from uninitialized
     /// to initialized, and is purposely not exposed publicly outside the crate
     /// (as a `From` implementation would be)
-    pub(super) fn from_uninit(val: UninitializedSandbox<'a>) -> MultiUseSandbox<'a> {
+    pub(super) fn from_uninit(
+        val: UninitializedSandbox<'a>,
+        leaked_outb: Option<LeakedOutBWrapper<'a>>,
+    ) -> MultiUseSandbox<'a> {
         Self {
-            #[cfg(test)]
             host_funcs: val.host_funcs,
             needs_state_reset: false,
             executing_guest_call: ExecutingGuestCall::new(0),
@@ -42,6 +50,7 @@ impl<'a> MultiUseSandbox<'a> {
             mem_mgr: val.mgr,
             run_from_process_memory: val.run_from_process_memory,
             hv: val.hv,
+            _leaked_outb: Arc::new(leaked_outb),
         }
     }
 
@@ -84,21 +93,16 @@ impl<'a> MultiUseSandbox<'a> {
         let sbox_arc = Arc::new(Mutex::new(self.clone()));
         let mut sd = ShouldRelease::new(false, sbox_arc.clone());
         if sbox_arc
-            .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+            .lock()?
             .get_executing_guest_call_mut()
-            .compare_exchange(0, 1)
-            .map_err(|_| anyhow::anyhow!("Failed to verify status of guest function execution"))?
+            .compare_exchange(0, 1)?
             != 0
         {
-            bail!("Guest call already in progress");
+            log_then_return!(GuestFunctionCallAlreadyInProgress());
         }
 
         sd.toggle();
-        sbox_arc
-            .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-            .reset_state()?;
+        sbox_arc.lock()?.reset_state()?;
 
         func.call(sbox_arc)
         // ^^^ ensures that only one call can be made concurrently
@@ -220,14 +224,33 @@ impl<'a> MemMgrWrapperGetter for MultiUseSandbox<'a> {
     }
 }
 
-/// This `Drop` implementation is applicable to in-process execution only,
-/// and thus is applicable to windows builds only.
-///
-/// See the `super::initialized::drop_impl` method for more detail on why
-/// this exists and how it works.
-#[cfg(target_os = "windows")]
-impl<'a> Drop for MultiUseSandbox<'a> {
-    fn drop(&mut self) {
-        super::initialized::drop_impl(self.mem_mgr.as_ref())
+impl<'a>
+    DevolvableSandbox<
+        MultiUseSandbox<'a>,
+        UninitializedSandbox<'a>,
+        Noop<MultiUseSandbox<'a>, UninitializedSandbox<'a>>,
+    > for MultiUseSandbox<'a>
+{
+    /// Consume `self` and move it back to an `UninitializedSandbox`. The
+    /// devolving process entails the following:
+    ///
+    /// - If `self` was a recyclable sandbox, restore its state from a
+    /// previous state snapshot
+    /// - If `self` was using in-process mode, reset the stack pointer
+    /// (RSP register, to be specific) to what it was when the sandbox
+    /// was first created.
+    fn devolve(
+        self,
+        _tsn: Noop<MultiUseSandbox<'a>, UninitializedSandbox<'a>>,
+    ) -> Result<UninitializedSandbox<'a>> {
+        let run_from_proc = self.run_from_process_memory;
+        let mut ret = UninitializedSandbox::from_multi_use(self);
+        ret.mgr.as_mut().restore_state()?;
+        if run_from_proc {
+            let orig_rsp_raw = ret.hv.get_hypervisor()?.orig_rsp()?;
+            let orig_rsp = GuestPtr::try_from(RawPtr::from(orig_rsp_raw))?;
+            ret.hv.reset_rsp(orig_rsp)?;
+        }
+        Ok(ret)
     }
 }

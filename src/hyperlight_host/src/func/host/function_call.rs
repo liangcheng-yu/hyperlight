@@ -1,12 +1,16 @@
 extern crate flatbuffers;
 #[cfg(debug_assertions)]
+use crate::error::HyperlightError::InvalidFunctionCallType;
+#[cfg(debug_assertions)]
 use crate::flatbuffers::hyperlight::generated::{
     size_prefixed_root_as_function_call, FunctionCallType as FBFunctionCallType,
 };
 use crate::func::function_call::{ReadFunctionCallFromMemory, WriteFunctionCallToMemory};
+#[cfg(debug_assertions)]
+use crate::log_then_return;
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::shared_mem::SharedMemory;
-use anyhow::{anyhow, Result};
+use crate::{new_error, Result};
 /// A host function call is a function call from the guest to the host.
 #[derive(Default)]
 pub(crate) struct HostFunctionCall {}
@@ -21,11 +25,10 @@ impl WriteFunctionCallToMemory for HostFunctionCall {
         let buffer_size = {
             let size_u64 = shared_memory.read_u64(layout.get_output_data_size_offset())?;
             usize::try_from(size_u64)
-                .map_err(|_| anyhow!("could not convert buffer size u64 ({}) to usize", size_u64))
         }?;
 
         if function_call_buffer.len() > buffer_size {
-            return Err(anyhow!(
+            return Err(new_error!(
                 "Host function call buffer {} is too big for the output data buffer {}",
                 function_call_buffer.len(),
                 buffer_size
@@ -49,7 +52,6 @@ impl ReadFunctionCallFromMemory for HostFunctionCall {
         let fb_buffer_size = {
             let size_i32 = shared_memory.read_i32(layout.output_data_buffer_offset)? + 4;
             usize::try_from(size_i32)
-                .map_err(|_| anyhow!("could not convert buffer size i32 ({}) to usize", size_i32))
         }?;
 
         let mut function_call_buffer = vec![0; fb_buffer_size];
@@ -63,11 +65,12 @@ impl ReadFunctionCallFromMemory for HostFunctionCall {
 
 #[cfg(debug_assertions)]
 fn validate_host_function_call_buffer(function_call_buffer: &[u8]) -> Result<()> {
-    let host_function_call_fb =
-        size_prefixed_root_as_function_call(function_call_buffer).map_err(|e| anyhow!(e))?;
+    let host_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer)?;
     match host_function_call_fb.function_call_type() {
         FBFunctionCallType::host => Ok(()),
-        _ => anyhow::bail!("Unexpected function call type"),
+        other => {
+            log_then_return!(InvalidFunctionCallType(other));
+        }
     }
 }
 
@@ -76,7 +79,7 @@ mod tests {
     use super::*;
     use crate::sandbox::SandboxConfiguration;
     use crate::testing::get_host_function_call_test_data;
-    use anyhow::Result;
+    use crate::Result;
 
     #[test]
     fn write_to_memory() -> Result<()> {

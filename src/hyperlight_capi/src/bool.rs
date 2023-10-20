@@ -2,7 +2,7 @@ use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::validate_context_or_panic;
-use anyhow::Result;
+use hyperlight_host::Result;
 
 /// Return true if the given handle `hdl` references a boolean in `ctx`,
 /// and false otherwise

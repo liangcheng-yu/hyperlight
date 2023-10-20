@@ -1,5 +1,5 @@
 use super::hyperv_windows::WhvRegisterNameWrapper;
-use anyhow::Result;
+use crate::Result;
 use core::ffi::c_void;
 use std::collections::HashMap;
 use tracing::instrument;

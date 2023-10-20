@@ -1,6 +1,8 @@
 use super::context::Context;
 use super::handle::Handle;
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
+use hyperlight_host::new_error;
+use hyperlight_host::Result;
 use tracing::{error, info_span, trace};
 
 /// Roughly equivalent to a `Result` type with the following additional
@@ -56,7 +58,7 @@ impl<T> CFunc<T> {
         RunFn: FnOnce(&mut Context, T) -> Result<RunRes>,
     {
         let ctx_res = if self.ctx.is_null() {
-            Err(anyhow!("{}: NULL context passed", self.func_name))
+            Err(new_error!("{}: NULL context passed", self.func_name))
         } else {
             unsafe { Ok(&mut *self.ctx) }
         };

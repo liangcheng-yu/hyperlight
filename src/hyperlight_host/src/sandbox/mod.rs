@@ -9,12 +9,9 @@ pub(crate) mod guest_funcs;
 /// Functionality for managing the guest
 pub(crate) mod guest_mgr;
 /// Functionality for reading, but not modifying host functions
-pub mod host_funcs;
+mod host_funcs;
 /// Functionality for dealing with `Sandbox`es that contain Hypervisors
 pub(crate) mod hypervisor;
-/// Common functionality shared across the initialized sandbox
-/// implementations `SingleUseSandbox` and `MultiUseSandbox`
-mod initialized;
 /// Functionality for dealing with initialized sandboxes that can
 /// call 0 or more guest functions
 pub mod initialized_multi_use;
@@ -24,6 +21,11 @@ mod initialized_multi_use_release;
 /// Functionality for dealing with initialized sandboxes that can
 /// call 0 or 1 guest functions, but no more
 pub mod initialized_single_use;
+/// A container to leak, store and manage outb handlers for in-process
+/// executions. On non-in-process executions (e.g. windows without
+/// in-process mode turned on, or linux), the same container is just
+/// a no-op
+pub(self) mod leaked_outb;
 /// Functionality for dealing with memory access from the VM guest
 /// executable
 mod mem_access;
@@ -173,9 +175,13 @@ mod tests {
 
         for i in 0..10 {
             let simple_guest_path = simple_guest_path().expect("Guest Binary Missing");
-            let unintializedsandbox =
-                UninitializedSandbox::new(GuestBinary::FilePath(simple_guest_path), None, None)
-                    .unwrap_or_else(|_| panic!("Failed to create UninitializedSandbox {}", i));
+            let unintializedsandbox = UninitializedSandbox::new(
+                GuestBinary::FilePath(simple_guest_path),
+                None,
+                None,
+                None,
+            )
+            .unwrap_or_else(|_| panic!("Failed to create UninitializedSandbox {}", i));
 
             unintializedsandbox_queue
                 .push(unintializedsandbox)

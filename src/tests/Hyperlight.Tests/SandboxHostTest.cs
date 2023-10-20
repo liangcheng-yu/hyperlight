@@ -1019,7 +1019,11 @@ namespace Hyperlight.Tests
             });
             Assert.NotNull(ex);
             Assert.IsType<HyperlightException>(ex);
-            Assert.Equal($"Memory requested exceeds maximum size allowed CorrelationId: {correlationId} Source: NativeHandleWrapperErrorExtensions", ex.Message);
+#if DEBUG
+            Assert.Equal($"Memory requested 1074167808 exceeds maximum size allowed 1072627712 CorrelationId: {correlationId} Source: NativeHandleWrapperErrorExtensions", ex.Message);
+#else
+            Assert.Equal($"Memory requested 1074057216 exceeds maximum size allowed 1072627712 CorrelationId: {correlationId} Source: NativeHandleWrapperErrorExtensions", ex.Message);
+#endif
         }
 
         private ulong GetExpectedMemorySize(SandboxConfiguration sandboxConfiguration, string guestBinaryPath, SandboxRunOptions option)

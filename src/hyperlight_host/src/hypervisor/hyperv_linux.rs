@@ -4,9 +4,12 @@ use super::{
     CR4_PAE, EFER_LMA, EFER_LME,
 };
 
-use crate::{hypervisor::hypervisor_mem::HypervisorAddrs, mem::ptr::GuestPtr};
+use crate::{
+    error::HyperlightError::HypervisorError, hypervisor::hypervisor_mem::HypervisorAddrs,
+    mem::ptr::GuestPtr, new_error,
+};
 use crate::{hypervisor::HyperlightExit, mem::ptr::RawPtr};
-use anyhow::{anyhow, bail, Result};
+use crate::{log_then_return, Result};
 use mshv_bindings::{
     hv_message, hv_message_type, hv_message_type_HVMSG_UNMAPPED_GPA,
     hv_message_type_HVMSG_X64_HALT, hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT, hv_register_assoc,
@@ -36,7 +39,9 @@ pub fn is_hypervisor_present() -> Result<bool> {
                 Ok(!*REQUIRE_STABLE_API)
             }
         }
-        Err(e) => bail!(e),
+        Err(e) => {
+            log_then_return!(HypervisorError(e));
+        }
     }
 }
 /// The constant to map guest physical addresses as readable
@@ -97,16 +102,20 @@ impl HypervLinuxDriver {
     pub fn new(addrs: &HypervisorAddrs, rsp_ptr: GuestPtr, pml4_ptr: GuestPtr) -> Result<Self> {
         match is_hypervisor_present() {
             Ok(true) => (),
-            Ok(false) => bail!(
-                "Hypervisor not present (stable api was {:?})",
-                *REQUIRE_STABLE_API
-            ),
-            Err(e) => bail!(e),
+            Ok(false) => {
+                log_then_return!(
+                    "Hypervisor not present (stable api was {:?})",
+                    *REQUIRE_STABLE_API
+                );
+            }
+            Err(e) => {
+                log_then_return!(e);
+            }
         }
-        let mshv = Mshv::new().map_err(|e| anyhow!(e))?;
+        let mshv = Mshv::new()?;
         let pr = Default::default();
-        let vm_fd = mshv.create_vm_with_config(&pr).map_err(|e| anyhow!(e))?;
-        let mut vcpu_fd = vm_fd.create_vcpu(0).map_err(|e| anyhow!(e))?;
+        let vm_fd = mshv.create_vm_with_config(&pr)?;
+        let mut vcpu_fd = vm_fd.create_vcpu(0)?;
         let mem_region = mshv_user_mem_region {
             size: addrs.mem_size,
             guest_pfn: addrs.guest_pfn,
@@ -114,7 +123,7 @@ impl HypervLinuxDriver {
             flags: HV_MAP_GPA_READABLE | HV_MAP_GPA_WRITABLE | HV_MAP_GPA_EXECUTABLE,
         };
 
-        vm_fd.map_user_memory(mem_region).map_err(|e| anyhow!(e))?;
+        vm_fd.map_user_memory(mem_region)?;
         let registers = {
             let mut hm = HashMap::new();
             Self::add_registers(&mut vcpu_fd, &mut hm, addrs, rsp_ptr.clone(), pml4_ptr)?;
@@ -151,8 +160,7 @@ impl HypervLinuxDriver {
                 name: hv_register_name_HV_X64_REGISTER_CS,
                 ..Default::default()
             };
-            vcpu.get_reg(std::slice::from_mut(&mut cs_reg))
-                .map_err(|e| anyhow!(e))?;
+            vcpu.get_reg(std::slice::from_mut(&mut cs_reg))?;
             cs_reg.value.segment.base = 0;
             cs_reg.value.segment.selector = 0;
             registers.insert(hv_register_name_HV_X64_REGISTER_CS, cs_reg.value);
@@ -242,9 +250,7 @@ impl HypervLinuxDriver {
             });
         }
 
-        self.vcpu_fd
-            .set_reg(regs_vec.as_slice())
-            .map_err(|e| anyhow!(e))
+        Ok(self.vcpu_fd.set_reg(regs_vec.as_slice())?)
     }
 
     /// Update the rip register in the internally stored list of registers
@@ -270,7 +276,7 @@ impl HypervLinuxDriver {
             value: hv_register_value { reg64: val },
             ..Default::default()
         };
-        self.vcpu_fd.set_reg(&[reg]).map_err(|e| anyhow!(e))
+        Ok(self.vcpu_fd.set_reg(&[reg])?)
     }
 }
 
@@ -319,12 +325,10 @@ impl Hypervisor for HypervLinuxDriver {
         instruction_length: u64,
         outb_handle_fn: OutBHandlerWrapper,
     ) -> Result<()> {
-        let payload = data[..8]
-            .try_into()
-            .map_err(|e| anyhow!("error converting slice to array {}", e))?;
+        let payload = data[..8].try_into()?;
         outb_handle_fn
             .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+            .map_err(|e| new_error!("Error Locking {}", e))?
             .call(port, u64::from_le_bytes(payload))?;
 
         self.update_rip(RawPtr::from(rip + instruction_length))
@@ -359,13 +363,17 @@ impl Hypervisor for HypervLinuxDriver {
                     let addr = mimo_message.guest_physical_address;
                     HyperlightExit::Mmio(addr)
                 }
-                other => bail!("unknown Hyper-V run message type {:?}", other),
+                other => {
+                    log_then_return!("unknown Hyper-V run message type {:?}", other);
+                }
             },
             Err(e) => match e.errno() {
                 // we send a signal to the thread to cancel execution this results in EINTR being returned by KVM so we return Cancelled
                 libc::EINTR => HyperlightExit::Cancelled(),
                 libc::EAGAIN => HyperlightExit::Retry(),
-                _ => anyhow::bail!("Error running VCPU {:?}", e),
+                _ => {
+                    log_then_return!("Error running VCPU {:?}", e);
+                }
             },
         };
         Ok(result)
@@ -498,11 +506,11 @@ mod tests {
     ) -> Result<Box<SharedMemory>> {
         let load_offset_usize = usize::try_from(load_offset)?;
         if load_offset_usize > mem_size {
-            bail!(
+            log_then_return!(
                 "code load offset ({}) > memory size ({})",
                 u64::from(load_offset),
                 mem_size
-            )
+            );
         }
         let mut shared_mem = SharedMemory::new(mem_size)?;
         shared_mem.copy_from_slice(code, load_offset)?;

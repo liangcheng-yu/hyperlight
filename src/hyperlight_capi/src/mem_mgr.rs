@@ -9,16 +9,15 @@ use crate::{
     validate_context,
     {arrays::borrowed_slice::borrow_ptr_as_slice, shared_mem::register_shared_mem},
 };
-use anyhow::{anyhow, bail, Result};
 use hyperlight_host::mem::mgr::SandboxMemoryManager;
+use hyperlight_host::{log_then_return, new_error, Result};
 
 pub(super) fn get_mem_mgr(ctx: &Context, hdl: Handle) -> Result<&SandboxMemoryManager> {
-    Context::get(hdl, &ctx.mem_mgrs, |h| matches!(h, Hdl::MemMgr(_))).map_err(|e| anyhow!(e))
+    Context::get(hdl, &ctx.mem_mgrs, |h| matches!(h, Hdl::MemMgr(_)))
 }
 
 fn get_mem_mgr_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut SandboxMemoryManager> {
     Context::get_mut(hdl, &mut ctx.mem_mgrs, |h| matches!(h, Hdl::MemMgr(_)))
-        .map_err(|e| anyhow!(e))
 }
 
 pub(crate) fn register_mem_mgr(ctx: &mut Context, mgr: SandboxMemoryManager) -> Handle {
@@ -42,7 +41,7 @@ macro_rules! get_mgr {
 
 fn validate_flatbuffer(fb_ptr: *const u8) -> Result<Vec<u8>> {
     if fb_ptr.is_null() {
-        bail!("flat buffer pointer is NULL")
+        log_then_return!("flat buffer pointer is NULL");
     }
 
     unsafe {
@@ -281,13 +280,13 @@ pub unsafe extern "C" fn mem_mgr_get_host_exception_data(
         .and_then(|c, _| {
             let mgr = get_mem_mgr(c, mgr_hdl)?;
             if exception_data_ptr.is_null() {
-                bail!("Exception data ptr is null");
+                log_then_return!("Exception data ptr is null");
             }
             if exception_data_len == 0 {
-                bail!("Exception data length is zero");
+                log_then_return!("Exception data length is zero");
             }
             let exception_data_len_usize = usize::try_from(exception_data_len).map_err(|_| {
-                anyhow!(
+                new_error!(
                     "converting exception_data_len ({:?}) to usize",
                     exception_data_len
                 )
@@ -428,7 +427,7 @@ pub unsafe extern "C" fn mem_mgr_get_mem_size(ctx: *mut Context, mgr_hdl: Handle
     let val = match u64::try_from(val_usize) {
         Ok(s) => s,
         Err(_) => {
-            return (*ctx).register_err(anyhow!(
+            return (*ctx).register_err(new_error!(
                 "mem_mgr_get_mem_size couldn't convert usize mem size ({}) to u64",
                 val_usize,
             ))

@@ -2,13 +2,13 @@ use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::{int::register_u64, validate_context, validate_context_or_panic};
-use anyhow::{anyhow, Result};
 use hyperlight_host::mem::{ptr_offset::Offset, shared_mem::SharedMemory};
+use hyperlight_host::{new_error, Result};
 
 mod impls {
     use crate::{byte_array::get_byte_array, context::Context, handle::Handle};
-    use anyhow::{bail, Result};
     use hyperlight_host::mem::{ptr_offset::Offset, shared_mem::SharedMemory};
+    use hyperlight_host::{log_then_return, Result};
     use std::cell::RefCell;
 
     /// Get the starting address of the shared memory in `ctx` referenced by `hdl`
@@ -31,13 +31,13 @@ mod impls {
 
         // ensure we're not starting off the end of the byte array
         if arr_start >= byte_arr_len {
-            bail!("Array start ({}) is out of bounds", arr_start);
+            log_then_return!("Array start ({}) is out of bounds", arr_start);
         }
 
         // ensure we're not ending off the end of the byte array
         let arr_end = arr_start + arr_length;
         if (arr_start + arr_length) > byte_arr_len {
-            bail!("Array end ({}) is out of bounds", arr_end);
+            log_then_return!("Array end ({}) is out of bounds", arr_end);
         }
 
         // get the slice of byte_arr.
@@ -266,7 +266,7 @@ pub unsafe extern "C" fn shared_memory_get_size(ctx: *mut Context, hdl: Handle) 
     let size = match u64::try_from(sm.mem_size()) {
         Ok(s) => s,
         Err(_) => {
-            return (*ctx).register_err(anyhow!(
+            return (*ctx).register_err(new_error!(
                 "shared_memory_get_size: couldn't convert usize memory size value ({:?}) to u64",
                 sm.mem_size()
             ))
@@ -328,9 +328,7 @@ mod tests {
     use super::impls::copy_byte_array;
     use super::register_shared_mem;
     use crate::{context::Context, handle::Handle, hdl::Hdl};
-    use hyperlight_host::{mem::ptr_offset::Offset, mem::shared_mem::SharedMemory};
-
-    use anyhow::Result;
+    use hyperlight_host::{mem::ptr_offset::Offset, mem::shared_mem::SharedMemory, Result};
 
     struct TestData {
         // Context used to create all handles herein

@@ -1,5 +1,7 @@
-use crate::flatbuffers::hyperlight::generated::LogLevel as GenLogLevel;
-use anyhow::{bail, Result};
+use crate::{
+    flatbuffers::hyperlight::generated::LogLevel as GenLogLevel, log_then_return, HyperlightError,
+    Result,
+};
 use log::Level;
 
 #[repr(u8)]
@@ -23,7 +25,7 @@ impl From<LogLevel> for u8 {
 }
 
 impl TryFrom<GenLogLevel> for LogLevel {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(val: GenLogLevel) -> Result<LogLevel> {
         match val {
             GenLogLevel::Trace => Ok(LogLevel::Trace),
@@ -33,7 +35,9 @@ impl TryFrom<GenLogLevel> for LogLevel {
             GenLogLevel::Error => Ok(LogLevel::Error),
             GenLogLevel::Critical => Ok(LogLevel::Critical),
             GenLogLevel::None => Ok(LogLevel::None),
-            _ => bail!("Unsupported Flatbuffers log level: {:?}", val),
+            _ => {
+                log_then_return!("Unsupported Flatbuffers log level: {:?}", val);
+            }
         }
     }
 }

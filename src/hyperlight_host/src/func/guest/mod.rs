@@ -12,11 +12,11 @@ pub mod log_data;
 /// level of a log message issued from the guest.
 pub(crate) mod log_level;
 
+use crate::Result;
 use crate::{sandbox::initialized_single_use::SingleUseSandbox, MultiUseSandbox};
-use anyhow::{anyhow, Result};
 use std::sync::{Arc, Mutex};
 
-/// A simple guest function with no arguments and an `anyhow::Result<Res>`
+/// A simple guest function with no arguments and an `Result<Res>`
 /// return type, executable by an `InSbox` type
 pub trait GuestFunction<InSbox, Res> {
     /// Call the guest function in `self` and using the `s` parameter, call
@@ -39,7 +39,7 @@ pub trait GuestFunction<InSbox, Res> {
 /// Sample usage is as follows:
 ///
 /// ```rust
-/// use anyhow::Result;
+/// use hyperlight_host::Result;
 /// use hyperlight_host::func::guest::GuestFunction;
 /// use hyperlight_host::SingleUseSandbox;
 /// use std::sync::{Mutex, Arc};
@@ -86,12 +86,12 @@ where
 /// The type for which this `impl` implements `GuestFunction` is complex
 /// and for clarity is written in full as follows:
 ///
-/// `Arc<Mutex<FnOnce(Arc<Mutex<MutiUseSandbox>>) -> anyhow::Result<ResT>>>`
+/// `Arc<Mutex<FnOnce(Arc<Mutex<MutiUseSandbox>>) -> Result<ResT>>>`
 ///
 /// Sample usage of `MultiUseGuestFunction` is as follows:
 ///
 /// ```rust
-/// use anyhow::Result;
+/// use hyperlight_host::Result;
 /// use hyperlight_host::MultiUseSandbox;
 /// use hyperlight_host::func::guest::GuestFunction;
 /// use std::sync::{Arc, Mutex};
@@ -120,7 +120,7 @@ pub trait MultiUseGuestFunction<'sbox, ResT>:
 {
 }
 
-/// A simple guest function with no arguments and an `anyhow::Result<R>`
+/// A simple guest function with no arguments and an `Result<R>`
 /// return type, executable by a `MultiUseSandbox`
 impl<'sbox, 'func, FuncT, ResT> GuestFunction<Arc<Mutex<MultiUseSandbox<'sbox>>>, ResT>
     for Arc<Mutex<FuncT>>
@@ -136,6 +136,6 @@ fn call_impl<'func, SboxT, FuncT, ResT>(func: &Arc<Mutex<FuncT>>, sbox: SboxT) -
 where
     FuncT: FnMut(SboxT) -> Result<ResT> + 'func + Send,
 {
-    let mut func = func.lock().map_err(|e| anyhow!("error locking: {:?}", e))?;
+    let mut func = func.lock()?;
     func(sbox)
 }

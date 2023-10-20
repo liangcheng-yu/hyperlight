@@ -3,11 +3,11 @@ use super::handle::Handle;
 use super::hdl::Hdl;
 use super::hyperv_linux::get_handler_funcs;
 use crate::c_func::CFunc;
-use anyhow::Result;
 use hyperlight_host::hypervisor::{
     kvm::{self, KVMDriver},
     Hypervisor,
 };
+use hyperlight_host::Result;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 

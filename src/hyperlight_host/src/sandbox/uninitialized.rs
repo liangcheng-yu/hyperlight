@@ -6,20 +6,25 @@ use super::{host_funcs::HostFuncsWrapper, hypervisor::HypervisorWrapperMgr};
 use super::{hypervisor::HypervisorWrapper, run_options::SandboxRunOptions};
 use super::{mem_access::mem_access_handler_wrapper, mem_mgr::MemMgrWrapperGetter};
 use super::{mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper};
-use crate::mem::ptr::RawPtr;
 use crate::mem::{mgr::SandboxMemoryManager, pe::pe_info::PEInfo};
 use crate::sandbox::SandboxConfiguration;
 use crate::sandbox_state::transition::Noop;
 use crate::sandbox_state::{sandbox::EvolvableSandbox, transition::MutatingCallback};
+use crate::Result;
+use crate::{
+    error::HyperlightError::{CallEntryPointIsInProcOnly, GuestBinaryShouldBeAFile},
+    new_error,
+};
 use crate::{func::host::HostFunction1, MultiUseSandbox};
+use crate::{log_then_return, mem::ptr::RawPtr};
 use crate::{mem::mgr::STACK_COOKIE_LEN, SingleUseSandbox};
-use anyhow::{anyhow, bail, Result};
 use std::option::Option;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::{ffi::c_void, ops::Add};
 use tracing::instrument;
+use tracing_core::Level;
 
 /// A preliminary `Sandbox`, not yet ready to execute guest code.
 ///
@@ -133,11 +138,15 @@ impl<'a>
         self,
         _: Noop<UninitializedSandbox<'a>, SingleUseSandbox<'a>>,
     ) -> Result<SingleUseSandbox<'a>> {
-        // TODO: the following if statement is to stop evovle_impl being called when we run in proc (it ends up calling the entrypoint in the guest twice)
-        // Since we are not using the NOOP version of evolve in Hyperlight WASM we can use the if statement below to avoid the call to evolve_impl
-        // Once we fix up the Hypervisor C API this should be removed and replaced with the code commented out on line 106
+        // TODO: the following if statement is to stop evolve_impl being called
+        // when we run in proc (it ends up calling the entrypoint in the guest
+        // twice)
+        // Since we are not using the NOOP version of evolve in Hyperlight WASM
+        // we can use the if statement below to avoid the call to evolve_impl
+        // Once we fix up the Hypervisor C API this should be removed and
+        // replaced with the code commented out on line 106
         let i_sbox = if self.run_from_process_memory {
-            Ok(SingleUseSandbox::from_uninit(self))
+            Ok(SingleUseSandbox::from_uninit(self, None))
         } else {
             evolve_impl_single_use(self, None)
         }?;
@@ -161,11 +170,16 @@ impl<'a>
         self,
         _: Noop<UninitializedSandbox<'a>, MultiUseSandbox<'a>>,
     ) -> Result<MultiUseSandbox<'a>> {
-        // TODO: the following if statement is to stop evovle_impl being called when we run in proc (it ends up calling the entrypoint in the guest twice)
-        // Since we are not using the NOOP version of evolve in Hyperlight WASM we can use the if statement below to avoid the call to evolve_impl
-        // Once we fix up the Hypervisor C API this should be removed and replaced with the code commented out on line 106
+        // TODO: the following if statement is to stop evovle_impl being called
+        // when we run in proc (it ends up calling the entrypoint in the guest
+        // twice)
+        //
+        // Since we are not using the NOOP version of evolve in Hyperlight WASM
+        // we can use the if statement below to avoid the call to evolve_impl
+        // Once we fix up the Hypervisor C API this should be removed and
+        // replaced with the code commented out on line 106
         let i_sbox = if self.run_from_process_memory {
-            Ok(MultiUseSandbox::from_uninit(self))
+            Ok(MultiUseSandbox::from_uninit(self, None))
         } else {
             evolve_impl_multi_use(self, None)
         }?;
@@ -208,24 +222,23 @@ impl<'a> UninitializedSandbox<'a> {
     /// Create a new sandbox configured to run the binary at path
     /// `bin_path`.
     ///
-    /// The instrument attribute is used to generate tracing spans and also to emit an error should the Result be an error
-    /// In order to ensure that the span is associated with any error (so we get the correlation id ) we set the level of the span to error
-    /// the downside to this is that if there is no trace subscriber a log at level error or below will always emit a record for this regardless of if an error actually occurs
-    #[instrument(err(), skip(guest_binary, cfg), name = "UninitializedSandbox::new")]
+    /// The instrument attribute is used to generate tracing spans and also to emit an error should the Result be an error.
+    /// The skip attribute is used to skip the guest binary from being printed in the tracing span.
+    /// The name attribute is used to name the tracing span.
+    /// The err attribute is used to emit an error should the Result be an error, it uses the std::`fmt::Debug trait` to print the error.
+    #[instrument(err(Debug, level = Level::ERROR), skip(guest_binary, host_print_writer), name = "UninitializedSandbox::new")]
     pub fn new(
         guest_binary: GuestBinary,
         cfg: Option<SandboxConfiguration>,
         sandbox_run_options: Option<SandboxRunOptions>,
+        host_print_writer: Option<&dyn HostFunction1<'a, String, i32>>,
     ) -> Result<Self> {
         // If the guest binary is a file make sure it exists
 
         let guest_binary = match guest_binary {
             GuestBinary::FilePath(binary_path) => {
-                let path = Path::new(&binary_path)
-                    .canonicalize()
-                    .map_err(|e| anyhow!("Error {} File Path {}", e, binary_path))?;
-                path.try_exists()
-                    .map_err(|e| anyhow!("Error {} File Path {}", e, binary_path))?;
+                let path = Path::new(&binary_path).canonicalize()?;
+                path.try_exists()?;
                 GuestBinary::FilePath(path.to_str().unwrap().to_string())
             }
             GuestBinary::Buffer(buffer) => GuestBinary::Buffer(buffer),
@@ -251,8 +264,6 @@ impl<'a> UninitializedSandbox<'a> {
 
         mem_mgr_wrapper.write_memory_layout(run_from_process_memory)?;
 
-        // The default writer function is to write to stdout with green text.
-        let default_writer = Arc::new(Mutex::new(default_writer_func));
         let hv_opt = if !run_from_process_memory {
             let h = Self::set_up_hypervisor_partition(mem_mgr_wrapper.as_mut())?;
             Some(h)
@@ -281,11 +292,32 @@ impl<'a> UninitializedSandbox<'a> {
             run_from_process_memory,
         };
 
-        default_writer.register(&mut sandbox, "HostPrint")?;
+        // If we were passed a writer for host print register it otherwise use the default.
+        match host_print_writer {
+            Some(writer_func) => {
+                let writer_func = Arc::new(Mutex::new(writer_func));
+                writer_func
+                    .lock()
+                    .map_err(|e| new_error!("Error Locking {:?}", e))?
+                    .register(&mut sandbox, "HostPrint")?;
+            }
+            None => {
+                let default_writer = Arc::new(Mutex::new(default_writer_func));
+                default_writer.register(&mut sandbox, "HostPrint")?;
+            }
+        }
 
         Ok(sandbox)
     }
 
+    pub(crate) fn from_multi_use(sbox: MultiUseSandbox<'a>) -> Self {
+        Self {
+            host_funcs: sbox.host_funcs.clone(),
+            mgr: sbox.mem_mgr.clone(),
+            hv: sbox.hv.clone(),
+            run_from_process_memory: sbox.run_from_process_memory,
+        }
+    }
     /// Clone the internally-stored `Arc` holding the `HostFuncsWrapper`
     /// managed by `self`, then return it.
     pub fn get_host_funcs(&self) -> Arc<Mutex<HostFuncsWrapper<'a>>> {
@@ -318,7 +350,7 @@ impl<'a> UninitializedSandbox<'a> {
         page_size: u32,
     ) -> Result<()> {
         if !self.run_from_process_memory {
-            bail!("call_entry_point is only available with in-process mode");
+            log_then_return!(CallEntryPointIsInProcOnly());
         }
         type EntryPoint = extern "C" fn(i64, u64, u32) -> i32;
         let entry_point: EntryPoint = {
@@ -361,20 +393,18 @@ impl<'a> UninitializedSandbox<'a> {
             let path = match guest_binary {
                 GuestBinary::FilePath(bin_path_str) => bin_path_str,
                 GuestBinary::Buffer(_) => {
-                    anyhow::bail!("Cannot run from guest binary when guest binary is a buffer")
+                    log_then_return!(GuestBinaryShouldBeAFile());
                 }
             };
+            // TODO: This produces the wrong error message on Linux and is possibly obsfucating the real error on Windows
             SandboxMemoryManager::load_guest_binary_using_load_library(
                 cfg,
                 path,
                 &mut pe_info,
                 run_from_process_memory,
             )
-            // TODO: This produces the wrong error message on Linux and is possibly obsfucating the real error on Windows
             .map_err(|_| {
-                let err_msg =
-                    "Only one instance of Sandbox is allowed when running from guest binary";
-                anyhow!(err_msg)
+                new_error!("Only one instance of Sandbox is allowed when running from guest binary")
             })
         } else {
             SandboxMemoryManager::load_guest_binary_into_memory(
@@ -388,6 +418,7 @@ impl<'a> UninitializedSandbox<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::Result;
     #[cfg(target_os = "windows")]
     use crate::SandboxRunOptions;
     use crate::{
@@ -408,7 +439,6 @@ mod tests {
     };
     use crate::{sandbox_state::transition::MutatingCallback, sandbox_state::transition::Noop};
     use crate::{testing::log_values::try_to_strings, MultiUseSandbox};
-    use anyhow::{anyhow, Result};
     use crossbeam_queue::ArrayQueue;
     use hyperlight_testing::simple_guest_path;
     use log::Level;
@@ -433,7 +463,7 @@ mod tests {
 
         let binary_path = simple_guest_path().unwrap();
         let sandbox =
-            UninitializedSandbox::new(GuestBinary::FilePath(binary_path.clone()), None, None);
+            UninitializedSandbox::new(GuestBinary::FilePath(binary_path.clone()), None, None, None);
         assert!(sandbox.is_ok());
 
         // Guest Binary does not exist at path
@@ -441,6 +471,7 @@ mod tests {
         let binary_path_does_not_exist = binary_path.trim_end_matches(".exe").to_string();
         let uninitialized_sandbox = UninitializedSandbox::new(
             GuestBinary::FilePath(binary_path_does_not_exist),
+            None,
             None,
             None,
         );
@@ -460,12 +491,17 @@ mod tests {
             Some(Duration::from_millis(9)),
         );
 
-        let uninitialized_sandbox =
-            UninitializedSandbox::new(GuestBinary::FilePath(binary_path.clone()), Some(cfg), None);
+        let uninitialized_sandbox = UninitializedSandbox::new(
+            GuestBinary::FilePath(binary_path.clone()),
+            Some(cfg),
+            None,
+            None,
+        );
         assert!(uninitialized_sandbox.is_ok());
 
         let uninitialized_sandbox =
-            UninitializedSandbox::new(GuestBinary::FilePath(binary_path), None, None).unwrap();
+            UninitializedSandbox::new(GuestBinary::FilePath(binary_path), None, None, None)
+                .unwrap();
 
         // Get a Sandbox from an uninitialized sandbox without a call back function
 
@@ -487,6 +523,7 @@ mod tests {
             GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
             None,
             None,
+            None,
         )
         .expect("Failed to create sandbox");
 
@@ -497,8 +534,7 @@ mod tests {
         fn init(uninitialized_sandbox: &mut UninitializedSandbox) -> Result<()> {
             uninitialized_sandbox
                 .host_funcs
-                .lock()
-                .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                .lock()?
                 .host_print("test".to_string())?;
 
             Ok(())
@@ -519,6 +555,7 @@ mod tests {
             GuestBinary::Buffer(fs::read(binary_path).unwrap()),
             None,
             None,
+            None,
         );
         assert!(sandbox.is_ok());
 
@@ -527,7 +564,7 @@ mod tests {
         let binary_path = simple_guest_path().unwrap();
         let mut bytes = fs::read(binary_path).unwrap();
         let _ = bytes.split_off(100);
-        let sandbox = UninitializedSandbox::new(GuestBinary::Buffer(bytes), None, None);
+        let sandbox = UninitializedSandbox::new(GuestBinary::Buffer(bytes), None, None, None);
         assert!(sandbox.is_err());
 
         // Test with a valid guest binary buffer when trying to load library
@@ -538,6 +575,7 @@ mod tests {
                 GuestBinary::Buffer(fs::read(binary_path).unwrap()),
                 None,
                 Some(SandboxRunOptions::RunInProcess(true)),
+                None,
             );
             assert!(sandbox.is_err());
         }
@@ -561,8 +599,9 @@ mod tests {
     #[test]
     fn test_stack_guard() {
         let simple_guest_path = simple_guest_path().unwrap();
-        let sbox = UninitializedSandbox::new(GuestBinary::FilePath(simple_guest_path), None, None)
-            .unwrap();
+        let sbox =
+            UninitializedSandbox::new(GuestBinary::FilePath(simple_guest_path), None, None, None)
+                .unwrap();
         let res = sbox.get_mem_mgr_wrapper().check_stack_guard();
         assert!(
             res.is_ok(),
@@ -579,6 +618,7 @@ mod tests {
         let uninitialized_sandbox = || {
             UninitializedSandbox::new(
                 GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
+                None,
                 None,
                 None,
             )
@@ -709,18 +749,15 @@ mod tests {
             Ok(0)
         };
 
-        let writer_func = Arc::new(Mutex::new(writer));
+        let hostfunc = Arc::new(Mutex::new(writer));
 
-        let mut sandbox = UninitializedSandbox::new(
+        let sandbox = UninitializedSandbox::new(
             GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
             None,
             None,
+            Some(&hostfunc),
         )
         .expect("Failed to create sandbox");
-
-        writer_func
-            .register(&mut sandbox, "HostPrint")
-            .expect("Failed to register writer function");
 
         let host_funcs = sandbox.host_funcs.lock();
 
@@ -752,16 +789,13 @@ mod tests {
 
         let writer_func = Arc::new(Mutex::new(writer));
 
-        let mut sandbox = UninitializedSandbox::new(
+        let sandbox = UninitializedSandbox::new(
             GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
             None,
             None,
+            Some(&writer_func),
         )
         .expect("Failed to create sandbox");
-
-        writer_func
-            .register(&mut sandbox, "HostPrint")
-            .expect("Failed to register writer function");
 
         let host_funcs = sandbox.host_funcs.lock();
 
@@ -781,16 +815,13 @@ mod tests {
         }
 
         let writer_func = Arc::new(Mutex::new(fn_writer));
-        let mut sandbox = UninitializedSandbox::new(
+        let sandbox = UninitializedSandbox::new(
             GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
             None,
             None,
+            Some(&writer_func),
         )
         .expect("Failed to create sandbox");
-
-        writer_func
-            .register(&mut sandbox, "HostPrint")
-            .expect("Failed to register writer function");
 
         let host_funcs = sandbox.host_funcs.lock();
 
@@ -808,16 +839,13 @@ mod tests {
 
         let writer_method = Arc::new(Mutex::new(writer_closure));
 
-        let mut sandbox = UninitializedSandbox::new(
+        let sandbox = UninitializedSandbox::new(
             GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
             None,
             None,
+            Some(&writer_method),
         )
         .expect("Failed to create sandbox");
-
-        writer_method
-            .register(&mut sandbox, "HostPrint")
-            .expect("Failed to register writer function");
 
         let host_funcs = sandbox.host_funcs.lock();
 
@@ -849,8 +877,13 @@ mod tests {
             let unintializedsandbox = {
                 let err_string = format!("failed to create UninitializedSandbox {i}");
                 let err_str = err_string.as_str();
-                UninitializedSandbox::new(GuestBinary::FilePath(simple_guest_path), None, None)
-                    .expect(err_str)
+                UninitializedSandbox::new(
+                    GuestBinary::FilePath(simple_guest_path),
+                    None,
+                    None,
+                    None,
+                )
+                .expect(err_str)
             };
 
             {
@@ -966,7 +999,8 @@ mod tests {
             let mut binary_path = simple_guest_path().unwrap();
             binary_path.push_str("does_not_exist");
 
-            let sbox = UninitializedSandbox::new(GuestBinary::FilePath(binary_path), None, None);
+            let sbox =
+                UninitializedSandbox::new(GuestBinary::FilePath(binary_path), None, None, None);
             assert!(sbox.is_err());
 
             // Now we should still be in span 1 but span 2 should be created (we created entered and exited span 2 when we called UninitializedSandbox::new)
@@ -998,9 +1032,9 @@ mod tests {
 
                 #[cfg(target_os = "windows")]
                 let expected_error =
-                    "Error The system cannot find the file specified. (os error 2) File Path";
+                    "IOError(Os { code: 2, kind: NotFound, message: \"The system cannot find the file specified.\" }";
                 #[cfg(not(target_os = "windows"))]
-                let expected_error = "Error No such file or directory (os error 2) File Path";
+                let expected_error = "IOError(Os { code: 2, kind: NotFound, message: \"No such file or directory\" }";
 
                 let err_vals_res = try_to_strings([
                     (metadata_values_map, "level"),
@@ -1044,8 +1078,12 @@ mod tests {
             let mut invalid_binary_path = simple_guest_path().unwrap();
             invalid_binary_path.push_str("does_not_exist");
 
-            let sbox =
-                UninitializedSandbox::new(GuestBinary::FilePath(invalid_binary_path), None, None);
+            let sbox = UninitializedSandbox::new(
+                GuestBinary::FilePath(invalid_binary_path),
+                None,
+                None,
+                None,
+            );
             assert!(sbox.is_err());
 
             // When tracing is creating log records it will create a log
@@ -1066,9 +1104,7 @@ mod tests {
             let logcall = TEST_LOGGER.get_log_call(0).unwrap();
             assert_eq!(Level::Info, logcall.level);
 
-            assert!(logcall
-                .args
-                .starts_with("UninitializedSandbox::new; sandbox_run_options"));
+            assert!(logcall.args.starts_with("UninitializedSandbox::new; cfg"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
 
             // Log record 2
@@ -1082,14 +1118,7 @@ mod tests {
 
             let logcall = TEST_LOGGER.get_log_call(2).unwrap();
             assert_eq!(Level::Error, logcall.level);
-            #[cfg(target_os = "windows")]
-            assert!(logcall.args.starts_with(
-                "error=Error The system cannot find the file specified. (os error 2) File Path"
-            ));
-            #[cfg(not(target_os = "windows"))]
-            assert!(logcall
-                .args
-                .starts_with("error=Error No such file or directory (os error 2) File Path"));
+            assert!(logcall.args.starts_with("error=IOError(Os { code"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
 
             // Log record 4
@@ -1120,59 +1149,28 @@ mod tests {
                 GuestBinary::FilePath(valid_binary_path.into_os_string().into_string().unwrap()),
                 None,
                 None,
+                None,
             );
             assert!(sbox.is_err());
 
-            // There should be five calls again as we changed the log LevelFilter
-            // to Info. We should see the 1 info level log seen in records 1 above.
-
-            // We should then see the span and the info log record from pe_info
-            // and then finally the 2 errors from pe info and sandbox as the
-            // error result is propagated back up the call stack
-
+            // There should be 2 calls this time when we change to the log
+            // LevelFilter to Info.
             let num_calls = TEST_LOGGER.num_log_calls();
-            assert_eq!(5, num_calls);
+            assert_eq!(2, num_calls);
 
             // Log record 1
 
             let logcall = TEST_LOGGER.get_log_call(0).unwrap();
             assert_eq!(Level::Info, logcall.level);
 
-            assert!(logcall
-                .args
-                .starts_with("UninitializedSandbox::new; sandbox_run_options"));
+            assert!(logcall.args.starts_with("UninitializedSandbox::new; cfg"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
 
-            // Log record 3
+            // Log record 2
 
             let logcall = TEST_LOGGER.get_log_call(1).unwrap();
-            assert_eq!(Level::Info, logcall.level);
-            assert!(logcall.args.starts_with("from_file; filename="));
-            assert_eq!("hyperlight_host::mem::pe::pe_info", logcall.target);
-
-            // Log record 4
-
-            let logcall = TEST_LOGGER.get_log_call(2).unwrap();
-            assert_eq!(Level::Info, logcall.level);
-            assert!(logcall.args.starts_with("Loading PE file from"));
-            assert_eq!("hyperlight_host::mem::pe::pe_info", logcall.target);
-
-            // Log record 5
-
-            let logcall = TEST_LOGGER.get_log_call(3).unwrap();
             assert_eq!(Level::Error, logcall.level);
-            assert!(logcall
-                .args
-                .starts_with("error=Malformed entity: DOS header is malformed"));
-            assert_eq!("hyperlight_host::mem::pe::pe_info", logcall.target);
-
-            // Log record 6
-
-            let logcall = TEST_LOGGER.get_log_call(4).unwrap();
-            assert_eq!(Level::Error, logcall.level);
-            assert!(logcall
-                .args
-                .starts_with("error=Malformed entity: DOS header is malformed"));
+            assert!(logcall.args.starts_with("error=IOError"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
         }
         {
@@ -1186,9 +1184,9 @@ mod tests {
                     GuestBinary::FilePath(simple_guest_path().unwrap()),
                     None,
                     None,
+                    None,
                 );
-                res.map_err(|e| anyhow!("could not create a new UninitializedSandbox: {e:?}"))
-                    .unwrap()
+                res.unwrap()
             };
             let _: Result<MultiUseSandbox<'_>> = sbox.evolve(Noop::default());
 

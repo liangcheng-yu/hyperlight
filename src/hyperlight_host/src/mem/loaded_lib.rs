@@ -1,5 +1,6 @@
 use super::ptr::RawPtr;
-use anyhow::{bail, Result};
+use crate::error::HyperlightError;
+use crate::{log_then_return, Result};
 use std::ffi::{c_char, CString};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -75,7 +76,7 @@ impl Drop for LoadedLib {
 }
 
 impl TryFrom<&str> for LoadedLib {
-    type Error = anyhow::Error;
+    type Error = HyperlightError;
     fn try_from(file_name: &str) -> Result<Self> {
         let cstr = CString::new(file_name)?.into_raw();
         let file_name_pc_str = PCSTR::from_raw(cstr as *const u8);
@@ -89,7 +90,7 @@ impl TryFrom<&str> for LoadedLib {
                 // safety: we just created h_instance and c_str
                 free_and_drop(h_instance, cstr);
             }
-            bail!("LoadedLib: could not set global guest binary boolean to true");
+            log_then_return!("LoadedLib: could not set global guest binary boolean to true");
         }
 
         Ok(Self {

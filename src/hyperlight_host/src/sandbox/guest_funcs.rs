@@ -1,4 +1,5 @@
 use super::guest_err::check_for_guest_error;
+use crate::Result;
 use crate::{
     func::{
         function_call::{FunctionCall, FunctionCallType},
@@ -7,7 +8,6 @@ use crate::{
     mem::ptr::{GuestPtr, RawPtr},
     HypervisorWrapperMgr, MemMgrWrapperGetter,
 };
-use anyhow::Result;
 
 /// Call a guest function by name, using the given `hv_mem_mgr_getter`.
 pub(super) fn dispatch_call_from_host<
@@ -78,11 +78,12 @@ pub(super) fn dispatch_call_from_host<
 mod tests {
     use super::*;
     use crate::func::host::HostFunction0;
+    use crate::HyperlightError;
+    use crate::Result;
     use crate::UninitializedSandbox;
     use crate::{sandbox::is_hypervisor_present, SingleUseSandbox};
     use crate::{sandbox::uninitialized::GuestBinary, sandbox_state::transition::MutatingCallback};
     use crate::{sandbox_state::sandbox::EvolvableSandbox, MultiUseSandbox};
-    use anyhow::anyhow;
     use hyperlight_testing::callback_guest_path;
     use hyperlight_testing::simple_guest_path;
     use std::{
@@ -117,6 +118,7 @@ mod tests {
         let uninitialized_sandbox = || {
             UninitializedSandbox::new(
                 GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
+                None,
                 None,
                 None,
             )
@@ -197,28 +199,19 @@ mod tests {
         // TODO: Add tests to ensure State has been reset.
     }
 
-    #[test]
-    fn test_call_guest_function_by_name() -> Result<()> {
-        // This test relies upon a Hypervisor being present so for now
-        // we will skip it if there isnt one.
-        if !is_hypervisor_present() {
-            println!("Skipping test_call_guest_function_by_name because no hypervisor is present");
-            return Ok(());
-        }
-
-        let usbox = UninitializedSandbox::new(
-            GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
-            None,
-            // ^^^ for now, we're using defaults. In the future, we should get variability here.
-            None,
-            // ^^^  None == RUN_IN_HYPERVISOR && one-shot Sandbox
-        )?;
+    #[track_caller]
+    fn guest_bin() -> GuestBinary {
+        GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing"))
+    }
+    #[track_caller]
+    fn test_call_guest_function_by_name(u_sbox: UninitializedSandbox<'_>) {
+        let mut mu_sbox: MultiUseSandbox<'_> = u_sbox.evolve(MutatingCallback::from(init)).unwrap();
 
         let msg = "Hello, World!!\n".to_string();
         let len = msg.len() as i32;
         let func = Arc::new(Mutex::new(
             |sbox_arc: Arc<Mutex<MultiUseSandbox>>| -> Result<ReturnValue> {
-                let mut sbox = sbox_arc.lock().map_err(|_| anyhow!("error locking!"))?;
+                let mut sbox = sbox_arc.lock()?;
                 sbox.call_guest_function_by_name(
                     "PrintOutput",
                     ReturnType::Int,
@@ -227,17 +220,59 @@ mod tests {
             },
         ));
 
-        let mut sandbox: MultiUseSandbox<'_> = usbox.evolve(MutatingCallback::from(init)).unwrap();
-
-        let result = sandbox.execute_in_host(func).unwrap();
+        let result = mu_sbox.execute_in_host(func).unwrap();
 
         assert_eq!(result, ReturnValue::Int(len));
-        Ok(())
     }
 
-    // Test that we can terminate a VCPU that has been running the VCPU for too long.
+    fn call_guest_function_by_name_hv() {
+        // in-hypervisor mode
+        let u_sbox = UninitializedSandbox::new(
+            guest_bin(),
+            // for now, we're using defaults. In the future, we should get
+            // variability below
+            None,
+            // by default, the below represents in-hypervisor mode
+            None,
+            // just use the built-in host print function
+            None,
+        )
+        .unwrap();
+        test_call_guest_function_by_name(u_sbox);
+    }
+
     #[test]
-    fn test_terminate_vcpu_spinning_cpu() -> Result<()> {
+    fn test_call_guest_function_by_name_hv() {
+        call_guest_function_by_name_hv();
+    }
+
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn test_call_guest_function_by_name_in_proc_load_lib() {
+        let u_sbox = UninitializedSandbox::new(
+            guest_bin(),
+            None,
+            Some(crate::SandboxRunOptions::RunInProcess(true)),
+            None,
+        )
+        .unwrap();
+        test_call_guest_function_by_name(u_sbox);
+    }
+
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn test_call_guest_function_by_name_in_proc_manual() {
+        let u_sbox = UninitializedSandbox::new(
+            guest_bin(),
+            None,
+            Some(crate::SandboxRunOptions::RunInProcess(false)),
+            None,
+        )
+        .unwrap();
+        test_call_guest_function_by_name(u_sbox);
+    }
+
+    fn terminate_vcpu_after_1000ms() -> Result<()> {
         // This test relies upon a Hypervisor being present so for now
         // we will skip it if there isnt one.
         if !is_hypervisor_present() {
@@ -246,6 +281,7 @@ mod tests {
         }
         let usbox = UninitializedSandbox::new(
             GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
+            None,
             None,
             None,
         )?;
@@ -259,27 +295,42 @@ mod tests {
                 println!(
                     "Calling Guest Function Spin - this should be cancelled by the host after 1000ms"
                 );
-                s.lock()
-                    .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                s.lock()?
                     .call_guest_function_by_name("Spin", ReturnType::Void, None)
             };
             Arc::new(Mutex::new(f))
         };
 
-        let result = sandbox
-            .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-            .execute_in_host(func);
+        let result = sandbox.lock()?.execute_in_host(func);
 
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "Execution was cancelled by the host."
-        );
-
+        match result.unwrap_err() {
+            HyperlightError::ExecutionCanceledByHost() => {}
+            e => panic!(
+                "Expected HyperlightError::ExecutionCanceledByHost() but got {:?}",
+                e
+            ),
+        }
         Ok(())
     }
-    // This test is to capture the case where the guest execution is running a hsot function when cancelled and that host function
+
+    // Test that we can terminate a VCPU that has been running the VCPU for too long.
+    #[test]
+    fn test_terminate_vcpu_spinning_cpu() -> Result<()> {
+        terminate_vcpu_after_1000ms()?;
+        Ok(())
+    }
+
+    // Because the terminate logic uses TLS to store state we need to ensure that once we have called terminate
+    // on a thread we can create and initialize a new sandbox on that thread and it does not error
+    #[test]
+    fn test_terminate_vcpu_and_then_call_guest_function_on_the_same_host_thread() -> Result<()> {
+        terminate_vcpu_after_1000ms()?;
+        call_guest_function_by_name_hv();
+        Ok(())
+    }
+
+    // This test is to capture the case where the guest execution is running a host function when cancelled and that host function
     // is never going to return.
     // The host function that is called will end after 5 seconds, but by this time the cancellation will have given up
     // (using default timeout settings)  , so this tests looks for the error "Failed to cancel guest execution".
@@ -295,6 +346,7 @@ mod tests {
         }
         let mut usbox = UninitializedSandbox::new(
             GuestBinary::FilePath(callback_guest_path().expect("Guest Binary Missing")),
+            None,
             None,
             None,
         )?;
@@ -319,23 +371,19 @@ mod tests {
                 println!(
                     "Calling Guest Function CallHostSpin - this should fail to cancel the guest execution after 5 seconds"
                 );
-                s.lock()
-                    .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
+                s.lock()?
                     .call_guest_function_by_name("CallHostSpin", ReturnType::Void, None)
             },
         ));
 
-        let result = sandbox
-            .lock()
-            .map_err(|e| anyhow::anyhow!("error locking: {:?}", e))?
-            .execute_in_host(func);
-
+        let result = sandbox.lock()?.execute_in_host(func);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .starts_with("Failed to cancel guest execution"));
-
+        match result.unwrap_err() {
+            HyperlightError::HostFailedToCancelGuestExecution() => {}
+            #[cfg(target_os = "linux")]
+            HyperlightError::HostFailedToCancelGuestExecutionSendingSignals(_) => {}
+            e => panic!("Unexpected Error got {:?}", e),
+        }
         Ok(())
     }
 }

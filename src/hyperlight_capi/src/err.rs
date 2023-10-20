@@ -4,7 +4,7 @@ use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::strings::{to_c_string, to_string, RawCString};
-use anyhow::Error;
+use hyperlight_host::new_error;
 
 /// Create a new `Handle` that references an error with the given message.
 ///
@@ -31,7 +31,7 @@ pub unsafe extern "C" fn handle_new_err(ctx: *mut Context, err_msg: RawCString) 
     }
 
     let msg_str = to_string(err_msg);
-    let err = Error::msg(msg_str);
+    let err = new_error!("{}", msg_str);
     (*ctx).register_err(err)
 }
 
