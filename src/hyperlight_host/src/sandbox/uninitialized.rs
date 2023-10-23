@@ -40,6 +40,10 @@ pub struct UninitializedSandbox<'a> {
     pub(crate) mgr: MemMgrWrapper,
     pub(super) hv: HypervisorWrapper<'a>,
     pub(crate) run_from_process_memory: bool,
+    /// Whether or not we're running in the context of C# code.
+    ///
+    /// This is a hack.
+    pub(crate) is_csharp: bool,
 }
 
 impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for UninitializedSandbox<'a> {
@@ -145,7 +149,7 @@ impl<'a>
         // we can use the if statement below to avoid the call to evolve_impl
         // Once we fix up the Hypervisor C API this should be removed and
         // replaced with the code commented out on line 106
-        let i_sbox = if self.run_from_process_memory {
+        let i_sbox = if self.is_csharp {
             Ok(SingleUseSandbox::from_uninit(self, None))
         } else {
             evolve_impl_single_use(self, None)
@@ -178,7 +182,7 @@ impl<'a>
         // we can use the if statement below to avoid the call to evolve_impl
         // Once we fix up the Hypervisor C API this should be removed and
         // replaced with the code commented out on line 106
-        let i_sbox = if self.run_from_process_memory {
+        let i_sbox = if self.is_csharp {
             Ok(MultiUseSandbox::from_uninit(self, None))
         } else {
             evolve_impl_multi_use(self, None)
@@ -290,6 +294,7 @@ impl<'a> UninitializedSandbox<'a> {
             mgr: mem_mgr_wrapper,
             hv,
             run_from_process_memory,
+            is_csharp: false,
         };
 
         // If we were passed a writer for host print register it otherwise use the default.
@@ -310,12 +315,23 @@ impl<'a> UninitializedSandbox<'a> {
         Ok(sandbox)
     }
 
+    /// Set the internal flag to indicate this `UninitializedSandbox`
+    /// is running in the context of C# code.
+    ///
+    /// This flag is used to indicate that Rust code should not call the
+    /// guest's initialise function, since it expects C# code to do so
+    /// manually.
+    pub fn set_is_csharp(&mut self) {
+        self.is_csharp = true
+    }
+
     pub(crate) fn from_multi_use(sbox: MultiUseSandbox<'a>) -> Self {
         Self {
             host_funcs: sbox.host_funcs.clone(),
             mgr: sbox.mem_mgr.clone(),
             hv: sbox.hv.clone(),
             run_from_process_memory: sbox.run_from_process_memory,
+            is_csharp: false,
         }
     }
     /// Clone the internally-stored `Arc` holding the `HostFuncsWrapper`

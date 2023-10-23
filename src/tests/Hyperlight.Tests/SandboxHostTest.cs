@@ -1437,19 +1437,23 @@ namespace Hyperlight.Tests
                     Assert.IsType<HyperlightException>(ex);
 
 
-                    // TODO: Once Abort is fixed so that it does not cause recursion this should be updated to check abort details.
-                    // Changes to the guest library have changed the error message (it seems that using evolve to call the entry point causes a different error messaage, since we are avoiding calling evolve in the inprocess case 
-                    // - because of other issues - we are not seeing the same error message in the inprocess case)
-                    // This test will probably fail once we hook the C# impmentation to  a full C API. That will be OK so long as we see the other error message in the inprocess case.
-                    if (option == SandboxRunOptions.RunFromGuestBinary || option == SandboxRunOptions.RunInProcess || option == (SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun))
-                    {
-                        Assert.StartsWith("FailureInDlmalloc:HyperlightMoreCore Failed to allocate memory. Allocated:", ex.Message);
-                    }
-                    else
-                    {
-                        Assert.StartsWith("GuestError:Malloc Failed CorrelationId:", ex.Message);
-                    }
-
+                    // TODO: Once Abort is fixed so that it does not cause 
+                    // recursion this should be updated to check abort details.
+                    // Changes to the guest library have changed the error 
+                    // message (it seems that using evolve to call the entry 
+                    // point causes a different error messaage, since we are 
+                    // avoiding calling evolve in the inprocess case 
+                    // - because of other issues - we are not seeing the same 
+                    // error message in the inprocess case)
+                    // This test will probably fail once we hook the C# 
+                    // implementation to  a full C API. 
+                    // 
+                    // That will be OK so long as we see the other error 
+                    // message in the inprocess case.
+                    Assert.StartsWith(
+                        "FailureInDlmalloc:HyperlightMoreCore Failed to allocate memory. Allocated:",
+                        ex.Message
+                    );
                 }
             }
             foreach (var option in options)

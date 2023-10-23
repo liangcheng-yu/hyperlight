@@ -58,6 +58,10 @@ where
         };
 
         { u_sbox.hv.initialise(&mem_mgr) }?;
+        {
+            let mgr = u_sbox.mgr.as_ref();
+            assert!(mgr.get_pointer_to_dispatch_function()? != 0);
+        }
         if u_sbox.run_from_process_memory {
             u_sbox.get_hypervisor_wrapper_mut().reset_rsp(orig_rsp)?;
         }
@@ -77,7 +81,14 @@ pub(super) fn evolve_impl_multi_use<'a>(
     evolve_impl(u_sbox, cb_opt, |mut u, leaked_outb| {
         // only snapshot state if we're a multi-use sandbox. do not
         // call snapshot_state in the evolve_impl_single_use function
-        u.get_mem_mgr_wrapper_mut().as_mut().snapshot_state()?;
+        {
+            let mem_mgr = u.get_mem_mgr_wrapper().as_ref();
+            let p_dispatch = mem_mgr.get_pointer_to_dispatch_function()?;
+            print!("{:?}", p_dispatch);
+        }
+        {
+            u.get_mem_mgr_wrapper_mut().as_mut().snapshot_state()?;
+        }
         Ok(MultiUseSandbox::from_uninit(u, leaked_outb))
     })
 }

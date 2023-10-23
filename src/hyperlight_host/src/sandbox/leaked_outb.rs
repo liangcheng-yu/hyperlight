@@ -86,7 +86,8 @@ impl<'a> LeakedOutBWrapper<'a> {
         let cd = CustomPtrDrop::new(
             hdl_ptr,
             Box::new(|ptr| {
-                unsafe { Box::from_raw(ptr) };
+                let bx = unsafe { Box::from_raw(ptr) };
+                drop(bx);
             }),
         );
         let res = Self {
