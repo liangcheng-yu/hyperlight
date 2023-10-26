@@ -38,8 +38,8 @@ pub struct HyperlightPEB {
     pub p_code: *mut c_char,
     pub p_outb: *mut c_void,
     pub p_outb_context: *mut c_void,
-    pub inputdata: InputData,
-    pub outputdata: OutputData,
-    pub guestheap_data: GuestHeapData,
-    pub gueststack_data: GuestStackData,
+    pub input_data: InputData,
+    pub output_data: OutputData,
+    pub guest_heap_data: GuestHeapData,
+    pub guest_stack_data: GuestStackData,
 }

@@ -110,7 +110,7 @@ fn reset_error() {
 fn set_error(error_code: ErrorCode, message: &str) {
     write_error(error_code.0, Some(message));
     unsafe {
-        (*P_PEB.unwrap()).outputdata.output_data_buffer = usize::MAX as *mut c_void;
+        (*P_PEB.unwrap()).output_data.output_data_buffer = usize::MAX as *mut c_void;
     }
 }
 
@@ -295,7 +295,7 @@ fn dispatch_function() {
     reset_error();
 
     let (_, buffer) = unsafe {
-        read_size_prefixed_flatbuffer((*P_PEB.unwrap()).inputdata.input_data_buffer as *const u8)
+        read_size_prefixed_flatbuffer((*P_PEB.unwrap()).input_data.input_data_buffer as *const u8)
     };
 
     let function_call = root_as_function_call(buffer).unwrap();
@@ -312,7 +312,7 @@ fn dispatch_function() {
     unsafe {
         core::ptr::copy(
             result_buffer.as_ptr(),
-            (*P_PEB.unwrap()).outputdata.output_data_buffer as *mut u8,
+            (*P_PEB.unwrap()).output_data.output_data_buffer as *mut u8,
             result_size + 4,
         );
 
@@ -450,7 +450,7 @@ pub extern "C" fn entrypoint(peb_address: i64, _seed: i64, ops: i32) -> i32 {
         hyperlight_main();
         finalise_function_table();
 
-        (*(P_PEB.unwrap())).outputdata.output_data_buffer = 0 as *mut c_void;
+        (*(P_PEB.unwrap())).output_data.output_data_buffer = 0 as *mut c_void;
     }
 
     0
