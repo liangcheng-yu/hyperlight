@@ -1,24 +1,29 @@
 #![no_std]
 #![no_main]
 
-use hyperlight_guest_rs::entrypoint::{
+use hyperlight_guest::{guest::{
     create_function_definition, get_flatbuffer_result_from_int, register_function,
-};
+}, flatbuffers::hyperlight::generated::FunctionCall};
 
-#[allow(non_snake_case)]
+extern crate hyperlight_guest;
+
+#[no_mangle]
 pub extern "C" fn hyperlight_main() {
-    // - manually register smallVar
-
     // create fxn def
-    let smallVarDefinition = create_function_definition("smallVar\0", smallVar as u64, &[]);
+    let small_var_def = create_function_definition("small_var\0", small_var as u64, &[]);
 
     // register fxn def
-    register_function(smallVarDefinition);
+    register_function(small_var_def);
 }
 
 #[no_mangle]
-#[allow(non_snake_case)]
-pub extern "C" fn smallVar() -> *const u8 {
+pub extern "C" fn small_var() -> *const u8 {
     let _buffer: [u8; 2048] = [0; 2048];
     get_flatbuffer_result_from_int(2048)
+}
+
+#[no_mangle]
+pub extern "C" fn guest_dispatch_function(_function_call: &FunctionCall) -> *mut u8 {
+    // return dummy value for now
+    0 as *mut u8
 }

@@ -221,7 +221,7 @@ mod tests {
         let func = Arc::new(Mutex::new(
             |sbox_arc: Arc<Mutex<MultiUseSandbox>>| -> Result<ReturnValue> {
                 let mut sbox = sbox_arc.lock()?;
-                sbox.call_guest_function_by_name("smallVar", ReturnType::Int, None)
+                sbox.call_guest_function_by_name("small_var", ReturnType::Int, None)
             },
         ));
 

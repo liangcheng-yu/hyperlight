@@ -7,31 +7,59 @@ use crate::{
     },
     hyperlight_peb::HyperlightPEB,
 };
-use core::alloc::GlobalAlloc;
-use core::{alloc::Layout, ffi::c_void};
+
+use core::ffi::c_void;
+
+extern crate alloc;
+use alloc::vec::Vec;
+
 use flatbuffers::{FlatBufferBuilder, ForwardsUOffset, UnionWIPOffset, WIPOffset};
-use lazy_static::lazy_static;
-use mimalloc::MiMalloc;
-use spin::RwLock;
 
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
+use core::alloc::{GlobalAlloc, Layout};
 
-lazy_static! {
-    static ref GUEST_FUNCTION_BUILDER: RwLock<FlatBufferBuilder<'static>> =
-        RwLock::new(FlatBufferBuilder::new());
+struct MyAllocator;
+
+unsafe impl GlobalAlloc for MyAllocator {
+    unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
+        core::ptr::null_mut()
+    }
+
+    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {}
 }
 
-// `static mut`s like this only work in single-threaded scenarios.
-// In multi-threaded scenarios, we use the standard library primitives, but
-// because we're in a `#![no_std]` environment, we can't use those.
+#[global_allocator]
+static GLOBAL: MyAllocator = MyAllocator;
 
+static mut GUEST_FUNCTION_BUILDER: Option<FlatBufferBuilder> = None;
+
+// This funciton either gets or initializes our guest function
+// flatbuffer builder. In a sense, it replaces the need for
+// to lazy_static, because of the issues we ran w/ compiling
+// it in no_std/SUBSYSTEM:NATIVE.
+fn get_or_init_guest_function_builder() -> &'static mut FlatBufferBuilder<'static> {
+    unsafe {
+        if GUEST_FUNCTION_BUILDER.is_none() {
+            GUEST_FUNCTION_BUILDER = Some(FlatBufferBuilder::new());
+        }
+
+        GUEST_FUNCTION_BUILDER.as_mut().unwrap()
+    }
+}
+
+fn reset_guest_function_builder() {
+    unsafe {
+        GUEST_FUNCTION_BUILDER = None;
+    }
+}
+
+// These are global variable equivalents.
+// Being in a single-threaded scenario, this should be fine.
 static mut P_PEB: Option<*mut HyperlightPEB> = None;
-static mut RUNNING_IN_HYPERLIGHT: bool = true;
+static mut OS_PAGE_SIZE: u32 = 0;
 static mut OUTB_PTR: Option<fn(u16, u8)> = None;
 static mut OUTB_PTR_WITH_CONTEXT: Option<fn(*mut core::ffi::c_void, u16, u8)> = None;
+static mut RUNNING_IN_HYPERLIGHT: bool = true;
 static mut GUEST_FUNCTIONS: Option<GuestFunctionDetails> = None;
-// ^^^ These might be in lazy_static too inside of a RwLock to make them thread-safe.
 
 fn write_error(error_code: u64, message: Option<&str>) {
     // Create a flatbuffer builder object
@@ -54,6 +82,7 @@ fn write_error(error_code: u64, message: Option<&str>) {
     builder.finish(error, None);
 
     let flatb_data = builder.finished_data();
+
     unsafe {
         assert!(flatb_data.len() <= (*P_PEB.unwrap()).guest_error_buffer_size as usize);
     }
@@ -62,11 +91,11 @@ fn write_error(error_code: u64, message: Option<&str>) {
         assert!(!(*P_PEB.unwrap()).p_guest_error_buffer.is_null());
         assert!(flatb_data.len() <= (*P_PEB.unwrap()).guest_error_buffer_size as usize);
 
-        // Optimally, we'd use copy_from_slice here, but because
+        // Optimally, we'd use copy_from_slice here, but, because
         // p_guest_error_buffer is a *mut c_void, we can't do that.
         // Instead, we do the copying manually using pointer arithmetic.
-        // Plus, before we'd do an assert w/ the result from copy_from_slice,
-        // but copy_nonoverlapping doesn't return anything, so we can't do that.
+        // Plus; before, we'd do an assert w/ the result from copy_from_slice,
+        // but, because copy_nonoverlapping doesn't return anything, we can't do that.
         // Instead, we do the prior asserts to check the destination pointer isn't null
         // and that there is enough space in the destination buffer for the copy.
         let dest_ptr = (*P_PEB.unwrap()).p_guest_error_buffer as *mut u8;
@@ -88,7 +117,7 @@ fn set_error(error_code: ErrorCode, message: &str) {
 type GuestFunc = fn(FunctionCall) -> *mut u8;
 fn call_guest_function(function_call: &FunctionCall) -> *mut u8 {
     let parameters = function_call.parameters();
-    let actual_parameter_count = parameters.unwrap().len();
+    let parameter_count = parameters.unwrap().len();
     let function_name = function_call.function_name();
 
     let guest_function_definitions = unsafe { GUEST_FUNCTIONS.unwrap().functions() };
@@ -112,15 +141,14 @@ fn call_guest_function(function_call: &FunctionCall) -> *mut u8 {
             "Exceeded maximum parameter count"
         );
 
-        if required_parameter_count != actual_parameter_count {
+        if required_parameter_count != parameter_count {
             panic!(
                 "Called function {} with {} parameters but it takes {}.",
-                function_name, actual_parameter_count, required_parameter_count
+                function_name, parameter_count, required_parameter_count
             );
         }
 
         let mut parameter_kinds = [None; MAX_PARAMETERS];
-        let mut index = 0;
         let mut next_param_is_length = false;
 
         for i in 0..required_parameter_count {
@@ -136,25 +164,20 @@ fn call_guest_function(function_call: &FunctionCall) -> *mut u8 {
 
             match parameter_type {
                 ParameterValue::hlint => {
-                    parameter_kinds[index] = Some(ParameterType::hlint);
-                    index += 1;
+                    parameter_kinds[i] = Some(ParameterType::hlint);
                 }
                 ParameterValue::hllong => {
-                    parameter_kinds[index] = Some(ParameterType::hllong);
-                    index += 1;
+                    parameter_kinds[i] = Some(ParameterType::hllong);
                 }
                 ParameterValue::hlstring => {
-                    parameter_kinds[index] = Some(ParameterType::hlstring);
-                    index += 1;
+                    parameter_kinds[i] = Some(ParameterType::hlstring);
                 }
                 ParameterValue::hlbool => {
-                    parameter_kinds[index] = Some(ParameterType::hlbool);
-                    index += 1;
+                    parameter_kinds[i] = Some(ParameterType::hlbool);
                 }
                 ParameterValue::hlvecbytes => {
-                    parameter_kinds[index] = Some(ParameterType::hlvecbytes);
+                    parameter_kinds[i] = Some(ParameterType::hlvecbytes);
                     next_param_is_length = true;
-                    index += 1;
                 }
                 _ => panic!(
                     "Unexpected Parameter Type {:#?} in Function {}",
@@ -176,6 +199,7 @@ fn call_guest_function(function_call: &FunctionCall) -> *mut u8 {
         return p_function(*function_call);
     } else {
         extern "C" {
+            #[allow(improper_ctypes)]
             fn guest_dispatch_function(function_call: &FunctionCall) -> *mut u8;
         }
 
@@ -191,17 +215,14 @@ pub fn create_function_definition(
     p_function: u64,
     parameter_kinds: &[ParameterType],
 ) -> WIPOffset<GuestFunctionDefinition<'static>> {
-    let mut builder = GUEST_FUNCTION_BUILDER.write();
+    let mut builder = get_or_init_guest_function_builder();
 
-    // Create the name string
     let name = builder.create_string(function_name);
 
-    // Create the parameter types vector
     let parameters = builder.create_vector(parameter_kinds);
 
     let return_type = ReturnType::hlint;
 
-    // Create the GuestFunctionDefinition and return its offset
     GuestFunctionDefinition::create(
         &mut builder,
         &GuestFunctionDefinitionArgs {
@@ -215,10 +236,9 @@ pub fn create_function_definition(
 }
 
 pub fn register_function(function_definition: WIPOffset<GuestFunctionDefinition<'static>>) {
-    let mut builder = GUEST_FUNCTION_BUILDER.write();
-    builder.push(function_definition); 
+    let builder = get_or_init_guest_function_builder();
+    builder.push(function_definition);
 }
-
 
 pub fn get_flatbuffer_result_from_int(value: u32) -> *mut u8 {
     let mut builder = FlatBufferBuilder::new();
@@ -254,13 +274,18 @@ fn get_flatbuffer_result(
     builder.finished_data().as_ptr() as *mut u8
 }
 
+// In C's Flatbuffer world, this function
+// is provided by the flatbuffer library itself.
+// I don't think Rust has an equivalent, so I've
+// created this for convenience, which I believe
+// does the same thing (i.e., read the size prefix
+// which is a u64, then read the data after the prefix
+// in a provided flatbuffer vec of bytes).
 fn read_size_prefixed_flatbuffer(buffer: *const u8) -> (usize, &'static [u8]) {
     assert!(!buffer.is_null());
 
-    // Read the size prefix.
     let size_prefix = unsafe { *(buffer as *const u64) } as usize;
 
-    // Convert the raw pointer (after the prefix) to a slice.
     let data_slice = unsafe { core::slice::from_raw_parts(buffer.add(8), size_prefix) };
 
     (size_prefix, data_slice)
@@ -269,7 +294,6 @@ fn read_size_prefixed_flatbuffer(buffer: *const u8) -> (usize, &'static [u8]) {
 fn dispatch_function() {
     reset_error();
 
-    // Read the Function Call FlatBuffer from memory
     let (_, buffer) = unsafe {
         read_size_prefixed_flatbuffer((*P_PEB.unwrap()).inputdata.input_data_buffer as *const u8)
     };
@@ -300,7 +324,7 @@ fn dispatch_function() {
 }
 
 pub fn initialise_function_table() {
-    let mut builder = GUEST_FUNCTION_BUILDER.write();
+    let mut builder = get_or_init_guest_function_builder();
     let functions_vec = builder.create_vector::<ForwardsUOffset<GuestFunctionDefinition>>(&[]);
 
     let details = GuestFunctionDetails::create(
@@ -314,42 +338,86 @@ pub fn initialise_function_table() {
     builder.finish(details, None);
 }
 
-// Assuming a maximum size for your flatbuffers data.
-const MAX_FLATBUFFER_SIZE: usize = 4096;
-static mut FLATBUFFER_STORAGE: [u8; MAX_FLATBUFFER_SIZE] = [0; MAX_FLATBUFFER_SIZE];
+fn get_guest_function_details() -> GuestFunctionDetails<'static> {
+    let builder = get_or_init_guest_function_builder();
+    let buffer = builder.finished_data();
+
+    // If you can assure that buffer is valid for the duration of its use
+    root_as_guest_function_details(buffer).unwrap()
+}
 
 pub fn finalise_function_table() {
-    {
-        let builder = GUEST_FUNCTION_BUILDER.write();
-        let buffer = builder.finished_data();
+    // unsorted guest functions
+    let guest_functions = get_guest_function_details();
 
-        // Copy the buffer data to the static storage
-        unsafe {
-            FLATBUFFER_STORAGE[..buffer.len()].copy_from_slice(buffer);
-        }
+    // get vector of function definitions
+    let functions = guest_functions.functions();
+
+    // - start sorting
+    let num_functions = functions.len();
+
+    let mut indices: Vec<usize> = Vec::new();
+    for i in 0..num_functions {
+        indices[i] = i;
     }
 
-    let guest_functions = unsafe { root_as_guest_function_details(&FLATBUFFER_STORAGE) }.unwrap();
+    // sorting using indices, because we can't
+    // really mess around w/ the flatbuffer vector.
+    for i in 1..num_functions {
+        let mut j = i;
+        while j > 0
+            && functions
+                .get(indices[j - 1])
+                .function_name()
+                .cmp(&functions.get(indices[j]).function_name())
+                == core::cmp::Ordering::Greater
+        {
+            indices.swap(j, j - 1);
+            j -= 1;
+        }
+    }
+    // ^^^ this is obviously not the best way ever to
+    // sort, but it works for now.
 
-    let _guest_function_definitions = guest_functions.functions();
+    // - finished sorting
 
-    // TODO: Sort functions by name.
+    reset_guest_function_builder();
+    // ^^^ resetting, so we can use the sorted functions.
+    for i in 0..num_functions {
+        let parameters_vector = functions.get(indices[i]).parameters();
+        let parameters_slice: Vec<_> = (0..parameters_vector.len())
+            .map(|i| parameters_vector.get(i))
+            .collect();
+        // getting a slice
 
-    // Store the sorted buffer for later use (this is pseudo-code, adjust as needed).
+        let gfd = create_function_definition(
+            functions.get(indices[i]).function_name(),
+            functions.get(indices[i]).function_pointer() as u64,
+            parameters_slice.as_slice(),
+        );
+
+        register_function(gfd);
+    }
+    let guest_functions = get_guest_function_details();
+
     unsafe {
         GUEST_FUNCTIONS = Some(guest_functions);
     }
 }
 
-#[allow(non_snake_case)]
-#[no_mangle]
-pub extern "C" fn entryPoint(peb_address: i64, _seed: i64, _ops: i32) -> i32 {
-    unsafe {
-        P_PEB = Some(peb_address as *mut HyperlightPEB);
+extern "C" {
+    fn hyperlight_main();
+}
 
-        if P_PEB.is_none() {
+#[no_mangle]
+pub extern "C" fn entrypoint(peb_address: i64, _seed: i64, ops: i32) -> i32 {
+    unsafe {
+        // check if peb_address is null
+        if peb_address == 0 {
             return -1;
         }
+
+        P_PEB = Some(peb_address as *mut HyperlightPEB);
 
         // In C, at this point, we call __security_init_cookie.
         // That's a dependency on MSVC, which we can't utilize here.
@@ -358,34 +426,26 @@ pub extern "C" fn entryPoint(peb_address: i64, _seed: i64, _ops: i32) -> i32 {
 
         // In C, here, we have a `if (!setjmp(jmpbuf))`, which is used in case an error occurs
         // because longjmp is called, which will cause execution to return to this point to
-        // halt the program. In Rust, we don't have this sort of error handling as the
+        // halt the program. In Rust, we don't have or need this sort of error handling as the
         // language relies on specific structures like `Result`, and `?` that allow for
         // propagating up the call stack.
 
-        OUTB_PTR = Some(core::mem::transmute::<_, fn(u16, u8)>(
-            (*P_PEB.unwrap()).p_outb,
-        ));
-        OUTB_PTR_WITH_CONTEXT = if (*P_PEB.unwrap()).p_outb_context.is_null() {
-            None
-        } else {
-            Some(core::mem::transmute((*P_PEB.unwrap()).p_outb))
-        };
+        OS_PAGE_SIZE = ops as u32;
+        OUTB_PTR = Some(core::mem::transmute((*P_PEB.unwrap()).p_outb));
+        OUTB_PTR_WITH_CONTEXT = Some(core::mem::transmute((*P_PEB.unwrap()).p_outb));
 
-        if let Some(_) = OUTB_PTR_WITH_CONTEXT {
+        // If outb is not null, then we're not running in Hyperlight
+        if !(*P_PEB.unwrap()).p_outb.is_null() {
             RUNNING_IN_HYPERLIGHT = false;
         }
 
         (*P_PEB.unwrap()).guest_function_dispatch_ptr = dispatch_function as u64;
 
-        // Note: Here, in C, we call `dlmalloc_set_footprint_limit`, but I
-        // don't think mimalloc has an equivalent.
+        // TODO: Here, in C, we call `dlmalloc_set_footprint_limit`,
+        // our allocator might need something equivalent.
 
         reset_error();
         initialise_function_table(); // <- unlike in C, this can't fail in Rust
-
-        extern "C" {
-            fn hyperlight_main();
-        }
 
         hyperlight_main();
         finalise_function_table();

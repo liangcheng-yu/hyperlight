@@ -1,0 +1,8 @@
+[package]
+name = "hyperlight_guest"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+flatbuffers = { version = "23.5", no-default-features = true }
+arrayvec = "0.7.4"

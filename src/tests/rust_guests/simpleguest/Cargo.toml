@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-hyperlight_guest_rs = { path = "../../../hyperlight_guest_rs" }
+hyperlight_guest = { path = "../../../hyperlight_guest" }
