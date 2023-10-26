@@ -17,18 +17,22 @@ use flatbuffers::{FlatBufferBuilder, ForwardsUOffset, UnionWIPOffset, WIPOffset}
 
 use core::alloc::{GlobalAlloc, Layout};
 
-struct MyAllocator;
+// struct MyAllocator;
 
-unsafe impl GlobalAlloc for MyAllocator {
-    unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
-        core::ptr::null_mut()
-    }
+// unsafe impl GlobalAlloc for MyAllocator {
+//     unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
+//         core::ptr::null_mut()
+//     }
 
-    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {}
-}
+//     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {}
+// }
+
+// #[global_allocator]
+// static GLOBAL: MyAllocator = MyAllocator;
 
 #[global_allocator]
-static GLOBAL: MyAllocator = MyAllocator;
+static GLOBAL: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
 
 static mut GUEST_FUNCTION_BUILDER: Option<FlatBufferBuilder> = None;
 
