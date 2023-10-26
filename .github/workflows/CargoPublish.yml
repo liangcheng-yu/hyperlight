@@ -4,10 +4,6 @@ name: Publish crates to intenral cargo registry
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Optional - version to publish (ex: v0.3.5). If not set version will be taken from branch name'
-        required: false
 
 jobs:
   publish-hyperlight-packages:
@@ -21,19 +17,13 @@ jobs:
       - name: set up cargo workspaces version
         run: |
           cargo install cargo-workspaces
+          cargo install minver_rs
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
           git config --global user.Name "${{ github.actor }}"
-      - name: set versions from input
-        if: ${{ github.event.inputs.version != ''}}
+      - name: set crate versions
         run: |
-          version=$(echo ${{ github.event.inputs.version }} | cut -d"v" -f2-)
-          echo "version=$version"
-          cargo +nightly ws version --force=hyperlight_* --no-git-tag --no-git-push --allow-branch=release/* --yes custom $version
-      - name: set versions from branch name
-        if: ${{ github.event.inputs.version == ''}}
-        run: |
-          gh_ref=${{ github.ref }}
-          version=$(echo ${gh_ref##*/} | cut -d"v" -f2)
+          git fetch --tags
+          version=$(MINVER_TAG_PREFIX=v minver)
           echo "version=$version"
           cargo +nightly ws version --force=hyperlight_* --no-git-tag --no-git-push --allow-branch=release/* --yes custom $version
       - name: Publish hyperlight-testing
