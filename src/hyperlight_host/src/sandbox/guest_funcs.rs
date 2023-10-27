@@ -77,6 +77,7 @@ pub(super) fn dispatch_call_from_host<
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::SandboxRunOptions;
     use crate::func::host::HostFunction0;
     use crate::HyperlightError;
     use crate::Result;
@@ -213,7 +214,7 @@ mod tests {
             GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing")),
             None,
             // ^^^ for now, we're using defaults. In the future, we should get variability here.
-            None,
+            Some(SandboxRunOptions::RunInProcess(true)),
             // ^^^  None == RUN_IN_HYPERVISOR && one-shot Sandbox
             None,
         )?;

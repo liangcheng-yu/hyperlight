@@ -8,7 +8,7 @@ use crate::{
     hyperlight_peb::HyperlightPEB,
 };
 
-use core::ffi::c_void;
+use core::{ffi::c_void, arch::asm};
 
 extern crate alloc;
 use alloc::vec::Vec;
@@ -16,19 +16,6 @@ use alloc::vec::Vec;
 use flatbuffers::{FlatBufferBuilder, ForwardsUOffset, UnionWIPOffset, WIPOffset};
 
 use core::alloc::{GlobalAlloc, Layout};
-
-// struct MyAllocator;
-
-// unsafe impl GlobalAlloc for MyAllocator {
-//     unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
-//         core::ptr::null_mut()
-//     }
-
-//     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {}
-// }
-
-// #[global_allocator]
-// static GLOBAL: MyAllocator = MyAllocator;
 
 #[global_allocator]
 static GLOBAL: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -66,14 +53,12 @@ static mut RUNNING_IN_HYPERLIGHT: bool = true;
 static mut GUEST_FUNCTIONS: Option<GuestFunctionDetails> = None;
 
 fn write_error(error_code: u64, message: Option<&str>) {
-    // Create a flatbuffer builder object
     let mut builder = flatbuffers::FlatBufferBuilder::new();
 
-    // Validate the error code
     let code = ErrorCode(error_code as _);
 
-    // Create the flatbuffer
     let message_offset = message.map(|m| builder.create_string(m));
+    
     let error = GuestError::create(
         &mut builder,
         &GuestErrorArgs {
@@ -409,12 +394,18 @@ pub fn finalise_function_table() {
     }
 }
 
+fn halt() {
+    unsafe {
+        asm!("hlt");
+    }
+}
+
 extern "C" {
     fn hyperlight_main();
 }
 
 #[no_mangle]
-pub extern "C" fn entrypoint(peb_address: i64, _seed: i64, ops: i32) -> i32 {
+pub extern "C" fn entrypoint(peb_address: u64, _seed: u64, ops: i32) -> i32 {
     unsafe {
         // check if peb_address is null
         if peb_address == 0 {
@@ -457,5 +448,6 @@ pub extern "C" fn entrypoint(peb_address: i64, _seed: i64, ops: i32) -> i32 {
         (*(P_PEB.unwrap())).output_data.output_data_buffer = 0 as *mut c_void;
     }
 
+    halt();
     0
 }

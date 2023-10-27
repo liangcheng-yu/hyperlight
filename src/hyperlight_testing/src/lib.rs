@@ -32,14 +32,7 @@ pub fn test_bin_base() -> PathBuf {
 
     join_to_path(
         MANIFEST_DIR,
-        vec![
-            "..",
-            "tests",
-            "Hyperlight.Tests",
-            "bin",
-            build_dir_selector,
-            "net6.0",
-        ],
+        vec!["..", "..", "target", "x86_64-pc-windows-msvc", build_dir_selector],
     )
 }
 
@@ -63,7 +56,7 @@ pub fn callback_guest_path() -> Result<String> {
 
 /// Get a new `PathBuf` pointing to `simpleguest.exe`
 pub fn simple_guest_buf() -> PathBuf {
-    // $REPO_ROOT/target/x86_64-pc-windows-msvc/simpleguest.exe"
+    // $REPO_ROOT/target/x86_64-pc-windows-msvc/debug/simpleguest.exe
     let mut base = test_bin_base();
     base.push("simpleguest.exe");
     base
