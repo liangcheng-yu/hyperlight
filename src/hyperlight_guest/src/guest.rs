@@ -10,15 +10,53 @@ use crate::{
 
 use core::{ffi::c_void, arch::asm};
 
+use flatbuffers::{FlatBufferBuilder, ForwardsUOffset, UnionWIPOffset, WIPOffset};
+
 extern crate alloc;
 use alloc::vec::Vec;
 
-use flatbuffers::{FlatBufferBuilder, ForwardsUOffset, UnionWIPOffset, WIPOffset};
-
 use core::alloc::{GlobalAlloc, Layout};
+use core::ptr::null_mut;
+
+struct HyperlightAllocator;
+
+unsafe impl GlobalAlloc for HyperlightAllocator {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        let size = layout.size();
+        hyperlight_more_core(size) as *mut u8
+    }
+
+    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {}
+}
 
 #[global_allocator]
-static GLOBAL: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+static ALLOCATOR: HyperlightAllocator = HyperlightAllocator;
+
+unsafe fn hyperlight_more_core(size: usize) -> *mut c_void {
+    static mut UNUSED_HEAP_BUFFER_POINTER: *mut u8 = null_mut();
+    static mut ALLOCATED: usize = 0;
+
+    if size > 0 {
+        let ghs = (*P_PEB.unwrap()).guest_heap_data.guest_heap_size as usize;
+        if ALLOCATED + size > ghs {
+            set_error(ErrorCode::FailureInDlmalloc, "HyperlightMoreCore failed to allocate memory.");
+        }
+
+        let ptr: *mut u8 = if UNUSED_HEAP_BUFFER_POINTER.is_null() {
+            (*P_PEB.unwrap()).guest_heap_data.guest_heap_buffer as *mut u8
+        } else {
+            UNUSED_HEAP_BUFFER_POINTER
+        };
+
+        ALLOCATED += size;
+        UNUSED_HEAP_BUFFER_POINTER = ptr.add(size);
+        return ptr as *mut c_void;
+    }
+    // Note: Here, we don't need to check size < 0, because, in Rust, that's disallowed
+    // by the type-system.
+
+    UNUSED_HEAP_BUFFER_POINTER as *mut c_void
+}
 
 
 static mut GUEST_FUNCTION_BUILDER: Option<FlatBufferBuilder> = None;
@@ -55,7 +93,7 @@ static mut GUEST_FUNCTIONS: Option<GuestFunctionDetails> = None;
 fn write_error(error_code: u64, message: Option<&str>) {
     let mut builder = flatbuffers::FlatBufferBuilder::new();
 
-    let code = ErrorCode(error_code as _);
+    let code = ErrorCode(error_code);
 
     let message_offset = message.map(|m| builder.create_string(m));
     
@@ -64,11 +102,10 @@ fn write_error(error_code: u64, message: Option<&str>) {
         &GuestErrorArgs {
             code,
             message: message_offset,
-            ..Default::default() // fill in other fields as necessary
         },
     );
 
-    builder.finish(error, None);
+    builder.finish_size_prefixed(error, None);
 
     let flatb_data = builder.finished_data();
 
@@ -305,10 +342,9 @@ fn dispatch_function() {
             result_size + 4,
         );
 
-        GLOBAL.dealloc(
-            result as *mut u8,
-            Layout::from_size_align_unchecked(result_size + 4, 1),
-        );
+        // Note: I don't think the explicit dealloc here is necessary, as Rust
+        // is a memory safe language, and the buffer will be dropped when it
+        // goes out of scope.
     }
 }
 
@@ -345,7 +381,7 @@ pub fn finalise_function_table() {
     // - start sorting
     let num_functions = functions.len();
 
-    let mut indices: Vec<usize> = Vec::new();
+    let mut indices = Vec::<usize>::new();
     for i in 0..num_functions {
         indices[i] = i;
     }
@@ -407,8 +443,11 @@ extern "C" {
 #[no_mangle]
 pub extern "C" fn entrypoint(peb_address: u64, _seed: u64, ops: i32) -> i32 {
     unsafe {
+        let some_vec = Vec::from([1, 2, 3]);
+        let _a = some_vec[0];
+        
         // check if peb_address is null
-        if peb_address == 0 {
+          if peb_address == 0 {
             return -1;
         }
 
