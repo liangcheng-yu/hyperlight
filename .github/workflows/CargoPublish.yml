@@ -6,41 +6,30 @@ on:
   workflow_dispatch:
 
 jobs:
-  publish-hyperlight_testing:
+  publish-hyperlight-packages:
     runs-on: ubuntu-latest
+    if:  ${{ contains(github.ref, 'refs/heads/release/') }} 
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/hyperlight-workflows-setup
         env:
           PAT: ${{ secrets.ADO_CARGO_RW_PAT }}
+      - name: set up cargo workspaces version
+        run: |
+          cargo install cargo-workspaces
+          cargo install minver_rs
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+          git config --global user.Name "${{ github.actor }}"
+      - name: set crate versions
+        run: |
+          git fetch --tags
+          version=$(MINVER_TAG_PREFIX=v minver)
+          echo "version=$version"
+          cargo +nightly ws version --force=hyperlight_* --no-git-tag --no-git-push --allow-branch=release/* --yes custom $version
       - name: Publish hyperlight-testing
         run: cargo +nightly publish --manifest-path ./src/hyperlight_testing/Cargo.toml --registry hyperlight_packages
-
-  publish-hyperlight_host:
-    runs-on: ubuntu-latest
-    needs:
-      - publish-hyperlight_testing
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/hyperlight-workflows-setup
-      - name: Cargo login (read-write)
-        env:
-          PAT: ${{ secrets.ADO_CARGO_RW_PAT }}
-        run: just cargo-login-ci
       - name: Publish hyperlight-host 
         run: cargo +nightly publish --manifest-path ./src/hyperlight_host/Cargo.toml --registry hyperlight_packages
-
-  publish-hyperlight_capi:
-    runs-on: ubuntu-latest
-    needs:
-      - publish-hyperlight_host
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/hyperlight-workflows-setup
-      - name: Cargo login (read-write)
-        env:
-          PAT: ${{ secrets.ADO_CARGO_RW_PAT }}
-        run: just cargo-login-ci
       - name: Publish hyperlight-capi
         # --no-verify is needed because the build.rs script generates ./include/hyperlight_capi.h 
         # and cargo does not want you to modify files outside of OUT_DIR
