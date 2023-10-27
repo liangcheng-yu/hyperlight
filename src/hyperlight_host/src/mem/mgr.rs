@@ -128,13 +128,14 @@ impl SandboxMemoryManager {
         // Add 0x200000 because that's the start of mapped memory
         // For MSVC, move rsp down by 0x28.  This gives the called 'main'
         // function the appearance that rsp was was 16 byte aligned before
-        //the 'call' that calls main (note we don't really have a return value
+        // the 'call' that calls main (note we don't really have a return value
         // on the stack but some assembly instructions are expecting rsp have
         // started 0x8 bytes off of 16 byte alignment when 'main' is invoked.
         // We do 0x28 instead of 0x8 because MSVC can expect that there are
         // 0x20 bytes of space to write to by the called function.
         // I am not sure if this happens with the 'main' method, but we do this
         // just in case.
+        //
         // NOTE: We do this also for GCC freestanding binaries because we
         // specify __attribute__((ms_abi)) on the start method
         let rsp = mem_size + SandboxMemoryLayout::BASE_ADDRESS as u64 - 0x28;
@@ -264,10 +265,15 @@ impl SandboxMemoryManager {
             .shared_mem
             .read_u64(self.layout.get_dispatch_function_pointer_offset())?;
 
-        // This pointer is written by the guest library but is accessible to the guest engine so we should bounds check it before we return it.
-        // in the In VM case there is no danger from the guest manipulating this as the only addresses that are valid are in its own address space
-        // but in the in process case maniulating this pointer could cause the host to execut arbitary functions.
-
+        // This pointer is written by the guest library but is accessible to
+        // the guest engine so we should bounds check it before we return it.
+        //
+        // When executing with in-hypervisor mode, there is no danger from
+        // the guest manipulating this memory location because the only
+        // addresses that are valid are in its own address space.
+        //
+        // When executing in-process, maniulating this pointer could cause the
+        // host to execute arbitary functions.
         let guest_ptr = GuestPtr::try_from(RawPtr::from(guest_dispatch_function_ptr))?;
         guest_ptr.absolute()
     }

@@ -89,7 +89,7 @@ pub unsafe extern "C" fn sandbox_new(
 
             let core_run_opts = run_opts.try_into()?;
 
-            let sbox = match print_output_handler {
+            let mut sbox = match print_output_handler {
                 Some(_) => {
                     let callback_writer_func = Arc::new(Mutex::new(callback_writer_func));
                     sandbox::UninitializedSandbox::new(
@@ -97,15 +97,16 @@ pub unsafe extern "C" fn sandbox_new(
                         Some(cfg),
                         Some(core_run_opts),
                         Some(&callback_writer_func),
-                    )?
+                    )
                 }
                 None => sandbox::UninitializedSandbox::new(
                     GuestBinary::FilePath(bin_path.to_string()),
                     Some(cfg),
                     Some(core_run_opts),
                     None,
-                )?,
-            };
+                ),
+            }?;
+            sbox.set_is_csharp();
 
             Ok(
                 Sandbox::from_uninit(should_recycle, sbox, boxed_callback_writer_func)
