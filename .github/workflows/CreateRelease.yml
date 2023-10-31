@@ -126,6 +126,9 @@ jobs:
     - name: List downloaded artifacts
       run: ls -lR target/
       shell: bash
+    - name: List test guests
+      run: ls -lR src/tests/Guests
+      shell: bash
     # Publish the native guests so that its possible to use Hyperlight without building it.
     - name: Create Release 
       # Only create a release from tag if we are on a release branch
