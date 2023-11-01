@@ -640,7 +640,6 @@ pub(crate) mod tests {
         handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
         Hypervisor,
     };
-    use crate::Result;
     use crate::{
         mem::{
             layout::SandboxMemoryLayout,
@@ -649,9 +648,10 @@ pub(crate) mod tests {
             ptr_offset::Offset,
         },
         new_error,
-        sandbox::{mem_mgr::MemMgrWrapperGetter, uninitialized::GuestBinary, UninitializedSandbox},
+        sandbox::{uninitialized::GuestBinary, UninitializedSandbox},
         testing::dummy_guest_path,
     };
+    use crate::{sandbox::WrapperGetter, Result};
     use std::{path::Path, time::Duration};
 
     pub(crate) fn test_initialise<NewFn>(
@@ -672,10 +672,7 @@ pub(crate) mod tests {
 
         let mut sandbox =
             UninitializedSandbox::new(GuestBinary::FilePath(filename.clone()), None, None, None)?;
-        let mem_mgr = {
-            let wrapper = sandbox.get_mem_mgr_wrapper_mut();
-            wrapper.as_mut()
-        };
+        let mem_mgr = sandbox.get_mgr_mut().as_mut();
         let shared_mem = &mem_mgr.shared_mem;
         let rsp_ptr = {
             let mem_size: u64 = shared_mem.mem_size().try_into()?;

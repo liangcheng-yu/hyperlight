@@ -1,17 +1,16 @@
-use super::hypervisor::HypervisorWrapperMgr;
-use super::leaked_outb::LeakedOutBWrapper;
+use super::{leaked_outb::LeakedOutBWrapper, WrapperGetter};
 #[cfg(target_os = "windows")]
 use crate::func::exports::get_os_page_size;
 #[cfg(target_os = "linux")]
 use crate::log_then_return;
 #[cfg(target_os = "windows")]
 use crate::mem::ptr::RawPtr;
+use crate::MultiUseSandbox;
 use crate::Result;
 use crate::{
     hypervisor::handlers::OutBHandlerWrapper, sandbox_state::sandbox::Sandbox, SingleUseSandbox,
     UninitializedSandbox,
 };
-use crate::{sandbox::mem_mgr::MemMgrWrapperGetter, MultiUseSandbox};
 use tracing::instrument;
 
 pub(super) type CBFunc<'a> = Box<dyn FnOnce(&mut UninitializedSandbox<'a>) -> Result<()> + 'a>;
@@ -37,13 +36,16 @@ where
     TransformFunc:
         Fn(UninitializedSandbox<'a>, Option<LeakedOutBWrapper<'a>>) -> Result<ResSandbox>,
 {
-    let outb_wrapper = u_sbox.get_hypervisor_wrapper().get_outb_hdl_wrapper();
+    let outb_wrapper = {
+        let hv = u_sbox.get_hv();
+        hv.get_outb_hdl_wrapper()
+    };
     let run_from_proc_mem = u_sbox.run_from_process_memory;
     let leaked_outb = if run_from_proc_mem {
         let leaked_outb = evolve_in_proc(&mut u_sbox, outb_wrapper)?;
         Some(leaked_outb)
     } else {
-        let orig_rsp = u_sbox.get_hypervisor_wrapper().orig_rsp()?;
+        let orig_rsp = u_sbox.get_hv().orig_rsp()?;
         let mem_mgr = {
             // we are gonna borrow u_sbox mutably below in our
             // get_hypervisor_mut call, so we need to borrow it
@@ -63,7 +65,7 @@ where
             assert!(mgr.get_pointer_to_dispatch_function()? != 0);
         }
         if u_sbox.run_from_process_memory {
-            u_sbox.get_hypervisor_wrapper_mut().reset_rsp(orig_rsp)?;
+            u_sbox.get_hv_mut().reset_rsp(orig_rsp)?;
         }
         None
     };
@@ -82,12 +84,12 @@ pub(super) fn evolve_impl_multi_use<'a>(
         // only snapshot state if we're a multi-use sandbox. do not
         // call snapshot_state in the evolve_impl_single_use function
         {
-            let mem_mgr = u.get_mem_mgr_wrapper().as_ref();
+            let mem_mgr = u.get_mgr().as_ref();
             let p_dispatch = mem_mgr.get_pointer_to_dispatch_function()?;
             print!("{:?}", p_dispatch);
         }
         {
-            u.get_mem_mgr_wrapper_mut().as_mut().snapshot_state()?;
+            u.get_mgr_mut().as_mut().snapshot_state()?;
         }
         Ok(MultiUseSandbox::from_uninit(u, leaked_outb))
     })
@@ -149,7 +151,7 @@ fn evolve_in_proc<'a>(
         //
         // - u_sbox being marked mut and unused
         // - outb_hdl being unused
-        let _ = u_sbox.get_mem_mgr_wrapper_mut();
+        let _ = u_sbox.get_mgr();
         let _ = outb_hdl;
         log_then_return!("in-process execution is not supported on linux");
     }
@@ -167,7 +169,7 @@ fn evolve_in_proc<'a>(
         //
         // This leaked memory is eventually dropped in the drop implementation
         // of SingleUseSandbox or MultiUseSandbox
-        let mgr = u_sbox.get_mem_mgr_wrapper_mut().as_mut();
+        let mgr = u_sbox.get_mem_mgr_mut();
         let leaked_outb = LeakedOutBWrapper::new(mgr, outb_hdl.clone())?;
         let peb_address = {
             let base_addr = u64::try_from(mgr.shared_mem.base_addr())?;

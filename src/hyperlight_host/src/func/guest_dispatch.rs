@@ -1,4 +1,5 @@
 use super::guest_err::check_for_guest_error;
+use crate::sandbox::WrapperGetter;
 use crate::Result;
 use crate::{
     func::{
@@ -6,15 +7,11 @@ use crate::{
         types::{ParameterValue, ReturnType, ReturnValue},
     },
     mem::ptr::{GuestPtr, RawPtr},
-    HypervisorWrapperMgr, MemMgrWrapperGetter,
 };
 
 /// Call a guest function by name, using the given `hv_mem_mgr_getter`.
-pub(super) fn dispatch_call_from_host<
-    'a,
-    HvMemMgrT: HypervisorWrapperMgr<'a> + MemMgrWrapperGetter,
->(
-    hv_mem_mgr_getter: &mut HvMemMgrT,
+pub(super) fn dispatch_call_from_host<'a, HvMemMgrT: WrapperGetter<'a>>(
+    wrapper_getter: &mut HvMemMgrT,
     function_name: &str,
     return_type: ReturnType,
     args: Option<Vec<ParameterValue>>,
@@ -23,10 +20,10 @@ pub(super) fn dispatch_call_from_host<
         // only borrow immutably from hv_mem_mgr_getter inside this
         // scope so we can later borrow mutably from it to get the
         // hypervisor
-        let mem_mgr = hv_mem_mgr_getter.get_mem_mgr_wrapper();
+        let mem_mgr = wrapper_getter.get_mgr().as_ref();
         (
-            mem_mgr.as_ref().is_in_process(),
-            mem_mgr.as_ref().get_pointer_to_dispatch_function()?,
+            mem_mgr.is_in_process(),
+            mem_mgr.get_pointer_to_dispatch_function()?,
         )
     };
 
@@ -42,7 +39,7 @@ pub(super) fn dispatch_call_from_host<
     {
         // once again, only borrow mutably from hv_mem_mgr_getter
         // from inside this scope so we can borrow mutably later
-        let mem_mgr = hv_mem_mgr_getter.get_mem_mgr_wrapper_mut();
+        let mem_mgr = wrapper_getter.get_mgr_mut();
         mem_mgr.as_mut().write_guest_function_call(&buffer)?;
     }
 
@@ -62,12 +59,12 @@ pub(super) fn dispatch_call_from_host<
         // this is the mutable borrow for which we had to do scope gynmastics
         // above
         {
-            let hv = hv_mem_mgr_getter.get_hypervisor_wrapper_mut();
+            let hv = wrapper_getter.get_hv_mut();
             hv.dispatch_call_from_host(p_dispatch_gp)
         }?;
     }
 
-    let mem_mgr = hv_mem_mgr_getter.get_mem_mgr_wrapper();
+    let mem_mgr = wrapper_getter.get_mgr();
     mem_mgr.check_stack_guard()?; // <- wrapper around mem_mgr `check_for_stack_guard`
     check_for_guest_error(mem_mgr)?;
 
@@ -77,7 +74,10 @@ pub(super) fn dispatch_call_from_host<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::host::HostFunction0;
+    use crate::func::{
+        call_ctx::{MultiUseGuestCallContext, SingleUseGuestCallContext},
+        host::HostFunction0,
+    };
     use crate::HyperlightError;
     use crate::Result;
     use crate::UninitializedSandbox;
@@ -92,19 +92,19 @@ mod tests {
     };
 
     // simple function
-    fn test_function0(_: Arc<Mutex<MultiUseSandbox>>) -> Result<i32> {
+    fn test_function0(_: MultiUseGuestCallContext) -> Result<i32> {
         Ok(42)
     }
 
     struct GuestStruct;
 
     // function that return type unsupported by the host
-    fn test_function1(_: SingleUseSandbox) -> Result<GuestStruct> {
+    fn test_function1(_: SingleUseGuestCallContext) -> Result<GuestStruct> {
         Ok(GuestStruct)
     }
 
     // function that takes a parameter
-    fn test_function2(param: i32) -> Result<i32> {
+    fn test_function2(_: MultiUseGuestCallContext, param: i32) -> Result<i32> {
         Ok(param)
     }
 
@@ -128,11 +128,10 @@ mod tests {
         // test_function0
         {
             let usbox = uninitialized_sandbox();
-            let mut sandbox: MultiUseSandbox<'_> = usbox
+            let sandbox: MultiUseSandbox<'_> = usbox
                 .evolve(MutatingCallback::from(init))
                 .expect("Failed to initialize sandbox");
-            let func = Arc::new(Mutex::new(test_function0));
-            let result = sandbox.execute_in_host(func);
+            let result = test_function0(sandbox.new_call_context());
             assert_eq!(result.unwrap(), 42);
         }
 
@@ -142,19 +141,17 @@ mod tests {
             let sandbox: SingleUseSandbox<'_> = usbox
                 .evolve(MutatingCallback::from(init))
                 .expect("Failed to initialize sandbox");
-            let result = sandbox.execute_in_host(Arc::new(Mutex::new(test_function1)));
+            let result = test_function1(sandbox.new_call_context());
             assert!(result.is_ok());
         }
 
         // test_function2
         {
             let usbox = uninitialized_sandbox();
-            let mut sandbox: MultiUseSandbox<'_> = usbox
+            let sandbox: MultiUseSandbox<'_> = usbox
                 .evolve(MutatingCallback::from(init))
                 .expect("Failed to initialize sandbox");
-            let result = sandbox.execute_in_host(Arc::new(Mutex::new(
-                move |_: Arc<Mutex<MultiUseSandbox>>| test_function2(42),
-            )));
+            let result = test_function2(sandbox.new_call_context(), 42);
             assert_eq!(result.unwrap(), 42);
         }
 
@@ -167,20 +164,18 @@ mod tests {
 
             for _ in 0..10 {
                 let usbox = uninitialized_sandbox();
-                let mut sandbox: MultiUseSandbox<'_> = usbox
+                let sandbox: MultiUseSandbox = usbox
                     .evolve(MutatingCallback::from(init))
                     .expect("Failed to initialize sandbox");
+                let _ctx = sandbox.new_call_context();
                 let count = Arc::clone(&count);
                 let order = Arc::clone(&order);
                 let handle = thread::spawn(move || {
-                    let result = sandbox.execute_in_host(Arc::new(Mutex::new(
-                        move |_: Arc<Mutex<MultiUseSandbox>>| {
-                            let mut num = count.lock().unwrap();
-                            *num += 1;
-                            Ok(*num)
-                        },
-                    )));
-                    order.lock().unwrap().push(result.unwrap());
+                    // we're not actually using the context, but we're calling
+                    // it here to test the mutual exclusion
+                    let mut num = count.lock().unwrap();
+                    *num += 1;
+                    order.lock().unwrap().push(*num);
                 });
                 handles.push(handle);
             }
@@ -205,22 +200,18 @@ mod tests {
     }
     #[track_caller]
     fn test_call_guest_function_by_name(u_sbox: UninitializedSandbox<'_>) {
-        let mut mu_sbox: MultiUseSandbox<'_> = u_sbox.evolve(MutatingCallback::from(init)).unwrap();
+        let mu_sbox: MultiUseSandbox<'_> = u_sbox.evolve(MutatingCallback::from(init)).unwrap();
 
         let msg = "Hello, World!!\n".to_string();
         let len = msg.len() as i32;
-        let func = Arc::new(Mutex::new(
-            |sbox_arc: Arc<Mutex<MultiUseSandbox>>| -> Result<ReturnValue> {
-                let mut sbox = sbox_arc.lock()?;
-                sbox.call_guest_function_by_name(
-                    "PrintOutput",
-                    ReturnType::Int,
-                    Some(vec![ParameterValue::String(msg.clone())]),
-                )
-            },
-        ));
-
-        let result = mu_sbox.execute_in_host(func).unwrap();
+        let mut ctx = mu_sbox.new_call_context();
+        let result = ctx
+            .call(
+                "PrintOutput",
+                ReturnType::Int,
+                Some(vec![ParameterValue::String(msg.clone())]),
+            )
+            .unwrap();
 
         assert_eq!(result, ReturnValue::Int(len));
     }
@@ -285,23 +276,9 @@ mod tests {
             None,
             None,
         )?;
-
-        let sandbox = {
-            let new_sbox: MultiUseSandbox = usbox.evolve(MutatingCallback::from(init))?;
-            Arc::new(Mutex::new(new_sbox))
-        };
-        let func = {
-            let f = move |s: Arc<Mutex<MultiUseSandbox>>| -> Result<ReturnValue> {
-                println!(
-                    "Calling Guest Function Spin - this should be cancelled by the host after 1000ms"
-                );
-                s.lock()?
-                    .call_guest_function_by_name("Spin", ReturnType::Void, None)
-            };
-            Arc::new(Mutex::new(f))
-        };
-
-        let result = sandbox.lock()?.execute_in_host(func);
+        let sandbox: MultiUseSandbox = usbox.evolve(MutatingCallback::from(init))?;
+        let mut ctx = sandbox.new_call_context();
+        let result = ctx.call("Spin", ReturnType::Void, None);
 
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -337,19 +314,20 @@ mod tests {
     // Eventually once we fix https://github.com/deislabs/hyperlight/issues/951 this test should be updated.
 
     #[test]
-    fn test_terminate_vcpu_calling_host_spinning_cpu() -> Result<()> {
+    fn test_terminate_vcpu_calling_host_spinning_cpu() {
         // This test relies upon a Hypervisor being present so for now
         // we will skip it if there isnt one.
         if !is_hypervisor_present() {
             println!("Skipping test_call_guest_function_by_name because no hypervisor is present");
-            return Ok(());
+            return;
         }
         let mut usbox = UninitializedSandbox::new(
             GuestBinary::FilePath(callback_guest_path().expect("Guest Binary Missing")),
             None,
             None,
             None,
-        )?;
+        )
+        .unwrap();
 
         // Make this host call run for 5 seconds
 
@@ -360,23 +338,12 @@ mod tests {
 
         let host_spin_func = Arc::new(Mutex::new(spin));
 
-        host_spin_func.register(&mut usbox, "Spin")?;
+        host_spin_func.register(&mut usbox, "Spin").unwrap();
 
-        let sandbox = {
-            let new_sbox: MultiUseSandbox = usbox.evolve(MutatingCallback::from(init))?;
-            Arc::new(Mutex::new(new_sbox))
-        };
-        let func = Arc::new(Mutex::new(
-            move |s: Arc<Mutex<MultiUseSandbox>>| -> Result<ReturnValue> {
-                println!(
-                    "Calling Guest Function CallHostSpin - this should fail to cancel the guest execution after 5 seconds"
-                );
-                s.lock()?
-                    .call_guest_function_by_name("CallHostSpin", ReturnType::Void, None)
-            },
-        ));
+        let sandbox: MultiUseSandbox = usbox.evolve(MutatingCallback::from(init)).unwrap();
+        let mut ctx = sandbox.new_call_context();
+        let result = ctx.call("CallHostSpin", ReturnType::Void, None);
 
-        let result = sandbox.lock()?.execute_in_host(func);
         assert!(result.is_err());
         match result.unwrap_err() {
             HyperlightError::HostFailedToCancelGuestExecution() => {}
@@ -384,6 +351,5 @@ mod tests {
             HyperlightError::HostFailedToCancelGuestExecutionSendingSignals(_) => {}
             e => panic!("Unexpected Error got {:?}", e),
         }
-        Ok(())
     }
 }

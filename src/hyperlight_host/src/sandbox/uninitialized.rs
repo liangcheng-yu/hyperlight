@@ -1,13 +1,14 @@
+use super::host_funcs::HostFuncsWrapper;
+use super::mem_access::mem_access_handler_wrapper;
 use super::{
     host_funcs::default_writer_func,
     uninitialized_evolve::{evolve_impl_multi_use, evolve_impl_single_use},
 };
-use super::{host_funcs::HostFuncsWrapper, hypervisor::HypervisorWrapperMgr};
 use super::{hypervisor::HypervisorWrapper, run_options::SandboxRunOptions};
-use super::{mem_access::mem_access_handler_wrapper, mem_mgr::MemMgrWrapperGetter};
 use super::{mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper};
 use crate::mem::{mgr::SandboxMemoryManager, pe::pe_info::PEInfo};
 use crate::sandbox::SandboxConfiguration;
+use crate::sandbox::WrapperGetter;
 use crate::sandbox_state::transition::Noop;
 use crate::sandbox_state::{sandbox::EvolvableSandbox, transition::MutatingCallback};
 use crate::Result;
@@ -44,6 +45,21 @@ pub struct UninitializedSandbox<'a> {
     ///
     /// This is a hack.
     pub(crate) is_csharp: bool,
+}
+
+impl<'a> WrapperGetter<'a> for UninitializedSandbox<'a> {
+    fn get_mgr(&self) -> &MemMgrWrapper {
+        &self.mgr
+    }
+    fn get_mgr_mut(&mut self) -> &mut MemMgrWrapper {
+        &mut self.mgr
+    }
+    fn get_hv(&self) -> &HypervisorWrapper<'a> {
+        &self.hv
+    }
+    fn get_hv_mut(&mut self) -> &mut HypervisorWrapper<'a> {
+        &mut self.hv
+    }
 }
 
 impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for UninitializedSandbox<'a> {
@@ -193,26 +209,6 @@ impl<'a>
     }
 }
 
-impl<'a> HypervisorWrapperMgr<'a> for UninitializedSandbox<'a> {
-    fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper<'a> {
-        &self.hv
-    }
-
-    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper<'a> {
-        &mut self.hv
-    }
-}
-
-impl<'a> MemMgrWrapperGetter for UninitializedSandbox<'a> {
-    fn get_mem_mgr_wrapper(&self) -> &MemMgrWrapper {
-        &self.mgr
-    }
-
-    fn get_mem_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper {
-        &mut self.mgr
-    }
-}
-
 /// A `GuestBinary` is either a buffer containing the binary or a path to the binary
 #[derive(Debug)]
 pub enum GuestBinary {
@@ -315,6 +311,21 @@ impl<'a> UninitializedSandbox<'a> {
         Ok(sandbox)
     }
 
+    /// Get a reference to the internally-stored `SandboxMemoryManager`.
+    ///
+    /// TODO: remove this after the C API function `sandbox_get_memory_mgr`
+    /// is removed.
+    pub fn get_mem_mgr_ref(&self) -> &SandboxMemoryManager {
+        self.get_mgr().as_ref()
+    }
+
+    /// Get a mutable reference to the internally-stored
+    /// `SandboxMemoryManager`
+    #[cfg(target_os = "windows")]
+    pub(crate) fn get_mem_mgr_mut(&mut self) -> &mut SandboxMemoryManager {
+        self.get_mgr_mut().as_mut()
+    }
+
     /// Set the internal flag to indicate this `UninitializedSandbox`
     /// is running in the context of C# code.
     ///
@@ -371,7 +382,7 @@ impl<'a> UninitializedSandbox<'a> {
         type EntryPoint = extern "C" fn(i64, u64, u32) -> i32;
         let entry_point: EntryPoint = {
             let addr = {
-                let mgr = self.get_mem_mgr_wrapper().as_ref();
+                let mgr = self.get_mgr().as_ref();
                 let offset = mgr.entrypoint_offset;
                 mgr.load_addr.clone().add(offset)
             };
@@ -434,7 +445,6 @@ impl<'a> UninitializedSandbox<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::Result;
     #[cfg(target_os = "windows")]
     use crate::SandboxRunOptions;
     use crate::{
@@ -442,10 +452,11 @@ mod tests {
             host::{HostFunction1, HostFunction2},
             types::{ParameterValue, ReturnValue},
         },
+        sandbox::uninitialized::GuestBinary,
         sandbox::SandboxConfiguration,
-        sandbox::{mem_mgr::MemMgrWrapperGetter, uninitialized::GuestBinary},
         UninitializedSandbox,
     };
+    use crate::{sandbox::WrapperGetter, Result};
     use crate::{
         sandbox_state::sandbox::EvolvableSandbox,
         testing::{
@@ -618,7 +629,7 @@ mod tests {
         let sbox =
             UninitializedSandbox::new(GuestBinary::FilePath(simple_guest_path), None, None, None)
                 .unwrap();
-        let res = sbox.get_mem_mgr_wrapper().check_stack_guard();
+        let res = sbox.get_mgr().check_stack_guard();
         assert!(
             res.is_ok(),
             "UninitializedSandbox::check_stack_guard returned an error"

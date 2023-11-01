@@ -1,10 +1,18 @@
 use crate::Result;
+/// Context structures used to allow the user to call one or more guest
+/// functions on the same Hyperlight sandbox instance, all from within the
+/// same state and mutual exclusion context.
+pub mod call_ctx;
 /// Definitions for common functions to be exposed in the guest
 pub mod exports;
 /// Represents a function call.
 pub mod function_call;
 /// Types used to pass data to/from the guest.
 pub mod guest;
+/// Functionality to dispatch a call from the host to the guest
+mod guest_dispatch;
+/// Functionality to check for errors after a guest call
+mod guest_err;
 /// Definitions and functionality to enable guest-to-host function calling,
 /// also called "host functions"
 ///

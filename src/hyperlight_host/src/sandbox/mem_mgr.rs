@@ -8,15 +8,6 @@ use tracing::instrument;
 /// StackCookie
 pub type StackCookie = [u8; STACK_COOKIE_LEN];
 
-/// Convenience wrapper around a sandbox's memory management functionality,
-/// intended for general use when constructing sandboxes.
-pub trait MemMgrWrapperGetter {
-    /// Get an immutable reference to the internally stored `MemMgrWrapper`
-    fn get_mem_mgr_wrapper(&self) -> &MemMgrWrapper;
-    /// Get a mutable reference to the internally stored `MemMgrWrapper`
-    fn get_mem_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper;
-}
-
 #[derive(Clone)]
 /// A container with methods for accessing `SandboxMemoryManager` and other
 /// related objects

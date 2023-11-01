@@ -67,22 +67,14 @@ pub use error::HyperlightError;
 pub use func::get_stack_boundary;
 /// Re-export for `HostFunction0` trait
 pub use func::HostFunction0;
-/// Re-export for `ExecutingGuestCall` type
-pub use sandbox::guest_call_exec::ExecutingGuestCall;
 /// The re-export for the `is_hypervisor_present` type
 pub use sandbox::is_hypervisor_present;
 /// The re-export for the `GuestBinary` type
 pub use sandbox::uninitialized::GuestBinary;
-/// Re-export for `GuestMgr` trait
-pub use sandbox::GuestMgr;
 /// Re-export for `HypervisorWrapper` trait
 pub use sandbox::HypervisorWrapper;
-/// Re-export for `HypervisorWrapperMgr` type
-pub use sandbox::HypervisorWrapperMgr;
 /// Re-export for `MemMgrWrapper` type
 pub use sandbox::MemMgrWrapper;
-/// Re-export for `MemMgrWrapperGetter` trait
-pub use sandbox::MemMgrWrapperGetter;
 /// A sandbox that can call be used to make multiple calls to guest functions,
 /// and otherwise reused multiple times
 pub use sandbox::MultiUseSandbox;
