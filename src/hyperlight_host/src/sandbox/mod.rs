@@ -31,6 +31,9 @@ pub mod uninitialized;
 /// initialized `Sandbox`es.
 mod uninitialized_evolve;
 
+/// Metric definitions for Sandbox module.
+pub(crate) mod metrics;
+
 /// Re-export for `SandboxConfiguration` type
 pub use config::SandboxConfiguration;
 /// Re-export for `HypervisorWrapper` trait

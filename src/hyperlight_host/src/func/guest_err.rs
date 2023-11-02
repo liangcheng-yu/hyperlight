@@ -1,6 +1,7 @@
 use crate::error::HyperlightError::{GuestError, OutBHandlingError, StackOverflow};
+use crate::sandbox::metrics::SandboxMetric::GuestErrorCount;
 use crate::{flatbuffers::hyperlight::generated::ErrorCode, MemMgrWrapper};
-use crate::{log_then_return, Result};
+use crate::{int_counter_vec_inc, log_then_return, Result};
 /// Check for a guest error and return an `Err` if one was found,
 /// and `Ok` if one was not found.
 /// TODO: remove this when we hook it up to the rest of the
@@ -11,6 +12,7 @@ pub(super) fn check_for_guest_error(mgr: &MemMgrWrapper) -> Result<()> {
         ErrorCode::NoError => Ok(()),
         ErrorCode::OutbError => match mgr.as_ref().get_host_error()? {
             Some(host_err) => {
+                int_counter_vec_inc!(&GuestErrorCount, &["OutBError"]);
                 log_then_return!(OutBHandlingError(
                     host_err.source.clone(),
                     guest_err.message.clone()
@@ -21,6 +23,7 @@ pub(super) fn check_for_guest_error(mgr: &MemMgrWrapper) -> Result<()> {
             None => Ok(()),
         },
         ErrorCode::StackOverflow => {
+            int_counter_vec_inc!(&GuestErrorCount, &["StackOverflow"]);
             log_then_return!(StackOverflow());
         }
         _ => {

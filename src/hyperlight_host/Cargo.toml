@@ -40,6 +40,8 @@ sha256 = "1.4.0"
 vmm-sys-util = "0.11.0"
 crossbeam = "0.8.0"
 thiserror = "1.0.30"
+prometheus = "0.13.3"
+strum = { version = "0.25", features = ["derive"] }
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.48.0", features = [

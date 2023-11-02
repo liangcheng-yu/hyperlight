@@ -39,8 +39,11 @@ test-rust target=default-target:
     cargo test --profile={{ if target == "debug" {"dev"} else { target } }} 
     # tracing tests cannot run with other tests they are marked as ignored so that cargo test works
     # there may be tests that we really want to ignore so we cant just use --ignored and we have to specify the test name of the ignored tests that we want to run
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_trace -- --ignored
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_drop -- --ignored
+    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_trace -p hyperlight_host -- --ignored
+    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_drop  -p hyperlight_host -- --ignored
+    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} hypervisor::metrics::tests::test_gather_metrics -p hyperlight_host -- --ignored
+    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} sandbox::metrics::tests::test_gather_metrics -p hyperlight_host -- --ignored
+    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_metrics -p hyperlight_host -- --ignored
 
 test-dotnet-hl target=default-target:
     cd src/tests/Hyperlight.Tests && dotnet test -c {{ target }} || cd ../../../
@@ -105,3 +108,5 @@ cargo-login-ci:
 cargo-login-ci-windows:
     "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo +nightly login --registry hyperlight_redist
     "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo +nightly login --registry hyperlight_packages
+run-rust-examples target=default-target: (build-rust target)
+    cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example metrics

@@ -347,6 +347,7 @@ impl<'a> UninitializedSandbox<'a> {
     }
     /// Clone the internally-stored `Arc` holding the `HostFuncsWrapper`
     /// managed by `self`, then return it.
+    // TODO: This function should not be public it is only used publically in the tests for the C API
     pub fn get_host_funcs(&self) -> Arc<Mutex<HostFuncsWrapper<'a>>> {
         self.host_funcs.clone()
     }

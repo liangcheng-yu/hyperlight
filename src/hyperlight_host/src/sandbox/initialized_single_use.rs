@@ -1,5 +1,7 @@
+use super::metrics::SandboxMetric::CurrentNumberOfSingleUseSandboxes;
 use super::{leaked_outb::LeakedOutBWrapper, WrapperGetter};
 use crate::func::call_ctx::SingleUseGuestCallContext;
+use crate::int_gauge_dec;
 use crate::Result;
 use crate::{
     func::{ParameterValue, ReturnType, ReturnValue},
@@ -162,5 +164,11 @@ impl<'a> std::fmt::Debug for SingleUseSandbox<'a> {
         f.debug_struct("SingleUseSandbox")
             .field("stack_guard", &self.mem_mgr.get_stack_cookie())
             .finish()
+    }
+}
+
+impl<'a> Drop for SingleUseSandbox<'a> {
+    fn drop(&mut self) {
+        int_gauge_dec!(&CurrentNumberOfSingleUseSandboxes);
     }
 }

@@ -1,3 +1,6 @@
+use super::metrics::SandboxMetric::{
+    CurrentNumberOfMultiUseSandboxes, CurrentNumberOfSingleUseSandboxes,
+};
 use super::{leaked_outb::LeakedOutBWrapper, WrapperGetter};
 #[cfg(target_os = "windows")]
 use crate::func::exports::get_os_page_size;
@@ -11,6 +14,7 @@ use crate::{
     hypervisor::handlers::OutBHandlerWrapper, sandbox_state::sandbox::Sandbox, SingleUseSandbox,
     UninitializedSandbox,
 };
+use crate::{int_gauge_dec, int_gauge_inc};
 use tracing::instrument;
 
 pub(super) type CBFunc<'a> = Box<dyn FnOnce(&mut UninitializedSandbox<'a>) -> Result<()> + 'a>;
@@ -91,6 +95,7 @@ pub(super) fn evolve_impl_multi_use<'a>(
         {
             u.get_mgr_mut().as_mut().snapshot_state()?;
         }
+        int_gauge_inc!(&CurrentNumberOfMultiUseSandboxes);
         Ok(MultiUseSandbox::from_uninit(u, leaked_outb))
     })
 }
@@ -100,6 +105,7 @@ pub(super) fn evolve_impl_single_use<'a>(
     cb_opt: Option<CBFunc<'a>>,
 ) -> Result<SingleUseSandbox<'a>> {
     evolve_impl(u_sbox, cb_opt, |u, leaked_outb| {
+        int_gauge_dec!(&CurrentNumberOfSingleUseSandboxes);
         Ok(SingleUseSandbox::from_uninit(u, leaked_outb))
     })
 }

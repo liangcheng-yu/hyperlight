@@ -1,8 +1,9 @@
 use super::{guest_dispatch::dispatch_call_from_host, ParameterValue, ReturnType, ReturnValue};
+use crate::histogram_vec_time_micros;
+use crate::sandbox::metrics::SandboxMetric::GuestFunctionCallDurationMicroseconds;
 use crate::{MultiUseSandbox, Result, SingleUseSandbox};
 use std::marker::PhantomData;
 use tracing::instrument;
-
 /// A context for calling guest functions. Can only be created from an
 /// existing `MultiUseSandbox`. Once created, guest functions may be made
 /// through this and only this context until it is converted back to the
@@ -58,7 +59,12 @@ impl<'a> MultiUseGuestCallContext<'a> {
         // exist without doing so. Since GuestCallContext is effectively
         // !Send (and !Sync), we also don't need to worry about
         // synchronization
-        dispatch_call_from_host(&mut self.sbox, func_name, func_ret_type, args)
+
+        histogram_vec_time_micros!(
+            &GuestFunctionCallDurationMicroseconds,
+            &[func_name],
+            dispatch_call_from_host(&mut self.sbox, func_name, func_ret_type, args)
+        )
     }
 
     /// Close out the context and get back the internally-stored
@@ -119,7 +125,11 @@ impl<'a> SingleUseGuestCallContext<'a> {
         // exist without doing so. since GuestCallContext is effectively
         // !Send (and !Sync), we also don't need to worry about
         // synchronization
-        dispatch_call_from_host(&mut self.sbox, func_name, func_ret_type, args)
+        histogram_vec_time_micros!(
+            &GuestFunctionCallDurationMicroseconds,
+            &[func_name],
+            dispatch_call_from_host(&mut self.sbox, func_name, func_ret_type, args)
+        )
     }
 }
 

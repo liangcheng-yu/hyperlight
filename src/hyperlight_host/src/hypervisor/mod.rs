@@ -1,9 +1,10 @@
 #[cfg(target_os = "linux")]
 use crate::error::HyperlightError::HostFailedToCancelGuestExecutionSendingSignals;
 use crate::error::HyperlightError::{ExecutionCanceledByHost, HostFailedToCancelGuestExecution};
-use crate::log_then_return;
+use crate::hypervisor::metrics::HypervisorMetric::NumberOfCancelledGuestExecutions;
 use crate::new_error;
 use crate::Result;
+use crate::{int_counter_inc, log_then_return};
 use crossbeam::atomic::AtomicCell;
 #[cfg(target_os = "linux")]
 use libc::{c_void, pthread_kill, pthread_self, siginfo_t, ESRCH};
@@ -30,6 +31,8 @@ pub mod hypervisor_mem;
 #[cfg(target_os = "linux")]
 /// Functionality to manipulate KVM-based virtual machines
 pub mod kvm;
+/// Metric definitions for Hypervisor module.
+mod metrics;
 #[cfg(target_os = "windows")]
 /// Hyperlight Surrogate Process
 pub(crate) mod surrogate_process;
@@ -600,6 +603,7 @@ impl VirtualCPU {
             if cancel_run_requested.load() {
                 #[cfg(target_os = "linux")]
                 run_cancelled.store(true);
+                int_counter_inc!(&NumberOfCancelledGuestExecutions);
                 log_then_return!(ExecutionCanceledByHost());
             }
 
@@ -622,6 +626,7 @@ impl VirtualCPU {
                     // TODO: we should probably make the VM unusable after this
                     #[cfg(target_os = "linux")]
                     run_cancelled.store(true);
+                    int_counter_inc!(&NumberOfCancelledGuestExecutions);
                     log_then_return!(ExecutionCanceledByHost());
                 }
                 HyperlightExit::Unknown(reason) => {

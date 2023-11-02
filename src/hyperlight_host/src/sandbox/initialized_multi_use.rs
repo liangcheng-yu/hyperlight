@@ -1,6 +1,6 @@
+use super::metrics::SandboxMetric::CurrentNumberOfMultiUseSandboxes;
 use super::{host_funcs::HostFuncsWrapper, leaked_outb::LeakedOutBWrapper, WrapperGetter};
 use crate::func::call_ctx::MultiUseGuestCallContext;
-use crate::Result;
 use crate::{
     func::{ParameterValue, ReturnType, ReturnValue},
     mem::ptr::{GuestPtr, RawPtr},
@@ -10,6 +10,7 @@ use crate::{
     },
     HypervisorWrapper, MemMgrWrapper, UninitializedSandbox,
 };
+use crate::{int_gauge_dec, Result};
 use std::sync::{Arc, Mutex};
 use tracing::instrument;
 
@@ -216,5 +217,11 @@ impl<'a>
             ret.hv.reset_rsp(orig_rsp)?;
         }
         Ok(ret)
+    }
+}
+
+impl<'a> Drop for MultiUseSandbox<'a> {
+    fn drop(&mut self) {
+        int_gauge_dec!(&CurrentNumberOfMultiUseSandboxes);
     }
 }

@@ -10,7 +10,7 @@ fn main() -> Result<()> {
     // re-run the build if either this script of the header file
     // is changed (or deleted!), even if the rust code is completely
     // unchanged.
-    println!("cargo:rerun-if-changed=*.rs");
+    println!("cargo:rerun-if-changed=./src");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=./include/hyperlight_capi.h");
 

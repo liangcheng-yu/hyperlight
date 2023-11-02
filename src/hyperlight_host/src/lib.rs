@@ -47,6 +47,9 @@ pub mod hypervisor;
 /// at this address structs below are laid out in this order
 #[deny(dead_code, missing_docs, unused_mut)]
 pub mod mem;
+/// Metric definitions and helpers
+#[deny(dead_code, missing_docs, unused_mut)]
+pub mod metrics;
 /// The main sandbox implementations. Do not use this module directly in code
 /// outside this file. Types from this module needed for public consumption are
 /// re-exported below.
@@ -67,6 +70,8 @@ pub use error::HyperlightError;
 pub use func::get_stack_boundary;
 /// Re-export for `HostFunction0` trait
 pub use func::HostFunction0;
+/// The re-export for the set_registry function
+pub use metrics::set_metrics_registry;
 /// The re-export for the `is_hypervisor_present` type
 pub use sandbox::is_hypervisor_present;
 /// The re-export for the `GuestBinary` type
@@ -85,7 +90,6 @@ pub use sandbox::SandboxRunOptions;
 pub use sandbox::SingleUseSandbox;
 /// The re-export for the `UninitializedSandbox` type
 pub use sandbox::UninitializedSandbox;
-
 /// Return `Some(val)` when `cond == true`. Otherwise, return `None`
 pub fn option_when<T>(val: T, cond: bool) -> Option<T> {
     match cond {

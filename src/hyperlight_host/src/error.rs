@@ -126,6 +126,9 @@ pub enum HyperlightError {
     #[error("Memory requested {0} exceeds maximum size allowed {1}")]
     /// The memory request exceeds the maximum size allowed
     MemoryRequestTooBig(usize, usize),
+    #[error("Metric Not Found {0:?}.")]
+    /// Metric Not Found.
+    MetricNotFound(&'static str),
     #[error("mmap failed with os error {0:?}")]
     /// mmap Failed.
     MmapFailed(Option<i32>),
@@ -144,6 +147,9 @@ pub enum HyperlightError {
     #[error("Failure processing PE File {0:?}")]
     /// a failure occured processing a PE file
     PEFileProcessingFailure(#[from] goblin::error::Error),
+    #[error("Prometheus Error {0:?}")]
+    /// a Prometheus error occurred
+    Prometheus(#[from] prometheus::Error),
     #[error("Raw pointer ({0:?}) was less than the base address ({1})")]
     /// Raw pointer is less than base address
     RawPointerLessThanBaseAddress(RawPtr, u64),
