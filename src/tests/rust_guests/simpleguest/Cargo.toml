@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 hyperlight_guest = { path = "../../../hyperlight_guest" }
+compiler_builtins = { version = "0.1.45", features = ["mem"] }
