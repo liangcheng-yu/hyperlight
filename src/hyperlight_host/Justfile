@@ -1,27 +1,9 @@
+set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 lib-suffix := if os() == "windows" { ".dll" } else { "" }
 bin-suffix := if os() == "windows" { ".exe" } else { ".out" }
 default-target:= "debug"
-gen-suppressions:= if os() == "windows" { " " } else { "GEN_SUPPRESSIONS_ON=1 LOG_FILE_ON=1" }
 set dotenv-load
+set fallback
 
-cargo-update:
-    # run cargo update --dry-run with nightly toolchain to pull deps from private cargo feeds
-    # but do not actually perform any updates
-    cargo +nightly update --dry-run
-
-
-build target=default-target: cargo-update
-    cargo build --verbose --profile={{ if target == "debug" {"dev"} else { target } }}
-
-build-test-rust target=default-target:  (build target)
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} 
-    # tracing tests cannot run with other tests they are marked as ignored so that cargo test works
-    # there may be tests that we really want to ignore so we cant just use --ignored and we have to specify the test filter of the ignored tests that we want to run
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_trace -p hyperlight_host -- --ignored
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_drop  -p hyperlight_host -- --ignored
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} hypervisor::metrics::tests::test_gather_metrics -p hyperlight_host -- --ignored
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} sandbox::metrics::tests::test_gather_metrics -p hyperlight_host -- --ignored
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_metrics -p hyperlight_host -- --ignored
-
-run-rust-examples target=default-target: (build target)
-    cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example metrics
+build target=default-target:
+    just build-rust {{target}}

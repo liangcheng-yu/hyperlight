@@ -11,7 +11,7 @@ runs:
         components: clippy, rustfmt
     - uses: extractions/setup-just@v1
       with:
-        just-version: '1.5.0' # optional semver specification, otherwise latest
+        just-version: '1.15.0' # optional semver specification, otherwise latest
 
     ###
     ### Linux setup
