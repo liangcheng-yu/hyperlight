@@ -1,12 +1,12 @@
 use std::sync::{Arc, Mutex};
 
 use super::{host_funcs::HostFuncsWrapper, mem_mgr::MemMgrWrapper};
-use crate::Result;
 use crate::{
     func::{guest::log_data::GuestLogData, types::ParameterValue},
     hypervisor::handlers::{OutBHandlerFunction, OutBHandlerWrapper},
 };
 use crate::{hypervisor::handlers::OutBHandler, mem::mgr::SandboxMemoryManager};
+use crate::{HyperlightError, Result};
 use log::{warn, Level, Record};
 use tracing::instrument;
 use tracing_log::format_trace;
@@ -110,10 +110,7 @@ fn handle_outb_impl(
 
             Ok(())
         }
-        OutBAction::Abort => {
-            // TODO
-            todo!();
-        }
+        OutBAction::Abort => Err(HyperlightError::GuestAborted()),
     }
 }
 

@@ -74,6 +74,9 @@ pub enum HyperlightError {
     ///Field Name not found in decoded GuestLogData
     FieldIsMissingInGuestLogData(String),
     #[error("Cannot run from guest binary when guest binary is a buffer")]
+    /// Guest aborted during outb
+    GuestAborted(),
+    #[error("Guest aborted")]
     ///Cannot run from guest binary unless the binary is a file
     GuestBinaryShouldBeAFile(),
     #[error("Guest error occurred {0:?}: {1}")]
