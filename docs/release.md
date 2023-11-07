@@ -30,7 +30,7 @@ After the release branch is created by automation, go to the ["Publish crates to
     - Optionally specific the package version. By default the workflow will publish crates with a version that matches the release branch the workflow is run against (ex: If run against `release/v0.3.4` then crates with versions `0.3.4` will be published). If you want to publish with a different version (in case we need to patch a release branch for example) then specify the version before clicking **Run Workflow**.
 1. Click the green **Run workflow** button
 
-After step 3, the job will start and you'll have the following 3 crates published to the internal Azure DevOps Cargo feeds upon completion:
+After step 3, the job will start and you'll have the following 3 crates published to the [internal Azure DevOps Cargo feeds](https://dev.azure.com/AzureContainerUpstream/hyperlight/_artifacts/feed/hyperlight_packages_test) upon completion:
 
 - `hyperlight_capi`
 - `hyperlight_host`
