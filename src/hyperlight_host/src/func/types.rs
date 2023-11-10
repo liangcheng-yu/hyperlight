@@ -1,9 +1,12 @@
+#![allow(non_snake_case)]
+
 use crate::error::HyperlightError::{
     self, FailedToGetValueFromParameter, UnexpectedFlatBufferReturnValueType,
     UnexpectedParameterValueType, UnexpectedReturnValueType, UnknownFlatBufferParameterType,
     UnknownFlatBufferParameterValue, UnknownFlatBufferReturnType, VectorCapacityInCorrect,
 };
 use crate::Result;
+use crate::mem::mgr::SandboxMemoryManager;
 use crate::{
     flatbuffers::hyperlight::generated::{
         hlbool, hlboolArgs, hlint, hlintArgs, hllong, hllongArgs, hlsizeprefixedbuffer,
@@ -506,10 +509,10 @@ impl TryFrom<&ReturnValue> for Vec<u8> {
     }
 }
 
-impl TryFrom<(&SharedMemory, &SandboxMemoryLayout)> for ReturnValue {
+impl TryFrom<&SandboxMemoryManager> for ReturnValue {
     type Error = HyperlightError;
-    fn try_from(value: (&SharedMemory, &SandboxMemoryLayout)) -> Result<Self> {
-        // Get the size of the flatbuffer buffer from memory
+    fn try_from(mgr: &SandboxMemoryManager) -> Result<Self> {
+        let value: (&SharedMemory, &SandboxMemoryLayout) = (&mgr.shared_mem, &mgr.layout);
 
         let fb_buffer_size = {
             let size_i32 = value.0.read_i32(value.1.output_data_buffer_offset)? + 4;

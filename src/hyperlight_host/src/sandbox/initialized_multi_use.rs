@@ -256,6 +256,6 @@ impl<'a>
 #[cfg(target_os = "windows")]
 impl<'a> Drop for MultiUseSandbox<'a> {
     fn drop(&mut self) {
-        super::initialized::drop_impl(self.mem_mgr.as_ref())
+        // super::initialized::drop_impl(self.mem_mgr.as_ref())
     }
 }

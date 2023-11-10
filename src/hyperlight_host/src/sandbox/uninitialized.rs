@@ -355,6 +355,7 @@ impl<'a> UninitializedSandbox<'a> {
             std::mem::transmute(fn_location)
         };
         let peb_i64 = i64::try_from(u64::from(peb_address))?;
+
         entry_point(peb_i64, seed, page_size);
         Ok(())
     }
@@ -394,9 +395,7 @@ impl<'a> UninitializedSandbox<'a> {
                 &mut pe_info,
                 run_from_process_memory,
             )
-            .map_err(|e| {
-                new_error!("{:#?}", e)
-            })
+            .map_err(|e| new_error!("{:#?}", e))
         } else {
             SandboxMemoryManager::load_guest_binary_into_memory(
                 cfg,

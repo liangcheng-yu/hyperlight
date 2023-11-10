@@ -1,2 +1,4 @@
 [toolchain]
-channel = "nightly"
+channel = "nightly" 
+# we need nightly because of the compiler_builtins before that brings all the mem codegened function we need
+# in a `no_std`/SUBSYSTEM:NATIVE environment

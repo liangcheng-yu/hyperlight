@@ -228,9 +228,10 @@ mod tests {
 
         let mut sandbox: MultiUseSandbox<'_> = usbox.evolve(MutatingCallback::from(init)).unwrap();
 
-        let result = sandbox.execute_in_host(func).unwrap();
+        let result = sandbox.execute_in_host(func);
+        dbg!(&result);
 
-        assert_eq!(result, ReturnValue::Int(2048));
+        assert_eq!(result?, ReturnValue::Int(2048));
         Ok(())
     }
 

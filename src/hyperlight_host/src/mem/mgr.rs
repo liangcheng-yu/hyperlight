@@ -524,7 +524,7 @@ impl SandboxMemoryManager {
 
     /// Reads a function call result from memory
     pub fn get_function_call_result(&self) -> Result<ReturnValue> {
-        ReturnValue::try_from((&self.shared_mem, &self.layout))
+        ReturnValue::try_from(self)
     }
 
     /// Read guest log data from the `SharedMemory` contained within `self`
