@@ -72,11 +72,38 @@ On Windows if you don't have Windows Hypervisor Platform enabled then the exampl
 
 On Linux (including WSL2) you must install [KVM](https://help.ubuntu.com/community/KVM/Installation) (see [here](https://boxofcables.dev/kvm-optimized-custom-kernel-wsl2-2022/) for instrucitons how to build an accerlerted custom kernel for WSL2). If you have access to CBL-Mariner with HyperV this will also work.
 
-## Building and testing the Hyperlight Solution on Windows
+## Development
+
+### Windows
 
 Currently the complete solution including tests and examples will only build on Windows with Visual Studio 2022 or the Visual Studio 2022 Build Tools along with dotnet 6.0, this is because the `HyperlightGuest` project must be compiled with Microsoft Visual C compiler at present, in additon the test and example projects are dependent upon the test Hyperlight Guest applications that also require MSVC. In addition you will need the [prerequisites](#prerequisites) installed.
 
-### Visual Studio 2022
+#### Windows Prerequisites
+
+1. [Rust](https://www.rust-lang.org/tools/install)
+1. [just](https://github.com/casey/just).  `cargo install just`. Do not install `just` with Chocolately because it installs an older incompatible version.
+1. [cbindgen](https://github.com/eqrion/cbindgen) `cargo install cbindgen`
+1. [Clang](https://clang.llvm.org/get_started.html).  If you have Visual Studio instructions are [here](https://docs.microsoft.com/en-us/cpp/build/clang-support-msbuild?view=msvc-170).
+1. [pwsh](https://github.com/PowerShell/PowerShell)
+1. [dotnet](https://learn.microsoft.com/en-us/dotnet/core/install/windows)
+1. [Set up the Hyperlight Cargo Feed](#hyperlight-cargo-feed)
+1. [Set Up simpleguest.exe and callguest.exe](#simpleguestexe-and-callguestexe)
+
+ Create powershell function to use developer shell as shell:
+
+ 1. Edit $PROFILE
+ 1. Add the following to the profile, this assumes that you have installed clang via Visual Studio and are happy to add the developer shell to your default pwsh profile.
+ 
+ Note: You may not have the $PROFILE file created yet and you may have to create a new file and then update it.
+
+Gather the vs instance id for your dev environment by running `vswhere.exe -legacy -prerelease -format json` and look for the instance id of your VS installation. (vswhere.exe can be downloaded from [here](https://github.com/microsoft/vswhere/releases))
+
+Replace the <instance_id> appropriately and copy it to the script file pointed by the $PROFILE.
+ ```PowerShell
+Import-Module "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+Enter-VsDevShell <instance_id> -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64" 
+ ```
+#### Visual Studio 2022
 
 If you do not have Visual Studio 2022  ou can find it [here](https://visualstudio.microsoft.com/downloads/).
 
@@ -94,7 +121,7 @@ just test-capi
 just test-dotnet-hl
 ```
 
-### Visual Studio Build tools
+#### Visual Studio Build tools
 
 Install the build tools from [here](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022).
 
@@ -112,13 +139,11 @@ just test-capi
 just test-dotnet
 ```
 
-### Visual Studio Code
+#### Visual Studio Code
 
 You can also use Visual Studio code, to do this make sure that you start Visual Studio Code from a [Visual Studio Command Prompt](https://docs.microsoft.com/en-us/visualstudio/ide/reference/command-prompt-powershell?view=vs-2022) and then open the folder that you cloned the repo to.
 
-## Building and Testing Hyperlight using Linux or Windows without Visual Studio or the Visual Studio Build Tools
-
-Hyperlight will build on any Windows or Linux machine that has the [prerequisites](#prerequisites) installed:
+#### Without Visual Studio or the Visual Studio Build Tools
 
 ```console
 git clone git@github.com:deislabs/hyperlight.git
@@ -132,39 +157,70 @@ just test-rust
 just test-capi
 ```
 
-To run the  dotnet tests and examples you will need to download the simpleguest.exe and callbackguest.exe applications from [here] (https://github.com/deislabs/hyperlight/releases) and copy them to `src/tests/Guests/simpleguest/x64/debug/simpleguest.exe` and  `src/tests/Guests/callbackguest/x64/debug/callbackguest.exe` respectively. The directories do not exist, so you will need to create them first (note that they are case-sensitive).
-
-### Running dotnet tests
+#### Running dotnet tests
 
 ```console
 cd src/tests/Hyperlight.Tests
 dotnet test
 ```
 
-### Running dotnet example
+#### Running dotnet example
 
 ```console
 cd src/examples/NativeHost
 dotnet run
 ```
 
-## Debugging The Hyperlight Guest Applications or GuestLibrary
+### Linux or WSL2
 
-To debug the guest applications or library the Sandbox instance needs to be created with the option flag `SandboxRunOptions.RunFromGuestBinary`.
+#### Linux Prerequisites
 
-### Debugging in Visual Studio
+Make sure your have completed the previous [Prerequisites](Prerequisites-(Windows-and-Linux))
 
-Mixed mode debugging in Visual Studio is enabled in the solution, this means that you can set breakpoints in managed and/or native code, step into native code from managed code etc. during debugging.
+1. Build-Essential. `sudo apt install build-essential` or `sudo dnf install build-essential` on [Mariner][mariner]
+1. [Rust](https://www.rust-lang.org/tools/install)
+1. [Clang](https://clang.llvm.org/get_started.html). `sudo apt install clang` or `sudo dnf install clang` on [Mariner][mariner].
+1. [just](https://github.com/casey/just).  `cargo install just` .
+1. [cbindgen](https://github.com/eqrion/cbindgen) `cargo install cbindgen`
+1. [dotnet](https://learn.microsoft.com/en-us/dotnet/core/install/linux). `sudo apt install dotnet-sdk-6.0` or `sudo dnf install dotnet-sdk-6.0` on [Mariner][mariner].
+1. [git]()
 
-### Debugging in Visual Studio Code
+If you receive a 'GPG check FAILED' error when trying to install dotnet-sdk-6.0 (especially on Mariner), follow [these steps](https://github.com/dotnet/docs/blob/main/docs/core/install/linux-scripted-manual.md#manual-install) to manually install it. You may also need to run `sudo dnf install libicu`
 
-Visual Studio Code does not currently support mixed mode debugging, to debug guest applications in Visual Studio Code you need to choose the `Debug Native Host` debugging task when starting a debug session.
+**Running the build**
 
-## The Rust Host Rewrite (`hyperlight_host`)
+```console
+git clone git@github.com:deislabs/hyperlight.git
+cd hyperlight
+```
 
-### Prerequisites
+1. [Set up the Hyperlight Cargo Feed](#hyperlight-cargo-feed)
+1. [Set Up simpleguest.exe and callguest.exe](#simpleguestexe-and-callguestexe)
 
-#### Hyperlight Cargo Feed
+```
+# Hyperlight uses submodules to pull in some dependencies such as munit
+# If you see munit errors when running tests, make sure you have the submodules cloned
+git submodule update --init
+just init
+just build
+```
+
+**Running tests**
+
+```
+mkdir -p src/tests/Hyperlight.Tests/bin/debug/net6.0/
+cp src/tests/Guests/simpleguest/x64/debug/simpleguest.exe src/tests/Hyperlight.Tests/bin/debug/net6.0/
+cp src/tests/Guests/callbackguest/x64/debug/callbackguest.exe src/tests/Hyperlight.Tests/bin/debug/net6.0/
+```
+
+You need an additional binary to run tests. Download the dummyguest.exe file from [here](https://github.com/deislabs/hyperlight/releases) and copy it to src/tests/Hyperlight.Tests/bin/debug/net6.0/dummyguest.exe
+
+```
+just test-rust
+just test-capi
+```
+
+## Hyperlight Cargo Feed
 
 The hyperlight Rust projects currently require connecting to Microsoft internal cargo feeds to pull some dependencies.
 To do do this please ensure the following:
@@ -199,39 +255,22 @@ cargo +nightly update --dry-run
 
 See [publishing-to-cargo.md](./docs/publishing-to-cargo.md) for more information.
 
-#### Windows
+## simpleguest.exe and callguest.exe
 
-1. [Rust](https://www.rust-lang.org/tools/install)
-1. [Clang](https://clang.llvm.org/get_started.html).  If you have Visual Studio instructions are [here](https://docs.microsoft.com/en-us/cpp/build/clang-support-msbuild?view=msvc-170).
-1. [just](https://github.com/casey/just).  `cargo install just`. Do not install `just` with Chocolately because it installs an older incompatible version.
-1. [cbindgen](https://github.com/eqrion/cbindgen) `cargo install cbindgen`
-1. [pwsh](https://github.com/PowerShell/PowerShell)
-1. [dotnet](https://learn.microsoft.com/en-us/dotnet/core/install/windows)
+To run the dotnet tests and examples you will need to download the simpleguest.exe and callbackguest.exe applications from [here] (https://github.com/deislabs/hyperlight/releases) and copy them to `src/tests/Guests/simpleguest/x64/debug/simpleguest.exe` and  `src/tests/Guests/callbackguest/x64/debug/callbackguest.exe` respectively. The directories do not exist, so you will need to create them first (note that they are case-sensitive).
 
- Create powershell function to use developer shell as shell:
 
- 1. Edit $PROFILE
- 1. Add the following to the profile, this assumes that you have installed clang via Visual Studio and are happy to add the developer shell to your default pwsh profile.
- 
- Note: You may not have the $PROFILE file created yet and you may have to create a new file and then update it.
+## Debugging The Hyperlight Guest Applications or GuestLibrary
 
-Gather the vs instance id for your dev environment by running `vswhere.exe -legacy -prerelease -format json` and look for the instance id of your VS installation. (vswhere.exe can be downloaded from [here](https://github.com/microsoft/vswhere/releases))
+To debug the guest applications or library the Sandbox instance needs to be created with the option flag `SandboxRunOptions.RunFromGuestBinary`.
 
-Replace the <instance_id> appropriately and copy it to the script file pointed by the $PROFILE.
- ```PowerShell
-Import-Module "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
-Enter-VsDevShell <instance_id> -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64" 
- ```
+### Debugging in Visual Studio
 
-#### WSL2 or Linux
+Mixed mode debugging in Visual Studio is enabled in the solution, this means that you can set breakpoints in managed and/or native code, step into native code from managed code etc. during debugging.
 
-Prerequisites:
+### Debugging in Visual Studio Code
 
-1. [Rust](https://www.rust-lang.org/tools/install)
-1. [Clang](https://clang.llvm.org/get_started.html). `sudo apt install clang` or `sudo dnf install clang` on [Mariner][mariner].
-1. [just](https://github.com/casey/just).  `cargo install just` .
-1. [cbindgen](https://github.com/eqrion/cbindgen) `cargo install cbindgen`
-1. [dotnet](https://learn.microsoft.com/en-us/dotnet/core/install/linux). `sudo dnf install dotnet-sdk-6.0` on [Mariner][mariner].
+Visual Studio Code does not currently support mixed mode debugging, to debug guest applications in Visual Studio Code you need to choose the `Debug Native Host` debugging task when starting a debug session.
 
 ## Code of Conduct
 
