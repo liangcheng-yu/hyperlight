@@ -1,10 +1,10 @@
 extern crate hyperlight_host;
 use hyperlight_host::{
-    func::{ParameterValue, ReturnType},
     sandbox::uninitialized::UninitializedSandbox,
     sandbox_state::{sandbox::EvolvableSandbox, transition::Noop},
     set_metrics_registry, GuestBinary, MultiUseSandbox, Result,
 };
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
 use hyperlight_testing::simple_guest_path;
 use lazy_static::lazy_static;
 use prometheus::Registry;

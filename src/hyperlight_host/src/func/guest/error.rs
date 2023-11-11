@@ -1,6 +1,6 @@
 extern crate flatbuffers;
 
-use crate::flatbuffers::hyperlight::generated::{
+use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::{
     size_prefixed_root_as_guest_error, ErrorCode, GuestError as GuestErrorFb, GuestErrorArgs,
 };
 use crate::mem::layout::SandboxMemoryLayout;

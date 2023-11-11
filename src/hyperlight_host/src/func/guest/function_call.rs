@@ -2,7 +2,7 @@ extern crate flatbuffers;
 #[cfg(debug_assertions)]
 use crate::error::HyperlightError::InvalidFunctionCallType;
 #[cfg(debug_assertions)]
-use crate::flatbuffers::hyperlight::generated::{
+use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::{
     size_prefixed_root_as_function_call, FunctionCallType as FBFunctionCallType,
 };
 use crate::func::function_call::ReadFunctionCallFromMemory;
@@ -76,7 +76,7 @@ fn validate_guest_function_call_buffer(function_call_buffer: &[u8]) -> Result<()
 mod tests {
     use super::*;
     use crate::sandbox::SandboxConfiguration;
-    use crate::testing::get_guest_function_call_test_data;
+    use hyperlight_testing::get_guest_function_call_test_data;
     use crate::Result;
 
     #[test]

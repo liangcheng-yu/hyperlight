@@ -34,5 +34,7 @@ jobs:
         # --no-verify is needed because the build.rs script generates ./include/hyperlight_capi.h 
         # and cargo does not want you to modify files outside of OUT_DIR
         run: cargo +nightly publish --manifest-path ./src/hyperlight_capi/Cargo.toml --registry hyperlight_packages --no-verify
+      - name: Publish hyperlight-flatbuffers
+        run: cargo +nightly publish --manifest-path ./src/hyperlight_flatbuffers/Cargo.toml --registry hyperlight_packages
 
 

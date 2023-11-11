@@ -18,19 +18,21 @@ use crate::{
 use crate::{
     error::HyperlightHostError,
     func::{
-        function_call::{FunctionCall, ReadFunctionCallFromMemory, WriteFunctionCallToMemory},
+        function_call::{ReadFunctionCallFromMemory, WriteFunctionCallToMemory},
         guest::{
             error::{Code, GuestError},
             function_call::GuestFunctionCall,
             log_data::GuestLogData,
         },
         host::{function_call::HostFunctionCall, function_details::HostFunctionDetails},
-        types::ReturnValue,
     },
     sandbox::SandboxConfiguration,
 };
 use crate::{new_error, Result};
 use core::mem::size_of;
+use hyperlight_flatbuffers::flatbuffer_wrappers::{
+    function_call::FunctionCall, function_types::ReturnValue,
+};
 use serde_json::from_str;
 use std::{cmp::Ordering, str::from_utf8};
 
@@ -501,10 +503,16 @@ impl SandboxMemoryManager {
         host_function_call.write(buffer, self.get_shared_mem_mut(), &layout)
     }
 
-    /// TODO:
+    /// Wriets a function call result to memory
     pub fn write_response_from_host_method_call(&mut self, res: &ReturnValue) -> Result<()> {
-        let (shared_mem, layout) = (&mut self.shared_mem, &mut self.layout);
-        res.write_to_memory(shared_mem, layout)
+        let input_data_offset = self.layout.input_data_buffer_offset;
+        let function_call_ret_val_buffer = Vec::<u8>::try_from(res).map_err(|_| {
+            new_error!(
+                "write_response_from_host_method_call: failed to convert ReturnValue to Vec<u8>"
+            )
+        })?;
+        self.shared_mem
+            .copy_from_slice(function_call_ret_val_buffer.as_slice(), input_data_offset)
     }
 
     /// Reads a host function call from memory
@@ -512,7 +520,12 @@ impl SandboxMemoryManager {
         let host_function_call = HostFunctionCall {};
         let layout = self.layout;
         let buffer = host_function_call.read(self.get_shared_mem(), &layout)?;
-        FunctionCall::try_from(buffer.as_slice())
+        FunctionCall::try_from(buffer.as_slice()).map_err(|e| {
+            new_error!(
+                "get_host_function_call: failed to convert buffer to FunctionCall: {}",
+                e
+            )
+        })
     }
 
     /// Reads a guest function call from memory
@@ -521,12 +534,36 @@ impl SandboxMemoryManager {
         let guest_function_call = GuestFunctionCall {};
         let layout = self.layout;
         let buffer = guest_function_call.read(self.get_shared_mem(), &layout)?;
-        FunctionCall::try_from(buffer.as_slice())
+        FunctionCall::try_from(buffer.as_slice()).map_err(|e| {
+            new_error!(
+                "get_guest_function_call: failed to convert buffer to FunctionCall: {}",
+                e
+            )
+        })
     }
 
     /// Reads a function call result from memory
     pub fn get_function_call_result(&self) -> Result<ReturnValue> {
-        ReturnValue::try_from((&self.shared_mem, &self.layout))
+        let fb_buffer_size = {
+            let size_i32 = self
+                .shared_mem
+                .read_i32(self.layout.output_data_buffer_offset)?
+                + 4;
+            usize::try_from(size_i32)
+        }?;
+
+        let mut function_call_result_buffer = vec![0; fb_buffer_size];
+
+        self.shared_mem.copy_to_slice(
+            &mut function_call_result_buffer,
+            self.layout.output_data_buffer_offset,
+        )?;
+        ReturnValue::try_from(function_call_result_buffer.as_slice()).map_err(|e| {
+            new_error!(
+                "get_function_call_result: failed to convert buffer to ReturnValue: {}",
+                e
+            )
+        })
     }
 
     /// Read guest log data from the `SharedMemory` contained within `self`

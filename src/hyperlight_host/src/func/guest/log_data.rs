@@ -1,12 +1,13 @@
-use super::log_level::LogLevel;
 use crate::error::HyperlightError::{self, FieldIsMissingInGuestLogData, VectorCapacityInCorrect};
-use crate::flatbuffers::hyperlight::generated::size_prefixed_root_as_guest_log_data;
-use crate::flatbuffers::hyperlight::generated::{
+use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::size_prefixed_root_as_guest_log_data;
+use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::{
     GuestLogData as GuestLogDataFb, GuestLogDataArgs, LogLevel as LogLevelFb,
 };
 use crate::mem::{layout::SandboxMemoryLayout, shared_mem::SharedMemory};
 use crate::{log_then_return, Result};
 use std::mem::size_of;
+
+use super::log_level::LogLevel;
 
 /// The guest log data for a VM sandbox
 #[derive(Eq, PartialEq, Debug, Clone)]

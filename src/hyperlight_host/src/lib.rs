@@ -3,9 +3,6 @@
 #[deny(dead_code, missing_docs, unused_mut)]
 /// Dealing with errors, including errors across VM boundaries
 pub mod error;
-/// FlatBuffers-related utilities and (mostly) generated code
-#[allow(non_camel_case_types)]
-pub(crate) mod flatbuffers;
 /// Wrappers for host and guest functions.
 #[deny(dead_code, missing_docs, unused_mut)]
 pub mod func;

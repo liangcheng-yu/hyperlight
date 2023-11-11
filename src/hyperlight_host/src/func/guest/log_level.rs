@@ -1,7 +1,5 @@
-use crate::{
-    flatbuffers::hyperlight::generated::LogLevel as GenLogLevel, log_then_return, HyperlightError,
-    Result,
-};
+use crate::{log_then_return, HyperlightError, Result};
+use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::LogLevel as GenLogLevel;
 use log::Level;
 
 #[repr(u8)]

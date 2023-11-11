@@ -449,10 +449,7 @@ mod tests {
     #[cfg(target_os = "windows")]
     use crate::SandboxRunOptions;
     use crate::{
-        func::{
-            host::{HostFunction1, HostFunction2},
-            types::{ParameterValue, ReturnValue},
-        },
+        func::host::{HostFunction1, HostFunction2},
         sandbox::uninitialized::GuestBinary,
         sandbox::SandboxConfiguration,
         UninitializedSandbox,
@@ -468,6 +465,7 @@ mod tests {
     use crate::{sandbox_state::transition::MutatingCallback, sandbox_state::transition::Noop};
     use crate::{testing::log_values::try_to_strings, MultiUseSandbox};
     use crossbeam_queue::ArrayQueue;
+    use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnValue};
     use hyperlight_testing::simple_guest_path;
     use log::Level;
     use serde_json::{Map, Value};

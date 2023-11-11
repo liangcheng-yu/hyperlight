@@ -3,8 +3,8 @@ use super::hdl::Hdl;
 use super::{arrays::raw_vec::RawVec, context::Context};
 use crate::strings::get_string;
 use crate::validate_context_or_panic;
-use hyperlight_host::func::types::ReturnValue;
-use hyperlight_host::Result;
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::ReturnValue;
+use hyperlight_host::{HyperlightError, Result};
 use std::mem;
 /// Return true if the given handle `hdl` in `ctx` references a `FunctionCallResult` representing a return value from a function call ,
 /// and false otherwise
@@ -66,8 +66,10 @@ pub unsafe extern "C" fn handle_get_function_call_result_flatbuffer(
                     let (ptr, _): (*mut u8, usize) = raw_vec.into();
                     ptr
                 }
-                Err(e) => {
-                    (*ctx).register_err(e);
+                Err(_) => {
+                    (*ctx).register_err(HyperlightError::Error(
+                        "Failed to serialise FunctionCallResult".to_string(),
+                    ));
                     std::ptr::null_mut()
                 }
             }

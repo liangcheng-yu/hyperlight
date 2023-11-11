@@ -29,17 +29,11 @@ pub mod host;
 pub(crate) mod param_type;
 /// Definitions and functionality for supported return types
 pub mod ret_type;
-/// Definitions for types related to functions used by both the guest and the
-/// host. This includes the types of parameters and return values that are
-/// supported in Hyperlight.
-pub mod types;
 
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnValue};
 pub use param_type::SupportedParameterType;
 pub use ret_type::SupportedReturnType;
 use std::sync::{Arc, Mutex};
-pub use types::ParameterValue;
-pub use types::ReturnType;
-pub use types::ReturnValue;
 
 type HLFunc<'a> =
     Arc<Mutex<Box<dyn FnMut(Vec<ParameterValue>) -> Result<ReturnValue> + 'a + Send>>>;

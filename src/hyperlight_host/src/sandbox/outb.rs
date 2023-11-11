@@ -2,11 +2,12 @@ use std::sync::{Arc, Mutex};
 
 use super::{host_funcs::HostFuncsWrapper, mem_mgr::MemMgrWrapper};
 use crate::{
-    func::{guest::log_data::GuestLogData, types::ParameterValue},
+    func::guest::log_data::GuestLogData,
     hypervisor::handlers::{OutBHandlerFunction, OutBHandlerWrapper},
 };
 use crate::{hypervisor::handlers::OutBHandler, mem::mgr::SandboxMemoryManager};
 use crate::{HyperlightError, Result};
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::ParameterValue;
 use log::{warn, Level, Record};
 use tracing::instrument;
 use tracing_log::format_trace;

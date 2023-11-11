@@ -1,7 +1,7 @@
 use crate::HyperlightError::ReturnValueConversionFailure;
 use crate::{log_then_return, Result};
 
-use crate::func::types::{ReturnType, ReturnValue};
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ReturnType, ReturnValue};
 
 /// This is a marker trait that is used to indicate that a type is a valid Hyperlight return type.
 pub trait SupportedReturnType<T> {

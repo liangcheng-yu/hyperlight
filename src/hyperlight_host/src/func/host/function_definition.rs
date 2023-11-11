@@ -1,13 +1,10 @@
-use crate::{
-    flatbuffers::hyperlight::generated::{
-        HostFunctionDefinition as FbHostFunctionDefinition,
-        HostFunctionDefinitionArgs as FbHostFunctionDefinitionArgs,
-        ParameterType as FbParameterType,
-    },
-    func::types::{ParameterType, ReturnType},
-};
 use crate::{HyperlightError, Result};
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterType, ReturnType};
+use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::{
+    HostFunctionDefinition as FbHostFunctionDefinition,
+    HostFunctionDefinitionArgs as FbHostFunctionDefinitionArgs, ParameterType as FbParameterType,
+};
 
 /// The definition of a function exposed from the host to the guest
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -72,13 +69,23 @@ impl TryFrom<FbHostFunctionDefinition<'_>> for HostFunctionDefinition {
     type Error = HyperlightError;
     fn try_from(value: FbHostFunctionDefinition) -> Result<Self> {
         let function_name = value.function_name().to_string();
-        let return_type = value.return_type().try_into()?;
+        let return_type = value.return_type().try_into().map_err(|_| {
+            HyperlightError::Error(format!(
+                "Failed to convert return type for function {}",
+                function_name
+            ))
+        })?;
         let parameter_types = match value.parameters() {
             Some(pvt) => {
                 let len = pvt.len();
                 let mut pv: Vec<ParameterType> = Vec::with_capacity(len);
                 for fb_pvt in pvt {
-                    let pvt: ParameterType = fb_pvt.try_into()?;
+                    let pvt: ParameterType = fb_pvt.try_into().map_err(|_| {
+                        HyperlightError::Error(format!(
+                            "Failed to convert parameter type for function {}",
+                            function_name
+                        ))
+                    })?;
                     pv.push(pvt);
                 }
                 Some(pv)

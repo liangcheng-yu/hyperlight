@@ -1,11 +1,11 @@
-use crate::flatbuffers::hyperlight::generated::{
-    GuestFunctionDefinition as FbGuestFunctionDefinition,
-    GuestFunctionDefinitionArgs as FbGuestFunctionDefinitionArgs, ParameterType as FbParameterType,
-};
-use crate::func::types::{ParameterType, ReturnType};
 use crate::mem::ptr::GuestPtr;
 use crate::{HyperlightError, Result};
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterType, ReturnType};
+use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::{
+    GuestFunctionDefinition as FbGuestFunctionDefinition,
+    GuestFunctionDefinitionArgs as FbGuestFunctionDefinitionArgs, ParameterType as FbParameterType,
+};
 
 /// The definition of a function exposed from the guest to the host
 #[readonly::make]
@@ -59,11 +59,21 @@ impl TryFrom<FbGuestFunctionDefinition<'_>> for GuestFunctionDefinition {
 
     fn try_from(value: FbGuestFunctionDefinition) -> Result<Self> {
         let function_name = value.function_name().to_string();
-        let return_type = value.return_type().try_into()?;
+        let return_type = value.return_type().try_into().map_err(|_| {
+            HyperlightError::Error(format!(
+                "Failed to convert return type for function {}",
+                function_name
+            ))
+        })?;
         let mut parameter_types: Vec<ParameterType> = Vec::new();
         let function_pointer = value.function_pointer();
         for fb_pvt in value.parameters() {
-            let pvt = fb_pvt.try_into()?;
+            let pvt = fb_pvt.try_into().map_err(|_| {
+                HyperlightError::Error(format!(
+                    "Failed to convert parameter type for function {}",
+                    function_name
+                ))
+            })?;
             parameter_types.push(pvt);
         }
 

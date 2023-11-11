@@ -5,8 +5,9 @@ pub(crate) mod function_definition;
 /// Represents the functions that the host exposes to the guest.
 pub(crate) mod function_details;
 
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::ParameterValue;
+
 use self::function_definition::HostFunctionDefinition;
-use super::types::ParameterValue;
 use super::HyperlightFunction;
 use super::{param_type::SupportedParameterType, ret_type::SupportedReturnType};
 use crate::sandbox::UninitializedSandbox;

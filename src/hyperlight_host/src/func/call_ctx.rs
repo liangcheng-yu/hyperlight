@@ -1,7 +1,10 @@
-use super::{guest_dispatch::dispatch_call_from_host, ParameterValue, ReturnType, ReturnValue};
+use super::guest_dispatch::dispatch_call_from_host;
 use crate::histogram_vec_time_micros;
 use crate::sandbox::metrics::SandboxMetric::GuestFunctionCallDurationMicroseconds;
 use crate::{MultiUseSandbox, Result, SingleUseSandbox};
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
+    ParameterValue, ReturnType, ReturnValue,
+};
 use std::marker::PhantomData;
 use tracing::instrument;
 /// A context for calling guest functions. Can only be created from an
@@ -135,9 +138,9 @@ impl<'a> SingleUseGuestCallContext<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        func::ParameterValue, func::ReturnType, func::ReturnValue,
-        sandbox_state::sandbox::EvolvableSandbox, MultiUseSandbox,
+    use crate::{sandbox_state::sandbox::EvolvableSandbox, MultiUseSandbox};
+    use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
+        ParameterValue, ReturnType, ReturnValue,
     };
     use crate::{sandbox_state::transition::Noop, GuestBinary, HyperlightError};
     use crate::{Result, SingleUseSandbox, UninitializedSandbox};

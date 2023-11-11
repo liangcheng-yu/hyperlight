@@ -2,8 +2,8 @@ use super::handle::Handle;
 use super::hdl::Hdl;
 use super::{arrays::raw_vec::RawVec, context::Context};
 use crate::validate_context_or_panic;
-use hyperlight_host::func::function_call::FunctionCall;
-use hyperlight_host::Result;
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_call::FunctionCall;
+use hyperlight_host::{Result, HyperlightError};
 use std::mem;
 
 /// Return true if the given handle `hdl` references a `FunctionCall` representing a Host Function Call in `ctx`,
@@ -66,15 +66,19 @@ pub unsafe extern "C" fn handle_get_host_function_call_flatbuffer(
                     let (ptr, _): (*mut u8, _) = raw_vec.into();
                     ptr
                 }
-                Err(e) => {
-                    (*ctx).register_err(e);
+                Err(_) => {
+                    (*ctx).register_err(HyperlightError::Error(
+                        "Failed to serialise host function call".to_string(),
+                    ));
                     std::ptr::null_mut()
                 }
             }
         }
-        Err(e) => {
+        Err(_) => {
             //TODO: Update when we have a GetLastErrorFunction
-            (*ctx).register_err(e);
+            (*ctx).register_err(HyperlightError::Error(
+                "Failed to get host function call".to_string(),
+            ));
             std::ptr::null_mut()
         }
     }

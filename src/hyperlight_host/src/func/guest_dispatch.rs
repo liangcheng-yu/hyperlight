@@ -1,12 +1,10 @@
 use super::guest_err::check_for_guest_error;
+use crate::mem::ptr::{GuestPtr, RawPtr};
 use crate::sandbox::WrapperGetter;
-use crate::Result;
-use crate::{
-    func::{
-        function_call::{FunctionCall, FunctionCallType},
-        types::{ParameterValue, ReturnType, ReturnValue},
-    },
-    mem::ptr::{GuestPtr, RawPtr},
+use crate::{HyperlightError, Result};
+use hyperlight_flatbuffers::flatbuffer_wrappers::{
+    function_call::{FunctionCall, FunctionCallType},
+    function_types::{ParameterValue, ReturnType, ReturnValue},
 };
 use tracing::instrument;
 use tracing_core::Level;
@@ -37,7 +35,9 @@ pub(super) fn dispatch_call_from_host<'a, HvMemMgrT: WrapperGetter<'a>>(
         return_type,
     );
 
-    let buffer: Vec<u8> = fc.try_into()?;
+    let buffer: Vec<u8> = fc
+        .try_into()
+        .map_err(|_| HyperlightError::Error("Failed to serialize FunctionCall".to_string()))?;
 
     {
         // once again, only borrow mutably from hv_mem_mgr_getter

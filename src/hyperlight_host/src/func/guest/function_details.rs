@@ -1,6 +1,6 @@
 use crate::{HyperlightError, Result};
 
-use crate::flatbuffers::hyperlight::generated::size_prefixed_root_as_guest_function_details;
+use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::size_prefixed_root_as_guest_function_details;
 
 use crate::func::guest::function_definition::GuestFunctionDefinition;
 
@@ -46,7 +46,7 @@ impl TryFrom<&GuestFunctionDetails> for Vec<u8> {
 
         let mut guest_function_definitions: Vec<
             flatbuffers::WIPOffset<
-                crate::flatbuffers::hyperlight::generated::GuestFunctionDefinition,
+                hyperlight_flatbuffers::flatbuffers::hyperlight::generated::GuestFunctionDefinition,
             >,
         > = Vec::new();
         for guest_function in guest_function_details.guest_functions.iter() {
@@ -57,9 +57,9 @@ impl TryFrom<&GuestFunctionDetails> for Vec<u8> {
         let guest_functions = builder.create_vector(&guest_function_definitions);
 
         let guest_function_details =
-            crate::flatbuffers::hyperlight::generated::GuestFunctionDetails::create(
+            hyperlight_flatbuffers::flatbuffers::hyperlight::generated::GuestFunctionDetails::create(
                 &mut builder,
-                &crate::flatbuffers::hyperlight::generated::GuestFunctionDetailsArgs {
+                &hyperlight_flatbuffers::flatbuffers::hyperlight::generated::GuestFunctionDetailsArgs {
                     functions: Some(guest_functions),
                 },
             );

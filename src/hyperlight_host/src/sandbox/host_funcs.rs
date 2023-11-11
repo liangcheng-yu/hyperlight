@@ -5,12 +5,12 @@ use crate::{
     func::{
         host::function_definition::HostFunctionDefinition,
         host::function_details::HostFunctionDetails,
-        types::{ParameterValue, ReturnValue},
         HyperlightFunction,
     },
     mem::mgr::SandboxMemoryManager,
 };
 use crate::{histogram_vec_time_micros, Result};
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnValue};
 use is_terminal::IsTerminal;
 use std::io::stdout;
 use std::io::Write;
@@ -73,7 +73,9 @@ impl<'a> HostFuncsWrapper<'a> {
             "HostPrint",
             vec![ParameterValue::String(msg)],
         )?;
-        res.try_into()
+        res.try_into().map_err(|_| {
+            HostFunctionNotFound("HostPrint".to_string())
+        })
     }
     /// From the set of registered host functions, attempt to get the one
     /// named `name`. If it exists, call it with the given arguments list

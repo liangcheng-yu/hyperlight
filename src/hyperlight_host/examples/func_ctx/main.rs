@@ -1,11 +1,9 @@
-use hyperlight_host::func::{
-    call_ctx::MultiUseGuestCallContext,
-    types::{ParameterValue, ReturnType},
-};
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
+use hyperlight_host::func::call_ctx::MultiUseGuestCallContext;
 use hyperlight_host::sandbox::{MultiUseSandbox, UninitializedSandbox};
 use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
 use hyperlight_host::sandbox_state::transition::Noop;
-use hyperlight_host::GuestBinary;
+use hyperlight_host::{GuestBinary, new_error};
 use hyperlight_host::Result;
 use hyperlight_testing::simple_guest_path;
 
@@ -43,7 +41,7 @@ fn do_calls(mut ctx: MultiUseGuestCallContext) -> Result<MultiUseSandbox> {
                 Some(vec![ParameterValue::Int(1)]),
             )?;
             rv.try_into()
-        }?;
+        }.map_err(|e| new_error!("failed to get StackAllocate result: {}", e))?;
         println!("got StackAllocate res: {res1}");
     }
     {
@@ -54,7 +52,8 @@ fn do_calls(mut ctx: MultiUseGuestCallContext) -> Result<MultiUseSandbox> {
                 Some(vec![ParameterValue::Int(200)]),
             )?;
             rv.try_into()
-        }?;
+        }
+        .map_err(|e| new_error!("failed to get CallMalloc result: {}", e))?;
         println!("got CallMalloc res: {res2}");
     }
     ctx.finish()
