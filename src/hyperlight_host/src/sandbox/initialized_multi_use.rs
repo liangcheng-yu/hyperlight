@@ -114,7 +114,7 @@ impl<'a> MultiUseSandbox<'a> {
     /// // Now, you can operate on the original sandbox again (i.e. add more
     /// // host functions etc...), create new contexts, and so on.
     /// ```
-    #[instrument]
+    #[instrument(skip(self))]
     pub fn new_call_context(self) -> MultiUseGuestCallContext<'a> {
         MultiUseGuestCallContext::start(self)
     }
@@ -122,7 +122,7 @@ impl<'a> MultiUseSandbox<'a> {
     /// Convenience method for the following:
     ///
     /// `self.new_call_context()?.call(func_name, func_ret_type, args)`
-    #[instrument]
+    #[instrument(skip(self, args))]
     pub fn call_guest_function_by_name(
         self,
         func_name: &str,

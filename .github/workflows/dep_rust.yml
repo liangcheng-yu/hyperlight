@@ -114,6 +114,7 @@ jobs:
       - name: Run Rust examples
         env:
           CARGO_TERM_COLOR: always
+          RUST_LOG: debug  
         run: just run-rust-examples ${{ matrix.config }}  
       - name: Set up munit
         working-directory: src/hyperlight_capi/tests_capi

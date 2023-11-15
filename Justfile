@@ -110,3 +110,5 @@ cargo-login-ci-windows:
     "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo +nightly login --registry hyperlight_packages
 run-rust-examples target=default-target: (build-rust target)
     cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example metrics
+    cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example logging
+    cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example tracing

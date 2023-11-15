@@ -48,7 +48,7 @@ impl<'a> MultiUseGuestCallContext<'a> {
     ///
     /// If you want a "fresh" state, call `finish()` on this `CallContext`
     /// and get a new one from the resulting `MultiUseSandbox`
-    #[instrument]
+    #[instrument(skip(self, args))]
     pub fn call(
         &mut self,
         func_name: &str,
@@ -114,7 +114,7 @@ impl<'a> SingleUseGuestCallContext<'a> {
     ///
     /// If you want a "fresh" state, call `finish()` on this `CallContext`
     /// and get a new one from the resulting `MultiUseSandbox`
-    #[instrument]
+    #[instrument(skip(self, args))]
     pub fn call(
         &mut self,
         func_name: &str,
