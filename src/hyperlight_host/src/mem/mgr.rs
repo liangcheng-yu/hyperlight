@@ -503,7 +503,7 @@ impl SandboxMemoryManager {
         host_function_call.write(buffer, self.get_shared_mem_mut(), &layout)
     }
 
-    /// Wriets a function call result to memory
+    /// Writes a function call result to memory
     pub fn write_response_from_host_method_call(&mut self, res: &ReturnValue) -> Result<()> {
         let input_data_offset = self.layout.input_data_buffer_offset;
         let function_call_ret_val_buffer = Vec::<u8>::try_from(res).map_err(|_| {
@@ -549,6 +549,9 @@ impl SandboxMemoryManager {
                 .shared_mem
                 .read_i32(self.layout.output_data_buffer_offset)?
                 + 4;
+            // ^^^ flatbuffer byte arrays are prefixed by 4 bytes
+            // indicating its size, so, to get the actual size, we need
+            // to add 4.
             usize::try_from(size_i32)
         }?;
 
