@@ -178,11 +178,7 @@ To do do this please ensure the following:
 
     - (https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
 
-1. You have the rust nightly toolchain installed (this is just needed for pulling crates!)
-
-   - `rustup install nightly`
-
-   > Ensure your nightly toolchain is `cargo 1.75.0-nightly (794d0a825 2023-10-03)` or later
+1. You have the rust toolchain v1.74.0 (or later) installed
 
 To connect to the cargo feeds run the following commands from the root of the repo:
 
@@ -194,7 +190,7 @@ just cargo-login
 To verify access to our cargo feeds run:
 
 ```console
-cargo +nightly update --dry-run
+cargo update --dry-run
 ```
 
 See [publishing-to-cargo.md](./docs/publishing-to-cargo.md) for more information.
