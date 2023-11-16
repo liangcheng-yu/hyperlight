@@ -154,7 +154,7 @@ impl SharedMemory {
                 let addr = unsafe {
                     // https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/System/Memory/fn.VirtualAlloc.html
                     VirtualAlloc(
-                        Some(null_mut() as *mut c_void),
+                        Some(null_mut()),
                         min_size_bytes,
                         MEM_COMMIT,
                         PAGE_EXECUTE_READWRITE,
