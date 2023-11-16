@@ -175,15 +175,12 @@ dotnet run
 
 #### Linux Prerequisites
 
-Make sure your have completed the previous [Prerequisites](Prerequisites-(Windows-and-Linux))
-
 1. Build-Essential. `sudo apt install build-essential` or `sudo dnf install build-essential` on [Mariner][mariner]
 1. [Rust](https://www.rust-lang.org/tools/install)
 1. [Clang](https://clang.llvm.org/get_started.html). `sudo apt install clang` or `sudo dnf install clang` on [Mariner][mariner].
 1. [just](https://github.com/casey/just).  `cargo install just` .
 1. [cbindgen](https://github.com/eqrion/cbindgen) `cargo install cbindgen`
 1. [dotnet](https://learn.microsoft.com/en-us/dotnet/core/install/linux). `sudo apt install dotnet-sdk-6.0` or `sudo dnf install dotnet-sdk-6.0` on [Mariner][mariner].
-1. [git]()
 
 If you receive a 'GPG check FAILED' error when trying to install dotnet-sdk-6.0 (especially on Mariner), follow [these steps](https://github.com/dotnet/docs/blob/main/docs/core/install/linux-scripted-manual.md#manual-install) to manually install it. You may also need to run `sudo dnf install libicu`
 
