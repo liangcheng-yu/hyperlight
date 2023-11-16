@@ -138,7 +138,7 @@ impl SharedMemory {
                 // https://docs.rs/libc/latest/libc/fn.mmap.html
                 let addr = unsafe {
                     let ptr = mmap(
-                        null_mut() as *mut c_void,
+                        null_mut(),
                         min_size_bytes as size_t,
                         PROT_READ | PROT_WRITE,
                         MAP_ANONYMOUS | MAP_SHARED | MAP_NORESERVE,

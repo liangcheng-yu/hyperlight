@@ -174,7 +174,7 @@ mod tests {
         let mut ctx1 = sbox1.new_call_context();
         for call in calls.iter() {
             let res = ctx1
-                .call(call.0.clone(), call.1.clone(), call.2.clone())
+                .call(call.0, call.1.clone(), call.2.clone())
                 .unwrap();
             assert_eq!(call.3, res);
         }

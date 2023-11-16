@@ -134,6 +134,7 @@ fn cmp_helper<T: AddressSpace>(left: &Ptr<T>, right: &Ptr<T>) -> std::cmp::Order
     left.offset.cmp(&right.offset)
 }
 
+#[allow(clippy::non_canonical_partial_ord_impl)]
 impl<T: AddressSpace> std::cmp::PartialOrd for Ptr<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(cmp_helper(self, other))
