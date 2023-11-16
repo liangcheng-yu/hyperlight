@@ -69,7 +69,7 @@ mod tests {
             let cd = CustomPtrDrop::new(
                 i_ptr,
                 Box::new(|ptr| {
-                    unsafe { Box::from_raw(ptr) };
+                    unsafe {let _ = Box::from_raw(ptr); };
                 }),
             );
             Arc::new(Mutex::new(cd))
