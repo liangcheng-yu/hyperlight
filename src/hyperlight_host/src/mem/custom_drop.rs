@@ -70,7 +70,7 @@ mod tests {
                 i_ptr,
                 Box::new(|ptr| {
                     unsafe {
-                        let _ = Box::from_raw(ptr); 
+                        let _ = Box::from_raw(ptr);
                     };
                 }),
             );
