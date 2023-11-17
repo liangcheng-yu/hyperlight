@@ -1,8 +1,8 @@
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ReturnType, ParameterValue};
 use tracing::{span, Level};
 //use tracing_subscriber::fmt;
 extern crate hyperlight_host;
 use hyperlight_host::{
-    func::{ParameterValue, ReturnType},
     sandbox::uninitialized::UninitializedSandbox,
     sandbox_state::{sandbox::EvolvableSandbox, transition::Noop},
     GuestBinary, MultiUseSandbox, Result,
