@@ -5,3 +5,10 @@ members = [
     "src/hyperlight_host",
     "src/hyperlight_testing",
 ]
+
+# this will generate symbols for release builds
+# so is handy for debugging issues in release builds
+# to use, run `cargo build --profile=release-with-debug`
+[profile.release-with-debug]
+inherits = "release"
+debug = true

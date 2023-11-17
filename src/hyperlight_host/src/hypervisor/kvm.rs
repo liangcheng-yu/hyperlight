@@ -184,16 +184,22 @@ impl Hypervisor for KVMDriver {
         max_execution_time: Duration,
         max_wait_for_cancellation: Duration,
     ) -> Result<()> {
-        // Move rip to the DispatchFunction pointer
         let mut regs = self.vcpu_fd.get_regs()?;
+        // Move rip to the DispatchFunction pointer
         regs.rip = dispatch_func_addr.into();
+        // we need to reset the stack pointer once execution is complete
+        // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it
+        // so here we get the current RSP value so we can reset it later
+        let rsp = regs.rsp;
         self.vcpu_fd.set_regs(&regs)?;
         self.execute_until_halt(
             outb_handle_fn,
             mem_access_fn,
             max_execution_time,
             max_wait_for_cancellation,
-        )
+        )?;
+        // Reset the stack pointer to the value it was before the call
+        self.reset_rsp(rsp)
     }
 
     /// Implementation of initialise for Hypervisor trait.
@@ -223,7 +229,10 @@ impl Hypervisor for KVMDriver {
             mem_access_hdl.clone(),
             max_execution_time,
             max_wait_for_cancellation,
-        )
+        )?;
+        // we need to reset the stack pointer once execution is complete
+        // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it
+        self.reset_rsp(self.rsp)
     }
 
     fn reset_rsp(&mut self, rsp: u64) -> Result<()> {

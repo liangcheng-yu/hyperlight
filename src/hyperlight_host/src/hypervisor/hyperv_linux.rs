@@ -278,6 +278,15 @@ impl HypervLinuxDriver {
         };
         Ok(self.vcpu_fd.set_reg(&[reg])?)
     }
+
+    fn get_rsp(&self) -> Result<u64> {
+        let mut rsp_reg = hv_register_assoc {
+            name: hv_register_name_HV_X64_REGISTER_RSP,
+            ..Default::default()
+        };
+        self.vcpu_fd.get_reg(std::slice::from_mut(&mut rsp_reg))?;
+        Ok(unsafe { rsp_reg.value.reg64 })
+    }
 }
 
 impl Hypervisor for HypervLinuxDriver {
@@ -315,7 +324,10 @@ impl Hypervisor for HypervLinuxDriver {
             mem_access_hdl,
             max_execution_time,
             max_wait_for_cancellation,
-        )
+        )?;
+        // we need to reset the stack pointer once execution is complete
+        // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it
+        self.reset_rsp(self.orig_rsp()?)
     }
     fn handle_io(
         &mut self,
@@ -388,12 +400,18 @@ impl Hypervisor for HypervLinuxDriver {
         max_wait_for_cancellation: Duration,
     ) -> Result<()> {
         self.update_rip(dispatch_func_addr)?;
+        // we need to reset the stack pointer once execution is complete
+        // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it
+        // so here we get the current RSP value so we can reset it later
+        let rsp = self.get_rsp()?;
         self.execute_until_halt(
             outb_handle_fn,
             mem_access_fn,
             max_execution_time,
             max_wait_for_cancellation,
-        )
+        )?;
+        // Reset the stack pointer to the value it was before the call
+        self.reset_rsp(rsp)
     }
 
     fn reset_rsp(&mut self, rsp: u64) -> Result<()> {
