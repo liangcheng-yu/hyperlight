@@ -69,6 +69,7 @@
         "sourceLanguages": ["rust", "c"],
         "console": "internalConsole"
       },
+      // Use this to debug a test build with release optimizations
       {
         "type": "lldb",
         "request": "launch",
@@ -76,11 +77,15 @@
         "cargo": {
           "args": [
             "test",
+            "--profile=release-with-debug",
+            "--lib",
             "--no-run",
-            "--lib"
-          ]
+          ],
+          "filter": {
+            "name": "hyperlight_host",
+            "kind": "lib"}
         },
-        "args": []
+        "args": ["sandbox::initialized_single_use::tests"]
       }
   ]
 }
