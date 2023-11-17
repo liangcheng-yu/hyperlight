@@ -5,8 +5,6 @@ use crate::Result;
 pub mod call_ctx;
 /// Definitions for common functions to be exposed in the guest
 pub mod exports;
-/// Represents a function call.
-pub mod function_call;
 /// Types used to pass data to/from the guest.
 pub mod guest;
 /// Functionality to dispatch a call from the host to the guest

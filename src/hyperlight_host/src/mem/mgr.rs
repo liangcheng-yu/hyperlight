@@ -18,16 +18,17 @@ use crate::{
 use crate::{
     error::HyperlightHostError,
     func::{
-        function_call::{ReadFunctionCallFromMemory, WriteFunctionCallToMemory},
         guest::log_data::GuestLogData,
-        host::{function_call::HostFunctionCall, function_details::HostFunctionDetails},
+        host::function_details::HostFunctionDetails,
     },
     sandbox::SandboxConfiguration,
 };
 use crate::{new_error, Result};
 use core::mem::size_of;
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
-    function_call::{validate_guest_function_call_buffer, FunctionCall},
+    function_call::{
+        validate_guest_function_call_buffer, validate_host_function_call_buffer, FunctionCall,
+    },
     function_types::ReturnValue,
     guest_error::{Code, GuestError},
 };
@@ -102,11 +103,6 @@ impl SandboxMemoryManager {
     /// Get `SharedMemory` in `self` as a mutable reference
     pub(crate) fn get_shared_mem_mut(&mut self) -> &mut SharedMemory {
         &mut self.shared_mem
-    }
-
-    /// Get the `SharedMemory` in `self` as an immutable reference
-    fn get_shared_mem(&self) -> &SharedMemory {
-        &self.shared_mem
     }
 
     /// Set the stack guard to `cookie` using `layout` to calculate
@@ -542,16 +538,38 @@ impl SandboxMemoryManager {
             )
         })?;
 
-        self.shared_mem.copy_from_slice(buffer, layout.input_data_buffer_offset)?;
+        self.shared_mem
+            .copy_from_slice(buffer, layout.input_data_buffer_offset)?;
 
         Ok(())
     }
 
     /// Writes a host function call to memory
     pub fn write_host_function_call(&mut self, buffer: &[u8]) -> Result<()> {
-        let host_function_call = HostFunctionCall {};
         let layout = self.layout;
-        host_function_call.write(buffer, self.get_shared_mem_mut(), &layout)
+
+        let buffer_size = {
+            let size_u64 = self
+                .shared_mem
+                .read_u64(layout.get_output_data_size_offset())?;
+            usize::try_from(size_u64)
+        }?;
+
+        if buffer.len() > buffer_size {
+            return Err(new_error!(
+                "Host function call buffer {} is too big for the output data buffer {}",
+                buffer.len(),
+                buffer_size
+            ));
+        }
+
+        #[cfg(debug_assertions)]
+        validate_host_function_call_buffer(&buffer)
+            .map_err(|e| new_error!("Invalid host function call buffer: {}", e.to_string()))?;
+        self.shared_mem
+            .copy_from_slice(buffer, layout.host_function_definitions_offset)?;
+
+        Ok(())
     }
 
     /// Writes a function call result to memory
@@ -568,10 +586,22 @@ impl SandboxMemoryManager {
 
     /// Reads a host function call from memory
     pub fn get_host_function_call(&self) -> Result<FunctionCall> {
-        let host_function_call = HostFunctionCall {};
         let layout = self.layout;
-        let buffer = host_function_call.read(self.get_shared_mem(), &layout)?;
-        FunctionCall::try_from(buffer.as_slice()).map_err(|e| {
+
+        // Get the size of the flatbuffer buffer from memory
+        let fb_buffer_size = {
+            let size_i32 = self.shared_mem.read_i32(layout.output_data_buffer_offset)? + 4;
+            usize::try_from(size_i32)
+        }?;
+
+        let mut function_call_buffer = vec![0; fb_buffer_size];
+        self.shared_mem
+            .copy_to_slice(&mut function_call_buffer, layout.output_data_buffer_offset)?;
+        #[cfg(debug_assertions)]
+        validate_host_function_call_buffer(&function_call_buffer)
+            .map_err(|e| new_error!("Invalid host function call buffer: {}", e.to_string()))?;
+
+        FunctionCall::try_from(function_call_buffer.as_slice()).map_err(|e| {
             new_error!(
                 "get_host_function_call: failed to convert buffer to FunctionCall: {}",
                 e
