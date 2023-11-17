@@ -91,7 +91,7 @@ Currently the complete solution including tests and examples will only build on 
 
  Create powershell function to use developer shell as shell:
 
- 1. Edit $PROFILE
+ 1. Edit `$PROFILE`
  1. Add the following to the profile, this assumes that you have installed clang via Visual Studio and are happy to add the developer shell to your default pwsh profile.
  
  Note: You may not have the $PROFILE file created yet and you may have to create a new file and then update it.
