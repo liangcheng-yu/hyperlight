@@ -1,4 +1,4 @@
-use anyhow::{Error, bail, Result};
+use anyhow::{bail, Error, Result};
 use log::Level;
 
 use crate::flatbuffers::hyperlight::generated::LogLevel as FbLogLevel;

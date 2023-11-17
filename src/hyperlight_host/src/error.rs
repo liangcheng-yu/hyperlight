@@ -17,10 +17,10 @@ use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::{
 };
 
 use crate::mem::ptr::RawPtr;
-use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnValue};
 #[cfg(target_os = "windows")]
 use crossbeam_channel::{RecvError, SendError};
 use flatbuffers::InvalidFlatbuffer;
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnValue};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(target_os = "windows")]

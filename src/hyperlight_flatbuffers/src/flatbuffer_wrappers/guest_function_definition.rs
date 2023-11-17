@@ -38,7 +38,7 @@ impl GuestFunctionDefinition {
             }
             builder.create_vector(&vec_parameters)
         };
-        let function_pointer = self.function_pointer.clone();
+        let function_pointer = self.function_pointer;
 
         let fb_guest_function_definition: WIPOffset<FbGuestFunctionDefinition> =
             FbGuestFunctionDefinition::create(
@@ -46,7 +46,7 @@ impl GuestFunctionDefinition {
                 &FbGuestFunctionDefinitionArgs {
                     function_name: Some(guest_function_name),
                     return_type,
-                    function_pointer: function_pointer.try_into()?,
+                    function_pointer: function_pointer,
                     parameters: Some(guest_parameters),
                 },
             );
@@ -81,7 +81,7 @@ impl TryFrom<FbGuestFunctionDefinition<'_>> for GuestFunctionDefinition {
             function_name,
             parameter_types,
             return_type,
-            function_pointer: function_pointer.try_into()?,
+            function_pointer: function_pointer,
         })
     }
 }

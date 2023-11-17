@@ -587,7 +587,7 @@ impl SandboxMemoryManager {
         }
 
         #[cfg(debug_assertions)]
-        validate_host_function_call_buffer(&buffer)
+        validate_host_function_call_buffer(buffer)
             .map_err(|e| new_error!("Invalid host function call buffer: {}", e.to_string()))?;
         self.shared_mem
             .copy_from_slice(buffer, layout.host_function_definitions_offset)?;

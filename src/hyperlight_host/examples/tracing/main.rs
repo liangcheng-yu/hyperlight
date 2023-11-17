@@ -1,4 +1,4 @@
-use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ReturnType, ParameterValue};
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
 use tracing::{span, Level};
 //use tracing_subscriber::fmt;
 extern crate hyperlight_host;

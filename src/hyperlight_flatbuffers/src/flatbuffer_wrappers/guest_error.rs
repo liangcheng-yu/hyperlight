@@ -1,9 +1,9 @@
 extern crate flatbuffers;
 
-use anyhow::{bail, Error, Result};
 use crate::flatbuffers::hyperlight::generated::{
     size_prefixed_root_as_guest_error, ErrorCode, GuestError as GuestErrorFb, GuestErrorArgs,
 };
+use anyhow::{bail, Error, Result};
 use std::convert::TryFrom;
 
 /// The error code of a `GuestError`.

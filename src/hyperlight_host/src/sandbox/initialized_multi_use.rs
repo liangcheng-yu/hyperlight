@@ -1,6 +1,7 @@
 use super::metrics::SandboxMetric::CurrentNumberOfMultiUseSandboxes;
 use super::{host_funcs::HostFuncsWrapper, leaked_outb::LeakedOutBWrapper, WrapperGetter};
 use crate::func::call_ctx::MultiUseGuestCallContext;
+use crate::{int_gauge_dec, Result};
 use crate::{
     mem::ptr::{GuestPtr, RawPtr},
     sandbox_state::{
@@ -9,8 +10,9 @@ use crate::{
     },
     HypervisorWrapper, MemMgrWrapper, UninitializedSandbox,
 };
-use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType, ReturnValue};
-use crate::{int_gauge_dec, Result};
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
+    ParameterValue, ReturnType, ReturnValue,
+};
 use std::sync::{Arc, Mutex};
 use tracing::instrument;
 

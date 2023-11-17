@@ -1,4 +1,4 @@
-use anyhow::{Error, Result, bail};
+use anyhow::{bail, Error, Result};
 use flatbuffers::WIPOffset;
 
 use crate::flatbuffers::hyperlight::generated::{

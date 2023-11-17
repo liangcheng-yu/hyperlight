@@ -139,9 +139,9 @@ mod tests {
 
     use crate::mem::mgr::SandboxMemoryManager;
     use crate::sandbox::{outb::GuestLogData, SandboxConfiguration};
+    use crate::testing::log_values::test_value_as_str;
     use crate::testing::simple_guest_pe_info;
     use crate::testing::{logger::Logger, logger::LOGGER};
-    use crate::testing::log_values::test_value_as_str;
     use hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel;
     use log::Level;
     use tracing_core::callsite::rebuild_interest_cache;

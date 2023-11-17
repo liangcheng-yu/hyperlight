@@ -139,11 +139,11 @@ impl<'a> SingleUseGuestCallContext<'a> {
 #[cfg(test)]
 mod tests {
     use crate::{sandbox_state::sandbox::EvolvableSandbox, MultiUseSandbox};
+    use crate::{sandbox_state::transition::Noop, GuestBinary, HyperlightError};
+    use crate::{Result, SingleUseSandbox, UninitializedSandbox};
     use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
         ParameterValue, ReturnType, ReturnValue,
     };
-    use crate::{sandbox_state::transition::Noop, GuestBinary, HyperlightError};
-    use crate::{Result, SingleUseSandbox, UninitializedSandbox};
     use hyperlight_testing::simple_guest_path;
     use std::sync::mpsc::sync_channel;
     use std::thread::{self, JoinHandle};

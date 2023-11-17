@@ -6,7 +6,7 @@ use crate::flatbuffers::hyperlight::generated::{
     ParameterType as FbParameterType, ParameterValue as FbParameterValue,
     ReturnType as FbReturnType, ReturnValue as FbReturnValue,
 };
-use anyhow::{Result, bail, Error, anyhow};
+use anyhow::{anyhow, bail, Error, Result};
 
 /// Supported parameter types with values for function calling.
 #[derive(Debug, Clone, PartialEq, Eq)]

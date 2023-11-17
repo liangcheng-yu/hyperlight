@@ -56,21 +56,18 @@ impl TryFrom<&GuestFunctionDetails> for Vec<u8> {
             guest_function_definitions.push(
                 guest_function
                     .convert_to_flatbuffer_def(&mut builder)
-                    .map_err(|e| {
-                        anyhow!("Failed to convert guest function definition: {}", e)
-                    })?,
+                    .map_err(|e| anyhow!("Failed to convert guest function definition: {}", e))?,
             );
         }
 
         let guest_functions = builder.create_vector(&guest_function_definitions);
 
-        let guest_function_details =
-            FbGuestFunctionDetails::create(
-                &mut builder,
-                &FbGuestFunctionDetailsArgs {
-                    functions: Some(guest_functions),
-                },
-            );
+        let guest_function_details = FbGuestFunctionDetails::create(
+            &mut builder,
+            &FbGuestFunctionDetailsArgs {
+                functions: Some(guest_functions),
+            },
+        );
 
         builder.finish_size_prefixed(guest_function_details, None);
 

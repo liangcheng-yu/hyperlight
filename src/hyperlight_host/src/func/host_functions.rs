@@ -6,7 +6,7 @@ use crate::HyperlightError::UnexpectedNoOfArguments;
 use crate::{log_then_return, Result};
 use std::sync::{Arc, Mutex};
 
-use super::{SupportedReturnType, HyperlightFunction, SupportedParameterType};
+use super::{HyperlightFunction, SupportedParameterType, SupportedReturnType};
 
 /// A host function that takes no arguments and returns an `Result` of type `R` (which must implement `SupportedReturnType`).
 pub trait HostFunction0<'a, R: SupportedReturnType<R>> {
