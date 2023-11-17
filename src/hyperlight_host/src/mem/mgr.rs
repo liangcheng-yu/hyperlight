@@ -16,11 +16,7 @@ use crate::{
     log_then_return,
 };
 use crate::{
-    error::HyperlightHostError,
-    func::{
-        guest::log_data::GuestLogData,
-        host::function_details::HostFunctionDetails,
-    },
+    error::HyperlightHostError, func::host::function_details::HostFunctionDetails,
     sandbox::SandboxConfiguration,
 };
 use crate::{new_error, Result};
@@ -30,7 +26,7 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
         validate_guest_function_call_buffer, validate_host_function_call_buffer, FunctionCall,
     },
     function_types::ReturnValue,
-    guest_error::{Code, GuestError},
+    guest_error::{Code, GuestError}, guest_log_data::GuestLogData,
 };
 use serde_json::from_str;
 use std::{cmp::Ordering, str::from_utf8};
@@ -669,7 +665,24 @@ impl SandboxMemoryManager {
 
     /// Read guest log data from the `SharedMemory` contained within `self`
     pub fn read_guest_log_data(&self) -> Result<GuestLogData> {
-        GuestLogData::try_from((&self.shared_mem, self.layout))
+        let offset = self.layout.get_output_data_offset();
+        // there's a u32 at the beginning of the GuestLogData
+        // with the size
+        let size = self.shared_mem.read_u32(offset)?;
+        // read size + 32 bits from shared memory, starting at
+        // layout.get_output_data_offset
+        let mut vec_out = {
+            let len_usize = usize::try_from(size)? + size_of::<u32>();
+            vec![0; len_usize]
+        };
+        self.shared_mem
+            .copy_to_slice(vec_out.as_mut_slice(), offset)?;
+        GuestLogData::try_from(vec_out.as_slice()).map_err(|e| {
+            new_error!(
+                "read_guest_log_data: failed to convert buffer to GuestLogData: {}",
+                e
+            )
+        })
     }
 }
 

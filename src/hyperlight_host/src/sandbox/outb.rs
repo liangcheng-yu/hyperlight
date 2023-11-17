@@ -1,13 +1,11 @@
 use std::sync::{Arc, Mutex};
 
 use super::{host_funcs::HostFuncsWrapper, mem_mgr::MemMgrWrapper};
-use crate::{
-    func::guest::log_data::GuestLogData,
-    hypervisor::handlers::{OutBHandlerFunction, OutBHandlerWrapper},
-};
+use crate::hypervisor::handlers::{OutBHandlerFunction, OutBHandlerWrapper};
 use crate::{hypervisor::handlers::OutBHandler, mem::mgr::SandboxMemoryManager};
 use crate::{HyperlightError, Result};
 use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::ParameterValue;
+use hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_data::GuestLogData;
 use log::{warn, Level, Record};
 use tracing::instrument;
 use tracing_log::format_trace;
@@ -40,7 +38,7 @@ pub(super) fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
 
     let log_data: GuestLogData = mgr.read_guest_log_data()?;
 
-    let record_level: &Level = &log_data.level.into();
+    let record_level: Level = (&log_data.level).into();
 
     // Work out if we need to log or trace
     // this API is marked as follows but it is the easiest way to work out if we should trace or log
@@ -67,7 +65,7 @@ pub(super) fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
         format_trace(
             &Record::builder()
                 .args(format_args!("{}", log_data.message))
-                .level(*record_level)
+                .level(record_level)
                 .target("hyperlight_guest")
                 .file(source_file)
                 .line(line)
@@ -79,7 +77,7 @@ pub(super) fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
         log::logger().log(
             &Record::builder()
                 .args(format_args!("{}", log_data.message))
-                .level(*record_level)
+                .level(record_level)
                 .target("hyperlight_guest")
                 .file(Some(&log_data.source_file))
                 .line(Some(log_data.line))
@@ -143,7 +141,8 @@ mod tests {
     use crate::sandbox::{outb::GuestLogData, SandboxConfiguration};
     use crate::testing::simple_guest_pe_info;
     use crate::testing::{logger::Logger, logger::LOGGER};
-    use crate::{func::guest::log_level::LogLevel, testing::log_values::test_value_as_str};
+    use crate::testing::log_values::test_value_as_str;
+    use hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel;
     use log::Level;
     use tracing_core::callsite::rebuild_interest_cache;
 
@@ -185,9 +184,14 @@ mod tests {
             let layout = mgr.layout;
             let log_msg = new_guest_log_data(LogLevel::Information);
 
-            log_msg
-                .write_to_memory(mgr.get_shared_mem_mut(), &layout)
+            let guest_log_data_buffer: Vec<u8> = log_msg.try_into().unwrap();
+            mgr.get_shared_mem_mut()
+                .copy_from_slice(
+                    guest_log_data_buffer.as_slice(),
+                    layout.get_output_data_offset(),
+                )
                 .unwrap();
+
             assert!(outb_log(&mgr).is_ok());
             assert_eq!(0, LOGGER.num_log_calls());
             LOGGER.clear_log_calls();
@@ -214,13 +218,19 @@ mod tests {
             for level in levels {
                 let layout = mgr.layout;
                 let log_data = new_guest_log_data(level);
-                log_data
-                    .write_to_memory(mgr.get_shared_mem_mut(), &layout)
+
+                let guest_log_data_buffer: Vec<u8> = log_data.clone().try_into().unwrap();
+                mgr.get_shared_mem_mut()
+                    .copy_from_slice(
+                        guest_log_data_buffer.as_slice(),
+                        layout.get_output_data_offset(),
+                    )
                     .unwrap();
+
                 outb_log(&mgr).unwrap();
 
                 LOGGER.test_log_records(|log_calls| {
-                    let expected_level: Level = level.into();
+                    let expected_level: Level = (&level).into();
 
                     assert!(
                         log_calls
@@ -283,9 +293,15 @@ mod tests {
                 let layout = mgr.layout;
                 let log_data: GuestLogData = new_guest_log_data(level);
                 subscriber.clear();
-                log_data
-                    .write_to_memory(mgr.get_shared_mem_mut(), &layout)
+
+                let guest_log_data_buffer: Vec<u8> = log_data.try_into().unwrap();
+                mgr.get_shared_mem_mut()
+                    .copy_from_slice(
+                        guest_log_data_buffer.as_slice(),
+                        layout.get_output_data_offset(),
+                    )
                     .unwrap();
+
                 outb_log(&mgr).unwrap();
 
                 subscriber.test_trace_records(|spans, events| {

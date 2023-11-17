@@ -1,6 +1,7 @@
-use crate::{log_then_return, HyperlightError, Result};
-use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::LogLevel as GenLogLevel;
+use anyhow::{Error, bail, Result};
 use log::Level;
+
+use crate::flatbuffers::hyperlight::generated::LogLevel as GenLogLevel;
 
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -14,18 +15,10 @@ pub enum LogLevel {
     None = 6,
 }
 
-impl From<LogLevel> for u8 {
-    fn from(val: LogLevel) -> u8 {
-        // this cast is legal because the LogLevel enum is
-        // defined as #[repr(u8)]
-        val as u8
-    }
-}
-
-impl TryFrom<GenLogLevel> for LogLevel {
-    type Error = HyperlightError;
-    fn try_from(val: GenLogLevel) -> Result<LogLevel> {
-        match val {
+impl TryFrom<&GenLogLevel> for LogLevel {
+    type Error = Error;
+    fn try_from(val: &GenLogLevel) -> Result<LogLevel> {
+        match *val {
             GenLogLevel::Trace => Ok(LogLevel::Trace),
             GenLogLevel::Debug => Ok(LogLevel::Debug),
             GenLogLevel::Information => Ok(LogLevel::Information),
@@ -34,7 +27,7 @@ impl TryFrom<GenLogLevel> for LogLevel {
             GenLogLevel::Critical => Ok(LogLevel::Critical),
             GenLogLevel::None => Ok(LogLevel::None),
             _ => {
-                log_then_return!("Unsupported Flatbuffers log level: {:?}", val);
+                bail!("Unsupported Flatbuffers log level: {:?}", val);
             }
         }
     }
@@ -54,12 +47,6 @@ impl From<&LogLevel> for GenLogLevel {
     }
 }
 
-impl From<LogLevel> for GenLogLevel {
-    fn from(val: LogLevel) -> GenLogLevel {
-        GenLogLevel::from(&val)
-    }
-}
-
 impl From<&LogLevel> for Level {
     fn from(val: &LogLevel) -> Level {
         match val {
@@ -72,11 +59,5 @@ impl From<&LogLevel> for Level {
             // If the log level is None then we will log as trace
             LogLevel::None => Level::Trace,
         }
-    }
-}
-
-impl From<LogLevel> for Level {
-    fn from(val: LogLevel) -> Level {
-        Level::from(&val)
     }
 }
