@@ -15,10 +15,7 @@ use crate::{
     },
     log_then_return,
 };
-use crate::{
-    error::HyperlightHostError, func::host::function_details::HostFunctionDetails,
-    sandbox::SandboxConfiguration,
-};
+use crate::{error::HyperlightHostError, sandbox::SandboxConfiguration};
 use crate::{new_error, Result};
 use core::mem::size_of;
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
@@ -26,7 +23,9 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
         validate_guest_function_call_buffer, validate_host_function_call_buffer, FunctionCall,
     },
     function_types::ReturnValue,
-    guest_error::{Code, GuestError}, guest_log_data::GuestLogData,
+    guest_error::{Code, GuestError},
+    guest_log_data::GuestLogData,
+    host_function_details::HostFunctionDetails,
 };
 use serde_json::from_str;
 use std::{cmp::Ordering, str::from_utf8};
@@ -502,9 +501,37 @@ impl SandboxMemoryManager {
 
     /// Writes host function details to memory
     pub fn write_buffer_host_function_details(&mut self, buffer: &[u8]) -> Result<()> {
-        let host_function_details = HostFunctionDetails::try_from(buffer)?;
-        let layout = self.layout;
-        host_function_details.write_to_memory(self.get_shared_mem_mut(), &layout)
+        let host_function_details = HostFunctionDetails::try_from(buffer).map_err(|e| {
+            new_error!(
+                "write_buffer_host_function_details: failed to convert buffer to HostFunctionDetails: {}",
+                e
+            )
+        })?;
+
+        let host_function_call_buffer: Vec<u8> = (&host_function_details).try_into().map_err(|_| {
+            new_error!(
+                "write_buffer_host_function_details: failed to convert HostFunctionDetails to Vec<u8>"
+            )
+        })?;
+
+        let buffer_size = {
+            let size_u64 = self
+                .shared_mem
+                .read_u64(self.layout.get_host_function_definitions_size_offset())?;
+            usize::try_from(size_u64)
+        }?;
+
+        if host_function_call_buffer.len() > buffer_size {
+            log_then_return!(
+                "Host Function Details buffer is too big for the host_function_definitions buffer"
+            );
+        }
+
+        self.shared_mem.copy_from_slice(
+            host_function_call_buffer.as_slice(),
+            self.layout.host_function_definitions_offset,
+        )?;
+        Ok(())
     }
 
     /// Writes a guest function call to memory

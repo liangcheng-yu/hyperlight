@@ -4,11 +4,12 @@ use crate::func::call_ctx::SingleUseGuestCallContext;
 use crate::int_gauge_dec;
 use crate::Result;
 use crate::{
-    sandbox_state::sandbox::Sandbox,
-    HypervisorWrapper, MemMgrWrapper, UninitializedSandbox,
+    sandbox_state::sandbox::Sandbox, HypervisorWrapper, MemMgrWrapper, UninitializedSandbox,
+};
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
+    ParameterValue, ReturnType, ReturnValue,
 };
 use std::marker::PhantomData;
-use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType, ReturnValue};
 
 /// A sandbox implementation that supports calling no more than 1 guest
 /// function
@@ -176,9 +177,10 @@ impl<'a> Drop for SingleUseSandbox<'a> {
 #[cfg(test)]
 mod tests {
     use crate::sandbox::SandboxConfiguration;
-    use crate::{func::ParameterValue, func::ReturnType, sandbox_state::sandbox::EvolvableSandbox};
+    use crate::sandbox_state::sandbox::EvolvableSandbox;
     use crate::{sandbox_state::transition::Noop, GuestBinary};
     use crate::{SingleUseSandbox, UninitializedSandbox};
+    use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
     use hyperlight_testing::simple_guest_path;
 
     // Test to ensure that many (1000) function calls can be made in a call context with a small stack (1K) and heap(14K).

@@ -1,7 +1,7 @@
 use anyhow::{Error, bail, Result};
 use log::Level;
 
-use crate::flatbuffers::hyperlight::generated::LogLevel as GenLogLevel;
+use crate::flatbuffers::hyperlight::generated::LogLevel as FbLogLevel;
 
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -15,17 +15,17 @@ pub enum LogLevel {
     None = 6,
 }
 
-impl TryFrom<&GenLogLevel> for LogLevel {
+impl TryFrom<&FbLogLevel> for LogLevel {
     type Error = Error;
-    fn try_from(val: &GenLogLevel) -> Result<LogLevel> {
+    fn try_from(val: &FbLogLevel) -> Result<LogLevel> {
         match *val {
-            GenLogLevel::Trace => Ok(LogLevel::Trace),
-            GenLogLevel::Debug => Ok(LogLevel::Debug),
-            GenLogLevel::Information => Ok(LogLevel::Information),
-            GenLogLevel::Warning => Ok(LogLevel::Warning),
-            GenLogLevel::Error => Ok(LogLevel::Error),
-            GenLogLevel::Critical => Ok(LogLevel::Critical),
-            GenLogLevel::None => Ok(LogLevel::None),
+            FbLogLevel::Trace => Ok(LogLevel::Trace),
+            FbLogLevel::Debug => Ok(LogLevel::Debug),
+            FbLogLevel::Information => Ok(LogLevel::Information),
+            FbLogLevel::Warning => Ok(LogLevel::Warning),
+            FbLogLevel::Error => Ok(LogLevel::Error),
+            FbLogLevel::Critical => Ok(LogLevel::Critical),
+            FbLogLevel::None => Ok(LogLevel::None),
             _ => {
                 bail!("Unsupported Flatbuffers log level: {:?}", val);
             }
@@ -33,16 +33,16 @@ impl TryFrom<&GenLogLevel> for LogLevel {
     }
 }
 
-impl From<&LogLevel> for GenLogLevel {
-    fn from(val: &LogLevel) -> GenLogLevel {
+impl From<&LogLevel> for FbLogLevel {
+    fn from(val: &LogLevel) -> FbLogLevel {
         match val {
-            LogLevel::Critical => GenLogLevel::Critical,
-            LogLevel::Debug => GenLogLevel::Debug,
-            LogLevel::Error => GenLogLevel::Error,
-            LogLevel::Information => GenLogLevel::Information,
-            LogLevel::None => GenLogLevel::None,
-            LogLevel::Trace => GenLogLevel::Trace,
-            LogLevel::Warning => GenLogLevel::Warning,
+            LogLevel::Critical => FbLogLevel::Critical,
+            LogLevel::Debug => FbLogLevel::Debug,
+            LogLevel::Error => FbLogLevel::Error,
+            LogLevel::Information => FbLogLevel::Information,
+            LogLevel::None => FbLogLevel::None,
+            LogLevel::Trace => FbLogLevel::Trace,
+            LogLevel::Warning => FbLogLevel::Warning,
         }
     }
 }

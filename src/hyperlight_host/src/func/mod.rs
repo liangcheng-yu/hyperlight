@@ -20,7 +20,7 @@ mod guest_err;
 /// - Registering host functions to be callable by the guest
 /// - Dynamically dispatching a call from the guest to the appropriate
 /// host function
-pub mod host;
+pub mod host_functions;
 /// Definitions and functionality for supported parameter types
 pub(crate) mod param_type;
 /// Definitions and functionality for supported return types
@@ -55,6 +55,6 @@ impl<'a> HyperlightFunction<'a> {
 /// Re-export for `get_stack_boundary` function
 pub use exports::get_stack_boundary;
 /// Re-export for `HostFunction0` trait
-pub use host::HostFunction0;
+pub use host_functions::HostFunction0;
 /// Re-export for `HostFunction1` trait
-pub use host::HostFunction1;
+pub use host_functions::HostFunction1;

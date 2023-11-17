@@ -96,7 +96,7 @@ impl TryFrom<&[u8]> for HostFunctionDetails {
                 let mut vec_hfd: Vec<HostFunctionDefinition> = Vec::with_capacity(len);
                 for i in 0..len {
                     let fb_host_function_definition = hfd.get(i);
-                    let hfdef = HostFunctionDefinition::try_from(fb_host_function_definition)?;
+                    let hfdef = HostFunctionDefinition::try_from(&fb_host_function_definition)?;
                     vec_hfd.push(hfdef);
                 }
 

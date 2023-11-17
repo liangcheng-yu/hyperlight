@@ -1,17 +1,12 @@
-/// Represents the definition of a function that the host exposes to the guest.
-pub(crate) mod function_definition;
-/// Represents the functions that the host exposes to the guest.
-pub(crate) mod function_details;
-
 use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::ParameterValue;
+use hyperlight_flatbuffers::flatbuffer_wrappers::host_function_definition::HostFunctionDefinition;
 
-use self::function_definition::HostFunctionDefinition;
-use super::HyperlightFunction;
-use super::{param_type::SupportedParameterType, ret_type::SupportedReturnType};
 use crate::sandbox::UninitializedSandbox;
 use crate::HyperlightError::UnexpectedNoOfArguments;
 use crate::{log_then_return, Result};
 use std::sync::{Arc, Mutex};
+
+use super::{SupportedReturnType, HyperlightFunction, SupportedParameterType};
 
 /// A host function that takes no arguments and returns an `Result` of type `R` (which must implement `SupportedReturnType`).
 pub trait HostFunction0<'a, R: SupportedReturnType<R>> {

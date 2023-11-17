@@ -16,7 +16,7 @@ use crate::{
     error::HyperlightError::{CallEntryPointIsInProcOnly, GuestBinaryShouldBeAFile},
     new_error,
 };
-use crate::{func::host::HostFunction1, MultiUseSandbox};
+use crate::{func::host_functions::HostFunction1, MultiUseSandbox};
 use crate::{log_then_return, mem::ptr::RawPtr};
 use crate::{mem::mgr::STACK_COOKIE_LEN, SingleUseSandbox};
 use std::option::Option;
@@ -450,7 +450,7 @@ mod tests {
     #[cfg(target_os = "windows")]
     use crate::SandboxRunOptions;
     use crate::{
-        func::host::{HostFunction1, HostFunction2},
+        func::host_functions::{HostFunction1, HostFunction2},
         sandbox::uninitialized::GuestBinary,
         sandbox::SandboxConfiguration,
         UninitializedSandbox,

@@ -1,7 +1,8 @@
-use crate::{HyperlightError, Result};
+use anyhow::{anyhow, Error, Result};
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
-use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterType, ReturnType};
-use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::{
+
+use super::function_types::{ParameterType, ReturnType};
+use crate::flatbuffers::hyperlight::generated::{
     HostFunctionDefinition as FbHostFunctionDefinition,
     HostFunctionDefinitionArgs as FbHostFunctionDefinitionArgs, ParameterType as FbParameterType,
 };
@@ -19,7 +20,7 @@ pub struct HostFunctionDefinition {
 
 impl HostFunctionDefinition {
     /// Create a new `HostFunctionDefinition`.
-    pub(crate) fn new(
+    pub fn new(
         function_name: String,
         parameter_types: Option<Vec<ParameterType>>,
         return_type: ReturnType,
@@ -66,14 +67,14 @@ impl HostFunctionDefinition {
 }
 
 impl TryFrom<&FbHostFunctionDefinition<'_>> for HostFunctionDefinition {
-    type Error = HyperlightError;
+    type Error = Error;
     fn try_from(value: &FbHostFunctionDefinition) -> Result<Self> {
         let function_name = value.function_name().to_string();
         let return_type = value.return_type().try_into().map_err(|_| {
-            HyperlightError::Error(format!(
+            anyhow!(
                 "Failed to convert return type for function {}",
                 function_name
-            ))
+            )
         })?;
         let parameter_types = match value.parameters() {
             Some(pvt) => {
@@ -81,10 +82,10 @@ impl TryFrom<&FbHostFunctionDefinition<'_>> for HostFunctionDefinition {
                 let mut pv: Vec<ParameterType> = Vec::with_capacity(len);
                 for fb_pvt in pvt {
                     let pvt: ParameterType = fb_pvt.try_into().map_err(|_| {
-                        HyperlightError::Error(format!(
+                        anyhow!(
                             "Failed to convert parameter type for function {}",
                             function_name
-                        ))
+                        )
                     })?;
                     pv.push(pvt);
                 }
@@ -98,7 +99,7 @@ impl TryFrom<&FbHostFunctionDefinition<'_>> for HostFunctionDefinition {
 }
 
 impl TryFrom<&[u8]> for HostFunctionDefinition {
-    type Error = HyperlightError;
+    type Error = Error;
     fn try_from(value: &[u8]) -> Result<Self> {
         let fb_host_function_definition = flatbuffers::root::<FbHostFunctionDefinition<'_>>(value)?;
         Self::try_from(&fb_host_function_definition)
@@ -106,7 +107,7 @@ impl TryFrom<&[u8]> for HostFunctionDefinition {
 }
 
 impl TryFrom<&HostFunctionDefinition> for Vec<u8> {
-    type Error = HyperlightError;
+    type Error = Error;
     fn try_from(hfd: &HostFunctionDefinition) -> Result<Vec<u8>> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
         let host_function_definition = hfd.convert_to_flatbuffer_def(&mut builder)?;

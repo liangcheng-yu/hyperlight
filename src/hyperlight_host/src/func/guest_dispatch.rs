@@ -79,7 +79,7 @@ mod tests {
     use super::*;
     use crate::func::{
         call_ctx::{MultiUseGuestCallContext, SingleUseGuestCallContext},
-        host::HostFunction0,
+        host_functions::HostFunction0,
     };
     use crate::HyperlightError;
     use crate::Result;
