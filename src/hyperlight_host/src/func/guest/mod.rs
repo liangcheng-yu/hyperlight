@@ -1,5 +1,3 @@
-/// Represents a function call from host to guest.
-pub mod function_call;
 /// Represents the definition of a function that the guest exposes to the host.
 pub(crate) mod function_definition;
 /// Represents the functions that the guest exposes to the host.

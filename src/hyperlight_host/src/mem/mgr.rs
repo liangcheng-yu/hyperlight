@@ -19,7 +19,7 @@ use crate::{
     error::HyperlightHostError,
     func::{
         function_call::{ReadFunctionCallFromMemory, WriteFunctionCallToMemory},
-        guest::{function_call::GuestFunctionCall, log_data::GuestLogData},
+        guest::log_data::GuestLogData,
         host::{function_call::HostFunctionCall, function_details::HostFunctionDetails},
     },
     sandbox::SandboxConfiguration,
@@ -27,7 +27,7 @@ use crate::{
 use crate::{new_error, Result};
 use core::mem::size_of;
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
-    function_call::FunctionCall,
+    function_call::{validate_guest_function_call_buffer, FunctionCall},
     function_types::ReturnValue,
     guest_error::{Code, GuestError},
 };
@@ -517,9 +517,34 @@ impl SandboxMemoryManager {
 
     /// Writes a guest function call to memory
     pub fn write_guest_function_call(&mut self, buffer: &[u8]) -> Result<()> {
-        let guest_function_call = GuestFunctionCall {};
         let layout = self.layout;
-        guest_function_call.write(buffer, self.get_shared_mem_mut(), &layout)
+
+        let buffer_size = {
+            let size_u64 = self
+                .shared_mem
+                .read_u64(layout.get_input_data_size_offset())?;
+            usize::try_from(size_u64)
+        }?;
+
+        if buffer.len() > buffer_size {
+            return Err(new_error!(
+                "Guest function call buffer {} is too big for the input data buffer {}",
+                buffer.len(),
+                buffer_size
+            ));
+        }
+
+        #[cfg(debug_assertions)]
+        validate_guest_function_call_buffer(buffer).map_err(|e| {
+            new_error!(
+                "Guest function call buffer validation failed: {}",
+                e.to_string()
+            )
+        })?;
+
+        self.shared_mem.copy_from_slice(buffer, layout.input_data_buffer_offset)?;
+
+        Ok(())
     }
 
     /// Writes a host function call to memory
@@ -557,10 +582,27 @@ impl SandboxMemoryManager {
     /// Reads a guest function call from memory
     #[allow(unused)]
     pub(crate) fn get_guest_function_call(&self) -> Result<FunctionCall> {
-        let guest_function_call = GuestFunctionCall {};
         let layout = self.layout;
-        let buffer = guest_function_call.read(self.get_shared_mem(), &layout)?;
-        FunctionCall::try_from(buffer.as_slice()).map_err(|e| {
+
+        // read guest function call from memory
+        let fb_buffer_size = {
+            let size_i32 = self.shared_mem.read_i32(layout.input_data_buffer_offset)? + 4;
+            usize::try_from(size_i32)
+        }?;
+
+        let mut function_call_buffer = vec![0; fb_buffer_size];
+        self.shared_mem
+            .copy_to_slice(&mut function_call_buffer, layout.input_data_buffer_offset)?;
+
+        #[cfg(debug_assertions)]
+        validate_guest_function_call_buffer(&function_call_buffer).map_err(|e| {
+            new_error!(
+                "get_guest_function_call: failed to validate guest function call buffer: {}",
+                e
+            )
+        })?;
+
+        FunctionCall::try_from(function_call_buffer.as_slice()).map_err(|e| {
             new_error!(
                 "get_guest_function_call: failed to convert buffer to FunctionCall: {}",
                 e
