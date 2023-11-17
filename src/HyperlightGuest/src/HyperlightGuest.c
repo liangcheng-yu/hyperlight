@@ -207,11 +207,12 @@ void writeError(uint64_t errorCode, char *message)
     // Write the flatbuffer to the guest error buffer
 
     assert(flatcc_builder_copy_buffer(&builder, (void *)pPeb->pGuestErrorBuffer, flatb_size));
+    flatcc_builder_clear(&builder);
 }
 
 void resetError()
 {
-    writeError(0, NULL);
+    memset(pPeb->pGuestErrorBuffer, 0, pPeb->guestErrorBufferSize);
 }
 
 // SetError sets the specified error and message in memory and then halts execution by returning the the point that setjmp was called
@@ -395,6 +396,7 @@ void CallHostFunction(char *functionName, va_list ap)
     }
     memcpy(pPeb->outputdata.outputDataBuffer, buffer, size);
     free(buffer);
+    flatcc_builder_clear(&hostFunctionCallBuilder);
     outb(OUTB_CALL_FUNCTION, 0);
 }
 
@@ -617,6 +619,7 @@ uint8_t *GetFlatBufferResult(flatbuffers_builder_t *functionCallResultBuilder, n
     uint8_t *buffer;
     size_t size;
     buffer = (uint8_t *)flatcc_builder_finalize_buffer(functionCallResultBuilder, &size);
+    flatcc_builder_clear(functionCallResultBuilder);
     return buffer;
 }
 
@@ -806,6 +809,7 @@ void DispatchFunction()
         assert(NULL != buffer);
         memcpy(pPeb->outputdata.outputDataBuffer, result, size + 4);
         free(result);
+        free(buffer);
     }
 
     halt(); // This is a nop if we were just loaded into memory
@@ -941,6 +945,8 @@ void WriteLogData(
             buffer,
             size);
     }
+    flatcc_builder_clear(&logDataBuilder);
+    free(buffer);
 }
 
 void Log(LogLevel logLevel, const char *message, const char *source, const char *caller, const char *sourceFile, int32_t line)
@@ -1009,13 +1015,12 @@ void *hyperlightMoreCore(size_t size)
     if (size > 0)
     {
         // Trying to use more memory than is available.
-        // This should not happen if dlmalloc_set_footprint_limit was called with pPeb->guestheapData.guestHeapSize.
-
+        // In theory this should not happen if dlmalloc_set_footprint_limit was called with pPeb->guestheapData.guestHeapSize.
+        // but it appears that it does , we should not setError here as that can cause an infinite loop.
         if (allocated + size > pPeb->guestheapData.guestHeapSize)
         {
-            char message[100] = {0};
-            snprintf(message, 100, "HyperlightMoreCore Failed to allocate memory. Allocated:%d Required:%d HeapSize:%d", allocated, size, pPeb->guestheapData.guestHeapSize);
-            setError(FAILURE_IN_DLMALLOC, message);
+            //TODO: Add data to the abort so we know what happened in the host.
+            abort();
         }
 
         if (0 == unusedHeapBufferPointer)

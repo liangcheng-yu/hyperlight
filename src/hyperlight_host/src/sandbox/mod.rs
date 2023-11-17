@@ -14,7 +14,7 @@ pub mod initialized_single_use;
 /// executions. On non-in-process executions (e.g. windows without
 /// in-process mode turned on, or linux), the same container is just
 /// a no-op
-pub(self) mod leaked_outb;
+mod leaked_outb;
 /// Functionality for dealing with memory access from the VM guest
 /// executable
 mod mem_access;

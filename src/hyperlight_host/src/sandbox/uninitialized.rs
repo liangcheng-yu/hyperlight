@@ -296,6 +296,7 @@ impl<'a> UninitializedSandbox<'a> {
         // If we were passed a writer for host print register it otherwise use the default.
         match host_print_writer {
             Some(writer_func) => {
+                #[allow(clippy::arc_with_non_send_sync)]
                 let writer_func = Arc::new(Mutex::new(writer_func));
                 writer_func
                     .lock()

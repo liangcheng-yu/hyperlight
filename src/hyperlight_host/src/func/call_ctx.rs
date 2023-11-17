@@ -51,7 +51,7 @@ impl<'a> MultiUseGuestCallContext<'a> {
     ///
     /// If you want a "fresh" state, call `finish()` on this `CallContext`
     /// and get a new one from the resulting `MultiUseSandbox`
-    #[instrument]
+    #[instrument(skip(self, args))]
     pub fn call(
         &mut self,
         func_name: &str,
@@ -117,7 +117,7 @@ impl<'a> SingleUseGuestCallContext<'a> {
     ///
     /// If you want a "fresh" state, call `finish()` on this `CallContext`
     /// and get a new one from the resulting `MultiUseSandbox`
-    #[instrument]
+    #[instrument(skip(self, args))]
     pub fn call(
         &mut self,
         func_name: &str,
@@ -176,9 +176,7 @@ mod tests {
         let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
         let mut ctx1 = sbox1.new_call_context();
         for call in calls.iter() {
-            let res = ctx1
-                .call(call.0.clone(), call.1.clone(), call.2.clone())
-                .unwrap();
+            let res = ctx1.call(call.0, call.1.clone(), call.2.clone()).unwrap();
             assert_eq!(call.3, res);
         }
     }

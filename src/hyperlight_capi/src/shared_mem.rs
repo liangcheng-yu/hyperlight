@@ -435,7 +435,7 @@ mod tests {
             1,
         );
 
-        assert!(matches!(res, Err(_)));
+        assert!(res.is_err());
     }
 
     #[test]
@@ -450,6 +450,6 @@ mod tests {
             0,
             test_data.barr_len * 10,
         );
-        assert!(matches!(res, Err(_)));
+        assert!(res.is_err());
     }
 }

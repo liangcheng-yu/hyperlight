@@ -44,12 +44,7 @@ pub(crate) fn bytes_for_path(path_buf: PathBuf) -> Result<Vec<u8>> {
         .as_path()
         .to_str()
         .ok_or_else(|| new_error!("couldn't convert guest {:?} to a path", path_buf))?;
-    let guest_bytes = fs::read(guest_path).map_err(|e| {
-        new_error!(
-            "failed to open guest at path {} ({})",
-            guest_path.clone(),
-            e
-        )
-    })?;
+    let guest_bytes = fs::read(guest_path)
+        .map_err(|e| new_error!("failed to open guest at path {} ({})", guest_path, e))?;
     Ok(guest_bytes)
 }
