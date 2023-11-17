@@ -19,11 +19,7 @@ use crate::{
     error::HyperlightHostError,
     func::{
         function_call::{ReadFunctionCallFromMemory, WriteFunctionCallToMemory},
-        guest::{
-            error::{Code, GuestError},
-            function_call::GuestFunctionCall,
-            log_data::GuestLogData,
-        },
+        guest::{function_call::GuestFunctionCall, log_data::GuestLogData},
         host::{function_call::HostFunctionCall, function_details::HostFunctionDetails},
     },
     sandbox::SandboxConfiguration,
@@ -31,7 +27,9 @@ use crate::{
 use crate::{new_error, Result};
 use core::mem::size_of;
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
-    function_call::FunctionCall, function_types::ReturnValue,
+    function_call::FunctionCall,
+    function_types::ReturnValue,
+    guest_error::{Code, GuestError},
 };
 use serde_json::from_str;
 use std::{cmp::Ordering, str::from_utf8};
@@ -353,7 +351,21 @@ impl SandboxMemoryManager {
     ) -> Result<()> {
         let message = String::from_utf8(guest_error_msg.to_owned())?;
         let ge = GuestError::new(Code::OutbError, message);
-        ge.write_to_memory(&mut self.shared_mem, &self.layout)?;
+
+        let guest_error_buffer: Vec<u8> = (&ge)
+            .try_into()
+            .map_err(|_| new_error!("write_outb_error: failed to convert GuestError to Vec<u8>"))?;
+
+        let err_buffer_size_offset = self.layout.get_guest_error_buffer_size_offset();
+        let max_err_buffer_size = self.shared_mem.read_u64(err_buffer_size_offset)?;
+
+        if guest_error_buffer.len() as u64 > max_err_buffer_size {
+            log_then_return!("The guest error message is too large to fit in the shared memory");
+        }
+        self.shared_mem.copy_from_slice(
+            guest_error_buffer.as_slice(),
+            self.layout.guest_error_buffer_offset,
+        )?;
 
         let host_exception_offset = self.layout.get_host_exception_offset();
         let host_exception_size_offset = self.layout.get_host_exception_size_offset();
@@ -383,7 +395,21 @@ impl SandboxMemoryManager {
 
     /// Get the guest error data
     pub fn get_guest_error(&self) -> Result<GuestError> {
-        GuestError::try_from((&self.shared_mem, &self.layout))
+        // get memory buffer max size
+        let err_buffer_size_offset = self.layout.get_guest_error_buffer_size_offset();
+        let max_err_buffer_size = self.shared_mem.read_u64(err_buffer_size_offset)?;
+
+        // get guest error from layout and shared mem
+        let mut guest_error_buffer = vec![b'0'; usize::try_from(max_err_buffer_size)?];
+        let err_msg_offset = self.layout.guest_error_buffer_offset;
+        self.shared_mem
+            .copy_to_slice(guest_error_buffer.as_mut_slice(), err_msg_offset)?;
+        GuestError::try_from(guest_error_buffer.as_slice()).map_err(|e| {
+            new_error!(
+                "get_guest_error: failed to convert buffer to GuestError: {}",
+                e
+            )
+        })
     }
 
     /// Load the binary represented by `pe_info` into memory, ensuring

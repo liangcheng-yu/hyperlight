@@ -1,5 +1,3 @@
-/// Represents an error that occured int the guest.
-pub mod error;
 /// Represents a function call from host to guest.
 pub mod function_call;
 /// Represents the definition of a function that the guest exposes to the host.

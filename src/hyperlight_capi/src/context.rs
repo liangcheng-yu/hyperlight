@@ -11,8 +11,8 @@ use crate::mem_access_handler::MemAccessHandlerWrapper;
 use crate::outb_handler::OutBHandlerWrapper;
 use hyperlight_flatbuffers::flatbuffer_wrappers::function_call::FunctionCall;
 use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::ReturnValue;
+use hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::GuestError;
 use hyperlight_host::error::HyperlightError;
-use hyperlight_host::func::guest::error::GuestError;
 use hyperlight_host::func::guest::log_data::GuestLogData;
 #[cfg(target_os = "linux")]
 use hyperlight_host::hypervisor::hyperv_linux::HypervLinuxDriver;
