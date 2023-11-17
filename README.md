@@ -94,7 +94,7 @@ Currently the complete solution including tests and examples will only build on 
  1. Edit `$PROFILE`
  1. Add the following to the profile, this assumes that you have installed clang via Visual Studio and are happy to add the developer shell to your default pwsh profile.
  
- Note: You may not have the $PROFILE file created yet and you may have to create a new file and then update it.
+ Note: You may not have the `$PROFILE` file created yet and you may have to create a new file and then update it.
 
 Gather the vs instance id for your dev environment by running `vswhere.exe -legacy -prerelease -format json` and look for the instance id of your VS installation. (vswhere.exe can be downloaded from [here](https://github.com/microsoft/vswhere/releases))
 
