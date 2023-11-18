@@ -18,10 +18,14 @@ use crate::{
 use crate::{error::HyperlightHostError, sandbox::SandboxConfiguration};
 use crate::{new_error, Result};
 use core::mem::size_of;
+
+#[cfg(debug_assertions)]
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_call::{
+    validate_guest_function_call_buffer, validate_host_function_call_buffer,
+};
+
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
-    function_call::{
-        validate_guest_function_call_buffer, validate_host_function_call_buffer, FunctionCall,
-    },
+    function_call::FunctionCall,
     function_types::ReturnValue,
     guest_error::{Code, GuestError},
     guest_log_data::GuestLogData,
