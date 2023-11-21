@@ -4,8 +4,8 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use goblin::pe::{optional_header::OptionalHeader, PE};
 use std::io::Cursor;
 use std::{fs::File, io::Read};
-use tracing::info;
 use tracing::instrument;
+use tracing::{info, Span};
 
 const IMAGE_REL_BASED_DIR64: u8 = 10;
 const IMAGE_REL_BASED_ABSOLUTE: u8 = 0;
@@ -25,7 +25,7 @@ pub(crate) struct PEInfo {
 }
 
 impl PEInfo {
-    #[instrument(err(Debug))]
+    #[instrument(err(Debug), parent = Span::current())]
     pub(crate) fn from_file(filename: &str) -> Result<Self> {
         info!("Loading PE file from {}", filename);
         let mut file = File::open(filename)?;

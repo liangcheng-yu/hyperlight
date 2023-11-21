@@ -7,8 +7,8 @@ use crate::{
 };
 use crate::{hypervisor::handlers::OutBHandler, mem::mgr::SandboxMemoryManager};
 use crate::{HyperlightError, Result};
-use log::{warn, Level, Record};
-use tracing::instrument;
+use log::{Level, Record};
+use tracing::{instrument, Span};
 use tracing_log::format_trace;
 
 pub(super) enum OutBAction {
@@ -28,7 +28,7 @@ impl From<u16> for OutBAction {
     }
 }
 
-#[instrument(skip(mgr))]
+#[instrument(err(Debug), skip_all, parent = Span::current())]
 pub(super) fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
     // This code will create either a logging record or a tracing record for the GuestLogData depending on if the host has set up a tracing subscriber.
     // In theory as we have enabled the log feature in the Cargo.toml for tracing this should happen

@@ -24,8 +24,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::{ffi::c_void, ops::Add};
-use tracing::instrument;
-use tracing_core::Level;
+use tracing::{instrument, Span};
 
 /// A preliminary `Sandbox`, not yet ready to execute guest code.
 ///
@@ -226,7 +225,11 @@ impl<'a> UninitializedSandbox<'a> {
     /// The skip attribute is used to skip the guest binary from being printed in the tracing span.
     /// The name attribute is used to name the tracing span.
     /// The err attribute is used to emit an error should the Result be an error, it uses the std::`fmt::Debug trait` to print the error.
-    #[instrument(err(Debug, level = Level::ERROR), skip(guest_binary, host_print_writer), name = "UninitializedSandbox::new")]
+    #[instrument(
+        err(Debug),
+        skip(guest_binary, host_print_writer),
+        parent = Span::current()
+    )]
     pub fn new(
         guest_binary: GuestBinary,
         cfg: Option<SandboxConfiguration>,
@@ -1044,7 +1047,7 @@ mod tests {
             );
 
             let span_metadata = subscriber.get_span_metadata(2);
-            assert_eq!(span_metadata.name(), "UninitializedSandbox::new");
+            assert_eq!(span_metadata.name(), "new");
 
             // There should be one event for the error that the binary path does not exist
 
@@ -1133,14 +1136,14 @@ mod tests {
             let logcall = TEST_LOGGER.get_log_call(0).unwrap();
             assert_eq!(Level::Info, logcall.level);
 
-            assert!(logcall.args.starts_with("UninitializedSandbox::new; cfg"));
+            assert!(logcall.args.starts_with("new; cfg"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
 
             // Log record 2
 
             let logcall = TEST_LOGGER.get_log_call(1).unwrap();
             assert_eq!(Level::Trace, logcall.level);
-            assert_eq!(logcall.args, "-> UninitializedSandbox::new;");
+            assert_eq!(logcall.args, "-> new;");
             assert_eq!("tracing::span::active", logcall.target);
 
             // Log record 3
@@ -1154,14 +1157,14 @@ mod tests {
 
             let logcall = TEST_LOGGER.get_log_call(3).unwrap();
             assert_eq!(Level::Trace, logcall.level);
-            assert_eq!(logcall.args, "<- UninitializedSandbox::new;");
+            assert_eq!(logcall.args, "<- new;");
             assert_eq!("tracing::span::active", logcall.target);
 
             // Log record 6
 
             let logcall = TEST_LOGGER.get_log_call(4).unwrap();
             assert_eq!(Level::Trace, logcall.level);
-            assert_eq!(logcall.args, "-- UninitializedSandbox::new;");
+            assert_eq!(logcall.args, "-- new;");
             assert_eq!("tracing::span", logcall.target);
         }
         {
@@ -1192,7 +1195,7 @@ mod tests {
             let logcall = TEST_LOGGER.get_log_call(0).unwrap();
             assert_eq!(Level::Info, logcall.level);
 
-            assert!(logcall.args.starts_with("UninitializedSandbox::new; cfg"));
+            assert!(logcall.args.starts_with("new; cfg"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
 
             // Log record 2

@@ -11,6 +11,7 @@ use libc::{c_void, pthread_kill, pthread_self, siginfo_t, ESRCH};
 use log::error;
 #[cfg(target_os = "linux")]
 use log::info;
+use tracing::{instrument, Span};
 #[cfg(target_os = "linux")]
 use vmm_sys_util::signal::{register_signal_handler, SIGRTMIN};
 #[cfg(target_os = "windows")]
@@ -587,6 +588,7 @@ fn terminate_execution(
 struct VirtualCPU {}
 
 impl VirtualCPU {
+    #[instrument(err(Debug), skip_all, parent = Span::current())]
     fn run<'a>(
         hv: &mut dyn Hypervisor,
         outb_handle_fn: Arc<Mutex<dyn OutBHandlerCaller + 'a>>,

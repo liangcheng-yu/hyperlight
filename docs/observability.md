@@ -24,14 +24,22 @@ lazy_static! {
 set_metrics_registry(&REGISTRY);
 ```
 
-The following metrics are provided:
+The following metrics are provided and are enabled by default:
 
 * `hyperlight_current_number_of_multi_use_sandboxes` - a gauge that tracks the number of multi-use sandboxes that are currently active.
 * `hyperlight_current_number_of_single_use_sandboxes` - a gauge that tracks the number of single-use sandboxes that are currently active.
 * `hyperlight_guest_error_count` - a vector of counters that tracks the number of guest errors by reason.
+* `hyperlight_number_of_cancelled_guest_execution` - a counter that tracks the number of guest executions that have been cancelled because the execution time execeeded the time allowed.
+
+The following metrics are provided but are disabled by default and require the feature `function_call_metrics` to be enabled:
+
 * `hyperlight_guest_function_call_duration_microseconds` - a vector of histograms that tracks the execution time of guest functions in microseconds by function name. The histogram also tracks the number of calls to each function.
 * `hyperlight_host_function_calls_duration_microseconds` - a vector of histograms that tracks the execution time of host functions in microseconds by function name. The histogram also tracks the number of calls to each function.
-* `hyperlight_number_of_cancelled_guest_execution` - a counter that tracks the number of guest executions that have been cancelled because the execution time execeeded the time allowed.
+
+The rationale for disabling the function call metrics by default is that:
+
+* A Hyperlight host may wish to provide its own metrics for function calls.
+* Enabling a trace subscriber will cause the function call metrics to be emitted as trace events, which may be sufficient for some use cases.
 
 There is an example of how to gather metrics in the [examples/metrics](../src/hyperlight_host/examples/metrics) directory.
 

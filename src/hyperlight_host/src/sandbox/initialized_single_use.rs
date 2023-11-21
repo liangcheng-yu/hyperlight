@@ -1,3 +1,5 @@
+use tracing::{instrument, Span};
+
 use super::metrics::SandboxMetric::CurrentNumberOfSingleUseSandboxes;
 use super::{leaked_outb::LeakedOutBWrapper, WrapperGetter};
 use crate::func::call_ctx::SingleUseGuestCallContext;
@@ -117,6 +119,7 @@ impl<'a> SingleUseSandbox<'a> {
     /// // underlying `SingleUseSandbox`, will be released and no further
     //  // contexts can be created from that sandbox.
     /// ```
+    #[instrument(skip_all, parent = Span::current())]
     pub fn new_call_context(self) -> SingleUseGuestCallContext<'a> {
         SingleUseGuestCallContext::start(self)
     }
@@ -124,6 +127,7 @@ impl<'a> SingleUseSandbox<'a> {
     /// Convenience for the following:
     ///
     /// `self.new_call_context().call(name, ret, args)`
+    #[instrument(err(Debug), skip(self,args), parent = Span::current())]
     pub fn call_guest_function_by_name(
         self,
         name: &str,

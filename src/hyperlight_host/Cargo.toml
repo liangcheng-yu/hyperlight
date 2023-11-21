@@ -89,3 +89,6 @@ proc-maps = "0.3.1"
 
 [build-dependencies]
 anyhow = { version = "1.0.75" }
+
+[features]
+function_call_metrics =[]

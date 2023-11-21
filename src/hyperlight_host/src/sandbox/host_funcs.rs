@@ -1,6 +1,10 @@
+#[cfg(feature = "function_call_metrics")]
 use super::metrics::SandboxMetric::HostFunctionCallsDurationMicroseconds;
 use super::FunctionsMap;
+#[cfg(feature = "function_call_metrics")]
+use crate::histogram_vec_time_micros;
 use crate::HyperlightError::HostFunctionNotFound;
+use crate::Result;
 use crate::{
     func::{
         host::function_definition::HostFunctionDefinition,
@@ -10,7 +14,7 @@ use crate::{
     },
     mem::mgr::SandboxMemoryManager,
 };
-use crate::{histogram_vec_time_micros, Result};
+use cfg_if::cfg_if;
 use is_terminal::IsTerminal;
 use std::io::stdout;
 use std::io::Write;
@@ -99,11 +103,18 @@ fn call_host_func_impl(
     let func = host_funcs
         .get(name)
         .ok_or_else(|| HostFunctionNotFound(name.to_string()))?;
-    histogram_vec_time_micros!(
-        &HostFunctionCallsDurationMicroseconds,
-        &[name],
-        func.call(args)
-    )
+    cfg_if! {
+        if #[cfg(feature = "function_call_metrics")] {
+            histogram_vec_time_micros!(
+                &HostFunctionCallsDurationMicroseconds,
+                &[name],
+                func.call(args)
+            )
+        }
+        else {
+            func.call(args)
+        }
+    }
 }
 
 /// The default writer function is to write to stdout with green text.
