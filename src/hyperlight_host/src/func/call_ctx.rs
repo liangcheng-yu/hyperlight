@@ -4,10 +4,10 @@ use crate::histogram_vec_time_micros;
 #[cfg(feature = "function_call_metrics")]
 use crate::sandbox::metrics::SandboxMetric::GuestFunctionCallDurationMicroseconds;
 use crate::{MultiUseSandbox, Result, SingleUseSandbox};
+use cfg_if::cfg_if;
 use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
 };
-use cfg_if::cfg_if;
 use std::marker::PhantomData;
 use tracing::{instrument, Span};
 /// A context for calling guest functions. Can only be created from an
