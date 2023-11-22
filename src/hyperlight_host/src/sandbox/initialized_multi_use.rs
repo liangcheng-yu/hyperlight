@@ -68,7 +68,7 @@ impl<'a> MultiUseSandbox<'a> {
     ///
     /// ```no_run
     /// use hyperlight_host::sandbox::{UninitializedSandbox, MultiUseSandbox};
-    /// use hyperlight_host::func::types::{ReturnType, ParameterValue, ReturnValue};
+    /// use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ReturnType, ParameterValue, ReturnValue};
     /// use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
     /// use hyperlight_host::sandbox_state::transition::Noop;
     /// use hyperlight_host::GuestBinary;
