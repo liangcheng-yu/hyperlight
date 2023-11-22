@@ -8,7 +8,7 @@ use crate::{func::HyperlightFunction, mem::mgr::SandboxMemoryManager};
 use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnValue};
 use hyperlight_flatbuffers::flatbuffer_wrappers::host_function_definition::HostFunctionDefinition;
 use hyperlight_flatbuffers::flatbuffer_wrappers::host_function_details::HostFunctionDetails;
-use crate::Result;
+use crate::{Result, new_error};
 use cfg_if::cfg_if;
 use is_terminal::IsTerminal;
 use std::io::stdout;
