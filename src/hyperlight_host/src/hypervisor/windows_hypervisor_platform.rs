@@ -2,7 +2,7 @@ use super::hyperv_windows::WhvRegisterNameWrapper;
 use crate::Result;
 use core::ffi::c_void;
 use std::collections::HashMap;
-use tracing::instrument;
+use tracing::{instrument, Span};
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::Hypervisor::*;
 
@@ -37,7 +37,7 @@ pub(crate) fn is_hypervisor_present() -> Result<bool> {
 pub(super) struct VMPartition(WHV_PARTITION_HANDLE);
 
 impl VMPartition {
-    #[instrument(err(), name = "VMPartition::new")]
+    #[instrument(err(Debug), parent = Span::current())]
     pub(super) fn new(proc_count: u32) -> Result<Self> {
         let hdl = unsafe { WHvCreatePartition() }?;
         Self::set_processor_count(&hdl, proc_count)?;
@@ -45,7 +45,7 @@ impl VMPartition {
         Ok(Self(hdl))
     }
 
-    #[instrument(err(), name = "VMPartition::set_processor_count")]
+    #[instrument(err(Debug), parent = Span::current())]
     fn set_processor_count(
         partition_handle: &WHV_PARTITION_HANDLE,
         processor_count: u32,
@@ -62,7 +62,7 @@ impl VMPartition {
         Ok(())
     }
 
-    #[instrument(err(), name = "VMPartition::map_gpa_range")]
+    #[instrument(err(Debug), parent = Span::current())]
     pub(super) fn map_gpa_range(
         &mut self,
         process_handle: &HANDLE,
@@ -95,7 +95,7 @@ impl Drop for VMPartition {
 #[derive(Debug)]
 pub(super) struct VMProcessor(VMPartition);
 impl VMProcessor {
-    #[instrument(err(), name = "VMProcessor::new")]
+    #[instrument(err(Debug), parent = Span::current())]
     pub(super) fn new(part: VMPartition) -> Result<Self> {
         unsafe { WHvCreateVirtualProcessor(part.0, 0, 0) }?;
         Ok(Self(part))

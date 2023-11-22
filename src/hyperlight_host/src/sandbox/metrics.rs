@@ -37,6 +37,7 @@ static SANDBOX_METRIC_DEFINITIONS: &[HyperlightMetricDefinition] = &[
         labels: &["error_code"],
         buckets: &[],
     },
+    #[cfg(feature = "function_call_metrics")]
     HyperlightMetricDefinition {
         name: "guest_function_call_duration_microseconds",
         help: "Duration of guest function calls in microseconds",
@@ -52,6 +53,7 @@ static SANDBOX_METRIC_DEFINITIONS: &[HyperlightMetricDefinition] = &[
             5750.00, 5850.00, 5950.00, 6050.00,
         ],
     },
+    #[cfg(feature = "function_call_metrics")]
     HyperlightMetricDefinition {
         name: "host_function_calls_duration_microseconds",
         help: "Duration of host function calls in Microseconds",
@@ -86,7 +88,9 @@ pub(crate) enum SandboxMetric {
     CurrentNumberOfMultiUseSandboxes,
     CurrentNumberOfSingleUseSandboxes,
     GuestErrorCount,
+    #[cfg(feature = "function_call_metrics")]
     GuestFunctionCallDurationMicroseconds,
+    #[cfg(feature = "function_call_metrics")]
     HostFunctionCallsDurationMicroseconds,
 }
 
@@ -239,6 +243,9 @@ mod tests {
         test_metrics();
         let registry = get_metrics_registry();
         let result = registry.gather();
+        #[cfg(feature = "function_call_metrics")]
         assert_eq!(result.len(), 5);
+        #[cfg(not(feature = "function_call_metrics"))]
+        assert_eq!(result.len(), 3);
     }
 }

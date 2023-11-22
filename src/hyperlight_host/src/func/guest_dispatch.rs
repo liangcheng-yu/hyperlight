@@ -6,11 +6,14 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
     function_call::{FunctionCall, FunctionCallType},
     function_types::{ParameterValue, ReturnType, ReturnValue},
 };
-use tracing::instrument;
-use tracing_core::Level;
+use tracing::{instrument, Span};
 
 /// Call a guest function by name, using the given `hv_mem_mgr_getter`.
-#[instrument(err(Debug, level = Level::INFO), skip(wrapper_getter, args), name = "sandbox::guest_funcs::disptch_call_from_host")]
+#[instrument(
+    err(Debug),
+    skip(wrapper_getter, args),
+    parent = Span::current(),
+)]
 pub(super) fn dispatch_call_from_host<'a, HvMemMgrT: WrapperGetter<'a>>(
     wrapper_getter: &mut HvMemMgrT,
     function_name: &str,
