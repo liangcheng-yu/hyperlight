@@ -93,7 +93,11 @@ impl TryFrom<&GuestLogData> for Vec<u8> {
 
         if res.capacity() != res.len() || res.capacity() != length as usize + 4 {
             bail!(
-                "The capacity of the vector is not the same as the length or the size of the buffer")
+                "The capacity of the vector ({}) is not the same as the length ({}) or the size ({}) of the buffer", 
+                res.capacity(),
+                length,
+                res.len()
+            )
         }
 
         Ok(res)

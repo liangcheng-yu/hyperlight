@@ -36,11 +36,6 @@ flatc -r --rust-module-root-file --gen-all -o ./src/hyperlight_flatbuffers/src/f
 flatc -n  --gen-object-api -o ./src/Hyperlight/flatbuffers  ./src/schema/guest_error.fbs
 ```
 
-### Generate C code
-
-```console
-flatcc -a -o ./src/HyperlightGuest/include/flatbuffers/generated ./src/schema/guest_error.fbs
-```
 </details>
 
 ---
@@ -61,11 +56,6 @@ flatc -r --rust-module-root-file --gen-all -o .\src\hyperlight_flatbuffers\src\f
 flatc -n  --gen-object-api -o .\src\Hyperlight\flatbuffers  .\src\schema\guest_error.fbs
 ```
 
-### Generate C code
-
-```console
-flatcc.exe -a -o .\src\HyperlightGuest\include\flatbuffers\generated .\src\schema\guest_error.fbs
-```
 </details>
 
 ---
