@@ -63,7 +63,7 @@ pub fn callback_guest_path() -> Result<String> {
 
 /// Get a new `PathBuf` pointing to `simpleguest.exe`
 pub fn simple_guest_buf() -> PathBuf {
-    // $REPO_ROOT/src/tests/Hyperlight.Tests/bin/Debug/net6.0/simpleguest.exe"
+    // $REPO_ROOT/src/tests/Hyperlight.Tests/bin/debug/net6.0/simpleguest.exe"
     let mut base = test_bin_base();
     base.push("simpleguest.exe");
     base
