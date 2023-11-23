@@ -3,9 +3,6 @@
 #[deny(dead_code, missing_docs, unused_mut)]
 /// Dealing with errors, including errors across VM boundaries
 pub mod error;
-/// FlatBuffers-related utilities and (mostly) generated code
-#[allow(non_camel_case_types)]
-pub(crate) mod flatbuffers;
 /// Wrappers for host and guest functions.
 #[deny(dead_code, missing_docs, unused_mut)]
 pub mod func;
@@ -47,6 +44,9 @@ pub mod hypervisor;
 /// at this address structs below are laid out in this order
 #[deny(dead_code, missing_docs, unused_mut)]
 pub mod mem;
+/// Metric definitions and helpers
+#[deny(dead_code, missing_docs, unused_mut)]
+pub mod metrics;
 /// The main sandbox implementations. Do not use this module directly in code
 /// outside this file. Types from this module needed for public consumption are
 /// re-exported below.
@@ -66,23 +66,17 @@ pub use error::HyperlightError;
 /// The re-export for `get_stack_boundary` function
 pub use func::get_stack_boundary;
 /// Re-export for `HostFunction0` trait
-pub use func::HostFunction0;
-/// Re-export for `ExecutingGuestCall` type
-pub use sandbox::guest_call_exec::ExecutingGuestCall;
+pub use func::host_functions::HostFunction0;
+/// The re-export for the set_registry function
+pub use metrics::set_metrics_registry;
 /// The re-export for the `is_hypervisor_present` type
 pub use sandbox::is_hypervisor_present;
 /// The re-export for the `GuestBinary` type
 pub use sandbox::uninitialized::GuestBinary;
-/// Re-export for `GuestMgr` trait
-pub use sandbox::GuestMgr;
 /// Re-export for `HypervisorWrapper` trait
 pub use sandbox::HypervisorWrapper;
-/// Re-export for `HypervisorWrapperMgr` type
-pub use sandbox::HypervisorWrapperMgr;
 /// Re-export for `MemMgrWrapper` type
 pub use sandbox::MemMgrWrapper;
-/// Re-export for `MemMgrWrapperGetter` trait
-pub use sandbox::MemMgrWrapperGetter;
 /// A sandbox that can call be used to make multiple calls to guest functions,
 /// and otherwise reused multiple times
 pub use sandbox::MultiUseSandbox;
@@ -93,7 +87,6 @@ pub use sandbox::SandboxRunOptions;
 pub use sandbox::SingleUseSandbox;
 /// The re-export for the `UninitializedSandbox` type
 pub use sandbox::UninitializedSandbox;
-
 /// Return `Some(val)` when `cond == true`. Otherwise, return `None`
 pub fn option_when<T>(val: T, cond: bool) -> Option<T> {
     match cond {

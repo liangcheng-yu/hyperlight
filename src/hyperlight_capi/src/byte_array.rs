@@ -188,7 +188,9 @@ mod tests {
     fn byte_array_new_from_file() {
         let filenames = vec![simple_guest_path().unwrap(), callback_guest_path().unwrap()];
         for filename in filenames {
-            let file = impls::new_from_file(&filename).unwrap();
+            let file = impls::new_from_file(&filename)
+                .map_err(|e| anyhow::anyhow!("couldn't find file {filename}: {e:?}"))
+                .unwrap();
             assert!(!file.is_empty())
         }
     }

@@ -3,12 +3,12 @@ use super::{context::Context, sandbox_compat::Sandbox};
 use super::{handle::Handle, sandbox_compat::SandboxImpls};
 use crate::sandbox_run_options::SandboxRunOptions;
 use crate::strings::get_string;
+use hyperlight_host::log_then_return;
 use hyperlight_host::sandbox;
 use hyperlight_host::sandbox::uninitialized::GuestBinary;
 use hyperlight_host::sandbox::SandboxConfiguration;
 use hyperlight_host::sandbox_state::transition::Noop;
 use hyperlight_host::Result;
-use hyperlight_host::{log_then_return, MemMgrWrapperGetter};
 use hyperlight_host::{mem::ptr::RawPtr, sandbox_state::sandbox::EvolvableSandbox};
 use hyperlight_host::{
     sandbox::is_hypervisor_present as check_hypervisor,
@@ -89,7 +89,7 @@ pub unsafe extern "C" fn sandbox_new(
 
             let core_run_opts = run_opts.try_into()?;
 
-            let sbox = match print_output_handler {
+            let mut sbox = match print_output_handler {
                 Some(_) => {
                     let callback_writer_func = Arc::new(Mutex::new(callback_writer_func));
                     sandbox::UninitializedSandbox::new(
@@ -97,15 +97,16 @@ pub unsafe extern "C" fn sandbox_new(
                         Some(cfg),
                         Some(core_run_opts),
                         Some(&callback_writer_func),
-                    )?
+                    )
                 }
                 None => sandbox::UninitializedSandbox::new(
                     GuestBinary::FilePath(bin_path.to_string()),
                     Some(cfg),
                     Some(core_run_opts),
                     None,
-                )?,
-            };
+                ),
+            }?;
+            sbox.set_is_csharp();
 
             Ok(
                 Sandbox::from_uninit(should_recycle, sbox, boxed_callback_writer_func)
@@ -223,7 +224,7 @@ pub unsafe extern "C" fn sandbox_get_memory_mgr(ctx: *mut Context, sbox_hdl: Han
     CFunc::new("sandbox_get_memory_mgr", ctx)
         .and_then_mut(|ctx, _| {
             let sbox = Sandbox::get(ctx, sbox_hdl)?;
-            let mem_mgr = sbox.to_uninit()?.get_mem_mgr_wrapper().as_ref();
+            let mem_mgr = sbox.to_uninit()?.get_mem_mgr_ref();
             Ok(register_mem_mgr(ctx, mem_mgr.clone()))
         })
         .ok_or_err_hdl()

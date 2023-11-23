@@ -24,12 +24,7 @@ build-dotnet:
     cd src/Hyperlight && dotnet build || cd ../../
     cd src/examples/NativeHost && dotnet build || cd ../../../
 
-cargo-update:
-    # run cargo update --dry-run with nightly toolchain to pull deps from private cargo feeds
-    # but do not actually perform any updates
-    cargo +nightly update --dry-run
-
-build-rust target=default-target: cargo-update
+build-rust target=default-target:
     cargo build --verbose --profile={{ if target == "debug" {"dev"} else { target } }}
 
 build: build-rust build-dotnet
@@ -39,8 +34,11 @@ test-rust target=default-target:
     cargo test --profile={{ if target == "debug" {"dev"} else { target } }} 
     # tracing tests cannot run with other tests they are marked as ignored so that cargo test works
     # there may be tests that we really want to ignore so we cant just use --ignored and we have to specify the test name of the ignored tests that we want to run
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_trace -- --ignored
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_drop -- --ignored
+    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_trace -p hyperlight_host -- --ignored
+    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_drop  -p hyperlight_host -- --ignored
+    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} hypervisor::metrics::tests::test_gather_metrics -p hyperlight_host -- --ignored
+    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} sandbox::metrics::tests::test_gather_metrics -p hyperlight_host -- --ignored
+    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_metrics -p hyperlight_host -- --ignored
 
 test-dotnet-hl target=default-target:
     cd src/tests/Hyperlight.Tests && dotnet test -c {{ target }} || cd ../../../
@@ -70,13 +68,13 @@ fmt-check:
 fmt: 
     cargo fmt
 
-clippy target=default-target: cargo-update
+clippy target=default-target:
     cargo clippy --all-targets --all-features --profile={{ if target == "debug" {"dev"} else { target } }} -- -D warnings
 
-clippy-apply-fix-unix: cargo-update
+clippy-apply-fix-unix:
     cargo clippy --fix --all
 
-clippy-apply-fix-windows: cargo-update
+clippy-apply-fix-windows:
     cargo clippy --target x86_64-pc-windows-msvc --fix --all
 
 fmt-apply:
@@ -95,13 +93,19 @@ gen-all-fbs-c-code:
 gen-all-fbs: gen-all-fbs-rust-code gen-all-fbs-c-code gen-all-fbs-csharp-code
 
 cargo-login:
-    az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo +nightly login --registry hyperlight_redist
-    az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo +nightly login --registry hyperlight_packages
+    az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo login --registry hyperlight_redist
+    az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo login --registry hyperlight_packages
 
 cargo-login-ci:
-    echo Basic $(echo -n PAT:$PAT | base64) | cargo +nightly login --registry hyperlight_redist
-    echo Basic $(echo -n PAT:$PAT | base64) | cargo +nightly login --registry hyperlight_packages
+    echo Basic $(echo -n PAT:$PAT | base64) | cargo login --registry hyperlight_redist
+    echo Basic $(echo -n PAT:$PAT | base64) | cargo login --registry hyperlight_packages
 
 cargo-login-ci-windows:
-    "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo +nightly login --registry hyperlight_redist
-    "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo +nightly login --registry hyperlight_packages
+    "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo login --registry hyperlight_redist
+    "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo login --registry hyperlight_packages
+run-rust-examples target=default-target: (build-rust target)
+    cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example metrics
+    cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example metrics --features "function_call_metrics"
+    cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example logging
+    cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example tracing
+    cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example tracing --features "function_call_metrics"

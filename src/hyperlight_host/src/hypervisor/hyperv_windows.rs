@@ -235,7 +235,10 @@ impl Hypervisor for HypervWindowsDriver {
             mem_access_hdl,
             max_execution_time,
             max_wait_for_cancellation,
-        )
+        )?;
+        // we need to reset the stack pointer once execution is complete
+        // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it
+        self.reset_rsp(self.orig_rsp)
     }
 
     fn dispatch_call_from_host(
@@ -253,12 +256,18 @@ impl Hypervisor for HypervWindowsDriver {
             },
         )]);
         self.processor.set_registers(&registers)?;
+        // we need to reset the stack pointer once execution is complete
+        // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it
+        // so here we get the current RSP value so we can reset it later
+        let rsp = self.processor.get_registers(&vec![WHvX64RegisterRsp])?;
         self.execute_until_halt(
             outb_hdl,
             mem_access_hdl,
             max_execution_time,
             max_wait_for_cancellation,
-        )
+        )?;
+        // While there is a function to set the RSP we are not using it because we would end up having to get the value out of the hashmap and then convert it to a u64 only for it to be immediately stored back in a hashmap
+        self.processor.set_registers(&rsp)
     }
 
     fn reset_rsp(&mut self, rsp: u64) -> Result<()> {

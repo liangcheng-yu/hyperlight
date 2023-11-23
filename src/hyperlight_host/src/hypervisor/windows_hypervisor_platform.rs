@@ -2,7 +2,7 @@ use super::hyperv_windows::WhvRegisterNameWrapper;
 use crate::Result;
 use core::ffi::c_void;
 use std::collections::HashMap;
-use tracing::instrument;
+use tracing::{instrument, Span};
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::Hypervisor::*;
 
@@ -37,7 +37,7 @@ pub(crate) fn is_hypervisor_present() -> Result<bool> {
 pub(super) struct VMPartition(WHV_PARTITION_HANDLE);
 
 impl VMPartition {
-    #[instrument(err(), name = "VMPartition::new")]
+    #[instrument(err(Debug), parent = Span::current())]
     pub(super) fn new(proc_count: u32) -> Result<Self> {
         let hdl = unsafe { WHvCreatePartition() }?;
         Self::set_processor_count(&hdl, proc_count)?;
@@ -45,7 +45,7 @@ impl VMPartition {
         Ok(Self(hdl))
     }
 
-    #[instrument(err(), name = "VMPartition::set_processor_count")]
+    #[instrument(err(Debug), parent = Span::current())]
     fn set_processor_count(
         partition_handle: &WHV_PARTITION_HANDLE,
         processor_count: u32,
@@ -62,7 +62,7 @@ impl VMPartition {
         Ok(())
     }
 
-    #[instrument(err(), name = "VMPartition::map_gpa_range")]
+    #[instrument(err(Debug), parent = Span::current())]
     pub(super) fn map_gpa_range(
         &mut self,
         process_handle: &HANDLE,
@@ -95,7 +95,7 @@ impl Drop for VMPartition {
 #[derive(Debug)]
 pub(super) struct VMProcessor(VMPartition);
 impl VMProcessor {
-    #[instrument(err(), name = "VMProcessor::new")]
+    #[instrument(err(Debug), parent = Span::current())]
     pub(super) fn new(part: VMPartition) -> Result<Self> {
         unsafe { WHvCreateVirtualProcessor(part.0, 0, 0) }?;
         Ok(Self(part))
@@ -113,7 +113,21 @@ impl VMProcessor {
         let partition_handle = self.get_partition_hdl();
         let register_count = register_names.len();
         assert!(register_count <= REGISTER_COUNT);
-        let mut register_values: [WHV_REGISTER_VALUE; REGISTER_COUNT] = Default::default();
+
+        // The creation of the array that follows is done this way rather than just using
+        // let mut register_values: [WHV_REGISTER_VALUE; REGISTER_COUNT] = Default::default();
+        // as in release builds the compiler is optimising the allocation away and then
+        // when we call WHvGetVirtualProcessorRegisters we get a access violation
+        // as the memory where the register values are supposed to be written is not allocated
+        // See https://github.com/deislabs/hyperlight/actions/runs/6907729617/job/18796236309 for a test run where this happened
+        // This issue appeared when the fix in https://github.com/deislabs/hyperlight/pull/1014
+        // was introduced. It has the happy effect of only allocating enough memory for the number of
+        // registers we actually want to read rather than the maximum number of registers
+        let mut register_values: Vec<WHV_REGISTER_VALUE> = vec![];
+        for _ in 0..register_count {
+            let reg_value = unsafe { std::mem::zeroed::<WHV_REGISTER_VALUE>() };
+            register_values.push(reg_value);
+        }
 
         unsafe {
             WHvGetVirtualProcessorRegisters(

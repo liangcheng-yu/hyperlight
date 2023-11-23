@@ -1,29 +1,20 @@
 /// Configuration needed to establish a sandbox.
 pub mod config;
-/// Functionality to ensure multiple guest calls are not executing concurrently
-pub(crate) mod guest_call_exec;
-/// Functionality to inspect possible errors of a guest call
-mod guest_err;
-/// Functionality for interacting with guest calls
-pub(crate) mod guest_funcs;
-/// Functionality for managing the guest
-pub(crate) mod guest_mgr;
 /// Functionality for reading, but not modifying host functions
 mod host_funcs;
 /// Functionality for dealing with `Sandbox`es that contain Hypervisors
 pub(crate) mod hypervisor;
-/// Common functionality shared across the initialized sandbox
-/// implementations `SingleUseSandbox` and `MultiUseSandbox`
-mod initialized;
 /// Functionality for dealing with initialized sandboxes that can
 /// call 0 or more guest functions
 pub mod initialized_multi_use;
-/// Functionality for automatically `Drop`-ing parts of a `MultiUseSandbox`,
-/// even in the case of failure
-mod initialized_multi_use_release;
 /// Functionality for dealing with initialized sandboxes that can
 /// call 0 or 1 guest functions, but no more
 pub mod initialized_single_use;
+/// A container to leak, store and manage outb handlers for in-process
+/// executions. On non-in-process executions (e.g. windows without
+/// in-process mode turned on, or linux), the same container is just
+/// a no-op
+mod leaked_outb;
 /// Functionality for dealing with memory access from the VM guest
 /// executable
 mod mem_access;
@@ -40,22 +31,19 @@ pub mod uninitialized;
 /// initialized `Sandbox`es.
 mod uninitialized_evolve;
 
+/// Metric definitions for Sandbox module.
+pub(crate) mod metrics;
+
 /// Re-export for `SandboxConfiguration` type
 pub use config::SandboxConfiguration;
-/// Re-export for `GuestMgr` trait
-pub use guest_mgr::GuestMgr;
 /// Re-export for `HypervisorWrapper` trait
 pub use hypervisor::HypervisorWrapper;
-/// Re-export for `HypervisorWrapperMgr` type
-pub use hypervisor::HypervisorWrapperMgr;
 /// Re-export for the `MultiUseSandbox` type
 pub use initialized_multi_use::MultiUseSandbox;
 /// Re-export for `SingleUseSandbox` type
 pub use initialized_single_use::SingleUseSandbox;
 /// Re-export for `MemMgrWrapper` type
 pub use mem_mgr::MemMgrWrapper;
-/// Re-export for `MemMgrWrapperGetter` trait
-pub use mem_mgr::MemMgrWrapperGetter;
 /// Re-export for `SandboxRunOptions` type
 pub use run_options::SandboxRunOptions;
 /// Re-export for `GuestBinary` type
@@ -137,6 +125,13 @@ pub fn is_hypervisor_present() -> bool {
     #[cfg(not(target_os = "linux"))]
     #[cfg(not(target_os = "windows"))]
     false
+}
+
+pub(crate) trait WrapperGetter<'a> {
+    fn get_mgr(&self) -> &MemMgrWrapper;
+    fn get_mgr_mut(&mut self) -> &mut MemMgrWrapper;
+    fn get_hv(&self) -> &HypervisorWrapper<'a>;
+    fn get_hv_mut(&mut self) -> &mut HypervisorWrapper<'a>;
 }
 
 #[cfg(test)]

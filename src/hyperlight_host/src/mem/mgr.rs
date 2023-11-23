@@ -15,22 +15,21 @@ use crate::{
     },
     log_then_return,
 };
-use crate::{
-    error::HyperlightHostError,
-    func::{
-        function_call::{FunctionCall, ReadFunctionCallFromMemory, WriteFunctionCallToMemory},
-        guest::{
-            error::{Code, GuestError},
-            function_call::GuestFunctionCall,
-            log_data::GuestLogData,
-        },
-        host::{function_call::HostFunctionCall, function_details::HostFunctionDetails},
-        types::ReturnValue,
-    },
-    sandbox::SandboxConfiguration,
-};
+use crate::{error::HyperlightHostError, sandbox::SandboxConfiguration};
 use crate::{new_error, Result};
 use core::mem::size_of;
+
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_call::{
+    validate_guest_function_call_buffer, validate_host_function_call_buffer,
+};
+
+use hyperlight_flatbuffers::flatbuffer_wrappers::{
+    function_call::FunctionCall,
+    function_types::ReturnValue,
+    guest_error::{Code, GuestError},
+    guest_log_data::GuestLogData,
+    host_function_details::HostFunctionDetails,
+};
 use serde_json::from_str;
 use std::{cmp::Ordering, str::from_utf8};
 
@@ -104,11 +103,6 @@ impl SandboxMemoryManager {
         &mut self.shared_mem
     }
 
-    /// Get the `SharedMemory` in `self` as an immutable reference
-    fn get_shared_mem(&self) -> &SharedMemory {
-        &self.shared_mem
-    }
-
     /// Set the stack guard to `cookie` using `layout` to calculate
     /// its location and `shared_mem` to write it.
     ///
@@ -128,13 +122,14 @@ impl SandboxMemoryManager {
         // Add 0x200000 because that's the start of mapped memory
         // For MSVC, move rsp down by 0x28.  This gives the called 'main'
         // function the appearance that rsp was was 16 byte aligned before
-        //the 'call' that calls main (note we don't really have a return value
+        // the 'call' that calls main (note we don't really have a return value
         // on the stack but some assembly instructions are expecting rsp have
         // started 0x8 bytes off of 16 byte alignment when 'main' is invoked.
         // We do 0x28 instead of 0x8 because MSVC can expect that there are
         // 0x20 bytes of space to write to by the called function.
         // I am not sure if this happens with the 'main' method, but we do this
         // just in case.
+        //
         // NOTE: We do this also for GCC freestanding binaries because we
         // specify __attribute__((ms_abi)) on the start method
         let rsp = mem_size + SandboxMemoryLayout::BASE_ADDRESS as u64 - 0x28;
@@ -239,14 +234,17 @@ impl SandboxMemoryManager {
 
     /// Sets `addr` to the correct offset in the memory referenced by
     /// `shared_mem` to indicate the address of the outb pointer
-    /// TODO: this function is only in C#. Remove it once we have a full Rust Sandbox
+    ///
+    /// TODO: this function is only in C#. Remove it once we have a full Rust
+    /// Sandbox
     pub fn set_outb_address(&mut self, addr: u64) -> Result<()> {
         let offset = self.layout.get_outb_pointer_offset();
         self.shared_mem.write_u64(offset, addr)
     }
 
     /// Sets `addr` to the correct offset in the memory referenced by
-    /// `shared_mem` to indicate the address of the outb pointer and context for calling outb function
+    /// `shared_mem` to indicate the address of the outb pointer and context
+    /// for calling outb function
     #[cfg(target_os = "windows")]
     pub(crate) fn set_outb_address_and_context(&mut self, addr: u64, context: u64) -> Result<()> {
         let offset = self.layout.get_outb_pointer_offset();
@@ -255,23 +253,21 @@ impl SandboxMemoryManager {
         self.shared_mem.write_u64(offset, context)
     }
 
-    /// Gets the context for calling outb function
-    #[cfg(target_os = "windows")]
-    pub(crate) fn get_outb_context(&self) -> Result<u64> {
-        self.shared_mem
-            .read_u64(self.layout.get_outb_context_offset())
-    }
-
     /// Get the address of the dispatch function in memory
     pub fn get_pointer_to_dispatch_function(&self) -> Result<u64> {
         let guest_dispatch_function_ptr = self
             .shared_mem
             .read_u64(self.layout.get_dispatch_function_pointer_offset())?;
 
-        // This pointer is written by the guest library but is accessible to the guest engine so we should bounds check it before we return it.
-        // in the In VM case there is no danger from the guest manipulating this as the only addresses that are valid are in its own address space
-        // but in the in process case maniulating this pointer could cause the host to execut arbitary functions.
-
+        // This pointer is written by the guest library but is accessible to
+        // the guest engine so we should bounds check it before we return it.
+        //
+        // When executing with in-hypervisor mode, there is no danger from
+        // the guest manipulating this memory location because the only
+        // addresses that are valid are in its own address space.
+        //
+        // When executing in-process, maniulating this pointer could cause the
+        // host to execute arbitary functions.
         let guest_ptr = GuestPtr::try_from(RawPtr::from(guest_dispatch_function_ptr))?;
         guest_ptr.absolute()
     }
@@ -349,7 +345,21 @@ impl SandboxMemoryManager {
     ) -> Result<()> {
         let message = String::from_utf8(guest_error_msg.to_owned())?;
         let ge = GuestError::new(Code::OutbError, message);
-        ge.write_to_memory(&mut self.shared_mem, &self.layout)?;
+
+        let guest_error_buffer: Vec<u8> = (&ge)
+            .try_into()
+            .map_err(|_| new_error!("write_outb_error: failed to convert GuestError to Vec<u8>"))?;
+
+        let err_buffer_size_offset = self.layout.get_guest_error_buffer_size_offset();
+        let max_err_buffer_size = self.shared_mem.read_u64(err_buffer_size_offset)?;
+
+        if guest_error_buffer.len() as u64 > max_err_buffer_size {
+            log_then_return!("The guest error message is too large to fit in the shared memory");
+        }
+        self.shared_mem.copy_from_slice(
+            guest_error_buffer.as_slice(),
+            self.layout.guest_error_buffer_offset,
+        )?;
 
         let host_exception_offset = self.layout.get_host_exception_offset();
         let host_exception_size_offset = self.layout.get_host_exception_size_offset();
@@ -379,7 +389,21 @@ impl SandboxMemoryManager {
 
     /// Get the guest error data
     pub fn get_guest_error(&self) -> Result<GuestError> {
-        GuestError::try_from((&self.shared_mem, &self.layout))
+        // get memory buffer max size
+        let err_buffer_size_offset = self.layout.get_guest_error_buffer_size_offset();
+        let max_err_buffer_size = self.shared_mem.read_u64(err_buffer_size_offset)?;
+
+        // get guest error from layout and shared mem
+        let mut guest_error_buffer = vec![b'0'; usize::try_from(max_err_buffer_size)?];
+        let err_msg_offset = self.layout.guest_error_buffer_offset;
+        self.shared_mem
+            .copy_to_slice(guest_error_buffer.as_mut_slice(), err_msg_offset)?;
+        GuestError::try_from(guest_error_buffer.as_slice()).map_err(|e| {
+            new_error!(
+                "get_guest_error: failed to convert buffer to GuestError: {}",
+                e
+            )
+        })
     }
 
     /// Load the binary represented by `pe_info` into memory, ensuring
@@ -480,56 +504,213 @@ impl SandboxMemoryManager {
 
     /// Writes host function details to memory
     pub fn write_buffer_host_function_details(&mut self, buffer: &[u8]) -> Result<()> {
-        let host_function_details = HostFunctionDetails::try_from(buffer)?;
-        let layout = self.layout;
-        host_function_details.write_to_memory(self.get_shared_mem_mut(), &layout)
+        let host_function_details = HostFunctionDetails::try_from(buffer).map_err(|e| {
+            new_error!(
+                "write_buffer_host_function_details: failed to convert buffer to HostFunctionDetails: {}",
+                e
+            )
+        })?;
+
+        let host_function_call_buffer: Vec<u8> = (&host_function_details).try_into().map_err(|_| {
+            new_error!(
+                "write_buffer_host_function_details: failed to convert HostFunctionDetails to Vec<u8>"
+            )
+        })?;
+
+        let buffer_size = {
+            let size_u64 = self
+                .shared_mem
+                .read_u64(self.layout.get_host_function_definitions_size_offset())?;
+            usize::try_from(size_u64)
+        }?;
+
+        if host_function_call_buffer.len() > buffer_size {
+            log_then_return!(
+                "Host Function Details buffer is too big for the host_function_definitions buffer"
+            );
+        }
+
+        self.shared_mem.copy_from_slice(
+            host_function_call_buffer.as_slice(),
+            self.layout.host_function_definitions_offset,
+        )?;
+        Ok(())
     }
 
     /// Writes a guest function call to memory
     pub fn write_guest_function_call(&mut self, buffer: &[u8]) -> Result<()> {
-        let guest_function_call = GuestFunctionCall {};
         let layout = self.layout;
-        guest_function_call.write(buffer, self.get_shared_mem_mut(), &layout)
+
+        let buffer_size = {
+            let size_u64 = self
+                .shared_mem
+                .read_u64(layout.get_input_data_size_offset())?;
+            usize::try_from(size_u64)
+        }?;
+
+        if buffer.len() > buffer_size {
+            return Err(new_error!(
+                "Guest function call buffer {} is too big for the input data buffer {}",
+                buffer.len(),
+                buffer_size
+            ));
+        }
+
+        validate_guest_function_call_buffer(buffer).map_err(|e| {
+            new_error!(
+                "Guest function call buffer validation failed: {}",
+                e.to_string()
+            )
+        })?;
+
+        self.shared_mem
+            .copy_from_slice(buffer, layout.input_data_buffer_offset)?;
+
+        Ok(())
     }
 
     /// Writes a host function call to memory
     pub fn write_host_function_call(&mut self, buffer: &[u8]) -> Result<()> {
-        let host_function_call = HostFunctionCall {};
         let layout = self.layout;
-        host_function_call.write(buffer, self.get_shared_mem_mut(), &layout)
+
+        let buffer_size = {
+            let size_u64 = self
+                .shared_mem
+                .read_u64(layout.get_output_data_size_offset())?;
+            usize::try_from(size_u64)
+        }?;
+
+        if buffer.len() > buffer_size {
+            return Err(new_error!(
+                "Host function call buffer {} is too big for the output data buffer {}",
+                buffer.len(),
+                buffer_size
+            ));
+        }
+
+        validate_host_function_call_buffer(buffer)
+            .map_err(|e| new_error!("Invalid host function call buffer: {}", e.to_string()))?;
+        self.shared_mem
+            .copy_from_slice(buffer, layout.host_function_definitions_offset)?;
+
+        Ok(())
     }
 
-    /// TODO:
+    /// Writes a function call result to memory
     pub fn write_response_from_host_method_call(&mut self, res: &ReturnValue) -> Result<()> {
-        let (shared_mem, layout) = (&mut self.shared_mem, &mut self.layout);
-        res.write_to_memory(shared_mem, layout)
+        let input_data_offset = self.layout.input_data_buffer_offset;
+        let function_call_ret_val_buffer = Vec::<u8>::try_from(res).map_err(|_| {
+            new_error!(
+                "write_response_from_host_method_call: failed to convert ReturnValue to Vec<u8>"
+            )
+        })?;
+        self.shared_mem
+            .copy_from_slice(function_call_ret_val_buffer.as_slice(), input_data_offset)
     }
 
     /// Reads a host function call from memory
     pub fn get_host_function_call(&self) -> Result<FunctionCall> {
-        let host_function_call = HostFunctionCall {};
         let layout = self.layout;
-        let buffer = host_function_call.read(self.get_shared_mem(), &layout)?;
-        FunctionCall::try_from(buffer.as_slice())
+
+        // Get the size of the flatbuffer buffer from memory
+        let fb_buffer_size = {
+            let size_i32 = self.shared_mem.read_i32(layout.output_data_buffer_offset)? + 4;
+            usize::try_from(size_i32)
+        }?;
+
+        let mut function_call_buffer = vec![0; fb_buffer_size];
+        self.shared_mem
+            .copy_to_slice(&mut function_call_buffer, layout.output_data_buffer_offset)?;
+        #[cfg(debug_assertions)]
+        validate_host_function_call_buffer(&function_call_buffer)
+            .map_err(|e| new_error!("Invalid host function call buffer: {}", e.to_string()))?;
+
+        FunctionCall::try_from(function_call_buffer.as_slice()).map_err(|e| {
+            new_error!(
+                "get_host_function_call: failed to convert buffer to FunctionCall: {}",
+                e
+            )
+        })
     }
 
     /// Reads a guest function call from memory
     #[allow(unused)]
     pub(crate) fn get_guest_function_call(&self) -> Result<FunctionCall> {
-        let guest_function_call = GuestFunctionCall {};
         let layout = self.layout;
-        let buffer = guest_function_call.read(self.get_shared_mem(), &layout)?;
-        FunctionCall::try_from(buffer.as_slice())
+
+        // read guest function call from memory
+        let fb_buffer_size = {
+            let size_i32 = self.shared_mem.read_i32(layout.input_data_buffer_offset)? + 4;
+            usize::try_from(size_i32)
+        }?;
+
+        let mut function_call_buffer = vec![0; fb_buffer_size];
+        self.shared_mem
+            .copy_to_slice(&mut function_call_buffer, layout.input_data_buffer_offset)?;
+
+        #[cfg(debug_assertions)]
+        validate_guest_function_call_buffer(&function_call_buffer).map_err(|e| {
+            new_error!(
+                "get_guest_function_call: failed to validate guest function call buffer: {}",
+                e
+            )
+        })?;
+
+        FunctionCall::try_from(function_call_buffer.as_slice()).map_err(|e| {
+            new_error!(
+                "get_guest_function_call: failed to convert buffer to FunctionCall: {}",
+                e
+            )
+        })
     }
 
     /// Reads a function call result from memory
     pub fn get_function_call_result(&self) -> Result<ReturnValue> {
-        ReturnValue::try_from(self)
+        let fb_buffer_size = {
+            let size_i32 = self
+                .shared_mem
+                .read_i32(self.layout.output_data_buffer_offset)?
+                + 4;
+            // ^^^ flatbuffer byte arrays are prefixed by 4 bytes
+            // indicating its size, so, to get the actual size, we need
+            // to add 4.
+            usize::try_from(size_i32)
+        }?;
+
+        let mut function_call_result_buffer = vec![0; fb_buffer_size];
+
+        self.shared_mem.copy_to_slice(
+            &mut function_call_result_buffer,
+            self.layout.output_data_buffer_offset,
+        )?;
+        ReturnValue::try_from(function_call_result_buffer.as_slice()).map_err(|e| {
+            new_error!(
+                "get_function_call_result: failed to convert buffer to ReturnValue: {}",
+                e
+            )
+        })
     }
 
     /// Read guest log data from the `SharedMemory` contained within `self`
     pub fn read_guest_log_data(&self) -> Result<GuestLogData> {
-        GuestLogData::try_from((&self.shared_mem, self.layout))
+        let offset = self.layout.get_output_data_offset();
+        // there's a u32 at the beginning of the GuestLogData
+        // with the size
+        let size = self.shared_mem.read_u32(offset)?;
+        // read size + 32 bits from shared memory, starting at
+        // layout.get_output_data_offset
+        let mut vec_out = {
+            let len_usize = usize::try_from(size)? + size_of::<u32>();
+            vec![0; len_usize]
+        };
+        self.shared_mem
+            .copy_to_slice(vec_out.as_mut_slice(), offset)?;
+        GuestLogData::try_from(vec_out.as_slice()).map_err(|e| {
+            new_error!(
+                "read_guest_log_data: failed to convert buffer to GuestLogData: {}",
+                e
+            )
+        })
     }
 }
 

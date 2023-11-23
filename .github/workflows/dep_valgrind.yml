@@ -100,9 +100,7 @@ jobs:
         run: ls -R
         working-directory: ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0
       - name: Valgrind Rust tests
-        run: |
-            cargo +nightly update --dry-run
-            cargo valgrind test capi
+        run: cargo valgrind test capi
       - name: Valgrind C tests
         working-directory: src/hyperlight_capi
         run: just valgrind-tests-capi  ${{ matrix.config }}
