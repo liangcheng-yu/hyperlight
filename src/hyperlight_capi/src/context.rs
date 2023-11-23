@@ -9,11 +9,11 @@ use super::{
 };
 use crate::mem_access_handler::MemAccessHandlerWrapper;
 use crate::outb_handler::OutBHandlerWrapper;
+use hyperlight_flatbuffers::flatbuffer_wrappers::{
+    function_call::FunctionCall, function_types::ReturnValue, guest_error::GuestError,
+    guest_log_data::GuestLogData,
+};
 use hyperlight_host::error::HyperlightError;
-use hyperlight_host::func::function_call::FunctionCall;
-use hyperlight_host::func::guest::error::GuestError;
-use hyperlight_host::func::guest::log_data::GuestLogData;
-use hyperlight_host::func::types::ReturnValue;
 #[cfg(target_os = "linux")]
 use hyperlight_host::hypervisor::hyperv_linux::HypervLinuxDriver;
 #[cfg(target_os = "linux")]
@@ -30,6 +30,7 @@ use std::sync::Once;
 use tracing::info;
 use tracing_subscriber;
 use uuid::Uuid;
+
 static INITTRACER: Once = Once::new();
 
 /// The error message returned when a null reference check on a Context raw pointer fails in the C api.

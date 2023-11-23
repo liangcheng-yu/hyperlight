@@ -1,8 +1,8 @@
 use super::metrics::SandboxMetric::CurrentNumberOfMultiUseSandboxes;
 use super::{host_funcs::HostFuncsWrapper, leaked_outb::LeakedOutBWrapper, WrapperGetter};
 use crate::func::call_ctx::MultiUseGuestCallContext;
+use crate::{int_gauge_dec, Result};
 use crate::{
-    func::{ParameterValue, ReturnType, ReturnValue},
     mem::ptr::{GuestPtr, RawPtr},
     sandbox_state::{
         sandbox::{DevolvableSandbox, Sandbox},
@@ -10,7 +10,9 @@ use crate::{
     },
     HypervisorWrapper, MemMgrWrapper, UninitializedSandbox,
 };
-use crate::{int_gauge_dec, Result};
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
+    ParameterValue, ReturnType, ReturnValue,
+};
 use std::sync::{Arc, Mutex};
 use tracing::{instrument, Span};
 
@@ -66,7 +68,7 @@ impl<'a> MultiUseSandbox<'a> {
     ///
     /// ```no_run
     /// use hyperlight_host::sandbox::{UninitializedSandbox, MultiUseSandbox};
-    /// use hyperlight_host::func::types::{ReturnType, ParameterValue, ReturnValue};
+    /// use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ReturnType, ParameterValue, ReturnValue};
     /// use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
     /// use hyperlight_host::sandbox_state::transition::Noop;
     /// use hyperlight_host::GuestBinary;

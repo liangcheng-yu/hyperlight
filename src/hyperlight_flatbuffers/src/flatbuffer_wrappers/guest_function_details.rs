@@ -1,11 +1,14 @@
-use crate::{HyperlightError, Result};
+use anyhow::{anyhow, Error, Result};
 
-use crate::flatbuffers::hyperlight::generated::size_prefixed_root_as_guest_function_details;
-
-use crate::func::guest::function_definition::GuestFunctionDefinition;
+use super::guest_function_definition::GuestFunctionDefinition;
+use crate::flatbuffers::hyperlight::generated::{
+    size_prefixed_root_as_guest_function_details,
+    GuestFunctionDefinition as FbGuestFunctionDefinition,
+    GuestFunctionDetails as FbGuestFunctionDetails,
+    GuestFunctionDetailsArgs as FbGuestFunctionDetailsArgs,
+};
 
 /// Represents the functions that the guest exposes to the host.
-#[readonly::make]
 #[derive(Debug, Default, Clone)]
 pub(crate) struct GuestFunctionDetails {
     /// The guest functions
@@ -20,7 +23,7 @@ impl GuestFunctionDetails {
 }
 
 impl TryFrom<&[u8]> for GuestFunctionDetails {
-    type Error = HyperlightError;
+    type Error = Error;
 
     fn try_from(bytes: &[u8]) -> Result<Self> {
         let guest_function_details_fb = size_prefixed_root_as_guest_function_details(bytes)?;
@@ -28,7 +31,10 @@ impl TryFrom<&[u8]> for GuestFunctionDetails {
         let guest_function_definitions = {
             let mut guest_function_definitions: Vec<GuestFunctionDefinition> = Vec::new();
             for guest_function in guest_function_details_fb.functions().iter() {
-                let guest_function_definition = GuestFunctionDefinition::try_from(guest_function)?;
+                let guest_function_definition = GuestFunctionDefinition::try_from(guest_function)
+                    .map_err(|e| {
+                    anyhow!("Failed to convert guest function definition: {}", e)
+                })?;
                 guest_function_definitions.push(guest_function_definition);
             }
             guest_function_definitions
@@ -39,30 +45,29 @@ impl TryFrom<&[u8]> for GuestFunctionDetails {
 }
 
 impl TryFrom<&GuestFunctionDetails> for Vec<u8> {
-    type Error = HyperlightError;
+    type Error = Error;
 
     fn try_from(guest_function_details: &GuestFunctionDetails) -> Result<Self> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
 
-        let mut guest_function_definitions: Vec<
-            flatbuffers::WIPOffset<
-                crate::flatbuffers::hyperlight::generated::GuestFunctionDefinition,
-            >,
-        > = Vec::new();
+        let mut guest_function_definitions: Vec<flatbuffers::WIPOffset<FbGuestFunctionDefinition>> =
+            Vec::new();
         for guest_function in guest_function_details.guest_functions.iter() {
-            guest_function_definitions
-                .push(guest_function.convert_to_flatbuffer_def(&mut builder)?);
+            guest_function_definitions.push(
+                guest_function
+                    .convert_to_flatbuffer_def(&mut builder)
+                    .map_err(|e| anyhow!("Failed to convert guest function definition: {}", e))?,
+            );
         }
 
         let guest_functions = builder.create_vector(&guest_function_definitions);
 
-        let guest_function_details =
-            crate::flatbuffers::hyperlight::generated::GuestFunctionDetails::create(
-                &mut builder,
-                &crate::flatbuffers::hyperlight::generated::GuestFunctionDetailsArgs {
-                    functions: Some(guest_functions),
-                },
-            );
+        let guest_function_details = FbGuestFunctionDetails::create(
+            &mut builder,
+            &FbGuestFunctionDetailsArgs {
+                functions: Some(guest_functions),
+            },
+        );
 
         builder.finish_size_prefixed(guest_function_details, None);
 

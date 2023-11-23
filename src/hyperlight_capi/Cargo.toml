@@ -18,6 +18,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 hyperlight_host = { path = "../hyperlight_host", version = "*", registry = "hyperlight_packages" }
+hyperlight_flatbuffers = { path = "../hyperlight_flatbuffers", version = "*", registry = "hyperlight_packages" }
 tracing-subscriber = { version = "0.3.17", features = ["json"] }
 anyhow = { version = "1.0.72" }
 cfg-if = { version = "1.0.0" }
