@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use anyhow::{anyhow, Error, Result};
 
 use super::guest_function_definition::GuestFunctionDefinition;
@@ -37,7 +38,8 @@ impl TryFrom<&[u8]> for GuestFunctionDetails {
     type Error = Error;
 
     fn try_from(bytes: &[u8]) -> Result<Self> {
-        let guest_function_details_fb = size_prefixed_root_as_guest_function_details(bytes)?;
+        let guest_function_details_fb =
+            size_prefixed_root_as_guest_function_details(bytes).unwrap();
 
         let guest_function_definitions = {
             let mut guest_function_definitions: Vec<GuestFunctionDefinition> = Vec::new();

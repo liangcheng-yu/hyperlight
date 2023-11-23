@@ -1,3 +1,4 @@
+use alloc::{string::{String, ToString}, vec::Vec};
 use anyhow::{anyhow, bail, Error, Result};
 
 use crate::flatbuffers::hyperlight::generated::{
@@ -42,7 +43,7 @@ impl GuestLogData {
 impl TryFrom<&[u8]> for GuestLogData {
     type Error = Error;
     fn try_from(raw_bytes: &[u8]) -> Result<Self> {
-        let gld_gen = size_prefixed_root_as_guest_log_data(raw_bytes)?;
+        let gld_gen = size_prefixed_root_as_guest_log_data(raw_bytes).unwrap();
         let message = convert_generated_option("message", gld_gen.message())?;
         let source = convert_generated_option("source", gld_gen.source())?;
         let level = LogLevel::try_from(&gld_gen.level())?;

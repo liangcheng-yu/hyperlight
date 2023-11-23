@@ -3,8 +3,8 @@ extern crate flatbuffers;
 use crate::flatbuffers::hyperlight::generated::{
     size_prefixed_root_as_guest_error, ErrorCode, GuestError as GuestErrorFb, GuestErrorArgs,
 };
+use alloc::{string::{String, ToString}, vec::Vec};
 use anyhow::{bail, Error, Result};
-use std::convert::TryFrom;
 
 /// The error code of a `GuestError`.
 pub type Code = ErrorCode;
@@ -27,7 +27,7 @@ impl GuestError {
 impl TryFrom<&[u8]> for GuestError {
     type Error = Error;
     fn try_from(value: &[u8]) -> Result<Self> {
-        let guest_error_fb = size_prefixed_root_as_guest_error(value)?;
+        let guest_error_fb = size_prefixed_root_as_guest_error(value).unwrap();
         let code = guest_error_fb.code();
         let message = match guest_error_fb.message() {
             Some(message) => message.to_string(),

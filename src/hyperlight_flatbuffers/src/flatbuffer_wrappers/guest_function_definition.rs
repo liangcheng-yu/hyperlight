@@ -1,3 +1,4 @@
+use alloc::{string::{String, ToString}, vec::Vec};
 use anyhow::{anyhow, Error, Result};
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
 
@@ -105,7 +106,8 @@ impl TryFrom<&[u8]> for GuestFunctionDefinition {
     type Error = Error;
 
     fn try_from(value: &[u8]) -> Result<Self> {
-        let fb_guest_function_definition = flatbuffers::root::<FbGuestFunctionDefinition>(value)?;
+        let fb_guest_function_definition =
+            flatbuffers::root::<FbGuestFunctionDefinition>(value).unwrap();
         let guest_function_definition: Self = fb_guest_function_definition.try_into()?;
         Ok(guest_function_definition)
     }

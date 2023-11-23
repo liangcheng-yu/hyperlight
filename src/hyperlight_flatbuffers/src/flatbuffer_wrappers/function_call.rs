@@ -1,3 +1,4 @@
+use alloc::{string::{String, ToString}, vec::Vec};
 use anyhow::{bail, Error, Result};
 use flatbuffers::WIPOffset;
 
@@ -47,7 +48,7 @@ impl FunctionCall {
 }
 
 pub fn validate_guest_function_call_buffer(function_call_buffer: &[u8]) -> Result<()> {
-    let guest_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer)?;
+    let guest_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer).unwrap();
     match guest_function_call_fb.function_call_type() {
         FbFunctionCallType::guest => Ok(()),
         other => {
@@ -57,7 +58,7 @@ pub fn validate_guest_function_call_buffer(function_call_buffer: &[u8]) -> Resul
 }
 
 pub fn validate_host_function_call_buffer(function_call_buffer: &[u8]) -> Result<()> {
-    let host_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer)?;
+    let host_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer).unwrap();
     match host_function_call_fb.function_call_type() {
         FbFunctionCallType::host => Ok(()),
         other => {
@@ -69,7 +70,7 @@ pub fn validate_host_function_call_buffer(function_call_buffer: &[u8]) -> Result
 impl TryFrom<&[u8]> for FunctionCall {
     type Error = Error;
     fn try_from(value: &[u8]) -> Result<Self> {
-        let function_call_fb = size_prefixed_root_as_function_call(value)?;
+        let function_call_fb = size_prefixed_root_as_function_call(value).unwrap();
         let function_name = function_call_fb.function_name();
         let function_call_type = match function_call_fb.function_call_type() {
             FbFunctionCallType::guest => FunctionCallType::Guest,
@@ -226,6 +227,7 @@ impl TryFrom<FunctionCall> for Vec<u8> {
 mod tests {
     use super::*;
     use crate::flatbuffer_wrappers::function_types::ReturnType;
+    use alloc::vec;
     use hyperlight_testing::{get_guest_function_call_test_data, get_host_function_call_test_data};
 
     #[test]

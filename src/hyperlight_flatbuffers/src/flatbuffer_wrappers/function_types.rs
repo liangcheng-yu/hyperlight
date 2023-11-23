@@ -6,6 +6,10 @@ use crate::flatbuffers::hyperlight::generated::{
     ParameterType as FbParameterType, ParameterValue as FbParameterValue,
     ReturnType as FbReturnType, ReturnValue as FbReturnValue,
 };
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 use anyhow::{anyhow, bail, Error, Result};
 
 /// Supported parameter types with values for function calling.
@@ -330,7 +334,7 @@ impl TryFrom<FbFunctionCallResult<'_>> for ReturnValue {
                             .map(|val| val.iter().collect::<Vec<u8>>()),
                         None => None,
                     };
-                Ok(ReturnValue::VecBytes(hlvecbytes.unwrap_or(vec![])))
+                Ok(ReturnValue::VecBytes(hlvecbytes.unwrap_or(Vec::new())))
             }
             other => {
                 bail!("Unexpected flatbuffer return value type: {:?}", other)
@@ -342,7 +346,7 @@ impl TryFrom<FbFunctionCallResult<'_>> for ReturnValue {
 impl TryFrom<&[u8]> for ReturnValue {
     type Error = Error;
     fn try_from(value: &[u8]) -> Result<Self> {
-        let function_call_result_fb = size_prefixed_root_as_function_call_result(value)?;
+        let function_call_result_fb = size_prefixed_root_as_function_call_result(value).unwrap();
         function_call_result_fb.try_into()
     }
 }

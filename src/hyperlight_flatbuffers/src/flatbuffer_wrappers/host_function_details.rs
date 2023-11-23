@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use anyhow::{bail, Error, Result};
 use flatbuffers::WIPOffset;
 
@@ -28,7 +29,7 @@ impl HostFunctionDetails {
         match &mut self.host_functions {
             Some(host_functions) => host_functions.push(host_function),
             None => {
-                let host_functions = vec![host_function];
+                let host_functions = Vec::from(&[host_function]);
                 self.host_functions = Some(host_functions);
             }
         }
@@ -48,7 +49,7 @@ impl HostFunctionDetails {
 impl TryFrom<&[u8]> for HostFunctionDetails {
     type Error = Error;
     fn try_from(value: &[u8]) -> Result<Self> {
-        let host_function_details_fb = size_prefixed_root_as_host_function_details(value)?;
+        let host_function_details_fb = size_prefixed_root_as_host_function_details(value).unwrap();
 
         let host_function_definitions = match host_function_details_fb.functions() {
             Some(hfd) => {
