@@ -5,7 +5,6 @@
 name: Create a Release
 
 on:
-  create:
   workflow_dispatch:
   push:
     branches: [ 'release/**', dev ]
