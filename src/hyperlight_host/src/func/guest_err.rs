@@ -2,6 +2,7 @@ use crate::error::HyperlightError::{GuestError, OutBHandlingError, StackOverflow
 use crate::sandbox::metrics::SandboxMetric::GuestErrorCount;
 use crate::MemMgrWrapper;
 use crate::{int_counter_vec_inc, log_then_return, Result};
+use hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::GuestError as GuestErrorStruct;
 use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::ErrorCode;
 /// Check for a guest error and return an `Err` if one was found,
 /// and `Ok` if one was not found.
@@ -13,7 +14,7 @@ pub(super) fn check_for_guest_error(mgr: &MemMgrWrapper) -> Result<()> {
         ErrorCode::NoError => Ok(()),
         ErrorCode::OutbError => match mgr.as_ref().get_host_error()? {
             Some(host_err) => {
-                int_counter_vec_inc!(&GuestErrorCount, &["OutBError"]);
+                increment_guest_error_count(&guest_err);
                 log_then_return!(OutBHandlingError(
                     host_err.source.clone(),
                     guest_err.message.clone()
@@ -24,11 +25,22 @@ pub(super) fn check_for_guest_error(mgr: &MemMgrWrapper) -> Result<()> {
             None => Ok(()),
         },
         ErrorCode::StackOverflow => {
-            int_counter_vec_inc!(&GuestErrorCount, &["StackOverflow"]);
+            increment_guest_error_count(&guest_err.clone());
             log_then_return!(StackOverflow());
         }
         _ => {
+            increment_guest_error_count(&guest_err.clone());
             log_then_return!(GuestError(guest_err.code, guest_err.message.clone()));
         }
     }
+}
+
+fn increment_guest_error_count(guest_err: &GuestErrorStruct) {
+    int_counter_vec_inc!(
+        &GuestErrorCount,
+        &[
+            guest_err.code.variant_name().unwrap_or("UnknownError"),
+            guest_err.message.clone().as_str()
+        ]
+    );
 }

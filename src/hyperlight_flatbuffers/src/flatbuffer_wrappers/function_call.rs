@@ -1,5 +1,6 @@
 use anyhow::{bail, Error, Result};
 use flatbuffers::WIPOffset;
+use tracing::{instrument, Span};
 
 use super::function_types::{ParameterValue, ReturnType};
 
@@ -31,6 +32,7 @@ pub struct FunctionCall {
 }
 
 impl FunctionCall {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn new(
         function_name: String,
         parameters: Option<Vec<ParameterValue>>,
@@ -46,6 +48,7 @@ impl FunctionCall {
     }
 }
 
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 pub fn validate_guest_function_call_buffer(function_call_buffer: &[u8]) -> Result<()> {
     let guest_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer)?;
     match guest_function_call_fb.function_call_type() {
@@ -56,6 +59,7 @@ pub fn validate_guest_function_call_buffer(function_call_buffer: &[u8]) -> Resul
     }
 }
 
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 pub fn validate_host_function_call_buffer(function_call_buffer: &[u8]) -> Result<()> {
     let host_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer)?;
     match host_function_call_fb.function_call_type() {
@@ -68,6 +72,7 @@ pub fn validate_host_function_call_buffer(function_call_buffer: &[u8]) -> Result
 
 impl TryFrom<&[u8]> for FunctionCall {
     type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: &[u8]) -> Result<Self> {
         let function_call_fb = size_prefixed_root_as_function_call(value)?;
         let function_name = function_call_fb.function_name();
@@ -100,6 +105,7 @@ impl TryFrom<&[u8]> for FunctionCall {
 
 impl TryFrom<FunctionCall> for Vec<u8> {
     type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: FunctionCall) -> Result<Vec<u8>> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
         let function_name = builder.create_string(&value.function_name);

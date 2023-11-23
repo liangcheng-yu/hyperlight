@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Error, Result};
+use tracing::{instrument, Span};
 
 use super::guest_function_definition::GuestFunctionDefinition;
 use crate::flatbuffers::hyperlight::generated::{
@@ -10,21 +11,21 @@ use crate::flatbuffers::hyperlight::generated::{
 
 /// Represents the functions that the guest exposes to the host.
 #[derive(Debug, Default, Clone)]
-pub(crate) struct GuestFunctionDetails {
+struct GuestFunctionDetails {
     /// The guest functions
-    pub(crate) guest_functions: Vec<GuestFunctionDefinition>,
+    guest_functions: Vec<GuestFunctionDefinition>,
 }
 
 impl GuestFunctionDetails {
     /// Create a new `GuestFunctionDetails`.
-    pub(crate) fn new(guest_functions: Vec<GuestFunctionDefinition>) -> Self {
+    fn new(guest_functions: Vec<GuestFunctionDefinition>) -> Self {
         Self { guest_functions }
     }
 }
 
 impl TryFrom<&[u8]> for GuestFunctionDetails {
     type Error = Error;
-
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(bytes: &[u8]) -> Result<Self> {
         let guest_function_details_fb = size_prefixed_root_as_guest_function_details(bytes)?;
 
@@ -46,7 +47,7 @@ impl TryFrom<&[u8]> for GuestFunctionDetails {
 
 impl TryFrom<&GuestFunctionDetails> for Vec<u8> {
     type Error = Error;
-
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(guest_function_details: &GuestFunctionDetails) -> Result<Self> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
 

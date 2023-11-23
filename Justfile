@@ -2,6 +2,7 @@
 alias build-rust-debug := build-rust
 set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
+set-trace-env-vars := if os() == "windows" { "$env:RUST_LOG='none,hyperlight_host=trace';" } else { "RUST_LOG=none,hyperlight_host=trace" }
 default-target:= "debug"
 set dotenv-load
 
@@ -106,6 +107,6 @@ cargo-login-ci-windows:
 run-rust-examples target=default-target: (build-rust target)
     cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example metrics
     cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example metrics --features "function_call_metrics"
-    cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example logging
-    cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example tracing
-    cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example tracing --features "function_call_metrics"
+    {{set-trace-env-vars}} cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example logging
+    {{set-trace-env-vars}} cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example tracing
+    {{set-trace-env-vars}} cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example tracing --features "function_call_metrics"

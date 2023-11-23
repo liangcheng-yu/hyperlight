@@ -1,5 +1,6 @@
 use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::ParameterValue;
 use hyperlight_flatbuffers::flatbuffer_wrappers::host_function_definition::HostFunctionDefinition;
+use tracing::{instrument, Span};
 
 use crate::sandbox::UninitializedSandbox;
 use crate::HyperlightError::UnexpectedNoOfArguments;
@@ -19,6 +20,7 @@ where
     T: FnMut() -> Result<R> + 'a + Send,
     R: SupportedReturnType<R>,
 {
+    #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |_: Vec<ParameterValue>| {
@@ -49,6 +51,7 @@ where
     P1: SupportedParameterType<P1> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
+    #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = Arc::clone(self);
         let func = Box::new(move |args: Vec<ParameterValue>| {
@@ -92,6 +95,7 @@ where
     P2: SupportedParameterType<P2> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
+    #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
@@ -138,6 +142,7 @@ where
     P3: SupportedParameterType<P3> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
+    #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
@@ -190,6 +195,7 @@ where
     P4: SupportedParameterType<P4> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
+    #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
@@ -246,6 +252,7 @@ where
     P5: SupportedParameterType<P5> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
+    #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
@@ -307,6 +314,7 @@ where
     P6: SupportedParameterType<P6> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
+    #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
@@ -372,6 +380,7 @@ where
     P7: SupportedParameterType<P7> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
+    #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
@@ -441,6 +450,7 @@ where
     P8: SupportedParameterType<P8> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
+    #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
@@ -514,6 +524,7 @@ where
     P9: SupportedParameterType<P9> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
+    #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
@@ -591,6 +602,7 @@ where
     P10: SupportedParameterType<P10> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
+    #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
     fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {

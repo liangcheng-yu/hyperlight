@@ -13,6 +13,7 @@ use tracing::{instrument, Span};
     err(Debug),
     skip(wrapper_getter, args),
     parent = Span::current(),
+    level = "Trace"
 )]
 pub(super) fn dispatch_call_from_host<'a, HvMemMgrT: WrapperGetter<'a>>(
     wrapper_getter: &mut HvMemMgrT,

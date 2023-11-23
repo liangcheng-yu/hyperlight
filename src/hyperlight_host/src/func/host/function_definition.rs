@@ -5,21 +5,23 @@ use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::{
     HostFunctionDefinition as FbHostFunctionDefinition,
     HostFunctionDefinitionArgs as FbHostFunctionDefinitionArgs, ParameterType as FbParameterType,
 };
+use tracing::{instrument, Span};
 
 /// The definition of a function exposed from the host to the guest
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct HostFunctionDefinition {
+pub(crate) struct HostFunctionDefinition {
     /// The function name
-    pub function_name: String,
+    pub(crate) function_name: String,
     /// The type of the parameter values for the host function call.
-    pub parameter_types: Option<Vec<ParameterType>>,
+    parameter_types: Option<Vec<ParameterType>>,
     /// The type of the return value from the host function call
-    pub return_type: ReturnType,
+    return_type: ReturnType,
 }
 
 impl HostFunctionDefinition {
     /// Create a new `HostFunctionDefinition`.
-    pub(crate) fn new(
+    #[instrument(parent = Span::current(), level= "Trace")]
+    pub(super) fn new(
         function_name: String,
         parameter_types: Option<Vec<ParameterType>>,
         return_type: ReturnType,
@@ -32,7 +34,8 @@ impl HostFunctionDefinition {
     }
 
     /// Convert this `HostFunctionDefinition` into a `WIPOffset<FbHostFunctionDefinition>`.
-    pub(crate) fn convert_to_flatbuffer_def<'a>(
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn convert_to_flatbuffer_def<'a>(
         &self,
         builder: &mut FlatBufferBuilder<'a>,
     ) -> Result<WIPOffset<FbHostFunctionDefinition<'a>>> {
@@ -67,6 +70,7 @@ impl HostFunctionDefinition {
 
 impl TryFrom<&FbHostFunctionDefinition<'_>> for HostFunctionDefinition {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: &FbHostFunctionDefinition) -> Result<Self> {
         let function_name = value.function_name().to_string();
         let return_type = value.return_type().try_into().map_err(|_| {
@@ -99,6 +103,7 @@ impl TryFrom<&FbHostFunctionDefinition<'_>> for HostFunctionDefinition {
 
 impl TryFrom<&[u8]> for HostFunctionDefinition {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: &[u8]) -> Result<Self> {
         let fb_host_function_definition = flatbuffers::root::<FbHostFunctionDefinition<'_>>(value)?;
         Self::try_from(&fb_host_function_definition)
@@ -107,6 +112,7 @@ impl TryFrom<&[u8]> for HostFunctionDefinition {
 
 impl TryFrom<&HostFunctionDefinition> for Vec<u8> {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(hfd: &HostFunctionDefinition) -> Result<Vec<u8>> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
         let host_function_definition = hfd.convert_to_flatbuffer_def(&mut builder)?;

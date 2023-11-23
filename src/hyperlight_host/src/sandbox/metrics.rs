@@ -34,7 +34,7 @@ static SANDBOX_METRIC_DEFINITIONS: &[HyperlightMetricDefinition] = &[
         name: "guest_error_count",
         help: "Number of guest errors encountered",
         metric_type: HyperlightMetricType::IntCounterVec,
-        labels: &["error_code"],
+        labels: &["error_code", "error_message"],
         buckets: &[],
     },
     #[cfg(feature = "function_call_metrics")]
@@ -178,7 +178,7 @@ mod tests {
                         );
                         assert!(counter.is_ok());
                         let counter = counter.unwrap();
-                        let label_vals = ["test"];
+                        let label_vals = ["test", "test2"];
                         int_counter_vec_reset!(&sandbox_metric, &label_vals);
                         let value = counter.get(&label_vals);
                         assert!(value.is_ok());
