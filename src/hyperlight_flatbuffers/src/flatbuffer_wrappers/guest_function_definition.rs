@@ -22,6 +22,21 @@ pub struct GuestFunctionDefinition {
 }
 
 impl GuestFunctionDefinition {
+    /// Create a new `GuestFunctionDefinition`.
+    pub fn new(
+        function_name: String,
+        parameter_types: Vec<ParameterType>,
+        return_type: ReturnType,
+        function_pointer: i64,
+    ) -> Self {
+        Self {
+            function_name,
+            parameter_types,
+            return_type,
+            function_pointer,
+        }
+    }
+
     /// Convert this `GuestFunctionDefinition` into a `WIPOffset<FbGuestFunctionDefinition>`.
     pub(crate) fn convert_to_flatbuffer_def<'a>(
         &self,

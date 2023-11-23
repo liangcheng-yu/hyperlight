@@ -719,6 +719,7 @@ version = "0.1.0"
 dependencies = [
  "buddy_system_allocator",
  "flatbuffers",
+ "hyperlight_flatbuffers",
 ]
 
 [[package]]

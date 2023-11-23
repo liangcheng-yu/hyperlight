@@ -1,21 +1,33 @@
-use crate::{
-    function::{GuestFunctionDefinition, GuestFunctionDetails, ParameterType, ReturnType},
-    gen_flatbuffers::hyperlight::generated::{
-        hlint, hlintArgs, ErrorCode, FunctionCall, FunctionCallResult, FunctionCallResultArgs,
-        FunctionCallType, GuestError, GuestErrorArgs,
-        GuestFunctionDetails as FbGuestFunctionDetails, ParameterType as FbParameterType,
-        ParameterValue, ReturnValue, size_prefixed_root_as_function_call_result,
-    },
-    hyperlight_peb::HyperlightPEB,
-};
+use crate::hyperlight_peb::HyperlightPEB;
 
-use core::{arch::asm, ffi::c_void, slice::from_raw_parts, sync::atomic::{AtomicPtr, Ordering}, ptr::copy_nonoverlapping};
+use core::{
+    arch::asm,
+    ffi::c_void,
+    ptr::copy_nonoverlapping,
+    slice::from_raw_parts,
+    sync::atomic::{AtomicPtr, Ordering},
+};
 
 use flatbuffers::{size_prefixed_root, FlatBufferBuilder, UnionWIPOffset, WIPOffset};
 
 use alloc::{string::ToString, vec::Vec};
 
 use buddy_system_allocator::LockedHeap;
+use hyperlight_flatbuffers::{
+    flatbuffer_wrappers::{function_types::{ReturnType, ParameterType}, guest_function_definition::GuestFunctionDefinition},
+    flatbuffers::hyperlight::generated::{
+        hlint as Fbhlint, hlintArgs as FbhlintArgs, ErrorCode as FbErrorCode,
+        FunctionCall as FbFunctionCall, FunctionCallResult as FbFunctionCallResult,
+        FunctionCallResultArgs as FbFunctionCallResultArgs, FunctionCallType as FbFunctionCallType,
+        GuestError as FbGuestError, GuestErrorArgs as FbGuestErrorArgs,
+        GuestFunctionDetails as FbGuestFunctionDetails, ParameterType as FbParameterType,
+        ParameterValue as FbParameterValue, ReturnValue as FbReturnValue,
+    },
+};
+use hyperlight_flatbuffers::{
+    flatbuffer_wrappers::guest_function_details::GuestFunctionDetails,
+    flatbuffers::hyperlight::generated::size_prefixed_root_as_function_call_result,
+};
 
 #[global_allocator]
 static HEAP_ALLOCATOR: LockedHeap<32> = LockedHeap::<32>::empty();
@@ -33,13 +45,13 @@ fn write_error(error_code: u64, message: Option<&str>) {
     let peb_ptr = P_PEB.load(Ordering::SeqCst);
     let mut builder = flatbuffers::FlatBufferBuilder::new();
 
-    let code = ErrorCode(error_code);
+    let code = FbErrorCode(error_code);
 
     let message_offset: Option<WIPOffset<&str>> = message.map(|m| builder.create_string(m));
 
-    let error = GuestError::create(
+    let error = FbGuestError::create(
         &mut builder,
-        &GuestErrorArgs {
+        &FbGuestErrorArgs {
             code,
             message: message_offset,
         },
@@ -73,7 +85,7 @@ fn reset_error() {
     write_error(0, None);
 }
 
-fn set_error(error_code: ErrorCode, message: &str) {
+fn set_error(error_code: FbErrorCode, message: &str) {
     let peb_ptr = P_PEB.load(Ordering::SeqCst);
     write_error(error_code.0, Some(message));
     unsafe {
@@ -82,7 +94,7 @@ fn set_error(error_code: ErrorCode, message: &str) {
 }
 
 type GuestFunc = fn() -> Vec<u8>;
-fn call_guest_function(function_call: &FunctionCall) -> Vec<u8> {
+fn call_guest_function(function_call: &FbFunctionCall) -> Vec<u8> {
     let gfd = unsafe { GUEST_FUNCTIONS_FINALISED.as_ref().unwrap() };
     let guest_function_definitions = size_prefixed_root::<FbGuestFunctionDetails>(gfd)
         .unwrap()
@@ -129,26 +141,26 @@ fn call_guest_function(function_call: &FunctionCall) -> Vec<u8> {
             let parameter_type = parameter.value_type();
 
             if next_param_is_length {
-                if parameter_type != ParameterValue::hlint {
+                if parameter_type != FbParameterValue::hlint {
                     panic!("Parameter {}", i);
                 }
                 next_param_is_length = false;
             }
 
             match parameter_type {
-                ParameterValue::hlint => {
+                FbParameterValue::hlint => {
                     parameter_kinds[i] = Some(FbParameterType::hlint);
                 }
-                ParameterValue::hllong => {
+                FbParameterValue::hllong => {
                     parameter_kinds[i] = Some(FbParameterType::hllong);
                 }
-                ParameterValue::hlstring => {
+                FbParameterValue::hlstring => {
                     parameter_kinds[i] = Some(FbParameterType::hlstring);
                 }
-                ParameterValue::hlbool => {
+                FbParameterValue::hlbool => {
                     parameter_kinds[i] = Some(FbParameterType::hlbool);
                 }
-                ParameterValue::hlvecbytes => {
+                FbParameterValue::hlvecbytes => {
                     parameter_kinds[i] = Some(FbParameterType::hlvecbytes);
                     next_param_is_length = true;
                 }
@@ -185,12 +197,9 @@ fn call_guest_function(function_call: &FunctionCall) -> Vec<u8> {
 
 pub fn get_flatbuffer_result_from_int(value: i32) -> Vec<u8> {
     let mut builder = FlatBufferBuilder::new();
-    let hlint = hlint::create(
-        &mut builder,
-        &hlintArgs { value }
-    );
+    let hlint = Fbhlint::create(&mut builder, &FbhlintArgs { value });
 
-    let rt = ReturnValue::hlint;
+    let rt = FbReturnValue::hlint;
     let rv: Option<WIPOffset<UnionWIPOffset>> = Some(hlint.as_union_value());
 
     get_flatbuffer_result(&mut builder, rt, rv)
@@ -198,12 +207,12 @@ pub fn get_flatbuffer_result_from_int(value: i32) -> Vec<u8> {
 
 fn get_flatbuffer_result(
     builder: &mut FlatBufferBuilder,
-    return_value_type: ReturnValue,
+    return_value_type: FbReturnValue,
     return_value: Option<WIPOffset<UnionWIPOffset>>,
 ) -> Vec<u8> {
-    let result_offset = FunctionCallResult::create(
+    let result_offset = FbFunctionCallResult::create(
         builder,
-        &FunctionCallResultArgs {
+        &FbFunctionCallResultArgs {
             return_value,
             return_value_type,
         },
@@ -224,11 +233,11 @@ fn dispatch_function() {
             (*peb_ptr).inputdata.inputDataSize as usize,
         )
     };
-    let function_call = flatbuffers::size_prefixed_root::<FunctionCall>(idb).unwrap();
+    let function_call = flatbuffers::size_prefixed_root::<FbFunctionCall>(idb).unwrap();
 
     // Validate this is a Guest Function Call
-    if function_call.function_call_type() != FunctionCallType::guest {
-        set_error(ErrorCode::GuestError, "Invalid Function Call Type");
+    if function_call.function_call_type() != FbFunctionCallType::guest {
+        set_error(FbErrorCode::GuestError, "Invalid Function Call Type");
         return;
     }
 
@@ -236,7 +245,8 @@ fn dispatch_function() {
     size_prefixed_root_as_function_call_result(&result_vec).unwrap();
 
     unsafe {
-        let output_data_buffer = (*P_PEB.load(Ordering::SeqCst)).outputdata.outputDataBuffer as *mut u8;
+        let output_data_buffer =
+            (*P_PEB.load(Ordering::SeqCst)).outputdata.outputDataBuffer as *mut u8;
         let size_with_prefix = result_vec.len();
 
         copy_nonoverlapping(result_vec.as_ptr(), output_data_buffer, size_with_prefix);
@@ -245,7 +255,7 @@ fn dispatch_function() {
 
 pub fn initialise_function_table() {
     unsafe {
-        GUEST_FUNCTIONS = Some(GuestFunctionDetails::new());
+        GUEST_FUNCTIONS = Some(GuestFunctionDetails::new(Vec::new()));
     }
 }
 
@@ -264,7 +274,7 @@ pub fn create_function_definition(
 
 pub fn register_function(function_definition: GuestFunctionDefinition) {
     if let Some(gfs) = unsafe { GUEST_FUNCTIONS.as_mut() } {
-        gfs.insert_guest_function(function_definition);
+        gfs.insert(function_definition);
     } else {
         // it's impossible for this to happen because we always initialise the function table
         // prior to calling the guest's hyperlight_main, but just in case.
@@ -274,7 +284,7 @@ pub fn register_function(function_definition: GuestFunctionDefinition) {
 
 pub fn finalise_function_table() {
     unsafe {
-        GUEST_FUNCTIONS_FINALISED = Some((GUEST_FUNCTIONS.as_mut().unwrap()).into());
+        GUEST_FUNCTIONS_FINALISED = Some((GUEST_FUNCTIONS.as_ref().unwrap()).try_into().unwrap());
     }
 }
 

@@ -10,15 +10,26 @@ use crate::flatbuffers::hyperlight::generated::{
 
 /// Represents the functions that the guest exposes to the host.
 #[derive(Debug, Default, Clone)]
-pub(crate) struct GuestFunctionDetails {
+pub struct GuestFunctionDetails {
     /// The guest functions
-    pub(crate) guest_functions: Vec<GuestFunctionDefinition>,
+    pub guest_functions: Vec<GuestFunctionDefinition>,
 }
 
 impl GuestFunctionDetails {
     /// Create a new `GuestFunctionDetails`.
-    pub(crate) fn new(guest_functions: Vec<GuestFunctionDefinition>) -> Self {
+    pub fn new(guest_functions: Vec<GuestFunctionDefinition>) -> Self {
         Self { guest_functions }
+    }
+
+    /// Insert a new `GuestFunctionDefinition` into the `GuestFunctionDetails`.
+    pub fn insert(&mut self, guest_function: GuestFunctionDefinition) {
+        self.guest_functions.push(guest_function);
+    }
+
+    /// Sort the `GuestFunctionDetails` by the `GuestFunctionDefinition`'s `name` field.
+    pub fn sort(&mut self) {
+        self.guest_functions
+            .sort_by(|a, b| a.function_name.cmp(&b.function_name));
     }
 }
 
