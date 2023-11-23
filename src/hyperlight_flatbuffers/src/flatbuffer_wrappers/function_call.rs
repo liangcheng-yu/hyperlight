@@ -46,7 +46,6 @@ impl FunctionCall {
     }
 }
 
-#[cfg(debug_assertions)]
 pub fn validate_guest_function_call_buffer(function_call_buffer: &[u8]) -> Result<()> {
     let guest_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer)?;
     match guest_function_call_fb.function_call_type() {
@@ -57,7 +56,6 @@ pub fn validate_guest_function_call_buffer(function_call_buffer: &[u8]) -> Resul
     }
 }
 
-#[cfg(debug_assertions)]
 pub fn validate_host_function_call_buffer(function_call_buffer: &[u8]) -> Result<()> {
     let host_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer)?;
     match host_function_call_fb.function_call_type() {

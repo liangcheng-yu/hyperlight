@@ -19,7 +19,6 @@ use crate::{error::HyperlightHostError, sandbox::SandboxConfiguration};
 use crate::{new_error, Result};
 use core::mem::size_of;
 
-#[cfg(debug_assertions)]
 use hyperlight_flatbuffers::flatbuffer_wrappers::function_call::{
     validate_guest_function_call_buffer, validate_host_function_call_buffer,
 };
@@ -557,7 +556,6 @@ impl SandboxMemoryManager {
             ));
         }
 
-        #[cfg(debug_assertions)]
         validate_guest_function_call_buffer(buffer).map_err(|e| {
             new_error!(
                 "Guest function call buffer validation failed: {}",
@@ -590,7 +588,6 @@ impl SandboxMemoryManager {
             ));
         }
 
-        #[cfg(debug_assertions)]
         validate_host_function_call_buffer(buffer)
             .map_err(|e| new_error!("Invalid host function call buffer: {}", e.to_string()))?;
         self.shared_mem
