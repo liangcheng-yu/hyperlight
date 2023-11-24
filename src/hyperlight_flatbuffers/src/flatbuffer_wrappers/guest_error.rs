@@ -34,7 +34,8 @@ impl TryFrom<&[u8]> for GuestError {
     type Error = Error;
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: &[u8]) -> Result<Self> {
-        let guest_error_fb = size_prefixed_root_as_guest_error(value).unwrap();
+        let guest_error_fb = size_prefixed_root_as_guest_error(value)
+            .map_err(|e| anyhow::anyhow!("Error while reading GuestError: {:?}", e))?;
         let code = guest_error_fb.code();
         let message = match guest_error_fb.message() {
             Some(message) => message.to_string(),

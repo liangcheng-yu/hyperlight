@@ -54,7 +54,8 @@ impl FunctionCall {
 
 #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 pub fn validate_guest_function_call_buffer(function_call_buffer: &[u8]) -> Result<()> {
-    let guest_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer).unwrap();
+    let guest_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer)
+        .map_err(|e| anyhow::anyhow!("Error reading function call buffer: {:?}", e))?;
     match guest_function_call_fb.function_call_type() {
         FbFunctionCallType::guest => Ok(()),
         other => {
@@ -65,7 +66,8 @@ pub fn validate_guest_function_call_buffer(function_call_buffer: &[u8]) -> Resul
 
 #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 pub fn validate_host_function_call_buffer(function_call_buffer: &[u8]) -> Result<()> {
-    let host_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer).unwrap();
+    let host_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer)
+        .map_err(|e| anyhow::anyhow!("Error reading function call buffer: {:?}", e))?;
     match host_function_call_fb.function_call_type() {
         FbFunctionCallType::host => Ok(()),
         other => {
@@ -78,7 +80,8 @@ impl TryFrom<&[u8]> for FunctionCall {
     type Error = Error;
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: &[u8]) -> Result<Self> {
-        let function_call_fb = size_prefixed_root_as_function_call(value).unwrap();
+        let function_call_fb = size_prefixed_root_as_function_call(value)
+            .map_err(|e| anyhow::anyhow!("Error reading function call buffer: {:?}", e))?;
         let function_name = function_call_fb.function_name();
         let function_call_type = match function_call_fb.function_call_type() {
             FbFunctionCallType::guest => FunctionCallType::Guest,

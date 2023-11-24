@@ -54,7 +54,8 @@ impl TryFrom<&[u8]> for HostFunctionDetails {
     type Error = Error;
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: &[u8]) -> Result<Self> {
-        let host_function_details_fb = size_prefixed_root_as_host_function_details(value).unwrap();
+        let host_function_details_fb = size_prefixed_root_as_host_function_details(value)
+            .map_err(|e| anyhow::anyhow!("Error while reading HostFunctionDetails: {:?}", e))?;
 
         let host_function_definitions = match host_function_details_fb.functions() {
             Some(hfd) => {

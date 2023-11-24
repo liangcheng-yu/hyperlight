@@ -49,7 +49,8 @@ impl TryFrom<&[u8]> for GuestLogData {
     type Error = Error;
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(raw_bytes: &[u8]) -> Result<Self> {
-        let gld_gen = size_prefixed_root_as_guest_log_data(raw_bytes).unwrap();
+        let gld_gen = size_prefixed_root_as_guest_log_data(raw_bytes)
+            .map_err(|e| anyhow!("Error while reading GuestLogData: {:?}", e))?;
         let message = convert_generated_option("message", gld_gen.message())?;
         let source = convert_generated_option("source", gld_gen.source())?;
         let level = LogLevel::try_from(&gld_gen.level())?;

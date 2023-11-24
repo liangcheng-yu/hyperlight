@@ -110,8 +110,8 @@ impl TryFrom<&[u8]> for HostFunctionDefinition {
     type Error = Error;
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: &[u8]) -> Result<Self> {
-        let fb_host_function_definition =
-            flatbuffers::root::<FbHostFunctionDefinition<'_>>(value).unwrap();
+        let fb_host_function_definition = flatbuffers::root::<FbHostFunctionDefinition<'_>>(value)
+            .map_err(|e| anyhow!("Error while reading HostFunctionDefinition: {:?}", e))?;
         Self::try_from(&fb_host_function_definition)
     }
 }

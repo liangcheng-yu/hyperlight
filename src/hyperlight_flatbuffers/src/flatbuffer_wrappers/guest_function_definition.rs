@@ -112,8 +112,8 @@ impl TryFrom<&[u8]> for GuestFunctionDefinition {
     type Error = Error;
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: &[u8]) -> Result<Self> {
-        let fb_guest_function_definition =
-            flatbuffers::root::<FbGuestFunctionDefinition>(value).unwrap();
+        let fb_guest_function_definition = flatbuffers::root::<FbGuestFunctionDefinition>(value)
+            .map_err(|e| anyhow!("Error while reading GuestFunctionDefinition: {:?}", e))?;
         let guest_function_definition: Self = fb_guest_function_definition.try_into()?;
         Ok(guest_function_definition)
     }
