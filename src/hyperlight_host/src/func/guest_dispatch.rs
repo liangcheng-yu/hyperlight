@@ -81,16 +81,13 @@ pub(super) fn dispatch_call_from_host<'a, HvMemMgrT: WrapperGetter<'a>>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::func::{
+        call_ctx::{MultiUseGuestCallContext, SingleUseGuestCallContext},
+        host_functions::HostFunction0,
+    };
     use crate::HyperlightError;
     use crate::Result;
     use crate::UninitializedSandbox;
-    use crate::{
-        func::{
-            call_ctx::{MultiUseGuestCallContext, SingleUseGuestCallContext},
-            host_functions::HostFunction0,
-        },
-        SandboxRunOptions,
-    };
     use crate::{sandbox::is_hypervisor_present, SingleUseSandbox};
     use crate::{sandbox::uninitialized::GuestBinary, sandbox_state::transition::MutatingCallback};
     use crate::{sandbox_state::sandbox::EvolvableSandbox, MultiUseSandbox};
@@ -226,7 +223,7 @@ mod tests {
             // variability below
             None,
             // by default, the below represents in-hypervisor mode
-            Some(SandboxRunOptions::RunInProcess(true)),
+            None,
             // just use the built-in host print function
             None,
         )

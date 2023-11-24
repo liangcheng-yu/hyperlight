@@ -19,16 +19,14 @@ use crate::{error::HyperlightHostError, sandbox::SandboxConfiguration};
 use crate::{new_error, Result};
 use core::mem::size_of;
 
-use hyperlight_flatbuffers::flatbuffer_wrappers::function_call::{
-    validate_guest_function_call_buffer, validate_host_function_call_buffer,
+use hyperlight_flatbuffers::flatbuffer_wrappers::{
+    function_call::{validate_guest_function_call_buffer, validate_host_function_call_buffer},
+    guest_error::ErrorCode,
 };
 
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
-    function_call::FunctionCall,
-    function_types::ReturnValue,
-    guest_error::{Code, GuestError},
-    guest_log_data::GuestLogData,
-    host_function_details::HostFunctionDetails,
+    function_call::FunctionCall, function_types::ReturnValue, guest_error::GuestError,
+    guest_log_data::GuestLogData, host_function_details::HostFunctionDetails,
 };
 use serde_json::from_str;
 use std::{cmp::Ordering, str::from_utf8};
@@ -344,7 +342,7 @@ impl SandboxMemoryManager {
         host_exception_data: &Vec<u8>,
     ) -> Result<()> {
         let message = String::from_utf8(guest_error_msg.to_owned())?;
-        let ge = GuestError::new(Code::OutbError, message);
+        let ge = GuestError::new(ErrorCode::OutbError, message);
 
         let guest_error_buffer: Vec<u8> = (&ge)
             .try_into()

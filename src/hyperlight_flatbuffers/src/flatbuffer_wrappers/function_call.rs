@@ -4,6 +4,7 @@ use alloc::{
 };
 use anyhow::{bail, Error, Result};
 use flatbuffers::WIPOffset;
+#[cfg(feature = "tracing")]
 use tracing::{instrument, Span};
 
 use super::function_types::{ParameterValue, ReturnType};
@@ -36,7 +37,7 @@ pub struct FunctionCall {
 }
 
 impl FunctionCall {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[cfg_attr(feature = "tracing", instrument(skip_all, parent = Span::current(), level= "Trace"))]
     pub fn new(
         function_name: String,
         parameters: Option<Vec<ParameterValue>>,
@@ -50,9 +51,14 @@ impl FunctionCall {
             expected_return_type,
         }
     }
+
+    /// The type of the function call.
+    pub fn function_call_type(&self) -> FunctionCallType {
+        self.function_call_type.clone()
+    }
 }
 
-#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+#[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
 pub fn validate_guest_function_call_buffer(function_call_buffer: &[u8]) -> Result<()> {
     let guest_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer)
         .map_err(|e| anyhow::anyhow!("Error reading function call buffer: {:?}", e))?;
@@ -64,7 +70,7 @@ pub fn validate_guest_function_call_buffer(function_call_buffer: &[u8]) -> Resul
     }
 }
 
-#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+#[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
 pub fn validate_host_function_call_buffer(function_call_buffer: &[u8]) -> Result<()> {
     let host_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer)
         .map_err(|e| anyhow::anyhow!("Error reading function call buffer: {:?}", e))?;
@@ -78,7 +84,7 @@ pub fn validate_host_function_call_buffer(function_call_buffer: &[u8]) -> Result
 
 impl TryFrom<&[u8]> for FunctionCall {
     type Error = Error;
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
     fn try_from(value: &[u8]) -> Result<Self> {
         let function_call_fb = size_prefixed_root_as_function_call(value)
             .map_err(|e| anyhow::anyhow!("Error reading function call buffer: {:?}", e))?;
@@ -112,7 +118,7 @@ impl TryFrom<&[u8]> for FunctionCall {
 
 impl TryFrom<FunctionCall> for Vec<u8> {
     type Error = Error;
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
     fn try_from(value: FunctionCall) -> Result<Vec<u8>> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
         let function_name = builder.create_string(&value.function_name);

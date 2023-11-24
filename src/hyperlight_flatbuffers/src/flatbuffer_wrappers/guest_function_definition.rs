@@ -4,6 +4,8 @@ use alloc::{
 };
 use anyhow::{anyhow, Error, Result};
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
+
+#[cfg(feature = "tracing")]
 use tracing::{instrument, Span};
 
 use crate::flatbuffers::hyperlight::generated::{
@@ -42,8 +44,70 @@ impl GuestFunctionDefinition {
         }
     }
 
+    /// Verify equal parameter types
+    pub fn verify_equal_parameter_types(
+        &self,
+        parameter_types: &Vec<ParameterType>,
+    ) -> Result<(), Error> {
+        if self.parameter_types.len() != parameter_types.len() {
+            return Err(anyhow!(
+                "Expected {} parameters, but got {}",
+                self.parameter_types.len(),
+                parameter_types.len()
+            ));
+        }
+
+        for (i, parameter_type) in self.parameter_types.iter().enumerate() {
+            if parameter_type != &parameter_types[i] {
+                return Err(anyhow!(
+                    "Expected parameter {} to be {:?}, but got {:?}",
+                    i,
+                    parameter_type,
+                    parameter_types[i]
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Verify vector parameter lengths
+    pub fn verify_vector_parameter_lengths(
+        &self,
+        parameter_types: Vec<ParameterType>,
+    ) -> Result<(), Error> {
+        // Check that:
+        // - parameter_types doesn't end w/ a VecBytes parameter, and
+        // - if parameter_types has a VecBytes parameter, then the next parameter is an integer
+        //   specifying the length of that vector.
+        let mut parameter_types_iter = parameter_types.iter();
+        while let Some(parameter_type) = parameter_types_iter.next() {
+            match parameter_type {
+                ParameterType::VecBytes => {
+                    if let Some(next_parameter_type) = parameter_types_iter.next() {
+                        match next_parameter_type {
+                            ParameterType::Int => {}
+                            _ => {
+                                return Err(anyhow!(
+                                    "Expected integer parameter after VecBytes parameter"
+                                ))
+                            }
+                        }
+                    } else {
+                        return Err(anyhow!(
+                            "Expected integer parameter after VecBytes parameter"
+                        ));
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(())
+    }
+
     /// Convert this `GuestFunctionDefinition` into a `WIPOffset<FbGuestFunctionDefinition>`.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
     pub(super) fn convert_to_flatbuffer_def<'a>(
         &self,
         builder: &mut FlatBufferBuilder<'a>,
@@ -78,7 +142,7 @@ impl GuestFunctionDefinition {
 impl TryFrom<FbGuestFunctionDefinition<'_>> for GuestFunctionDefinition {
     type Error = Error;
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
     fn try_from(value: FbGuestFunctionDefinition) -> Result<Self> {
         let function_name = value.function_name().to_string();
         let return_type = value.return_type().try_into().map_err(|_| {
@@ -110,7 +174,7 @@ impl TryFrom<FbGuestFunctionDefinition<'_>> for GuestFunctionDefinition {
 
 impl TryFrom<&[u8]> for GuestFunctionDefinition {
     type Error = Error;
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
     fn try_from(value: &[u8]) -> Result<Self> {
         let fb_guest_function_definition = flatbuffers::root::<FbGuestFunctionDefinition>(value)
             .map_err(|e| anyhow!("Error while reading GuestFunctionDefinition: {:?}", e))?;
@@ -121,7 +185,7 @@ impl TryFrom<&[u8]> for GuestFunctionDefinition {
 
 impl TryFrom<&GuestFunctionDefinition> for Vec<u8> {
     type Error = Error;
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
     fn try_from(value: &GuestFunctionDefinition) -> Result<Self> {
         let mut builder = FlatBufferBuilder::new();
         let fb_guest_function_definition = value.convert_to_flatbuffer_def(&mut builder)?;

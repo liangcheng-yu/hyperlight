@@ -4,9 +4,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use hyperlight_guest::guest::{
-    create_function_definition, get_flatbuffer_result_from_int, register_function,
-};
+use hyperlight_guest::{guest_functions::{create_function_definition, register_function}, flatbuffer_utils::get_flatbuffer_result_from_int};
 
 extern crate hyperlight_guest;
 
@@ -20,12 +18,14 @@ pub extern "C" fn hyperlight_main() {
 }
 
 #[no_mangle]
+#[allow(improper_ctypes_definitions)]
 pub extern "C" fn small_var() -> Vec<u8> {
     let _buffer: [u8; 2048] = [0; 2048];
     get_flatbuffer_result_from_int(2048)
 }
 
 #[no_mangle]
+#[allow(improper_ctypes_definitions)]
 pub extern "C" fn guest_dispatch_function() -> Vec<u8> {
     [0; 0].to_vec()
 }
