@@ -80,13 +80,16 @@ pub(super) fn dispatch_call_from_host<'a, HvMemMgrT: WrapperGetter<'a>>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::{
-        call_ctx::{MultiUseGuestCallContext, SingleUseGuestCallContext},
-        host_functions::HostFunction0,
-    };
     use crate::HyperlightError;
     use crate::Result;
     use crate::UninitializedSandbox;
+    use crate::{
+        func::{
+            call_ctx::{MultiUseGuestCallContext, SingleUseGuestCallContext},
+            host_functions::HostFunction0,
+        },
+        SandboxRunOptions,
+    };
     use crate::{sandbox::is_hypervisor_present, SingleUseSandbox};
     use crate::{sandbox::uninitialized::GuestBinary, sandbox_state::transition::MutatingCallback};
     use crate::{sandbox_state::sandbox::EvolvableSandbox, MultiUseSandbox};
@@ -208,18 +211,10 @@ mod tests {
     fn test_call_guest_function_by_name(u_sbox: UninitializedSandbox<'_>) {
         let mu_sbox: MultiUseSandbox<'_> = u_sbox.evolve(MutatingCallback::from(init)).unwrap();
 
-        let msg = "Hello, World!!\n".to_string();
-        let len = msg.len() as i32;
         let mut ctx = mu_sbox.new_call_context();
-        let result = ctx
-            .call(
-                "PrintOutput",
-                ReturnType::Int,
-                Some(vec![ParameterValue::String(msg.clone())]),
-            )
-            .unwrap();
+        let result = ctx.call("small_var", ReturnType::Int, None).unwrap();
 
-        assert_eq!(result, ReturnValue::Int(len));
+        assert_eq!(result, ReturnValue::Int(2048));
     }
 
     fn call_guest_function_by_name_hv() {
@@ -230,7 +225,7 @@ mod tests {
             // variability below
             None,
             // by default, the below represents in-hypervisor mode
-            None,
+            Some(SandboxRunOptions::RunInProcess(true)),
             // just use the built-in host print function
             None,
         )
