@@ -30,6 +30,8 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue
 pub use param_type::SupportedParameterType;
 pub use ret_type::SupportedReturnType;
 use std::sync::{Arc, Mutex};
+use tracing::instrument;
+use tracing::Span;
 
 type HLFunc<'a> =
     Arc<Mutex<Box<dyn FnMut(Vec<ParameterValue>) -> Result<ReturnValue> + 'a + Send>>>;
@@ -39,6 +41,7 @@ type HLFunc<'a> =
 pub struct HyperlightFunction<'a>(HLFunc<'a>);
 
 impl<'a> HyperlightFunction<'a> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn new<F>(f: F) -> Self
     where
         F: FnMut(Vec<ParameterValue>) -> Result<ReturnValue> + 'a + Send,
@@ -46,6 +49,7 @@ impl<'a> HyperlightFunction<'a> {
         Self(Arc::new(Mutex::new(Box::new(f))))
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn call(&self, args: Vec<ParameterValue>) -> Result<ReturnValue> {
         let mut f = self.0.lock().unwrap();
         f(args)

@@ -1,3 +1,5 @@
+use tracing::{instrument, Span};
+
 use crate::HyperlightError::ParameterValueConversionFailure;
 use crate::{log_then_return, Result};
 
@@ -21,14 +23,17 @@ pub trait SupportedParameterType<T> {
 
 // We can then implement these traits for each type that Hyperlight supports as a parameter or return type
 impl SupportedParameterType<String> for String {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hyperlight_type() -> ParameterType {
         ParameterType::String
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hyperlight_value(&self) -> ParameterValue {
         ParameterValue::String(self.clone())
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn get_inner(a: ParameterValue) -> Result<String> {
         match a {
             ParameterValue::String(i) => Ok(i),
@@ -40,14 +45,17 @@ impl SupportedParameterType<String> for String {
 }
 
 impl SupportedParameterType<i32> for i32 {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hyperlight_type() -> ParameterType {
         ParameterType::Int
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hyperlight_value(&self) -> ParameterValue {
         ParameterValue::Int(*self)
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn get_inner(a: ParameterValue) -> Result<i32> {
         match a {
             ParameterValue::Int(i) => Ok(i),
@@ -59,14 +67,17 @@ impl SupportedParameterType<i32> for i32 {
 }
 
 impl SupportedParameterType<i64> for i64 {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hyperlight_type() -> ParameterType {
         ParameterType::Long
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hyperlight_value(&self) -> ParameterValue {
         ParameterValue::Long(*self)
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn get_inner(a: ParameterValue) -> Result<i64> {
         match a {
             ParameterValue::Long(i) => Ok(i),
@@ -78,14 +89,17 @@ impl SupportedParameterType<i64> for i64 {
 }
 
 impl SupportedParameterType<bool> for bool {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hyperlight_type() -> ParameterType {
         ParameterType::Bool
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hyperlight_value(&self) -> ParameterValue {
         ParameterValue::Bool(*self)
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn get_inner(a: ParameterValue) -> Result<bool> {
         match a {
             ParameterValue::Bool(i) => Ok(i),
@@ -97,14 +111,17 @@ impl SupportedParameterType<bool> for bool {
 }
 
 impl SupportedParameterType<Vec<u8>> for Vec<u8> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hyperlight_type() -> ParameterType {
         ParameterType::VecBytes
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hyperlight_value(&self) -> ParameterValue {
         ParameterValue::VecBytes(self.clone())
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn get_inner(a: ParameterValue) -> Result<Vec<u8>> {
         match a {
             ParameterValue::VecBytes(i) => Ok(i),

@@ -36,6 +36,8 @@ pub struct MultiUseGuestCallContext<'a> {
 impl<'a> MultiUseGuestCallContext<'a> {
     /// Move a `MultiUseSandbox` into a new `CallContext` instance, and
     /// return it
+    ///     
+    #[instrument(skip_all, parent = Span::current())]
     pub(crate) fn start(sbox: MultiUseSandbox<'a>) -> Self {
         Self {
             sbox,
@@ -82,6 +84,7 @@ impl<'a> MultiUseGuestCallContext<'a> {
     /// Close out the context and get back the internally-stored
     /// `MultiUseSandbox`. Future contexts opened by the returned sandbox
     /// will have a fresh state.
+    #[instrument(err(Debug), skip(self), parent = Span::current())]
     pub fn finish(mut self) -> Result<MultiUseSandbox<'a>> {
         self.sbox.reset_state()?;
         Ok(self.sbox)
@@ -108,6 +111,7 @@ pub struct SingleUseGuestCallContext<'a> {
 impl<'a> SingleUseGuestCallContext<'a> {
     /// Move a `SingleUseSandbox` into a new `CallContext` instance, and
     /// return it
+    #[instrument(skip_all, parent = Span::current())]
     pub(crate) fn start(sbox: SingleUseSandbox<'a>) -> Self {
         Self {
             sbox,

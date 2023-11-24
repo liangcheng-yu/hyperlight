@@ -1,5 +1,7 @@
 extern crate flatbuffers;
 
+use tracing::{instrument, Span};
+
 use crate::flatbuffers::hyperlight::generated::{
     size_prefixed_root_as_guest_error, ErrorCode, GuestError as GuestErrorFb, GuestErrorArgs,
 };
@@ -19,6 +21,7 @@ pub struct GuestError {
 }
 
 impl GuestError {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn new(code: Code, message: String) -> Self {
         Self { code, message }
     }
@@ -26,6 +29,7 @@ impl GuestError {
 
 impl TryFrom<&[u8]> for GuestError {
     type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: &[u8]) -> Result<Self> {
         let guest_error_fb = size_prefixed_root_as_guest_error(value).unwrap();
         let code = guest_error_fb.code();
@@ -39,6 +43,7 @@ impl TryFrom<&[u8]> for GuestError {
 
 impl TryFrom<&GuestError> for Vec<u8> {
     type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: &GuestError) -> Result<Vec<u8>> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
         let message = builder.create_string(&value.message);
@@ -73,6 +78,7 @@ impl TryFrom<&GuestError> for Vec<u8> {
 }
 
 impl Default for GuestError {
+    #[instrument(parent = Span::current(), level= "Trace")]
     fn default() -> Self {
         Self {
             code: Code::NoError,

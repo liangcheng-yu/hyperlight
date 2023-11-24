@@ -1,4 +1,4 @@
-use crate::{log_then_return, Result};
+use crate::{new_error, Result};
 use serde_json::{Map, Value};
 
 /// Call `check_value_as_str` and panic if it returned an `Err`. Otherwise,
@@ -19,11 +19,14 @@ pub(crate) fn check_value_as_str(
     expected_value: &str,
 ) -> Result<()> {
     let value = try_to_string(values, key)?;
-    if expected_value == value {
-        Ok(())
-    } else {
-        log_then_return!("expected value {} != value {}", expected_value, value);
+    if expected_value != value {
+        return Err(new_error!(
+            "expected value {} != value {}",
+            expected_value,
+            value
+        ));
     }
+    Ok(())
 }
 
 /// Fetch the value in `values` with key `key` and, if it existed, convert
@@ -34,10 +37,10 @@ fn try_to_string<'a>(values: &'a Map<String, Value>, key: &'a str) -> Result<&'a
         if let Some(value_str) = value.as_str() {
             Ok(value_str)
         } else {
-            log_then_return!("value with key {} was not a string", key);
+            Err(new_error!("value with key {} was not a string", key))
         }
     } else {
-        log_then_return!("value for key {} was not found", key);
+        Err(new_error!("value for key {} was not found", key))
     }
 }
 

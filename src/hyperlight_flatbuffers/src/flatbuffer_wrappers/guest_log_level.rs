@@ -1,5 +1,6 @@
 use anyhow::{bail, Error, Result};
 use log::Level;
+use tracing::{instrument, Span};
 
 use crate::flatbuffers::hyperlight::generated::LogLevel as FbLogLevel;
 
@@ -17,6 +18,7 @@ pub enum LogLevel {
 
 impl TryFrom<&FbLogLevel> for LogLevel {
     type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(val: &FbLogLevel) -> Result<LogLevel> {
         match *val {
             FbLogLevel::Trace => Ok(LogLevel::Trace),
@@ -34,6 +36,7 @@ impl TryFrom<&FbLogLevel> for LogLevel {
 }
 
 impl From<&LogLevel> for FbLogLevel {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(val: &LogLevel) -> FbLogLevel {
         match val {
             LogLevel::Critical => FbLogLevel::Critical,
@@ -48,6 +51,10 @@ impl From<&LogLevel> for FbLogLevel {
 }
 
 impl From<&LogLevel> for Level {
+    // There is a test (sandbox::outb::tests::test_log_outb_log) which emits trace record as logs
+    // which causes a panic when this function is instrumeneted as the logger is contained in refcell and
+    // instrumentation ends up causing a double mutborrow. So this is not instrumented.
+    //TODO: instrument this once we fix the test
     fn from(val: &LogLevel) -> Level {
         match val {
             LogLevel::Trace => Level::Trace,

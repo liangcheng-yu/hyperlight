@@ -40,7 +40,7 @@ impl<'a> HostFuncsWrapper<'a> {
     }
 
     /// Register a host function with the sandbox.
-    pub fn register_host_function(
+    pub(crate) fn register_host_function(
         &mut self,
         mgr: &mut SandboxMemoryManager,
         hfd: &HostFunctionDefinition,

@@ -9,8 +9,11 @@ use hyperlight_host::{
 use hyperlight_testing::simple_guest_path;
 use std::sync::{Arc, Mutex};
 use std::thread::{spawn, JoinHandle};
-use tracing_forest::{util::LevelFilter, ForestLayer};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Registry};
+use tracing_forest::ForestLayer;
+use tracing_subscriber::{
+    layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer, Registry,
+};
+use uuid::Uuid;
 
 fn fn_writer(_msg: String) -> Result<i32> {
     Ok(0)
@@ -23,12 +26,8 @@ fn main() -> Result<()> {
     // Set up the tracing subscriber.
     // tracing_forest uses the tracing subscriber, which, by default, will consume logs as trace events
     // unless the tracing-log feature is disabled.
-
-    Registry::default()
-        .with(ForestLayer::default())
-        .with(LevelFilter::TRACE)
-        .init();
-
+    let layer = ForestLayer::default().with_filter(EnvFilter::from_default_env());
+    Registry::default().with(layer).init();
     run_example()
 }
 fn run_example() -> Result<()> {
@@ -47,10 +46,12 @@ fn run_example() -> Result<()> {
         let writer_func = Arc::new(Mutex::new(fn_writer));
         let handle = spawn(move || -> Result<()> {
             // Construct a new span named "hyperlight tracing example thread" with INFO  level.
+            let id = Uuid::new_v4();
             let span = span!(
                 Level::INFO,
                 "hyperlight tracing example thread",
                 context = format!("Thread number {}", i),
+                uuid = %id,
             );
             let _entered = span.enter();
 
@@ -115,11 +116,13 @@ fn run_example() -> Result<()> {
     // Call a function that gets cancelled by the host function 5 times to generate some log entries.
 
     for i in 0..5 {
+        let id = Uuid::new_v4();
         // Construct a new span named "hyperlight tracing call cancellation example thread" with INFO  level.
         let span = span!(
             Level::INFO,
             "hyperlight tracing call cancellation example thread",
             context = format!("Thread number {}", i),
+            uuid = %id,
         );
         let _entered = span.enter();
         let mut ctx = multiuse_sandbox.new_call_context();

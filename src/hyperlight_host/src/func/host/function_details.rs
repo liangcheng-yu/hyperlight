@@ -12,13 +12,14 @@ use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::{
 };
 use readonly;
 use std::convert::{TryFrom, TryInto};
+use tracing::{instrument, Span};
 
 /// `HostFunctionDetails` represents the set of functions that the host exposes to the guest.
 #[readonly::make]
 #[derive(Debug, Default, Clone)]
 pub(crate) struct HostFunctionDetails {
     /// The host functions.
-    pub(crate) host_functions: Option<Vec<HostFunctionDefinition>>,
+    host_functions: Option<Vec<HostFunctionDefinition>>,
 }
 
 impl HostFunctionDetails {
@@ -29,6 +30,7 @@ impl HostFunctionDetails {
     }
 
     /// Insert a host function into the host function details.
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn insert_host_function(&mut self, host_function: HostFunctionDefinition) {
         match &mut self.host_functions {
             Some(host_functions) => host_functions.push(host_function),
@@ -40,6 +42,7 @@ impl HostFunctionDetails {
     }
 
     /// Sort the host functions by name.
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn sort_host_functions_by_name(&mut self) {
         match &mut self.host_functions {
             Some(host_functions) => {
@@ -50,6 +53,7 @@ impl HostFunctionDetails {
     }
 
     /// Write the host function details to the shared memory.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn write_to_memory(
         self,
         guest_mem: &mut SharedMemory,
@@ -78,6 +82,7 @@ impl HostFunctionDetails {
 }
 
 impl From<Vec<HostFunctionDefinition>> for HostFunctionDetails {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(host_functions: Vec<HostFunctionDefinition>) -> Self {
         Self {
             host_functions: Some(host_functions),
@@ -87,6 +92,7 @@ impl From<Vec<HostFunctionDefinition>> for HostFunctionDetails {
 
 impl TryFrom<&[u8]> for HostFunctionDetails {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: &[u8]) -> Result<Self> {
         let host_function_details_fb = size_prefixed_root_as_host_function_details(value)?;
 
@@ -114,6 +120,7 @@ impl TryFrom<&[u8]> for HostFunctionDetails {
 
 impl TryFrom<&HostFunctionDetails> for Vec<u8> {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: &HostFunctionDetails) -> Result<Vec<u8>> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
         let vec_host_function_definitions = match &value.host_functions {
@@ -159,6 +166,7 @@ impl TryFrom<&HostFunctionDetails> for Vec<u8> {
 
 impl TryFrom<HostFunctionDetails> for Vec<u8> {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: HostFunctionDetails) -> Result<Vec<u8>> {
         (&value).try_into()
     }

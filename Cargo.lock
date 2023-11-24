@@ -711,6 +711,7 @@ dependencies = [
  "flatbuffers",
  "hyperlight_testing",
  "log",
+ "tracing",
 ]
 
 [[package]]

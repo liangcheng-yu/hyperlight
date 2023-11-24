@@ -1,6 +1,7 @@
 use alloc::{string::{String, ToString}, vec::Vec};
 use anyhow::{anyhow, Error, Result};
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
+use tracing::{instrument, Span};
 
 use crate::flatbuffers::hyperlight::generated::{
     GuestFunctionDefinition as FbGuestFunctionDefinition,
@@ -39,7 +40,8 @@ impl GuestFunctionDefinition {
     }
 
     /// Convert this `GuestFunctionDefinition` into a `WIPOffset<FbGuestFunctionDefinition>`.
-    pub(crate) fn convert_to_flatbuffer_def<'a>(
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn convert_to_flatbuffer_def<'a>(
         &self,
         builder: &mut FlatBufferBuilder<'a>,
     ) -> Result<WIPOffset<FbGuestFunctionDefinition<'a>>> {
@@ -73,6 +75,7 @@ impl GuestFunctionDefinition {
 impl TryFrom<FbGuestFunctionDefinition<'_>> for GuestFunctionDefinition {
     type Error = Error;
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: FbGuestFunctionDefinition) -> Result<Self> {
         let function_name = value.function_name().to_string();
         let return_type = value.return_type().try_into().map_err(|_| {
@@ -104,7 +107,7 @@ impl TryFrom<FbGuestFunctionDefinition<'_>> for GuestFunctionDefinition {
 
 impl TryFrom<&[u8]> for GuestFunctionDefinition {
     type Error = Error;
-
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: &[u8]) -> Result<Self> {
         let fb_guest_function_definition =
             flatbuffers::root::<FbGuestFunctionDefinition>(value).unwrap();
@@ -115,7 +118,7 @@ impl TryFrom<&[u8]> for GuestFunctionDefinition {
 
 impl TryFrom<&GuestFunctionDefinition> for Vec<u8> {
     type Error = Error;
-
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: &GuestFunctionDefinition) -> Result<Self> {
         let mut builder = FlatBufferBuilder::new();
         let fb_guest_function_definition = value.convert_to_flatbuffer_def(&mut builder)?;
