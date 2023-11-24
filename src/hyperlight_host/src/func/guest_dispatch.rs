@@ -212,7 +212,7 @@ mod tests {
         let mut ctx = mu_sbox.new_call_context();
         let result = ctx.call("small_var", ReturnType::Int, None).unwrap();
 
-        assert_eq!(result, ReturnValue::Int(2048));
+        assert_eq!(result, ReturnValue::Int(1024));
     }
 
     fn call_guest_function_by_name_hv() {

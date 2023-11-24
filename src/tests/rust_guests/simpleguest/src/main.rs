@@ -20,8 +20,8 @@ pub extern "C" fn hyperlight_main() {
 #[no_mangle]
 #[allow(improper_ctypes_definitions)]
 pub extern "C" fn small_var() -> Vec<u8> {
-    let _buffer: [u8; 2048] = [0; 2048];
-    get_flatbuffer_result_from_int(2048)
+    let _buffer: [u8; 1024] = [0; 1024];
+    get_flatbuffer_result_from_int(1024)
 }
 
 #[no_mangle]
