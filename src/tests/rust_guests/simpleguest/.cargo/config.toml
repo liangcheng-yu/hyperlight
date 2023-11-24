@@ -1,0 +1,14 @@
+[build]
+target = "x86_64-pc-windows-msvc"
+
+[target.x86_64-pc-windows-msvc]
+rustflags = [
+  "-C", 
+  "link-args=/NOLOGO /NXCOMPAT /DRIVER /KERNEL /SAFESEH:NO /RELEASE /ENTRY:entrypoint /SUBSYSTEM:NATIVE /ERRORREPORT:NONE /ALIGN:512 /NODEFAULTLIB /HEAP:131072,131072 /DYNAMICBASE /STACK:65536,65536 /MACHINE:X64",
+]
+
+[profile.release]
+panic = "abort"
+
+[profile.dev]
+panic = "abort"

@@ -3,4 +3,6 @@ name = "simpleguest"
 version = "0.1.0"
 edition = "2021"
 
-[workspace]
+[dependencies]
+hyperlight_guest = { path = "../../../hyperlight_guest" }
+compiler_builtins = { version = "0.1.45", features = ["mem"] }

@@ -2,8 +2,8 @@ use super::handle::Handle;
 use super::hdl::Hdl;
 use super::{arrays::raw_vec::RawVec, context::Context};
 use crate::validate_context_or_panic;
-use hyperlight_host::func::guest::error::GuestError;
-use hyperlight_host::Result;
+use hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::GuestError;
+use hyperlight_host::{new_error, Result};
 use std::mem;
 
 /// Return true if the given handle `hdl` references a `GuestError` in `ctx`,
@@ -67,7 +67,7 @@ pub unsafe extern "C" fn handle_get_guest_error_flatbuffer(
                     ptr
                 }
                 Err(e) => {
-                    (*ctx).register_err(e);
+                    (*ctx).register_err(new_error!("Failed to serialise GuestError: {}", e));
                     std::ptr::null_mut()
                 }
             }

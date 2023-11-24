@@ -1,15 +1,15 @@
 extern crate flatbuffers;
-use crate::flatbuffers::hyperlight::generated::{
-    size_prefixed_root_as_host_function_details,
-    HostFunctionDefinition as FbHostFunctionDefinition,
-    HostFunctionDetails as FbHostFunctionDetails,
-    HostFunctionDetailsArgs as FbHostFunctionDetailsArgs,
-};
 use crate::func::host::function_definition::HostFunctionDefinition;
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::shared_mem::SharedMemory;
 use crate::{log_then_return, HyperlightError, Result};
 use flatbuffers::WIPOffset;
+use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::{
+    size_prefixed_root_as_host_function_details,
+    HostFunctionDefinition as FbHostFunctionDefinition,
+    HostFunctionDetails as FbHostFunctionDetails,
+    HostFunctionDetailsArgs as FbHostFunctionDetailsArgs,
+};
 use readonly;
 use std::convert::{TryFrom, TryInto};
 
@@ -96,7 +96,7 @@ impl TryFrom<&[u8]> for HostFunctionDetails {
                 let mut vec_hfd: Vec<HostFunctionDefinition> = Vec::with_capacity(len);
                 for i in 0..len {
                     let fb_host_function_definition = hfd.get(i);
-                    let hfdef = HostFunctionDefinition::try_from(fb_host_function_definition)?;
+                    let hfdef = HostFunctionDefinition::try_from(&fb_host_function_definition)?;
                     vec_hfd.push(hfdef);
                 }
 
@@ -167,12 +167,9 @@ impl TryFrom<HostFunctionDetails> for Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        func::types::{ParameterType, ReturnType},
-        sandbox::SandboxConfiguration,
-        Result,
-    };
+    use crate::{sandbox::SandboxConfiguration, Result};
     use hex_literal::hex;
+    use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterType, ReturnType};
 
     #[test]
     fn read_from_flatbuffer() -> Result<()> {

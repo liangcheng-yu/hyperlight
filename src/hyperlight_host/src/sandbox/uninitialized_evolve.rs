@@ -1,25 +1,21 @@
-use super::hypervisor::HypervisorWrapperMgr;
+use super::metrics::SandboxMetric::{
+    CurrentNumberOfMultiUseSandboxes, CurrentNumberOfSingleUseSandboxes,
+};
+use super::{leaked_outb::LeakedOutBWrapper, WrapperGetter};
 #[cfg(target_os = "windows")]
 use crate::func::exports::get_os_page_size;
-#[cfg(target_os = "windows")]
-use crate::hypervisor::handlers::OutBHandlerCaller;
 #[cfg(target_os = "linux")]
 use crate::log_then_return;
 #[cfg(target_os = "windows")]
 use crate::mem::ptr::RawPtr;
+use crate::MultiUseSandbox;
 use crate::Result;
 use crate::{
     hypervisor::handlers::OutBHandlerWrapper, sandbox_state::sandbox::Sandbox, SingleUseSandbox,
     UninitializedSandbox,
 };
-use crate::{sandbox::mem_mgr::MemMgrWrapperGetter, MultiUseSandbox};
-#[cfg(target_os = "windows")]
-use std::os::raw::c_void;
-#[cfg(target_os = "windows")]
-use std::sync::Arc;
-#[cfg(target_os = "windows")]
-use std::sync::Mutex;
-use tracing::instrument;
+use crate::{int_gauge_dec, int_gauge_inc};
+use tracing::{instrument, Span};
 
 pub(super) type CBFunc<'a> = Box<dyn FnOnce(&mut UninitializedSandbox<'a>) -> Result<()> + 'a>;
 
@@ -34,21 +30,26 @@ pub(super) type CBFunc<'a> = Box<dyn FnOnce(&mut UninitializedSandbox<'a>) -> Re
 ///
 /// If this doesn't make sense and you want to change this type,
 /// please reach out to a Hyperlight developer before making the change.
-#[instrument(err(Debug), skip_all)]
+#[instrument(err(Debug), skip_all, ,parent = Span::current())]
 fn evolve_impl<'a, TransformFunc, ResSandbox: Sandbox>(
     mut u_sbox: UninitializedSandbox<'a>,
     cb_opt: Option<CBFunc<'a>>,
     transform: TransformFunc,
 ) -> Result<ResSandbox>
 where
-    TransformFunc: Fn(UninitializedSandbox<'a>) -> Result<ResSandbox>,
+    TransformFunc:
+        Fn(UninitializedSandbox<'a>, Option<LeakedOutBWrapper<'a>>) -> Result<ResSandbox>,
 {
-    let outb_wrapper = u_sbox.get_hypervisor_wrapper().get_outb_hdl_wrapper();
+    let outb_wrapper = {
+        let hv = u_sbox.get_hv();
+        hv.get_outb_hdl_wrapper()
+    };
     let run_from_proc_mem = u_sbox.run_from_process_memory;
-    if run_from_proc_mem {
-        evolve_in_proc(&mut u_sbox, outb_wrapper)?;
+    let leaked_outb = if run_from_proc_mem {
+        let leaked_outb = evolve_in_proc(&mut u_sbox, outb_wrapper)?;
+        Some(leaked_outb)
     } else {
-        let orig_rsp = u_sbox.get_hypervisor_wrapper().orig_rsp()?;
+        let orig_rsp = u_sbox.get_hv().orig_rsp()?;
         let mem_mgr = {
             // we are gonna borrow u_sbox mutably below in our
             // get_hypervisor_mut call, so we need to borrow it
@@ -63,26 +64,39 @@ where
         };
 
         { u_sbox.hv.initialise(&mem_mgr) }?;
-        if u_sbox.run_from_process_memory {
-            u_sbox.get_hypervisor_wrapper_mut().reset_rsp(orig_rsp)?;
+        {
+            let mgr = u_sbox.mgr.as_ref();
+            assert!(mgr.get_pointer_to_dispatch_function()? != 0);
         }
-    }
+        if u_sbox.run_from_process_memory {
+            u_sbox.get_hv_mut().reset_rsp(orig_rsp)?;
+        }
+        None
+    };
     if let Some(cb) = cb_opt {
         cb(&mut u_sbox)?;
     }
 
-    transform(u_sbox)
+    transform(u_sbox, leaked_outb)
 }
 
 pub(super) fn evolve_impl_multi_use<'a>(
     u_sbox: UninitializedSandbox<'a>,
     cb_opt: Option<CBFunc<'a>>,
 ) -> Result<MultiUseSandbox<'a>> {
-    evolve_impl(u_sbox, cb_opt, |mut u| {
+    evolve_impl(u_sbox, cb_opt, |mut u, leaked_outb| {
         // only snapshot state if we're a multi-use sandbox. do not
         // call snapshot_state in the evolve_impl_single_use function
-        u.get_mem_mgr_wrapper_mut().as_mut().snapshot_state()?;
-        Ok(MultiUseSandbox::from_uninit(u))
+        {
+            let mem_mgr = u.get_mgr().as_ref();
+            let p_dispatch = mem_mgr.get_pointer_to_dispatch_function()?;
+            print!("{:?}", p_dispatch);
+        }
+        {
+            u.get_mgr_mut().as_mut().snapshot_state()?;
+        }
+        int_gauge_inc!(&CurrentNumberOfMultiUseSandboxes);
+        Ok(MultiUseSandbox::from_uninit(u, leaked_outb))
     })
 }
 
@@ -90,29 +104,16 @@ pub(super) fn evolve_impl_single_use<'a>(
     u_sbox: UninitializedSandbox<'a>,
     cb_opt: Option<CBFunc<'a>>,
 ) -> Result<SingleUseSandbox<'a>> {
-    evolve_impl(u_sbox, cb_opt, |u| Ok(SingleUseSandbox::from_uninit(u)))
+    evolve_impl(u_sbox, cb_opt, |u, leaked_outb| {
+        int_gauge_dec!(&CurrentNumberOfSingleUseSandboxes);
+        Ok(SingleUseSandbox::from_uninit(u, leaked_outb))
+    })
 }
 
-#[cfg(target_os = "windows")]
-// This function allows us to call the OutBHandler from the guest when running in process
-// As it is only called from the guest we need to allow dead code
-// NOTE: This is not part of the C Hyperlight API , it is intended only to be called in proc through a pointer passed to the guest
-extern "C" fn call_outb(ptr: *mut Arc<Mutex<dyn OutBHandlerCaller>>, port: u16, data: u64) {
-    let outb_handlercaller = unsafe { Box::from_raw(ptr) };
-    let res = outb_handlercaller
-        .lock()
-        .expect("Error Locking")
-        .call(port, data);
-    assert!(res.is_ok());
-    // Leak the box so that it is not dropped when the function returns
-    // the box will be dropped when the sandbox is dropped
-    Box::leak(outb_handlercaller);
-}
-
-fn evolve_in_proc(
-    u_sbox: &mut UninitializedSandbox<'_>,
-    outb_hdl: OutBHandlerWrapper,
-) -> Result<()> {
+fn evolve_in_proc<'a>(
+    u_sbox: &mut UninitializedSandbox<'a>,
+    outb_hdl: OutBHandlerWrapper<'a>,
+) -> Result<LeakedOutBWrapper<'a>> {
     #[cfg(target_os = "linux")]
     {
         // Note from old C# implementation of this function:
@@ -156,21 +157,26 @@ fn evolve_in_proc(
         //
         // - u_sbox being marked mut and unused
         // - outb_hdl being unused
-        let _ = u_sbox.get_mem_mgr_wrapper_mut();
+        let _ = u_sbox.get_mgr();
         let _ = outb_hdl;
         log_then_return!("in-process execution is not supported on linux");
     }
     #[cfg(target_os = "windows")]
     {
-        // To be able to call outb from the guest we need to provide both the address of the function and a pointer to
-        // OutBHandlerWrapper, the guest can then call call_outb passing he pointer to OutBHandlerWrapper as the first argument
+        // To be able to call outb from the guest we need to provide both the
+        // address of the function and a pointer to OutBHandlerWrapper.
+        //
+        // The guest can then call the call_outb function, passing the pointer
+        // to OutBHandlerWrapper as the first argument
 
-        // The box we create here is evenutally dropped in the Sandbox drop function
-        let context = Box::into_raw(Box::new(outb_hdl)) as u64;
-        let outb_ptr = call_outb as *const c_void as u64;
-
-        let mgr = u_sbox.get_mem_mgr_wrapper_mut().as_mut();
-        mgr.set_outb_address_and_context(outb_ptr, context)?;
+        // Here, we leak the outb handler so we can write its stable address to
+        // memory, and know that it won't be dropped before it's actually
+        // called.
+        //
+        // This leaked memory is eventually dropped in the drop implementation
+        // of SingleUseSandbox or MultiUseSandbox
+        let mgr = u_sbox.get_mem_mgr_mut();
+        let leaked_outb = LeakedOutBWrapper::new(mgr, outb_hdl.clone())?;
         let peb_address = {
             let base_addr = u64::try_from(mgr.shared_mem.base_addr())?;
             mgr.get_peb_address(base_addr)
@@ -181,7 +187,8 @@ fn evolve_in_proc(
             let mut rng = rand::thread_rng();
             rng.gen::<u64>()
         };
-        unsafe { u_sbox.call_entry_point(RawPtr::from(peb_address), seed, page_size) }
+        unsafe { u_sbox.call_entry_point(RawPtr::from(peb_address), seed, page_size) }?;
+        Ok(leaked_outb)
     }
 }
 

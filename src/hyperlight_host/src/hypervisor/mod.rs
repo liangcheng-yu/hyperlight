@@ -1,15 +1,17 @@
 #[cfg(target_os = "linux")]
 use crate::error::HyperlightError::HostFailedToCancelGuestExecutionSendingSignals;
 use crate::error::HyperlightError::{ExecutionCanceledByHost, HostFailedToCancelGuestExecution};
-use crate::log_then_return;
+use crate::hypervisor::metrics::HypervisorMetric::NumberOfCancelledGuestExecutions;
 use crate::new_error;
 use crate::Result;
+use crate::{int_counter_inc, log_then_return};
 use crossbeam::atomic::AtomicCell;
 #[cfg(target_os = "linux")]
 use libc::{c_void, pthread_kill, pthread_self, siginfo_t, ESRCH};
 use log::error;
 #[cfg(target_os = "linux")]
 use log::info;
+use tracing::{instrument, Span};
 #[cfg(target_os = "linux")]
 use vmm_sys_util::signal::{register_signal_handler, SIGRTMIN};
 #[cfg(target_os = "windows")]
@@ -30,6 +32,8 @@ pub mod hypervisor_mem;
 #[cfg(target_os = "linux")]
 /// Functionality to manipulate KVM-based virtual machines
 pub mod kvm;
+/// Metric definitions for Hypervisor module.
+mod metrics;
 #[cfg(target_os = "windows")]
 /// Hyperlight Surrogate Process
 pub(crate) mod surrogate_process;
@@ -248,7 +252,7 @@ pub trait Hypervisor: Debug + Sync + Send {
         // if the spawned thread has not been joined, this may cause the main thread to hang.
         // There should be no cases where this happens apart from the 2 explicit ones below where thread cancellation fails
 
-        thread::scope(|s| {
+        let result = thread::scope(|s| {
             // Using builder spawn scoped so that we receive an error if the thread creation fails, otherwise we would just panic.
 
             let join_handle = thread::Builder::new()
@@ -469,7 +473,24 @@ pub trait Hypervisor: Debug + Sync + Send {
                 }
             };
             thread_execution_result
-        })
+        });
+
+        // Now we need to reset the TLS state so that the tls values are not set when we next enter this function on the host thread.
+
+        SPAWNED_THREAD.with(|st| {
+            *st.borrow_mut() = false;
+        });
+
+        CANCEL_RUN_REQUESTED.with(|crc| {
+            *crc.borrow_mut() = Arc::new(AtomicCell::new(false));
+        });
+        #[cfg(target_os = "linux")]
+        {
+            RUN_CANCELLED.with(|rc| {
+                *rc.borrow_mut() = Arc::new(AtomicCell::new(false));
+            });
+        }
+        result
     }
 
     /// Run the vCPU
@@ -567,6 +588,7 @@ fn terminate_execution(
 struct VirtualCPU {}
 
 impl VirtualCPU {
+    #[instrument(err(Debug), skip_all, parent = Span::current())]
     fn run<'a>(
         hv: &mut dyn Hypervisor,
         outb_handle_fn: Arc<Mutex<dyn OutBHandlerCaller + 'a>>,
@@ -583,6 +605,7 @@ impl VirtualCPU {
             if cancel_run_requested.load() {
                 #[cfg(target_os = "linux")]
                 run_cancelled.store(true);
+                int_counter_inc!(&NumberOfCancelledGuestExecutions);
                 log_then_return!(ExecutionCanceledByHost());
             }
 
@@ -605,6 +628,7 @@ impl VirtualCPU {
                     // TODO: we should probably make the VM unusable after this
                     #[cfg(target_os = "linux")]
                     run_cancelled.store(true);
+                    int_counter_inc!(&NumberOfCancelledGuestExecutions);
                     log_then_return!(ExecutionCanceledByHost());
                 }
                 HyperlightExit::Unknown(reason) => {
@@ -623,7 +647,6 @@ pub(crate) mod tests {
         handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
         Hypervisor,
     };
-    use crate::Result;
     use crate::{
         mem::{
             layout::SandboxMemoryLayout,
@@ -632,9 +655,10 @@ pub(crate) mod tests {
             ptr_offset::Offset,
         },
         new_error,
-        sandbox::{mem_mgr::MemMgrWrapperGetter, uninitialized::GuestBinary, UninitializedSandbox},
+        sandbox::{uninitialized::GuestBinary, UninitializedSandbox},
         testing::dummy_guest_path,
     };
+    use crate::{sandbox::WrapperGetter, Result};
     use std::{path::Path, time::Duration};
 
     pub(crate) fn test_initialise<NewFn>(
@@ -655,10 +679,7 @@ pub(crate) mod tests {
 
         let mut sandbox =
             UninitializedSandbox::new(GuestBinary::FilePath(filename.clone()), None, None, None)?;
-        let mem_mgr = {
-            let wrapper = sandbox.get_mem_mgr_wrapper_mut();
-            wrapper.as_mut()
-        };
+        let mem_mgr = sandbox.get_mgr_mut().as_mut();
         let shared_mem = &mem_mgr.shared_mem;
         let rsp_ptr = {
             let mem_size: u64 = shared_mem.mem_size().try_into()?;

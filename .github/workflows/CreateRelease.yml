@@ -5,7 +5,6 @@
 name: Create a Release
 
 on:
-  create:
   workflow_dispatch:
   push:
     branches: [ 'release/**', dev ]
@@ -126,6 +125,9 @@ jobs:
     - name: List downloaded artifacts
       run: ls -lR target/
       shell: bash
+    - name: List test guests
+      run: ls -lR src/tests/Guests
+      shell: bash
     # Publish the native guests so that its possible to use Hyperlight without building it.
     - name: Create Release 
       # Only create a release from tag if we are on a release branch
@@ -161,7 +163,7 @@ jobs:
         title: "Latest Development Build"
         files: |
           src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe
-          src/tests/Guests/dummyguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/dummyguest.exe          
+          src/tests/Guests/dummyguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/dummyguest.exe
           src/tests/Guests/simpleguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/simpleguest.exe
           src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
           src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz
@@ -187,8 +189,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
-      - name: cargo nightly update
-        run: just cargo-update  # fetch packages from ADO feeds with nightly toolchain
       - name: Build Debug
         run: cargo build --verbose
       - name: Build Release 
@@ -222,27 +222,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       ###
-      ### Build HyperlightSurrogate.exe
-      ###
-      - name: Add msbuild to PATH
-        uses: microsoft/setup-msbuild@v1.3
-        with:
-          msbuild-architecture: x64
-      - name: Build HyperlightSurrogate.exe Debug
-        run: msbuild -m hyperlight.sln -target:HyperlightSurrogate:Rebuild /p:Configuration=Debug
-        shell: pwsh
-      - name: Build HyperlightSurrogate.exe Release
-        run: msbuild -m hyperlight.sln -target:HyperlightSurrogate:Rebuild /p:Configuration=Release
-        shell: pwsh
-      ###
       ### Build rust stuff
       ###
       - uses: ./.github/actions/hyperlight-workflows-setup
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
-      - name: cargo nightly update
-        run: just cargo-update # fetch packages from ADO feeds with nightly toolchain
       - name: Build Debug
         run: cargo build --verbose
       - name: Build Release

@@ -1,13 +1,14 @@
+use super::host_funcs::HostFuncsWrapper;
+use super::mem_access::mem_access_handler_wrapper;
 use super::{
     host_funcs::default_writer_func,
     uninitialized_evolve::{evolve_impl_multi_use, evolve_impl_single_use},
 };
-use super::{host_funcs::HostFuncsWrapper, hypervisor::HypervisorWrapperMgr};
 use super::{hypervisor::HypervisorWrapper, run_options::SandboxRunOptions};
-use super::{mem_access::mem_access_handler_wrapper, mem_mgr::MemMgrWrapperGetter};
 use super::{mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper};
 use crate::mem::{mgr::SandboxMemoryManager, pe::pe_info::PEInfo};
 use crate::sandbox::SandboxConfiguration;
+use crate::sandbox::WrapperGetter;
 use crate::sandbox_state::transition::Noop;
 use crate::sandbox_state::{sandbox::EvolvableSandbox, transition::MutatingCallback};
 use crate::Result;
@@ -15,7 +16,7 @@ use crate::{
     error::HyperlightError::{CallEntryPointIsInProcOnly, GuestBinaryShouldBeAFile},
     new_error,
 };
-use crate::{func::host::HostFunction1, MultiUseSandbox};
+use crate::{func::host_functions::HostFunction1, MultiUseSandbox};
 use crate::{log_then_return, mem::ptr::RawPtr};
 use crate::{mem::mgr::STACK_COOKIE_LEN, SingleUseSandbox};
 use std::option::Option;
@@ -23,8 +24,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::{ffi::c_void, ops::Add};
-use tracing::instrument;
-use tracing_core::Level;
+use tracing::{instrument, Span};
 
 /// A preliminary `Sandbox`, not yet ready to execute guest code.
 ///
@@ -40,6 +40,25 @@ pub struct UninitializedSandbox<'a> {
     pub(crate) mgr: MemMgrWrapper,
     pub(super) hv: HypervisorWrapper<'a>,
     pub(crate) run_from_process_memory: bool,
+    /// Whether or not we're running in the context of C# code.
+    ///
+    /// This is a hack.
+    pub(crate) is_csharp: bool,
+}
+
+impl<'a> WrapperGetter<'a> for UninitializedSandbox<'a> {
+    fn get_mgr(&self) -> &MemMgrWrapper {
+        &self.mgr
+    }
+    fn get_mgr_mut(&mut self) -> &mut MemMgrWrapper {
+        &mut self.mgr
+    }
+    fn get_hv(&self) -> &HypervisorWrapper<'a> {
+        &self.hv
+    }
+    fn get_hv_mut(&mut self) -> &mut HypervisorWrapper<'a> {
+        &mut self.hv
+    }
 }
 
 impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for UninitializedSandbox<'a> {
@@ -138,11 +157,15 @@ impl<'a>
         self,
         _: Noop<UninitializedSandbox<'a>, SingleUseSandbox<'a>>,
     ) -> Result<SingleUseSandbox<'a>> {
-        // TODO: the following if statement is to stop evovle_impl being called when we run in proc (it ends up calling the entrypoint in the guest twice)
-        // Since we are not using the NOOP version of evolve in Hyperlight WASM we can use the if statement below to avoid the call to evolve_impl
-        // Once we fix up the Hypervisor C API this should be removed and replaced with the code commented out on line 106
-        let i_sbox = if self.run_from_process_memory {
-            Ok(SingleUseSandbox::from_uninit(self))
+        // TODO: the following if statement is to stop evolve_impl being called
+        // when we run in proc (it ends up calling the entrypoint in the guest
+        // twice)
+        // Since we are not using the NOOP version of evolve in Hyperlight WASM
+        // we can use the if statement below to avoid the call to evolve_impl
+        // Once we fix up the Hypervisor C API this should be removed and
+        // replaced with the code commented out on line 106
+        let i_sbox = if self.is_csharp {
+            Ok(SingleUseSandbox::from_uninit(self, None))
         } else {
             evolve_impl_single_use(self, None)
         }?;
@@ -166,37 +189,22 @@ impl<'a>
         self,
         _: Noop<UninitializedSandbox<'a>, MultiUseSandbox<'a>>,
     ) -> Result<MultiUseSandbox<'a>> {
-        // TODO: the following if statement is to stop evovle_impl being called when we run in proc (it ends up calling the entrypoint in the guest twice)
-        // Since we are not using the NOOP version of evolve in Hyperlight WASM we can use the if statement below to avoid the call to evolve_impl
-        // Once we fix up the Hypervisor C API this should be removed and replaced with the code commented out on line 106
-        let i_sbox = if self.run_from_process_memory {
-            Ok(MultiUseSandbox::from_uninit(self))
+        // TODO: the following if statement is to stop evovle_impl being called
+        // when we run in proc (it ends up calling the entrypoint in the guest
+        // twice)
+        //
+        // Since we are not using the NOOP version of evolve in Hyperlight WASM
+        // we can use the if statement below to avoid the call to evolve_impl
+        // Once we fix up the Hypervisor C API this should be removed and
+        // replaced with the code commented out on line 106
+        let i_sbox = if self.is_csharp {
+            Ok(MultiUseSandbox::from_uninit(self, None))
         } else {
             evolve_impl_multi_use(self, None)
         }?;
         // TODO: snapshot memory here so we can take the returned
         // Sandbox and revert back to an UninitializedSandbox
         Ok(i_sbox)
-    }
-}
-
-impl<'a> HypervisorWrapperMgr<'a> for UninitializedSandbox<'a> {
-    fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper<'a> {
-        &self.hv
-    }
-
-    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper<'a> {
-        &mut self.hv
-    }
-}
-
-impl<'a> MemMgrWrapperGetter for UninitializedSandbox<'a> {
-    fn get_mem_mgr_wrapper(&self) -> &MemMgrWrapper {
-        &self.mgr
-    }
-
-    fn get_mem_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper {
-        &mut self.mgr
     }
 }
 
@@ -217,7 +225,11 @@ impl<'a> UninitializedSandbox<'a> {
     /// The skip attribute is used to skip the guest binary from being printed in the tracing span.
     /// The name attribute is used to name the tracing span.
     /// The err attribute is used to emit an error should the Result be an error, it uses the std::`fmt::Debug trait` to print the error.
-    #[instrument(err(Debug, level = Level::ERROR), skip(guest_binary, host_print_writer), name = "UninitializedSandbox::new")]
+    #[instrument(
+        err(Debug),
+        skip(guest_binary, host_print_writer),
+        parent = Span::current()
+    )]
     pub fn new(
         guest_binary: GuestBinary,
         cfg: Option<SandboxConfiguration>,
@@ -281,11 +293,13 @@ impl<'a> UninitializedSandbox<'a> {
             mgr: mem_mgr_wrapper,
             hv,
             run_from_process_memory,
+            is_csharp: false,
         };
 
         // If we were passed a writer for host print register it otherwise use the default.
         match host_print_writer {
             Some(writer_func) => {
+                #[allow(clippy::arc_with_non_send_sync)]
                 let writer_func = Arc::new(Mutex::new(writer_func));
                 writer_func
                     .lock()
@@ -301,16 +315,43 @@ impl<'a> UninitializedSandbox<'a> {
         Ok(sandbox)
     }
 
+    /// Get a reference to the internally-stored `SandboxMemoryManager`.
+    ///
+    /// TODO: remove this after the C API function `sandbox_get_memory_mgr`
+    /// is removed.
+    pub fn get_mem_mgr_ref(&self) -> &SandboxMemoryManager {
+        self.get_mgr().as_ref()
+    }
+
+    /// Get a mutable reference to the internally-stored
+    /// `SandboxMemoryManager`
+    #[cfg(target_os = "windows")]
+    pub(crate) fn get_mem_mgr_mut(&mut self) -> &mut SandboxMemoryManager {
+        self.get_mgr_mut().as_mut()
+    }
+
+    /// Set the internal flag to indicate this `UninitializedSandbox`
+    /// is running in the context of C# code.
+    ///
+    /// This flag is used to indicate that Rust code should not call the
+    /// guest's initialise function, since it expects C# code to do so
+    /// manually.
+    pub fn set_is_csharp(&mut self) {
+        self.is_csharp = true
+    }
+
     pub(crate) fn from_multi_use(sbox: MultiUseSandbox<'a>) -> Self {
         Self {
             host_funcs: sbox.host_funcs.clone(),
             mgr: sbox.mem_mgr.clone(),
             hv: sbox.hv.clone(),
             run_from_process_memory: sbox.run_from_process_memory,
+            is_csharp: false,
         }
     }
     /// Clone the internally-stored `Arc` holding the `HostFuncsWrapper`
     /// managed by `self`, then return it.
+    // TODO: This function should not be public it is only used publically in the tests for the C API
     pub fn get_host_funcs(&self) -> Arc<Mutex<HostFuncsWrapper<'a>>> {
         self.host_funcs.clone()
     }
@@ -346,7 +387,7 @@ impl<'a> UninitializedSandbox<'a> {
         type EntryPoint = extern "C" fn(i64, u64, u32) -> i32;
         let entry_point: EntryPoint = {
             let addr = {
-                let mgr = self.get_mem_mgr_wrapper().as_ref();
+                let mgr = self.get_mgr().as_ref();
                 let offset = mgr.entrypoint_offset;
                 mgr.load_addr.clone().add(offset)
             };
@@ -355,6 +396,7 @@ impl<'a> UninitializedSandbox<'a> {
             std::mem::transmute(fn_location)
         };
         let peb_i64 = i64::try_from(u64::from(peb_address))?;
+
         entry_point(peb_i64, seed, page_size);
         Ok(())
     }
@@ -394,9 +436,7 @@ impl<'a> UninitializedSandbox<'a> {
                 &mut pe_info,
                 run_from_process_memory,
             )
-            .map_err(|_| {
-                new_error!("Only one instance of Sandbox is allowed when running from guest binary")
-            })
+            .map_err(|e| new_error!("{:#?}", e))
         } else {
             SandboxMemoryManager::load_guest_binary_into_memory(
                 cfg,
@@ -409,18 +449,15 @@ impl<'a> UninitializedSandbox<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::Result;
     #[cfg(target_os = "windows")]
     use crate::SandboxRunOptions;
     use crate::{
-        func::{
-            host::{HostFunction1, HostFunction2},
-            types::{ParameterValue, ReturnValue},
-        },
+        func::host_functions::{HostFunction1, HostFunction2},
+        sandbox::uninitialized::GuestBinary,
         sandbox::SandboxConfiguration,
-        sandbox::{mem_mgr::MemMgrWrapperGetter, uninitialized::GuestBinary},
         UninitializedSandbox,
     };
+    use crate::{sandbox::WrapperGetter, Result};
     use crate::{
         sandbox_state::sandbox::EvolvableSandbox,
         testing::{
@@ -431,6 +468,9 @@ mod tests {
     use crate::{sandbox_state::transition::MutatingCallback, sandbox_state::transition::Noop};
     use crate::{testing::log_values::try_to_strings, MultiUseSandbox};
     use crossbeam_queue::ArrayQueue;
+    use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
+        ParameterValue, ReturnValue,
+    };
     use hyperlight_testing::simple_guest_path;
     use log::Level;
     use serde_json::{Map, Value};
@@ -593,7 +633,7 @@ mod tests {
         let sbox =
             UninitializedSandbox::new(GuestBinary::FilePath(simple_guest_path), None, None, None)
                 .unwrap();
-        let res = sbox.get_mem_mgr_wrapper().check_stack_guard();
+        let res = sbox.get_mgr().check_stack_guard();
         assert!(
             res.is_ok(),
             "UninitializedSandbox::check_stack_guard returned an error"
@@ -1006,7 +1046,7 @@ mod tests {
             );
 
             let span_metadata = subscriber.get_span_metadata(2);
-            assert_eq!(span_metadata.name(), "UninitializedSandbox::new");
+            assert_eq!(span_metadata.name(), "new");
 
             // There should be one event for the error that the binary path does not exist
 
@@ -1095,14 +1135,14 @@ mod tests {
             let logcall = TEST_LOGGER.get_log_call(0).unwrap();
             assert_eq!(Level::Info, logcall.level);
 
-            assert!(logcall.args.starts_with("UninitializedSandbox::new; cfg"));
+            assert!(logcall.args.starts_with("new; cfg"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
 
             // Log record 2
 
             let logcall = TEST_LOGGER.get_log_call(1).unwrap();
             assert_eq!(Level::Trace, logcall.level);
-            assert_eq!(logcall.args, "-> UninitializedSandbox::new;");
+            assert_eq!(logcall.args, "-> new;");
             assert_eq!("tracing::span::active", logcall.target);
 
             // Log record 3
@@ -1116,14 +1156,14 @@ mod tests {
 
             let logcall = TEST_LOGGER.get_log_call(3).unwrap();
             assert_eq!(Level::Trace, logcall.level);
-            assert_eq!(logcall.args, "<- UninitializedSandbox::new;");
+            assert_eq!(logcall.args, "<- new;");
             assert_eq!("tracing::span::active", logcall.target);
 
             // Log record 6
 
             let logcall = TEST_LOGGER.get_log_call(4).unwrap();
             assert_eq!(Level::Trace, logcall.level);
-            assert_eq!(logcall.args, "-- UninitializedSandbox::new;");
+            assert_eq!(logcall.args, "-- new;");
             assert_eq!("tracing::span", logcall.target);
         }
         {
@@ -1144,54 +1184,24 @@ mod tests {
             );
             assert!(sbox.is_err());
 
-            // There should be five calls again as we changed the log LevelFilter
-            // to Info. We should see the 1 info level log seen in records 1 above.
-
-            // We should then see the span and the info log record from pe_info
-            // and then finally the 2 errors from pe info and sandbox as the
-            // error result is propagated back up the call stack
-
+            // There should be 2 calls this time when we change to the log
+            // LevelFilter to Info.
             let num_calls = TEST_LOGGER.num_log_calls();
-            assert_eq!(5, num_calls);
+            assert_eq!(2, num_calls);
 
             // Log record 1
 
             let logcall = TEST_LOGGER.get_log_call(0).unwrap();
             assert_eq!(Level::Info, logcall.level);
 
-            assert!(logcall.args.starts_with("UninitializedSandbox::new; cfg"));
+            assert!(logcall.args.starts_with("new; cfg"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
 
             // Log record 2
 
             let logcall = TEST_LOGGER.get_log_call(1).unwrap();
-            assert_eq!(Level::Info, logcall.level);
-            assert!(logcall.args.starts_with("from_file; filename="));
-            assert_eq!("hyperlight_host::mem::pe::pe_info", logcall.target);
-
-            // Log record 3
-
-            let logcall = TEST_LOGGER.get_log_call(2).unwrap();
-            assert_eq!(Level::Info, logcall.level);
-            assert!(logcall.args.starts_with("Loading PE file from"));
-            assert_eq!("hyperlight_host::mem::pe::pe_info", logcall.target);
-
-            // Log record 4
-
-            let logcall = TEST_LOGGER.get_log_call(3).unwrap();
             assert_eq!(Level::Error, logcall.level);
-            assert!(logcall.args.starts_with(
-                "error=PEFileProcessingFailure(Malformed(\"DOS header is malformed (signature "
-            ));
-            assert_eq!("hyperlight_host::mem::pe::pe_info", logcall.target);
-
-            // Log record 5
-
-            let logcall = TEST_LOGGER.get_log_call(4).unwrap();
-            assert_eq!(Level::Error, logcall.level);
-            assert!(logcall.args.starts_with(
-                "error=PEFileProcessingFailure(Malformed(\"DOS header is malformed (signature "
-            ));
+            assert!(logcall.args.starts_with("error=IOError"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
         }
         {

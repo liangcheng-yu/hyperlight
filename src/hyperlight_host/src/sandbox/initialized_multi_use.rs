@@ -1,32 +1,33 @@
-use super::host_funcs::HostFuncsWrapper;
-use super::initialized_multi_use_release::{ShouldRelease, ShouldReset};
-use super::{guest_call_exec::ExecutingGuestCall, guest_funcs::dispatch_call_from_host};
-use crate::error::HyperlightError::GuestFunctionCallAlreadyInProgress;
+use super::metrics::SandboxMetric::CurrentNumberOfMultiUseSandboxes;
+use super::{host_funcs::HostFuncsWrapper, leaked_outb::LeakedOutBWrapper, WrapperGetter};
+use crate::func::call_ctx::MultiUseGuestCallContext;
+use crate::{int_gauge_dec, Result};
 use crate::{
-    func::{guest::GuestFunction, ParameterValue, ReturnType, ReturnValue},
     mem::ptr::{GuestPtr, RawPtr},
     sandbox_state::{
         sandbox::{DevolvableSandbox, Sandbox},
         transition::Noop,
     },
-    GuestMgr, HypervisorWrapper, HypervisorWrapperMgr, MemMgrWrapper, MemMgrWrapperGetter,
-    UninitializedSandbox,
+    HypervisorWrapper, MemMgrWrapper, UninitializedSandbox,
 };
-use crate::{log_then_return, Result};
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
+    ParameterValue, ReturnType, ReturnValue,
+};
 use std::sync::{Arc, Mutex};
-use tracing::instrument;
+use tracing::{instrument, Span};
 
 /// A sandbox that supports calling any number of guest functions, without
 /// any limits to how many
 #[derive(Clone)]
 pub struct MultiUseSandbox<'a> {
     pub(super) host_funcs: Arc<Mutex<HostFuncsWrapper<'a>>>,
-    needs_state_reset: bool,
-    executing_guest_call: ExecutingGuestCall,
-    num_runs: i32,
+    pub(crate) num_runs: i32,
     pub(super) mem_mgr: MemMgrWrapper,
     pub(super) run_from_process_memory: bool,
     pub(super) hv: HypervisorWrapper<'a>,
+    /// See the documentation for `SingleUseSandbox::_leaked_out_b` for
+    /// details on the purpose of this field.
+    _leaked_outb: Arc<Option<LeakedOutBWrapper<'a>>>,
 }
 
 impl<'a> MultiUseSandbox<'a> {
@@ -35,113 +36,140 @@ impl<'a> MultiUseSandbox<'a> {
     /// This function is not equivalent to doing an `evolve` from uninitialized
     /// to initialized, and is purposely not exposed publicly outside the crate
     /// (as a `From` implementation would be)
-    pub(super) fn from_uninit(val: UninitializedSandbox<'a>) -> MultiUseSandbox<'a> {
+    pub(super) fn from_uninit(
+        val: UninitializedSandbox<'a>,
+        leaked_outb: Option<LeakedOutBWrapper<'a>>,
+    ) -> MultiUseSandbox<'a> {
         Self {
             host_funcs: val.host_funcs,
-            needs_state_reset: false,
-            executing_guest_call: ExecutingGuestCall::new(0),
             num_runs: 0,
             mem_mgr: val.mgr,
             run_from_process_memory: val.run_from_process_memory,
             hv: val.hv,
+            _leaked_outb: Arc::new(leaked_outb),
         }
     }
 
-    /// Call the guest function called `func_name` with the given arguments
-    /// `args`, and expect the return value have the same type as
-    /// `func_ret_type`.
-    #[instrument]
+    /// Create a new `MultiUseCallContext` suitable for making 0 or more
+    /// calls to guest functions within the same context.
+    ///
+    /// Since this function consumes `self`, the returned
+    /// `MultiUseGuestCallContext` is guaranteed mutual exclusion for calling
+    /// functions within the sandbox. This guarantee is enforced at compile
+    /// time, and no locks, atomics, or any other mutual exclusion mechanisms
+    /// are used at rumtime.
+    ///
+    /// If you have called this function, have a `MultiUseGuestCallContext`,
+    /// and wish to "return" it to a `MultiUseSandbox`, call the `finish`
+    /// method on the context.
+    ///
+    /// /// Example usage (compiled as a "no_run" doctest since the test binary
+    /// will not be found):
+    ///
+    /// ```no_run
+    /// use hyperlight_host::sandbox::{UninitializedSandbox, MultiUseSandbox};
+    /// use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ReturnType, ParameterValue, ReturnValue};
+    /// use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
+    /// use hyperlight_host::sandbox_state::transition::Noop;
+    /// use hyperlight_host::GuestBinary;
+    ///
+    /// // First, create a new uninitialized sandbox, then evolve it to become
+    /// // an initialized, single-use one.
+    /// let u_sbox = UninitializedSandbox::new(
+    ///     GuestBinary::FilePath("some_guest_binary".to_string()),
+    ///     None,
+    ///     None,
+    ///     None,
+    /// ).unwrap();
+    /// let sbox: MultiUseSandbox = u_sbox.evolve(Noop::default()).unwrap();
+    /// // Next, create a new call context from the single-use sandbox.
+    /// // After this line, your code will not compile if you try to use the
+    /// // original `sbox` variable.
+    /// let mut ctx = sbox.new_call_context();
+    ///
+    /// // Do a guest call with the context. Assues that the loaded binary
+    /// // ("some_guest_binary") has a function therein called "SomeGuestFunc"
+    /// // that takes a single integer argument and returns an integer.
+    /// match ctx.call(
+    ///     "SomeGuestFunc",
+    ///     ReturnType::Int,
+    ///     Some(vec![ParameterValue::Int(1)])
+    /// ) {
+    ///     Ok(ReturnValue::Int(i)) => println!(
+    ///         "got successful return value {}",
+    ///         i,
+    ///     ),
+    ///     other => panic!(
+    ///         "failed to get return value as expected ({:?})",
+    ///         other,
+    ///     ),
+    /// };
+    /// // You can make further calls with the same context if you want.
+    /// // Otherwise, `ctx` will be dropped and all resources, including the
+    /// // underlying `MultiUseSandbox`, will be released and no further
+    /// // contexts can be created from that sandbox.
+    /// //
+    /// // If you want to avoid
+    /// // that behavior, call `finish` to convert the context back to
+    /// // the original `MultiUseSandbox`, as follows:
+    /// let _orig_sbox = ctx.finish();
+    /// // Now, you can operate on the original sandbox again (i.e. add more
+    /// // host functions etc...), create new contexts, and so on.
+    /// ```
+    #[instrument(skip_all, parent = Span::current())]
+    pub fn new_call_context(self) -> MultiUseGuestCallContext<'a> {
+        MultiUseGuestCallContext::start(self)
+    }
+
+    /// Convenience method for the following:
+    ///
+    /// `self.new_call_context()?.call(func_name, func_ret_type, args)`
+    #[instrument(err(Debug), skip(self, args), parent = Span::current())]
     pub fn call_guest_function_by_name(
-        &mut self,
+        self,
         func_name: &str,
         func_ret_type: ReturnType,
         args: Option<Vec<ParameterValue>>,
-    ) -> Result<ReturnValue> {
-        let should_reset = self.enter_method();
-
-        // We prefix the variable below w/ an underscore because it is
-        // 'technically' unused, as our purpose w/ it is just for it to
-        // go out of scope and call its' custom `Drop` `impl`.
-        let mut _sr = ShouldReset::new(should_reset, self.clone());
-
-        if should_reset {
-            self.reset_state()?;
-        }
-
-        dispatch_call_from_host(self, func_name, func_ret_type, args)
-    }
-
-    /// Execute the given callback function `func` in the context of a guest
-    /// function calling "session".
-    ///
-    /// The `func` parameter you pass will be called after `self` is prepared
-    /// to make 1 or more guest calls. Then, `func` will be called, and given
-    /// a `MultiUseSandbox` it can use to execute the needed guest calls.
-    /// After `func` returns, `self`'s state will be cleaned up, indicating
-    /// the execution is complete.
-    pub fn execute_in_host<Fn: GuestFunction<Arc<Mutex<MultiUseSandbox<'a>>>, Ret>, Ret>(
-        &mut self,
-        func: Fn,
-    ) -> Result<Ret> {
-        let sbox_arc = Arc::new(Mutex::new(self.clone()));
-        let mut sd = ShouldRelease::new(false, sbox_arc.clone());
-        if sbox_arc
-            .lock()?
-            .get_executing_guest_call_mut()
-            .compare_exchange(0, 1)?
-            != 0
-        {
-            log_then_return!(GuestFunctionCallAlreadyInProgress());
-        }
-
-        sd.toggle();
-        sbox_arc.lock()?.reset_state()?;
-
-        func.call(sbox_arc)
-        // ^^^ ensures that only one call can be made concurrently
-        // because `GuestFunction` is implemented for `Arc<Mutex<T>>`
-        // so we'll be locking on the function call. There are tests
-        // below that demonstrate this.
-    }
-
-    pub(super) fn set_needs_state_reset(&mut self, val: bool) {
-        self.needs_state_reset = val;
-    }
-
-    pub(super) fn get_executing_guest_call_mut(&mut self) -> &mut ExecutingGuestCall {
-        &mut self.executing_guest_call
+    ) -> Result<(Self, ReturnValue)> {
+        let mut ctx = self.new_call_context();
+        let res = ctx.call(func_name, func_ret_type, args)?;
+        let sbx = ctx.finish()?;
+        Ok((sbx, res))
     }
 
     /// Reset the Sandbox's state
-    pub(super) fn reset_state(&mut self) -> Result<()> {
+    pub(crate) fn reset_state(&mut self) -> Result<()> {
         self.restore_state()?;
         self.num_runs += 1;
 
         Ok(())
     }
 
-    /// Reset the internal guest function run counter to 0.
-    ///
-    /// TODO: this is a hack to allow hyperlight-wasm to properly
-    /// initialize its structures while also ensuring it can schedule
-    /// subsequent guest calls properly
-    pub fn reset_num_runs(&mut self) {
-        self.num_runs = 0
-    }
-
     /// Restore the Sandbox's state
     fn restore_state(&mut self) -> Result<()> {
-        if self.needs_state_reset {
-            let mem_mgr = self.mem_mgr.get_mgr_mut();
-            mem_mgr.restore_state()?;
-            if !self.run_from_process_memory {
-                let orig_rsp = self.hv.orig_rsp()?;
-                self.hv.reset_rsp(orig_rsp)?;
-            }
-            self.set_needs_state_reset(false);
+        let mem_mgr = self.mem_mgr.get_mgr_mut();
+        mem_mgr.restore_state()?;
+        if !self.run_from_process_memory {
+            let orig_rsp = self.hv.orig_rsp()?;
+            self.hv.reset_rsp(orig_rsp)?;
         }
 
         Ok(())
+    }
+}
+
+impl<'a> WrapperGetter<'a> for MultiUseSandbox<'a> {
+    fn get_mgr(&self) -> &MemMgrWrapper {
+        &self.mem_mgr
+    }
+    fn get_mgr_mut(&mut self) -> &mut MemMgrWrapper {
+        &mut self.mem_mgr
+    }
+    fn get_hv(&self) -> &HypervisorWrapper<'a> {
+        &self.hv
+    }
+    fn get_hv_mut(&mut self) -> &mut HypervisorWrapper<'a> {
+        &mut self.hv
     }
 }
 
@@ -160,60 +188,6 @@ impl<'a> std::fmt::Debug for MultiUseSandbox<'a> {
         f.debug_struct("MultiUseSandbox")
             .field("stack_guard", &self.mem_mgr.get_stack_cookie())
             .finish()
-    }
-}
-
-impl<'a> GuestMgr for MultiUseSandbox<'a> {
-    fn get_executing_guest_call(&self) -> &ExecutingGuestCall {
-        &self.executing_guest_call
-    }
-
-    fn get_executing_guest_call_mut(&mut self) -> &mut ExecutingGuestCall {
-        &mut self.executing_guest_call
-    }
-
-    fn increase_num_runs(&mut self) {
-        self.num_runs += 1
-    }
-
-    fn get_num_runs(&self) -> i32 {
-        self.num_runs
-    }
-
-    /// Checks if the `Sandbox` needs state resetting.
-    fn needs_state_reset(&self) -> bool {
-        self.needs_state_reset
-    }
-
-    fn set_needs_state_reset(&mut self, val: bool) {
-        self.needs_state_reset = val;
-    }
-
-    /// Get immutable reference as `Box<dyn GuestMgr>`
-    fn as_guest_mgr(&self) -> &dyn GuestMgr {
-        self
-    }
-
-    fn as_guest_mgr_mut(&mut self) -> &mut dyn GuestMgr {
-        self
-    }
-}
-
-impl<'a> HypervisorWrapperMgr<'a> for MultiUseSandbox<'a> {
-    fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper<'a> {
-        &self.hv
-    }
-    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper<'a> {
-        &mut self.hv
-    }
-}
-
-impl<'a> MemMgrWrapperGetter for MultiUseSandbox<'a> {
-    fn get_mem_mgr_wrapper(&self) -> &MemMgrWrapper {
-        &self.mem_mgr
-    }
-    fn get_mem_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper {
-        &mut self.mem_mgr
     }
 }
 
@@ -248,14 +222,8 @@ impl<'a>
     }
 }
 
-/// This `Drop` implementation is applicable to in-process execution only,
-/// and thus is applicable to windows builds only.
-///
-/// See the `super::initialized::drop_impl` method for more detail on why
-/// this exists and how it works.
-#[cfg(target_os = "windows")]
 impl<'a> Drop for MultiUseSandbox<'a> {
     fn drop(&mut self) {
-        super::initialized::drop_impl(self.mem_mgr.as_ref())
+        int_gauge_dec!(&CurrentNumberOfMultiUseSandboxes);
     }
 }

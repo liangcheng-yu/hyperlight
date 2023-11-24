@@ -4,7 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
+# Cargo will complain about this with the message
+# warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+# However this should not be removed and placed in the workspace Cargo.toml file
+# see https://github.com/rust-lang/cargo/issues/8264 for the reason why
 [profile.release]         
 panic = 'abort'         # Always abort, this is mainly to ensure that panics cannot unwind across FFI boundaries.
 
@@ -15,6 +18,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 hyperlight_host = { path = "../hyperlight_host", version = "*", registry = "hyperlight_packages" }
+hyperlight_flatbuffers = { path = "../hyperlight_flatbuffers", version = "*", registry = "hyperlight_packages" }
 tracing-subscriber = { version = "0.3.17", features = ["json"] }
 anyhow = { version = "1.0.72" }
 cfg-if = { version = "1.0.0" }

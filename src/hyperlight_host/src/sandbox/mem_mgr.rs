@@ -3,19 +3,10 @@ use crate::mem::{
     mgr::{SandboxMemoryManager, STACK_COOKIE_LEN},
 };
 use crate::Result;
-use tracing::instrument;
+use tracing::{instrument, Span};
 
 /// StackCookie
 pub type StackCookie = [u8; STACK_COOKIE_LEN];
-
-/// Convenience wrapper around a sandbox's memory management functionality,
-/// intended for general use when constructing sandboxes.
-pub trait MemMgrWrapperGetter {
-    /// Get an immutable reference to the internally stored `MemMgrWrapper`
-    fn get_mem_mgr_wrapper(&self) -> &MemMgrWrapper;
-    /// Get a mutable reference to the internally stored `MemMgrWrapper`
-    fn get_mem_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper;
-}
 
 #[derive(Clone)]
 /// A container with methods for accessing `SandboxMemoryManager` and other
@@ -43,7 +34,7 @@ impl MemMgrWrapper {
     /// Return `Ok(true)` if the given cookie matches the one in guest memory,
     /// and `Ok(false)` otherwise. Return `Err` if it could not be found or
     /// there was some other error.
-    #[instrument(err(Debug), skip(self))]
+    #[instrument(err(Debug), skip_all, parent = Span::current())]
     pub fn check_stack_guard(&self) -> Result<bool> {
         self.get_mgr().check_stack_guard(*self.get_stack_cookie())
     }

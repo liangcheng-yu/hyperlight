@@ -6,16 +6,13 @@ clang-checks := if os() == "windows" { "-Werror -Wunused-variable -Werror=sign-c
 valgrind-command := if os() == "windows" { "echo 'valgrind not supported on windows'" } else { "./scripts/valgrind-command.sh" }
 test-command := if os() == "windows" { "./scripts/test-command.bat" } else { "./scripts/test-command.sh" }
 gen-suppressions:= if os() == "windows" { " " } else { "GEN_SUPPRESSIONS_ON=1 LOG_FILE_ON=1" }
+set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
+set fallback
 
 default-target:= "debug"
 
-cargo-update:
-    # run cargo update --dry-run with nightly toolchain to pull deps from private cargo feeds
-    # but do not actually perform any updates
-    cargo +nightly update --dry-run
-
-build target=default-target: cargo-update
-    cargo build --verbose --profile={{ if target == "debug" {"dev"} else { target } }}
+build target=default-target:
+    just build-rust {{target}}
 
 build-test-rust target=default-target:  (build target)
     # tracing tests cannot run with other tests

@@ -19,6 +19,7 @@ valgrind ${GEN_SUPPRESSIONS} ${LOG_FILE} \
 -s \
 --suppressions=./valgrind_suppressions/minimal.supp \
 --suppressions=./valgrind_suppressions/hyperv_linux.supp \
+--suppressions=./valgrind_suppressions/prometheus.supp \
 ./bin/test_c.out \
 --log-visible info \
 --show-stderr

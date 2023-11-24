@@ -1,11 +1,15 @@
-use super::guest_funcs::dispatch_call_from_host;
-use crate::HypervisorWrapperMgr;
-use crate::MemMgrWrapperGetter;
+use tracing::{instrument, Span};
+
+use super::metrics::SandboxMetric::CurrentNumberOfSingleUseSandboxes;
+use super::{leaked_outb::LeakedOutBWrapper, WrapperGetter};
+use crate::func::call_ctx::SingleUseGuestCallContext;
+use crate::int_gauge_dec;
 use crate::Result;
 use crate::{
-    func::{guest::GuestFunction, ParameterValue, ReturnType, ReturnValue},
-    sandbox_state::sandbox::Sandbox,
-    HypervisorWrapper, MemMgrWrapper, UninitializedSandbox,
+    sandbox_state::sandbox::Sandbox, HypervisorWrapper, MemMgrWrapper, UninitializedSandbox,
+};
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
+    ParameterValue, ReturnType, ReturnValue,
 };
 use std::marker::PhantomData;
 
@@ -14,12 +18,22 @@ use std::marker::PhantomData;
 pub struct SingleUseSandbox<'a> {
     pub(super) mem_mgr: MemMgrWrapper,
     pub(super) hv: HypervisorWrapper<'a>,
-    /// Adding this field to ensure `SingleUseSandbox` is not `Send` and
-    /// instances thereof cannot be sent to a different thread
+    /// This field is a "marker type" to ensure `SingleUseSandbox` is not
+    /// `Send` and thus, instances thereof cannot be sent to a different
+    /// thread. This feature is important because the owner of a single-use
+    /// sandbox should be the only owner, and not be able to move or share
+    /// it across threads.
     ///
     /// See https://github.com/rust-lang/rust/issues/68318#issuecomment-1066221968
-    /// for more detail
+    /// for more detail on marker types.
     make_unsend: PhantomData<*mut ()>,
+    /// This field is a representation of a leaked outb handler. It exists
+    /// only to support in-process mode, and will be set to None in all
+    /// other cases. It is never actually used, and is only here so it
+    /// will be dropped and the leaked memory is cleaned up.
+    ///
+    /// See documentation for `LeakedOutB` for more details
+    _leaked_outb: Option<LeakedOutBWrapper<'a>>,
 }
 
 impl<'a> SingleUseSandbox<'a> {
@@ -34,43 +48,109 @@ impl<'a> SingleUseSandbox<'a> {
     /// function not publicly exposed. Finally, although it looks like it should be
     /// in a `From` implementation, it is purposely not, because external
     /// users would then see it and be able to use it.
-    pub(super) fn from_uninit(val: UninitializedSandbox<'a>) -> SingleUseSandbox<'a> {
+    pub(super) fn from_uninit(
+        val: UninitializedSandbox<'a>,
+        leaked_outb: Option<LeakedOutBWrapper<'a>>,
+    ) -> SingleUseSandbox<'a> {
         Self {
             mem_mgr: val.mgr,
             hv: val.hv,
             make_unsend: PhantomData,
+            _leaked_outb: leaked_outb,
         }
     }
 
-    /// Call the guest function called `func_name` with the given arguments
-    /// `args`, and expect the return value have the same type as
-    /// `func_ret_type`.
+    /// Create a new `SingleUseCallContext` suitable for making 0 or more
+    /// calls to guest functions within the same context.
+    ///
+    /// Since this function consumes `self`, the returned
+    /// `SingleUseGuestCallContext` is guaranteed mutual exclusion for calling
+    /// functions within the sandbox. This guarantee is enforced at compile
+    /// time, and no locks, atomics, or any other mutual exclusion mechanisms
+    /// are used at runtime.
+    ///
+    /// Since this is a `SingleUseSandbox`, the returned
+    /// context cannot be converted back into the original `SingleUseSandbox`.
+    /// When it's dropped, all the resources of the context and sandbox are
+    /// released at once.
+    ///
+    /// Example usage (compiled as a "no_run" doctest since the test binary
+    /// will not be found):
+    ///
+    /// ```no_run
+    /// use hyperlight_host::sandbox::{UninitializedSandbox, SingleUseSandbox};
+    /// use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ReturnType, ParameterValue, ReturnValue};
+    /// use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
+    /// use hyperlight_host::sandbox_state::transition::Noop;
+    /// use hyperlight_host::GuestBinary;
+    ///
+    /// // First, create a new uninitialized sandbox, then evolve it to become
+    /// // an initialized, single-use one.
+    /// let u_sbox = UninitializedSandbox::new(
+    ///     GuestBinary::FilePath("some_guest_binary".to_string()),
+    ///     None,
+    ///     None,
+    ///     None,
+    /// ).unwrap();
+    /// let sbox: SingleUseSandbox = u_sbox.evolve(Noop::default()).unwrap();
+    /// // Next, create a new call context from the single-use sandbox.
+    /// // After this line, your code will not compile if you try to use the
+    /// // original `sbox` variable.
+    /// let mut ctx = sbox.new_call_context();
+    ///
+    /// // Do a guest call with the context. Assues that the loaded binary
+    /// // ("some_guest_binary") has a function therein called "SomeGuestFunc"
+    /// // that takes a single integer argument and returns an integer.
+    /// match ctx.call(
+    ///     "SomeGuestFunc",
+    ///     ReturnType::Int,
+    ///     Some(vec![ParameterValue::Int(1)])
+    /// ) {
+    ///     Ok(ReturnValue::Int(i)) => println!(
+    ///         "got successful return value {}",
+    ///         i,
+    ///     ),
+    ///     other => panic!(
+    ///         "failed to get return value as expected ({:?})",
+    ///         other,
+    ///     ),
+    /// }
+    /// // You can make further calls with the same context if you want.
+    /// // Otherwise, `ctx` will be dropped and all resources, including the
+    /// // underlying `SingleUseSandbox`, will be released and no further
+    //  // contexts can be created from that sandbox.
+    /// ```
+    #[instrument(skip_all, parent = Span::current())]
+    pub fn new_call_context(self) -> SingleUseGuestCallContext<'a> {
+        SingleUseGuestCallContext::start(self)
+    }
+
+    /// Convenience for the following:
+    ///
+    /// `self.new_call_context().call(name, ret, args)`
+    #[instrument(err(Debug), skip(self,args), parent = Span::current())]
     pub fn call_guest_function_by_name(
-        mut self,
+        self,
         name: &str,
         ret: ReturnType,
         args: Option<Vec<ParameterValue>>,
     ) -> Result<ReturnValue> {
-        dispatch_call_from_host(&mut self, name, ret, args)
+        self.new_call_context().call(name, ret, args)
     }
+}
 
-    /// Execute the given callback function `func` in the context of a guest
-    /// calling "session".
-    ///
-    /// The `func` parameter you pass will be called after `self` is prepared
-    /// to make 1 or more guest calls. Then, `func` will be called, and given
-    /// a `MultiUseSandbox` it can use to execute the needed guest calls.
-    /// After `func` returns, `self`'s state will be cleaned up, indicating
-    /// the execution is complete.
-    ///
-    /// Importantly, this function's first parameter is `self`, which means
-    /// it "consumes" `self` when you call it, and the rust compiler will
-    /// not allow you to use it thereafter.
-    pub fn execute_in_host<Fn: GuestFunction<SingleUseSandbox<'a>, Ret>, Ret>(
-        self,
-        func: Fn,
-    ) -> Result<Ret> {
-        func.call(self)
+impl<'a> WrapperGetter<'a> for SingleUseSandbox<'a> {
+    fn get_mgr(&self) -> &MemMgrWrapper {
+        &self.mem_mgr
+    }
+    fn get_mgr_mut(&mut self) -> &mut MemMgrWrapper {
+        &mut self.mem_mgr
+    }
+    fn get_hv(&self) -> &HypervisorWrapper<'a> {
+        &self.hv
+    }
+    fn get_hv_mut(&mut self) -> &mut HypervisorWrapper<'a> {
+        &mut self.hv
     }
 }
 
@@ -92,32 +172,57 @@ impl<'a> std::fmt::Debug for SingleUseSandbox<'a> {
     }
 }
 
-impl<'a> HypervisorWrapperMgr<'a> for SingleUseSandbox<'a> {
-    fn get_hypervisor_wrapper(&self) -> &HypervisorWrapper<'a> {
-        &self.hv
-    }
-    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper<'a> {
-        &mut self.hv
-    }
-}
-
-impl<'a> MemMgrWrapperGetter for SingleUseSandbox<'a> {
-    fn get_mem_mgr_wrapper(&self) -> &MemMgrWrapper {
-        &self.mem_mgr
-    }
-    fn get_mem_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper {
-        &mut self.mem_mgr
-    }
-}
-
-/// This `Drop` implementation is applicable to in-process execution only,
-/// and thus is applicable to windows builds only.
-///
-/// See the `super::initialized::drop_impl` method for more detail on why
-/// this exists and how it works.
-#[cfg(target_os = "windows")]
 impl<'a> Drop for SingleUseSandbox<'a> {
     fn drop(&mut self) {
-        super::initialized::drop_impl(self.mem_mgr.as_ref())
+        int_gauge_dec!(&CurrentNumberOfSingleUseSandboxes);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::sandbox::SandboxConfiguration;
+    use crate::sandbox_state::sandbox::EvolvableSandbox;
+    use crate::{sandbox_state::transition::Noop, GuestBinary};
+    use crate::{SingleUseSandbox, UninitializedSandbox};
+    use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
+    use hyperlight_testing::simple_guest_path;
+
+    // Test to ensure that many (1000) function calls can be made in a call context with a small stack (1K) and heap(14K).
+    // This test effectively ensures that the stack is being properly reset after each call and we are not leaking memory in the Guest.
+    #[test]
+    fn test_with_small_stack_and_heap() {
+        let sbox1: SingleUseSandbox = {
+            let path = simple_guest_path().unwrap();
+            let u_sbox = UninitializedSandbox::new(
+                GuestBinary::FilePath(path),
+                Some(SandboxConfiguration::new(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    Some(1024),
+                    Some(14 * 1024),
+                    None,
+                    None,
+                )),
+                None,
+                None,
+            )
+            .unwrap();
+            u_sbox.evolve(Noop::default())
+        }
+        .unwrap();
+
+        let mut ctx = sbox1.new_call_context();
+
+        for _ in 0..1000 {
+            ctx.call(
+                "StackAllocate",
+                ReturnType::Int,
+                Some(vec![ParameterValue::Int(1)]),
+            )
+            .unwrap();
+        }
     }
 }

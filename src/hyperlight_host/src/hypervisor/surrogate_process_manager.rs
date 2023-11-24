@@ -23,25 +23,25 @@ use windows::Win32::System::Threading::{
     CreateProcessA, CREATE_SUSPENDED, PROCESS_INFORMATION, STARTUPINFOA,
 };
 
-// Use the rust-embed crate to embed the HyperlightSurrogate.exe
+// Use the rust-embed crate to embed the hyperlights_surrogate.exe
 // binary in the hyperlight_host library to make dependency management easier.
-// $SURROGATE_DIR is set by hyperlight_host's build.rs script.
+// $HYPERLIGHT_SURROGATE_DIR is set by hyperlight_host's build.rs script.
 // https://docs.rs/rust-embed/latest/rust_embed/
 #[derive(RustEmbed)]
-#[folder = "bin/x64/$PROFILE"]
-#[include = "HyperlightSurrogate.exe"]
+#[folder = "$HYPERLIGHT_SURROGATE_DIR"]
+#[include = "hyperlight_surrogate.exe"]
 struct Asset;
 
 /// This is the name of the surrogate process binary that will be used to create surrogate processes.
 /// The process does nothing , it just sleeps forever. Its only purpose is to provide a host for memory that will be mapped
 /// into the guest using the `WHvMapGpaRange2` API.
-pub(crate) const SURROGATE_PROCESS_BINARY_NAME: &str = "HyperlightSurrogate.exe";
+pub(crate) const SURROGATE_PROCESS_BINARY_NAME: &str = "hyperlight_surrogate.exe";
 
 /// The maximum number of surrogate processes that can be created.
 /// (This is a factor of limitations in the `WHvMapGpaRange2` API which only allows 512 different process handles).
 const NUMBER_OF_SURROGATE_PROCESSES: usize = 512;
 
-/// `SurrogateProcessManager` manages HyperlightSurrogate processes. These
+/// `SurrogateProcessManager` manages hyperlight_surrogate processes. These
 /// processes are required to allow multiple WHP Partitions to be created in a
 /// single process.
 ///
@@ -62,7 +62,7 @@ const NUMBER_OF_SURROGATE_PROCESSES: usize = 512;
 /// from/into the surrogate process in Sandbox before and after the VCPU is run.
 ///
 /// This struct deals with the creation/destruction of these surrogate
-/// processes (HyperlightSurrogate.exe) , pooling of the process handles, the
+/// processes (hyperlight_surrogate.exe) , pooling of the process handles, the
 /// distribution of these handles from the pool to a Hyperlight Sandbox
 /// instance and the return of the handle to the pool once a Sandbox instance
 /// is destroyed, it also allocates and frees memory in the surrogate process

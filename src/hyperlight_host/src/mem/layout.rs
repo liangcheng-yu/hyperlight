@@ -388,8 +388,8 @@ impl SandboxMemoryLayout {
         self.code_and_outb_pointer_offset
     }
 
-    /// Get the offset in guest memory to the guest dispatch function
-    /// pointer.
+    /// Get the offset in guest memory to where the guest dispatch function
+    /// pointer is written
     pub(crate) fn get_dispatch_function_pointer_offset(&self) -> Offset {
         self.guest_dispatch_function_ptr_offset
     }

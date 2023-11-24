@@ -26,5 +26,8 @@
     "byte_array_tests.h": "c",
     "outb_handler.h": "c"
   },
-  "rust-analyzer.showUnlinkedFileNotification": false
+"rust-analyzer.showUnlinkedFileNotification": false,
+"githubPullRequests.ignoredPullRequestBranches": [
+    "dev"
+]
 }

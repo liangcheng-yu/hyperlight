@@ -28,3 +28,8 @@ update-windows:
 	@echo "Updating simpleguest binary"
 	@del /F /Q ..\..\Hyperlight.Tests\bin\debug\net6.0\simpleguest.exe
 	@move /Y ..\..\Guests\simpleguest\x64\debug\simpleguest_new.exe ..\..\Hyperlight.Tests\bin\debug\net6.0\simpleguest.exe
+
+.PHONY: new-link-windows
+new-link-windows:
+	@echo "Linking simpleguest"
+	@link.exe /NOLOGO /NXCOMPAT /SAFESEH:NO /RELEASE /ENTRY:"entrypoint" /SUBSYSTEM:NATIVE ..\..\..\..\target\x86_64-pc-windows-msvc\debug\libhyperlight_guest.rlib /OUT:"..\..\..\..\target\x86_64-pc-windows-msvc\debug\simpleguest.exe" /ERRORREPORT:NONE /ALIGN:512 /NODEFAULTLIB /HEAP:"131072,131072" /DYNAMICBASE /STACK:"65536,65536" /MACHINE:X64

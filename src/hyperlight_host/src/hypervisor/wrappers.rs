@@ -17,7 +17,8 @@ impl TryFrom<&str> for PSTRWrapper {
 
 impl Drop for PSTRWrapper {
     fn drop(&mut self) {
-        unsafe { CString::from_raw(self.0) };
+        let cstr = unsafe { CString::from_raw(self.0) };
+        drop(cstr);
     }
 }
 
