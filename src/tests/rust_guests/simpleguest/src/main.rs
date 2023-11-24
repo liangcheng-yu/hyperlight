@@ -30,7 +30,6 @@ pub extern "C" fn guest_dispatch_function() -> Vec<u8> {
     [0; 0].to_vec()
 }
 
-
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}

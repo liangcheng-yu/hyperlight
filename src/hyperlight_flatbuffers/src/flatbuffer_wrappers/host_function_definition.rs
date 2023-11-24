@@ -1,4 +1,7 @@
-use alloc::{string::{String, ToString}, vec::Vec};
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 use anyhow::{anyhow, Error, Result};
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
 use tracing::{instrument, Span};
@@ -107,7 +110,8 @@ impl TryFrom<&[u8]> for HostFunctionDefinition {
     type Error = Error;
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: &[u8]) -> Result<Self> {
-        let fb_host_function_definition = flatbuffers::root::<FbHostFunctionDefinition<'_>>(value).unwrap();
+        let fb_host_function_definition =
+            flatbuffers::root::<FbHostFunctionDefinition<'_>>(value).unwrap();
         Self::try_from(&fb_host_function_definition)
     }
 }

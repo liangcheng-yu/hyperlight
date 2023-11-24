@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use core::ffi::{c_void, c_char};
+use core::ffi::{c_char, c_void};
 
 #[repr(C)]
 pub struct HostFunctionDefinitions {

@@ -5,7 +5,10 @@ use tracing::{instrument, Span};
 use crate::flatbuffers::hyperlight::generated::{
     size_prefixed_root_as_guest_error, ErrorCode, GuestError as GuestErrorFb, GuestErrorArgs,
 };
-use alloc::{string::{String, ToString}, vec::Vec};
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 use anyhow::{bail, Error, Result};
 
 /// The error code of a `GuestError`.

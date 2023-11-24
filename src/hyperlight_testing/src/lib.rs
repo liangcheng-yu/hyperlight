@@ -33,7 +33,13 @@ pub fn test_bin_base() -> PathBuf {
 
     join_to_path(
         MANIFEST_DIR,
-        vec!["..", "..", "target", "x86_64-pc-windows-msvc", build_dir_selector],
+        vec![
+            "..",
+            "..",
+            "target",
+            "x86_64-pc-windows-msvc",
+            build_dir_selector,
+        ],
     )
 }
 

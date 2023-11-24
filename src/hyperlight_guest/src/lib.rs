@@ -2,8 +2,8 @@
 
 extern crate alloc;
 
-pub mod hyperlight_peb;
 pub mod guest;
+pub mod hyperlight_peb;
 
 #[no_mangle]
 pub extern "C" fn __CxxFrameHandler3() {}

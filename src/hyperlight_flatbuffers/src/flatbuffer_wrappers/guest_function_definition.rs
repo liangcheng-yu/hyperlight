@@ -1,4 +1,7 @@
-use alloc::{string::{String, ToString}, vec::Vec};
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 use anyhow::{anyhow, Error, Result};
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
 use tracing::{instrument, Span};

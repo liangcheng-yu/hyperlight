@@ -14,7 +14,14 @@ use alloc::{string::ToString, vec::Vec};
 
 use buddy_system_allocator::LockedHeap;
 use hyperlight_flatbuffers::{
-    flatbuffer_wrappers::{function_types::{ReturnType, ParameterType}, guest_function_definition::GuestFunctionDefinition},
+    flatbuffer_wrappers::guest_function_details::GuestFunctionDetails,
+    flatbuffers::hyperlight::generated::size_prefixed_root_as_function_call_result,
+};
+use hyperlight_flatbuffers::{
+    flatbuffer_wrappers::{
+        function_types::{ParameterType, ReturnType},
+        guest_function_definition::GuestFunctionDefinition,
+    },
     flatbuffers::hyperlight::generated::{
         hlint as Fbhlint, hlintArgs as FbhlintArgs, ErrorCode as FbErrorCode,
         FunctionCall as FbFunctionCall, FunctionCallResult as FbFunctionCallResult,
@@ -23,10 +30,6 @@ use hyperlight_flatbuffers::{
         GuestFunctionDetails as FbGuestFunctionDetails, ParameterType as FbParameterType,
         ParameterValue as FbParameterValue, ReturnValue as FbReturnValue,
     },
-};
-use hyperlight_flatbuffers::{
-    flatbuffer_wrappers::guest_function_details::GuestFunctionDetails,
-    flatbuffers::hyperlight::generated::size_prefixed_root_as_function_call_result,
 };
 
 #[global_allocator]
