@@ -205,14 +205,23 @@ mod tests {
     fn guest_bin() -> GuestBinary {
         GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing"))
     }
+
     #[track_caller]
     fn test_call_guest_function_by_name(u_sbox: UninitializedSandbox<'_>) {
         let mu_sbox: MultiUseSandbox<'_> = u_sbox.evolve(MutatingCallback::from(init)).unwrap();
 
+        let msg = "Hello, World!!\n".to_string();
+        let len = msg.len() as i32;
         let mut ctx = mu_sbox.new_call_context();
-        let result = ctx.call("small_var", ReturnType::Int, None).unwrap();
+        let result = ctx
+            .call(
+                "PrintOutput",
+                ReturnType::Int,
+                Some(vec![ParameterValue::String(msg.clone())]),
+            )
+            .unwrap();
 
-        assert_eq!(result, ReturnValue::Int(1024));
+        assert_eq!(result, ReturnValue::Int(len));
     }
 
     fn call_guest_function_by_name_hv() {
