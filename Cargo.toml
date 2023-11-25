@@ -1,12 +1,20 @@
 [workspace]
 resolver = "2"
+default-members = [
+    "src/hyperlight_capi",
+    "src/hyperlight_host",
+    "src/hyperlight_testing",
+    "src/hyperlight_flatbuffers",
+]
 members = [
     "src/hyperlight_capi",
     "src/hyperlight_host",
     "src/hyperlight_testing",
     "src/hyperlight_guest",
-    "src/hyperlight_flatbuffers",
 ]
+# Because hyperlight_guest has custom linker flags,
+# we exclude it from the default-members list
+# to avoid cargo test failing on it.
 
 # this will generate symbols for release builds
 # so is handy for debugging issues in release builds
