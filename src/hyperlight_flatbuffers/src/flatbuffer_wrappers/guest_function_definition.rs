@@ -82,24 +82,14 @@ impl GuestFunctionDefinition {
         //   specifying the length of that vector.
         let mut parameter_types_iter = parameter_types.iter();
         while let Some(parameter_type) = parameter_types_iter.next() {
-            match parameter_type {
-                ParameterType::VecBytes => {
-                    if let Some(next_parameter_type) = parameter_types_iter.next() {
-                        match next_parameter_type {
-                            ParameterType::Int => {}
-                            _ => {
-                                return Err(anyhow!(
-                                    "Expected integer parameter after VecBytes parameter"
-                                ))
-                            }
-                        }
-                    } else {
-                        return Err(anyhow!(
-                            "Expected integer parameter after VecBytes parameter"
-                        ));
-                    }
+            if parameter_type == &ParameterType::VecBytes {
+                if let Some(ParameterType::Int) = parameter_types_iter.next() {
+                    continue;
+                } else {
+                    return Err(anyhow!(
+                        "Expected integer parameter after VecBytes parameter"
+                    ));
                 }
-                _ => {}
             }
         }
 

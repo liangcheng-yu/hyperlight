@@ -62,7 +62,7 @@ pub(crate) fn call_guest_function(function_call: &FunctionCall) -> Vec<u8> {
             .map_err(|e| set_error(ErrorCode::ArrayLengthParamIsMissing, &e.to_string()))
             .unwrap();
 
-        return p_function();
+        p_function()
     } else {
         extern "C" {
             #[allow(improper_ctypes)]
@@ -70,9 +70,7 @@ pub(crate) fn call_guest_function(function_call: &FunctionCall) -> Vec<u8> {
         }
 
         // If the function was not found call the guest_dispatch_function method.
-        unsafe {
-            return guest_dispatch_function();
-        }
+        unsafe { guest_dispatch_function() }
     }
 }
 

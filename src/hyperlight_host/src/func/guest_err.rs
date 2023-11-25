@@ -31,7 +31,10 @@ pub(super) fn check_for_guest_error(mgr: &MemMgrWrapper) -> Result<()> {
         }
         _ => {
             increment_guest_error_count(&guest_err.clone());
-            log_then_return!(GuestError(guest_err.code.clone().into(), guest_err.message.clone()));
+            log_then_return!(GuestError(
+                guest_err.code.clone(),
+                guest_err.message.clone()
+            ));
         }
     }
 }

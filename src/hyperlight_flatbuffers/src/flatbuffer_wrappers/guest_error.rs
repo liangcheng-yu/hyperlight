@@ -140,16 +140,12 @@ impl From<ErrorCode> for String {
         match error_code {
             ErrorCode::NoError => "NoError".to_string(),
             ErrorCode::UnsupportedParameterType => "UnsupportedParameterType".to_string(),
-            ErrorCode::GuestFunctionNameNotProvided => {
-                "GuestFunctionNameNotProvided".to_string()
-            }
+            ErrorCode::GuestFunctionNameNotProvided => "GuestFunctionNameNotProvided".to_string(),
             ErrorCode::GuestFunctionNotFound => "GuestFunctionNotFound".to_string(),
             ErrorCode::GuestFunctionIncorrecNoOfParameters => {
                 "GuestFunctionIncorrecNoOfParameters".to_string()
             }
-            ErrorCode::GispatchFunctionPointerNotSet => {
-                "GispatchFunctionPointerNotSet".to_string()
-            }
+            ErrorCode::GispatchFunctionPointerNotSet => "GispatchFunctionPointerNotSet".to_string(),
             ErrorCode::OutbError => "OutbError".to_string(),
             ErrorCode::UnknownError => "UnknownError".to_string(),
             ErrorCode::StackOverflow => "StackOverflow".to_string(),

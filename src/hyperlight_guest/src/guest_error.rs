@@ -7,7 +7,7 @@ use crate::P_PEB;
 
 pub(crate) fn write_error(error_code: ErrorCode, message: Option<&str>) {
     let guest_error = GuestError::new(
-        error_code.into(),
+        error_code,
         message.map_or("".to_string(), |m| m.to_string()),
     );
     let guest_error_buffer: Vec<u8> = (&guest_error).try_into().unwrap();

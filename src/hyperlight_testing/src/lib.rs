@@ -33,13 +33,7 @@ pub fn test_bin_base() -> PathBuf {
 
     join_to_path(
         MANIFEST_DIR,
-        vec![
-            "..",
-            "tests",
-            "Hyperlight.Tests",
-            "bin",
-            build_dir_selector,
-        ],
+        vec!["..", "tests", "Hyperlight.Tests", "bin", build_dir_selector],
     )
 }
 
