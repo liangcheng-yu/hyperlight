@@ -55,6 +55,7 @@ pub extern "C" fn entrypoint(peb_address: u64, _seed: u64, ops: i32) -> i32 {
             RUNNING_IN_HYPERLIGHT = true;
         }
 
+        #[allow(clippy::fn_to_numeric_cast)]
         (*peb_ptr).guest_function_dispatch_ptr = dispatch_function as u64;
 
         reset_error();
