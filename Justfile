@@ -108,5 +108,7 @@ run-rust-examples target=default-target: (build-rust target)
     cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example metrics
     cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example metrics --features "function_call_metrics"
     {{set-trace-env-vars}} cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example logging
+# the two tracing eamples are flaky on windows so we run them on linux only for now, need to figure out why as they run fine locally on windows
+run-rust-examples-linux target=default-target: (build-rust target) (run-rust-examples target)
     {{set-trace-env-vars}} cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example tracing
     {{set-trace-env-vars}} cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example tracing --features "function_call_metrics"

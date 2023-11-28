@@ -7,20 +7,21 @@ use crate::Result;
 /// `HypervLinuxDriver`
 #[repr(C)]
 #[derive(Default, Debug)]
+// TODO: Once CAPI is complete this does not need to be public
 pub struct HypervisorAddrs {
     /// The location of the first line of code in guest memory
     ///
     /// This generally corresponds to the instruction pointer
     /// (rip).
-    pub entrypoint: u64,
+    pub(crate) entrypoint: u64,
     /// The number of page frames that should exist.
     /// One frame = 4k, or 0x1000 bits.
-    pub guest_pfn: u64,
+    pub(crate) guest_pfn: u64,
     /// The location of the start of memory on the host.
     ///
     /// TODO: instead of this, just put a &SharedMemory in here.
     /// this should be done after the Rust rewrite is complete
-    pub host_addr: u64,
+    pub(crate) host_addr: u64,
     /// Total size of the memory that starts at `host_addr`.
     ///
     /// You must own all bytes in memory in the range
@@ -28,7 +29,7 @@ pub struct HypervisorAddrs {
     ///
     /// TODO: instead of this, just put a &SharedMemory in here.
     /// this should be done after the Rust rewrite is complete
-    pub mem_size: u64,
+    pub(crate) mem_size: u64,
 }
 
 impl HypervisorAddrs {
