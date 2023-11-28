@@ -52,7 +52,7 @@ pub extern "C" fn entrypoint(peb_address: u64, _seed: u64, ops: i32) -> i32 {
         OUTB_PTR_WITH_CONTEXT = Some(outb_ptr_with_context as fn(*mut c_void, u16, u8));
 
         if !(*peb_ptr).pOutb.is_null() {
-            RUNNING_IN_HYPERLIGHT = true;
+            RUNNING_IN_HYPERLIGHT = false;
         }
 
         (*peb_ptr).guest_function_dispatch_ptr = dispatch_function as usize as u64;
@@ -64,6 +64,5 @@ pub extern "C" fn entrypoint(peb_address: u64, _seed: u64, ops: i32) -> i32 {
         finalise_function_table();
     }
 
-    // halt?
     0
 }

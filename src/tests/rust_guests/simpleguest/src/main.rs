@@ -4,7 +4,10 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use hyperlight_guest::{guest_functions::{create_function_definition, register_function}, flatbuffer_utils::get_flatbuffer_result_from_int};
+use hyperlight_guest::{
+    flatbuffer_utils::get_flatbuffer_result_from_int,
+    guest_functions::{create_function_definition, register_function},
+};
 
 extern crate hyperlight_guest;
 

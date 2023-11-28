@@ -436,7 +436,7 @@ impl<'a> UninitializedSandbox<'a> {
                 &mut pe_info,
                 run_from_process_memory,
             )
-            .map_err(|e| new_error!("{:#?}", e))
+            .map_err(|_: crate::HyperlightError| new_error!("Only one instance of Sandbox is allowed when running from guest binary"))
         } else {
             SandboxMemoryManager::load_guest_binary_into_memory(
                 cfg,

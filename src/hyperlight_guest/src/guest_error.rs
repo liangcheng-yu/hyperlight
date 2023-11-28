@@ -33,7 +33,14 @@ pub(crate) fn write_error(error_code: ErrorCode, message: Option<&str>) {
 }
 
 pub(crate) fn reset_error() {
-    write_error(ErrorCode::NoError, None);
+    unsafe {
+        let peb_ptr = P_PEB.unwrap();
+        core::ptr::write_bytes(
+            (*peb_ptr).pGuestErrorBuffer,
+            0,
+            (*peb_ptr).guestErrorBufferSize as usize,
+        );
+    }
 }
 
 pub(crate) fn set_error(error_code: ErrorCode, message: &str) {
