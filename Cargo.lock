@@ -288,12 +288,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "compiler_builtins"
-version = "0.1.104"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99c3f9035afc33f4358773239573f7d121099856753e1bbd2a6a5207098fc741"
-
-[[package]]
 name = "core-foundation-sys"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1593,14 +1587,6 @@ name = "shlex"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7cee0529a6d40f580e7a5e6c495c8fbfe21b7b52795ed4bb5e62cdf92bc6380"
-
-[[package]]
-name = "simpleguest"
-version = "0.1.0"
-dependencies = [
- "compiler_builtins",
- "hyperlight_guest",
-]
 
 [[package]]
 name = "slab"
