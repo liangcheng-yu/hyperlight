@@ -254,15 +254,11 @@ See [publishing-to-cargo.md](./docs/publishing-to-cargo.md) for more information
 
 ## simpleguest.exe and callguest.exe
 
-
 To run the dotnet tests and examples you will need the simpleguest.exe and callbackguest.exe applications.
 
 This repo includes a script to download the latest versions of these binaries.
 
 Make sure you have a recent version of [GitHub Command line](https://github.com/cli/cli) installed (the best way to ensure you get a recent version is to dowload it directly from the repo). [Follow these instructions to install on Mariner](https://github.com/cli/cli/blob/trunk/docs/install_linux.md#fedora-centos-red-hat-enterprise-linux-dnf).
-
-On Linux and PowerShell, you can use `mkdir -p` to create these directories.
-
 
 ## Debugging The Hyperlight Guest Applications or GuestLibrary
 
