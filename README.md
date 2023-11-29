@@ -177,9 +177,9 @@ dotnet run
 
 1. Build-Essential. `sudo apt install build-essential` or `sudo dnf install build-essential` on [Mariner][mariner]
 1. [Rust](https://www.rust-lang.org/tools/install)
-1. [Clang](https://clang.llvm.org/get_started.html). `sudo apt install clang` or `sudo dnf install clang` on [Mariner][mariner].
 1. [just](https://github.com/casey/just).  `cargo install just` .
 1. [cbindgen](https://github.com/eqrion/cbindgen) `cargo install cbindgen`
+1. [Clang](https://clang.llvm.org/get_started.html). `sudo apt install clang` or `sudo dnf install clang` on [Mariner][mariner].
 1. [dotnet](https://learn.microsoft.com/en-us/dotnet/core/install/linux). `sudo apt install dotnet-sdk-6.0` or `sudo dnf install dotnet-sdk-6.0` on [Mariner][mariner].
 
 If you receive a 'GPG check FAILED' error when trying to install dotnet-sdk-6.0 (especially on Mariner), follow [these steps](https://github.com/dotnet/docs/blob/main/docs/core/install/linux-scripted-manual.md#manual-install) to manually install it. You may also need to run `sudo dnf install libicu`
@@ -254,7 +254,12 @@ See [publishing-to-cargo.md](./docs/publishing-to-cargo.md) for more information
 
 ## simpleguest.exe and callguest.exe
 
-To run the dotnet tests and examples you will need to download the simpleguest.exe and callbackguest.exe applications from [here] (https://github.com/deislabs/hyperlight/releases) and copy them to `src/tests/Guests/simpleguest/x64/debug/simpleguest.exe` and  `src/tests/Guests/callbackguest/x64/debug/callbackguest.exe` respectively. The directories do not exist, so you will need to create them first (note that they are case-sensitive).
+
+To run the dotnet tests and examples you will need the simpleguest.exe and callbackguest.exe applications.
+
+This repo includes a script to download the latest versions of these binaries.
+
+Make sure you have a recent version of [GitHub Command line](https://github.com/cli/cli) installed (the best way to ensure you get a recent version is to dowload it directly from the repo). [Follow these instructions to install on Mariner](https://github.com/cli/cli/blob/trunk/docs/install_linux.md#fedora-centos-red-hat-enterprise-linux-dnf).
 
 On Linux and PowerShell, you can use `mkdir -p` to create these directories.
 
