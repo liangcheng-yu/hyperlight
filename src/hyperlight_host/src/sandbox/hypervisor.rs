@@ -104,20 +104,20 @@ impl<'a> HypervisorWrapper<'a> {
 
     /// Get the stack pointer -- the value of the RSP register --
     /// the contained `Hypervisor` had
-    pub fn orig_rsp(&self) -> Result<GuestPtr> {
+    pub(super) fn orig_rsp(&self) -> Result<GuestPtr> {
         let hv = self.hv_opt.as_ref().ok_or_else(NoHypervisorFound)?.lock()?;
         let orig_rsp = hv.orig_rsp()?;
         GuestPtr::try_from(RawPtr::from(orig_rsp))
     }
 
     /// Reset the stack pointer
-    pub fn reset_rsp(&mut self, new_rsp: GuestPtr) -> Result<()> {
+    pub(super) fn reset_rsp(&mut self, new_rsp: GuestPtr) -> Result<()> {
         let mut hv = self.hv_opt.as_mut().ok_or_else(NoHypervisorFound)?.lock()?;
         hv.reset_rsp(new_rsp.absolute()?)
     }
 
     /// Dispatch a call from the host to the guest
-    pub fn dispatch_call_from_host(&mut self, dispatch_func_addr: GuestPtr) -> Result<()> {
+    pub(crate) fn dispatch_call_from_host(&mut self, dispatch_func_addr: GuestPtr) -> Result<()> {
         let outb_hdl = self.outb_hdl.clone();
         let mem_access_hdl = self.mem_access_hdl.clone();
         let max_execution_time = self.max_execution_time;

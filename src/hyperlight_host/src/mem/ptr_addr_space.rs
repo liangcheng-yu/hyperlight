@@ -1,3 +1,5 @@
+use tracing::{instrument, Span};
+
 use super::{layout::SandboxMemoryLayout, shared_mem::SharedMemory};
 use crate::Result;
 
@@ -9,15 +11,18 @@ pub trait AddressSpace: std::cmp::Eq {
 
 /// The address space for the guest executable
 #[derive(Debug, Clone, Eq, PartialEq)]
+// TODO: Once we have a complete C API then this should have visibility `pub(crate)`
 pub struct GuestAddressSpace(u64);
 impl GuestAddressSpace {
     /// Create a new instance of a `GuestAddressSpace`
-    pub(crate) fn new() -> Result<Self> {
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn new() -> Result<Self> {
         let base_addr = u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?;
         Ok(Self(base_addr))
     }
 }
 impl AddressSpace for GuestAddressSpace {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn base(&self) -> u64 {
         self.0
     }
@@ -29,12 +34,14 @@ pub(crate) struct HostAddressSpace(u64);
 impl HostAddressSpace {
     /// Create a new instance of a `HostAddressSpace`, using the given
     /// `SharedMemory` as the base address.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn new(shared_mem: &SharedMemory) -> Result<Self> {
         let base = u64::try_from(shared_mem.base_addr())?;
         Ok(Self(base))
     }
 }
 impl AddressSpace for HostAddressSpace {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn base(&self) -> u64 {
         self.0
     }
