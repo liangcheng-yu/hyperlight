@@ -11,6 +11,7 @@ use libc::{c_void, pthread_kill, pthread_self, siginfo_t, ESRCH};
 use log::error;
 #[cfg(target_os = "linux")]
 use log::info;
+use tracing::{instrument, Span};
 #[cfg(target_os = "linux")]
 use vmm_sys_util::signal::{register_signal_handler, SIGRTMIN};
 #[cfg(target_os = "windows")]
@@ -126,6 +127,7 @@ pub trait Hypervisor: Debug + Sync + Send {
         outb_handle_fn: OutBHandlerWrapper,
     ) -> Result<()>;
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     /// Run the internally stored vCPU until a HLT instruction.
     fn execute_until_halt(
         &mut self,
@@ -522,6 +524,7 @@ pub trait Hypervisor: Debug + Sync + Send {
     fn as_any(&self) -> &dyn Any;
 }
 
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 fn terminate_execution(
     timeout: Duration,
     cancel_run_requested: Arc<AtomicCell<bool>>,
@@ -587,6 +590,7 @@ fn terminate_execution(
 struct VirtualCPU {}
 
 impl VirtualCPU {
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn run<'a>(
         hv: &mut dyn Hypervisor,
         outb_handle_fn: Arc<Mutex<dyn OutBHandlerCaller + 'a>>,

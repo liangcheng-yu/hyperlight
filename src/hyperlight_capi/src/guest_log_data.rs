@@ -1,8 +1,8 @@
 use super::{
     arrays::raw_vec::RawVec, context::Context, handle::Handle, hdl::Hdl, validate_context_or_panic,
 };
-use hyperlight_host::func::guest::log_data::GuestLogData;
-use hyperlight_host::Result;
+use hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_data::GuestLogData;
+use hyperlight_host::{new_error, Result};
 use std::mem;
 
 /// Return true if the given handle `hdl` references a `GuestLogData` in `ctx`,
@@ -66,7 +66,10 @@ pub unsafe extern "C" fn handle_get_guest_log_data_flatbuffer(
                     ptr
                 }
                 Err(e) => {
-                    (*ctx).register_err(e);
+                    (*ctx).register_err(new_error!(
+                        "Failed to convert GuestLogData to flatbuffer: {}",
+                        e
+                    ));
                     std::ptr::null_mut()
                 }
             }

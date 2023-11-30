@@ -1,8 +1,8 @@
-use super::types::ReturnType;
+use anyhow::{bail, Error, Result};
+use flatbuffers::WIPOffset;
+use tracing::{instrument, Span};
 
-use crate::error::HyperlightError::{
-    self, InvalidFlatBuffer, InvalidFunctionCallType, VectorCapacityInCorrect,
-};
+use super::function_types::{ParameterValue, ReturnType};
 
 use crate::flatbuffers::hyperlight::generated::{
     hlbool, hlboolArgs, hlint, hlintArgs, hllong, hllongArgs, hlstring, hlstringArgs, hlvecbytes,
@@ -10,30 +10,30 @@ use crate::flatbuffers::hyperlight::generated::{
     FunctionCallArgs as FbFunctionCallArgs, FunctionCallType as FbFunctionCallType, Parameter,
     ParameterArgs, ParameterValue as FbParameterValue,
 };
-use crate::func::types::ParameterValue;
-use crate::log_then_return;
-use crate::mem::layout::SandboxMemoryLayout;
-use crate::mem::shared_mem::SharedMemory;
-use crate::Result;
-use flatbuffers::WIPOffset;
-use std::convert::{TryFrom, TryInto};
+
+/// The type of function call.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FunctionCallType {
+    /// The function call is to a guest function.
+    Guest,
+    /// The function call is to a host function.
+    Host,
+}
+
 /// `Functioncall` represents a call to a function in the guest or host.
 #[derive(Clone)]
 pub struct FunctionCall {
     /// The function name
-    pub(crate) function_name: String,
+    pub function_name: String,
     /// The parameters for the function call.
-    pub(crate) parameters: Option<Vec<ParameterValue>>,
+    pub parameters: Option<Vec<ParameterValue>>,
     function_call_type: FunctionCallType,
     expected_return_type: ReturnType,
 }
 
 impl FunctionCall {
-    // because we're not using the work in `dispatch_call_from_host` yet,
-    // this function appears unused. Once we've incorparated it, we can remove
-    // this lint.
-    #[allow(unused)]
-    pub(crate) fn new(
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub fn new(
         function_name: String,
         parameters: Option<Vec<ParameterValue>>,
         function_call_type: FunctionCallType,
@@ -48,26 +48,39 @@ impl FunctionCall {
     }
 }
 
-/// The type of function call.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum FunctionCallType {
-    /// The function call is to a guest function.
-    Guest,
-    /// The function call is to a host function.
-    Host,
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+pub fn validate_guest_function_call_buffer(function_call_buffer: &[u8]) -> Result<()> {
+    let guest_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer)?;
+    match guest_function_call_fb.function_call_type() {
+        FbFunctionCallType::guest => Ok(()),
+        other => {
+            bail!("Invalid function call type: {:?}", other);
+        }
+    }
+}
+
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+pub fn validate_host_function_call_buffer(function_call_buffer: &[u8]) -> Result<()> {
+    let host_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer)?;
+    match host_function_call_fb.function_call_type() {
+        FbFunctionCallType::host => Ok(()),
+        other => {
+            bail!("Invalid function call type: {:?}", other);
+        }
+    }
 }
 
 impl TryFrom<&[u8]> for FunctionCall {
-    type Error = HyperlightError;
+    type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: &[u8]) -> Result<Self> {
-        let function_call_fb =
-            size_prefixed_root_as_function_call(value).map_err(InvalidFlatBuffer)?;
+        let function_call_fb = size_prefixed_root_as_function_call(value)?;
         let function_name = function_call_fb.function_name();
         let function_call_type = match function_call_fb.function_call_type() {
             FbFunctionCallType::guest => FunctionCallType::Guest,
             FbFunctionCallType::host => FunctionCallType::Host,
             other => {
-                log_then_return!(InvalidFunctionCallType(other));
+                bail!("Invalid function call type: {:?}", other);
             }
         };
         let expected_return_type = function_call_fb.expected_return_type().try_into()?;
@@ -91,7 +104,8 @@ impl TryFrom<&[u8]> for FunctionCall {
 }
 
 impl TryFrom<FunctionCall> for Vec<u8> {
-    type Error = HyperlightError;
+    type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: FunctionCall) -> Result<Vec<u8>> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
         let function_name = builder.create_string(&value.function_name);
@@ -207,34 +221,18 @@ impl TryFrom<FunctionCall> for Vec<u8> {
 
         let length = unsafe { flatbuffers::read_scalar::<i32>(&res[..4]) };
         if res.capacity() != res.len() || res.capacity() != length as usize + 4 {
-            log_then_return!(VectorCapacityInCorrect(res.capacity(), res.len(), length));
+            bail!("Invalid buffer capacity");
         }
 
         Ok(res)
     }
 }
 
-pub(crate) trait WriteFunctionCallToMemory {
-    fn write(
-        &self,
-        function_call_buffer: &[u8],
-        guest_mem: &mut SharedMemory,
-        layout: &SandboxMemoryLayout,
-    ) -> Result<()>;
-}
-
-pub(crate) trait ReadFunctionCallFromMemory {
-    fn read(&self, guest_mem: &SharedMemory, layout: &SandboxMemoryLayout) -> Result<Vec<u8>>;
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Result;
-    use crate::{
-        func::types::ReturnType,
-        testing::{get_guest_function_call_test_data, get_host_function_call_test_data},
-    };
+    use crate::flatbuffer_wrappers::function_types::ReturnType;
+    use hyperlight_testing::{get_guest_function_call_test_data, get_host_function_call_test_data};
 
     #[test]
     fn read_from_flatbuffer() -> Result<()> {

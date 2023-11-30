@@ -11,17 +11,16 @@ use std::{
     time::SystemTimeError,
 };
 
-use crate::{
-    flatbuffers::hyperlight::generated::{
-        ErrorCode, FunctionCallType, ParameterType, ParameterValue as FBParameterValue, ReturnType,
-        ReturnValue as FBReturnValue,
-    },
-    func::{types::ParameterValue, ReturnValue},
-    mem::ptr::RawPtr,
+use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::{
+    ErrorCode, FunctionCallType, ParameterType, ParameterValue as FBParameterValue, ReturnType,
+    ReturnValue as FBReturnValue,
 };
+
+use crate::mem::ptr::RawPtr;
 #[cfg(target_os = "windows")]
 use crossbeam_channel::{RecvError, SendError};
 use flatbuffers::InvalidFlatbuffer;
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnValue};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(target_os = "windows")]

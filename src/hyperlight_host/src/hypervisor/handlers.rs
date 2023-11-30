@@ -1,3 +1,5 @@
+use tracing::{instrument, Span};
+
 use crate::{new_error, Result};
 use std::sync::{Arc, Mutex};
 
@@ -25,12 +27,14 @@ pub(crate) type OutBHandlerFunction<'a> = Box<dyn FnMut(u16, u64) -> Result<()> 
 pub(crate) struct OutBHandler<'a>(Arc<Mutex<OutBHandlerFunction<'a>>>);
 
 impl<'a> From<OutBHandlerFunction<'a>> for OutBHandler<'a> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(func: OutBHandlerFunction<'a>) -> Self {
         Self(Arc::new(Mutex::new(func)))
     }
 }
 
 impl<'a> OutBHandlerCaller for OutBHandler<'a> {
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn call(&mut self, port: u16, payload: u64) -> Result<()> {
         let mut func = self.0.lock()?;
         (func)(port, payload)
@@ -62,12 +66,14 @@ pub(crate) type MemAccessHandlerFunction<'a> = Box<dyn FnMut() -> Result<()> + '
 pub(crate) struct MemAccessHandler<'a>(Arc<Mutex<MemAccessHandlerFunction<'a>>>);
 
 impl<'a> From<MemAccessHandlerFunction<'a>> for MemAccessHandler<'a> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(func: MemAccessHandlerFunction<'a>) -> Self {
         Self(Arc::new(Mutex::new(func)))
     }
 }
 
 impl<'a> MemAccessHandlerCaller for MemAccessHandler<'a> {
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn call(&mut self) -> Result<()> {
         let mut func = self
             .0

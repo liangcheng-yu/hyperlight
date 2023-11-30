@@ -1,8 +1,7 @@
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
 use tracing::{span, Level};
-//use tracing_subscriber::fmt;
 extern crate hyperlight_host;
 use hyperlight_host::{
-    func::{ParameterValue, ReturnType},
     sandbox::uninitialized::UninitializedSandbox,
     sandbox_state::{sandbox::EvolvableSandbox, transition::Noop},
     GuestBinary, MultiUseSandbox, Result,
@@ -10,6 +9,11 @@ use hyperlight_host::{
 use hyperlight_testing::simple_guest_path;
 use std::sync::{Arc, Mutex};
 use std::thread::{spawn, JoinHandle};
+use tracing_forest::ForestLayer;
+use tracing_subscriber::{
+    layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer, Registry,
+};
+use uuid::Uuid;
 
 fn fn_writer(_msg: String) -> Result<i32> {
     Ok(0)
@@ -20,10 +24,10 @@ fn fn_writer(_msg: String) -> Result<i32> {
 
 fn main() -> Result<()> {
     // Set up the tracing subscriber.
-    // The tracing_forest subscriber uses tracng subsciber which by default will consume logs as trace events unless the tracing-log feature is disabled.
-
-    tracing_forest::init();
-
+    // tracing_forest uses the tracing subscriber, which, by default, will consume logs as trace events
+    // unless the tracing-log feature is disabled.
+    let layer = ForestLayer::default().with_filter(EnvFilter::from_default_env());
+    Registry::default().with(layer).init();
     run_example()
 }
 fn run_example() -> Result<()> {
@@ -33,17 +37,24 @@ fn run_example() -> Result<()> {
 
     let mut join_handles: Vec<JoinHandle<Result<()>>> = vec![];
 
-    for i in 0..20 {
-        // Construct a new span named "hyperlight example" with debug level.
-        let span = span!(
-            Level::DEBUG,
-            "hyperlight example",
-            context = format!("thread {}", i)
-        );
-        let _entered = span.enter();
+    // Construct a new span named "hyperlight tracing example" with INFO  level.
+    let span = span!(Level::INFO, "hyperlight tracing example",);
+    let _entered = span.enter();
+
+    for i in 0..10 {
         let path = hyperlight_guest_path.clone();
         let writer_func = Arc::new(Mutex::new(fn_writer));
         let handle = spawn(move || -> Result<()> {
+            // Construct a new span named "hyperlight tracing example thread" with INFO  level.
+            let id = Uuid::new_v4();
+            let span = span!(
+                Level::INFO,
+                "hyperlight tracing example thread",
+                context = format!("Thread number {}", i),
+                uuid = %id,
+            );
+            let _entered = span.enter();
+
             // Create a new sandbox.
             let usandbox = UninitializedSandbox::new(
                 GuestBinary::FilePath(path),
@@ -104,7 +115,16 @@ fn run_example() -> Result<()> {
 
     // Call a function that gets cancelled by the host function 5 times to generate some log entries.
 
-    for _ in 0..5 {
+    for i in 0..5 {
+        let id = Uuid::new_v4();
+        // Construct a new span named "hyperlight tracing call cancellation example thread" with INFO  level.
+        let span = span!(
+            Level::INFO,
+            "hyperlight tracing call cancellation example thread",
+            context = format!("Thread number {}", i),
+            uuid = %id,
+        );
+        let _entered = span.enter();
         let mut ctx = multiuse_sandbox.new_call_context();
 
         let result = ctx.call("Spin", ReturnType::Void, None);

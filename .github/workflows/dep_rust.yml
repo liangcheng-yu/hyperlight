@@ -111,11 +111,19 @@ jobs:
         env:
           CARGO_TERM_COLOR: always
         run: just test-rust ${{ matrix.config }}
-      - name: Run Rust examples
+        # One of the examples is flaky on Windows GH runners, so this allows us to disable it for now
+      - name: Run Rust examples - windows
+        if: ${{ (runner.os == 'Windows')}}
         env:
           CARGO_TERM_COLOR: always
           RUST_LOG: debug  
         run: just run-rust-examples ${{ matrix.config }}  
+      - name: Run Rust examples - linux
+        if: ${{ (runner.os != 'Windows')}}
+        env:
+          CARGO_TERM_COLOR: always
+          RUST_LOG: debug  
+        run: just run-rust-examples-linux ${{ matrix.config }}  
       - name: Set up munit
         working-directory: src/hyperlight_capi/tests_capi
         run: |

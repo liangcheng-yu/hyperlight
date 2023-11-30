@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+use tracing::{instrument, Span};
+
 /// A struct that stores a `*mut EltT` and allows the creator of the struct
 /// to specify the functionality to be run when the struct is dropped.
 ///
@@ -17,12 +19,14 @@ pub(crate) struct CustomPtrDrop<'a, EltT> {
 
 #[cfg(target_os = "windows")]
 impl<'a, EltT> CustomPtrDrop<'a, EltT> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn new(elt: *mut EltT, drop_fn: Box<dyn Fn(*mut EltT) + Send>) -> Self {
         Self {
             t: SendablePtr(elt),
             drop: drop_fn,
         }
     }
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn as_mut_ptr(&self) -> *mut EltT {
         self.t.0
     }
@@ -35,6 +39,7 @@ impl<'a, EltT> Debug for CustomPtrDrop<'a, EltT> {
 }
 
 impl<'a, EltT> Drop for CustomPtrDrop<'a, EltT> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn drop(&mut self) {
         let drop_fn = &self.drop;
         drop_fn(self.t.0)
@@ -69,7 +74,9 @@ mod tests {
             let cd = CustomPtrDrop::new(
                 i_ptr,
                 Box::new(|ptr| {
-                    unsafe { Box::from_raw(ptr) };
+                    unsafe {
+                        let _ = Box::from_raw(ptr);
+                    };
                 }),
             );
             Arc::new(Mutex::new(cd))

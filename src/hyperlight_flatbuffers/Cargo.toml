@@ -1,0 +1,13 @@
+[package]
+name = "hyperlight_flatbuffers"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+flatbuffers = "23.5"
+anyhow = "1.0.72"
+log = "0.4.20"
+tracing = "0.1.27"
+
+[dev-dependencies]
+hyperlight_testing = { path = "../hyperlight_testing" }

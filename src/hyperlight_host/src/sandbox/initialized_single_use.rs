@@ -1,12 +1,15 @@
+use tracing::{instrument, Span};
+
 use super::metrics::SandboxMetric::CurrentNumberOfSingleUseSandboxes;
 use super::{leaked_outb::LeakedOutBWrapper, WrapperGetter};
 use crate::func::call_ctx::SingleUseGuestCallContext;
 use crate::int_gauge_dec;
 use crate::Result;
 use crate::{
-    func::{ParameterValue, ReturnType, ReturnValue},
-    sandbox_state::sandbox::Sandbox,
-    HypervisorWrapper, MemMgrWrapper, UninitializedSandbox,
+    sandbox_state::sandbox::Sandbox, HypervisorWrapper, MemMgrWrapper, UninitializedSandbox,
+};
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
+    ParameterValue, ReturnType, ReturnValue,
 };
 use std::marker::PhantomData;
 
@@ -76,7 +79,7 @@ impl<'a> SingleUseSandbox<'a> {
     ///
     /// ```no_run
     /// use hyperlight_host::sandbox::{UninitializedSandbox, SingleUseSandbox};
-    /// use hyperlight_host::func::types::{ReturnType, ParameterValue, ReturnValue};
+    /// use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ReturnType, ParameterValue, ReturnValue};
     /// use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
     /// use hyperlight_host::sandbox_state::transition::Noop;
     /// use hyperlight_host::GuestBinary;
@@ -117,6 +120,7 @@ impl<'a> SingleUseSandbox<'a> {
     /// // underlying `SingleUseSandbox`, will be released and no further
     //  // contexts can be created from that sandbox.
     /// ```
+    #[instrument(skip_all, parent = Span::current())]
     pub fn new_call_context(self) -> SingleUseGuestCallContext<'a> {
         SingleUseGuestCallContext::start(self)
     }
@@ -124,6 +128,7 @@ impl<'a> SingleUseSandbox<'a> {
     /// Convenience for the following:
     ///
     /// `self.new_call_context().call(name, ret, args)`
+    #[instrument(err(Debug), skip(self,args), parent = Span::current())]
     pub fn call_guest_function_by_name(
         self,
         name: &str,
@@ -170,5 +175,54 @@ impl<'a> std::fmt::Debug for SingleUseSandbox<'a> {
 impl<'a> Drop for SingleUseSandbox<'a> {
     fn drop(&mut self) {
         int_gauge_dec!(&CurrentNumberOfSingleUseSandboxes);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::sandbox::SandboxConfiguration;
+    use crate::sandbox_state::sandbox::EvolvableSandbox;
+    use crate::{sandbox_state::transition::Noop, GuestBinary};
+    use crate::{SingleUseSandbox, UninitializedSandbox};
+    use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
+    use hyperlight_testing::simple_guest_path;
+
+    // Test to ensure that many (1000) function calls can be made in a call context with a small stack (1K) and heap(14K).
+    // This test effectively ensures that the stack is being properly reset after each call and we are not leaking memory in the Guest.
+    #[test]
+    fn test_with_small_stack_and_heap() {
+        let sbox1: SingleUseSandbox = {
+            let path = simple_guest_path().unwrap();
+            let u_sbox = UninitializedSandbox::new(
+                GuestBinary::FilePath(path),
+                Some(SandboxConfiguration::new(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    Some(1024),
+                    Some(14 * 1024),
+                    None,
+                    None,
+                )),
+                None,
+                None,
+            )
+            .unwrap();
+            u_sbox.evolve(Noop::default())
+        }
+        .unwrap();
+
+        let mut ctx = sbox1.new_call_context();
+
+        for _ in 0..1000 {
+            ctx.call(
+                "StackAllocate",
+                ReturnType::Int,
+                Some(vec![ParameterValue::Int(1)]),
+            )
+            .unwrap();
+        }
     }
 }

@@ -1,8 +1,8 @@
 use super::metrics::SandboxMetric::CurrentNumberOfMultiUseSandboxes;
 use super::{host_funcs::HostFuncsWrapper, leaked_outb::LeakedOutBWrapper, WrapperGetter};
 use crate::func::call_ctx::MultiUseGuestCallContext;
+use crate::{int_gauge_dec, Result};
 use crate::{
-    func::{ParameterValue, ReturnType, ReturnValue},
     mem::ptr::{GuestPtr, RawPtr},
     sandbox_state::{
         sandbox::{DevolvableSandbox, Sandbox},
@@ -10,9 +10,11 @@ use crate::{
     },
     HypervisorWrapper, MemMgrWrapper, UninitializedSandbox,
 };
-use crate::{int_gauge_dec, Result};
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
+    ParameterValue, ReturnType, ReturnValue,
+};
 use std::sync::{Arc, Mutex};
-use tracing::instrument;
+use tracing::{instrument, Span};
 
 /// A sandbox that supports calling any number of guest functions, without
 /// any limits to how many
@@ -66,7 +68,7 @@ impl<'a> MultiUseSandbox<'a> {
     ///
     /// ```no_run
     /// use hyperlight_host::sandbox::{UninitializedSandbox, MultiUseSandbox};
-    /// use hyperlight_host::func::types::{ReturnType, ParameterValue, ReturnValue};
+    /// use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ReturnType, ParameterValue, ReturnValue};
     /// use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
     /// use hyperlight_host::sandbox_state::transition::Noop;
     /// use hyperlight_host::GuestBinary;
@@ -114,7 +116,7 @@ impl<'a> MultiUseSandbox<'a> {
     /// // Now, you can operate on the original sandbox again (i.e. add more
     /// // host functions etc...), create new contexts, and so on.
     /// ```
-    #[instrument(skip(self))]
+    #[instrument(skip_all, parent = Span::current())]
     pub fn new_call_context(self) -> MultiUseGuestCallContext<'a> {
         MultiUseGuestCallContext::start(self)
     }
@@ -122,7 +124,7 @@ impl<'a> MultiUseSandbox<'a> {
     /// Convenience method for the following:
     ///
     /// `self.new_call_context()?.call(func_name, func_ret_type, args)`
-    #[instrument(skip(self, args))]
+    #[instrument(err(Debug), skip(self, args), parent = Span::current())]
     pub fn call_guest_function_by_name(
         self,
         func_name: &str,

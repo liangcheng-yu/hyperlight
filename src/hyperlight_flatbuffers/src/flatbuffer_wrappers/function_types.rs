@@ -1,21 +1,13 @@
-use crate::error::HyperlightError::{
-    self, FailedToGetValueFromParameter, UnexpectedFlatBufferReturnValueType,
-    UnexpectedParameterValueType, UnexpectedReturnValueType, UnknownFlatBufferParameterType,
-    UnknownFlatBufferParameterValue, UnknownFlatBufferReturnType, VectorCapacityInCorrect,
+use crate::flatbuffers::hyperlight::generated::{
+    hlbool, hlboolArgs, hlint, hlintArgs, hllong, hllongArgs, hlsizeprefixedbuffer,
+    hlsizeprefixedbufferArgs, hlstring, hlstringArgs, hlvoid, hlvoidArgs,
+    size_prefixed_root_as_function_call_result, FunctionCallResult as FbFunctionCallResult,
+    FunctionCallResultArgs as FbFunctionCallResultArgs, Parameter,
+    ParameterType as FbParameterType, ParameterValue as FbParameterValue,
+    ReturnType as FbReturnType, ReturnValue as FbReturnValue,
 };
-use crate::Result;
-use crate::{
-    flatbuffers::hyperlight::generated::{
-        hlbool, hlboolArgs, hlint, hlintArgs, hllong, hllongArgs, hlsizeprefixedbuffer,
-        hlsizeprefixedbufferArgs, hlstring, hlstringArgs, hlvoid, hlvoidArgs,
-        size_prefixed_root_as_function_call_result, FunctionCallResult as FbFunctionCallResult,
-        FunctionCallResultArgs as FbFunctionCallResultArgs, Parameter,
-        ParameterType as FbParameterType, ParameterValue as FbParameterValue,
-        ReturnType as FbReturnType, ReturnValue as FbReturnValue,
-    },
-    mem::{layout::SandboxMemoryLayout, shared_mem::SharedMemory},
-};
-use crate::{log_then_return, new_error};
+use anyhow::{anyhow, bail, Error, Result};
+use tracing::{instrument, Span};
 
 /// Supported parameter types with values for function calling.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -83,8 +75,9 @@ pub enum ReturnType {
 }
 
 impl TryFrom<Parameter<'_>> for ParameterValue {
-    type Error = HyperlightError;
+    type Error = Error;
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(param: Parameter<'_>) -> Result<Self> {
         let value = param.value_type();
         let result = match value {
@@ -104,14 +97,15 @@ impl TryFrom<Parameter<'_>> for ParameterValue {
                 ParameterValue::VecBytes(hlvecbytes.value().unwrap_or_default().iter().collect())
             }),
             other => {
-                log_then_return!(UnknownFlatBufferParameterValue(other));
+                bail!("Unexpected flatbuffer parameter value type: {:?}", other);
             }
         };
-        result.ok_or_else(FailedToGetValueFromParameter)
+        result.ok_or_else(|| anyhow!("Failed to get parameter value"))
     }
 }
 
 impl From<ParameterType> for FbParameterType {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(value: ParameterType) -> Self {
         match value {
             ParameterType::Int => FbParameterType::hlint,
@@ -124,6 +118,7 @@ impl From<ParameterType> for FbParameterType {
 }
 
 impl From<ReturnType> for FbReturnType {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(value: ReturnType) -> Self {
         match value {
             ReturnType::Int => FbReturnType::hlint,
@@ -137,7 +132,8 @@ impl From<ReturnType> for FbReturnType {
 }
 
 impl TryFrom<FbParameterType> for ParameterType {
-    type Error = HyperlightError;
+    type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: FbParameterType) -> Result<Self> {
         match value {
             FbParameterType::hlint => Ok(ParameterType::Int),
@@ -146,14 +142,15 @@ impl TryFrom<FbParameterType> for ParameterType {
             FbParameterType::hlbool => Ok(ParameterType::Bool),
             FbParameterType::hlvecbytes => Ok(ParameterType::VecBytes),
             _ => {
-                log_then_return!(UnknownFlatBufferParameterType(value));
+                bail!("Unexpected flatbuffer parameter type: {:?}", value)
             }
         }
     }
 }
 
 impl TryFrom<FbReturnType> for ReturnType {
-    type Error = HyperlightError;
+    type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: FbReturnType) -> Result<Self> {
         match value {
             FbReturnType::hlint => Ok(ReturnType::Int),
@@ -163,206 +160,176 @@ impl TryFrom<FbReturnType> for ReturnType {
             FbReturnType::hlvoid => Ok(ReturnType::Void),
             FbReturnType::hlsizeprefixedbuffer => Ok(ReturnType::VecBytes),
             _ => {
-                log_then_return!(UnknownFlatBufferReturnType(value));
+                bail!("Unexpected flatbuffer return type: {:?}", value)
             }
         }
     }
 }
 
 impl TryFrom<ParameterValue> for i32 {
-    type Error = HyperlightError;
+    type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: ParameterValue) -> Result<Self> {
         match value {
             ParameterValue::Int(v) => Ok(v),
             _ => {
-                log_then_return!(UnexpectedParameterValueType(
-                    value.clone(),
-                    "i32".to_string()
-                ));
+                bail!("Unexpected parameter value type: {:?}", value)
             }
         }
     }
 }
 
 impl TryFrom<ParameterValue> for i64 {
-    type Error = HyperlightError;
+    type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: ParameterValue) -> Result<Self> {
         match value {
             ParameterValue::Long(v) => Ok(v),
             _ => {
-                log_then_return!(UnexpectedParameterValueType(
-                    value.clone(),
-                    String::from("i64")
-                ));
+                bail!("Unexpected parameter value type: {:?}", value)
             }
         }
     }
 }
 
 impl TryFrom<ParameterValue> for String {
-    type Error = HyperlightError;
+    type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: ParameterValue) -> Result<Self> {
         match value {
             ParameterValue::String(v) => Ok(v),
             _ => {
-                log_then_return!(UnexpectedParameterValueType(
-                    value.clone(),
-                    String::from("String")
-                ));
+                bail!("Unexpected parameter value type: {:?}", value)
             }
         }
     }
 }
 
 impl TryFrom<ParameterValue> for bool {
-    type Error = HyperlightError;
+    type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: ParameterValue) -> Result<Self> {
         match value {
             ParameterValue::Bool(v) => Ok(v),
             _ => {
-                log_then_return!(UnexpectedParameterValueType(
-                    value.clone(),
-                    String::from("bool")
-                ));
+                bail!("Unexpected parameter value type: {:?}", value)
             }
         }
     }
 }
 
 impl TryFrom<ParameterValue> for Vec<u8> {
-    type Error = HyperlightError;
+    type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: ParameterValue) -> Result<Self> {
         match value {
             ParameterValue::VecBytes(v) => Ok(v),
             _ => {
-                log_then_return!(UnexpectedParameterValueType(
-                    value.clone(),
-                    String::from("Vec<u8>")
-                ));
+                bail!("Unexpected parameter value type: {:?}", value)
             }
         }
     }
 }
 
 impl TryFrom<ReturnValue> for i32 {
-    type Error = HyperlightError;
+    type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: ReturnValue) -> Result<Self> {
         match value {
             ReturnValue::Int(v) => Ok(v),
             _ => {
-                log_then_return!(UnexpectedReturnValueType(
-                    value.clone(),
-                    String::from("i32")
-                ));
+                bail!("Unexpected return value type: {:?}", value)
             }
         }
     }
 }
 
 impl TryFrom<ReturnValue> for i64 {
-    type Error = HyperlightError;
+    type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: ReturnValue) -> Result<Self> {
         match value {
             ReturnValue::Long(v) => Ok(v),
             _ => {
-                log_then_return!(UnexpectedReturnValueType(
-                    value.clone(),
-                    String::from("i64")
-                ));
+                bail!("Unexpected return value type: {:?}", value)
             }
         }
     }
 }
 
 impl TryFrom<ReturnValue> for String {
-    type Error = HyperlightError;
+    type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: ReturnValue) -> Result<Self> {
         match value {
             ReturnValue::String(v) => Ok(v),
             _ => {
-                log_then_return!(UnexpectedReturnValueType(
-                    value.clone(),
-                    String::from("String")
-                ));
+                bail!("Unexpected return value type: {:?}", value)
             }
         }
     }
 }
 
 impl TryFrom<ReturnValue> for bool {
-    type Error = HyperlightError;
+    type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: ReturnValue) -> Result<Self> {
         match value {
             ReturnValue::Bool(v) => Ok(v),
             _ => {
-                log_then_return!(UnexpectedReturnValueType(
-                    value.clone(),
-                    String::from("bool")
-                ));
+                bail!("Unexpected return value type: {:?}", value)
             }
         }
     }
 }
 
 impl TryFrom<ReturnValue> for Vec<u8> {
-    type Error = HyperlightError;
+    type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: ReturnValue) -> Result<Self> {
         match value {
             ReturnValue::VecBytes(v) => Ok(v),
             _ => {
-                log_then_return!(UnexpectedReturnValueType(
-                    value.clone(),
-                    String::from("Vec<u8>")
-                ));
+                bail!("Unexpected return value type: {:?}", value)
             }
         }
     }
 }
 
 impl TryFrom<ReturnValue> for () {
-    type Error = HyperlightError;
+    type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: ReturnValue) -> Result<Self> {
         match value {
             ReturnValue::Void => Ok(()),
             _ => {
-                log_then_return!(UnexpectedReturnValueType(value.clone(), String::from("()")));
+                bail!("Unexpected return value type: {:?}", value)
             }
         }
     }
 }
 
-impl ReturnValue {
-    pub(crate) fn write_to_memory(
-        &self,
-        shared_mem: &mut SharedMemory,
-        layout: &SandboxMemoryLayout,
-    ) -> Result<()> {
-        let input_data_offset = layout.input_data_buffer_offset;
-        let function_call_ret_val_buffer = Vec::<u8>::try_from(self)?;
-        shared_mem.copy_from_slice(function_call_ret_val_buffer.as_slice(), input_data_offset)
-    }
-}
-
 impl TryFrom<FbFunctionCallResult<'_>> for ReturnValue {
-    type Error = HyperlightError;
+    type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(function_call_result_fb: FbFunctionCallResult<'_>) -> Result<Self> {
         match function_call_result_fb.return_value_type() {
             FbReturnValue::hlint => {
                 let hlint = function_call_result_fb
                     .return_value_as_hlint()
-                    .ok_or_else(|| new_error!("Failed to get hlint from return value"))?;
+                    .ok_or_else(|| anyhow!("Failed to get hlint from return value"))?;
                 Ok(ReturnValue::Int(hlint.value()))
             }
             FbReturnValue::hllong => {
                 let hllong = function_call_result_fb
                     .return_value_as_hllong()
-                    .ok_or_else(|| new_error!("Failed to get hlong from return value"))?;
+                    .ok_or_else(|| anyhow!("Failed to get hlong from return value"))?;
                 Ok(ReturnValue::Long(hllong.value()))
             }
             FbReturnValue::hlbool => {
                 let hlbool = function_call_result_fb
                     .return_value_as_hlbool()
-                    .ok_or_else(|| new_error!("Failed to get hlbool from return value"))?;
+                    .ok_or_else(|| anyhow!("Failed to get hlbool from return value"))?;
                 Ok(ReturnValue::Bool(hlbool.value()))
             }
             FbReturnValue::hlstring => {
@@ -384,14 +351,15 @@ impl TryFrom<FbFunctionCallResult<'_>> for ReturnValue {
                 Ok(ReturnValue::VecBytes(hlvecbytes.unwrap_or(vec![])))
             }
             other => {
-                log_then_return!(UnexpectedFlatBufferReturnValueType(other));
+                bail!("Unexpected flatbuffer return value type: {:?}", other)
             }
         }
     }
 }
 
 impl TryFrom<&[u8]> for ReturnValue {
-    type Error = HyperlightError;
+    type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: &[u8]) -> Result<Self> {
         let function_call_result_fb = size_prefixed_root_as_function_call_result(value)?;
         function_call_result_fb.try_into()
@@ -399,7 +367,8 @@ impl TryFrom<&[u8]> for ReturnValue {
 }
 
 impl TryFrom<&ReturnValue> for Vec<u8> {
-    type Error = HyperlightError;
+    type Error = Error;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(value: &ReturnValue) -> Result<Vec<u8>> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
         let result = match value {
@@ -495,32 +464,9 @@ impl TryFrom<&ReturnValue> for Vec<u8> {
 
         let length = unsafe { flatbuffers::read_scalar::<i32>(&result[..4]) };
         if result.capacity() != result.len() || result.capacity() != length as usize + 4 {
-            log_then_return!(VectorCapacityInCorrect(
-                result.capacity(),
-                result.len(),
-                length + 4
-            ));
+            bail!("Invalid vector capacity")
         }
 
         Ok(result)
-    }
-}
-
-impl TryFrom<(&SharedMemory, &SandboxMemoryLayout)> for ReturnValue {
-    type Error = HyperlightError;
-    fn try_from(value: (&SharedMemory, &SandboxMemoryLayout)) -> Result<Self> {
-        // Get the size of the flatbuffer buffer from memory
-
-        let fb_buffer_size = {
-            let size_i32 = value.0.read_i32(value.1.output_data_buffer_offset)? + 4;
-            usize::try_from(size_i32)
-        }?;
-
-        let mut function_call_result_buffer = vec![0; fb_buffer_size];
-        value.0.copy_to_slice(
-            &mut function_call_result_buffer,
-            value.1.output_data_buffer_offset,
-        )?;
-        ReturnValue::try_from(function_call_result_buffer.as_slice())
     }
 }

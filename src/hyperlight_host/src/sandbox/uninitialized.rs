@@ -16,7 +16,7 @@ use crate::{
     error::HyperlightError::{CallEntryPointIsInProcOnly, GuestBinaryShouldBeAFile},
     new_error,
 };
-use crate::{func::host::HostFunction1, MultiUseSandbox};
+use crate::{func::host_functions::HostFunction1, MultiUseSandbox};
 use crate::{log_then_return, mem::ptr::RawPtr};
 use crate::{mem::mgr::STACK_COOKIE_LEN, SingleUseSandbox};
 use std::option::Option;
@@ -24,8 +24,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::{ffi::c_void, ops::Add};
-use tracing::instrument;
-use tracing_core::Level;
+use tracing::{instrument, Span};
 
 /// A preliminary `Sandbox`, not yet ready to execute guest code.
 ///
@@ -226,7 +225,11 @@ impl<'a> UninitializedSandbox<'a> {
     /// The skip attribute is used to skip the guest binary from being printed in the tracing span.
     /// The name attribute is used to name the tracing span.
     /// The err attribute is used to emit an error should the Result be an error, it uses the std::`fmt::Debug trait` to print the error.
-    #[instrument(err(Debug, level = Level::ERROR), skip(guest_binary, host_print_writer), name = "UninitializedSandbox::new")]
+    #[instrument(
+        err(Debug),
+        skip(guest_binary, host_print_writer),
+        parent = Span::current()
+    )]
     pub fn new(
         guest_binary: GuestBinary,
         cfg: Option<SandboxConfiguration>,
@@ -296,6 +299,7 @@ impl<'a> UninitializedSandbox<'a> {
         // If we were passed a writer for host print register it otherwise use the default.
         match host_print_writer {
             Some(writer_func) => {
+                #[allow(clippy::arc_with_non_send_sync)]
                 let writer_func = Arc::new(Mutex::new(writer_func));
                 writer_func
                     .lock()
@@ -449,10 +453,7 @@ mod tests {
     #[cfg(target_os = "windows")]
     use crate::SandboxRunOptions;
     use crate::{
-        func::{
-            host::{HostFunction1, HostFunction2},
-            types::{ParameterValue, ReturnValue},
-        },
+        func::host_functions::{HostFunction1, HostFunction2},
         sandbox::uninitialized::GuestBinary,
         sandbox::SandboxConfiguration,
         UninitializedSandbox,
@@ -468,6 +469,9 @@ mod tests {
     use crate::{sandbox_state::transition::MutatingCallback, sandbox_state::transition::Noop};
     use crate::{testing::log_values::try_to_strings, MultiUseSandbox};
     use crossbeam_queue::ArrayQueue;
+    use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
+        ParameterValue, ReturnValue,
+    };
     use hyperlight_testing::simple_guest_path;
     use log::Level;
     use serde_json::{Map, Value};
@@ -1043,7 +1047,7 @@ mod tests {
             );
 
             let span_metadata = subscriber.get_span_metadata(2);
-            assert_eq!(span_metadata.name(), "UninitializedSandbox::new");
+            assert_eq!(span_metadata.name(), "new");
 
             // There should be one event for the error that the binary path does not exist
 
@@ -1132,14 +1136,14 @@ mod tests {
             let logcall = TEST_LOGGER.get_log_call(0).unwrap();
             assert_eq!(Level::Info, logcall.level);
 
-            assert!(logcall.args.starts_with("UninitializedSandbox::new; cfg"));
+            assert!(logcall.args.starts_with("new; cfg"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
 
             // Log record 2
 
             let logcall = TEST_LOGGER.get_log_call(1).unwrap();
             assert_eq!(Level::Trace, logcall.level);
-            assert_eq!(logcall.args, "-> UninitializedSandbox::new;");
+            assert_eq!(logcall.args, "-> new;");
             assert_eq!("tracing::span::active", logcall.target);
 
             // Log record 3
@@ -1153,14 +1157,14 @@ mod tests {
 
             let logcall = TEST_LOGGER.get_log_call(3).unwrap();
             assert_eq!(Level::Trace, logcall.level);
-            assert_eq!(logcall.args, "<- UninitializedSandbox::new;");
+            assert_eq!(logcall.args, "<- new;");
             assert_eq!("tracing::span::active", logcall.target);
 
             // Log record 6
 
             let logcall = TEST_LOGGER.get_log_call(4).unwrap();
             assert_eq!(Level::Trace, logcall.level);
-            assert_eq!(logcall.args, "-- UninitializedSandbox::new;");
+            assert_eq!(logcall.args, "-- new;");
             assert_eq!("tracing::span", logcall.target);
         }
         {
@@ -1191,7 +1195,7 @@ mod tests {
             let logcall = TEST_LOGGER.get_log_call(0).unwrap();
             assert_eq!(Level::Info, logcall.level);
 
-            assert!(logcall.args.starts_with("UninitializedSandbox::new; cfg"));
+            assert!(logcall.args.starts_with("new; cfg"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
 
             // Log record 2
@@ -1205,8 +1209,6 @@ mod tests {
             TEST_LOGGER.clear_log_calls();
             TEST_LOGGER.set_max_level(log::LevelFilter::Error);
 
-            // Now we have set the max level to error, so we should not see any log calls as the following should not create an error
-
             let sbox = {
                 let res = UninitializedSandbox::new(
                     GuestBinary::FilePath(simple_guest_path().unwrap()),
@@ -1219,7 +1221,26 @@ mod tests {
             let _: Result<MultiUseSandbox<'_>> = sbox.evolve(Noop::default());
 
             let num_calls = TEST_LOGGER.num_log_calls();
-            assert_eq!(0, num_calls);
+
+            // Now we have set the max level to error, we should only see log error records, and this should only happen if we are running on Linux with KVm as
+            // there will be one error because the is_hypervisor_present function will check for hyperv and return an error before it checks for KVM
+
+            #[cfg(target_os = "linux")]
+            {
+                if let Ok(v) = std::env::var("KVM_SHOULD_BE_PRESENT") {
+                    if v.to_lowercase() == "true" {
+                        assert_eq!(1, num_calls);
+                    } else {
+                        assert_eq!(0, num_calls);
+                    }
+                } else {
+                    assert_eq!(0, num_calls);
+                }
+            }
+            #[cfg(target_os = "windows")]
+            {
+                assert_eq!(0, num_calls);
+            }
         }
     }
 }

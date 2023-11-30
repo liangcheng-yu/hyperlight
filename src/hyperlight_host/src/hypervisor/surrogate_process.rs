@@ -1,10 +1,10 @@
+use super::surrogate_process_manager::get_surrogate_process_manager;
 use crate::mem::shared_mem::PtrCVoidMut;
+use tracing::{instrument, Span};
 use windows::Win32::{
     Foundation::HANDLE,
     System::Memory::{VirtualFreeEx, MEM_RELEASE},
 };
-
-use super::surrogate_process_manager::get_surrogate_process_manager;
 
 /// Contains details of a surrogate process to be used by a Sandbox for providing memory to a HyperV VM on Windows.
 /// See surrogate_process_manager for details on why this is needed.
@@ -17,6 +17,7 @@ pub(super) struct SurrogateProcess {
 }
 
 impl SurrogateProcess {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn new(allocated_address: PtrCVoidMut, process_handle: HANDLE) -> Self {
         Self {
             allocated_address,
@@ -26,6 +27,7 @@ impl SurrogateProcess {
 }
 
 impl Default for SurrogateProcess {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn default() -> Self {
         let allocated_address = PtrCVoidMut::from(std::ptr::null_mut());
         Self::new(allocated_address, Default::default())
@@ -33,6 +35,7 @@ impl Default for SurrogateProcess {
 }
 
 impl Drop for SurrogateProcess {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn drop(&mut self) {
         unsafe {
             if !VirtualFreeEx(

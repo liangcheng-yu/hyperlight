@@ -15,7 +15,7 @@ use crate::{
     UninitializedSandbox,
 };
 use crate::{int_gauge_dec, int_gauge_inc};
-use tracing::instrument;
+use tracing::{instrument, Span};
 
 pub(super) type CBFunc<'a> = Box<dyn FnOnce(&mut UninitializedSandbox<'a>) -> Result<()> + 'a>;
 
@@ -30,7 +30,7 @@ pub(super) type CBFunc<'a> = Box<dyn FnOnce(&mut UninitializedSandbox<'a>) -> Re
 ///
 /// If this doesn't make sense and you want to change this type,
 /// please reach out to a Hyperlight developer before making the change.
-#[instrument(err(Debug), skip_all)]
+#[instrument(err(Debug), skip_all, ,parent = Span::current())]
 fn evolve_impl<'a, TransformFunc, ResSandbox: Sandbox>(
     mut u_sbox: UninitializedSandbox<'a>,
     cb_opt: Option<CBFunc<'a>>,
@@ -87,11 +87,6 @@ pub(super) fn evolve_impl_multi_use<'a>(
     evolve_impl(u_sbox, cb_opt, |mut u, leaked_outb| {
         // only snapshot state if we're a multi-use sandbox. do not
         // call snapshot_state in the evolve_impl_single_use function
-        {
-            let mem_mgr = u.get_mgr().as_ref();
-            let p_dispatch = mem_mgr.get_pointer_to_dispatch_function()?;
-            print!("{:?}", p_dispatch);
-        }
         {
             u.get_mgr_mut().as_mut().snapshot_state()?;
         }

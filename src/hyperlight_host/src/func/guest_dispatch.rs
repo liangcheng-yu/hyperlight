@@ -1,18 +1,20 @@
 use super::guest_err::check_for_guest_error;
+use crate::mem::ptr::{GuestPtr, RawPtr};
 use crate::sandbox::WrapperGetter;
-use crate::Result;
-use crate::{
-    func::{
-        function_call::{FunctionCall, FunctionCallType},
-        types::{ParameterValue, ReturnType, ReturnValue},
-    },
-    mem::ptr::{GuestPtr, RawPtr},
+use crate::{HyperlightError, Result};
+use hyperlight_flatbuffers::flatbuffer_wrappers::{
+    function_call::{FunctionCall, FunctionCallType},
+    function_types::{ParameterValue, ReturnType, ReturnValue},
 };
-use tracing::instrument;
-use tracing_core::Level;
+use tracing::{instrument, Span};
 
 /// Call a guest function by name, using the given `hv_mem_mgr_getter`.
-#[instrument(err(Debug, level = Level::INFO), skip(wrapper_getter, args), name = "sandbox::guest_funcs::disptch_call_from_host")]
+#[instrument(
+    err(Debug),
+    skip(wrapper_getter, args),
+    parent = Span::current(),
+    level = "Trace"
+)]
 pub(super) fn dispatch_call_from_host<'a, HvMemMgrT: WrapperGetter<'a>>(
     wrapper_getter: &mut HvMemMgrT,
     function_name: &str,
@@ -37,7 +39,9 @@ pub(super) fn dispatch_call_from_host<'a, HvMemMgrT: WrapperGetter<'a>>(
         return_type,
     );
 
-    let buffer: Vec<u8> = fc.try_into()?;
+    let buffer: Vec<u8> = fc
+        .try_into()
+        .map_err(|_| HyperlightError::Error("Failed to serialize FunctionCall".to_string()))?;
 
     {
         // once again, only borrow mutably from hv_mem_mgr_getter
@@ -79,7 +83,7 @@ mod tests {
     use super::*;
     use crate::func::{
         call_ctx::{MultiUseGuestCallContext, SingleUseGuestCallContext},
-        host::HostFunction0,
+        host_functions::HostFunction0,
     };
     use crate::HyperlightError;
     use crate::Result;

@@ -1,16 +1,15 @@
+#[cfg(feature = "function_call_metrics")]
 use super::metrics::SandboxMetric::HostFunctionCallsDurationMicroseconds;
 use super::FunctionsMap;
+#[cfg(feature = "function_call_metrics")]
+use crate::histogram_vec_time_micros;
 use crate::HyperlightError::HostFunctionNotFound;
-use crate::{
-    func::{
-        host::function_definition::HostFunctionDefinition,
-        host::function_details::HostFunctionDetails,
-        types::{ParameterValue, ReturnValue},
-        HyperlightFunction,
-    },
-    mem::mgr::SandboxMemoryManager,
-};
-use crate::{histogram_vec_time_micros, Result};
+use crate::{func::HyperlightFunction, mem::mgr::SandboxMemoryManager};
+use crate::{new_error, Result};
+use cfg_if::cfg_if;
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnValue};
+use hyperlight_flatbuffers::flatbuffer_wrappers::host_function_definition::HostFunctionDefinition;
+use hyperlight_flatbuffers::flatbuffer_wrappers::host_function_details::HostFunctionDetails;
 use is_terminal::IsTerminal;
 use std::io::stdout;
 use std::io::Write;
@@ -41,7 +40,7 @@ impl<'a> HostFuncsWrapper<'a> {
     }
 
     /// Register a host function with the sandbox.
-    pub fn register_host_function(
+    pub(crate) fn register_host_function(
         &mut self,
         mgr: &mut SandboxMemoryManager,
         hfd: &HostFunctionDefinition,
@@ -56,7 +55,12 @@ impl<'a> HostFuncsWrapper<'a> {
         // to be able to search the functions by name.
         self.get_host_func_details_mut()
             .sort_host_functions_by_name();
-        let buffer: Vec<u8> = self.get_host_func_details().try_into()?;
+        let buffer: Vec<u8> = self.get_host_func_details().try_into().map_err(|e| {
+            new_error!(
+                "Error serializing host function details to flatbuffer: {}",
+                e
+            )
+        })?;
         mgr.write_buffer_host_function_details(&buffer)?;
 
         Ok(())
@@ -74,6 +78,7 @@ impl<'a> HostFuncsWrapper<'a> {
             vec![ParameterValue::String(msg)],
         )?;
         res.try_into()
+            .map_err(|_| HostFunctionNotFound("HostPrint".to_string()))
     }
     /// From the set of registered host functions, attempt to get the one
     /// named `name`. If it exists, call it with the given arguments list
@@ -99,11 +104,18 @@ fn call_host_func_impl(
     let func = host_funcs
         .get(name)
         .ok_or_else(|| HostFunctionNotFound(name.to_string()))?;
-    histogram_vec_time_micros!(
-        &HostFunctionCallsDurationMicroseconds,
-        &[name],
-        func.call(args)
-    )
+    cfg_if! {
+        if #[cfg(feature = "function_call_metrics")] {
+            histogram_vec_time_micros!(
+                &HostFunctionCallsDurationMicroseconds,
+                &[name],
+                func.call(args)
+            )
+        }
+        else {
+            func.call(args)
+        }
+    }
 }
 
 /// The default writer function is to write to stdout with green text.

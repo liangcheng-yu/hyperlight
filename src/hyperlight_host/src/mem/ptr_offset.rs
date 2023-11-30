@@ -1,3 +1,5 @@
+use tracing::{instrument, Span};
+
 use crate::error::HyperlightError;
 use crate::Result;
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
@@ -8,34 +10,41 @@ use std::ops::Add;
 ///
 /// Use this type to distinguish between an offset and a raw pointer
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+//TODO: Once we have a complete C API then this should have visibility `pub(crate)`
 pub struct Offset(u64);
 
 impl Offset {
     /// Get the offset representing `0`
+    //TODO: Once we have a complete C API then this should have visibility `pub(super)`
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn zero() -> Self {
         Self::default()
     }
 }
 
 impl Default for Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn default() -> Self {
         Offset::from(0_u64)
     }
 }
 
 impl From<u64> for Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(val: u64) -> Self {
         Self(val)
     }
 }
 
 impl From<&Offset> for u64 {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(val: &Offset) -> u64 {
         val.0
     }
 }
 
 impl From<Offset> for u64 {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(val: Offset) -> u64 {
         val.0
     }
@@ -43,6 +52,7 @@ impl From<Offset> for u64 {
 
 impl TryFrom<Offset> for i64 {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(val: Offset) -> Result<i64> {
         Ok(i64::try_from(val.0)?)
     }
@@ -50,6 +60,7 @@ impl TryFrom<Offset> for i64 {
 
 impl TryFrom<i64> for Offset {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(val: i64) -> Result<Offset> {
         let val_u64 = u64::try_from(val)?;
         Ok(Offset::from(val_u64))
@@ -58,6 +69,7 @@ impl TryFrom<i64> for Offset {
 
 impl TryFrom<usize> for Offset {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(val: usize) -> Result<Offset> {
         Ok(u64::try_from(val).map(Offset::from)?)
     }
@@ -67,6 +79,7 @@ impl TryFrom<usize> for Offset {
 /// conversion couldn't be made.
 impl TryFrom<&Offset> for usize {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(val: &Offset) -> Result<usize> {
         Ok(usize::try_from(val.0)?)
     }
@@ -74,6 +87,7 @@ impl TryFrom<&Offset> for usize {
 
 impl TryFrom<Offset> for usize {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(val: Offset) -> Result<usize> {
         usize::try_from(&val)
     }
@@ -81,7 +95,7 @@ impl TryFrom<Offset> for usize {
 
 impl Add<Offset> for Offset {
     type Output = Offset;
-
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn add(self, rhs: Offset) -> Offset {
         Offset::from(self.0 + rhs.0)
     }
@@ -89,6 +103,7 @@ impl Add<Offset> for Offset {
 
 impl Add<usize> for Offset {
     type Output = Offset;
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn add(self, rhs: usize) -> Offset {
         Offset(self.0 + rhs as u64)
     }
@@ -96,6 +111,7 @@ impl Add<usize> for Offset {
 
 impl Add<Offset> for usize {
     type Output = Offset;
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn add(self, rhs: Offset) -> Offset {
         rhs.add(self)
     }
@@ -103,6 +119,7 @@ impl Add<Offset> for usize {
 
 impl Add<u64> for Offset {
     type Output = Offset;
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn add(self, rhs: u64) -> Offset {
         Offset(self.0 + rhs)
     }
@@ -110,12 +127,14 @@ impl Add<u64> for Offset {
 
 impl Add<Offset> for u64 {
     type Output = Offset;
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn add(self, rhs: Offset) -> Offset {
         rhs.add(self)
     }
 }
 
 impl PartialEq<usize> for Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn eq(&self, other: &usize) -> bool {
         if let Ok(offset_usize) = usize::try_from(self) {
             offset_usize == *other
@@ -126,6 +145,7 @@ impl PartialEq<usize> for Offset {
 }
 
 impl PartialOrd<usize> for Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn partial_cmp(&self, rhs: &usize) -> Option<Ordering> {
         match usize::try_from(self) {
             Ok(offset_usize) if offset_usize > *rhs => Some(Ordering::Greater),
@@ -137,12 +157,14 @@ impl PartialOrd<usize> for Offset {
 }
 
 impl PartialEq<u64> for Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn eq(&self, rhs: &u64) -> bool {
         u64::from(self) == *rhs
     }
 }
 
 impl PartialOrd<u64> for Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn partial_cmp(&self, rhs: &u64) -> Option<Ordering> {
         let lhs: u64 = self.into();
         match lhs > *rhs {

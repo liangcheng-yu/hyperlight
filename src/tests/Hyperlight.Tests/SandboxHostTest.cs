@@ -1451,7 +1451,7 @@ namespace Hyperlight.Tests
                     // That will be OK so long as we see the other error 
                     // message in the inprocess case.
                     Assert.StartsWith(
-                        "FailureInDlmalloc:HyperlightMoreCore Failed to allocate memory. Allocated:",
+                        "Guest Aborted",
                         ex.Message
                     );
                 }

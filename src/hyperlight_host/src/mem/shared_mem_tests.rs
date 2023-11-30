@@ -1,3 +1,4 @@
+#![cfg(test)]
 use super::{ptr_offset::Offset, shared_mem::SharedMemory};
 use crate::log_then_return;
 use crate::new_error;
@@ -10,10 +11,10 @@ use std::mem::size_of;
 
 /// A function that knows how to read data of type `T` from a
 /// `SharedMemory` at a specified offset
-pub(crate) type ReaderFn<T> = dyn Fn(&SharedMemory, Offset) -> Result<T>;
+type ReaderFn<T> = dyn Fn(&SharedMemory, Offset) -> Result<T>;
 /// A function that knows how to write data of type `T` from a
 /// `SharedMemory` at a specified offset.
-pub(crate) type WriterFn<T> = dyn Fn(&mut SharedMemory, Offset, T) -> Result<()>;
+type WriterFn<T> = dyn Fn(&mut SharedMemory, Offset, T) -> Result<()>;
 
 /// Run the standard suite of tests for a specified type `U` to write to
 /// a `SharedMemory` and a specified type `T` to read back out of
@@ -27,7 +28,7 @@ pub(crate) type WriterFn<T> = dyn Fn(&mut SharedMemory, Offset, T) -> Result<()>
 /// Regardless of which types you choose, they must be `Clone`able,
 /// `Debug`able, and you must be able to check if `T`, the one returned
 /// by the `reader`, is equal to `U`, the one accepted by the writer.
-pub(crate) fn read_write_test_suite<T, U>(
+pub(super) fn read_write_test_suite<T, U>(
     mem_size: usize,
     initial_val: U,
     reader: Box<ReaderFn<T>>,

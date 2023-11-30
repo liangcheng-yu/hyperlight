@@ -24,14 +24,22 @@ lazy_static! {
 set_metrics_registry(&REGISTRY);
 ```
 
-The following metrics are provided:
+The following metrics are provided and are enabled by default:
 
 * `hyperlight_current_number_of_multi_use_sandboxes` - a gauge that tracks the number of multi-use sandboxes that are currently active.
 * `hyperlight_current_number_of_single_use_sandboxes` - a gauge that tracks the number of single-use sandboxes that are currently active.
-* `hyperlight_guest_error_count` - a vector of counters that tracks the number of guest errors by reason.
+* `hyperlight_guest_error_count` - a vector of counters that tracks the number of guest errors by code and message.
+* `hyperlight_number_of_cancelled_guest_execution` - a counter that tracks the number of guest executions that have been cancelled because the execution time execeeded the time allowed.
+
+The following metrics are provided but are disabled by default and require the feature `function_call_metrics` to be enabled:
+
 * `hyperlight_guest_function_call_duration_microseconds` - a vector of histograms that tracks the execution time of guest functions in microseconds by function name. The histogram also tracks the number of calls to each function.
 * `hyperlight_host_function_calls_duration_microseconds` - a vector of histograms that tracks the execution time of host functions in microseconds by function name. The histogram also tracks the number of calls to each function.
-* `hyperlight_number_of_cancelled_guest_execution` - a counter that tracks the number of guest executions that have been cancelled because the execution time execeeded the time allowed.
+
+The rationale for disabling the function call metrics by default is that:
+
+* A Hyperlight host may wish to provide its own metrics for function calls.
+* Enabling a trace subscriber will cause the function call metrics to be emitted as trace events, which may be sufficient for some use cases.
 
 There is an example of how to gather metrics in the [examples/metrics](../src/hyperlight_host/examples/metrics) directory.
 
@@ -46,6 +54,8 @@ For an example that uses the `env_logger` crate, see the [examples/logging](../s
 Hyperlight also provides tracing capabilties (see below for more details), if no trace subscriber is registered, trace records will be emitted as log records, using the `log` feature of the [tracing crate](https://docs.rs/tracing/latest/tracing/#crate-feature-flags).
 
 ## Tracing
+
+Tracing spans are created for any call to a public API and the parent span will be set to the current span in the host if one exists, the level of the span is set to `info`. The span will be closed when the call returns. Any Result that contains an error variant will be logged as an error event. In addition to the public APIs, all internal functions are instrumented with trace spans at the `trace` level, therefore in order to see full trace information, the trace level should be enabled.
 
 Hyperlight provides tracing using the Rust [tracing crate](https://docs.rs/tracing/0.1.25/tracing/), and can be consumed by any Rust trace subscriber implementation(see[here](https://docs.rs/tracing/latest/tracing/index.html#related-crates) for some examples). In addition to consuming trace output the log records may also be consumed by a tracing subscriber, using the `tracing-log` crate.
 

@@ -9,8 +9,11 @@ use crate::{log_then_return, new_error};
 use kvm_bindings::{kvm_segment, kvm_userspace_memory_region};
 use kvm_ioctls::{Cap::UserMemory, Kvm, VcpuExit, VcpuFd, VmFd};
 use std::{any::Any, convert::TryFrom, time::Duration};
+use tracing::{instrument, Span};
 
 /// Return `Ok(())` if the KVM API is available, or `Err` otherwise
+// TODO: Once CAPI is complete this does not need to be public
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 pub fn is_hypervisor_present() -> Result<()> {
     let kvm = Kvm::new()?;
     let ver = kvm.get_api_version();
@@ -26,6 +29,7 @@ pub fn is_hypervisor_present() -> Result<()> {
     Ok(())
 }
 
+// TODO: Once CAPI is complete this does not need to be public
 /// A Hypervisor driver for KVM on Linux
 #[derive(Debug)]
 pub struct KVMDriver {
@@ -46,6 +50,8 @@ impl KVMDriver {
     ///
     /// TODO: when rust rewrite is complete, change `rsp` and `pml4_addr`
     /// params to be of type `GuestPtr`.
+    // TODO: Once CAPI is complete this does not need to be public
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn new(
         host_addr: u64,
         pml4_addr: u64,
@@ -91,6 +97,7 @@ impl KVMDriver {
         })
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn set_sreg_segment(seg: &mut kvm_segment, type_: u8, selector: u16) {
         seg.base = 0;
         seg.limit = 0xffffffff;
@@ -104,6 +111,7 @@ impl KVMDriver {
         seg.g = 1;
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn set_sregs(vcpu_fd: &mut VcpuFd, pml4_addr: u64) -> Result<()> {
         // set up x86 memory segmentation registers.
         // these are primarily used in Hyperlight for purposes of
@@ -172,10 +180,12 @@ impl KVMDriver {
 }
 
 impl Hypervisor for KVMDriver {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn as_mut_hypervisor(&mut self) -> &mut dyn Hypervisor {
         self as &mut dyn Hypervisor
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn dispatch_call_from_host(
         &mut self,
         dispatch_func_addr: RawPtr,
@@ -184,22 +194,29 @@ impl Hypervisor for KVMDriver {
         max_execution_time: Duration,
         max_wait_for_cancellation: Duration,
     ) -> Result<()> {
-        // Move rip to the DispatchFunction pointer
         let mut regs = self.vcpu_fd.get_regs()?;
+        // Move rip to the DispatchFunction pointer
         regs.rip = dispatch_func_addr.into();
+        // we need to reset the stack pointer once execution is complete
+        // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it
+        // so here we get the current RSP value so we can reset it later
+        let rsp = regs.rsp;
         self.vcpu_fd.set_regs(&regs)?;
         self.execute_until_halt(
             outb_handle_fn,
             mem_access_fn,
             max_execution_time,
             max_wait_for_cancellation,
-        )
+        )?;
+        // Reset the stack pointer to the value it was before the call
+        self.reset_rsp(rsp)
     }
 
     /// Implementation of initialise for Hypervisor trait.
     ///
     /// TODO: when Rust rewrite is complete, change `peb_addr` to be
     /// of type `GuestPtr`
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn initialise(
         &mut self,
         peb_addr: RawPtr,
@@ -223,19 +240,25 @@ impl Hypervisor for KVMDriver {
             mem_access_hdl.clone(),
             max_execution_time,
             max_wait_for_cancellation,
-        )
+        )?;
+        // we need to reset the stack pointer once execution is complete
+        // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it
+        self.reset_rsp(self.rsp)
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn reset_rsp(&mut self, rsp: u64) -> Result<()> {
         let mut regs = self.vcpu_fd.get_regs()?;
         regs.rsp = rsp;
         Ok(self.vcpu_fd.set_regs(&regs)?)
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn orig_rsp(&self) -> Result<u64> {
         Ok(self.rsp)
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn run(&mut self) -> Result<HyperlightExit> {
         let result = match self.vcpu_fd.run() {
             Ok(VcpuExit::Hlt) => HyperlightExit::Halt(),
@@ -263,6 +286,7 @@ impl Hypervisor for KVMDriver {
         Ok(result)
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn handle_io(
         &mut self,
         port: u16,
@@ -291,6 +315,7 @@ impl Hypervisor for KVMDriver {
         Ok(())
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn as_any(&self) -> &dyn Any {
         self
     }
