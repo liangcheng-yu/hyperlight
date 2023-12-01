@@ -64,13 +64,13 @@ jobs:
       uses: actions/download-artifact@v3
       if: ${{ env.CONFIG }} == "Debug"
       with:
-        name: ${{ env.CONFIG }}_assets
+        name: debug_assets
         path: target/debug/
     - name: Download Release DLL
       uses: actions/download-artifact@v3
       if: ${{ env.CONFIG }} == "Release"
       with:
-        name: ${{ env.CONFIG }}_assets
+        name: release_assets
         path: target/release/
     - name: Build Solution
       run: msbuild -m hyperlight.sln /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /p:ContinuousIntegrationBuild=true
@@ -118,10 +118,16 @@ jobs:
       uses: "actions/download-artifact@v3"
       with:
         name: hyperlight_capi.h
-    - name: Download artifacts
-      uses: "actions/download-artifact@v3"
+    - name: Download artifacts (debug)
+      uses: actions/download-artifact@v3
+      if: ${{ env.CONFIG }} == "Debug"
       with:
-        name: ${{ env.CONFIG }}_assets
+        name: debug_assets
+    - name: Download artifacts (release)
+      uses: actions/download-artifact@v3
+      if: ${{ env.CONFIG }} == "Release"
+      with:
+        name: release_assets
     - name: Download Benchmarks (Windows)
       uses: actions/download-artifact@v3
       with:
@@ -222,7 +228,7 @@ jobs:
       - name: Upload shared object file for debug
         uses: actions/upload-artifact@v3
         with:
-          name: Debug_assets
+          name: debug_assets
           if-no-files-found: error
           path: | 
             target/debug/libhyperlight_capi.so
@@ -230,7 +236,7 @@ jobs:
       - name: Upload shared object file for release
         uses: actions/upload-artifact@v3
         with:
-          name: Release_assets
+          name: release_assets
           if-no-files-found: error
           path: | 
             target/release/libhyperlight_capi.so
@@ -261,7 +267,7 @@ jobs:
       - name: Upload debug DLL file
         uses: actions/upload-artifact@v3
         with:
-          name: Debug_assets
+          name: debug_assets
           if-no-files-found: error
           path: |
             target/debug/hyperlight_capi.dll
@@ -269,7 +275,7 @@ jobs:
       - name: Upload release DLL file
         uses: actions/upload-artifact@v3
         with:
-          name: Release_assets
+          name: release_assets
           if-no-files-found: error
           path: target/release/hyperlight_capi.dll
 
