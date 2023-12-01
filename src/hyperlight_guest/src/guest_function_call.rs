@@ -9,8 +9,9 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
 };
 
 use crate::{
+    entrypoint::halt,
     guest_error::{reset_error, set_error},
-    GUEST_FUNCTIONS, P_PEB, entrypoint::halt,
+    GUEST_FUNCTIONS, P_PEB,
 };
 
 type GuestFunc = fn() -> Vec<u8>;
