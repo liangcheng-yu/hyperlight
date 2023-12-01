@@ -11,9 +11,12 @@ use std::{
     time::SystemTimeError,
 };
 
-use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::{
-    ErrorCode, FunctionCallType, ParameterType, ParameterValue as FBParameterValue, ReturnType,
-    ReturnValue as FBReturnValue,
+use hyperlight_flatbuffers::{
+    flatbuffer_wrappers::guest_error::ErrorCode,
+    flatbuffers::hyperlight::generated::{
+        FunctionCallType, ParameterType, ParameterValue as FBParameterValue, ReturnType,
+        ReturnValue as FBReturnValue,
+    },
 };
 
 use crate::mem::ptr::RawPtr;

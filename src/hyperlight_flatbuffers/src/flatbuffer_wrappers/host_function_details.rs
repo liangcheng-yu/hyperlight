@@ -1,5 +1,8 @@
+use alloc::vec::Vec;
 use anyhow::{bail, Error, Result};
 use flatbuffers::WIPOffset;
+
+#[cfg(feature = "tracing")]
 use tracing::{instrument, Span};
 
 use crate::flatbuffers::hyperlight::generated::{
@@ -20,25 +23,25 @@ pub struct HostFunctionDetails {
 
 impl HostFunctionDetails {
     /// Create a new `HostFunctionDetails`.
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[cfg_attr(feature = "tracing", instrument(skip_all, parent = Span::current(), level= "Trace"))]
     pub fn new(host_functions: Option<Vec<HostFunctionDefinition>>) -> Self {
         Self { host_functions }
     }
 
     /// Insert a host function into the host function details.
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[cfg_attr(feature = "tracing", instrument(skip_all, parent = Span::current(), level= "Trace"))]
     pub fn insert_host_function(&mut self, host_function: HostFunctionDefinition) {
         match &mut self.host_functions {
             Some(host_functions) => host_functions.push(host_function),
             None => {
-                let host_functions = vec![host_function];
+                let host_functions = Vec::from(&[host_function]);
                 self.host_functions = Some(host_functions);
             }
         }
     }
 
     /// Sort the host functions by name.
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[cfg_attr(feature = "tracing", instrument(skip_all, parent = Span::current(), level= "Trace"))]
     pub fn sort_host_functions_by_name(&mut self) {
         match &mut self.host_functions {
             Some(host_functions) => {
@@ -51,9 +54,10 @@ impl HostFunctionDetails {
 
 impl TryFrom<&[u8]> for HostFunctionDetails {
     type Error = Error;
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
     fn try_from(value: &[u8]) -> Result<Self> {
-        let host_function_details_fb = size_prefixed_root_as_host_function_details(value)?;
+        let host_function_details_fb = size_prefixed_root_as_host_function_details(value)
+            .map_err(|e| anyhow::anyhow!("Error while reading HostFunctionDetails: {:?}", e))?;
 
         let host_function_definitions = match host_function_details_fb.functions() {
             Some(hfd) => {
@@ -79,7 +83,7 @@ impl TryFrom<&[u8]> for HostFunctionDetails {
 
 impl TryFrom<&HostFunctionDetails> for Vec<u8> {
     type Error = Error;
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
     fn try_from(value: &HostFunctionDetails) -> Result<Vec<u8>> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
         let vec_host_function_definitions = match &value.host_functions {

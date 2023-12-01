@@ -4,10 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-flatbuffers = "23.5"
-anyhow = "1.0.72"
+flatbuffers = { version = "23.5.26", default-features = false }
+anyhow = { version = "1.0.72", default-features = false }
 log = "0.4.20"
-tracing = "0.1.27"
+tracing = { version = "0.1.27", optional = true }
+
+[features]
+default = ["tracing"]
 
 [dev-dependencies]
 hyperlight_testing = { path = "../hyperlight_testing" }

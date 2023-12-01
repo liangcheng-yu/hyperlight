@@ -1,5 +1,7 @@
 use anyhow::{bail, Error, Result};
 use log::Level;
+
+#[cfg(feature = "tracing")]
 use tracing::{instrument, Span};
 
 use crate::flatbuffers::hyperlight::generated::LogLevel as FbLogLevel;
@@ -18,7 +20,7 @@ pub enum LogLevel {
 
 impl TryFrom<&FbLogLevel> for LogLevel {
     type Error = Error;
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
     fn try_from(val: &FbLogLevel) -> Result<LogLevel> {
         match *val {
             FbLogLevel::Trace => Ok(LogLevel::Trace),
@@ -36,7 +38,7 @@ impl TryFrom<&FbLogLevel> for LogLevel {
 }
 
 impl From<&LogLevel> for FbLogLevel {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[cfg_attr(feature = "tracing", instrument(skip_all, parent = Span::current(), level= "Trace"))]
     fn from(val: &LogLevel) -> FbLogLevel {
         match val {
             LogLevel::Critical => FbLogLevel::Critical,

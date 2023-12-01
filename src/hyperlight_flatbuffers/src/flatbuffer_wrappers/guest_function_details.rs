@@ -1,4 +1,7 @@
+use alloc::vec::Vec;
 use anyhow::{anyhow, Error, Result};
+
+#[cfg(feature = "tracing")]
 use tracing::{instrument, Span};
 
 use super::guest_function_definition::GuestFunctionDefinition;
@@ -11,23 +14,42 @@ use crate::flatbuffers::hyperlight::generated::{
 
 /// Represents the functions that the guest exposes to the host.
 #[derive(Debug, Default, Clone)]
-struct GuestFunctionDetails {
+pub struct GuestFunctionDetails {
     /// The guest functions
-    guest_functions: Vec<GuestFunctionDefinition>,
+    pub guest_functions: Vec<GuestFunctionDefinition>,
 }
 
 impl GuestFunctionDetails {
     /// Create a new `GuestFunctionDetails`.
-    fn new(guest_functions: Vec<GuestFunctionDefinition>) -> Self {
+    pub const fn new(guest_functions: Vec<GuestFunctionDefinition>) -> Self {
         Self { guest_functions }
+    }
+
+    /// Insert a new `GuestFunctionDefinition` into the `GuestFunctionDetails`.
+    pub fn push(&mut self, guest_function: GuestFunctionDefinition) {
+        self.guest_functions.push(guest_function);
+    }
+
+    /// Sort the `GuestFunctionDetails` by the `GuestFunctionDefinition`'s `name` field.
+    pub fn sort_by_function_name(&mut self) {
+        self.guest_functions
+            .sort_by(|a, b| a.function_name.cmp(&b.function_name));
+    }
+
+    /// Find a `GuestFunctionDefinition` by its `name` field.
+    pub fn find_by_function_name(&self, function_name: &str) -> Option<&GuestFunctionDefinition> {
+        self.guest_functions
+            .iter()
+            .find(|f| f.function_name == function_name)
     }
 }
 
 impl TryFrom<&[u8]> for GuestFunctionDetails {
     type Error = Error;
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
     fn try_from(bytes: &[u8]) -> Result<Self> {
-        let guest_function_details_fb = size_prefixed_root_as_guest_function_details(bytes)?;
+        let guest_function_details_fb = size_prefixed_root_as_guest_function_details(bytes)
+            .map_err(|e| anyhow!("Error while reading GuestFunctionDetails: {:?}", e))?;
 
         let guest_function_definitions = {
             let mut guest_function_definitions: Vec<GuestFunctionDefinition> = Vec::new();
@@ -47,7 +69,7 @@ impl TryFrom<&[u8]> for GuestFunctionDetails {
 
 impl TryFrom<&GuestFunctionDetails> for Vec<u8> {
     type Error = Error;
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
     fn try_from(guest_function_details: &GuestFunctionDetails) -> Result<Self> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
 

@@ -205,6 +205,7 @@ mod tests {
     fn guest_bin() -> GuestBinary {
         GuestBinary::FilePath(simple_guest_path().expect("Guest Binary Missing"))
     }
+
     #[track_caller]
     fn test_call_guest_function_by_name(u_sbox: UninitializedSandbox<'_>) {
         let mu_sbox: MultiUseSandbox<'_> = u_sbox.evolve(MutatingCallback::from(init)).unwrap();
