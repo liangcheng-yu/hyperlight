@@ -17,7 +17,7 @@ const REGISTER_COUNT: usize = 16;
 /// Documentation can be found at:
 /// - https://learn.microsoft.com/en-us/virtualization/api/hypervisor-platform/hypervisor-platform
 /// - https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/System/Hypervisor/index.html
-
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 pub(crate) fn is_hypervisor_present() -> Result<bool> {
     let mut capability: WHV_CAPABILITY = Default::default();
     let written_size: Option<*mut u32> = None;
@@ -37,7 +37,7 @@ pub(crate) fn is_hypervisor_present() -> Result<bool> {
 pub(super) struct VMPartition(WHV_PARTITION_HANDLE);
 
 impl VMPartition {
-    #[instrument(err(Debug), parent = Span::current())]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn new(proc_count: u32) -> Result<Self> {
         let hdl = unsafe { WHvCreatePartition() }?;
         Self::set_processor_count(&hdl, proc_count)?;
@@ -45,7 +45,7 @@ impl VMPartition {
         Ok(Self(hdl))
     }
 
-    #[instrument(err(Debug), parent = Span::current())]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn set_processor_count(
         partition_handle: &WHV_PARTITION_HANDLE,
         processor_count: u32,
@@ -62,7 +62,7 @@ impl VMPartition {
         Ok(())
     }
 
-    #[instrument(err(Debug), parent = Span::current())]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn map_gpa_range(
         &mut self,
         process_handle: &HANDLE,
@@ -87,6 +87,7 @@ impl VMPartition {
 }
 
 impl Drop for VMPartition {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn drop(&mut self) {
         unsafe { WHvDeletePartition(self.0) }.unwrap();
     }
@@ -95,17 +96,19 @@ impl Drop for VMPartition {
 #[derive(Debug)]
 pub(super) struct VMProcessor(VMPartition);
 impl VMProcessor {
-    #[instrument(err(Debug), parent = Span::current())]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn new(part: VMPartition) -> Result<Self> {
         unsafe { WHvCreateVirtualProcessor(part.0, 0, 0) }?;
         Ok(Self(part))
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn get_partition_hdl(&self) -> WHV_PARTITION_HANDLE {
         let part = &self.0;
         part.0
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn get_registers(
         &self,
         register_names: &Vec<WHV_REGISTER_NAME>,
@@ -151,6 +154,7 @@ impl VMProcessor {
         Ok(registers)
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn set_registers(
         &mut self,
         registers: &HashMap<WhvRegisterNameWrapper, WHV_REGISTER_VALUE>,
@@ -179,6 +183,7 @@ impl VMProcessor {
         Ok(())
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn run(&mut self) -> Result<WHV_RUN_VP_EXIT_CONTEXT> {
         let partition_handle = self.get_partition_hdl();
         let mut exit_context: WHV_RUN_VP_EXIT_CONTEXT = Default::default();
@@ -197,6 +202,7 @@ impl VMProcessor {
 }
 
 impl Drop for VMProcessor {
+    #[instrument(parent = Span::current(), level= "Trace")]
     fn drop(&mut self) {
         let part_hdl = self.get_partition_hdl();
         unsafe { WHvDeleteVirtualProcessor(part_hdl, 0) }.unwrap()

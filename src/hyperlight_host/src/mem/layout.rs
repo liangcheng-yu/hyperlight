@@ -9,6 +9,7 @@ use paste::paste;
 use rand::rngs::OsRng;
 use rand::RngCore;
 use std::mem::size_of;
+use tracing::{instrument, Span};
 
 // The following structs are not used other than to calculate the size of the memory needed
 // and also to illustrate the layout of the memory
@@ -133,96 +134,99 @@ struct GuestStack {
 ///
 
 #[derive(Copy, Clone, Debug)]
+// TODO: Once we have a complete C API, we can restrict visibility to crate level.
 pub struct SandboxMemoryLayout {
     sandbox_memory_config: SandboxConfiguration,
     /// The peb offset into this sandbox.
-    pub peb_offset: Offset,
+    peb_offset: Offset,
     /// The stack size of this sandbox.
-    pub stack_size: usize,
+    pub(super) stack_size: usize,
     /// The heap size of this sandbox.
-    pub heap_size: usize,
+    pub(super) heap_size: usize,
     /// The offset to the start of host functions within this sandbox.
-    pub host_functions_offset: Offset,
+    host_functions_offset: Offset,
     /// The offset to the start of host exceptions within this sandbox.
-    pub host_exception_offset: Offset,
+    host_exception_offset: Offset,
     /// The offset to the pointer to the guest error buffer within this sandbox.
-    pub guest_error_buffer_pointer_offset: Offset,
+    guest_error_buffer_pointer_offset: Offset,
     /// The offset to the size of the guest error buffer within this sandbox.
-    pub guest_error_buffer_size_offset: Offset,
+    guest_error_buffer_size_offset: Offset,
     /// The offset to the start of both code and the outb function
     /// pointers within this sandbox.
-    pub code_and_outb_pointer_offset: Offset,
+    code_and_outb_pointer_offset: Offset,
     /// The offset to the start of input data within this sandbox.
-    pub input_data_offset: Offset,
+    input_data_offset: Offset,
     /// The offset to the start of output data within this sandbox.
-    pub output_data_offset: Offset,
+    output_data_offset: Offset,
     /// The offset to the start of the guest heap within this sandbox.
-    pub heap_data_offset: Offset,
+    heap_data_offset: Offset,
     /// The offset to the start of the guest stack within this sandbox.
-    pub stack_data_offset: Offset,
+    stack_data_offset: Offset,
     /// The size of code inside this sandbox.
-    pub code_size: usize,
+    code_size: usize,
     /// The offset to the start of the definitions of host functions inside
     /// this sandbox.
-    pub host_function_definitions_offset: Offset,
+    pub(super) host_function_definitions_offset: Offset,
     /// The offset to the start of the buffer for host exceptions inside
     /// this sandbox.
-    pub host_exception_buffer_offset: Offset,
+    host_exception_buffer_offset: Offset,
     /// The offset to the start of guest errors inside this sandbox.
-    pub guest_error_buffer_offset: Offset,
+    pub(super) guest_error_buffer_offset: Offset,
     /// The offset to the start of the input data buffer inside this
     /// sandbox.
-    pub input_data_buffer_offset: Offset,
+    pub(super) input_data_buffer_offset: Offset,
     /// The offset to the start of the output data buffer inside this
     /// sandbox.
-    pub output_data_buffer_offset: Offset,
+    pub(super) output_data_buffer_offset: Offset,
     /// The offset to the start of the guest heap buffer inside this
     /// sandbox.
-    pub guest_heap_buffer_offset: Offset,
+    guest_heap_buffer_offset: Offset,
     /// The offset to the start of the guest stack buffer inside this
     /// sandbox.
-    pub guest_stack_buffer_offset: Offset,
+    guest_stack_buffer_offset: Offset,
     /// The peb address inside this sandbox.
-    pub peb_address: usize,
+    pub(crate) peb_address: usize,
     /// The offset to the guest security cookie
-    pub guest_security_cookie_seed_offset: Offset,
+    guest_security_cookie_seed_offset: Offset,
     /// The offset to the guest dispatch function pointer
-    pub guest_dispatch_function_ptr_offset: Offset,
+    guest_dispatch_function_ptr_offset: Offset,
 }
 impl SandboxMemoryLayout {
     /// Four Kilobytes (16^3 bytes) - used to round the total amount of memory
     /// used to the nearest 4K
     const FOUR_K: usize = 0x1000;
     /// The size of the page table within a sandbox
-    pub(crate) const PAGE_TABLE_SIZE: usize = 0x3000;
+    const PAGE_TABLE_SIZE: usize = 0x3000;
     /// The offset into the sandbox's memory where the PML4 Table is located.
     /// See https://www.pagetable.com/?p=14 for more information.
     pub(crate) const PML4_OFFSET: usize = 0x0000;
     /// The offset into the sandbox's memory where the Page Directory starts.
-    pub(crate) const PD_OFFSET: usize = 0x2000;
+    pub(super) const PD_OFFSET: usize = 0x2000;
     /// The address (not the offset) to the start of the page directory
-    pub(crate) const PD_GUEST_ADDRESS: usize = Self::BASE_ADDRESS + Self::PD_OFFSET;
+    pub(super) const PD_GUEST_ADDRESS: usize = Self::BASE_ADDRESS + Self::PD_OFFSET;
     /// The offset into the sandbox's memory where the Page Directory Pointer
     /// Table starts.
-    pub(crate) const PDPT_OFFSET: usize = 0x1000;
+    pub(super) const PDPT_OFFSET: usize = 0x1000;
     /// The address (not the offset) into sandbox memory where the Page
     /// Directory Pointer Table starts
-    pub(crate) const PDPT_GUEST_ADDRESS: usize = Self::BASE_ADDRESS + Self::PDPT_OFFSET;
+    pub(super) const PDPT_GUEST_ADDRESS: usize = Self::BASE_ADDRESS + Self::PDPT_OFFSET;
     /// The offset into the sandbox's memory where code starts.
-    pub(crate) const CODE_OFFSET: usize = Self::PAGE_TABLE_SIZE;
+    pub(super) const CODE_OFFSET: usize = Self::PAGE_TABLE_SIZE;
     /// The maximum amount of memory a single sandbox will be allowed.
     const MAX_MEMORY_SIZE: usize = 0x3FEF0000;
 
     /// The base address of the sandbox's memory.
+    //TODO: Once we have a complete C API, we can restrict visibility to crate level.
     pub const BASE_ADDRESS: usize = 0x0200000;
 
     /// The absolute address (assuming sandbox memory starts at BASE_ADDRESS) into
     /// sandbox memory where code starts.
-    pub(crate) const GUEST_CODE_ADDRESS: usize = Self::BASE_ADDRESS + Self::CODE_OFFSET;
+    pub(super) const GUEST_CODE_ADDRESS: usize = Self::BASE_ADDRESS + Self::CODE_OFFSET;
 
     /// Create a new `SandboxMemoryLayout` with the given
     /// `SandboxConfiguration`, code size and stack/heap size.
-    pub(crate) fn new(
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn new(
         cfg: SandboxConfiguration,
         code_size: usize,
         stack_size: usize,
@@ -284,48 +288,56 @@ impl SandboxMemoryLayout {
 
     /// Get the offset in guest memory to the size field in the
     /// `HostExceptionData` structure.
-    pub(crate) fn get_host_exception_size_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get_host_exception_size_offset(&self) -> Offset {
         // The size field is the first field in the `HostExceptionData` struct
         self.host_exception_offset
     }
 
     /// Get the offset in guest memory to the max size of the guest error buffer
-    pub(crate) fn get_guest_error_buffer_size_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get_guest_error_buffer_size_offset(&self) -> Offset {
         self.guest_error_buffer_size_offset
     }
 
     /// Get the offset in guest memory to the error message buffer pointer
-    pub(crate) fn get_guest_error_buffer_pointer_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn get_guest_error_buffer_pointer_offset(&self) -> Offset {
         self.guest_error_buffer_pointer_offset
     }
     /// Get the offset in guest memory to the output data size
-    pub(crate) fn get_output_data_size_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get_output_data_size_offset(&self) -> Offset {
         // The size field is the first field in the `OutputData` struct
         self.output_data_offset
     }
 
     /// Get the offset in guest memory to the host function definitions
     /// size
-    pub(crate) fn get_host_function_definitions_size_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get_host_function_definitions_size_offset(&self) -> Offset {
         // The size field is the first field in the `HostFunctions` struct
         self.host_functions_offset
     }
 
     /// Get the offset in guest memory to the host function definitions
     /// pointer.
-    pub(crate) fn get_host_function_definitions_pointer_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn get_host_function_definitions_pointer_offset(&self) -> Offset {
         // The size field is the field after the size field in the `HostFunctions` struct which is a u64
         self.get_host_function_definitions_size_offset() + size_of::<u64>()
     }
 
     /// Get the offset in guest memory to the minimum guest stack address.
-    pub(crate) fn get_min_guest_stack_address_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn get_min_guest_stack_address_offset(&self) -> Offset {
         // The minimum guest stack address is the start of the guest stack
         self.stack_data_offset
     }
 
     /// Get the offset in guest memory to the start of host errors
-    pub(crate) fn get_host_exception_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get_host_exception_offset(&self) -> Offset {
         self.host_exception_buffer_offset
     }
 
@@ -339,7 +351,8 @@ impl SandboxMemoryLayout {
     }
 
     /// Get the offset in guest memory to the OutB pointer.
-    pub(crate) fn get_outb_pointer_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get_outb_pointer_offset(&self) -> Offset {
         // The outb pointer is immediately after the code pointer
         // in the `CodeAndOutBPointers` struct which is a u64
         self.code_and_outb_pointer_offset + size_of::<u64>()
@@ -347,14 +360,16 @@ impl SandboxMemoryLayout {
 
     #[cfg(target_os = "windows")]
     /// Get the offset in guest memory to the OutB context.
-    pub(crate) fn get_outb_context_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get_outb_context_offset(&self) -> Offset {
         // The outb context is immediately after the outb pointer
         // in the `CodeAndOutBPointers` struct which is a u64
         self.get_outb_pointer_offset() + size_of::<u64>()
     }
 
     /// Get the offset in guest memory to the output data pointer.
-    pub(crate) fn get_output_data_pointer_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn get_output_data_pointer_offset(&self) -> Offset {
         // This field is immedaitely after the output data size field,
         // which is a `u64`.
         self.get_output_data_size_offset() + size_of::<u64>()
@@ -364,25 +379,29 @@ impl SandboxMemoryLayout {
     ///
     /// This function exists to accommodate the macro that generates C API
     /// compatible functions.
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn get_output_data_offset(&self) -> Offset {
         self.output_data_buffer_offset
     }
 
     /// Get the offset in guest memory to the input data size.
-    pub(crate) fn get_input_data_size_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get_input_data_size_offset(&self) -> Offset {
         // The input data size is the first field in the `InputData` struct
         self.input_data_offset
     }
 
     /// Get the offset in guest memory to the input data pointer.
-    pub(crate) fn get_input_data_pointer_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn get_input_data_pointer_offset(&self) -> Offset {
         // The input data pointer is immediately after the input
         // data size field in the `InputData` struct which is a `u64`.
         self.get_input_data_size_offset() + size_of::<u64>()
     }
 
     /// Get the offset in guest memory to the code pointer
-    pub(crate) fn get_code_pointer_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get_code_pointer_offset(&self) -> Offset {
         // The code pointer is the first field
         // in the `CodeAndOutBPointers` struct which is a u64
         self.code_and_outb_pointer_offset
@@ -390,35 +409,41 @@ impl SandboxMemoryLayout {
 
     /// Get the offset in guest memory to where the guest dispatch function
     /// pointer is written
-    pub(crate) fn get_dispatch_function_pointer_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get_dispatch_function_pointer_offset(&self) -> Offset {
         self.guest_dispatch_function_ptr_offset
     }
 
     /// Get the offset in guest memory to the PEB address
-    pub(crate) fn get_in_process_peb_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get_in_process_peb_offset(&self) -> Offset {
         self.peb_offset
     }
 
     /// Get the offset in guest memory to the heap size
-    pub(crate) fn get_heap_size_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn get_heap_size_offset(&self) -> Offset {
         self.heap_data_offset
     }
 
     /// Get the offset of the heap pointer in guest memory,
-    pub(crate) fn get_heap_pointer_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn get_heap_pointer_offset(&self) -> Offset {
         // The heap pointer is immediately after the
         // heap size field in the `GuestHeap` struct which is a `u64`.
         self.get_heap_size_offset() + size_of::<u64>()
     }
 
     /// Get the offset to the top of the stack in guest memory
-    pub(crate) fn get_top_of_stack_offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get_top_of_stack_offset(&self) -> Offset {
         self.guest_stack_buffer_offset
     }
 
     /// Get the total size of guest memory in `self`'s memory
     /// layout.
-    pub(crate) fn get_memory_size(&self) -> Result<usize> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get_memory_size(&self) -> Result<usize> {
         let total_memory = self.code_size
             + Self::PAGE_TABLE_SIZE
             + self.sandbox_memory_config.host_function_definition_size
@@ -464,6 +489,7 @@ impl SandboxMemoryLayout {
     ///
     /// Note: `shared_mem` may have been modified, even if `Err` was returned
     /// from this function.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn write(
         &self,
         shared_mem: &mut SharedMemory,

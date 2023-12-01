@@ -317,9 +317,13 @@ mod tests {
 
                     // We cannot get the parent span using the `current_span()` method as by the time we get to this point that span has been exited so there is no current span
                     // We need to make sure that the span that we created is in the spans map instead
-                    // We expect to have created 8 spans at this point. We are only interested in the first one that was created when calling outb_log.
+                    // We expect to have created 23 spans at this point. We are only interested in the first one that was created when calling outb_log.
 
-                    assert!(spans.len() == 7, "expected 7 spans, found {}", spans.len());
+                    assert!(
+                        spans.len() == 23,
+                        "expected 23 spans, found {}",
+                        spans.len()
+                    );
 
                     let span_value = spans
                         .get(&1)

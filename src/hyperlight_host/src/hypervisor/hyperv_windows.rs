@@ -21,6 +21,7 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::string::String;
 use std::time::Duration;
+use tracing::{instrument, Span};
 use windows::Win32::System::Hypervisor::{
     WHvMapGpaRangeFlagExecute, WHvMapGpaRangeFlagRead, WHvMapGpaRangeFlagWrite, WHvX64RegisterCr0,
     WHvX64RegisterCr3, WHvX64RegisterCr4, WHvX64RegisterCs, WHvX64RegisterEfer, WHvX64RegisterR8,
@@ -34,13 +35,14 @@ use windows::Win32::System::Hypervisor::{
 pub(super) struct WhvRegisterNameWrapper(pub WHV_REGISTER_NAME);
 
 impl Hash for WhvRegisterNameWrapper {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0 .0.hash(state);
     }
 }
 
 /// A Hypervisor driver for HyperV-on-Windows.
-pub struct HypervWindowsDriver {
+pub(crate) struct HypervWindowsDriver {
     size: usize,
     processor: VMProcessor,
     surrogate_process: SurrogateProcess,
@@ -58,7 +60,8 @@ impl std::fmt::Debug for HypervWindowsDriver {
 }
 
 impl HypervWindowsDriver {
-    pub fn new(
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    pub(crate) fn new(
         size: usize,
         source_address: *mut c_void,
         sandbox_base_address: u64,
@@ -174,6 +177,7 @@ impl HypervWindowsDriver {
     }
 
     #[inline]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn get_exit_details(&self, exit_reason: WHV_RUN_VP_EXIT_REASON) -> Result<String> {
         // get registers
         let register_names = self.registers.keys().map(|x| x.0).collect();
@@ -195,16 +199,19 @@ impl HypervWindowsDriver {
         Ok(error)
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn get_partition_hdl(&self) -> WHV_PARTITION_HANDLE {
         self.processor.get_partition_hdl()
     }
 }
 
 impl Hypervisor for HypervWindowsDriver {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn as_mut_hypervisor(&mut self) -> &mut dyn Hypervisor {
         self as &mut dyn Hypervisor
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn initialise(
         &mut self,
         peb_address: RawPtr,
@@ -241,6 +248,7 @@ impl Hypervisor for HypervWindowsDriver {
         self.reset_rsp(self.orig_rsp)
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn dispatch_call_from_host(
         &mut self,
         dispatch_func_addr: RawPtr,
@@ -270,6 +278,7 @@ impl Hypervisor for HypervWindowsDriver {
         self.processor.set_registers(&rsp)
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn reset_rsp(&mut self, rsp: u64) -> Result<()> {
         let registers = HashMap::from([(
             WhvRegisterNameWrapper(WHvX64RegisterRsp),
@@ -278,10 +287,13 @@ impl Hypervisor for HypervWindowsDriver {
         self.processor.set_registers(&registers)?;
         Ok(())
     }
+
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn orig_rsp(&self) -> Result<u64> {
         Ok(self.orig_rsp)
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn handle_io(
         &mut self,
         port: u16,
@@ -304,6 +316,7 @@ impl Hypervisor for HypervWindowsDriver {
         self.processor.set_registers(&registers)
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn run(&mut self) -> Result<super::HyperlightExit> {
         let bytes_written: Option<*mut usize> = None;
         let bytes_read: Option<*mut usize> = None;
@@ -393,6 +406,7 @@ impl Hypervisor for HypervWindowsDriver {
         Ok(result)
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn as_any(&self) -> &dyn Any {
         self
     }

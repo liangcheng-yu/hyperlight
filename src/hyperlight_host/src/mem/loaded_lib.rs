@@ -6,6 +6,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
+use tracing::{instrument, Span};
 use windows::core::PCSTR;
 use windows::Win32::Foundation::HMODULE;
 use windows::Win32::System::LibraryLoader::{FreeLibrary, LoadLibraryA};
@@ -37,12 +38,13 @@ unsafe impl Sync for PtrCCharMut {}
 ///
 /// Use the `TryFrom` implementation to create a new instance.
 #[derive(Clone)]
-pub(crate) struct LoadedLib {
+pub(super) struct LoadedLib {
     data: Arc<(HMODULE, PtrCCharMut)>,
 }
 
 impl LoadedLib {
-    pub(crate) fn base_addr(&self) -> Result<RawPtr> {
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn base_addr(&self) -> Result<RawPtr> {
         let h_inst = self.data.0;
         let h_inst_u64: u64 = h_inst.0.try_into()?;
         Ok(RawPtr::from(h_inst_u64))
@@ -51,12 +53,14 @@ impl LoadedLib {
 
 /// frees `h_inst` using `FreeLibrary`, then frees `file_name_c_str` using
 /// the standard `CString` drop functionality, in that order
+#[instrument(skip_all, parent = Span::current(), level= "Trace")]
 unsafe fn free_and_drop(h_inst: HMODULE, file_name_c_str: *mut c_char) {
     FreeLibrary(h_inst);
     drop(CString::from_raw(file_name_c_str));
 }
 
 impl Drop for LoadedLib {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn drop(&mut self) {
         // if the ref count is greater than 1, this particular LoadedLib
         // has been cloned, so we don't want to free stuff yet
@@ -77,6 +81,7 @@ impl Drop for LoadedLib {
 
 impl TryFrom<&str> for LoadedLib {
     type Error = HyperlightError;
+    #[instrument(err(Debug), parent = Span::current(), level= "Trace")]
     fn try_from(file_name: &str) -> Result<Self> {
         let cstr = CString::new(file_name)?.into_raw();
         let file_name_pc_str = PCSTR::from_raw(cstr as *const u8);
@@ -104,6 +109,7 @@ impl TryFrom<&str> for LoadedLib {
 ///
 /// - if it was set to `!val`, set it to `val` and return `true`
 /// - otherwise, return `false`
+#[instrument(skip_all, parent = Span::current(), level= "Trace")]
 fn set_guest_binary_boolean(val: bool) -> bool {
     // atomically set IS_RUNNING_FROM_GUEST_BINARY to true. if this returns
     // an Ok, the set operation succeeded

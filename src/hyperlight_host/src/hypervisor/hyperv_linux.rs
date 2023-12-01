@@ -10,6 +10,7 @@ use crate::{
 };
 use crate::{hypervisor::HyperlightExit, mem::ptr::RawPtr};
 use crate::{log_then_return, Result};
+use log::error;
 use mshv_bindings::{
     hv_message, hv_message_type, hv_message_type_HVMSG_UNMAPPED_GPA,
     hv_message_type_HVMSG_X64_HALT, hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT, hv_register_assoc,
@@ -25,10 +26,13 @@ use mshv_ioctls::{Mshv, VcpuFd, VmFd};
 use once_cell::sync::Lazy;
 use std::{any::Any, env};
 use std::{collections::HashMap, time::Duration};
+use tracing::{instrument, Span};
 
 /// Determine whether the HyperV for Linux hypervisor API is present
 /// and functional. If `REQUIRE_STABLE_API` is true, determines only whether a
 /// stable API for the Linux HyperV hypervisor is present.
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+// TODO: Once CAPI is complete this does not need to be public
 pub fn is_hypervisor_present() -> Result<bool> {
     let mshv = Mshv::new()?;
     match mshv.check_stable() {
@@ -46,13 +50,13 @@ pub fn is_hypervisor_present() -> Result<bool> {
 }
 /// The constant to map guest physical addresses as readable
 /// in an mshv memory region
-pub(crate) const HV_MAP_GPA_READABLE: u32 = 1;
+const HV_MAP_GPA_READABLE: u32 = 1;
 /// The constant to map guest physical addresses as writable
 /// in an mshv memory region
-pub(crate) const HV_MAP_GPA_WRITABLE: u32 = 2;
+const HV_MAP_GPA_WRITABLE: u32 = 2;
 /// The constant to map guest physical addresses as executable
 /// in an mshv memory region
-pub(crate) const HV_MAP_GPA_EXECUTABLE: u32 = 12;
+const HV_MAP_GPA_EXECUTABLE: u32 = 12;
 
 // TODO: Question should we make the default true (i.e. we only allow unstable API if the Env Var is set)
 // The only reason the default is as it is now is because there is no stable API for hyperv on Linux
@@ -68,6 +72,7 @@ type RegistersHashMap = HashMap<hv_register_name, hv_register_value>;
 
 /// A Hypervisor driver for HyperV-on-Linux. This hypervisor is often
 /// called the Microsoft Hypervisor Platform (MSHV)
+// TODO: Once CAPI is complete this does not need to be public
 pub struct HypervLinuxDriver {
     _mshv: Mshv,
     vm_fd: VmFd,
@@ -99,6 +104,8 @@ impl HypervLinuxDriver {
     /// the underlying virtual CPU after this function returns. Call the
     /// `apply_registers` method to do that, or more likely call
     /// `initialise` to do it for you.
+    // TODO: Once CAPI is complete this does not need to be public
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn new(addrs: &HypervisorAddrs, rsp_ptr: GuestPtr, pml4_ptr: GuestPtr) -> Result<Self> {
         match is_hypervisor_present() {
             Ok(true) => (),
@@ -145,7 +152,8 @@ impl HypervLinuxDriver {
     /// If you want to manually apply registers to the stored vCPU, call
     /// `apply_registers`. `initialise` and `dispatch_call_from_host` will
     /// also do so automatically.
-    pub fn add_registers(
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    fn add_registers(
         vcpu: &mut VcpuFd,
         registers: &mut RegistersHashMap,
         addrs: &HypervisorAddrs,
@@ -240,6 +248,8 @@ impl HypervLinuxDriver {
     ///
     /// Call `add_registers` prior to this function to add to the internal
     /// register list.
+    // TODO: Once CAPI is complete this does not need to be public
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn apply_registers(&self) -> Result<()> {
         let mut regs_vec: Vec<hv_register_assoc> = Vec::new();
         for (k, v) in &self.registers {
@@ -258,7 +268,8 @@ impl HypervLinuxDriver {
     ///
     /// This function will not apply any other pending changes on
     /// the internal register list.
-    pub(crate) fn update_rip(&mut self, val: RawPtr) -> Result<()> {
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    fn update_rip(&mut self, val: RawPtr) -> Result<()> {
         self.update_register_u64(hv_register_name_HV_X64_REGISTER_RIP, val.into())
     }
 
@@ -268,6 +279,8 @@ impl HypervLinuxDriver {
     ///
     /// This function will apply only the value of the given register on the
     /// internally stored virtual CPU, but no others in the pending list.
+    // TODO: Once CAPI is complete this does not need to be public
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn update_register_u64(&mut self, name: hv_register_name, val: u64) -> Result<()> {
         self.registers
             .insert(name, hv_register_value { reg64: val });
@@ -279,6 +292,7 @@ impl HypervLinuxDriver {
         Ok(self.vcpu_fd.set_reg(&[reg])?)
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn get_rsp(&self) -> Result<u64> {
         let mut rsp_reg = hv_register_assoc {
             name: hv_register_name_HV_X64_REGISTER_RSP,
@@ -290,10 +304,12 @@ impl HypervLinuxDriver {
 }
 
 impl Hypervisor for HypervLinuxDriver {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn as_mut_hypervisor(&mut self) -> &mut dyn Hypervisor {
         self as &mut dyn Hypervisor
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn initialise(
         &mut self,
         peb_addr: RawPtr,
@@ -329,6 +345,8 @@ impl Hypervisor for HypervLinuxDriver {
         // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it
         self.reset_rsp(self.orig_rsp()?)
     }
+
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn handle_io(
         &mut self,
         port: u16,
@@ -346,6 +364,7 @@ impl Hypervisor for HypervLinuxDriver {
         self.update_rip(RawPtr::from(rip + instruction_length))
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn run(&mut self) -> Result<super::HyperlightExit> {
         const HALT_MESSAGE: hv_message_type = hv_message_type_HVMSG_X64_HALT;
         const IO_PORT_INTERCEPT_MESSAGE: hv_message_type =
@@ -391,6 +410,7 @@ impl Hypervisor for HypervLinuxDriver {
         Ok(result)
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn dispatch_call_from_host(
         &mut self,
         dispatch_func_addr: RawPtr,
@@ -414,26 +434,29 @@ impl Hypervisor for HypervLinuxDriver {
         self.reset_rsp(rsp)
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn reset_rsp(&mut self, rsp: u64) -> Result<()> {
         self.update_register_u64(hv_register_name_HV_X64_REGISTER_RSP, rsp)
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn orig_rsp(&self) -> Result<u64> {
         self.orig_rsp.absolute()
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn as_any(&self) -> &dyn Any {
         self
     }
 }
 
 impl Drop for HypervLinuxDriver {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn drop(&mut self) {
         match self.vm_fd.unmap_user_memory(self.mem_region) {
             Ok(_) => (),
             Err(e) => {
-                // TODO (logging): log this instead of a raw println
-                println!("Failed to unmap user memory in HyperVOnLinux ({:?})", e)
+                error!("Failed to unmap user memory in HyperVOnLinux ({:?})", e)
             }
         }
     }

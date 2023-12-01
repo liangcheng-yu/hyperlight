@@ -25,7 +25,7 @@ pub(crate) struct PEInfo {
 }
 
 impl PEInfo {
-    #[instrument(err(Debug), parent = Span::current())]
+    #[instrument(err(Debug), parent = Span::current(), level= "Trace")]
     pub(crate) fn from_file(filename: &str) -> Result<Self> {
         info!("Loading PE file from {}", filename);
         let mut file = File::open(filename)?;
@@ -37,6 +37,7 @@ impl PEInfo {
     ///
     /// Returns `Ok` with the new `PEInfo` if `pe_bytes` is a valid
     /// PE file and could properly be parsed as such, and `Err` if not.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn new(pe_bytes: &[u8]) -> Result<Self> {
         let pe = PE::parse(pe_bytes)?;
 
@@ -74,52 +75,62 @@ impl PEInfo {
     }
 
     /// Get a reference to the payload contained within `self`
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn get_payload(&self) -> &[u8] {
         &self.payload
     }
 
     /// Get a mutable reference to the payload contained within `self`
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn get_payload_mut(&mut self) -> &mut [u8] {
         &mut self.payload
     }
     /// Get the length of the entire PE file payload
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn get_payload_len(&self) -> usize {
         self.payload_len
     }
 
     /// Get the entry point offset from the PE file's optional COFF
     /// header.
-    pub(crate) fn entry_point_offset(&self) -> u64 {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn entry_point_offset(&self) -> u64 {
         self.optional_header.standard_fields.address_of_entry_point
     }
 
     /// Get the load address specified in the PE file's optional COFF header.
-    pub(crate) fn preferred_load_address(&self) -> u64 {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn preferred_load_address(&self) -> u64 {
         self.optional_header.windows_fields.image_base
     }
 
     /// Return the stack reserve field from the optional COFF header.
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn stack_reserve(&self) -> u64 {
         self.optional_header.windows_fields.size_of_stack_reserve
     }
 
     /// Return the stack commit field from the optional COFF header.
-    pub(crate) fn stack_commit(&self) -> u64 {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn stack_commit(&self) -> u64 {
         self.optional_header.windows_fields.size_of_stack_commit
     }
 
     /// Return the heap reserve field from the optional COFF header.
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn heap_reserve(&self) -> u64 {
         self.optional_header.windows_fields.size_of_heap_reserve
     }
 
     /// Return the heap commit field from the optional COFF header.
-    pub(crate) fn heap_commit(&self) -> u64 {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn heap_commit(&self) -> u64 {
         self.optional_header.windows_fields.size_of_heap_commit
     }
 
     /// Apply the list of `RelocationPatch`es in `patches` to the given
     /// `payload` and return the number of patches applied.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn apply_relocation_patches(
         payload: &mut [u8],
         patches: Vec<RelocationPatch>,
@@ -145,6 +156,7 @@ impl PEInfo {
 
     /// Get a list of patches to make to the symbol table to
     /// complete the relocations in the relocation table.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn get_exe_relocation_patches(
         &self,
         payload: &[u8],
@@ -218,7 +230,6 @@ impl PEInfo {
 
 /// Represents a patch that relocates a symbol to its final destination.
 #[derive(Debug, Copy, Clone)]
-#[allow(dead_code)]
 pub(crate) struct RelocationPatch {
     /// The offset of the address to patch.
     offset: usize,

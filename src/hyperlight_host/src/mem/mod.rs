@@ -5,7 +5,7 @@ pub mod layout;
 /// Safe wrapper around an HINSTANCE created by the windows
 /// `LoadLibrary` call
 #[cfg(target_os = "windows")]
-pub(crate) mod loaded_lib;
+pub(super) mod loaded_lib;
 /// Functionality taht wraps a `SandboxMemoryLayout` and a
 /// `SandboxMemoryConfig` to mutate a sandbox's memory as necessary.
 pub mod mgr;
@@ -15,7 +15,7 @@ pub(crate) mod pe;
 pub mod ptr;
 /// Structures to represent memory address spaces into which pointers
 /// point.
-pub(crate) mod ptr_addr_space;
+pub(super) mod ptr_addr_space;
 /// Structures to represent an offset into a memory space
 pub mod ptr_offset;
 /// A wrapper around unsafe functionality to create and initialize
@@ -29,4 +29,4 @@ pub mod shared_mem_snapshot;
 pub(crate) mod shared_mem_tests;
 /// An extension trait for adding types like `Offset`s to
 /// types like pointers
-pub(crate) mod try_add_ext;
+pub(super) mod try_add_ext;

@@ -4,14 +4,17 @@ use super::shared_mem::SharedMemory;
 use crate::error::HyperlightError::{self, CheckedAddOverflow, RawPointerLessThanBaseAddress};
 use crate::Result;
 use std::ops::Add;
+use tracing::{instrument, Span};
 
 /// A representation of a raw pointer inside a given address space.
 ///
 /// Use this type to distinguish between an offset and a raw pointer
 #[derive(Debug, Clone, Eq, PartialEq)]
+//TODO: Once we have a complete C API then this should have visibility `pub(crate)`
 pub struct RawPtr(u64);
 
 impl From<u64> for RawPtr {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(val: u64) -> Self {
         Self(val)
     }
@@ -19,6 +22,7 @@ impl From<u64> for RawPtr {
 
 impl Add<Offset> for RawPtr {
     type Output = RawPtr;
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn add(self, rhs: Offset) -> RawPtr {
         let val = self.0 + u64::from(rhs);
         RawPtr(val)
@@ -27,6 +31,7 @@ impl Add<Offset> for RawPtr {
 
 impl TryFrom<usize> for RawPtr {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(val: usize) -> Result<Self> {
         let val_u64 = u64::try_from(val)?;
         Ok(Self::from(val_u64))
@@ -35,18 +40,21 @@ impl TryFrom<usize> for RawPtr {
 
 impl TryFrom<RawPtr> for usize {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(val: RawPtr) -> Result<usize> {
         Ok(usize::try_from(val.0)?)
     }
 }
 
 impl From<RawPtr> for u64 {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(val: RawPtr) -> u64 {
         val.0
     }
 }
 
 impl From<&RawPtr> for u64 {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(val: &RawPtr) -> u64 {
         val.0
     }
@@ -58,6 +66,7 @@ impl TryFrom<(RawPtr, &SharedMemory)> for HostPtr {
     type Error = HyperlightError;
     /// Create a new `HostPtr` from the given `host_raw_ptr`, which must
     /// be a pointer in the host's address space.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(tup: (RawPtr, &SharedMemory)) -> Result<Self> {
         let (host_raw_ptr, shared_mem) = tup;
         let addr_space = HostAddressSpace::new(shared_mem)?;
@@ -67,7 +76,7 @@ impl TryFrom<(RawPtr, &SharedMemory)> for HostPtr {
 
 impl TryFrom<(Offset, &SharedMemory)> for HostPtr {
     type Error = HyperlightError;
-
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(tup: (Offset, &SharedMemory)) -> Result<Self> {
         Ok(Self {
             addr_space: HostAddressSpace::new(tup.1)?,
@@ -76,12 +85,14 @@ impl TryFrom<(Offset, &SharedMemory)> for HostPtr {
     }
 }
 /// Convenience type for representing a pointer into the guest address space
+// TODO: Once we have a complete C API then this should have visibility `pub(crate)`
 pub type GuestPtr = Ptr<GuestAddressSpace>;
 
 impl TryFrom<RawPtr> for GuestPtr {
     type Error = HyperlightError;
     /// Create a new `GuestPtr` from the given `guest_raw_ptr`, which must
     /// be a pointer in the guest's address space.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(raw: RawPtr) -> Result<Self> {
         GuestPtr::from_raw_ptr(GuestAddressSpace::new()?, raw)
     }
@@ -89,6 +100,7 @@ impl TryFrom<RawPtr> for GuestPtr {
 
 impl TryFrom<Offset> for GuestPtr {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(val: Offset) -> Result<Self> {
         let addr_space = GuestAddressSpace::new()?;
         Ok(Ptr::from_offset(addr_space, val))
@@ -97,6 +109,7 @@ impl TryFrom<Offset> for GuestPtr {
 
 impl TryFrom<i64> for GuestPtr {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(val: i64) -> Result<Self> {
         let offset = Offset::try_from(val)?;
         GuestPtr::try_from(offset)
@@ -105,6 +118,7 @@ impl TryFrom<i64> for GuestPtr {
 
 impl TryFrom<GuestPtr> for i64 {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(val: GuestPtr) -> Result<Self> {
         let offset = val.offset();
         i64::try_from(offset)
@@ -113,19 +127,21 @@ impl TryFrom<GuestPtr> for i64 {
 
 /// A pointer into a specific `AddressSpace` `T`.
 #[derive(Debug, Copy, Clone)]
+// TODO: Once we have a complete C API then this should have visibility `pub(crate)`
 pub struct Ptr<T: AddressSpace> {
     addr_space: T,
     offset: Offset,
 }
 
 impl<T: AddressSpace> std::cmp::PartialEq for Ptr<T> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn eq(&self, other: &Self) -> bool {
         other.addr_space == self.addr_space && other.offset == self.offset
     }
 }
 
 impl<T: AddressSpace> std::cmp::Eq for Ptr<T> {}
-
+#[instrument(skip_all, parent = Span::current(), level= "Trace")]
 fn cmp_helper<T: AddressSpace>(left: &Ptr<T>, right: &Ptr<T>) -> std::cmp::Ordering {
     // We know both left and right have the same address space, thus
     // they have the same base, so we can get away with just comparing
@@ -136,12 +152,14 @@ fn cmp_helper<T: AddressSpace>(left: &Ptr<T>, right: &Ptr<T>) -> std::cmp::Order
 
 #[allow(clippy::non_canonical_partial_ord_impl)]
 impl<T: AddressSpace> std::cmp::PartialOrd for Ptr<T> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(cmp_helper(self, other))
     }
 }
 
 impl<T: AddressSpace> std::cmp::Ord for Ptr<T> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         cmp_helper(self, other)
     }
@@ -152,6 +170,7 @@ impl<T: AddressSpace> Ptr<T> {
     /// from the given pointer `raw_ptr`. Returns `Ok` if subtracting
     /// the base address from `raw_ptr` succeeds (i.e. does not overflow)
     /// and a `Ptr<T>` can be successfully created
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn from_raw_ptr(addr_space: T, raw_ptr: RawPtr) -> Result<Ptr<T>> {
         let offset = raw_ptr
             .0
@@ -165,7 +184,8 @@ impl<T: AddressSpace> Ptr<T> {
 
     /// Create a new `Ptr` into the given `addr_space` from the given
     /// `offset`.
-    pub(crate) fn from_offset(addr_space: T, offset: Offset) -> Ptr<T> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn from_offset(addr_space: T, offset: Offset) -> Ptr<T> {
         Self { addr_space, offset }
     }
 
@@ -194,12 +214,14 @@ impl<T: AddressSpace> Ptr<T> {
     }
 
     /// Get the base address for this pointer
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn base(&self) -> u64 {
         self.addr_space.base()
     }
 
     /// Get the offset into the pointer's address space
-    pub(crate) fn offset(&self) -> Offset {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn offset(&self) -> Offset {
         self.offset
     }
 
@@ -207,6 +229,7 @@ impl<T: AddressSpace> Ptr<T> {
     ///
     /// This function should rarely be used. Prefer to use offsets
     /// instead.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn absolute(&self) -> Result<u64> {
         let offset_u64: u64 = self.offset.into();
         self.base()
@@ -217,6 +240,7 @@ impl<T: AddressSpace> Ptr<T> {
 
 impl<T: AddressSpace> Add<Offset> for Ptr<T> {
     type Output = Ptr<T>;
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn add(self, rhs: Offset) -> Self::Output {
         Self {
             addr_space: self.addr_space,
@@ -227,6 +251,7 @@ impl<T: AddressSpace> Add<Offset> for Ptr<T> {
 
 impl<T: AddressSpace> TryFrom<Ptr<T>> for usize {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(val: Ptr<T>) -> Result<usize> {
         let abs = val.absolute()?;
         Ok(usize::try_from(abs)?)

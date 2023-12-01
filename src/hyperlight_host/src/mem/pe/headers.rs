@@ -1,3 +1,5 @@
+use tracing::{instrument, Span};
+
 use super::pe_info::PEInfo;
 
 /// An immutable set of PE File headers.
@@ -5,25 +7,26 @@ use super::pe_info::PEInfo;
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PEHeaders {
     /// Stack reserve size.
-    pub(crate) stack_reserve: u64,
+    pub(super) stack_reserve: u64,
 
     /// Stack commit size.
-    pub(crate) stack_commit: u64,
+    pub(super) stack_commit: u64,
 
     /// Heap reserve size.
-    pub(crate) heap_reserve: u64,
+    pub(super) heap_reserve: u64,
 
     /// Heap commit size.
-    pub(crate) heap_commit: u64,
+    pub(super) heap_commit: u64,
 
     /// Entrypoint offset.
     pub(crate) entrypoint_offset: u64,
 
     /// Preferred load address.
-    pub(crate) preferred_load_address: u64,
+    pub(super) preferred_load_address: u64,
 }
 
 impl From<&PEInfo> for PEHeaders {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(pe_info: &PEInfo) -> PEHeaders {
         PEHeaders {
             entrypoint_offset: pe_info.entry_point_offset(),

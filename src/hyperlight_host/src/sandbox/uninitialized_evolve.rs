@@ -88,11 +88,6 @@ pub(super) fn evolve_impl_multi_use<'a>(
         // only snapshot state if we're a multi-use sandbox. do not
         // call snapshot_state in the evolve_impl_single_use function
         {
-            let mem_mgr = u.get_mgr().as_ref();
-            let p_dispatch = mem_mgr.get_pointer_to_dispatch_function()?;
-            print!("{:?}", p_dispatch);
-        }
-        {
             u.get_mgr_mut().as_mut().snapshot_state()?;
         }
         int_gauge_inc!(&CurrentNumberOfMultiUseSandboxes);
