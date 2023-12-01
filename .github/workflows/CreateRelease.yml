@@ -14,7 +14,7 @@ jobs:
     # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
     if:  ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }} 
     runs-on: windows-2022
-    needs: [build-rust-ubuntu, build-rust-windows]
+    needs: [build-rust-ubuntu, build-rust-windows, benchmarks]
     env:
       PLATFORM: x64
       CONFIG: Debug
@@ -122,6 +122,26 @@ jobs:
       uses: "actions/download-artifact@v3"
       with:
         name: ${{ env.CONFIG }}_assets
+    - name: Download Benchmarks (Windows)
+      uses: actions/download-artifact@v3
+      with:
+        name: benchmarks_Windows_none
+        path: benchmarks_Windows_none
+    - name: Download Benchmarks (Linux hyperv)
+      uses: actions/download-artifact@v3
+      with:
+        name: benchmarks_Linux_hyperv
+        path: benchmarks_Linux_hyperv
+    - name: Download Benchmarks (Linux kvm)
+      uses: actions/download-artifact@v3
+      with:
+        name: benchmarks_Linux_kvm
+        path: benchmarks_Linux_kvm
+    - name: Archive benchmarks
+      run: |
+        tar -zcvf benchmarks_Windows_none.tar.gz benchmarks_Windows_none
+        tar -zcvf benchmarks_Linux_hyperv.tar.gz benchmarks_Linux_hyperv
+        tar -zcvf benchmarks_Linux_kvm.tar.gz benchmarks_Linux_kvm
     - name: List downloaded artifacts
       run: ls -lR target/
       shell: bash
@@ -152,6 +172,9 @@ jobs:
           libhyperlight_capi.d
           hyperlight_capi.dll
           hyperlight_capi.pdb
+          benchmarks_Windows_none.tar.gz
+          benchmarks_Linux_hyperv.tar.gz
+          benchmarks_Linux_kvm.tar.gz
     - name: Create Release (latest)
       # Only create a latest release if we are on the dev branch
       if: ${{ github.ref=='refs/heads/dev' }}
@@ -179,6 +202,9 @@ jobs:
           src/Hyperlight/bin/x64/Debug/Deislabs.HyperLight.*.snupkg
           src/HyperlightDependencies/bin/x64/Debug/Deislabs.HyperlightDependencies.*.nupkg
           src/HyperlightDependencies/bin/x64/Debug/Deislabs.HyperlightDependencies.*.snupkg
+          benchmarks_Windows_none.tar.gz
+          benchmarks_Linux_hyperv.tar.gz
+          benchmarks_Linux_kvm.tar.gz
   build-rust-ubuntu:
     # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
     if:  ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }} 
@@ -246,3 +272,7 @@ jobs:
           name: Release_assets
           if-no-files-found: error
           path: target/release/hyperlight_capi.dll
+
+  benchmarks:
+    uses: ./.github/workflows/Benchmarks.yml
+    secrets: inherit

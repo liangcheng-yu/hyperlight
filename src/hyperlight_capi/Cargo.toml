@@ -15,6 +15,7 @@ panic = 'abort'         # Always abort, this is mainly to ensure that panics can
 # https://docs.rust-embedded.org/book/interoperability/rust-with-c.html
 name = "hyperlight_capi"
 crate-type = ["cdylib"]
+bench = false # see https://bheisler.github.io/criterion.rs/book/faq.html#cargo-bench-gives-unrecognized-option-errors-for-valid-command-line-options
 
 [dependencies]
 hyperlight_host = { path = "../hyperlight_host", version = "*", registry = "hyperlight_packages" }

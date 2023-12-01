@@ -104,6 +104,7 @@ cargo-login-ci:
 cargo-login-ci-windows:
     "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo login --registry hyperlight_redist
     "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo login --registry hyperlight_packages
+
 run-rust-examples target=default-target: (build-rust target)
     cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example metrics
     cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example metrics --features "function_call_metrics"
@@ -112,3 +113,10 @@ run-rust-examples target=default-target: (build-rust target)
 run-rust-examples-linux target=default-target: (build-rust target) (run-rust-examples target)
     {{set-trace-env-vars}} cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example tracing
     {{set-trace-env-vars}} cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example tracing --features "function_call_metrics"
+
+# warning, compares to and then OVERWRITES the given baseline
+bench-ci baseline target=default-target:
+    cargo bench --profile={{ if target == "debug" {"dev"} else { target } }} -- --verbose --save-baseline {{baseline}}
+
+bench target=default-target:
+    cargo bench --profile={{ if target == "debug" {"dev"} else { target } }} -- --verbose

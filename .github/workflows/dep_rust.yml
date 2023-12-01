@@ -133,4 +133,5 @@ jobs:
         working-directory: src/hyperlight_capi
         run: |
           just run-tests-capi  ${{ matrix.config }}
-
+      - run: |
+          just bench-ci dev ${{ matrix.config }}

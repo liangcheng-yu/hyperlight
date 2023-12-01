@@ -14,3 +14,6 @@ default = ["tracing"]
 
 [dev-dependencies]
 hyperlight_testing = { path = "../hyperlight_testing" }
+
+[lib]
+bench = false # see https://bheisler.github.io/criterion.rs/book/faq.html#cargo-bench-gives-unrecognized-option-errors-for-valid-command-line-options
