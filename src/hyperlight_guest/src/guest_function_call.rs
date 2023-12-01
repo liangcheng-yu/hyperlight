@@ -10,7 +10,7 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
 
 use crate::{
     guest_error::{reset_error, set_error},
-    GUEST_FUNCTIONS, P_PEB,
+    GUEST_FUNCTIONS, P_PEB, entrypoint::halt,
 };
 
 type GuestFunc = fn() -> Vec<u8>;
@@ -101,4 +101,5 @@ pub(crate) fn dispatch_function() {
 
         copy_nonoverlapping(result_vec.as_ptr(), output_data_buffer, size_with_prefix);
     }
+    halt();
 }
