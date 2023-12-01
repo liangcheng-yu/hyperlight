@@ -59,4 +59,52 @@ Tracing spans are created for any call to a public API and the parent span will 
 
 Hyperlight provides tracing using the Rust [tracing crate](https://docs.rs/tracing/0.1.25/tracing/), and can be consumed by any Rust trace subscriber implementation(see[here](https://docs.rs/tracing/latest/tracing/index.html#related-crates) for some examples). In addition to consuming trace output the log records may also be consumed by a tracing subscriber, using the `tracing-log` crate.
 
-There is an example that shows how to consume both tracing events and log records as tracing events in the [examples/tracing](../src/hyperlight_host/examples/tracing) directory.
+There are two examples that show how to consume both tracing events and log records as tracing events.
+
+### Using tracing_forest
+
+In the [examples/tracing](../src/hyperlight_host/examples/tracing) directory, there is an example that shows how to capture and output trace and log information using the tracing_forest crate. With this example the following commands can be used to set the verbosity of the trace output to `INFO` and run the example:
+
+#### Linux
+
+```bash
+RUST_LOG='none,hyperlight_host=info,tracing=info' cargo run --example tracing
+```
+
+#### Windows
+
+```powershell
+$env:RUST_LOG='none,hyperlight_host=info,tracing=info'; cargo run --example tracing
+```
+
+### Using OTLP exporter and Jaeger
+
+In the [examples/otlp_tracing](../src/hyperlight_host/examples/otlp_tracing) directory, there is an example that shows how to capture and send trace and log information to an otlp_collector using the opentelemetry_otlp crate. With this example the following commands can be used to set the verbosity of the trace output to `INFO` and run the example to generate trace data:
+
+#### Linux
+
+```bash
+RUST_LOG='none,hyperlight_host=info,tracing=info' cargo run --example otlp_tracing
+```
+
+#### Windows
+
+```powershell
+$env:RUST_LOG='none,hyperlight_host=info,tracing=info';cargo run --example otlp_tracing
+```
+
+The sample will run and generate trace data until any key is pressed.
+
+To view the trace data, leave the example running and use the jaegertracing/all-in-one container image with the following command:
+
+```console
+ docker run -d --name jaeger -e COLLECTOR_OTLP_ENABLED=true -p 4317:4317 -p 16686:16686 jaegertracing/all-in-one:1.51
+```
+
+NOTE: when running this on windows that this is a linux container, so you will need to ensure that docker is configured to run linux containers using WSL2. ALternatively you can download the Jaeger binaries from [here](https://www.jaegertracing.io/download/). Extract the archive and run the `jaeger-all-in-one` executable as follows:
+
+```powershell
+.\jaeger-all-in-one.exe  --collector.otlp.grpc.host-port=4317
+```
+
+Once the container or the exe is running, the trace output can be viewed in the jaeger UI at [http://localhost:16686/search](http://localhost:16686/search).

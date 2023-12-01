@@ -30,6 +30,7 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
 };
 use serde_json::from_str;
 use std::{cmp::Ordering, str::from_utf8};
+use tracing::{instrument, Span};
 
 /// Whether or not the 64-bit page directory entry (PDE) record is
 /// present.
@@ -51,16 +52,20 @@ pub(crate) const STACK_COOKIE_LEN: usize = 16;
 /// A struct that is responsible for laying out and managing the memory
 /// for a given `Sandbox`.
 #[derive(Clone)]
+//TODO: Once we have a full C API visibility can be pub(crate)
 pub struct SandboxMemoryManager {
     /// Whether or not to run a sandbox in-process
-    pub(crate) run_from_process_memory: bool,
+    run_from_process_memory: bool,
     mem_snapshot: Option<SharedMemorySnapshot>,
     /// Shared memory for the Sandbox
+    //TODO: Once we have a full C API visibility can be pub(crate)
     pub shared_mem: SharedMemory,
     pub(crate) layout: SandboxMemoryLayout,
     /// Pointer to where to load memory from
+    //TODO: Once we have a full C API visibility can be pub(crate)
     pub load_addr: RawPtr,
     /// Offset for the execution entrypoint from `load_addr`
+    //TODO: Once we have a full C API visibility can be pub(crate)
     pub entrypoint_offset: Offset,
     /// This field must be present, even though it's not read,
     /// so that its underlying resources are properly dropped at
@@ -71,7 +76,8 @@ pub struct SandboxMemoryManager {
 
 impl SandboxMemoryManager {
     /// Create a new `SandboxMemoryManager` with the given parameters
-    pub(crate) fn new(
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn new(
         layout: SandboxMemoryLayout,
         shared_mem: SharedMemory,
         run_from_process_memory: bool,
@@ -91,12 +97,13 @@ impl SandboxMemoryManager {
         }
     }
 
-    #[allow(unused)]
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn is_in_process(&self) -> bool {
         self.run_from_process_memory
     }
 
     /// Get `SharedMemory` in `self` as a mutable reference
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn get_shared_mem_mut(&mut self) -> &mut SharedMemory {
         &mut self.shared_mem
     }
@@ -109,6 +116,7 @@ impl SandboxMemoryManager {
     /// reference to a `SandboxMemoryLayout` and `SharedMemory`,
     /// remove the `layout` and `shared_mem` parameters, and use
     /// the `&self` to access them instead.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn set_stack_guard(&mut self, cookie: &[u8; STACK_COOKIE_LEN]) -> Result<()> {
         let stack_offset = self.layout.get_top_of_stack_offset();
         self.shared_mem.copy_from_slice(cookie, stack_offset)
@@ -116,6 +124,8 @@ impl SandboxMemoryManager {
 
     /// Set up the hypervisor partition in the given `SharedMemory` parameter
     /// `shared_mem`, with the given memory size `mem_size`
+    //TODO: Once we have a full C API visibility can be pub(crate)
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn set_up_hypervisor_partition(&mut self, mem_size: u64) -> Result<u64> {
         // Add 0x200000 because that's the start of mapped memory
         // For MSVC, move rsp down by 0x28.  This gives the called 'main'
@@ -165,6 +175,7 @@ impl SandboxMemoryManager {
     /// This method could be an associated function instead. See
     /// documentation at the bottom `set_stack_guard` for description
     /// of why it isn't.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn check_stack_guard(&self, cookie: [u8; STACK_COOKIE_LEN]) -> Result<bool> {
         let offset = self.layout.get_top_of_stack_offset();
         let mut test_cookie = vec![b'\0'; cookie.len()];
@@ -182,6 +193,8 @@ impl SandboxMemoryManager {
     /// For more details on PEBs, please see the following link:
     ///
     /// https://en.wikipedia.org/wiki/Process_Environment_Block
+    //TODO: Once we have a full C API visibility can be pub(crate)
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn get_peb_address(&self, start_addr: u64) -> Result<u64> {
         match self.run_from_process_memory {
             true => {
@@ -200,6 +213,8 @@ impl SandboxMemoryManager {
     /// Create a new memory snapshot of the given `SharedMemory` and
     /// store it internally. Return an `Ok(())` if the snapshot
     /// operation succeeded, and an `Err` otherwise.
+    //TODO: Once we have a full C API visibility can be pub(crate)
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn snapshot_state(&mut self) -> Result<()> {
         let snap = &mut self.mem_snapshot;
         if let Some(snapshot) = snap {
@@ -214,6 +229,8 @@ impl SandboxMemoryManager {
     /// Restore memory from the pre-existing snapshot and return
     /// `Ok(())`. Return an `Err` if there was no pre-existing
     /// snapshot, or there was but there was an error restoring.
+    //TODO: Once we have a full C API visibility can be pub(crate)
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn restore_state(&mut self) -> Result<()> {
         let snap = &mut self.mem_snapshot;
         if let Some(snapshot) = snap {
@@ -225,6 +242,8 @@ impl SandboxMemoryManager {
 
     /// Get the return value of an executable that ran, or an `Err`
     /// if no such return value was present.
+    //TODO: Once we have a full C API this can be removed.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn get_return_value(&self) -> Result<i32> {
         let offset = self.layout.output_data_buffer_offset;
         self.shared_mem.read_i32(offset)
@@ -235,6 +254,8 @@ impl SandboxMemoryManager {
     ///
     /// TODO: this function is only in C#. Remove it once we have a full Rust
     /// Sandbox
+    //TODO: Once we have a full C API this can be removed.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn set_outb_address(&mut self, addr: u64) -> Result<()> {
         let offset = self.layout.get_outb_pointer_offset();
         self.shared_mem.write_u64(offset, addr)
@@ -244,6 +265,7 @@ impl SandboxMemoryManager {
     /// `shared_mem` to indicate the address of the outb pointer and context
     /// for calling outb function
     #[cfg(target_os = "windows")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn set_outb_address_and_context(&mut self, addr: u64, context: u64) -> Result<()> {
         let offset = self.layout.get_outb_pointer_offset();
         self.shared_mem.write_u64(offset, addr)?;
@@ -252,6 +274,8 @@ impl SandboxMemoryManager {
     }
 
     /// Get the address of the dispatch function in memory
+    //TODO: Once we have a full C API visibility can be pub(crate)
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn get_pointer_to_dispatch_function(&self) -> Result<u64> {
         let guest_dispatch_function_ptr = self
             .shared_mem
@@ -271,6 +295,8 @@ impl SandboxMemoryManager {
     }
 
     /// Get the length of the host exception
+    //TODO: Once we have a full C API visibility can be private
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn get_host_error_length(&self) -> Result<i32> {
         let offset = self.layout.get_host_exception_offset();
         // The host exception field is expected to contain a 32-bit length followed by the exception data.
@@ -278,6 +304,8 @@ impl SandboxMemoryManager {
     }
 
     /// Get a bool indicating if there is a host error
+    //TODO: Once we have a full C API visibility can be private
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn has_host_error(&self) -> Result<bool> {
         let offset = self.layout.get_host_exception_offset();
         // The host exception field is expected to contain a 32-bit length followed by the exception data.
@@ -293,6 +321,8 @@ impl SandboxMemoryManager {
     /// have this function return a Vec<u8> instead of requiring
     /// the user pass in a slice of the same length as returned by
     /// self.get_host_error_length()
+    //TODO: Once we have a full C API visibility can be pub(crate)
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn get_host_error_data(&self, exception_data_slc: &mut [u8]) -> Result<()> {
         let offset = self.layout.get_host_exception_offset();
         let len = self.get_host_error_length()?;
@@ -312,6 +342,7 @@ impl SandboxMemoryManager {
     /// it was found. Return `Ok(None)` if we succeeded in looking for
     /// one and it wasn't found. Return an `Err` if we did not succeed
     /// in looking for one.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn get_host_error(&self) -> Result<Option<HyperlightHostError>> {
         if self.has_host_error()? {
             let host_err_len = {
@@ -336,6 +367,8 @@ impl SandboxMemoryManager {
 
     /// This function writes an error to guest memory and is intended to be
     /// used when the host's outb handler code raises an error.
+    //TODO: Once we have a full C API visibility can be private
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn write_outb_error(
         &mut self,
         guest_error_msg: &Vec<u8>,
@@ -386,6 +419,8 @@ impl SandboxMemoryManager {
     }
 
     /// Get the guest error data
+    //TODO: Once we have a full C API visibility can be pub(crate)
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn get_guest_error(&self) -> Result<GuestError> {
         // get memory buffer max size
         let err_buffer_size_offset = self.layout.get_guest_error_buffer_size_offset();
@@ -420,6 +455,7 @@ impl SandboxMemoryManager {
     ///     host memory
     ///     - If we're not running with in-memory mode, this value will be
     ///     into guest memory
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn load_guest_binary_into_memory(
         cfg: SandboxConfiguration,
         pe_info: &mut PEInfo,
@@ -467,6 +503,7 @@ impl SandboxMemoryManager {
     /// and uses the
     /// [`LoadLibraryA`](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibrarya)
     /// function.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn load_guest_binary_using_load_library(
         cfg: SandboxConfiguration,
         guest_bin_path: &str,
@@ -501,6 +538,8 @@ impl SandboxMemoryManager {
     }
 
     /// Writes host function details to memory
+    //TODO: Once we have a full C API visibility can be pub(crate)
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn write_buffer_host_function_details(&mut self, buffer: &[u8]) -> Result<()> {
         let host_function_details = HostFunctionDetails::try_from(buffer).map_err(|e| {
             new_error!(
@@ -536,6 +575,8 @@ impl SandboxMemoryManager {
     }
 
     /// Writes a guest function call to memory
+    //TODO: Once we have a full C API visibility can be pub(crate)
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn write_guest_function_call(&mut self, buffer: &[u8]) -> Result<()> {
         let layout = self.layout;
 
@@ -568,6 +609,8 @@ impl SandboxMemoryManager {
     }
 
     /// Writes a host function call to memory
+    //TODO: Once we have a full C API visibility can be private
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn write_host_function_call(&mut self, buffer: &[u8]) -> Result<()> {
         let layout = self.layout;
 
@@ -595,6 +638,8 @@ impl SandboxMemoryManager {
     }
 
     /// Writes a function call result to memory
+    //TODO: Once we have a full C API visibility can be pub(crate)
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn write_response_from_host_method_call(&mut self, res: &ReturnValue) -> Result<()> {
         let input_data_offset = self.layout.input_data_buffer_offset;
         let function_call_ret_val_buffer = Vec::<u8>::try_from(res).map_err(|_| {
@@ -607,6 +652,8 @@ impl SandboxMemoryManager {
     }
 
     /// Reads a host function call from memory
+    //TODO: Once we have a full C API visibility can be pub(crate)
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn get_host_function_call(&self) -> Result<FunctionCall> {
         let layout = self.layout;
 
@@ -632,8 +679,10 @@ impl SandboxMemoryManager {
     }
 
     /// Reads a guest function call from memory
+    //TODO: Why is this unused?
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     #[allow(unused)]
-    pub(crate) fn get_guest_function_call(&self) -> Result<FunctionCall> {
+    fn get_guest_function_call(&self) -> Result<FunctionCall> {
         let layout = self.layout;
 
         // read guest function call from memory
@@ -663,6 +712,8 @@ impl SandboxMemoryManager {
     }
 
     /// Reads a function call result from memory
+    //TODO: Once we have a full C API visibility can be pub(crate)
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn get_function_call_result(&self) -> Result<ReturnValue> {
         let fb_buffer_size = {
             let size_i32 = self
@@ -690,6 +741,8 @@ impl SandboxMemoryManager {
     }
 
     /// Read guest log data from the `SharedMemory` contained within `self`
+    //TODO: Once we have a full C API visibility can be pub(crate)
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn read_guest_log_data(&self) -> Result<GuestLogData> {
         let offset = self.layout.get_output_data_offset();
         // there's a u32 at the beginning of the GuestLogData
@@ -718,6 +771,7 @@ impl SandboxMemoryManager {
 /// Returns the newly created `SandboxMemoryLayout`, newly created
 /// `SharedMemory`, load address as calculated by `load_addr_fn`,
 /// and calculated entrypoint offset, in order.
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 fn load_guest_binary_common<F>(
     cfg: SandboxConfiguration,
     pe_info: &PEInfo,

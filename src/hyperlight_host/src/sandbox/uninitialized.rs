@@ -1210,8 +1210,6 @@ mod tests {
             TEST_LOGGER.clear_log_calls();
             TEST_LOGGER.set_max_level(log::LevelFilter::Error);
 
-            // Now we have set the max level to error, so we should not see any log calls as the following should not create an error
-
             let sbox = {
                 let res = UninitializedSandbox::new(
                     GuestBinary::FilePath(simple_guest_path().unwrap()),
@@ -1224,7 +1222,26 @@ mod tests {
             let _: Result<MultiUseSandbox<'_>> = sbox.evolve(Noop::default());
 
             let num_calls = TEST_LOGGER.num_log_calls();
-            assert_eq!(0, num_calls);
+
+            // Now we have set the max level to error, we should only see log error records, and this should only happen if we are running on Linux with KVm as
+            // there will be one error because the is_hypervisor_present function will check for hyperv and return an error before it checks for KVM
+
+            #[cfg(target_os = "linux")]
+            {
+                if let Ok(v) = std::env::var("KVM_SHOULD_BE_PRESENT") {
+                    if v.to_lowercase() == "true" {
+                        assert_eq!(1, num_calls);
+                    } else {
+                        assert_eq!(0, num_calls);
+                    }
+                } else {
+                    assert_eq!(0, num_calls);
+                }
+            }
+            #[cfg(target_os = "windows")]
+            {
+                assert_eq!(0, num_calls);
+            }
         }
     }
 }

@@ -8,7 +8,7 @@ use std::fs::File;
 use std::io::Write;
 use std::mem::size_of;
 use std::path::{Path, PathBuf};
-use tracing::info;
+use tracing::{info, instrument, Span};
 use windows::core::PCSTR;
 use windows::s;
 use windows::Win32::Foundation::{GetLastError, HANDLE};
@@ -97,6 +97,7 @@ pub(crate) struct SurrogateProcessManager {
 }
 
 impl SurrogateProcessManager {
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn new() -> Result<Self> {
         ensure_surrogate_process_exe()?;
         let surrogate_process_path =
@@ -117,6 +118,7 @@ impl SurrogateProcessManager {
     /// Gets a surrogate process from the pool of surrogate processes and
     /// allocates memory in the process. This should be called when a new
     /// HyperV on Windows Driver is created.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn get_surrogate_process(
         &self,
         size: usize,
@@ -147,11 +149,13 @@ impl SurrogateProcessManager {
     /// Returns a surrogate process to the pool of surrogate processes.
     /// This should be called from within a surrogate process's drop
     /// implementation, after process resources have been freed.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn return_surrogate_process(&self, proc_handle: HANDLE) -> Result<()> {
         Ok(self.process_sender.clone().send(proc_handle)?)
     }
 
     /// Creates all the surrogate process when the struct is first created.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn create_surrogate_processes(
         &self,
         surrogate_process_path: &Path,
@@ -167,6 +171,7 @@ impl SurrogateProcessManager {
 }
 
 impl Drop for SurrogateProcessManager {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn drop(&mut self) {
         let terminated = unsafe {
             // Terminating the job object will terminate all the surrogate
@@ -187,11 +192,13 @@ lazy_static::lazy_static! {
 }
 
 /// Gets the singleton SurrogateProcessManager. This should be called when a new HyperV on Windows Driver is created.
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 pub(crate) fn get_surrogate_process_manager() -> Result<&'static SurrogateProcessManager> {
     Ok(&SURROGATE_PROCESSES_MANAGER)
 }
 
 // Creates a job object that will terminate all the surrogate processes when the struct instance is dropped.
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 fn create_job_object() -> Result<HANDLE> {
     let security_attributes: SECURITY_ATTRIBUTES = Default::default();
 
@@ -227,6 +234,7 @@ fn create_job_object() -> Result<HANDLE> {
     Ok(job_object)
 }
 
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 fn get_surrogate_process_dir() -> Result<PathBuf> {
     let binding = std::env::current_exe()?;
     let path = binding
@@ -236,6 +244,7 @@ fn get_surrogate_process_dir() -> Result<PathBuf> {
     Ok(path.to_path_buf())
 }
 
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 fn ensure_surrogate_process_exe() -> Result<()> {
     let surrogate_process_path = get_surrogate_process_dir()?.join(SURROGATE_PROCESS_BINARY_NAME);
     let p = Path::new(&surrogate_process_path);
@@ -262,7 +271,7 @@ fn ensure_surrogate_process_exe() -> Result<()> {
 
     if !p.exists() {
         info!(
-            "{} does not exit, copying to {}",
+            "{} does not exist, copying to {}",
             SURROGATE_PROCESS_BINARY_NAME,
             &surrogate_process_path.display()
         );
@@ -281,6 +290,7 @@ fn ensure_surrogate_process_exe() -> Result<()> {
 /// processor in the HyperV partition.
 /// All manipulation of the memory is done in memory allocated to the Sandbox
 /// which is then copied to and from the surrogate process.
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 fn create_surrogate_process(surrogate_process_path: &Path, job_handle: &HANDLE) -> Result<HANDLE> {
     let process_handle = unsafe {
         let mut process_information: PROCESS_INFORMATION = std::mem::zeroed();

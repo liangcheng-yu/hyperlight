@@ -1,6 +1,7 @@
 use crate::Result;
 use goblin::pe::optional_header::OptionalHeader;
 use scroll::Pread;
+use tracing::{instrument, Span};
 
 // Below here is a base relocation implementation that we could submit to upstream goblin
 const BASE_RELOCATION_SIZE: usize = 2;
@@ -8,23 +9,23 @@ const BASE_RELOCATION_SIZE: usize = 2;
 /// A base relocation.
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub(crate) struct BaseRelocation {
+pub(super) struct BaseRelocation {
     /// A value that indicates the kind of relocation that should be performed.
     /// The value is stored in the most significant 4bits.
     ///
     /// Valid relocation types depend on machine type.
-    pub(crate) typ: u8, // really u4 when it's unpacked from the base relocation table
+    pub(super) typ: u8, // really u4 when it's unpacked from the base relocation table
 
     /// The offset to add to the page base RVA.
-    pub(crate) page_offset: u16, // really u12 when it's unpacked from the base relocation table
+    pub(super) page_offset: u16, // really u12 when it's unpacked from the base relocation table
 
     /// The base RVA (relative virtual address) for all relocations specified in a page of the base relocation table
-    pub(crate) page_base_rva: u32,
+    pub(super) page_base_rva: u32,
 }
 
 /// An iterator for base relocations.
 #[derive(Default)]
-pub(crate) struct BaseRelocations<'a> {
+struct BaseRelocations<'a> {
     offset: usize,
     relocations: &'a [u8],
 }
@@ -33,7 +34,8 @@ impl<'a> BaseRelocations<'a> {
     /// Parse a base relocation table at the given offset.
     ///
     /// The offset and number of relocations should be from the base relocation table header.
-    pub(crate) fn parse(
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn parse(
         bytes: &'a [u8],
         offset: usize,
         number: usize,
@@ -48,6 +50,7 @@ impl<'a> BaseRelocations<'a> {
 
 impl<'a> Iterator for BaseRelocations<'a> {
     type Item = BaseRelocation;
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn next(&mut self) -> Option<Self::Item> {
         // Check if we can read 2 bytes from the array
         if self.offset + 1 >= self.relocations.len() {
@@ -84,7 +87,8 @@ impl<'a> Iterator for BaseRelocations<'a> {
 }
 
 /// Reads the base relocation table directory in a PE file
-pub(crate) fn get_base_relocations(
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+pub(super) fn get_base_relocations(
     payload: &[u8],
     optional_header: OptionalHeader,
 ) -> Result<Vec<BaseRelocation>> {
