@@ -5,6 +5,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use hyperlight_guest::{
+    entrypoint::halt,
     flatbuffer_utils::get_flatbuffer_result_from_int,
     guest_functions::{create_function_definition, register_function},
 };
@@ -35,5 +36,6 @@ pub extern "C" fn guest_dispatch_function() -> Vec<u8> {
 
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
+    halt();
     loop {}
 }

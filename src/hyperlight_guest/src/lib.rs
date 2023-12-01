@@ -34,7 +34,7 @@ pub(crate) static mut P_PEB: Option<*mut HyperlightPEB> = None;
 pub(crate) static mut OS_PAGE_SIZE: u32 = 0;
 pub(crate) static mut OUTB_PTR: Option<fn(u16, u8)> = None;
 pub(crate) static mut OUTB_PTR_WITH_CONTEXT: Option<fn(*mut core::ffi::c_void, u16, u8)> = None;
-pub(crate) static mut RUNNING_IN_HYPERLIGHT: bool = true;
+pub(crate) static mut RUNNING_IN_HYPERLIGHT: bool = false;
 
 pub(crate) static mut GUEST_FUNCTIONS_BUILDER: GuestFunctionDetails =
     GuestFunctionDetails::new(Vec::new());
