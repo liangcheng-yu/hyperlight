@@ -15,6 +15,10 @@ pub mod guest_error;
 pub mod guest_function_call;
 pub mod guest_functions;
 
+pub mod host_error;
+pub mod host_function_call;
+pub mod host_functions;
+
 pub mod hyperlight_peb;
 
 pub mod flatbuffer_utils;

@@ -13,7 +13,7 @@ use alloc::{
 };
 use anyhow::{bail, Error, Result};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 /// `ErrorCode` represents an error that occurred in the Hyperlight Guest.
 pub enum ErrorCode {
     NoError = 0,
