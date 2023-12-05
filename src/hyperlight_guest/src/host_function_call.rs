@@ -30,7 +30,7 @@ pub fn get_host_value_return_as_int() -> i32 {
     };
 
     // if buffer size is zero, error out
-    if idb.len() == 0 {
+    if idb.is_empty() {
         set_error(
             ErrorCode::GuestError,
             "Got a 0-size buffer in GetHostReturnValueAsInt",
@@ -50,13 +50,13 @@ pub fn get_host_value_return_as_int() -> i32 {
 
     // check that return value is an int and return
     if let ReturnValue::Int(i) = fcr {
-        return i;
+        i
     } else {
         set_error(
             ErrorCode::GuestError,
             "Host return value was not an int as expected",
         );
-        return -1;
+        -1
     }
 }
 
@@ -104,18 +104,20 @@ pub fn call_host_function(
     }
 }
 
-pub unsafe fn outb(port: u16, value: u8) {
-    if RUNNING_IN_HYPERLIGHT {
-        hloutb(port, value);
-    } else if let Some(outb_func) = OUTB_PTR_WITH_CONTEXT {
-        if let Some(peb_ptr) = P_PEB {
-            outb_func((*peb_ptr).pOutbContext, port, value);
+pub fn outb(port: u16, value: u8) {
+    unsafe {
+        if RUNNING_IN_HYPERLIGHT {
+            hloutb(port, value);
+        } else if let Some(outb_func) = OUTB_PTR_WITH_CONTEXT {
+            if let Some(peb_ptr) = P_PEB {
+                outb_func((*peb_ptr).pOutbContext, port, value);
+            }
+        } else if let Some(outb_func) = OUTB_PTR {
+            outb_func(port, value);
         }
-    } else if let Some(outb_func) = OUTB_PTR {
-        outb_func(port, value);
-    }
 
-    check_for_host_error();
+        check_for_host_error();
+    }
 }
 
 pub fn hloutb(port: u16, value: u8) {
