@@ -1,18 +1,63 @@
-use core::{ptr::copy_nonoverlapping, arch::asm};
+use core::{arch::asm, ptr::copy_nonoverlapping, slice::from_raw_parts};
 
 use alloc::{format, string::ToString, vec::Vec};
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
     function_call::{FunctionCall, FunctionCallType},
-    function_types::{ParameterValue, ReturnType},
+    function_types::{ParameterValue, ReturnType, ReturnValue},
     guest_error::ErrorCode,
 };
 
-use crate::{guest_error::set_error, host_functions::validate_host_function_call, P_PEB, RUNNING_IN_HYPERLIGHT, OUTB_PTR_WITH_CONTEXT, OUTB_PTR, host_error::check_for_host_error};
+use crate::{
+    guest_error::set_error, host_error::check_for_host_error,
+    host_functions::validate_host_function_call, OUTB_PTR, OUTB_PTR_WITH_CONTEXT, P_PEB,
+    RUNNING_IN_HYPERLIGHT,
+};
 
 pub enum OutBAction {
     Log = 99,
     CallFunction = 101,
     Abort = 102,
+}
+
+pub fn get_host_value_return_as_int() -> i32 {
+    let peb_ptr = unsafe { P_PEB.unwrap() };
+
+    let idb = unsafe {
+        from_raw_parts(
+            (*peb_ptr).inputdata.inputDataBuffer as *mut u8,
+            (*peb_ptr).inputdata.inputDataSize as usize,
+        )
+    };
+
+    // if buffer size is zero, error out
+    if idb.len() == 0 {
+        set_error(
+            ErrorCode::GuestError,
+            "Got a 0-size buffer in GetHostReturnValueAsInt",
+        );
+        return -1;
+    }
+
+    let fcr = if let Ok(r) = ReturnValue::try_from(idb) {
+        r
+    } else {
+        set_error(
+            ErrorCode::GuestError,
+            "Could not convert buffer to ReturnValue in GetHostReturnValueAsInt",
+        );
+        return -1;
+    };
+
+    // check that return value is an int and return
+    if let ReturnValue::Int(i) = fcr {
+        return i;
+    } else {
+        set_error(
+            ErrorCode::GuestError,
+            "Host return value was not an int as expected",
+        );
+        return -1;
+    }
 }
 
 pub fn call_host_function(

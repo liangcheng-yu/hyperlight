@@ -35,11 +35,10 @@ pub fn test_bin_base() -> PathBuf {
         MANIFEST_DIR,
         vec![
             "..",
-            "tests",
-            "Hyperlight.Tests",
-            "bin",
+            "..",
+            "target",
+            "x86_64-pc-windows-msvc",
             build_dir_selector,
-            "net6.0",
         ],
     )
 }

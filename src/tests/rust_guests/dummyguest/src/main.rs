@@ -4,7 +4,9 @@
 use core::panic::PanicInfo;
 use core::arch::asm;
 
-// This function is called on panic.
+// It looks like rust-analyzer doesn't correctly manage no_std crates,
+// and so it displays an error about a duplicate panic_handler. 
+// See more here: https://github.com/rust-lang/rust-analyzer/issues/4490
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
     halt();
