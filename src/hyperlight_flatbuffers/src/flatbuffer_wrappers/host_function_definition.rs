@@ -83,15 +83,12 @@ impl HostFunctionDefinition {
         if let Some(parameter_types) = &self.parameter_types {
             for (i, parameter_type) in parameter_types.iter().enumerate() {
                 if parameter_type != &function_call_parameter_types[i] {
-                    return Err(anyhow!(
-                        "Incorrect parameter type for parameter {}",
-                        i + 1
-                    ));
+                    return Err(anyhow!("Incorrect parameter type for parameter {}", i + 1));
                 }
             }
         }
         Ok(())
-    }    
+    }
 }
 
 impl TryFrom<&FbHostFunctionDefinition<'_>> for HostFunctionDefinition {

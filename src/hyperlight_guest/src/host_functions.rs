@@ -2,7 +2,8 @@ use core::slice::from_raw_parts;
 
 use alloc::{format, vec::Vec};
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
-    function_call::FunctionCall, guest_error::ErrorCode, host_function_details::HostFunctionDetails, function_types::ParameterType,
+    function_call::FunctionCall, function_types::ParameterType, guest_error::ErrorCode,
+    host_function_details::HostFunctionDetails,
 };
 
 use crate::{guest_error::set_error, P_PEB};
@@ -68,7 +69,6 @@ pub(crate) fn validate_host_function_call(function_call: &FunctionCall) {
             e
         })
         .unwrap();
-
 }
 
 pub(crate) fn get_host_function_details() -> HostFunctionDetails {
