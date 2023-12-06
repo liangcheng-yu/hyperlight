@@ -1020,7 +1020,7 @@ namespace Hyperlight.Tests
             Assert.NotNull(ex);
             Assert.IsType<HyperlightException>(ex);
 #if DEBUG
-            Assert.Equal($"Memory requested 1074167808 exceeds maximum size allowed 1072627712 CorrelationId: {correlationId} Source: NativeHandleWrapperErrorExtensions", ex.Message);
+            Assert.Equal($"Memory requested 1074163712 exceeds maximum size allowed 1072627712 CorrelationId: {correlationId} Source: NativeHandleWrapperErrorExtensions", ex.Message);
 #else
             Assert.Equal($"Memory requested 1074057216 exceeds maximum size allowed 1072627712 CorrelationId: {correlationId} Source: NativeHandleWrapperErrorExtensions", ex.Message);
 #endif

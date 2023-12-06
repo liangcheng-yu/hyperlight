@@ -199,11 +199,11 @@ ns(HostFunctionDetails_table_t) GetHostFunctionDetails();
 
 uint8_t* GuestDispatchFunction(ns(FunctionCall_table_t));
 
-void native_symbol_thunk(char*, ...);
+void native_symbol_thunk(char*, int32_t, ...);
 
-int native_symbol_thunk_returning_int(char*, ...);
+int native_symbol_thunk_returning_int(char*, int32_t, ...);
 
-void CallHostFunction(char* functionName, va_list ap);
+void CallHostFunction(char* functionName, int32_t, va_list ap);
 
 long long GetHostReturnValueAsLongLong();
 

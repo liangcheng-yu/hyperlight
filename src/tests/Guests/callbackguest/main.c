@@ -5,7 +5,7 @@ uint8_t* sendMessagetoHostMethod(char* methodName, char* guestMessage, const cha
 {
 #pragma warning(suppress:4244)
     char* messageToHost = strncat(guestMessage, message, strlen(message));
-    int result = native_symbol_thunk_returning_int(methodName, messageToHost);
+    int result = native_symbol_thunk_returning_int(methodName, 1, messageToHost);
     return GetFlatBufferResultFromInt(result);
 }
 
@@ -36,7 +36,7 @@ uint8_t* guestFunction3(const char* message)
 uint8_t* guestFunction4()
 {
     char guestMessage[256] = "Hello from GuestFunction4";
-    native_symbol_thunk("HostMethod4", guestMessage);
+    native_symbol_thunk("HostMethod4", 1,  guestMessage);
     return GetFlatBufferResultFromVoid();
 }
 
@@ -58,12 +58,11 @@ uint8_t* callErrorMethod(const char* message)
     return sendMessagetoHostMethod("ErrorMethod", guestMessage, message);
 }
 
-// Calls a method n the host that should keep the CPU busy forever
+// Calls a method in the host that should keep the CPU busy forever
 
 uint8_t* callHostSpin()
 {
-
-    native_symbol_thunk("Spin");
+    native_symbol_thunk("Spin", 0);
     return GetFlatBufferResultFromVoid();
 }
 

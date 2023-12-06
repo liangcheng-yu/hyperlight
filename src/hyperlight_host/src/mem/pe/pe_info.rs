@@ -320,9 +320,9 @@ mod tests {
             if pe_path.ends_with("simpleguest.exe") {
                 let patch = patches[0];
                 let expected_patch_offset = if cfg!(debug_assertions) {
-                    0x21098
+                    0x20E98
                 } else {
-                    0xF298
+                    0xEE98
                 };
                 assert_eq!(
                     patch.offset, expected_patch_offset,

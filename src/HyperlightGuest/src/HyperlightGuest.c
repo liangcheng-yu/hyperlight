@@ -224,7 +224,7 @@ void setError(uint64_t errorCode, char *message)
     longjmp(jmpbuf, 1);
 }
 
-void ValidateHostFunctionCall(flatcc_builder_t *HostFunctionCallBuilder, char *functionName, va_list ap)
+void ValidateHostFunctionCall(flatcc_builder_t *HostFunctionCallBuilder, int32_t numArgs, char *functionName, va_list ap)
 {
     ns(HostFunctionDetails_table_t) hostfunctionDetails = GetHostFunctionDetails();
     if (NULL == hostfunctionDetails)
@@ -247,6 +247,14 @@ void ValidateHostFunctionCall(flatcc_builder_t *HostFunctionCallBuilder, char *f
 
     ns(ParameterType_vec_t) parameterTypes = ns(HostFunctionDefinition_parameters(hostFunctionDefiniton));
     size_t numParams = ns(ParameterType_vec_len(parameterTypes));
+
+    if (numArgs != numParams)
+    {
+        char message[100];
+        snprintf(message, 100, "Incorrect number of arguments for host function: %s. Got %d Expected %d", functionName, numArgs, numParams);
+        setError(GUEST_ERROR, message);
+    }
+
     ns(Parameter_vec_start(HostFunctionCallBuilder));
 
     for (int i = 0; i < numParams; i++)
@@ -257,104 +265,76 @@ void ValidateHostFunctionCall(flatcc_builder_t *HostFunctionCallBuilder, char *f
         {
         case ns(ParameterType_hlint):
         {
-            int32_t value;
-            if (value = va_arg(ap, int32_t))
-            {
-                ns(hlint_ref_t) val = ns(hlint_create(HostFunctionCallBuilder, value));
-                ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hlint(val));
-                ns(Parameter_ref_t) param = ns(Parameter_create(HostFunctionCallBuilder, pValue));
-                ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
-                break;
-            }
-            char message[100];
-            snprintf(message, 100, "Failed to get int32 parameter: %d for host function: %s", i, functionName);
-            setError(GUEST_ERROR, message);
+            int32_t value = va_arg(ap, int32_t);
+            ns(hlint_ref_t) val = ns(hlint_create(HostFunctionCallBuilder, value));
+            ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hlint(val));
+            ns(Parameter_ref_t) param = ns(Parameter_create(HostFunctionCallBuilder, pValue));
+            ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
+            break; 
         }
         case ns(ParameterType_hllong):
         {
-            int64_t value;
-            if (value = va_arg(ap, int64_t))
-            {
-                ns(hllong_ref_t) val = ns(hllong_create(HostFunctionCallBuilder, value));
-                ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hllong(val));
-                ns(Parameter_ref_t) param = ns(Parameter_create(HostFunctionCallBuilder, pValue));
-                ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
-                break;
-            }
-            char message[100];
-            snprintf(message, 100, "Failed to get int64 parameter: %d for host function: %s", i, functionName);
-            setError(GUEST_ERROR, message);
+            int64_t value= va_arg(ap, int64_t);
+            ns(hllong_ref_t) val = ns(hllong_create(HostFunctionCallBuilder, value));
+            ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hllong(val));
+            ns(Parameter_ref_t) param = ns(Parameter_create(HostFunctionCallBuilder, pValue));
+            ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
+            break;         
         }
         case ns(ParameterType_hlstring):
         {
-            char *value;
-            if (value = va_arg(ap, char *))
-            {
-                flatbuffers_string_ref_t fb_string_ref = flatbuffers_string_create_str(HostFunctionCallBuilder, value);
-                ns(hlstring_ref_t) val = ns(hlstring_create(HostFunctionCallBuilder, fb_string_ref));
-                ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hlstring(val));
-                ns(Parameter_ref_t) param = ns(Parameter_create(HostFunctionCallBuilder, pValue));
-                ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
-                break;
-            }
-            char message[100];
-            snprintf(message, 100, "Failed to get string parameter: %d for host function: %s", i, functionName);
-            setError(GUEST_ERROR, message);
+            char *value = va_arg(ap, char*);
+            flatbuffers_string_ref_t fb_string_ref = flatbuffers_string_create_str(HostFunctionCallBuilder, value);
+            ns(hlstring_ref_t) val = ns(hlstring_create(HostFunctionCallBuilder, fb_string_ref));
+            ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hlstring(val));
+            ns(Parameter_ref_t) param = ns(Parameter_create(HostFunctionCallBuilder, pValue));
+            ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
+            break;     
         }
         case ns(ParameterType_hlbool):
         {
-            bool value;
-            if (value = va_arg(ap, bool))
-            {
-                ns(hlbool_ref_t) val = ns(hlbool_create(HostFunctionCallBuilder, value));
-                ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hlbool(val));
-                ns(Parameter_ref_t) param = ns(Parameter_create(HostFunctionCallBuilder, pValue));
-                ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
-                break;
-            }
-            char message[100];
-            snprintf(message, 100, "Failed to get bool parameter: %d for host function: %s", i, functionName);
-            setError(GUEST_ERROR, message);
+            bool value = va_arg(ap, bool);
+            ns(hlbool_ref_t) val = ns(hlbool_create(HostFunctionCallBuilder, value));
+            ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hlbool(val));
+            ns(Parameter_ref_t) param = ns(Parameter_create(HostFunctionCallBuilder, pValue));
+            ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
+            break;
         }
         case ns(ParameterType_hlvecbytes):
         {
-            void *value;
-            if (value = va_arg(ap, void *))
-            {
-                // If the parameter is of type then the following parameter must be its length
+            void* value = va_arg(ap, void*);
+            
+            // If the parameter is of type then the following parameter must be its length
 
-                ns(ParameterType_enum_t) lenParamType = ns(ParameterType_vec_at(parameterTypes, i++));
-                if (lenParamType != ns(ParameterType_hlint))
-                {
-                    char message[100];
-                    snprintf(message, 100, "Host Function %s: Parameter %d should be length of buffer for parameter %d", functionName, i, i - 1);
-                    setError(GUEST_ERROR, message);
-                }
-                int32_t length = 0;
-                ns(Parameter_ref_t) lenParam = (int32_t)0;
-                if ((length = va_arg(ap, int32_t)) && length > 0)
-                {
-                    ns(hlint_ref_t) val = ns(hlint_create(HostFunctionCallBuilder, length));
-                    ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hlint(val));
-                    lenParam = ns(Parameter_create(HostFunctionCallBuilder, pValue));
-                }
-                else
-                {
-                    char message[100];
-                    snprintf(message, 100, "Failed to get int32 parameter: %d for host function: %s", i, functionName);
-                    setError(GUEST_ERROR, message);
-                }
-                flatbuffers_uint8_vec_ref_t fb_vec_ref = flatbuffers_uint8_vec_create(HostFunctionCallBuilder, value, length);
-                ns(hlvecbytes_ref_t) val = ns(hlvecbytes_create(HostFunctionCallBuilder, fb_vec_ref));
-                ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hlvecbytes(val));
-                ns(Parameter_ref_t) param = ns(Parameter_create(HostFunctionCallBuilder, pValue));
-                ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
-                ns(FunctionCall_vec_push(HostFunctionCallBuilder, lenParam));
-                break;
+            ns(ParameterType_enum_t) lenParamType = ns(ParameterType_vec_at(parameterTypes, i++));
+            if (lenParamType != ns(ParameterType_hlint))
+            {
+                char message[100];
+                snprintf(message, 100, "Host Function %s: Parameter %d should be length of buffer for parameter %d", functionName, i, i - 1);
+                setError(GUEST_ERROR, message);
             }
-            char message[100];
-            snprintf(message, 100, "Failed to get vecbytes parameter: %d for host function: %s", i, functionName);
-            setError(GUEST_ERROR, message);
+            int32_t length = 0;
+            ns(Parameter_ref_t) lenParam = (int32_t)0;
+            if ((length = va_arg(ap, int32_t)) && length > 0)
+            {
+                ns(hlint_ref_t) val = ns(hlint_create(HostFunctionCallBuilder, length));
+                ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hlint(val));
+                lenParam = ns(Parameter_create(HostFunctionCallBuilder, pValue));
+            }
+            else
+            {
+                char message[100];
+                snprintf(message, 100, "Failed to get int32 parameter: %d for host function: %s", i, functionName);
+                setError(GUEST_ERROR, message);
+            }
+            flatbuffers_uint8_vec_ref_t fb_vec_ref = flatbuffers_uint8_vec_create(HostFunctionCallBuilder, value, length);
+            ns(hlvecbytes_ref_t) val = ns(hlvecbytes_create(HostFunctionCallBuilder, fb_vec_ref));
+            ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hlvecbytes(val));
+            ns(Parameter_ref_t) param = ns(Parameter_create(HostFunctionCallBuilder, pValue));
+            ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
+            ns(FunctionCall_vec_push(HostFunctionCallBuilder, lenParam));
+            break;
+          
         }
         default:
         {
@@ -368,7 +348,7 @@ void ValidateHostFunctionCall(flatcc_builder_t *HostFunctionCallBuilder, char *f
     ns(FunctionCall_parameters_add(HostFunctionCallBuilder, params_vec));
 }
 
-void CallHostFunction(char *functionName, va_list ap)
+void CallHostFunction(char *functionName, int32_t numArgs, va_list ap)
 {
     flatcc_builder_t hostFunctionCallBuilder;
     if (flatcc_builder_init(&hostFunctionCallBuilder))
@@ -380,7 +360,7 @@ void CallHostFunction(char *functionName, va_list ap)
     ns(FunctionCall_function_name_create(&hostFunctionCallBuilder, functionName, strlen(functionName)));
     ns(FunctionCall_function_call_type_add(&hostFunctionCallBuilder, ns(FunctionCallType_host)));
 
-    ValidateHostFunctionCall(&hostFunctionCallBuilder, functionName, ap);
+    ValidateHostFunctionCall(&hostFunctionCallBuilder, numArgs, functionName, ap);
 
     ns(FunctionCall_end_as_root(&hostFunctionCallBuilder));
 
@@ -403,14 +383,14 @@ void CallHostFunction(char *functionName, va_list ap)
 // TODO: Make these functions generic.
 
 // Calls a Host Function that returns an int
-int native_symbol_thunk_returning_int(char *functionName, ...)
+int native_symbol_thunk_returning_int(char *functionName,int32_t numArgs, ...)
 {
 
     va_list ap = NULL;
 
-    va_start(ap, functionName);
+    va_start(ap, numArgs);
 
-    CallHostFunction(functionName, ap);
+    CallHostFunction(functionName, numArgs, ap);
 
     va_end(ap);
 
@@ -450,27 +430,27 @@ int GetHostReturnValueAsInt()
 }
 
 // Calls a Host Function that returns void
-void native_symbol_thunk(char *functionName, ...)
+void native_symbol_thunk(char *functionName,int32_t numArgs, ...)
 {
 
     va_list ap = NULL;
 
-    va_start(ap, functionName);
+    va_start(ap, numArgs);
 
-    CallHostFunction(functionName, ap);
+    CallHostFunction(functionName, numArgs, ap);
 
     va_end(ap);
 }
 
 // Calls a Host Function that returns an int
-unsigned int native_symbol_thunk_returning_uint(char *functionName, ...)
+unsigned int native_symbol_thunk_returning_uint(char *functionName, int32_t numArgs, ...)
 {
 
     va_list ap = NULL;
 
-    va_start(ap, functionName);
+    va_start(ap, numArgs);
 
-    CallHostFunction(functionName, ap);
+    CallHostFunction(functionName, numArgs, ap);
 
     va_end(ap);
 
@@ -492,14 +472,14 @@ unsigned int GetHostReturnValueAsUInt()
 }
 
 // Calls a Host Function that returns an long long
-long long native_symbol_thunk_returning_longlong(char *functionName, ...)
+long long native_symbol_thunk_returning_longlong(char *functionName, int32_t numArgs, ...)
 {
 
     va_list ap = NULL;
 
-    va_start(ap, functionName);
+    va_start(ap, numArgs);
 
-    CallHostFunction(functionName, ap);
+    CallHostFunction(functionName, numArgs, ap);
 
     va_end(ap);
 
@@ -539,14 +519,14 @@ long long GetHostReturnValueAsLongLong()
 }
 
 // Calls a Host Function that returns an ulong long
-unsigned long long native_symbol_thunk_returning_ulonglong(char *functionName, ...)
+unsigned long long native_symbol_thunk_returning_ulonglong(char *functionName, int32_t numArgs, ...)
 {
 
     va_list ap = NULL;
 
-    va_start(ap, functionName);
+    va_start(ap, numArgs);
 
-    CallHostFunction(functionName, ap);
+    CallHostFunction(functionName, numArgs, ap);
 
     va_end(ap);
 
@@ -1123,7 +1103,7 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int o
 
 uint8_t *printOutput(const char *message)
 {
-    return GetFlatBufferResultFromInt(native_symbol_thunk_returning_int("HostPrint", message));
+    return GetFlatBufferResultFromInt(native_symbol_thunk_returning_int("HostPrint", 1, message));
 }
 
 /// <summary>
@@ -1136,7 +1116,7 @@ uint8_t *GetStackBoundary()
     // If we are not running in Hyperlight then we need to get this information in the host
     if (!runningInHyperlight)
     {
-        thread_stack_boundary = native_symbol_thunk_returning_ulonglong("GetStackBoundary");
+        thread_stack_boundary = native_symbol_thunk_returning_ulonglong("GetStackBoundary",0);
     }
     else
     {
@@ -1153,5 +1133,5 @@ uint8_t *GetStackBoundary()
 /// </summary>
 long long GetTimeSinceBootMicrosecond()
 {
-    return native_symbol_thunk_returning_longlong("GetTimeSinceBootMicrosecond");
+    return native_symbol_thunk_returning_longlong("GetTimeSinceBootMicrosecond", 0);
 }
