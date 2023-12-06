@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 hyperlight_guest = { path = "../../../hyperlight_guest" }
-hyperlight_flatbuffers = { path = "../../../hyperlight_flatbuffers", default-features = false}
-compiler_builtins = { version = "0.1.45", features = ["mem"] }
+hyperlight_flatbuffers = { path = "../../../hyperlight_flatbuffers", default-features = false }
+compiler_builtins = { version = "0.1.45", features = [ "mem" ] }
 # ^^^ this project has to be on nightly (as per rust-toolchain.toml file)
 # because of this dependency. It looks like rust-analyzer doesn't correctly
 # recognize that this single project in the workspace is on nightly, 
