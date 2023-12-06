@@ -14,7 +14,7 @@ use crate::{
     GUEST_FUNCTIONS, P_PEB,
 };
 
-type GuestFunc = fn() -> Vec<u8>;
+type GuestFunc = fn(&FunctionCall) -> Vec<u8>;
 pub(crate) fn call_guest_function(function_call: &FunctionCall) -> Vec<u8> {
     let function_call_fparameters = function_call.parameters.clone().unwrap_or_default();
     let function_call_fname = function_call.clone().function_name;
@@ -63,15 +63,15 @@ pub(crate) fn call_guest_function(function_call: &FunctionCall) -> Vec<u8> {
             .map_err(|e| set_error(ErrorCode::ArrayLengthParamIsMissing, &e.to_string()))
             .unwrap();
 
-        p_function()
+        p_function(function_call)
     } else {
         extern "C" {
             #[allow(improper_ctypes)]
-            fn guest_dispatch_function() -> Vec<u8>;
+            fn guest_dispatch_function(function_call: &FunctionCall) -> Vec<u8>;
         }
 
         // If the function was not found call the guest_dispatch_function method.
-        unsafe { guest_dispatch_function() }
+        unsafe { guest_dispatch_function(function_call) }
     }
 }
 
