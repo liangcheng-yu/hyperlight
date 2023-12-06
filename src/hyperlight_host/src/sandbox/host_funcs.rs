@@ -123,7 +123,7 @@ pub(super) fn default_writer_func(s: String) -> Result<i32> {
     match stdout().is_terminal() {
         false => {
             print!("{}", s);
-            Ok(0)
+            Ok(s.len() as i32)
         }
         true => {
             let mut stdout = StandardStream::stdout(ColorChoice::Auto);
@@ -132,7 +132,7 @@ pub(super) fn default_writer_func(s: String) -> Result<i32> {
             stdout.set_color(&color_spec)?;
             stdout.write_all(s.as_bytes())?;
             stdout.reset()?;
-            Ok(0)
+            Ok(s.len() as i32)
         }
     }
 }

@@ -50,6 +50,23 @@ impl HostFunctionDetails {
             None => {}
         }
     }
+
+    /// Find a host function by name.
+    #[cfg_attr(feature = "tracing", instrument(skip_all, parent = Span::current(), level= "Trace"))]
+    pub fn find_by_function_name(&self, function_name: &str) -> Option<HostFunctionDefinition> {
+        match &self.host_functions {
+            Some(host_functions) => {
+                for host_function in host_functions {
+                    if host_function.function_name == function_name {
+                        return Some(host_function.clone());
+                    }
+                }
+
+                None
+            }
+            None => None,
+        }
+    }
 }
 
 impl TryFrom<&[u8]> for HostFunctionDetails {

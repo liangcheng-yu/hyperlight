@@ -15,6 +15,7 @@ members = [
 # Because hyperlight_guest has custom linker flags,
 # we exclude it from the default-members list
 # to avoid cargo test failing on it.
+# Same for the simpleguest and dummyguest tests below.
 exclude = [
     "src/tests/rust_guests/simpleguest",
     "src/tests/rust_guests/dummyguest",
