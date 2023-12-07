@@ -22,9 +22,42 @@ fn join_to_path(start: &str, v: Vec<&str>) -> PathBuf {
     v.iter().fold(fold_start, fold_closure)
 }
 
-/// Get a new `PathBuf` pointing to the base of the test bin directory
-/// $REPO_ROOT/src/testsHyperlight.Tests/bin/${profile}/net6.0
-pub fn test_bin_base() -> PathBuf {
+/// Get a new `PathBuf` pointing to `callbackguest.exe`
+pub fn callback_guest_buf() -> PathBuf {
+    let build_dir_selector = if cfg!(debug_assertions) {
+        "debug"
+    } else {
+        "release"
+    };
+
+    // $REPO_ROOT/src/tests/Hyperlight.Tests/bin/Debug/net6.0/callbackguest.exe"
+    join_to_path(
+        MANIFEST_DIR,
+        vec![
+            "..",
+            "tests",
+            "Hyperlight.Tests",
+            "bin",
+            build_dir_selector,
+            "net6.0",
+            "callbackguest.exe",
+        ],
+    )
+}
+
+/// Get a fully qualified OS-specific path to the callbackguest.exe
+/// binary. Convenience method for calling `callback_guest_buf`, then
+/// converting the result into an owned `String`
+pub fn callback_guest_string() -> Result<String> {
+    let buf = callback_guest_buf();
+    buf.to_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| anyhow!("couldn't convert callback guest PathBuf to string"))
+}
+
+/// Get a new `PathBuf` to a specified Rust guest
+/// $REPO_ROOT/src/tests/rust_guests/bin/${profile}/net6.0
+pub fn rust_guest_buf(guest: &str) -> PathBuf {
     let build_dir_selector = if cfg!(debug_assertions) {
         "debug"
     } else {
@@ -36,48 +69,34 @@ pub fn test_bin_base() -> PathBuf {
         vec![
             "..",
             "tests",
-            "Hyperlight.Tests",
-            "bin",
+            "rust_guests",
+            guest,
+            "target",
+            "x86_64-pc-windows-msvc",
             build_dir_selector,
-            "net6.0",
+            format!("{}.exe", guest).as_str(),
         ],
     )
-}
-
-/// Get a new `PathBuf` pointing to `callbackguest.exe`
-pub fn callback_guest_buf() -> PathBuf {
-    // $REPO_ROOT/src/tests/Hyperlight.Tests/bin/Debug/net6.0/callbackguest.exe"
-    let mut base = test_bin_base();
-    base.push("callbackguest.exe");
-    base
-}
-
-/// Get a fully qualified OS-specific path to the callbackguest.exe
-/// binary. Convenience method for calling `callback_guest_buf`, then
-/// converting the result into an owned `String`
-pub fn callback_guest_path() -> Result<String> {
-    let buf = callback_guest_buf();
-    buf.to_str()
-        .map(|s| s.to_string())
-        .ok_or_else(|| anyhow!("couldn't convert callback guest PathBuf to string"))
-}
-
-/// Get a new `PathBuf` pointing to `simpleguest.exe`
-pub fn simple_guest_buf() -> PathBuf {
-    // $REPO_ROOT/src/tests/Hyperlight.Tests/bin/debug/net6.0/simpleguest.exe"
-    let mut base = test_bin_base();
-    base.push("simpleguest.exe");
-    base
 }
 
 /// Get a fully qualified OS-specific path to the simpleguest.exe
 /// binary. Convenience method for calling `simple_guest_buf`, then
 /// converting the result into an owned `String`
-pub fn simple_guest_path() -> Result<String> {
-    let buf = simple_guest_buf();
+pub fn simple_guest_string() -> Result<String> {
+    let buf = rust_guest_buf("simpleguest");
     buf.to_str()
         .map(|s| s.to_string())
         .ok_or_else(|| anyhow!("couldn't convert simple guest PathBuf to string"))
+}
+
+/// Get a fully qualified OS-specific path to the dummyguest.exe
+/// binary. Convenience method for calling `dummy_guest_buf`, then converting
+/// the result into an owned `String`
+pub fn dummy_guest_string() -> Result<String> {
+    let buf = rust_guest_buf("dummyguest");
+    buf.to_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| anyhow!("couldn't convert dummy guest PathBuf to string"))
 }
 
 // The test data is a valid flatbuffers buffer representing a guestfunction call as follows:

@@ -645,6 +645,8 @@ impl VirtualCPU {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use hyperlight_testing::dummy_guest_string;
+
     use super::{
         handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
         Hypervisor,
@@ -658,7 +660,6 @@ pub(crate) mod tests {
         },
         new_error,
         sandbox::{uninitialized::GuestBinary, UninitializedSandbox},
-        testing::dummy_guest_path,
     };
     use crate::{sandbox::WrapperGetter, Result};
     use std::{path::Path, time::Duration};
@@ -671,7 +672,7 @@ pub(crate) mod tests {
     where
         NewFn: Fn(&SandboxMemoryManager, GuestPtr, GuestPtr) -> Result<Box<dyn Hypervisor>>,
     {
-        let filename = dummy_guest_path()?;
+        let filename = dummy_guest_string().map_err(|e| new_error!("{}", e))?;
         if !Path::new(&filename).exists() {
             return Err(new_error!(
                 "test_initialise: file {} does not exist",

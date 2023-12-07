@@ -19,34 +19,8 @@ use hyperlight_guest::{
 extern crate hyperlight_guest;
 
 #[no_mangle]
-pub extern "C" fn hyperlight_main() {
-    let small_var_def = GuestFunctionDefinition::new(
-        "SmallVar".to_string(),
-        Vec::new(),
-        ReturnType::Int,
-        smallVar as i64,
-    );
-    register_function(small_var_def);
-
-    let simple_print_output_def = GuestFunctionDefinition::new(
-        "PrintOutput".to_string(),
-        Vec::from(&[ParameterType::String]),
-        ReturnType::Int,
-        simplePrintOutput as i64,
-    );
-    register_function(simple_print_output_def);
-}
-
-#[no_mangle]
 #[allow(improper_ctypes_definitions, non_camel_case_types)]
-pub extern "C" fn smallVar(_: &FunctionCall) -> Vec<u8> {
-    let _buffer: [u8; 1024] = [0; 1024];
-    get_flatbuffer_result_from_int(1024)
-}
-
-#[no_mangle]
-#[allow(improper_ctypes_definitions, non_camel_case_types)]
-pub extern "C" fn simplePrintOutput(function_call: &FunctionCall) -> Vec<u8> {
+pub extern "C" fn simple_print_output(function_call: &FunctionCall) -> Vec<u8> {
     if let ParameterValue::String(message) = function_call.parameters.clone().unwrap()[0].clone() {
         call_host_function(
             "HostPrint",
@@ -58,6 +32,72 @@ pub extern "C" fn simplePrintOutput(function_call: &FunctionCall) -> Vec<u8> {
     } else {
         Vec::new()
     }
+}
+
+// set_byte_array_to_zero
+
+// print_two_args
+
+// print_three_args
+
+// print_four_args
+
+// print_five_args
+
+// log_to_host
+
+// print_six_args
+
+// print_seven_args
+
+// print_eight_args
+
+// print_nine_args
+
+// print_ten_args
+
+// stack_allocate
+
+// buffer_overrun
+
+// stack_overflow
+
+// large_var
+
+#[no_mangle]
+#[allow(improper_ctypes_definitions)]
+pub extern "C" fn small_var(_: &FunctionCall) -> Vec<u8> {
+    let _buffer: [u8; 1024] = [0; 1024];
+    get_flatbuffer_result_from_int(1024)
+}
+
+// call_malloc
+
+// malloc_and_free
+
+// echo
+
+// get_size_prefixed_buffer
+
+// spin
+
+#[no_mangle]
+pub extern "C" fn hyperlight_main() {
+    let small_var_def = GuestFunctionDefinition::new(
+        "SmallVar".to_string(),
+        Vec::new(),
+        ReturnType::Int,
+        small_var as i64,
+    );
+    register_function(small_var_def);
+
+    let simple_print_output_def = GuestFunctionDefinition::new(
+        "PrintOutput".to_string(),
+        Vec::from(&[ParameterType::String]),
+        ReturnType::Int,
+        simple_print_output as i64,
+    );
+    register_function(simple_print_output_def);
 }
 
 #[no_mangle]

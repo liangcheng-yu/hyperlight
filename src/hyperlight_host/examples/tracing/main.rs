@@ -6,7 +6,7 @@ use hyperlight_host::{
     sandbox_state::{sandbox::EvolvableSandbox, transition::Noop},
     GuestBinary, MultiUseSandbox, Result,
 };
-use hyperlight_testing::simple_guest_path;
+use hyperlight_testing::simple_guest_string;
 use std::sync::{Arc, Mutex};
 use std::thread::{spawn, JoinHandle};
 use tracing_forest::ForestLayer;
@@ -33,7 +33,7 @@ fn main() -> Result<()> {
 fn run_example() -> Result<()> {
     // Get the path to a simple guest binary.
     let hyperlight_guest_path =
-        simple_guest_path().expect("Cannot find the guest binary at the expected location.");
+        simple_guest_string().expect("Cannot find the guest binary at the expected location.");
 
     let mut join_handles: Vec<JoinHandle<Result<()>>> = vec![];
 
