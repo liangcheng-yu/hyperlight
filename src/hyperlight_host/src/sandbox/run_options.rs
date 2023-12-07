@@ -1,3 +1,5 @@
+use tracing::{instrument, Span};
+
 /// Configuration options for setting up a new `UninitializedSandbox` and
 /// subsequent inititialized sandboxes, including `MultiUseSandbox` and
 /// `SingleUseSandbox`.
@@ -25,6 +27,7 @@ pub enum SandboxRunOptions {
 }
 
 impl SandboxRunOptions {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn is_run_from_guest_binary(&self) -> bool {
         #[cfg(target_os = "linux")]
         {
@@ -35,6 +38,7 @@ impl SandboxRunOptions {
             matches!(self, Self::RunInProcess(true))
         }
     }
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn is_in_memory(&self) -> bool {
         #[cfg(target_os = "linux")]
         {

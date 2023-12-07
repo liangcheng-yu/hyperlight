@@ -11,7 +11,7 @@ fn main() -> Result<()> {
     // the location of the binary to the rust build.
     #[cfg(target_os = "windows")]
     {
-        println!("cargo:rerun-if-changed=src/hyperlight_host/src/hyperlight_surrogate/**");
+        println!("cargo:rerun-if-changed=src/hyperlight_surrogate/src/main.rs");
 
         // Build hyperlight_surrogate and
         // Set $HYPERLIGHT_SURROGATE_DIR env var during rust build so we can

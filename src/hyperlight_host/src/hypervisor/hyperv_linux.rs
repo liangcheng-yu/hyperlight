@@ -32,7 +32,7 @@ use tracing::{instrument, Span};
 /// and functional. If `REQUIRE_STABLE_API` is true, determines only whether a
 /// stable API for the Linux HyperV hypervisor is present.
 #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-// TODO: Once CAPI is complete this does not need to be public
+//TODO:(#1029) Once CAPI is complete this does not need to be public
 pub fn is_hypervisor_present() -> Result<bool> {
     let mshv = Mshv::new()?;
     match mshv.check_stable() {
@@ -72,7 +72,7 @@ type RegistersHashMap = HashMap<hv_register_name, hv_register_value>;
 
 /// A Hypervisor driver for HyperV-on-Linux. This hypervisor is often
 /// called the Microsoft Hypervisor Platform (MSHV)
-// TODO: Once CAPI is complete this does not need to be public
+//TODO:(#1029) Once CAPI is complete this does not need to be public
 pub struct HypervLinuxDriver {
     _mshv: Mshv,
     vm_fd: VmFd,
@@ -104,7 +104,7 @@ impl HypervLinuxDriver {
     /// the underlying virtual CPU after this function returns. Call the
     /// `apply_registers` method to do that, or more likely call
     /// `initialise` to do it for you.
-    // TODO: Once CAPI is complete this does not need to be public
+    //TODO:(#1029) Once CAPI is complete this does not need to be public
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn new(addrs: &HypervisorAddrs, rsp_ptr: GuestPtr, pml4_ptr: GuestPtr) -> Result<Self> {
         match is_hypervisor_present() {
@@ -248,7 +248,7 @@ impl HypervLinuxDriver {
     ///
     /// Call `add_registers` prior to this function to add to the internal
     /// register list.
-    // TODO: Once CAPI is complete this does not need to be public
+    //TODO:(#1029) Once CAPI is complete this does not need to be public
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn apply_registers(&self) -> Result<()> {
         let mut regs_vec: Vec<hv_register_assoc> = Vec::new();
@@ -279,7 +279,7 @@ impl HypervLinuxDriver {
     ///
     /// This function will apply only the value of the given register on the
     /// internally stored virtual CPU, but no others in the pending list.
-    // TODO: Once CAPI is complete this does not need to be public
+    //TODO:(#1029) Once CAPI is complete this does not need to be public
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn update_register_u64(&mut self, name: hv_register_name, val: u64) -> Result<()> {
         self.registers

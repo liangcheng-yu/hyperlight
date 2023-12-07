@@ -134,7 +134,7 @@ struct GuestStack {
 ///
 
 #[derive(Copy, Clone, Debug)]
-// TODO: Once we have a complete C API, we can restrict visibility to crate level.
+//TODO:(#1029) Once we have a complete C API, we can restrict visibility to crate level.
 pub struct SandboxMemoryLayout {
     sandbox_memory_config: SandboxConfiguration,
     /// The peb offset into this sandbox.
@@ -216,7 +216,7 @@ impl SandboxMemoryLayout {
     const MAX_MEMORY_SIZE: usize = 0x3FEF0000;
 
     /// The base address of the sandbox's memory.
-    //TODO: Once we have a complete C API, we can restrict visibility to crate level.
+    //TODO:(#1029) Once we have a complete C API, we can restrict visibility to crate level.
     pub const BASE_ADDRESS: usize = 0x0200000;
 
     /// The absolute address (assuming sandbox memory starts at BASE_ADDRESS) into

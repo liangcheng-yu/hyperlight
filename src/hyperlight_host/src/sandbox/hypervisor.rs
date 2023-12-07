@@ -17,11 +17,12 @@ use std::{sync::MutexGuard, time::Duration};
 use rand::Rng;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
+use tracing::{instrument, Span};
 
 /// A container with convenience methods attached for an
 /// `Option<Box<dyn Hypervisor>>`
 #[derive(Clone)]
-pub struct HypervisorWrapper<'a> {
+pub(crate) struct HypervisorWrapper<'a> {
     hv_opt: Option<Arc<Mutex<Box<dyn Hypervisor>>>>,
     outb_hdl: OutBHandlerWrapper<'a>,
     mem_access_hdl: MemAccessHandlerWrapper<'a>,
@@ -30,6 +31,7 @@ pub struct HypervisorWrapper<'a> {
 }
 
 impl<'a> HypervisorWrapper<'a> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn new(
         hv_opt_box: Option<Box<dyn Hypervisor>>,
         outb_hdl: OutBHandlerWrapper<'a>,
@@ -60,7 +62,8 @@ impl<'a> HypervisorWrapper<'a> {
     /// will be released and the read/write guarantees will no longer be
     /// valid (the compiler won't let you do any operations on it, though,
     /// so you don't have to worry much about this consequence).
-    pub(crate) fn get_hypervisor(&self) -> Result<MutexGuard<Box<dyn Hypervisor>>> {
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get_hypervisor(&self) -> Result<MutexGuard<Box<dyn Hypervisor>>> {
         match self.hv_opt.as_ref() {
             None => {
                 log_then_return!(NoHypervisorFound());
@@ -72,10 +75,12 @@ impl<'a> HypervisorWrapper<'a> {
         }
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn get_outb_hdl_wrapper(&self) -> OutBHandlerWrapper<'a> {
         self.outb_hdl.clone()
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn initialise(&mut self, mem_mgr: &SandboxMemoryManager) -> Result<()> {
         let seed = {
             let mut rng = rand::thread_rng();
@@ -104,6 +109,7 @@ impl<'a> HypervisorWrapper<'a> {
 
     /// Get the stack pointer -- the value of the RSP register --
     /// the contained `Hypervisor` had
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn orig_rsp(&self) -> Result<GuestPtr> {
         let hv = self.hv_opt.as_ref().ok_or_else(NoHypervisorFound)?.lock()?;
         let orig_rsp = hv.orig_rsp()?;
@@ -111,12 +117,14 @@ impl<'a> HypervisorWrapper<'a> {
     }
 
     /// Reset the stack pointer
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn reset_rsp(&mut self, new_rsp: GuestPtr) -> Result<()> {
         let mut hv = self.hv_opt.as_mut().ok_or_else(NoHypervisorFound)?.lock()?;
         hv.reset_rsp(new_rsp.absolute()?)
     }
 
     /// Dispatch a call from the host to the guest
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn dispatch_call_from_host(&mut self, dispatch_func_addr: GuestPtr) -> Result<()> {
         let outb_hdl = self.outb_hdl.clone();
         let mem_access_hdl = self.mem_access_hdl.clone();
@@ -137,7 +145,7 @@ impl<'a> HypervisorWrapper<'a> {
 impl<'a> UninitializedSandbox<'a> {
     /// Set up the appropriate hypervisor for the platform
     ///
-    /// TODO: remove this dead_code annotation after it's hooked up
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn set_up_hypervisor_partition(
         mgr: &mut SandboxMemoryManager,
     ) -> Result<Box<dyn Hypervisor>> {

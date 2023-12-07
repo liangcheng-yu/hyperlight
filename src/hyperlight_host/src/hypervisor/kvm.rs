@@ -29,7 +29,7 @@ pub fn is_hypervisor_present() -> Result<()> {
     Ok(())
 }
 
-// TODO: Once CAPI is complete this does not need to be public
+//TODO:(#1029) Once CAPI is complete this does not need to be public
 /// A Hypervisor driver for KVM on Linux
 #[derive(Debug)]
 pub struct KVMDriver {
@@ -50,7 +50,7 @@ impl KVMDriver {
     ///
     /// TODO: when rust rewrite is complete, change `rsp` and `pml4_addr`
     /// params to be of type `GuestPtr`.
-    // TODO: Once CAPI is complete this does not need to be public
+    //TODO:(#1029) Once CAPI is complete this does not need to be public
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn new(
         host_addr: u64,

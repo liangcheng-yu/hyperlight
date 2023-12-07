@@ -47,25 +47,31 @@ pub struct UninitializedSandbox<'a> {
 }
 
 impl<'a> WrapperGetter<'a> for UninitializedSandbox<'a> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_mgr(&self) -> &MemMgrWrapper {
         &self.mgr
     }
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_mgr_mut(&mut self) -> &mut MemMgrWrapper {
         &mut self.mgr
     }
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hv(&self) -> &HypervisorWrapper<'a> {
         &self.hv
     }
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hv_mut(&mut self) -> &mut HypervisorWrapper<'a> {
         &mut self.hv
     }
 }
 
 impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for UninitializedSandbox<'a> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_uninitialized_sandbox(&self) -> &crate::sandbox::UninitializedSandbox<'a> {
         self
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_uninitialized_sandbox_mut(&mut self) -> &mut crate::sandbox::UninitializedSandbox<'a> {
         self
     }
@@ -80,6 +86,7 @@ impl<'a> std::fmt::Debug for UninitializedSandbox<'a> {
 }
 
 impl<'a> crate::sandbox_state::sandbox::Sandbox for UninitializedSandbox<'a> {
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn check_stack_guard(&self) -> Result<bool> {
         self.mgr.check_stack_guard()
     }
@@ -99,6 +106,7 @@ where
     ///
     /// If you need to do this transition without a callback, use the
     /// `EvolvableSandbox` implementation that takes a `Noop`.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn evolve(
         self,
         tsn: MutatingCallback<'a, UninitializedSandbox<'a>, F>,
@@ -126,6 +134,7 @@ where
     ///
     /// If you need to do this transition without a callback, use the
     /// `EvolvableSandbox` implementation that takes a `Noop`.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn evolve(
         self,
         tsn: MutatingCallback<'a, UninitializedSandbox<'a>, F>,
@@ -153,6 +162,7 @@ impl<'a>
     /// If you want to pass a callback to this state transition so you can
     /// run your own code during the transition, use the `EvolvableSandbox`
     /// implementation that accepts a `MutatingCallback`
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn evolve(
         self,
         _: Noop<UninitializedSandbox<'a>, SingleUseSandbox<'a>>,
@@ -185,6 +195,7 @@ impl<'a>
     /// If you want to pass a callback to this state transition so you can
     /// run your own code during the transition, use the `EvolvableSandbox`
     /// implementation that accepts a `MutatingCallback`
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn evolve(
         self,
         _: Noop<UninitializedSandbox<'a>, MultiUseSandbox<'a>>,
@@ -326,6 +337,7 @@ impl<'a> UninitializedSandbox<'a> {
     /// Get a mutable reference to the internally-stored
     /// `SandboxMemoryManager`
     #[cfg(target_os = "windows")]
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn get_mem_mgr_mut(&mut self) -> &mut SandboxMemoryManager {
         self.get_mgr_mut().as_mut()
     }
@@ -336,10 +348,12 @@ impl<'a> UninitializedSandbox<'a> {
     /// This flag is used to indicate that Rust code should not call the
     /// guest's initialise function, since it expects C# code to do so
     /// manually.
+    //TODO: Remove this once the port to the C API is complete
     pub fn set_is_csharp(&mut self) {
         self.is_csharp = true
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn from_multi_use(sbox: MultiUseSandbox<'a>) -> Self {
         Self {
             host_funcs: sbox.host_funcs.clone(),
@@ -355,6 +369,7 @@ impl<'a> UninitializedSandbox<'a> {
     pub fn get_host_funcs(&self) -> Arc<Mutex<HostFuncsWrapper<'a>>> {
         self.host_funcs.clone()
     }
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn create_stack_guard() -> [u8; STACK_COOKIE_LEN] {
         rand::random::<[u8; STACK_COOKIE_LEN]>()
     }
@@ -375,6 +390,8 @@ impl<'a> UninitializedSandbox<'a> {
     ///
     /// Additionally, `page_size` must correspond to the operating system's
     /// chosen size of a virtual memory page.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    //TODO:(#1029) Once CAPI is complete this should be pub(super)
     pub unsafe fn call_entry_point(
         &self,
         peb_address: RawPtr,
@@ -411,6 +428,7 @@ impl<'a> UninitializedSandbox<'a> {
     /// passed as `true` and we're not running on windows, this function will
     /// return an `Err`. Otherwise, if `run_from_guest_binary` is passed
     /// as `false`, this function calls `SandboxMemoryManager::load_guest_binary_into_memory`.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn load_guest_binary(
         cfg: SandboxConfiguration,
         guest_binary: &GuestBinary,

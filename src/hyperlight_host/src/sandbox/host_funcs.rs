@@ -14,6 +14,7 @@ use is_terminal::IsTerminal;
 use std::io::stdout;
 use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+use tracing::{instrument, Span};
 
 #[derive(Default, Clone)]
 /// A Wrapper around details of functions exposed by the Host
@@ -23,23 +24,25 @@ pub struct HostFuncsWrapper<'a> {
 }
 
 impl<'a> HostFuncsWrapper<'a> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_host_funcs(&self) -> &FunctionsMap<'a> {
         &self.functions_map
     }
-
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_host_funcs_mut(&mut self) -> &mut FunctionsMap<'a> {
         &mut self.functions_map
     }
-
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_host_func_details(&self) -> &HostFunctionDetails {
         &self.function_details
     }
-
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_host_func_details_mut(&mut self) -> &mut HostFunctionDetails {
         &mut self.function_details
     }
 
     /// Register a host function with the sandbox.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn register_host_function(
         &mut self,
         mgr: &mut SandboxMemoryManager,
@@ -71,6 +74,8 @@ impl<'a> HostFuncsWrapper<'a> {
     ///
     /// Return `Ok` if the function was found and was of the right signature,
     /// and `Err` otherwise.
+    //TODO:(#1029) Once CAPI is complete this should be pub(super)
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn host_print(&mut self, msg: String) -> Result<i32> {
         let res = call_host_func_impl(
             self.get_host_funcs(),
@@ -87,6 +92,7 @@ impl<'a> HostFuncsWrapper<'a> {
     /// Return `Err` if no such function exists,
     /// its parameter list doesn't match `args`, or there was another error
     /// getting, configuring or calling the function.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn call_host_function(
         &self,
         name: &str,
@@ -96,6 +102,7 @@ impl<'a> HostFuncsWrapper<'a> {
     }
 }
 
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 fn call_host_func_impl(
     host_funcs: &FunctionsMap<'_>,
     name: &str,
@@ -119,6 +126,7 @@ fn call_host_func_impl(
 }
 
 /// The default writer function is to write to stdout with green text.
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 pub(super) fn default_writer_func(s: String) -> Result<i32> {
     match stdout().is_terminal() {
         false => {

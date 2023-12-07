@@ -11,20 +11,25 @@ pub type StackCookie = [u8; STACK_COOKIE_LEN];
 #[derive(Clone)]
 /// A container with methods for accessing `SandboxMemoryManager` and other
 /// related objects
-pub struct MemMgrWrapper(SandboxMemoryManager, StackCookie);
+pub(crate) struct MemMgrWrapper(SandboxMemoryManager, StackCookie);
 
 impl MemMgrWrapper {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn new(mgr: SandboxMemoryManager, stack_cookie: StackCookie) -> Self {
         Self(mgr, stack_cookie)
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn get_mgr(&self) -> &SandboxMemoryManager {
         &self.0
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn get_mgr_mut(&mut self) -> &mut SandboxMemoryManager {
         &mut self.0
     }
+
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn get_stack_cookie(&self) -> &StackCookie {
         &self.1
     }
@@ -34,11 +39,12 @@ impl MemMgrWrapper {
     /// Return `Ok(true)` if the given cookie matches the one in guest memory,
     /// and `Ok(false)` otherwise. Return `Err` if it could not be found or
     /// there was some other error.
-    #[instrument(err(Debug), skip_all, parent = Span::current())]
-    pub fn check_stack_guard(&self) -> Result<bool> {
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    pub(crate) fn check_stack_guard(&self) -> Result<bool> {
         self.get_mgr().check_stack_guard(*self.get_stack_cookie())
     }
 
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn write_memory_layout(&mut self, run_from_process_memory: bool) -> Result<()> {
         let mgr = self.get_mgr_mut();
         let layout = mgr.layout;
@@ -54,12 +60,14 @@ impl MemMgrWrapper {
 }
 
 impl AsMut<SandboxMemoryManager> for MemMgrWrapper {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn as_mut(&mut self) -> &mut SandboxMemoryManager {
         self.get_mgr_mut()
     }
 }
 
 impl AsRef<SandboxMemoryManager> for MemMgrWrapper {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn as_ref(&self) -> &SandboxMemoryManager {
         self.get_mgr()
     }

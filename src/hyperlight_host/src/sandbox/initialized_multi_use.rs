@@ -1,5 +1,6 @@
 use super::metrics::SandboxMetric::CurrentNumberOfMultiUseSandboxes;
 use super::{host_funcs::HostFuncsWrapper, leaked_outb::LeakedOutBWrapper, WrapperGetter};
+use super::{HypervisorWrapper, MemMgrWrapper, UninitializedSandbox};
 use crate::func::call_ctx::MultiUseGuestCallContext;
 use crate::{int_gauge_dec, Result};
 use crate::{
@@ -8,7 +9,6 @@ use crate::{
         sandbox::{DevolvableSandbox, Sandbox},
         transition::Noop,
     },
-    HypervisorWrapper, MemMgrWrapper, UninitializedSandbox,
 };
 use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
@@ -36,6 +36,7 @@ impl<'a> MultiUseSandbox<'a> {
     /// This function is not equivalent to doing an `evolve` from uninitialized
     /// to initialized, and is purposely not exposed publicly outside the crate
     /// (as a `From` implementation would be)
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn from_uninit(
         val: UninitializedSandbox<'a>,
         leaked_outb: Option<LeakedOutBWrapper<'a>>,
@@ -138,6 +139,7 @@ impl<'a> MultiUseSandbox<'a> {
     }
 
     /// Reset the Sandbox's state
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn reset_state(&mut self) -> Result<()> {
         self.restore_state()?;
         self.num_runs += 1;
@@ -146,6 +148,7 @@ impl<'a> MultiUseSandbox<'a> {
     }
 
     /// Restore the Sandbox's state
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn restore_state(&mut self) -> Result<()> {
         let mem_mgr = self.mem_mgr.get_mgr_mut();
         mem_mgr.restore_state()?;
@@ -159,25 +162,31 @@ impl<'a> MultiUseSandbox<'a> {
 }
 
 impl<'a> WrapperGetter<'a> for MultiUseSandbox<'a> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_mgr(&self) -> &MemMgrWrapper {
         &self.mem_mgr
     }
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_mgr_mut(&mut self) -> &mut MemMgrWrapper {
         &mut self.mem_mgr
     }
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hv(&self) -> &HypervisorWrapper<'a> {
         &self.hv
     }
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hv_mut(&mut self) -> &mut HypervisorWrapper<'a> {
         &mut self.hv
     }
 }
 
 impl<'a> Sandbox for MultiUseSandbox<'a> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn is_reusable(&self) -> bool {
         true
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn check_stack_guard(&self) -> Result<bool> {
         self.mem_mgr.check_stack_guard()
     }
@@ -206,6 +215,7 @@ impl<'a>
     /// - If `self` was using in-process mode, reset the stack pointer
     /// (RSP register, to be specific) to what it was when the sandbox
     /// was first created.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn devolve(
         self,
         _tsn: Noop<MultiUseSandbox<'a>, UninitializedSandbox<'a>>,
@@ -223,6 +233,7 @@ impl<'a>
 }
 
 impl<'a> Drop for MultiUseSandbox<'a> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn drop(&mut self) {
         int_gauge_dec!(&CurrentNumberOfMultiUseSandboxes);
     }

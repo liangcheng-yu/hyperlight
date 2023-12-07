@@ -10,12 +10,12 @@ use std::ops::Add;
 ///
 /// Use this type to distinguish between an offset and a raw pointer
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
-//TODO: Once we have a complete C API then this should have visibility `pub(crate)`
+//TODO:(#1029) Once we have a complete C API then this should have visibility `pub(crate)`
 pub struct Offset(u64);
 
 impl Offset {
     /// Get the offset representing `0`
-    //TODO: Once we have a complete C API then this should have visibility `pub(super)`
+    //TODO:(#1029) Once we have a complete C API then this should have visibility `pub(super)`
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn zero() -> Self {
         Self::default()

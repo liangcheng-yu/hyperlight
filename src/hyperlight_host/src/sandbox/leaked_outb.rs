@@ -1,4 +1,7 @@
 #[cfg(target_os = "windows")]
+use tracing::{instrument, Span};
+
+#[cfg(target_os = "windows")]
 use crate::hypervisor::handlers::{OutBHandlerCaller, OutBHandlerWrapper};
 #[cfg(target_os = "windows")]
 use crate::mem::custom_drop::CustomPtrDrop;
@@ -77,6 +80,7 @@ pub(super) struct LeakedOutBWrapper<'a> {
 
 #[cfg(target_os = "windows")]
 impl<'a> LeakedOutBWrapper<'a> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn new(
         mgr: &mut SandboxMemoryManager,
         wrapper: OutBHandlerWrapper<'a>,
@@ -103,11 +107,13 @@ impl<'a> LeakedOutBWrapper<'a> {
     ///
     /// This pointer is referred to by the `SandboxMemoryManager` as
     /// the outb "context"
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn hdl_wrapper_addr(&self) -> Result<u64> {
         let ptr = self.hdl_ptr.lock()?;
         Ok(ptr.as_mut_ptr() as u64)
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn outb_addr() -> u64 {
         call_outb as *const c_void as u64
     }

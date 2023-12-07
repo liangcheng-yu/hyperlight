@@ -1,17 +1,15 @@
-use tracing::{instrument, Span};
-
 use super::metrics::SandboxMetric::CurrentNumberOfSingleUseSandboxes;
 use super::{leaked_outb::LeakedOutBWrapper, WrapperGetter};
+use super::{HypervisorWrapper, MemMgrWrapper, UninitializedSandbox};
 use crate::func::call_ctx::SingleUseGuestCallContext;
 use crate::int_gauge_dec;
+use crate::sandbox_state::sandbox::Sandbox;
 use crate::Result;
-use crate::{
-    sandbox_state::sandbox::Sandbox, HypervisorWrapper, MemMgrWrapper, UninitializedSandbox,
-};
 use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
 };
 use std::marker::PhantomData;
+use tracing::{instrument, Span};
 
 /// A sandbox implementation that supports calling no more than 1 guest
 /// function
@@ -48,6 +46,7 @@ impl<'a> SingleUseSandbox<'a> {
     /// function not publicly exposed. Finally, although it looks like it should be
     /// in a `From` implementation, it is purposely not, because external
     /// users would then see it and be able to use it.
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn from_uninit(
         val: UninitializedSandbox<'a>,
         leaked_outb: Option<LeakedOutBWrapper<'a>>,
@@ -140,25 +139,31 @@ impl<'a> SingleUseSandbox<'a> {
 }
 
 impl<'a> WrapperGetter<'a> for SingleUseSandbox<'a> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_mgr(&self) -> &MemMgrWrapper {
         &self.mem_mgr
     }
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_mgr_mut(&mut self) -> &mut MemMgrWrapper {
         &mut self.mem_mgr
     }
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hv(&self) -> &HypervisorWrapper<'a> {
         &self.hv
     }
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hv_mut(&mut self) -> &mut HypervisorWrapper<'a> {
         &mut self.hv
     }
 }
 
 impl<'a> Sandbox for SingleUseSandbox<'a> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn is_reusable(&self) -> bool {
         false
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn check_stack_guard(&self) -> Result<bool> {
         self.mem_mgr.check_stack_guard()
     }
@@ -173,6 +178,7 @@ impl<'a> std::fmt::Debug for SingleUseSandbox<'a> {
 }
 
 impl<'a> Drop for SingleUseSandbox<'a> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn drop(&mut self) {
         int_gauge_dec!(&CurrentNumberOfSingleUseSandboxes);
     }

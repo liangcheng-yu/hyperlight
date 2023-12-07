@@ -849,3 +849,71 @@
    fun:*core*ptr*drop_in_place*alloc..sync..Arc*std..sync..mutex..Mutex*alloc..boxed..Box*dyn*hyperlight_host..hypervisor..Hypervisor*
    fun:*core*ptr*drop_in_place*core..option..Option*alloc..sync..Arc*std..sync..mutex..Mutex*alloc..boxed..Box*dyn*hyperlight_host..hypervisor..Hypervisor*
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:_*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*closure*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host..sandbox..uninitialized..UninitializedSandbox*set_up_hypervisor_partition*closure*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host..sandbox..uninitialized..UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_capi*sandbox*sandbox_new*closure*
+   fun:*hyperlight_capi*func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_registers*closure*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*closure*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host..sandbox..uninitialized..UninitializedSandbox*set_up_hypervisor_partition*closure*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host..sandbox..uninitialized..UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_capi*sandbox*sandbox_new*closure*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:*vmm_sys_util*linux*ioctl*ioctl_with_mut_ref*
+   fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_registers*closure*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_registers*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*closure*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host..sandbox..uninitialized..UninitializedSandbox*set_up_hypervisor_partition*closure*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host..sandbox..uninitialized..UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_capi*sandbox*sandbox_new*closure*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   ioctl(generic)
+   fun:ioctl
+   fun:_*vmm_sys_util*linux*ioctl*ioctl_with_ref*
+   fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*closure*
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host..sandbox..uninitialized..UninitializedSandbox*set_up_hypervisor_partition*closure*
+   fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host..sandbox..uninitialized..UninitializedSandbox*set_up_hypervisor_partition*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*closure*
+   fun:*hyperlight_host*sandbox*uninitialized*UninitializedSandbox*new*
+   fun:*hyperlight_capi*sandbox*sandbox_new*closure*
+   fun:*hyperlight_capi*func*CFunc*and_then_mut*closure*closure*
+   fun:*core*result*Result*and_then*
+}

@@ -1,11 +1,9 @@
-use std::{cmp::max, time::Duration};
-
-use crate::option_when;
-
 use crate::mem::pe::pe_info::PEInfo;
+use crate::option_when;
+use std::{cmp::max, time::Duration};
+use tracing::{instrument, Span};
 
-/// The complete set of configuration needed to create a guest
-/// memory region.
+/// The complete set of configuration needed to create a Sandbox
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(C)]
 pub struct SandboxConfiguration {
@@ -80,6 +78,7 @@ impl SandboxConfiguration {
 
     #[allow(clippy::too_many_arguments)]
     /// Create a new configuration for a sandbox with the given sizes.
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn new(
         input_data_size: usize,
         output_data_size: usize,
@@ -136,16 +135,19 @@ impl SandboxConfiguration {
         }
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn stack_size_override_opt(&self) -> Option<u64> {
         option_when(self.stack_size_override, self.stack_size_override > 0)
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn heap_size_override_opt(&self) -> Option<u64> {
         option_when(self.heap_size_override, self.heap_size_override > 0)
     }
 
     /// If self.stack_size is non-zero, return it. Otherwise,
     /// return pe_info.stack_reserve()
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn get_stack_size(&self, pe_info: &PEInfo) -> u64 {
         self.stack_size_override_opt()
             .unwrap_or_else(|| pe_info.stack_reserve())
@@ -153,6 +155,7 @@ impl SandboxConfiguration {
 
     /// If self.heap_size_override is non-zero, return it. Otherwise,
     /// return pe_info.heap_reserve()
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn get_heap_size(&self, pe_info: &PEInfo) -> u64 {
         self.heap_size_override_opt()
             .unwrap_or_else(|| pe_info.heap_reserve())
@@ -160,6 +163,7 @@ impl SandboxConfiguration {
 }
 
 impl Default for SandboxConfiguration {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn default() -> Self {
         Self::new(
             Self::DEFAULT_INPUT_SIZE,

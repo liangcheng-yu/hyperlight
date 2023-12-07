@@ -26,7 +26,13 @@ pub(crate) mod param_type;
 /// Definitions and functionality for supported return types
 pub mod ret_type;
 
-use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnValue};
+/// Re-export for `ParameterValue` enum
+pub use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::ParameterValue;
+/// Re-export for `ReturnType` enum
+pub use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::ReturnType;
+/// Re-export for `ReturnType` enum
+pub use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::ReturnValue;
+
 pub use param_type::SupportedParameterType;
 pub use ret_type::SupportedReturnType;
 use std::sync::{Arc, Mutex};
@@ -62,3 +68,21 @@ pub use exports::get_stack_boundary;
 pub use host_functions::HostFunction0;
 /// Re-export for `HostFunction1` trait
 pub use host_functions::HostFunction1;
+/// Re-export for `HostFunction10` trait
+pub use host_functions::HostFunction10;
+/// Re-export for `HostFunction2` trait
+pub use host_functions::HostFunction2;
+/// Re-export for `HostFunction3` trait
+pub use host_functions::HostFunction3;
+/// Re-export for `HostFunction4` trait
+pub use host_functions::HostFunction4;
+/// Re-export for `HostFunction5` trait
+pub use host_functions::HostFunction5;
+/// Re-export for `HostFunction6` trait
+pub use host_functions::HostFunction6;
+/// Re-export for `HostFunction7` trait
+pub use host_functions::HostFunction7;
+/// Re-export for `HostFunction8` trait
+pub use host_functions::HostFunction8;
+/// Re-export for `HostFunction9` trait
+pub use host_functions::HostFunction9;

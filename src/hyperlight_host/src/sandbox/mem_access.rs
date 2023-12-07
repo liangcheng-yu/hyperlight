@@ -1,5 +1,7 @@
 use std::sync::{Arc, Mutex};
 
+use tracing::{instrument, Span};
+
 use super::mem_mgr::MemMgrWrapper;
 use crate::error::HyperlightError::StackOverflow;
 use crate::hypervisor::handlers::{
@@ -7,6 +9,7 @@ use crate::hypervisor::handlers::{
 };
 use crate::{log_then_return, Result};
 
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 pub(super) fn handle_mem_access_impl(wrapper: &MemMgrWrapper) -> Result<()> {
     if !wrapper.check_stack_guard()? {
         log_then_return!(StackOverflow());
@@ -15,6 +18,7 @@ pub(super) fn handle_mem_access_impl(wrapper: &MemMgrWrapper) -> Result<()> {
     Ok(())
 }
 
+#[instrument(skip_all, parent = Span::current(), level= "Trace")]
 pub(super) fn mem_access_handler_wrapper<'a>(
     wrapper: MemMgrWrapper,
 ) -> MemAccessHandlerWrapper<'a> {

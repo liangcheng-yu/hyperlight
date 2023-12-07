@@ -20,7 +20,7 @@ mod leaked_outb;
 mod mem_access;
 /// Functionality for interacting with a sandbox's internally-stored
 /// `SandboxMemoryManager`
-pub mod mem_mgr;
+pub(crate) mod mem_mgr;
 mod outb;
 /// Options for configuring a sandbox
 mod run_options;
@@ -36,28 +36,27 @@ pub(crate) mod metrics;
 
 /// Re-export for `SandboxConfiguration` type
 pub use config::SandboxConfiguration;
-/// Re-export for `HypervisorWrapper` trait
-pub use hypervisor::HypervisorWrapper;
 /// Re-export for the `MultiUseSandbox` type
 pub use initialized_multi_use::MultiUseSandbox;
 /// Re-export for `SingleUseSandbox` type
 pub use initialized_single_use::SingleUseSandbox;
-/// Re-export for `MemMgrWrapper` type
-pub use mem_mgr::MemMgrWrapper;
 /// Re-export for `SandboxRunOptions` type
 pub use run_options::SandboxRunOptions;
+use tracing::instrument;
+use tracing::Span;
 /// Re-export for `GuestBinary` type
 pub use uninitialized::GuestBinary;
 /// Re-export for `UninitializedSandbox` type
 pub use uninitialized::UninitializedSandbox;
 
+use self::mem_mgr::MemMgrWrapper;
+use super::sandbox::hypervisor::HypervisorWrapper;
 use crate::func::HyperlightFunction;
 #[cfg(target_os = "windows")]
 use crate::hypervisor::windows_hypervisor_platform;
 #[cfg(target_os = "linux")]
 use crate::{hypervisor::hyperv_linux, hypervisor::kvm};
 use std::collections::HashMap;
-
 // In case its not obvious why there are separate is_supported_platform and is_hypervisor_present functions its because
 // Hyperlight is designed to be able to run on a host that doesn't have a hypervisor.
 // In that case, the sandbox will be in process, we plan on making this a dev only feature and fixing up Linux support
@@ -66,6 +65,7 @@ use std::collections::HashMap;
 /// Determine if this is a supported platform for Hyperlight
 ///
 /// Returns a boolean indicating whether this is a supported platform.
+#[instrument(skip_all, parent = Span::current())]
 pub fn is_supported_platform() -> bool {
     #[cfg(not(target_os = "linux"))]
     #[cfg(not(target_os = "windows"))]
@@ -76,31 +76,30 @@ pub fn is_supported_platform() -> bool {
 
 /// A `HashMap` to map function names to `HyperlightFunction`s.
 #[derive(Clone, Default)]
-pub struct FunctionsMap<'a>(HashMap<String, HyperlightFunction<'a>>);
+pub(super) struct FunctionsMap<'a>(HashMap<String, HyperlightFunction<'a>>);
 
 impl<'a> FunctionsMap<'a> {
     /// Insert a new entry into the map.
-    pub fn insert(&mut self, key: String, value: HyperlightFunction<'a>) {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn insert(&mut self, key: String, value: HyperlightFunction<'a>) {
         self.0.insert(key, value);
     }
 
     /// Get the value associated with the given key, if it exists.
-    pub fn get(&self, key: &str) -> Option<&HyperlightFunction<'a>> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get(&self, key: &str) -> Option<&HyperlightFunction<'a>> {
         self.0.get(key)
     }
 
     /// Get the length of the map.
-    pub fn len(&self) -> usize {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn len(&self) -> usize {
         self.0.len()
-    }
-
-    /// Returns true if the map is empty, otherwise false
-    pub fn is_empty(&self) -> bool {
-        self.0.len() == 0
     }
 }
 
 impl<'a> PartialEq for FunctionsMap<'a> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn eq(&self, other: &Self) -> bool {
         self.len() == other.len() && self.0.keys().all(|k| other.0.contains_key(k))
     }
@@ -112,6 +111,7 @@ impl<'a> Eq for FunctionsMap<'a> {}
 /// this sandbox.
 ///
 //  Returns a boolean indicating whether a suitable hypervisor is present.
+#[instrument(skip_all, parent = Span::current())]
 pub fn is_hypervisor_present() -> bool {
     #[cfg(target_os = "linux")]
     {

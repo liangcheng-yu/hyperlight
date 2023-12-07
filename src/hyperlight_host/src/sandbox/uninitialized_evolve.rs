@@ -30,7 +30,7 @@ pub(super) type CBFunc<'a> = Box<dyn FnOnce(&mut UninitializedSandbox<'a>) -> Re
 ///
 /// If this doesn't make sense and you want to change this type,
 /// please reach out to a Hyperlight developer before making the change.
-#[instrument(err(Debug), skip_all, ,parent = Span::current())]
+#[instrument(err(Debug), skip_all, ,parent = Span::current(), level= "Trace")]
 fn evolve_impl<'a, TransformFunc, ResSandbox: Sandbox>(
     mut u_sbox: UninitializedSandbox<'a>,
     cb_opt: Option<CBFunc<'a>>,
@@ -80,6 +80,7 @@ where
     transform(u_sbox, leaked_outb)
 }
 
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 pub(super) fn evolve_impl_multi_use<'a>(
     u_sbox: UninitializedSandbox<'a>,
     cb_opt: Option<CBFunc<'a>>,
@@ -95,6 +96,7 @@ pub(super) fn evolve_impl_multi_use<'a>(
     })
 }
 
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 pub(super) fn evolve_impl_single_use<'a>(
     u_sbox: UninitializedSandbox<'a>,
     cb_opt: Option<CBFunc<'a>>,
@@ -105,6 +107,7 @@ pub(super) fn evolve_impl_single_use<'a>(
     })
 }
 
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 fn evolve_in_proc<'a>(
     u_sbox: &mut UninitializedSandbox<'a>,
     outb_hdl: OutBHandlerWrapper<'a>,

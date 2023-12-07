@@ -63,10 +63,6 @@ pub(crate) mod testing;
 
 /// The re-export for the `HyperlightError` type
 pub use error::HyperlightError;
-/// The re-export for `get_stack_boundary` function
-pub use func::get_stack_boundary;
-/// Re-export for `HostFunction0` trait
-pub use func::host_functions::HostFunction0;
 /// The re-export for the set_registry function
 pub use metrics::set_metrics_registry;
 /// The re-export for the `is_hypervisor_present` type
@@ -74,9 +70,7 @@ pub use sandbox::is_hypervisor_present;
 /// The re-export for the `GuestBinary` type
 pub use sandbox::uninitialized::GuestBinary;
 /// Re-export for `HypervisorWrapper` trait
-pub use sandbox::HypervisorWrapper;
 /// Re-export for `MemMgrWrapper` type
-pub use sandbox::MemMgrWrapper;
 /// A sandbox that can call be used to make multiple calls to guest functions,
 /// and otherwise reused multiple times
 pub use sandbox::MultiUseSandbox;

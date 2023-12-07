@@ -1,5 +1,3 @@
-use std::sync::{Arc, Mutex};
-
 use super::{host_funcs::HostFuncsWrapper, mem_mgr::MemMgrWrapper};
 use crate::hypervisor::handlers::{OutBHandlerFunction, OutBHandlerWrapper};
 use crate::{hypervisor::handlers::OutBHandler, mem::mgr::SandboxMemoryManager};
@@ -7,6 +5,7 @@ use crate::{HyperlightError, Result};
 use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::ParameterValue;
 use hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_data::GuestLogData;
 use log::{Level, Record};
+use std::sync::{Arc, Mutex};
 use tracing::{instrument, Span};
 use tracing_log::format_trace;
 
@@ -17,6 +16,7 @@ pub(super) enum OutBAction {
 }
 
 impl From<u16> for OutBAction {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(val: u16) -> Self {
         match val {
             99 => OutBAction::Log,
@@ -90,6 +90,7 @@ pub(super) fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
 }
 
 /// Handles OutB operations from the guest.
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 fn handle_outb_impl(
     mem_mgr: &mut MemMgrWrapper,
     host_funcs: Arc<Mutex<HostFuncsWrapper<'_>>>,
@@ -117,6 +118,7 @@ fn handle_outb_impl(
 ///  -- return an `OutBHandlerWrapper` wrapping the core OUTB handler logic.
 ///
 /// TODO: pass at least the `host_funcs_wrapper` param by reference.
+#[instrument(skip_all, parent = Span::current(), level= "Trace")]
 pub(super) fn outb_handler_wrapper<'a>(
     mut mem_mgr_wrapper: MemMgrWrapper,
     host_funcs_wrapper: Arc<Mutex<HostFuncsWrapper<'a>>>,

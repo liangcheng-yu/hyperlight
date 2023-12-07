@@ -7,7 +7,7 @@ use crate::Result;
 /// A wrapper around a `SharedMemory` reference and a snapshot
 /// of the memory therein
 #[derive(Clone)]
-//TODO: Once we have a complete C API then this should have visibility `pub(super)`
+//TODO:(#1029) Once we have a complete C API then this should have visibility `pub(super)`
 pub struct SharedMemorySnapshot {
     snapshot: Vec<u8>,
     shared_mem: SharedMemory,
@@ -16,7 +16,7 @@ pub struct SharedMemorySnapshot {
 impl SharedMemorySnapshot {
     /// Take a snapshot of the memory in `shared_mem`, then create a new
     /// instance of `Self` with the snapshot stored therein.
-    //TODO: Once we have a complete C API then this should have visibility `pub(super)`
+    //TODO:(#1029) Once we have a complete C API then this should have visibility `pub(super)`
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn new(shared_mem: SharedMemory) -> Result<Self> {
         // TODO: Track dirty pages instead of copying entire memory
@@ -29,7 +29,7 @@ impl SharedMemorySnapshot {
 
     /// Take another snapshot of the internally-stored `SharedMemory`,
     /// then store it internally.
-    //TODO: Once we have a complete C API then this should have visibility `pub(super)`
+    //TODO:(#1029) Once we have a complete C API then this should have visibility `pub(super)`
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn replace_snapshot(&mut self) -> Result<()> {
         let new_snapshot = self.shared_mem.copy_all_to_vec()?;
@@ -39,7 +39,7 @@ impl SharedMemorySnapshot {
 
     /// Copy the memory from the internally-stored memory snapshot
     /// into the internally-stored `SharedMemory`
-    //TODO: Once we have a complete C API then this should have visibility `pub(super)`
+    //TODO:(#1029) Once we have a complete C API then this should have visibility `pub(super)`
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn restore_from_snapshot(&mut self) -> Result<()> {
         self.shared_mem

@@ -8,6 +8,7 @@ use once_cell::sync::OnceCell;
 use std::collections::HashMap;
 use std::sync::Once;
 use strum::{EnumIter, EnumVariantNames, IntoStaticStr};
+use tracing::{instrument, Span};
 
 // This is required to ensure that the metrics are only initialized once
 static INIT_METRICS: Once = Once::new();
@@ -96,12 +97,15 @@ pub(crate) enum SandboxMetric {
 
 // It is required for the enum to implement HyperlightMetricEnum
 impl HyperlightMetricEnum<SandboxMetric> for SandboxMetric {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_init_metrics() -> &'static Once {
         &INIT_METRICS
     }
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_metrics() -> &'static OnceCell<HashMap<&'static str, HyperlightMetric>> {
         &METRICS
     }
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_metric_definitions() -> &'static [HyperlightMetricDefinition] {
         SANDBOX_METRIC_DEFINITIONS
     }
