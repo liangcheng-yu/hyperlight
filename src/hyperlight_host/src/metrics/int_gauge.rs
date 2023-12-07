@@ -1,13 +1,13 @@
-use prometheus::{
-    core::{AtomicI64, GenericGauge},
-    register_int_gauge_with_registry,
-};
-
 use super::{
     get_metric_opts, get_metrics_registry, GetHyperlightMetric, HyperlightMetric,
     HyperlightMetricOps,
 };
 use crate::{new_error, HyperlightError, Result};
+use prometheus::{
+    core::{AtomicI64, GenericGauge},
+    register_int_gauge_with_registry,
+};
+use tracing::{instrument, Span};
 
 /// A gauge backed by an `AtomicI64`
 #[derive(Debug)]
@@ -19,6 +19,7 @@ pub struct IntGauge {
 
 impl IntGauge {
     /// Creates a new gauge and registers it with the metric registry
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn new(name: &'static str, help: &str) -> Result<Self> {
         let registry = get_metrics_registry();
         let opts = get_metric_opts(name, help);
@@ -26,32 +27,39 @@ impl IntGauge {
         Ok(Self { gauge, name })
     }
     /// Increments a gauge by 1
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn inc(&self) {
         self.gauge.inc();
     }
     /// Decrements a gauge by 1
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn dec(&self) {
         self.gauge.dec();
     }
     /// Gets the value of a gauge
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn set(&self, val: i64) {
         self.gauge.set(val);
     }
     /// Resets a gauge
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn get(&self) -> i64 {
         self.gauge.get()
     }
     /// Adds a value to a gauge
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn add(&self, val: i64) {
         self.gauge.add(val);
     }
     /// Subtracts a value from a gauge
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn sub(&self, val: i64) {
         self.gauge.sub(val)
     }
 }
 
 impl<S: HyperlightMetricOps> GetHyperlightMetric<IntGauge> for S {
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn metric(&self) -> Result<&IntGauge> {
         let metric = self.get_metric()?;
         <&HyperlightMetric as TryInto<&IntGauge>>::try_into(metric)
@@ -60,6 +68,7 @@ impl<S: HyperlightMetricOps> GetHyperlightMetric<IntGauge> for S {
 
 impl<'a> TryFrom<&'a HyperlightMetric> for &'a IntGauge {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(metric: &'a HyperlightMetric) -> Result<Self> {
         match metric {
             HyperlightMetric::IntGauge(gauge) => Ok(gauge),
@@ -69,6 +78,7 @@ impl<'a> TryFrom<&'a HyperlightMetric> for &'a IntGauge {
 }
 
 impl From<IntGauge> for HyperlightMetric {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(gauge: IntGauge) -> Self {
         HyperlightMetric::IntGauge(gauge)
     }
