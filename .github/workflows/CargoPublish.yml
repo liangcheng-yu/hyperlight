@@ -28,13 +28,11 @@ jobs:
           cargo ws version --force=hyperlight_* --no-git-tag --no-git-push --allow-branch=release/* --yes custom $version
       - name: Publish hyperlight-testing
         run: cargo publish --manifest-path ./src/hyperlight_testing/Cargo.toml --registry hyperlight_packages
+      - name: Publish hyperlight-flatbuffers
+        run: cargo publish --manifest-path ./src/hyperlight_flatbuffers/Cargo.toml --registry hyperlight_packages
       - name: Publish hyperlight-host 
         run: cargo publish --manifest-path ./src/hyperlight_host/Cargo.toml --registry hyperlight_packages
       - name: Publish hyperlight-capi
         # --no-verify is needed because the build.rs script generates ./include/hyperlight_capi.h 
         # and cargo does not want you to modify files outside of OUT_DIR
         run: cargo publish --manifest-path ./src/hyperlight_capi/Cargo.toml --registry hyperlight_packages --no-verify
-      - name: Publish hyperlight-flatbuffers
-        run: cargo publish --manifest-path ./src/hyperlight_flatbuffers/Cargo.toml --registry hyperlight_packages
-
-

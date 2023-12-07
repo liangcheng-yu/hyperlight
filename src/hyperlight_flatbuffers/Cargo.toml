@@ -1,6 +1,6 @@
 [package]
 name = "hyperlight_flatbuffers"
-version = "0.3.8"
+version = "0.3.9"
 edition = "2021"
 
 [dependencies]
