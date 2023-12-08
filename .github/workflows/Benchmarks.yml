@@ -86,8 +86,12 @@ jobs:
 
       ### Benchmarks ###
 
-      # TODO: follow up with PR to download latest release benchmarks here to compare
-      
+      - name: Download benchmarks from most recent release
+        run: |
+          just bench-download ${{ runner.os }} ${{ matrix.hypervisor }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run Benchmarks
         run: |
           just bench-ci dev release
