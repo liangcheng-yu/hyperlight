@@ -1,7 +1,7 @@
-use std::marker::PhantomData;
-
 use super::sandbox::Sandbox;
 use crate::Result;
+use std::marker::PhantomData;
+use tracing::{instrument, Span};
 
 /// Metadata about an evolution or devolution. Any `Sandbox` implementation
 /// that also implements `EvolvableSandbox` or `DevolvableSandbox`
@@ -124,6 +124,7 @@ impl<'a, Cur: Sandbox, F> MutatingCallback<'a, Cur, F>
 where
     F: FnOnce(&mut Cur) -> Result<()>,
 {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn call(self, cur: &mut Cur) -> Result<()> {
         (self.cb)(cur)
     }
@@ -133,6 +134,7 @@ impl<'a, Cur: Sandbox, F> From<F> for MutatingCallback<'a, Cur, F>
 where
     F: FnOnce(&mut Cur) -> Result<()> + 'a,
 {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(val: F) -> Self {
         MutatingCallback {
             cur_ph: PhantomData,

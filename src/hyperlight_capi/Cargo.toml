@@ -1,6 +1,6 @@
 [package]
 name = "hyperlight_capi"
-version = "0.1.0"
+version = "0.3.9"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -18,15 +18,14 @@ crate-type = ["cdylib"]
 bench = false # see https://bheisler.github.io/criterion.rs/book/faq.html#cargo-bench-gives-unrecognized-option-errors-for-valid-command-line-options
 
 [dependencies]
-hyperlight_host = { path = "../hyperlight_host", version = "*", registry = "hyperlight_packages" }
-hyperlight_flatbuffers = { path = "../hyperlight_flatbuffers", version = "*", registry = "hyperlight_packages" }
+hyperlight_host = { path = "../hyperlight_host", version = "0.3.9", registry = "hyperlight_packages" }
+hyperlight_flatbuffers = { path = "../hyperlight_flatbuffers", version = "0.3.9", registry = "hyperlight_packages"}
 tracing-subscriber = { version = "0.3.17", features = ["json"] }
 anyhow = { version = "1.0.72" }
 cfg-if = { version = "1.0.0" }
 flatbuffers = "23.5.26"
 libc = { version = "0.2.148" }
 rand = { version = "0.8.5" }
-hyperlight_testing = { path = "../hyperlight_testing", version = "*", registry = "hyperlight_packages" }
 tracing = { version = "0.1.37", features = ["log"] }
 uuid = { version = "1.4.1", features = ["v4"] }
 bitflags = "2.4.0"

@@ -1,13 +1,13 @@
-use prometheus::{
-    core::{AtomicU64, GenericCounter},
-    register_int_counter_with_registry,
-};
-
 use super::{
     get_metric_opts, get_metrics_registry, GetHyperlightMetric, HyperlightMetric,
     HyperlightMetricOps,
 };
 use crate::{new_error, HyperlightError, Result};
+use prometheus::{
+    core::{AtomicU64, GenericCounter},
+    register_int_counter_with_registry,
+};
+use tracing::{instrument, Span};
 
 /// A named counter backed by an `AtomicU64`
 #[derive(Debug)]
@@ -19,6 +19,7 @@ pub struct IntCounter {
 
 impl IntCounter {
     /// Creates a new counter and registers it with the metric registry
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn new(name: &'static str, help: &str) -> Result<Self> {
         let registry = get_metrics_registry();
         let opts = get_metric_opts(name, help);
@@ -26,24 +27,29 @@ impl IntCounter {
         Ok(Self { counter, name })
     }
     /// Increments a counter by 1
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn inc(&self) {
         self.counter.inc();
     }
     /// Increments a counter by a value
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn inc_by(&self, val: u64) {
         self.counter.inc_by(val);
     }
     /// Gets the value of a counter
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn get(&self) -> u64 {
         self.counter.get()
     }
     /// Resets a counter
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn reset(&self) {
         self.counter.reset();
     }
 }
 
 impl<S: HyperlightMetricOps> GetHyperlightMetric<IntCounter> for S {
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn metric(&self) -> Result<&IntCounter> {
         let metric = self.get_metric()?;
         <&HyperlightMetric as TryInto<&IntCounter>>::try_into(metric)
@@ -52,6 +58,7 @@ impl<S: HyperlightMetricOps> GetHyperlightMetric<IntCounter> for S {
 
 impl<'a> TryFrom<&'a HyperlightMetric> for &'a IntCounter {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(metric: &'a HyperlightMetric) -> Result<Self> {
         match metric {
             HyperlightMetric::IntCounter(counter) => Ok(counter),
@@ -61,6 +68,7 @@ impl<'a> TryFrom<&'a HyperlightMetric> for &'a IntCounter {
 }
 
 impl From<IntCounter> for HyperlightMetric {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(counter: IntCounter) -> Self {
         HyperlightMetric::IntCounter(counter)
     }
