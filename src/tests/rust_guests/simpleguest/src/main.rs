@@ -14,7 +14,7 @@ use hyperlight_guest::{
     flatbuffer_utils::{get_flatbuffer_result_from_int, get_flatbuffer_result_from_void},
     guest_functions::register_function,
     host_function_call::{call_host_function, get_host_value_return_as_int},
-    GUEST_STACK_SIZE,
+    DEFAULT_GUEST_STACK_SIZE,
 };
 
 extern crate hyperlight_guest;
@@ -40,7 +40,7 @@ pub extern "C" fn simple_print_output(function_call: &FunctionCall) -> Vec<u8> {
 pub extern "C" fn stack_allocate(function_call: &FunctionCall) -> Vec<u8> {
     if let ParameterValue::Int(length) = function_call.parameters.clone().unwrap()[0].clone() {
         let alloc_length = if length == 0 {
-            GUEST_STACK_SIZE + 1
+            DEFAULT_GUEST_STACK_SIZE + 1
         } else {
             length
         } as usize;

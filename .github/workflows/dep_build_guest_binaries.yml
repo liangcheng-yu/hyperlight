@@ -11,17 +11,11 @@ env:
   
 jobs:
   #####
-  # start build-guest-binaries
+  # Start build-guest-binaries
   #
-  # building dummyguest/simpleguest/callbackguest.exe are the guests
-  # in question. both need to be PE files, which currently requires
-  # we build on windows using the MSVC toolchain
+  # Builds dummyguest.exe, simpleguest.exe, and callbackguest.exe.
   #
-  # https://github.com/deislabs/hyperlight/issues/56 tracks the work
-  # needed to allow us to build these PE files with clang, which would
-  # help enable us to build on Linux.
-  #
-  # this job requires dep_build_host_library.yml, and that dependency
+  # This job requires dep_build_host_library.yml, and that dependency
   # should be expressed in the dependent workflow.
   #####
   build-guest-binaries:
@@ -88,9 +82,14 @@ jobs:
       run: msbuild -m hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
       shell: pwsh
     - name: Build Rust Guests
+      # simpleguest still needs to be built w/ nightly due to compiler_builtins, but I'll be investigating removing this soon.
       run: |
-        cargo build --manifest-path src\tests\rust_guests\simpleguest\Cargo.toml --${{ matrix.config }}
-        cargo build --manifest-path src\tests\rust_guests\dummyguest\Cargo.toml --${{ matrix.config }}
+        profile_flag=""
+        if [ "${{ matrix.config }}" = "release" ]; then
+          profile_flag="--release"
+        fi
+        cargo +nightly build --manifest-path src\tests\rust_guests\simpleguest\Cargo.toml $profile_flag
+        cargo build --manifest-path src\tests\rust_guests\dummyguest\Cargo.toml $profile_flag
     - name: Upload Binary Artifacts
       uses: actions/upload-artifact@v3
       with:
