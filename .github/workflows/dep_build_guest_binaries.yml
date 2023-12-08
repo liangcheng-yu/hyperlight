@@ -85,7 +85,7 @@ jobs:
       # simpleguest still needs to be built w/ nightly due to compiler_builtins, but I'll be investigating removing this soon.
       run: |
         $profile_flag = ""
-        if (${{ matrix.config }} -eq "release") {
+        if ("${{ matrix.config }}" -eq "release") {
             $profile_flag = "--release"
         }
         cargo +nightly build --manifest-path src\tests\rust_guests\simpleguest\Cargo.toml $profile_flag
