@@ -207,7 +207,9 @@ mod tests {
                     0,
                     0,
                     0,
-                    Some(1024),
+                    Some(9977),
+                    // test fails when not running in process
+                    // w/ anything smaller than this for the stack.
                     Some(14 * 1024),
                     None,
                     None,
