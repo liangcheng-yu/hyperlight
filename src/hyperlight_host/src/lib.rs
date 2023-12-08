@@ -6,9 +6,6 @@ pub mod error;
 /// Wrappers for host and guest functions.
 #[deny(dead_code, missing_docs, unused_mut)]
 pub mod func;
-/// Wrapper for guest interface glue
-#[deny(dead_code, missing_docs, unused_mut)]
-pub mod guest_interface_glue;
 /// Wrappers for hypervisor implementations
 #[deny(dead_code, missing_docs, unused_mut)]
 #[cfg_attr(windows, allow(dead_code))]

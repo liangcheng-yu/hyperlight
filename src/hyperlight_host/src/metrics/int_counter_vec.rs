@@ -7,6 +7,7 @@ use prometheus::{
     core::{AtomicU64, GenericCounterVec},
     register_int_counter_vec_with_registry,
 };
+use tracing::{instrument, Span};
 
 /// A 64-bit counter
 #[derive(Debug)]
@@ -18,6 +19,7 @@ pub struct IntCounterVec {
 
 impl IntCounterVec {
     /// Creates a new counter and registers it with the metric registry
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn new(name: &'static str, help: &str, labels: &[&str]) -> Result<Self> {
         let registry = get_metrics_registry();
         let opts = get_metric_opts(name, help);
@@ -25,11 +27,13 @@ impl IntCounterVec {
         Ok(Self { counter, name })
     }
     /// Increments a counter by 1
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn inc(&self, label_vals: &[&str]) -> Result<()> {
         self.counter.get_metric_with_label_values(label_vals)?.inc();
         Ok(())
     }
     /// Increments a counter by a value
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn inc_by(&self, label_vals: &[&str], val: u64) -> Result<()> {
         self.counter
             .get_metric_with_label_values(label_vals)?
@@ -37,10 +41,12 @@ impl IntCounterVec {
         Ok(())
     }
     /// Gets the value of a counter
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn get(&self, label_vals: &[&str]) -> Result<u64> {
         Ok(self.counter.get_metric_with_label_values(label_vals)?.get())
     }
     /// Resets a counter
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn reset(&self, label_vals: &[&str]) -> Result<()> {
         self.counter
             .get_metric_with_label_values(label_vals)?
@@ -50,6 +56,7 @@ impl IntCounterVec {
 }
 
 impl<S: HyperlightMetricOps> GetHyperlightMetric<IntCounterVec> for S {
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn metric(&self) -> Result<&IntCounterVec> {
         let metric = self.get_metric()?;
         <&HyperlightMetric as TryInto<&IntCounterVec>>::try_into(metric)
@@ -58,6 +65,7 @@ impl<S: HyperlightMetricOps> GetHyperlightMetric<IntCounterVec> for S {
 
 impl<'a> TryFrom<&'a HyperlightMetric> for &'a IntCounterVec {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(metric: &'a HyperlightMetric) -> Result<Self> {
         match metric {
             HyperlightMetric::IntCounterVec(counter) => Ok(counter),
@@ -67,6 +75,7 @@ impl<'a> TryFrom<&'a HyperlightMetric> for &'a IntCounterVec {
 }
 
 impl From<IntCounterVec> for HyperlightMetric {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(counter: IntCounterVec) -> Self {
         HyperlightMetric::IntCounterVec(counter)
     }

@@ -1,10 +1,10 @@
-use prometheus::{register_histogram_vec_with_registry, HistogramVec as PHistogramVec};
-
 use super::{
     get_histogram_opts, get_metrics_registry, GetHyperlightMetric, HyperlightMetric,
     HyperlightMetricOps,
 };
 use crate::{new_error, HyperlightError, Result};
+use prometheus::{register_histogram_vec_with_registry, HistogramVec as PHistogramVec};
+use tracing::{instrument, Span};
 
 /// A named bundle of histograms
 #[derive(Debug)]
@@ -16,6 +16,7 @@ pub struct HistogramVec {
 
 impl HistogramVec {
     /// Creates a new histogram vec and registers it with the metric registry
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn new(name: &'static str, help: &str, labels: &[&str], buckets: Vec<f64>) -> Result<Self> {
         let registry = get_metrics_registry();
         let opts = get_histogram_opts(name, help, buckets);
@@ -24,6 +25,7 @@ impl HistogramVec {
     }
 
     /// Observes a value for a HistogramVec
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn observe(&self, label_vals: &[&str], val: f64) -> Result<()> {
         self.histogram
             .get_metric_with_label_values(label_vals)?
@@ -32,6 +34,7 @@ impl HistogramVec {
     }
 
     /// Gets the sum of values of an HistogramVec
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn get_sample_sum(&self, label_vals: &[&str]) -> Result<f64> {
         Ok(self
             .histogram
@@ -40,6 +43,7 @@ impl HistogramVec {
     }
 
     /// Gets the count of values of an HistogramVec
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn get_sample_count(&self, label_vals: &[&str]) -> Result<u64> {
         Ok(self
             .histogram
@@ -49,6 +53,7 @@ impl HistogramVec {
 }
 
 impl<S: HyperlightMetricOps> GetHyperlightMetric<HistogramVec> for S {
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn metric(&self) -> Result<&HistogramVec> {
         let metric = self.get_metric()?;
         <&HyperlightMetric as TryInto<&HistogramVec>>::try_into(metric)
@@ -57,6 +62,7 @@ impl<S: HyperlightMetricOps> GetHyperlightMetric<HistogramVec> for S {
 
 impl<'a> TryFrom<&'a HyperlightMetric> for &'a HistogramVec {
     type Error = HyperlightError;
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn try_from(metric: &'a HyperlightMetric) -> Result<Self> {
         match metric {
             HyperlightMetric::HistogramVec(histogram) => Ok(histogram),
@@ -66,6 +72,7 @@ impl<'a> TryFrom<&'a HyperlightMetric> for &'a HistogramVec {
 }
 
 impl From<HistogramVec> for HyperlightMetric {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(histogram_vec: HistogramVec) -> Self {
         HyperlightMetric::HistogramVec(histogram_vec)
     }

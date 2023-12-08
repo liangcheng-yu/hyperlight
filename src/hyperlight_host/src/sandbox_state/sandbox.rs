@@ -1,6 +1,7 @@
 use super::transition::TransitionMetadata;
 use crate::Result;
 use std::fmt::Debug;
+use tracing::{instrument, Span};
 
 /// The minimal functionality of a Hyperlight sandbox. Most of the types
 /// and operations within this crate require `Sandbox` implementations.
@@ -16,6 +17,7 @@ use std::fmt::Debug;
 /// opt into.
 pub trait Sandbox: Sized + Debug {
     /// By default, a Sandbox is non-reusable
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn is_reusable(&self) -> bool {
         false
     }
@@ -36,6 +38,7 @@ pub trait UninitializedSandbox<'a>: Sandbox {
 
     fn get_uninitialized_sandbox_mut(&mut self) -> &mut crate::sandbox::UninitializedSandbox<'a>;
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn is_running_in_process(&self) -> bool {
         self.get_uninitialized_sandbox().run_from_process_memory
     }

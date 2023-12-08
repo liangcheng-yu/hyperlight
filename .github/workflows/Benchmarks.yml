@@ -86,8 +86,20 @@ jobs:
 
       ### Benchmarks ###
 
-      # TODO: follow up with PR to download latest release benchmarks here to compare
-      
+      # Install GH cli
+      - name: Install github-cli (Linux mariner)
+        if: runner.os == 'Linux' && matrix.hypervisor == 'hyperv'
+        run: sudo dnf install gh -y
+      - name: Install github-cli (Linux ubuntu)
+        if: runner.os == 'Linux' && matrix.hypervisor == 'kvm'
+        run: sudo apt install gh -y
+
+      - name: Download benchmarks from most recent release
+        run: |
+          just bench-download ${{ runner.os }} ${{ matrix.hypervisor }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run Benchmarks
         run: |
           just bench-ci dev release

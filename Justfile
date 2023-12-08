@@ -4,6 +4,7 @@ set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
 set-trace-env-vars := if os() == "windows" { "$env:RUST_LOG='none,hyperlight_host=trace';" } else { "RUST_LOG=none,hyperlight_host=trace" }
 default-target:= "debug"
+latest-release:= `git tag -l --sort=v:refname | tail -n 1` # most recent github release that is not "latest"
 set dotenv-load
 
 init:
@@ -120,3 +121,10 @@ bench-ci baseline target=default-target:
 
 bench target=default-target:
     cargo bench --profile={{ if target == "debug" {"dev"} else { target } }} -- --verbose
+
+# warning, can overwrite previous local benchmarks, so run this before running benchmarks
+bench-download os hypervisor tag=latest-release:
+    gh release download {{ tag }} -D target/ -p benchmarks_{{ os }}_{{ hypervisor }}.tar.gz
+    mkdir -p target/criterion
+    tar -zxvf target/benchmarks_{{ os }}_{{ hypervisor }}.tar.gz -C target/criterion/ --strip-components=1
+    
