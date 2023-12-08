@@ -11,9 +11,10 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
 };
 use hyperlight_guest::{
     entrypoint::halt,
-    flatbuffer_utils::get_flatbuffer_result_from_int,
+    flatbuffer_utils::{get_flatbuffer_result_from_int, get_flatbuffer_result_from_void},
     guest_functions::register_function,
     host_function_call::{call_host_function, get_host_value_return_as_int},
+    GUEST_STACK_SIZE,
 };
 
 extern crate hyperlight_guest;
@@ -34,35 +35,28 @@ pub extern "C" fn simple_print_output(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
-// set_byte_array_to_zero
+#[no_mangle]
+#[allow(improper_ctypes_definitions)]
+pub extern "C" fn stack_allocate(function_call: &FunctionCall) -> Vec<u8> {
+    if let ParameterValue::Int(length) = function_call.parameters.clone().unwrap()[0].clone() {
+        let alloc_length = if length == 0 {
+            GUEST_STACK_SIZE + 1
+        } else {
+            length
+        } as usize;
 
-// print_two_args
+        let mut buffer = Vec::with_capacity(alloc_length);
 
-// print_three_args
+        // Initialize the buffer with zeros. This is necessary because Vec::with_capacity
+        // does not initialize the elements, and is equivalent to _alloca that we
+        // have in C.
+        buffer.resize(alloc_length, 0);
 
-// print_four_args
-
-// print_five_args
-
-// log_to_host
-
-// print_six_args
-
-// print_seven_args
-
-// print_eight_args
-
-// print_nine_args
-
-// print_ten_args
-
-// stack_allocate
-
-// buffer_overrun
-
-// stack_overflow
-
-// large_var
+        get_flatbuffer_result_from_int(length)
+    } else {
+        Vec::new()
+    }
+}
 
 #[no_mangle]
 #[allow(improper_ctypes_definitions)]
@@ -71,18 +65,48 @@ pub extern "C" fn small_var(_: &FunctionCall) -> Vec<u8> {
     get_flatbuffer_result_from_int(1024)
 }
 
-// call_malloc
+#[no_mangle]
+#[allow(improper_ctypes_definitions)]
+pub extern "C" fn call_malloc(function_call: &FunctionCall) -> Vec<u8> {
+    if let ParameterValue::Int(size) = function_call.parameters.clone().unwrap()[0].clone() {
+        let mut allocated_buffer = Vec::with_capacity(size as usize);
+        allocated_buffer.resize(size as usize, 0);
 
-// malloc_and_free
+        get_flatbuffer_result_from_int(size)
+    } else {
+        Vec::new()
+    }
+}
 
-// echo
+#[no_mangle]
+#[allow(improper_ctypes_definitions)]
+pub extern "C" fn spin(_: &FunctionCall) -> Vec<u8> {
+    loop {
+        // Keep the CPU 100% busy forever
+    }
 
-// get_size_prefixed_buffer
-
-// spin
+    #[allow(unreachable_code)]
+    get_flatbuffer_result_from_void()
+}
 
 #[no_mangle]
 pub extern "C" fn hyperlight_main() {
+    let simple_print_output_def = GuestFunctionDefinition::new(
+        "PrintOutput".to_string(),
+        Vec::from(&[ParameterType::String]),
+        ReturnType::Int,
+        simple_print_output as i64,
+    );
+    register_function(simple_print_output_def);
+
+    let stack_allocate_def = GuestFunctionDefinition::new(
+        "StackAllocate".to_string(),
+        Vec::from(&[ParameterType::Int]),
+        ReturnType::Int,
+        stack_allocate as i64,
+    );
+    register_function(stack_allocate_def);
+
     let small_var_def = GuestFunctionDefinition::new(
         "SmallVar".to_string(),
         Vec::new(),
@@ -91,13 +115,21 @@ pub extern "C" fn hyperlight_main() {
     );
     register_function(small_var_def);
 
-    let simple_print_output_def = GuestFunctionDefinition::new(
-        "PrintOutput".to_string(),
-        Vec::from(&[ParameterType::String]),
+    let call_malloc_def = GuestFunctionDefinition::new(
+        "CallMalloc".to_string(),
+        Vec::from(&[ParameterType::Int]),
         ReturnType::Int,
-        simple_print_output as i64,
+        call_malloc as i64,
     );
-    register_function(simple_print_output_def);
+    register_function(call_malloc_def);
+
+    let spin_def = GuestFunctionDefinition::new(
+        "Spin".to_string(),
+        Vec::new(),
+        ReturnType::Void,
+        spin as i64,
+    );
+    register_function(spin_def);
 }
 
 #[no_mangle]

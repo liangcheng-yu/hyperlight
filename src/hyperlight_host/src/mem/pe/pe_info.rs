@@ -249,18 +249,37 @@ mod tests {
         stack_size: u64,
         heap_size: u64,
         load_address: u64,
-        num_relocations: u8,
+        num_relocations: u64,
     }
     fn pe_files() -> Result<Vec<PEFileTest>> {
-        Ok(vec![
+        let simple_guest_pe_file_test = if cfg!(debug_assertions) {
             PEFileTest {
                 path: simple_guest_string()
                     .map_err(|e| new_error!("Simple Guest Path Error {}", e))?,
                 stack_size: 65536,
                 heap_size: 131072,
                 load_address: 5368709120,
-                num_relocations: 1,
-            },
+                num_relocations: 644,
+            }
+        } else {
+            PEFileTest {
+                path: simple_guest_string()
+                    .map_err(|e| new_error!("Simple Guest Path Error {}", e))?,
+                stack_size: 65536,
+                heap_size: 131072,
+                load_address: 5368709120,
+                num_relocations: 455,
+            }
+        };
+        // if your test fails w/ num_relocations,
+        // feel free to edit these values to match
+        // what you get when you run the test.
+        // This test is really just to make sure
+        // our PE parsing logic is working, so
+        // specifics don't matter.
+
+        Ok(vec![
+            simple_guest_pe_file_test,
             PEFileTest {
                 path: callback_guest_string()
                     .map_err(|e| new_error!("Callback Guest Path Error {}", e))?,
@@ -320,10 +339,14 @@ mod tests {
             if pe_path.ends_with("simpleguest.exe") {
                 let patch = patches[0];
                 let expected_patch_offset = if cfg!(debug_assertions) {
-                    0x20E98
+                    0x4BE80
                 } else {
-                    0xEE98
+                    0x1F038
                 };
+                // these values might have to
+                // be modified if you change
+                // simpleguest.
+
                 assert_eq!(
                     patch.offset, expected_patch_offset,
                     "incorrect patch offset for {pe_path}"

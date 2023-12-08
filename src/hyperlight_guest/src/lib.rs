@@ -30,6 +30,8 @@ pub(crate) extern "C" fn __CxxFrameHandler3() {}
 pub(crate) static _fltused: i32 = 0;
 
 // Globals
+pub const GUEST_STACK_SIZE: i32 = 1024; // small stack size
+
 #[global_allocator]
 pub(crate) static HEAP_ALLOCATOR: LockedHeap<32> = LockedHeap::<32>::empty();
 
