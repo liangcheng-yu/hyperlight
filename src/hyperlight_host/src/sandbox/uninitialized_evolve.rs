@@ -198,7 +198,10 @@ mod tests {
 
     #[test]
     fn test_evolve() {
-        let guest_bin_paths = vec![simple_guest_string().unwrap(), callback_guest_string().unwrap()];
+        let guest_bin_paths = vec![
+            simple_guest_string().unwrap(),
+            callback_guest_string().unwrap(),
+        ];
         for guest_bin_path in guest_bin_paths {
             let u_sbox = UninitializedSandbox::new(
                 GuestBinary::FilePath(guest_bin_path.clone()),
@@ -216,7 +219,10 @@ mod tests {
     fn test_evolve_in_proc() {
         use crate::SandboxRunOptions;
 
-        let guest_bin_paths = vec![simple_guest_string().unwrap(), callback_guest_string().unwrap()];
+        let guest_bin_paths = vec![
+            simple_guest_string().unwrap(),
+            callback_guest_string().unwrap(),
+        ];
         for guest_bin_path in guest_bin_paths {
             let u_sbox: UninitializedSandbox<'_> = UninitializedSandbox::new(
                 GuestBinary::FilePath(guest_bin_path.clone()),

@@ -186,7 +186,10 @@ mod tests {
 
     #[test]
     fn byte_array_new_from_file() {
-        let filenames = vec![simple_guest_string().unwrap(), callback_guest_string().unwrap()];
+        let filenames = vec![
+            simple_guest_string().unwrap(),
+            callback_guest_string().unwrap(),
+        ];
         for filename in filenames {
             let file = impls::new_from_file(&filename)
                 .map_err(|e| anyhow::anyhow!("couldn't find file {filename}: {e:?}"))

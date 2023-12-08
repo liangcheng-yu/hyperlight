@@ -857,7 +857,7 @@ mod tests {
     #[serial]
     fn load_guest_binary_using_load_library() {
         use crate::mem::mgr::SandboxMemoryManager;
-        use hyperlight_testing::{simple_guest_string, rust_guest_buf};
+        use hyperlight_testing::{rust_guest_buf, simple_guest_string};
 
         let cfg = SandboxConfiguration::default();
         let guest_path = rust_guest_buf("simpleguest");
