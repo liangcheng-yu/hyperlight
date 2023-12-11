@@ -46,6 +46,10 @@ pub extern "C" fn stack_allocate(function_call: &FunctionCall) -> Vec<u8> {
             length
         } as usize;
 
+        let _buffer: [u8; (DEFAULT_GUEST_STACK_SIZE + 1) as usize] =
+            [0; (DEFAULT_GUEST_STACK_SIZE + 1) as usize];
+        // ^^^ this does the stack allocation
+
         let mut buffer = Vec::with_capacity(alloc_length);
 
         // Initialize the buffer with zeros. This is necessary because Vec::with_capacity
