@@ -7,7 +7,7 @@ use hyperlight_host::{
     sandbox_state::{sandbox::EvolvableSandbox, transition::Noop},
     GuestBinary, MultiUseSandbox, Result as HyperlightResult,
 };
-use hyperlight_testing::simple_guest_string;
+use hyperlight_testing::simple_guest_as_string;
 use opentelemetry::{global::shutdown_tracer_provider, KeyValue};
 use opentelemetry_otlp::{new_exporter, new_pipeline, WithExportConfig};
 use opentelemetry_sdk::{runtime::Tokio, trace, Resource};
@@ -51,7 +51,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
 fn run_example() -> HyperlightResult<()> {
     // Get the path to a simple guest binary.
     let hyperlight_guest_path =
-        simple_guest_string().expect("Cannot find the guest binary at the expected location.");
+        simple_guest_as_string().expect("Cannot find the guest binary at the expected location.");
 
     let mut join_handles: Vec<JoinHandle<HyperlightResult<()>>> = vec![];
 

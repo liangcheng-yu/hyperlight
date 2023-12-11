@@ -4,13 +4,13 @@ use hyperlight_host::sandbox::{MultiUseSandbox, UninitializedSandbox};
 use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
 use hyperlight_host::sandbox_state::transition::Noop;
 use hyperlight_host::GuestBinary;
-use hyperlight_testing::simple_guest_string;
+use hyperlight_testing::simple_guest_as_string;
 
 fn guest_call_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("guest_functions");
 
     let sandbox: MultiUseSandbox = {
-        let path = simple_guest_string().unwrap();
+        let path = simple_guest_as_string().unwrap();
         let u_sbox =
             UninitializedSandbox::new(GuestBinary::FilePath(path), None, None, None).unwrap();
         u_sbox.evolve(Noop::default())
@@ -38,7 +38,7 @@ fn sandbox_benchmark(c: &mut Criterion) {
     group.bench_function("create_sandbox", |b| {
         b.iter(|| {
             let _sandbox: MultiUseSandbox = {
-                let path = simple_guest_string().unwrap();
+                let path = simple_guest_as_string().unwrap();
                 let u_sbox =
                     UninitializedSandbox::new(GuestBinary::FilePath(path), None, None, None)
                         .unwrap();
@@ -50,7 +50,7 @@ fn sandbox_benchmark(c: &mut Criterion) {
     group.bench_function("create_sandbox_and_call_context", |b| {
         b.iter(|| {
             let sandbox: MultiUseSandbox = {
-                let path = simple_guest_string().unwrap();
+                let path = simple_guest_as_string().unwrap();
                 let u_sbox =
                     UninitializedSandbox::new(GuestBinary::FilePath(path), None, None, None)
                         .unwrap();

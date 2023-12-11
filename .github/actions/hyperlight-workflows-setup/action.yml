@@ -21,7 +21,6 @@ runs:
       run: just cargo-login-ci
       shell: bash
     - name: rustup nightly
-      # We need to use the nightly rust tool change to enable registry-auth / to connect to ADO feeds.
       if: ${{ (runner.os == 'Linux') }}  
       run: rustup install nightly
       shell: bash    
@@ -34,7 +33,6 @@ runs:
       run: just cargo-login-ci-windows
       shell: pwsh
     - name: rustup nightly
-      # We need to use the nightly rust tool change to enable registry-auth / to connect to ADO feeds.
       if: ${{ (runner.os == 'Windows') }}  
       run: rustup install nightly
       shell: pwsh      

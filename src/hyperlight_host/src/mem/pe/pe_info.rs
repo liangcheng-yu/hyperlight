@@ -242,7 +242,7 @@ mod tests {
     use crate::{new_error, Result};
     use std::fs;
 
-    use hyperlight_testing::{callback_guest_string, simple_guest_string};
+    use hyperlight_testing::{callback_guest_string, simple_guest_as_string};
 
     struct PEFileTest {
         path: String,
@@ -254,7 +254,7 @@ mod tests {
     fn pe_files() -> Result<Vec<PEFileTest>> {
         let simple_guest_pe_file_test = if cfg!(debug_assertions) {
             PEFileTest {
-                path: simple_guest_string()
+                path: simple_guest_as_string()
                     .map_err(|e| new_error!("Simple Guest Path Error {}", e))?,
                 stack_size: 65536,
                 heap_size: 131072,
@@ -263,7 +263,7 @@ mod tests {
             }
         } else {
             PEFileTest {
-                path: simple_guest_string()
+                path: simple_guest_as_string()
                     .map_err(|e| new_error!("Simple Guest Path Error {}", e))?,
                 stack_size: 65536,
                 heap_size: 131072,

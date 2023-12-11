@@ -1,7 +1,7 @@
 use crate::mem::pe::pe_info::PEInfo;
 use crate::new_error;
 use crate::Result;
-use hyperlight_testing::{callback_guest_buf, rust_guest_buf};
+use hyperlight_testing::{callback_guest_buf, rust_guest_as_pathbuf};
 use std::fs;
 use std::path::PathBuf;
 pub(crate) mod log_values;
@@ -10,7 +10,7 @@ pub(crate) mod tracing_subscriber;
 
 /// Get a `PEInfo` representing `simpleguest.exe`
 pub(crate) fn simple_guest_pe_info() -> Result<PEInfo> {
-    let bytes = bytes_for_path(rust_guest_buf("simpleguest"))?;
+    let bytes = bytes_for_path(rust_guest_as_pathbuf("simpleguest"))?;
     PEInfo::new(bytes.as_slice())
 }
 

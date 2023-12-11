@@ -5,7 +5,7 @@ use hyperlight_host::{
     sandbox_state::{sandbox::EvolvableSandbox, transition::Noop},
     set_metrics_registry, GuestBinary, MultiUseSandbox, Result,
 };
-use hyperlight_testing::simple_guest_string;
+use hyperlight_testing::simple_guest_as_string;
 use lazy_static::lazy_static;
 use prometheus::Registry;
 use std::sync::{Arc, Mutex};
@@ -24,7 +24,7 @@ fn main() -> Result<()> {
 
     // Get the path to a simple guest binary.
     let hyperlight_guest_path =
-        simple_guest_string().expect("Cannot find the guest binary at the expected location.");
+        simple_guest_as_string().expect("Cannot find the guest binary at the expected location.");
 
     let mut join_handles: Vec<JoinHandle<Result<()>>> = vec![];
 

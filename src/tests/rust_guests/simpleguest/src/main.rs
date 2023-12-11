@@ -35,6 +35,7 @@ pub extern "C" fn simple_print_output(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
+// TODO: This function could cause a stack overflow, update it once we have stack guards in place.
 #[no_mangle]
 #[allow(improper_ctypes_definitions)]
 pub extern "C" fn stack_allocate(function_call: &FunctionCall) -> Vec<u8> {
@@ -65,6 +66,7 @@ pub extern "C" fn small_var(_: &FunctionCall) -> Vec<u8> {
     get_flatbuffer_result_from_int(1024)
 }
 
+// TODO: This function could cause a stack overflow, update it once we have stack guards in place.
 #[no_mangle]
 #[allow(improper_ctypes_definitions)]
 pub extern "C" fn call_malloc(function_call: &FunctionCall) -> Vec<u8> {

@@ -4,7 +4,11 @@ set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
 set-trace-env-vars := if os() == "windows" { "$env:RUST_LOG='none,hyperlight_host=trace';" } else { "RUST_LOG=none,hyperlight_host=trace" }
 default-target:= "debug"
-latest-release:= `git tag -l --sort=v:refname | tail -n 1` # most recent github release that is not "latest"
+latest-release := if os() == "windows" { 
+  `powershell -Command "git tag -l --sort=v:refname | Select-String -Pattern '.' -NotMatch | Select-Object -Last 1"`
+} else { 
+  `git tag -l --sort=v:refname | grep -v '^$' | tail -n 1`
+}
 set dotenv-load
 
 init:
@@ -21,6 +25,12 @@ update-dlmalloc:
     curl -Lv -o src/HyperlightGuest/third_party/dlmalloc/malloc.h https://gee.cs.oswego.edu/pub/misc/malloc.h
     curl -Lv -o src/HyperlightGuest/third_party/dlmalloc/malloc.c https://gee.cs.oswego.edu/pub/misc/malloc.c
     cd src/HyperlightGuest/third_party/dlmalloc && git apply --whitespace=nowarn --verbose malloc.patch || cd ../../../..
+
+build-rust-guests target=default-target:
+    # simpleguest needs to be built with nightly
+    cd src/tests/rust_guests/simpleguest && cargo build --profile={{ if target == "debug" {"dev"} else { target } }}
+    # dummyguest can be built with the default toolchain
+    cd src/tests/rust_guests/dummyguest && cargo build --profile={{ if target == "debug" {"dev"} else { target } }}
 
 build-dotnet:
     cd src/Hyperlight && dotnet build || cd ../../

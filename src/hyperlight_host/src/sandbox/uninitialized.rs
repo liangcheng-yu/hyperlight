@@ -491,7 +491,7 @@ mod tests {
     use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
         ParameterValue, ReturnValue,
     };
-    use hyperlight_testing::simple_guest_string;
+    use hyperlight_testing::simple_guest_as_string;
     use log::Level;
     use serde_json::{Map, Value};
     use serial_test::serial;
@@ -512,7 +512,7 @@ mod tests {
     fn test_new_sandbox() {
         // Guest Binary exists at path
 
-        let binary_path = simple_guest_string().unwrap();
+        let binary_path = simple_guest_as_string().unwrap();
         let sandbox =
             UninitializedSandbox::new(GuestBinary::FilePath(binary_path.clone()), None, None, None);
         assert!(sandbox.is_ok());
@@ -571,7 +571,7 @@ mod tests {
         let writer_func = Arc::new(Mutex::new(writer));
 
         let mut uninitialized_sandbox = UninitializedSandbox::new(
-            GuestBinary::FilePath(simple_guest_string().expect("Guest Binary Missing")),
+            GuestBinary::FilePath(simple_guest_as_string().expect("Guest Binary Missing")),
             None,
             None,
             None,
@@ -601,7 +601,7 @@ mod tests {
 
         // Test with a valid guest binary buffer
 
-        let binary_path = simple_guest_string().unwrap();
+        let binary_path = simple_guest_as_string().unwrap();
         let sandbox = UninitializedSandbox::new(
             GuestBinary::Buffer(fs::read(binary_path).unwrap()),
             None,
@@ -612,7 +612,7 @@ mod tests {
 
         // Test with a invalid guest binary buffer
 
-        let binary_path = simple_guest_string().unwrap();
+        let binary_path = simple_guest_as_string().unwrap();
         let mut bytes = fs::read(binary_path).unwrap();
         let _ = bytes.split_off(100);
         let sandbox = UninitializedSandbox::new(GuestBinary::Buffer(bytes), None, None, None);
@@ -621,7 +621,7 @@ mod tests {
         // Test with a valid guest binary buffer when trying to load library
         #[cfg(target_os = "windows")]
         {
-            let binary_path = simple_guest_string().unwrap();
+            let binary_path = simple_guest_as_string().unwrap();
             let sandbox = UninitializedSandbox::new(
                 GuestBinary::Buffer(fs::read(binary_path).unwrap()),
                 None,
@@ -636,7 +636,7 @@ mod tests {
     fn test_load_guest_binary_manual() {
         let cfg = SandboxConfiguration::default();
 
-        let simple_guest_path = simple_guest_string().unwrap();
+        let simple_guest_path = simple_guest_as_string().unwrap();
 
         UninitializedSandbox::load_guest_binary(
             cfg,
@@ -649,7 +649,7 @@ mod tests {
 
     #[test]
     fn test_stack_guard() {
-        let simple_guest_path = simple_guest_string().unwrap();
+        let simple_guest_path = simple_guest_as_string().unwrap();
         let sbox =
             UninitializedSandbox::new(GuestBinary::FilePath(simple_guest_path), None, None, None)
                 .unwrap();
@@ -668,7 +668,7 @@ mod tests {
     fn test_host_functions() {
         let uninitialized_sandbox = || {
             UninitializedSandbox::new(
-                GuestBinary::FilePath(simple_guest_string().expect("Guest Binary Missing")),
+                GuestBinary::FilePath(simple_guest_as_string().expect("Guest Binary Missing")),
                 None,
                 None,
                 None,
@@ -770,7 +770,7 @@ mod tests {
     #[serial]
     fn test_load_guest_binary_load_lib() {
         let cfg = SandboxConfiguration::default();
-        let simple_guest_path = simple_guest_string().unwrap();
+        let simple_guest_path = simple_guest_as_string().unwrap();
         let mgr_res = UninitializedSandbox::load_guest_binary(
             cfg,
             &GuestBinary::FilePath(simple_guest_path),
@@ -803,7 +803,7 @@ mod tests {
         let hostfunc = Arc::new(Mutex::new(writer));
 
         let sandbox = UninitializedSandbox::new(
-            GuestBinary::FilePath(simple_guest_string().expect("Guest Binary Missing")),
+            GuestBinary::FilePath(simple_guest_as_string().expect("Guest Binary Missing")),
             None,
             None,
             Some(&hostfunc),
@@ -841,7 +841,7 @@ mod tests {
         let writer_func = Arc::new(Mutex::new(writer));
 
         let sandbox = UninitializedSandbox::new(
-            GuestBinary::FilePath(simple_guest_string().expect("Guest Binary Missing")),
+            GuestBinary::FilePath(simple_guest_as_string().expect("Guest Binary Missing")),
             None,
             None,
             Some(&writer_func),
@@ -867,7 +867,7 @@ mod tests {
 
         let writer_func = Arc::new(Mutex::new(fn_writer));
         let sandbox = UninitializedSandbox::new(
-            GuestBinary::FilePath(simple_guest_string().expect("Guest Binary Missing")),
+            GuestBinary::FilePath(simple_guest_as_string().expect("Guest Binary Missing")),
             None,
             None,
             Some(&writer_func),
@@ -891,7 +891,7 @@ mod tests {
         let writer_method = Arc::new(Mutex::new(writer_closure));
 
         let sandbox = UninitializedSandbox::new(
-            GuestBinary::FilePath(simple_guest_string().expect("Guest Binary Missing")),
+            GuestBinary::FilePath(simple_guest_as_string().expect("Guest Binary Missing")),
             None,
             None,
             Some(&writer_method),
@@ -924,7 +924,7 @@ mod tests {
         let sandbox_queue = Arc::new(ArrayQueue::<MultiUseSandbox<'_>>::new(10));
 
         for i in 0..10 {
-            let simple_guest_path = simple_guest_string().expect("Guest Binary Missing");
+            let simple_guest_path = simple_guest_as_string().expect("Guest Binary Missing");
             let unintializedsandbox = {
                 let err_string = format!("failed to create UninitializedSandbox {i}");
                 let err_str = err_string.as_str();
@@ -1047,7 +1047,7 @@ mod tests {
 
             test_value_as_str(span_attributes, "correlation_id", correlation_id.as_str());
 
-            let mut binary_path = simple_guest_string().unwrap();
+            let mut binary_path = simple_guest_as_string().unwrap();
             binary_path.push_str("does_not_exist");
 
             let sbox =
@@ -1126,7 +1126,7 @@ mod tests {
 
             rebuild_interest_cache();
 
-            let mut invalid_binary_path = simple_guest_string().unwrap();
+            let mut invalid_binary_path = simple_guest_as_string().unwrap();
             invalid_binary_path.push_str("does_not_exist");
 
             let sbox = UninitializedSandbox::new(
@@ -1230,7 +1230,7 @@ mod tests {
 
             let sbox = {
                 let res = UninitializedSandbox::new(
-                    GuestBinary::FilePath(simple_guest_string().unwrap()),
+                    GuestBinary::FilePath(simple_guest_as_string().unwrap()),
                     None,
                     None,
                     None,

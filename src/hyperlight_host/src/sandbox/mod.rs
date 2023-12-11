@@ -146,7 +146,7 @@ mod tests {
     use crate::{sandbox::uninitialized::GuestBinary, sandbox_state::transition::Noop};
     use crate::{sandbox_state::sandbox::EvolvableSandbox, UninitializedSandbox};
     use crossbeam_queue::ArrayQueue;
-    use hyperlight_testing::simple_guest_string;
+    use hyperlight_testing::simple_guest_as_string;
     use std::{sync::Arc, thread};
 
     #[test]
@@ -167,7 +167,7 @@ mod tests {
         let sandbox_queue = Arc::new(ArrayQueue::<MultiUseSandbox>::new(10));
 
         for i in 0..10 {
-            let simple_guest_path = simple_guest_string().expect("Guest Binary Missing");
+            let simple_guest_path = simple_guest_as_string().expect("Guest Binary Missing");
             let unintializedsandbox = UninitializedSandbox::new(
                 GuestBinary::FilePath(simple_guest_path),
                 None,

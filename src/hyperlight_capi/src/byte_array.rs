@@ -182,12 +182,12 @@ mod tests {
     use super::super::hdl::Hdl;
     use super::impls;
     use hyperlight_host::Result;
-    use hyperlight_testing::{callback_guest_string, simple_guest_string};
+    use hyperlight_testing::{callback_guest_as_string, simple_guest_as_string};
 
     #[test]
     fn byte_array_new_from_file() {
         let filenames = vec![
-            simple_guest_string().unwrap(),
+            simple_guest_as_string().unwrap(),
             callback_guest_string().unwrap(),
         ];
         for filename in filenames {

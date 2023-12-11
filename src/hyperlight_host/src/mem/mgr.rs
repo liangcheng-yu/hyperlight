@@ -822,14 +822,14 @@ mod tests {
         sandbox::SandboxConfiguration,
         testing::bytes_for_path,
     };
-    use hyperlight_testing::{callback_guest_buf, rust_guest_buf};
+    use hyperlight_testing::{callback_guest_buf, rust_guest_as_pathbuf};
     use serde_json::to_string;
     #[cfg(target_os = "windows")]
     use serial_test::serial;
 
     #[test]
     fn load_guest_binary_common() {
-        let guests = vec![rust_guest_buf("simpleguest"), callback_guest_buf()];
+        let guests = vec![rust_guest_as_pathbuf("simpleguest"), callback_guest_buf()];
         for guest in guests {
             let guest_bytes = bytes_for_path(guest).unwrap();
             let pe_info = PEInfo::new(guest_bytes.as_slice()).unwrap();
@@ -857,15 +857,15 @@ mod tests {
     #[serial]
     fn load_guest_binary_using_load_library() {
         use crate::mem::mgr::SandboxMemoryManager;
-        use hyperlight_testing::{rust_guest_buf, simple_guest_string};
+        use hyperlight_testing::{rust_guest_as_pathbuf, simple_guest_as_string};
 
         let cfg = SandboxConfiguration::default();
-        let guest_path = rust_guest_buf("simpleguest");
+        let guest_path = rust_guest_as_pathbuf("simpleguest");
         let guest_bytes = bytes_for_path(guest_path).unwrap();
         let mut pe_info = PEInfo::new(guest_bytes.as_slice()).unwrap();
         let _ = SandboxMemoryManager::load_guest_binary_using_load_library(
             cfg,
-            simple_guest_string().unwrap().as_str(),
+            simple_guest_as_string().unwrap().as_str(),
             &mut pe_info,
             true,
         )

@@ -122,7 +122,7 @@ fn set_guest_binary_boolean(val: bool) -> bool {
 mod tests {
     use super::set_guest_binary_boolean;
     use super::LoadedLib;
-    use hyperlight_testing::{rust_guest_buf, simple_guest_string};
+    use hyperlight_testing::{rust_guest_as_pathbuf, simple_guest_as_string};
     use serial_test::serial;
 
     /// universal test for all LoadedLib-related functionality. It's necessary
@@ -146,13 +146,13 @@ mod tests {
         {
             // a test to just ensure we can load and unload (when dropped)
             // a library using LoadLibraryA and FreeLibrary, respectively
-            let path = simple_guest_string().unwrap();
+            let path = simple_guest_as_string().unwrap();
             let _ = LoadedLib::try_from(path.as_str()).unwrap();
         }
         // finally, actually test loading a library from a real compiled
         // binary
         {
-            let lib_name = rust_guest_buf("simpleguest");
+            let lib_name = rust_guest_as_pathbuf("simpleguest");
             let lib = LoadedLib::try_from(lib_name.to_str().unwrap()).unwrap();
             for _ in 0..9 {
                 let l = lib.clone();

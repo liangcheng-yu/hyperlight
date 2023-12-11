@@ -23,7 +23,7 @@ fn join_to_path(start: &str, v: Vec<&str>) -> PathBuf {
 }
 
 /// Get a new `PathBuf` pointing to `callbackguest.exe`
-pub fn callback_guest_buf() -> PathBuf {
+pub fn callback_guest_as_pathbuf() -> PathBuf {
     let build_dir_selector = if cfg!(debug_assertions) {
         "debug"
     } else {
@@ -48,8 +48,8 @@ pub fn callback_guest_buf() -> PathBuf {
 /// Get a fully qualified OS-specific path to the callbackguest.exe
 /// binary. Convenience method for calling `callback_guest_buf`, then
 /// converting the result into an owned `String`
-pub fn callback_guest_string() -> Result<String> {
-    let buf = callback_guest_buf();
+pub fn callback_guest_as_string() -> Result<String> {
+    let buf = callback_guest_as_pathbuf();
     buf.to_str()
         .map(|s| s.to_string())
         .ok_or_else(|| anyhow!("couldn't convert callback guest PathBuf to string"))
@@ -57,7 +57,7 @@ pub fn callback_guest_string() -> Result<String> {
 
 /// Get a new `PathBuf` to a specified Rust guest
 /// $REPO_ROOT/src/tests/rust_guests/bin/${profile}/net6.0
-pub fn rust_guest_buf(guest: &str) -> PathBuf {
+pub fn rust_guest_as_pathbuf(guest: &str) -> PathBuf {
     let build_dir_selector = if cfg!(debug_assertions) {
         "debug"
     } else {
@@ -82,8 +82,8 @@ pub fn rust_guest_buf(guest: &str) -> PathBuf {
 /// Get a fully qualified OS-specific path to the simpleguest.exe
 /// binary. Convenience method for calling `simple_guest_buf`, then
 /// converting the result into an owned `String`
-pub fn simple_guest_string() -> Result<String> {
-    let buf = rust_guest_buf("simpleguest");
+pub fn simple_guest_as_string() -> Result<String> {
+    let buf = rust_guest_as_pathbuf("simpleguest");
     buf.to_str()
         .map(|s| s.to_string())
         .ok_or_else(|| anyhow!("couldn't convert simple guest PathBuf to string"))
@@ -92,8 +92,8 @@ pub fn simple_guest_string() -> Result<String> {
 /// Get a fully qualified OS-specific path to the dummyguest.exe
 /// binary. Convenience method for calling `dummy_guest_buf`, then converting
 /// the result into an owned `String`
-pub fn dummy_guest_string() -> Result<String> {
-    let buf = rust_guest_buf("dummyguest");
+pub fn dummy_guest_as_string() -> Result<String> {
+    let buf = rust_guest_as_pathbuf("dummyguest");
     buf.to_str()
         .map(|s| s.to_string())
         .ok_or_else(|| anyhow!("couldn't convert dummy guest PathBuf to string"))
