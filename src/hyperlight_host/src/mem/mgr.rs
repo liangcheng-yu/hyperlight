@@ -829,7 +829,10 @@ mod tests {
 
     #[test]
     fn load_guest_binary_common() {
-        let guests = vec![rust_guest_as_pathbuf("simpleguest"), callback_guest_as_pathbuf()];
+        let guests = vec![
+            rust_guest_as_pathbuf("simpleguest"),
+            callback_guest_as_pathbuf(),
+        ];
         for guest in guests {
             let guest_bytes = bytes_for_path(guest).unwrap();
             let pe_info = PEInfo::new(guest_bytes.as_slice()).unwrap();
