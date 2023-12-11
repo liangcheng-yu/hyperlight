@@ -4,11 +4,8 @@ set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
 set-trace-env-vars := if os() == "windows" { "$env:RUST_LOG='none,hyperlight_host=trace';" } else { "RUST_LOG=none,hyperlight_host=trace" }
 default-target:= "debug"
-latest-release := if os() == "windows" { 
-  `powershell -Command "git tag -l --sort=v:refname | Select-String -Pattern '.' -NotMatch | Select-Object -Last 1"`
-} else { 
-  `git tag -l --sort=v:refname | grep -v '^$' | tail -n 1`
-}
+# most recent github release that is not "latest". Note that backticks don't work correctly on windows so we use powershell command substitution $() instead
+latest-release:= if os() == "windows" {"$(git tag -l --sort=v:refname | select -last 1)"} else {`git tag -l --sort=v:refname | tail -n 1`}
 simpleguest_source := "src/tests/rust_guests/simpleguest/target/x86_64-pc-windows-msvc"
 dummyguest_source := "src/tests/rust_guests/dummyguest/target/x86_64-pc-windows-msvc"
 rust_guests_bin_dir := "src/tests/rust_guests/bin"
@@ -141,7 +138,7 @@ bench target=default-target:
 
 # warning, can overwrite previous local benchmarks, so run this before running benchmarks
 bench-download os hypervisor tag=latest-release:
-    gh release download {{ tag }} -D target/ -p benchmarks_{{ os }}_{{ hypervisor }}.tar.gz
-    mkdir -p target/criterion
+    gh release download {{ tag }} -D ./target/ -p benchmarks_{{ os }}_{{ hypervisor }}.tar.gz
+    mkdir -p target/criterion {{ if os() == "windows" { "-Force" } else { "" } }}
     tar -zxvf target/benchmarks_{{ os }}_{{ hypervisor }}.tar.gz -C target/criterion/ --strip-components=1
     
