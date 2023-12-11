@@ -26,8 +26,6 @@ jobs:
           version=$(MINVER_TAG_PREFIX=v minver)
           echo "version=$version"
           cargo ws version --force=hyperlight_* --no-git-tag --no-git-push --allow-branch=release/* --yes custom $version
-      - name: Publish hyperlight-testing
-        run: cargo publish --manifest-path ./src/hyperlight_testing/Cargo.toml --registry hyperlight_packages
       - name: Publish hyperlight-flatbuffers
         run: cargo publish --manifest-path ./src/hyperlight_flatbuffers/Cargo.toml --registry hyperlight_packages
       - name: Publish hyperlight-host 
