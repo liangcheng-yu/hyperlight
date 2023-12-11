@@ -78,12 +78,13 @@ jobs:
     - name: Set up WHP_SHOULD_BE_PRESENT Env Var
       run: |
         echo "WHP_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
-    - name: Build Solution
-      run: msbuild -m hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
-      shell: pwsh
     - name: Build Rust Guests
       run: |
         just build-rust-guests ${{ matrix.config }}
+        just move-rust-guests ${{ matrix.config }}
+    - name: Build Solution
+      run: msbuild -m hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
+      shell: pwsh
     - name: Upload Binary Artifacts
       uses: actions/upload-artifact@v3
       with:

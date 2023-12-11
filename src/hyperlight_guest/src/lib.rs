@@ -28,6 +28,8 @@ pub mod flatbuffer_utils;
 pub(crate) extern "C" fn __CxxFrameHandler3() {}
 #[no_mangle]
 pub(crate) static _fltused: i32 = 0;
+#[no_mangle]
+pub(crate) extern "C" fn __chkstk() {}
 
 // Globals
 pub const DEFAULT_GUEST_STACK_SIZE: i32 = 65536; // default stack size
