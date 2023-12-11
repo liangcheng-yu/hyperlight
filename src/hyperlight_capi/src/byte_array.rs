@@ -188,7 +188,7 @@ mod tests {
     fn byte_array_new_from_file() {
         let filenames = vec![
             simple_guest_as_string().unwrap(),
-            callback_guest_string().unwrap(),
+            callback_guest_as_string().unwrap(),
         ];
         for filename in filenames {
             let file = impls::new_from_file(&filename)

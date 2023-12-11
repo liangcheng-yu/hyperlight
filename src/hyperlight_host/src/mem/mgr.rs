@@ -822,14 +822,14 @@ mod tests {
         sandbox::SandboxConfiguration,
         testing::bytes_for_path,
     };
-    use hyperlight_testing::{callback_guest_buf, rust_guest_as_pathbuf};
+    use hyperlight_testing::{callback_guest_as_pathbuf, rust_guest_as_pathbuf};
     use serde_json::to_string;
     #[cfg(target_os = "windows")]
     use serial_test::serial;
 
     #[test]
     fn load_guest_binary_common() {
-        let guests = vec![rust_guest_as_pathbuf("simpleguest"), callback_guest_buf()];
+        let guests = vec![rust_guest_as_pathbuf("simpleguest"), callback_guest_as_pathbuf()];
         for guest in guests {
             let guest_bytes = bytes_for_path(guest).unwrap();
             let pe_info = PEInfo::new(guest_bytes.as_slice()).unwrap();

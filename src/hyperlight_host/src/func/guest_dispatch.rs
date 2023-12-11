@@ -91,8 +91,7 @@ mod tests {
     use crate::{sandbox::is_hypervisor_present, SingleUseSandbox};
     use crate::{sandbox::uninitialized::GuestBinary, sandbox_state::transition::MutatingCallback};
     use crate::{sandbox_state::sandbox::EvolvableSandbox, MultiUseSandbox};
-    use hyperlight_testing::callback_guest_string;
-    use hyperlight_testing::simple_guest_as_string;
+    use hyperlight_testing::{callback_guest_as_string, simple_guest_as_string};
     use std::{
         sync::{Arc, Mutex},
         thread,
@@ -330,7 +329,7 @@ mod tests {
             return;
         }
         let mut usbox = UninitializedSandbox::new(
-            GuestBinary::FilePath(callback_guest_string().expect("Guest Binary Missing")),
+            GuestBinary::FilePath(callback_guest_as_string().expect("Guest Binary Missing")),
             None,
             None,
             None,

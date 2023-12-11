@@ -194,13 +194,13 @@ fn evolve_in_proc<'a>(
 mod tests {
     use super::evolve_impl_multi_use;
     use crate::{sandbox::uninitialized::GuestBinary, UninitializedSandbox};
-    use hyperlight_testing::{callback_guest_string, simple_guest_as_string};
+    use hyperlight_testing::{callback_guest_as_string, simple_guest_as_string};
 
     #[test]
     fn test_evolve() {
         let guest_bin_paths = vec![
             simple_guest_as_string().unwrap(),
-            callback_guest_string().unwrap(),
+            callback_guest_as_string().unwrap(),
         ];
         for guest_bin_path in guest_bin_paths {
             let u_sbox = UninitializedSandbox::new(
@@ -221,7 +221,7 @@ mod tests {
 
         let guest_bin_paths = vec![
             simple_guest_as_string().unwrap(),
-            callback_guest_string().unwrap(),
+            callback_guest_as_string().unwrap(),
         ];
         for guest_bin_path in guest_bin_paths {
             let u_sbox: UninitializedSandbox<'_> = UninitializedSandbox::new(

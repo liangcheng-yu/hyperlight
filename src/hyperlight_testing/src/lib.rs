@@ -46,7 +46,7 @@ pub fn callback_guest_as_pathbuf() -> PathBuf {
 }
 
 /// Get a fully qualified OS-specific path to the callbackguest.exe
-/// binary. Convenience method for calling `callback_guest_buf`, then
+/// binary. Convenience method for calling `callback_guest_as_pathbuf`, then
 /// converting the result into an owned `String`
 pub fn callback_guest_as_string() -> Result<String> {
     let buf = callback_guest_as_pathbuf();
@@ -80,7 +80,7 @@ pub fn rust_guest_as_pathbuf(guest: &str) -> PathBuf {
 }
 
 /// Get a fully qualified OS-specific path to the simpleguest.exe
-/// binary. Convenience method for calling `simple_guest_buf`, then
+/// binary. Convenience method for calling `simple_guest_as_pathbuf`, then
 /// converting the result into an owned `String`
 pub fn simple_guest_as_string() -> Result<String> {
     let buf = rust_guest_as_pathbuf("simpleguest");
@@ -90,7 +90,7 @@ pub fn simple_guest_as_string() -> Result<String> {
 }
 
 /// Get a fully qualified OS-specific path to the dummyguest.exe
-/// binary. Convenience method for calling `dummy_guest_buf`, then converting
+/// binary. Convenience method for calling `dummy_guest_as_pathbuf`, then converting
 /// the result into an owned `String`
 pub fn dummy_guest_as_string() -> Result<String> {
     let buf = rust_guest_as_pathbuf("dummyguest");
