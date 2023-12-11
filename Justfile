@@ -9,6 +9,9 @@ latest-release := if os() == "windows" {
 } else { 
   `git tag -l --sort=v:refname | grep -v '^$' | tail -n 1`
 }
+simpleguest_source := "src/tests/rust_guests/simpleguest/target/x86_64-pc-windows-msvc"
+dummyguest_source := "src/tests/rust_guests/dummyguest/target/x86_64-pc-windows-msvc"
+rust_guests_bin_dir := "src/tests/rust_guests/bin"
 set dotenv-load
 
 init:
@@ -31,6 +34,10 @@ build-rust-guests target=default-target:
     cd src/tests/rust_guests/simpleguest && cargo build --profile={{ if target == "debug" {"dev"} else { target } }}
     # dummyguest can be built with the default toolchain
     cd src/tests/rust_guests/dummyguest && cargo build --profile={{ if target == "debug" {"dev"} else { target } }}
+
+move-rust-guests target=default-target:
+    cp {{simpleguest_source}}/{{target}}/simpleguest.exe {{rust_guests_bin_dir}}/{{target}}/simpleguest.exe
+    cp {{dummyguest_source}}/{{target}}/dummyguest.exe {{rust_guests_bin_dir}}/{{target}}/dummyguest.exe
 
 build-dotnet:
     cd src/Hyperlight && dotnet build || cd ../../

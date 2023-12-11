@@ -82,14 +82,8 @@ jobs:
       run: msbuild -m hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
       shell: pwsh
     - name: Build Rust Guests
-      # simpleguest still needs to be built w/ nightly due to compiler_builtins, but I'll be investigating removing this soon.
       run: |
-        $profile_flag = ""
-        if ("${{ matrix.config }}" -eq "release") {
-            $profile_flag = "--release"
-        }
-        cargo +nightly build --manifest-path src\tests\rust_guests\simpleguest\Cargo.toml $profile_flag
-        cargo build --manifest-path src\tests\rust_guests\dummyguest\Cargo.toml $profile_flag
+        just build-rust-guests ${{ matrix.config }}
     - name: Upload Binary Artifacts
       uses: actions/upload-artifact@v3
       with:

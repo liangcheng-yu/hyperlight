@@ -66,30 +66,29 @@ jobs:
         run: (Get-Service actions.runner.*) | Foreach { $_.Name, $_.UserName, $_.ServiceType }
         shell: pwsh
 
-      # This step downloads the guest binaries built in the 'build-guest-binaries' job.
-      # It includes the Rust-built binaries (simpleguest.exe, dummyguest.exe) and others.
-      # The binaries are placed in the './src/tests/Hyperlight.Tests/bin/{Release or Debug}/net6.0' directory.
       - name: Download Guest Binaries
         uses: actions/download-artifact@v3
         with:
           name: guest-binaries-${{ matrix.config }}
-          path: ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0
+          path: ./
 
-      # This step copies the downloaded guest binaries to their respective locations.
-      # It handles the binaries for both the Rust-built guests and any others.
       - name: Copy Guest Binaries
         run: |
-          echo "Copying guest binaries for build config ${{ matrix.config }}"
-          cp ./src/tests/rust_guests/simpleguest/target/x86_64-pc-windows-msvc/${{ matrix.config }}/simpleguest.exe ./simpleguest.exe
-          cp ./src/tests/rust_guests/dummyguest/target/x86_64-pc-windows-msvc/${{ matrix.config }}/dummyguest.exe ./dummyguest.exe
-          cp ./callbackguest/x64/${{ matrix.config }}/callbackguest.exe callbackguest.exe
-        working-directory: ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0
+          echo "Copying callbackguest binary for build config ${{ matrix.config }}"
+          mkdir -p ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0/
+          cp ./src/tests/Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0/
 
-      # This step displays the guest binaries in their final location to verify their presence.
+          echo "Copying simpleguest and dummyguest binaries for build config ${{ matrix.config }}"
+          cp ./src/tests/rust_guests/simpleguest/target/x86_64-pc-windows-msvc/${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/
+          cp ./src/tests/rust_guests/dummyguest/target/x86_64-pc-windows-msvc/${{ matrix.config }}/dummyguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/
+
       - name: Display Guest Binaries
         run: |
-          echo "Displaying guest binaries in ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0"
-          ls -R ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0
+          echo "Displaying callbackguest binary in ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0"
+          ls ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0/
+
+          echo "Displaying simpleguest and dummyguest binaries in ./src/tests/rust_guests/bin/${{ matrix.config }}/"
+          ls ./src/tests/rust_guests/bin/${{ matrix.config }}/
           
       - name: Build
         run:  just build-rust ${{ matrix.config }}
