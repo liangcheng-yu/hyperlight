@@ -3,7 +3,10 @@ use super::{
     HyperlightExit, Hypervisor, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR,
     CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
 };
-use crate::mem::{layout::SandboxMemoryLayout, ptr::RawPtr};
+use crate::mem::{
+    layout::SandboxMemoryLayout,
+    ptr::{GuestPtr, RawPtr},
+};
 use crate::Result;
 use crate::{log_then_return, new_error};
 use kvm_bindings::{kvm_segment, kvm_userspace_memory_region};
@@ -40,7 +43,7 @@ pub struct KVMDriver {
     _vm_fd: VmFd,
     vcpu_fd: VcpuFd,
     entrypoint: u64,
-    rsp: u64,
+    rsp: GuestPtr,
 }
 
 impl KVMDriver {
@@ -88,12 +91,13 @@ impl KVMDriver {
         let mut vcpu_fd = vm_fd.create_vcpu(0)?;
         Self::set_sregs(&mut vcpu_fd, pml4_addr)?;
 
+        let rsp_gp = GuestPtr::try_from(RawPtr::from(rsp))?;
         Ok(Self {
             _kvm: kvm,
             _vm_fd: vm_fd,
             vcpu_fd,
             entrypoint,
-            rsp,
+            rsp: rsp_gp,
         })
     }
 
@@ -209,7 +213,8 @@ impl Hypervisor for KVMDriver {
             max_wait_for_cancellation,
         )?;
         // Reset the stack pointer to the value it was before the call
-        self.reset_rsp(rsp)
+        let rsp_gp = GuestPtr::try_from(RawPtr::from(rsp))?;
+        self.reset_rsp(rsp_gp)
     }
 
     /// Implementation of initialise for Hypervisor trait.
@@ -229,7 +234,7 @@ impl Hypervisor for KVMDriver {
     ) -> Result<()> {
         let mut regs = self.vcpu_fd.get_regs()?;
         regs.rip = self.entrypoint;
-        regs.rsp = self.rsp;
+        regs.rsp = self.rsp.absolute()?;
         regs.rdx = seed;
         regs.r8 = u64::from(page_size);
         regs.rcx = peb_addr.into();
@@ -247,14 +252,14 @@ impl Hypervisor for KVMDriver {
     }
 
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    fn reset_rsp(&mut self, rsp: u64) -> Result<()> {
+    fn reset_rsp(&mut self, rsp: GuestPtr) -> Result<()> {
         let mut regs = self.vcpu_fd.get_regs()?;
-        regs.rsp = rsp;
+        regs.rsp = rsp.absolute()?;
         Ok(self.vcpu_fd.set_regs(&regs)?)
     }
 
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    fn orig_rsp(&self) -> Result<u64> {
+    fn orig_rsp(&self) -> Result<GuestPtr> {
         Ok(self.rsp)
     }
 

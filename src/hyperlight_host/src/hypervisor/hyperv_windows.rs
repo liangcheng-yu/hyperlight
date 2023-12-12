@@ -6,6 +6,7 @@ use super::{
 };
 use super::{surrogate_process::SurrogateProcess, surrogate_process_manager::*};
 use super::{windows_hypervisor_platform as whp, HyperlightExit};
+use crate::mem::ptr::GuestPtr;
 use crate::Result;
 use crate::{
     log_then_return,
@@ -48,7 +49,7 @@ pub(crate) struct HypervWindowsDriver {
     surrogate_process: SurrogateProcess,
     source_address: PtrCVoidMut,
     registers: HashMap<WhvRegisterNameWrapper, WHV_REGISTER_VALUE>,
-    orig_rsp: u64,
+    orig_rsp: GuestPtr,
 }
 
 impl std::fmt::Debug for HypervWindowsDriver {
@@ -172,7 +173,7 @@ impl HypervWindowsDriver {
             surrogate_process,
             source_address: PtrCVoidMut::from(source_address),
             registers,
-            orig_rsp: rsp,
+            orig_rsp: GuestPtr::try_from(RawPtr::from(rsp))?,
         })
     }
 
@@ -279,17 +280,19 @@ impl Hypervisor for HypervWindowsDriver {
     }
 
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    fn reset_rsp(&mut self, rsp: u64) -> Result<()> {
+    fn reset_rsp(&mut self, rsp: GuestPtr) -> Result<()> {
         let registers = HashMap::from([(
             WhvRegisterNameWrapper(WHvX64RegisterRsp),
-            WHV_REGISTER_VALUE { Reg64: rsp },
+            WHV_REGISTER_VALUE {
+                Reg64: rsp.absolute()?,
+            },
         )]);
         self.processor.set_registers(&registers)?;
         Ok(())
     }
 
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    fn orig_rsp(&self) -> Result<u64> {
+    fn orig_rsp(&self) -> Result<GuestPtr> {
         Ok(self.orig_rsp)
     }
 
