@@ -91,5 +91,4 @@ jobs:
         name: guest-binaries-${{ matrix.config }}
         path: |
           src\tests\Guests\*\${{ matrix.platform }}\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']
-          src\tests\rust_guests\simpleguest\target\x86_64-pc-windows-msvc\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']
-          src\tests\rust_guests\dummyguest\target\x86_64-pc-windows-msvc\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']
+          src\tests\rust_guests\*\target\x86_64-pc-windows-msvc\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']

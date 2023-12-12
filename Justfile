@@ -36,6 +36,12 @@ move-rust-guests target=default-target:
     cp {{simpleguest_source}}/{{target}}/simpleguest.exe {{rust_guests_bin_dir}}/{{target}}/simpleguest.exe
     cp {{dummyguest_source}}/{{target}}/dummyguest.exe {{rust_guests_bin_dir}}/{{target}}/dummyguest.exe
 
+build-and-move-rust-guests:
+    just build-rust-guests debug
+    just move-rust-guests debug
+    just build-rust-guests release
+    just move-rust-guests release    
+
 build-dotnet:
     cd src/Hyperlight && dotnet build || cd ../../
     cd src/examples/NativeHost && dotnet build || cd ../../../

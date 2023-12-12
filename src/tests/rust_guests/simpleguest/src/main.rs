@@ -20,7 +20,7 @@ use hyperlight_guest::{
 extern crate hyperlight_guest;
 
 #[no_mangle]
-#[allow(improper_ctypes_definitions, non_camel_case_types)]
+#[allow(improper_ctypes_definitions)]
 pub extern "C" fn simple_print_output(function_call: &FunctionCall) -> Vec<u8> {
     if let ParameterValue::String(message) = function_call.parameters.clone().unwrap()[0].clone() {
         call_host_function(
@@ -35,6 +35,7 @@ pub extern "C" fn simple_print_output(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
+const MAX_BUFFER_SIZE: usize = 1024;
 // TODO: This function could cause a stack overflow, update it once we have stack guards in place.
 #[no_mangle]
 #[allow(improper_ctypes_definitions)]
@@ -43,21 +44,14 @@ pub extern "C" fn stack_allocate(function_call: &FunctionCall) -> Vec<u8> {
         let alloc_length = if length == 0 {
             DEFAULT_GUEST_STACK_SIZE + 1
         } else {
-            length
+            length.min(MAX_BUFFER_SIZE as i32)
         } as usize;
 
-        let _buffer: [u8; (DEFAULT_GUEST_STACK_SIZE + 1) as usize] =
-            [0; (DEFAULT_GUEST_STACK_SIZE + 1) as usize];
-        // ^^^ this does the stack allocation
+        let mut _buffer: [u8; MAX_BUFFER_SIZE] = [0; MAX_BUFFER_SIZE];
+        // allocating the maximum alloc_length on the stack
+        // because Rust doesn't allow dynamic allocations on the stack
 
-        let mut buffer = Vec::with_capacity(alloc_length);
-
-        // Initialize the buffer with zeros. This is necessary because Vec::with_capacity
-        // does not initialize the elements, and is equivalent to _alloca that we
-        // have in C.
-        buffer.resize(alloc_length, 0);
-
-        get_flatbuffer_result_from_int(length)
+        get_flatbuffer_result_from_int(alloc_length as i32)
     } else {
         Vec::new()
     }
@@ -141,7 +135,8 @@ pub extern "C" fn hyperlight_main() {
 #[no_mangle]
 #[allow(improper_ctypes_definitions)]
 pub extern "C" fn guest_dispatch_function() -> Vec<u8> {
-    [0; 0].to_vec()
+    // return dummy value for now
+    Vec::new()
 }
 
 // It looks like rust-analyzer doesn't correctly manage no_std crates,

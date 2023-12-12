@@ -268,7 +268,7 @@ mod tests {
                 stack_size: 65536,
                 heap_size: 131072,
                 load_address: 5368709120,
-                num_relocations: 455,
+                num_relocations: 459,
             }
         };
         // if your test fails w/ num_relocations,
@@ -339,9 +339,9 @@ mod tests {
             if pe_path.ends_with("simpleguest.exe") {
                 let patch = patches[0];
                 let expected_patch_offset = if cfg!(debug_assertions) {
-                    0x4BE80
+                    0x4C010
                 } else {
-                    0x1F038
+                    0x1F238
                 };
                 // these values might have to
                 // be modified if you change

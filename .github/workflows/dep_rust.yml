@@ -72,6 +72,11 @@ jobs:
           name: guest-binaries-${{ matrix.config }}
           path: ./
 
+      - name: Display Guest Binaries
+        run: |
+          echo "Display downloaded guest binaries"
+          ls ./
+
       - name: Copy Guest Binaries
         run: |
           echo "Copying callbackguest binary for build config ${{ matrix.config }}"
@@ -81,14 +86,6 @@ jobs:
           echo "Copying simpleguest and dummyguest binaries for build config ${{ matrix.config }}"
           cp ./src/tests/rust_guests/simpleguest/target/x86_64-pc-windows-msvc/${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/
           cp ./src/tests/rust_guests/dummyguest/target/x86_64-pc-windows-msvc/${{ matrix.config }}/dummyguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/
-
-      - name: Display Guest Binaries
-        run: |
-          echo "Displaying callbackguest binary in ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0"
-          ls ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0/
-
-          echo "Displaying simpleguest and dummyguest binaries in ./src/tests/rust_guests/bin/${{ matrix.config }}/"
-          ls ./src/tests/rust_guests/bin/${{ matrix.config }}/
           
       - name: Build
         run:  just build-rust ${{ matrix.config }}
