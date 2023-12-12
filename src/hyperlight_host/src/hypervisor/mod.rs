@@ -1,9 +1,12 @@
 #[cfg(target_os = "linux")]
 use crate::error::HyperlightError::HostFailedToCancelGuestExecutionSendingSignals;
-use crate::error::HyperlightError::{ExecutionCanceledByHost, HostFailedToCancelGuestExecution};
 use crate::hypervisor::metrics::HypervisorMetric::NumberOfCancelledGuestExecutions;
 use crate::new_error;
 use crate::Result;
+use crate::{
+    error::HyperlightError::{ExecutionCanceledByHost, HostFailedToCancelGuestExecution},
+    mem::ptr::GuestPtr,
+};
 use crate::{int_counter_inc, log_then_return};
 use crossbeam::atomic::AtomicCell;
 #[cfg(target_os = "linux")]
@@ -514,11 +517,11 @@ pub trait Hypervisor: Debug + Sync + Send {
     ) -> Result<()>;
 
     /// Reset the stack pointer on the internal virtual CPU
-    fn reset_rsp(&mut self, rsp: u64) -> Result<()>;
+    fn reset_rsp(&mut self, rsp: GuestPtr) -> Result<()>;
 
     /// Get the value of the stack pointer (RSP register) when this
     /// `Hypervisor` was first created
-    fn orig_rsp(&self) -> Result<u64>;
+    fn orig_rsp(&self) -> Result<GuestPtr>;
 
     /// Allow the hypervisor to be downcast
     fn as_any(&self) -> &dyn Any;

@@ -2,14 +2,11 @@ use super::metrics::SandboxMetric::CurrentNumberOfMultiUseSandboxes;
 use super::{host_funcs::HostFuncsWrapper, leaked_outb::LeakedOutBWrapper, WrapperGetter};
 use super::{HypervisorWrapper, MemMgrWrapper, UninitializedSandbox};
 use crate::func::call_ctx::MultiUseGuestCallContext;
-use crate::{int_gauge_dec, Result};
-use crate::{
-    mem::ptr::{GuestPtr, RawPtr},
-    sandbox_state::{
-        sandbox::{DevolvableSandbox, Sandbox},
-        transition::Noop,
-    },
+use crate::sandbox_state::{
+    sandbox::{DevolvableSandbox, Sandbox},
+    transition::Noop,
 };
+use crate::{int_gauge_dec, Result};
 use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
 };
@@ -224,8 +221,7 @@ impl<'a>
         let mut ret = UninitializedSandbox::from_multi_use(self);
         ret.mgr.as_mut().restore_state()?;
         if run_from_proc {
-            let orig_rsp_raw = ret.hv.get_hypervisor()?.orig_rsp()?;
-            let orig_rsp = GuestPtr::try_from(RawPtr::from(orig_rsp_raw))?;
+            let orig_rsp = ret.hv.get_hypervisor()?.orig_rsp()?;
             ret.hv.reset_rsp(orig_rsp)?;
         }
         Ok(ret)
