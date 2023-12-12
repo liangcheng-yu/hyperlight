@@ -44,29 +44,25 @@ jobs:
         shell: pwsh
 
 
-      # Rust tests require the test binaries (simpleguest.exe, dummyguest.exe, 
-      # etc...) to be in ./src/tests/Hyperlight.Tests/bin/{Release or Debug}/net6.0.
-      # 
-      # We have a dependency on the 'build-guest-binaries' job, which builds 
-      # them and uploads them using the upload-artifact step. we're downloading
-      # them here, then moving them to the right location in the subsequent step
       - name: Download Guest Binaries
         uses: actions/download-artifact@v3
         with:
-          name: guest-binaries-release
-          path: ./src/tests/Hyperlight.Tests/bin/release/net6.0
-
+          name: guest-binaries-${{ matrix.config }}
+          path: ./
       - name: Copy Guest Binaries
         run: |
-          echo "copying guest binaries for build config release"
-          cp ./dummyguest/x64/release/dummyguest.exe dummyguest.exe
-          cp ./simpleguest/x64/release/simpleguest.exe simpleguest.exe
-          cp ./callbackguest/x64/release/callbackguest.exe callbackguest.exe
-        working-directory: ./src/tests/Hyperlight.Tests/bin/release/net6.0
-
+          echo "Copying callbackguest binary for build config ${{ matrix.config }}"
+          mkdir -p ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0/
+          cp ./Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0/callbackguest.exe
+          echo "Copying simpleguest and dummyguest binaries for build config ${{ matrix.config }}"
+          cp ./rust_guests/simpleguest/target/x86_64-pc-windows-msvc/${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/simpleguest.exe
+          cp ./rust_guests/dummyguest/target/x86_64-pc-windows-msvc/${{ matrix.config }}/dummyguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/dummyguest.exe
       - name: Display Guest Binaries
         run: |
-          ls -R ./src/tests/Hyperlight.Tests/bin/release/net6.0
+          echo "Displaying callbackguest binary in ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0"
+          ls ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0/
+          echo "Displaying simpleguest and dummyguest binaries in ./src/tests/rust_guests/bin/${{ matrix.config }}/"
+          ls ./src/tests/rust_guests/bin/${{ matrix.config }}/
           
       - name: Set up env vars for hyperv-linux tests
         if: ${{ (matrix.hypervisor == 'hyperv') && (runner.os == 'Linux') }}
