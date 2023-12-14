@@ -52,9 +52,9 @@ MunitResult test_host_print(const MunitParameter params[], void *fixture)
         .output_data_size = 4096,
         .host_exception_size = 4096};
 #ifdef DEBUG
-    Handle binary = string_new(ctx, "../tests/Hyperlight.Tests/bin/debug/net6.0/simpleguest.exe");
+    Handle binary = string_new(ctx, "../tests/rust_guests/bin/debug/simpleguest.exe");
 #else
-    Handle binary = string_new(ctx, "../tests/Hyperlight.Tests/bin/release/net6.0/simpleguest.exe");
+    Handle binary = string_new(ctx, "../tests/rust_guests/bin/release/simpleguest.exe");
 #endif
     handle_assert_no_error(ctx, binary);
 
