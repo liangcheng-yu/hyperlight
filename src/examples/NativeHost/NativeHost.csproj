@@ -22,7 +22,7 @@
     <Content Include="../../../target/$(Configuration.toLower())/libhyperlight_capi.d" Condition=" ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'  == 'true' And  '$(RuntimeIdentifier)'=='') or '$(RuntimeIdentifier)'=='linux-x64'  ">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="../../tests/Guests/callbackguest/x64/$(Configuration.toLower())/callbackguest.exe">
+    <Content Include="..\..\tests\Hyperlight.Tests\bin\$(Configuration.toLower())\callbackguest.exe">
       <Link>callbackguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
