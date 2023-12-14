@@ -24,7 +24,9 @@
     "host_function_details_builder.h": "c",
     "val_ref_tests.h": "c",
     "byte_array_tests.h": "c",
-    "outb_handler.h": "c"
+    "outb_handler.h": "c",
+    "regex": "c",
+    "sstream": "c"
   },
 "rust-analyzer.showUnlinkedFileNotification": false,
 "githubPullRequests.ignoredPullRequestBranches": [

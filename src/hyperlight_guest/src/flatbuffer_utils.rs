@@ -2,7 +2,8 @@ use alloc::vec::Vec;
 use flatbuffers::{FlatBufferBuilder, UnionWIPOffset, WIPOffset};
 
 use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::{
-    hlint as Fbhlint, hlintArgs as FbhlintArgs, hlvoid as Fbhlvoid, hlvoidArgs as FbhlvoidArgs,
+    hlint as Fbhlint, hlintArgs as FbhlintArgs, hlstring as Fbhlstring,
+    hlstringArgs as FbhlstringArgs, hlvoid as Fbhlvoid, hlvoidArgs as FbhlvoidArgs,
     FunctionCallResult as FbFunctionCallResult, FunctionCallResultArgs as FbFunctionCallResultArgs,
     ReturnValue as FbReturnValue,
 };
@@ -23,6 +24,23 @@ pub fn get_flatbuffer_result_from_void() -> Vec<u8> {
 
     let rt = FbReturnValue::hlvoid;
     let rv: Option<WIPOffset<UnionWIPOffset>> = Some(hlvoid.as_union_value());
+
+    get_flatbuffer_result(&mut builder, rt, rv)
+}
+
+pub fn get_flatbuffer_result_from_string(value: &str) -> Vec<u8> {
+    let mut builder = FlatBufferBuilder::new();
+
+    let string_offset = builder.create_string(value);
+    let hlstring = Fbhlstring::create(
+        &mut builder,
+        &FbhlstringArgs {
+            value: Some(string_offset),
+        },
+    );
+
+    let rt = FbReturnValue::hlstring;
+    let rv: Option<WIPOffset<UnionWIPOffset>> = Some(hlstring.as_union_value());
 
     get_flatbuffer_result(&mut builder, rt, rv)
 }

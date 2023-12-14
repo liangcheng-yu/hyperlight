@@ -11,7 +11,7 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
 };
 use hyperlight_guest::{
     entrypoint::halt,
-    flatbuffer_utils::{get_flatbuffer_result_from_int, get_flatbuffer_result_from_void},
+    flatbuffer_utils::{get_flatbuffer_result_from_int, get_flatbuffer_result_from_void, get_flatbuffer_result_from_string},
     guest_functions::register_function,
     host_function_call::{call_host_function, get_host_value_return_as_int},
     DEFAULT_GUEST_STACK_SIZE,
@@ -80,6 +80,17 @@ pub extern "C" fn call_malloc(function_call: &FunctionCall) -> Vec<u8> {
 
 #[no_mangle]
 #[allow(improper_ctypes_definitions)]
+pub extern "C" fn echo(function_call: &FunctionCall) -> Vec<u8> {
+    if let Some(ParameterValue::String(ref value)) = function_call.parameters.get(0) {
+        get_flatbuffer_result_from_string(value)
+    } else {
+        Vec::new()
+    }
+}
+
+
+#[no_mangle]
+#[allow(improper_ctypes_definitions)]
 pub extern "C" fn spin(_: &FunctionCall) -> Vec<u8> {
     loop {
         // Keep the CPU 100% busy forever
@@ -130,6 +141,15 @@ pub extern "C" fn hyperlight_main() {
         spin as i64,
     );
     register_function(spin_def);
+
+    let echo_def = GuestFunctionDefinition::new(
+        "Echo".to_string(),
+        Vec::from(&[ParameterType::String]),
+        ReturnType::String,
+        echo as i64,
+    );
+    register_function(echo_def);
+
 }
 
 #[no_mangle]
