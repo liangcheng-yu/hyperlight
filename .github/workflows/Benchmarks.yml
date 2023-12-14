@@ -54,6 +54,7 @@ jobs:
           echo "Copying callbackguest binary for build config ${{ matrix.config }}"
           mkdir -p ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0/
           cp ./Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0/callbackguest.exe
+          mk dir -p ./src/tests/Guests/callbackguest/x64/${{ matrix.config }}
           cp ./Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe ./src/tests/Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe
           echo "Copying simpleguest and dummyguest binaries for build config ${{ matrix.config }}"
           cp ./rust_guests/simpleguest/target/x86_64-pc-windows-msvc/${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/simpleguest.exe
