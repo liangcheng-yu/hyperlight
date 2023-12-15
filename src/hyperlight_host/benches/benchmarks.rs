@@ -35,30 +35,31 @@ fn guest_call_benchmark(c: &mut Criterion) {
 
 fn sandbox_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("sandboxes");
+
+    let create_sandbox = || {
+        let sandbox: MultiUseSandbox = {
+            let path = simple_guest_path().unwrap();
+            let u_sbox =
+                UninitializedSandbox::new(GuestBinary::FilePath(path), None, None, None).unwrap();
+            u_sbox.evolve(Noop::default()).unwrap()
+        };
+        sandbox
+    };
+
     group.bench_function("create_sandbox", |b| {
-        b.iter(|| {
-            let _sandbox: MultiUseSandbox = {
-                let path = simple_guest_path().unwrap();
-                let u_sbox =
-                    UninitializedSandbox::new(GuestBinary::FilePath(path), None, None, None)
-                        .unwrap();
-                u_sbox.evolve(Noop::default())
-            }
-            .unwrap();
-        });
+        b.iter_with_large_drop(create_sandbox);
     });
+
+    group.bench_function("create_sandbox_and_drop", |b| {
+        b.iter(create_sandbox);
+    });
+
     group.bench_function("create_sandbox_and_call_context", |b| {
-        b.iter(|| {
-            let sandbox: MultiUseSandbox = {
-                let path = simple_guest_path().unwrap();
-                let u_sbox =
-                    UninitializedSandbox::new(GuestBinary::FilePath(path), None, None, None)
-                        .unwrap();
-                u_sbox.evolve(Noop::default())
-            }
-            .unwrap();
-            let _call_context = sandbox.new_call_context();
-        });
+        b.iter_with_large_drop(|| create_sandbox().new_call_context());
+    });
+
+    group.bench_function("create_sandbox_and_call_context_and_drop", |b| {
+        b.iter(|| create_sandbox().new_call_context());
     });
     group.finish();
 }
