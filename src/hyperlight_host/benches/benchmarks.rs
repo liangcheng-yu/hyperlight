@@ -38,7 +38,7 @@ fn sandbox_benchmark(c: &mut Criterion) {
 
     let create_sandbox = || {
         let sandbox: MultiUseSandbox = {
-            let path = simple_guest_path().unwrap();
+            let path = simple_guest_as_string().unwrap();
             let u_sbox =
                 UninitializedSandbox::new(GuestBinary::FilePath(path), None, None, None).unwrap();
             u_sbox.evolve(Noop::default()).unwrap()
