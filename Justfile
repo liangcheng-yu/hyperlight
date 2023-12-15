@@ -9,6 +9,7 @@ latest-release:= if os() == "windows" {"$(git tag -l --sort=v:refname | select -
 simpleguest_source := "src/tests/rust_guests/simpleguest/target/x86_64-pc-windows-msvc"
 dummyguest_source := "src/tests/rust_guests/dummyguest/target/x86_64-pc-windows-msvc"
 rust_guests_bin_dir := "src/tests/rust_guests/bin"
+
 set dotenv-load
 
 init:
@@ -33,9 +34,9 @@ build-rust-guests target=default-target:
     cd src/tests/rust_guests/dummyguest && cargo build --profile={{ if target == "debug" {"dev"} else { target } }}
 
 move-rust-guests target=default-target:
-    cp {{simpleguest_source}}/{{target}}/simpleguest.exe {{rust_guests_bin_dir}}/{{target}}/simpleguest.exe
-    cp {{dummyguest_source}}/{{target}}/dummyguest.exe {{rust_guests_bin_dir}}/{{target}}/dummyguest.exe
-
+    cp {{simpleguest_source}}/{{target}}/simpleguest.* {{rust_guests_bin_dir}}/{{target}}/
+    cp {{dummyguest_source}}/{{target}}/dummyguest.* {{rust_guests_bin_dir}}/{{target}}/
+    
 build-and-move-rust-guests:
     just build-rust-guests debug
     just move-rust-guests debug

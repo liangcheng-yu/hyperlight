@@ -49,9 +49,13 @@ pub extern "C" fn entrypoint(peb_address: i64, _seed: i64, ops: i32) -> i32 {
         let outb_ptr: fn(u16, u8) = core::mem::transmute((*peb_ptr).pOutb);
         OUTB_PTR = Some(outb_ptr as fn(u16, u8));
 
-        let outb_ptr_with_context: fn(*mut c_void, u16, u8) =
-            core::mem::transmute((*peb_ptr).pOutb);
-        OUTB_PTR_WITH_CONTEXT = Some(outb_ptr_with_context as fn(*mut c_void, u16, u8));
+        OUTB_PTR_WITH_CONTEXT = if (*peb_ptr).pOutbContext.is_null() {
+            None
+        } else {
+            let outb_ptr_with_context: fn(*mut c_void, u16, u8) =
+                core::mem::transmute((*peb_ptr).pOutb);
+            Some(outb_ptr_with_context as fn(*mut c_void, u16, u8))
+        };
 
         if (*peb_ptr).pOutb.is_null() {
             RUNNING_IN_HYPERLIGHT = true;

@@ -4,4 +4,7 @@
 
 # Ignore .exe files inside of debug and release
 bin/debug/*.exe
+bin/debug/*.pdb
+bin/debug/*.d
 bin/release/*.exe
+bin/release/*.d
