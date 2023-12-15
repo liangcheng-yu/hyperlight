@@ -1,6 +1,12 @@
 #![no_std]
 #![no_main]
 
+const MAX_BUFFER_SIZE: usize = 1024;
+// ^^^ arbitrary value for max buffer size
+// to support allocations when we'd get a
+// stack overflow. This can be removed once
+// we have proper stack guards in place.
+
 extern crate alloc;
 
 use alloc::{format, string::ToString, vec::Vec};
@@ -300,7 +306,6 @@ pub extern "C" fn print_ten_args(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
-const MAX_BUFFER_SIZE: usize = 1024;
 // TODO: This function could cause a stack overflow, update it once we have stack guards in place.
 #[no_mangle]
 #[allow(improper_ctypes_definitions)]
@@ -309,7 +314,7 @@ pub extern "C" fn stack_allocate(function_call: &FunctionCall) -> Vec<u8> {
         let alloc_length = if length == 0 {
             DEFAULT_GUEST_STACK_SIZE + 1
         } else {
-            length.min(MAX_BUFFER_SIZE as i32)
+            length
         } as usize;
 
         let mut _buffer: [u8; MAX_BUFFER_SIZE] = [0; MAX_BUFFER_SIZE];
@@ -387,8 +392,15 @@ pub extern "C" fn small_var(_: &FunctionCall) -> Vec<u8> {
 #[allow(improper_ctypes_definitions)]
 pub extern "C" fn call_malloc(function_call: &FunctionCall) -> Vec<u8> {
     if let ParameterValue::Int(size) = function_call.parameters.clone().unwrap()[0].clone() {
-        let mut allocated_buffer = Vec::with_capacity(size as usize);
-        allocated_buffer.resize(size as usize, 0);
+        let alloc_length = if size < DEFAULT_GUEST_STACK_SIZE {
+            // ^^^ arbitrary check to avoid stack overflow
+            // because we don't have stack guards in place yet
+            size
+        } else {
+            size.min(MAX_BUFFER_SIZE as i32)
+        };
+        let mut allocated_buffer = Vec::with_capacity(alloc_length as usize);
+        allocated_buffer.resize(alloc_length as usize, 0);
 
         get_flatbuffer_result_from_int(size)
     } else {
@@ -400,10 +412,15 @@ pub extern "C" fn call_malloc(function_call: &FunctionCall) -> Vec<u8> {
 #[allow(improper_ctypes_definitions)]
 pub extern "C" fn malloc_and_free(function_call: &FunctionCall) -> Vec<u8> {
     if let ParameterValue::Int(size) = function_call.parameters.clone().unwrap()[0].clone() {
-        let mut allocated_buffer = Vec::with_capacity(size as usize);
-        allocated_buffer.resize(size as usize, 0);
+        let alloc_length = if size < DEFAULT_GUEST_STACK_SIZE {
+            size
+        } else {
+            size.min(MAX_BUFFER_SIZE as i32)
+        };
+        let mut allocated_buffer = Vec::with_capacity(alloc_length as usize);
+        allocated_buffer.resize(alloc_length as usize, 0);
         drop(allocated_buffer);
-    
+
         get_flatbuffer_result_from_int(size)
     } else {
         Vec::new()

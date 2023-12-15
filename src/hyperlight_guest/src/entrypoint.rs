@@ -4,12 +4,17 @@ use crate::{
     OS_PAGE_SIZE, OUTB_PTR, OUTB_PTR_WITH_CONTEXT, P_PEB, RUNNING_IN_HYPERLIGHT,
 };
 
-use core::{arch::asm, ffi::c_void};
+use core::ffi::c_void;
 
 pub fn halt() {
     unsafe {
         if RUNNING_IN_HYPERLIGHT {
-            asm!("hlt");
+            let mut hlt_opcode: u8 = 0xF4;
+            let hlt_func: fn() = core::mem::transmute(&hlt_opcode);
+            core::ptr::write_volatile(&mut hlt_opcode as *mut u8, 0xF4);
+            // ^^^ write_volatile prevents the compiler
+            // from optimizing away access to the hlt_opcode.
+            hlt_func();
         }
     }
 }
