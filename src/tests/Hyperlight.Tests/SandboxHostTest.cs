@@ -887,7 +887,8 @@ namespace Hyperlight.Tests
             }
         }
 
-        [FactSkipIfHypervisorNotPresent]
+        // [FactSkipIfHypervisorNotPresent]
+        [Fact(Skip = "Skipping because of issue 1057")]
         public void Test_Stack_Overflow()
         {
             var guestBinaryFileName = "simpleguest.exe";
