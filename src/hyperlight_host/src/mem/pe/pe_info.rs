@@ -341,9 +341,9 @@ mod tests {
             // if pe_path.ends_with("simpleguest.exe") {
             //     let patch = patches[0];
             //     let expected_patch_offset = if cfg!(debug_assertions) {
-            //         0x53818
+            //         0x210A0
             //     } else {
-            //         0x2BC40
+            //         0xEEA0
             //     };
             //     // these values might have to
             //     // be modified if you change

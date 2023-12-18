@@ -177,7 +177,9 @@ typedef struct LogData
     int32_t Line;
 } LogData;
 
-uint8_t* printOutput(const char*);
+uint8_t* printOutputAsGuestFunction(const char*);
+
+int printOutput(const char*);
 
 void HyperlightMain();
 

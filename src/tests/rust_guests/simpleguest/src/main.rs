@@ -469,6 +469,14 @@ pub extern "C" fn hyperlight_main() {
     );
     register_function(simple_print_output_def);
 
+    let print_using_printf_def = GuestFunctionDefinition::new(
+        "PrintUsingPrintf".to_string(),
+        Vec::from(&[ParameterType::String]),
+        ReturnType::Int,
+        simple_print_output as i64, // alias to simple_print_output for now
+    );
+    register_function(print_using_printf_def);
+
     let stack_allocate_def = GuestFunctionDefinition::new(
         "StackAllocate".to_string(),
         Vec::from(&[ParameterType::Int]),

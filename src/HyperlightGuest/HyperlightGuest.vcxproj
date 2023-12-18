@@ -178,7 +178,7 @@
       <PreprocessorDefinitions>HAVE_MMAP=0;HAVE_MORECORE=1;MORECORE=hyperlightMoreCore;MORECORE_CANNOT_TRIM=1;MORECORE_CONTIGUOUS=1;USE_DL_PREFIX;NO_MALLOC_STATS;ABORT=dlmalloc_abort();HYPERLIGHT;HYPERLIGHT_PAGESIZE=4096;HYPERLIGHT_GRANULARITYSIZE=65536;__x86_64__;LACKS_SYS_TYPES_H;LACKS_UNISTD_H;__DEFINED_va_list;__DEFINED___isoc_va_list;hidden=;MMAP_CLEARS=0;__FLT_EVAL_METHOD__=1;__LITTLE_ENDIAN__;calloc=dlcalloc;free=dlfree;malloc=dlmalloc;realloc=dlrealloc;FLATCC_USE_GENERIC_ALIGNED_ALLOC=0;MALLOC_FAILURE_ACTION=dlmalloc_failure();%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UseStandardPreprocessor>
       </UseStandardPreprocessor>
-      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='debug|x64'">ProgramDatabase</DebugInformationFormat>
+      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='debug|x64'">OldStyle</DebugInformationFormat>
       <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='debug|x64'">Disabled</InlineFunctionExpansion>
       <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='debug|x64'" />
       <IgnoreStandardIncludePath Condition="'$(Configuration)|$(Platform)'=='debug|x64'">true</IgnoreStandardIncludePath>

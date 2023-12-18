@@ -193,10 +193,22 @@ mod tests {
     use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
     use hyperlight_testing::simple_guest_as_string;
 
-    // Test to ensure that many (1000) function calls can be made in a call context with a small stack (1K) and heap(14K).
+    // Tests to ensure that many (1000) function calls can be made in a call context with a small stack (1K) and heap(14K).
     // This test effectively ensures that the stack is being properly reset after each call and we are not leaking memory in the Guest.
     #[test]
     fn test_with_small_stack_and_heap() {
+        let cfg = Some(SandboxConfiguration::new(
+            0,
+            0,
+            0,
+            0,
+            0,
+            Some(1024),
+            Some(14 * 1024),
+            None,
+            None,
+        ));
+
         let sbox1: SingleUseSandbox = {
             let path = simple_guest_as_string().unwrap();
             let u_sbox = UninitializedSandbox::new(
@@ -229,6 +241,27 @@ mod tests {
                 "StackAllocate",
                 ReturnType::Int,
                 Some(vec![ParameterValue::Int(1)]),
+            )
+            .unwrap();
+        }
+
+        let sbox2: SingleUseSandbox = {
+            let path = simple_guest_as_string().unwrap();
+            let u_sbox =
+                UninitializedSandbox::new(GuestBinary::FilePath(path), cfg, None, None).unwrap();
+            u_sbox.evolve(Noop::default())
+        }
+        .unwrap();
+
+        let mut ctx = sbox2.new_call_context();
+
+        for i in 0..1000 {
+            ctx.call(
+                "PrintUsingPrintf",
+                ReturnType::Void,
+                Some(vec![ParameterValue::String(
+                    format!("Hello World {}\n", i).to_string(),
+                )]),
             )
             .unwrap();
         }

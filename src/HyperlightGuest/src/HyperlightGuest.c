@@ -789,7 +789,6 @@ void DispatchFunction()
         assert(NULL != buffer);
         memcpy(pPeb->outputdata.outputDataBuffer, result, size + 4);
         free(result);
-        free(buffer);
     }
 
     halt(); // This is a nop if we were just loaded into memory
@@ -1089,22 +1088,32 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int o
     return 0;
 }
 
-//
-// The following functions expose functionality provided by the Host.
-//
-
-/// The following host functions are defined in the Sandbox Host in Core/HyperLightExports.cs
-
 /// <summary>
-/// printOutput exposes functionaility to print a message to the console in the host
+/// printOutputAsGuestFunction exposes functionaility to print a message to the console in the host as a Guest Function.
 /// </summary>
 /// <param name="message">The message to be printed.</param>
 /// <returns>The length of the message printed.</returns>
 
-uint8_t *printOutput(const char *message)
+uint8_t* printOutputAsGuestFunction(const char* message)
 {
     return GetFlatBufferResultFromInt(native_symbol_thunk_returning_int("HostPrint", 1, message));
 }
+
+//
+// The following functions expose functionality provided by the Host.
+//
+
+/// <summary>
+/// printOutput exposes functionaility to print a message to the console in the host as a Guest Function.
+/// </summary>
+/// <param name="message">The message to be printed.</param>
+/// <returns>The length of the message printed.</returns>
+
+int printOutput(const char* message)
+{
+    return native_symbol_thunk_returning_int("HostPrint", 1, message);
+}
+
 
 /// <summary>
 /// This function is required/called by WAMR function os_thread_get_stack_boundary()
