@@ -66,7 +66,7 @@ uint8_t* callHostSpin()
     return GetFlatBufferResultFromVoid();
 }
 
-GENERATE_FUNCTION(printOutput, 1, hlstring);
+GENERATE_FUNCTION(printOutputAsGuestFunction, 1, hlstring);
 GENERATE_FUNCTION(guestFunction, 1, hlstring);
 GENERATE_FUNCTION(guestFunction1, 1, hlstring);
 GENERATE_FUNCTION(guestFunction2, 1, hlstring);
@@ -78,7 +78,7 @@ GENERATE_FUNCTION(callHostSpin, 0);
 
 void HyperlightMain()
 {
-    RegisterFunction(FUNCTIONDETAILS("PrintOutput", printOutput));
+    RegisterFunction(FUNCTIONDETAILS("PrintOutput", printOutputAsGuestFunction));
     RegisterFunction(FUNCTIONDETAILS("GuestMethod", guestFunction));
     RegisterFunction(FUNCTIONDETAILS("GuestMethod1", guestFunction1));
     RegisterFunction(FUNCTIONDETAILS("GuestMethod2", guestFunction2));
