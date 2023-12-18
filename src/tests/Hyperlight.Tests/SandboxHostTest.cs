@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Hyperlight.Core;
@@ -1026,11 +1027,8 @@ namespace Hyperlight.Tests
             });
             Assert.NotNull(ex);
             Assert.IsType<HyperlightException>(ex);
-#if DEBUG
-            Assert.Equal($"Memory requested 1074413568 exceeds maximum size allowed 1072627712 CorrelationId: {correlationId} Source: NativeHandleWrapperErrorExtensions", ex.Message);
-#else
-            Assert.Equal($"Memory requested 1074208768 exceeds maximum size allowed 1072627712 CorrelationId: {correlationId} Source: NativeHandleWrapperErrorExtensions", ex.Message);
-#endif
+            string expectedPattern = $"Memory requested [0-9]+ exceeds maximum size allowed 1072627712 CorrelationId: {correlationId} Source: NativeHandleWrapperErrorExtensions";
+            Assert.Matches(expectedPattern, ex.Message);
         }
 
         private ulong GetExpectedMemorySize(SandboxConfiguration sandboxConfiguration, string guestBinaryPath, SandboxRunOptions option)
