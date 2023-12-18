@@ -351,24 +351,19 @@ pub extern "C" fn buffer_overrun(function_call: &FunctionCall) -> Vec<u8> {
 #[allow(improper_ctypes_definitions)]
 pub extern "C" fn stack_overflow(function_call: &FunctionCall) -> Vec<u8> {
     if let ParameterValue::Int(i) = function_call.parameters.clone().unwrap()[0].clone() {
-        recursive_stack_overflow(i);
+        // TODO(#1057): remove MAX_BUFFER_SIZE restriction once we have stack guards in place
+        let _ = recursive_stack_overflow(i.min(MAX_BUFFER_SIZE as i32), [0u8; MAX_BUFFER_SIZE]);
         get_flatbuffer_result_from_int(i)
     } else {
         Vec::new()
     }
 }
 
-// The `#[inline(never)]` attribute is used here to discourage the Rust compiler from inlining
-// the function. Inlining could optimize away the recursive calls, preventing the stack overflow
-// from occurring. This attribute is crucial to maintain the structure of the recursive calls,
-// especially when the function is intended to test or demonstrate stack overflow behavior.
-#[inline(never)]
-fn recursive_stack_overflow(i: i32) {
-    let mut nums: [u8; 16384] = [0; 16384];
+fn recursive_stack_overflow(i: i32, mut nums: [u8; MAX_BUFFER_SIZE]) {
     nums[0] = i as u8;
 
     if i > 0 {
-        recursive_stack_overflow(i - 1);
+        recursive_stack_overflow(i - 1, nums);
     }
 }
 
