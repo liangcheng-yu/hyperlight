@@ -3,11 +3,14 @@ use super::handle::Handle;
 use super::hdl::Hdl;
 use super::hyperv_linux::get_handler_funcs;
 use crate::c_func::CFunc;
-use hyperlight_host::hypervisor::{
-    kvm::{self, KVMDriver},
-    Hypervisor,
+use hyperlight_host::{
+    hypervisor::{
+        kvm::{self, KVMDriver},
+        Hypervisor,
+    },
+    mem::ptr::{GuestPtr, RawPtr},
+    Result,
 };
-use hyperlight_host::Result;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -82,7 +85,8 @@ pub unsafe extern "C" fn kvm_set_rsp(
     CFunc::new("kvm_set_rsp", ctx)
         .and_then_mut(|ctx, _| {
             let driver = get_driver_mut(ctx, driver_hdl)?;
-            driver.reset_rsp(rsp_val).map(|_| Handle::new_empty())
+            let rsp = GuestPtr::try_from(RawPtr::from(rsp_val))?;
+            driver.reset_rsp(rsp).map(|_| Handle::new_empty())
         })
         .ok_or_err_hdl()
 }

@@ -112,15 +112,14 @@ impl<'a> HypervisorWrapper<'a> {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn orig_rsp(&self) -> Result<GuestPtr> {
         let hv = self.hv_opt.as_ref().ok_or_else(NoHypervisorFound)?.lock()?;
-        let orig_rsp = hv.orig_rsp()?;
-        GuestPtr::try_from(RawPtr::from(orig_rsp))
+        hv.orig_rsp()
     }
 
     /// Reset the stack pointer
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn reset_rsp(&mut self, new_rsp: GuestPtr) -> Result<()> {
         let mut hv = self.hv_opt.as_mut().ok_or_else(NoHypervisorFound)?.lock()?;
-        hv.reset_rsp(new_rsp.absolute()?)
+        hv.reset_rsp(new_rsp)
     }
 
     /// Dispatch a call from the host to the guest
@@ -158,7 +157,7 @@ impl<'a> UninitializedSandbox<'a> {
         let base_ptr = GuestPtr::try_from(Offset::from(0))?;
         let pml4_ptr = {
             let pml4_offset_u64 = u64::try_from(SandboxMemoryLayout::PML4_OFFSET)?;
-            base_ptr.clone() + Offset::from(pml4_offset_u64)
+            base_ptr + Offset::from(pml4_offset_u64)
         };
         let entrypoint_ptr = {
             let entrypoint_total_offset = mgr.load_addr.clone() + mgr.entrypoint_offset;

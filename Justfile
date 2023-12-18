@@ -4,7 +4,9 @@ set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
 set-trace-env-vars := if os() == "windows" { "$env:RUST_LOG='none,hyperlight_host=trace';" } else { "RUST_LOG=none,hyperlight_host=trace" }
 default-target:= "debug"
-latest-release:= if os() == "windows" {"$(git tag -l --sort=v:refname | select -last 1)"} else {`git tag -l --sort=v:refname | tail -n 1`} # most recent github release that is not "latest"
+# most recent github release that is not "latest". Note that backticks don't work correctly on windows so we use powershell command substitution $() instead
+latest-release:= if os() == "windows" {"$(git tag -l --sort=v:refname | select -last 1)"} else {`git tag -l --sort=v:refname | tail -n 1`}
+
 set dotenv-load
 
 init:
@@ -125,6 +127,6 @@ bench target=default-target:
 # warning, can overwrite previous local benchmarks, so run this before running benchmarks
 bench-download os hypervisor tag=latest-release:
     gh release download {{ tag }} -D ./target/ -p benchmarks_{{ os }}_{{ hypervisor }}.tar.gz
-    mkdir -p target/criterion
+    mkdir -p target/criterion {{ if os() == "windows" { "-Force" } else { "" } }}
     tar -zxvf target/benchmarks_{{ os }}_{{ hypervisor }}.tar.gz -C target/criterion/ --strip-components=1
     

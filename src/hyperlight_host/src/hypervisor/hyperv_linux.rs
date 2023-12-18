@@ -133,7 +133,7 @@ impl HypervLinuxDriver {
         vm_fd.map_user_memory(mem_region)?;
         let registers = {
             let mut hm = HashMap::new();
-            Self::add_registers(&mut vcpu_fd, &mut hm, addrs, rsp_ptr.clone(), pml4_ptr)?;
+            Self::add_registers(&mut vcpu_fd, &mut hm, addrs, rsp_ptr, pml4_ptr)?;
             hm
         };
         Ok(Self {
@@ -423,7 +423,10 @@ impl Hypervisor for HypervLinuxDriver {
         // we need to reset the stack pointer once execution is complete
         // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it
         // so here we get the current RSP value so we can reset it later
-        let rsp = self.get_rsp()?;
+        let rsp = {
+            let abs = self.get_rsp()?;
+            GuestPtr::try_from(RawPtr::from(abs))
+        }?;
         self.execute_until_halt(
             outb_handle_fn,
             mem_access_fn,
@@ -435,13 +438,14 @@ impl Hypervisor for HypervLinuxDriver {
     }
 
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    fn reset_rsp(&mut self, rsp: u64) -> Result<()> {
-        self.update_register_u64(hv_register_name_HV_X64_REGISTER_RSP, rsp)
+    fn reset_rsp(&mut self, rsp: GuestPtr) -> Result<()> {
+        let abs = rsp.absolute()?;
+        self.update_register_u64(hv_register_name_HV_X64_REGISTER_RSP, abs)
     }
 
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    fn orig_rsp(&self) -> Result<u64> {
-        self.orig_rsp.absolute()
+    fn orig_rsp(&self) -> Result<GuestPtr> {
+        Ok(self.orig_rsp)
     }
 
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]

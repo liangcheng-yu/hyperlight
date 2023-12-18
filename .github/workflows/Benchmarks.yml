@@ -94,6 +94,10 @@ jobs:
         if: runner.os == 'Linux' && matrix.hypervisor == 'kvm'
         run: sudo apt install gh -y
 
+      - name: Fetch tags
+        run: |
+          git fetch --tags origin
+
       - name: Download benchmarks from most recent release
         run: |
           just bench-download ${{ runner.os }} ${{ matrix.hypervisor }}
