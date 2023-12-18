@@ -203,7 +203,7 @@ mod tests {
             0,
             0,
             0,
-            Some(1024),
+            Some(14 * 1024),
             Some(14 * 1024),
             None,
             None,
@@ -213,19 +213,7 @@ mod tests {
             let path = simple_guest_as_string().unwrap();
             let u_sbox = UninitializedSandbox::new(
                 GuestBinary::FilePath(path),
-                Some(SandboxConfiguration::new(
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    Some(14 * 1024),
-                    // test fails when not running in process
-                    // w/ anything smaller than this for the stack.
-                    Some(14 * 1024),
-                    None,
-                    None,
-                )),
+                cfg,
                 None,
                 None,
             )
