@@ -322,7 +322,7 @@ mod tests {
                 let expected_patch_offset = if cfg!(debug_assertions) {
                     0x210A0
                 } else {
-                    0xEE98
+                    0xEEA0
                 };
                 assert_eq!(
                     patch.offset, expected_patch_offset,
