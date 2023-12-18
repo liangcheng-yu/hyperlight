@@ -789,7 +789,6 @@ void DispatchFunction()
         assert(NULL != buffer);
         memcpy(pPeb->outputdata.outputDataBuffer, result, size + 4);
         free(result);
-        free(buffer);
     }
 
     halt(); // This is a nop if we were just loaded into memory
