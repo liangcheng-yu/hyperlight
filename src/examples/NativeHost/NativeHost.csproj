@@ -26,7 +26,7 @@
       <Link>callbackguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="../../tests/Guests/simpleguest/x64/$(Configuration.toLower())/simpleguest.exe">
+    <Content Include="../../tests/rust_guests/bin/$(Configuration.toLower())/simpleguest.exe">
       <Link>simpleguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

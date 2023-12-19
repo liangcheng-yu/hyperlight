@@ -133,7 +133,7 @@ namespace Hyperlight.Hypervisors
         {
             var v2 = new WindowsHypervisorPlatform.MyUInt128[registerNames.Length];
             WindowsHypervisorPlatform.WHvGetVirtualProcessorRegisters(hPartition, 0, registerNames, (uint)registerNames.Length, v2);
-            StringBuilder context = new($"Did not recieve a halt from Hypervisor as expected - Received {exitContext.ExitReason}");
+            StringBuilder context = new($"Did not receive a halt from Hypervisor as expected - Received {exitContext.ExitReason}");
             for (var i = 0; i < v2.Length; i++)
             {
 #pragma warning disable CA1305 // Specify IFormatProvider

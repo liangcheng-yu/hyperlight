@@ -98,9 +98,8 @@ pub(crate) fn dispatch_function() {
 
     unsafe {
         let output_data_buffer = (*peb_ptr).outputdata.outputDataBuffer as *mut u8;
-        let size_with_prefix = result_vec.len();
 
-        copy_nonoverlapping(result_vec.as_ptr(), output_data_buffer, size_with_prefix);
+        copy_nonoverlapping(result_vec.as_ptr(), output_data_buffer, result_vec.len());
     }
     halt();
 }

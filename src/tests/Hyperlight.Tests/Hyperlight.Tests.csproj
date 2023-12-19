@@ -24,16 +24,16 @@
     <Content Include="../../../target/$(Configuration.toLower())/libhyperlight_capi.d" Condition=" ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'  == 'true' And  '$(RuntimeIdentifier)'=='') or '$(RuntimeIdentifier)'=='linux-x64'  ">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\..\tests\Guests\simpleguest\x64\$(Configuration.toLower())\simpleguest.exe">
+    <Content Include="..\..\tests\rust_guests\bin\$(Configuration.toLower())\simpleguest.exe">
       <Link>simpleguest.exe</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\tests\rust_guests\bin\$(Configuration.toLower())\dummyguest.exe">
+      <Link>dummyguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="..\..\tests\Guests\callbackguest\x64\$(Configuration.toLower())\callbackguest.exe">
       <Link>callbackguest.exe</Link>
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\..\tests\Guests\dummyguest\x64\$(Configuration.toLower())\dummyguest.exe">
-      <Link>dummyguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />

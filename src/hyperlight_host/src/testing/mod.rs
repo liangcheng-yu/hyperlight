@@ -1,39 +1,22 @@
 use crate::mem::pe::pe_info::PEInfo;
 use crate::new_error;
 use crate::Result;
-use hyperlight_testing::{callback_guest_buf, simple_guest_buf, test_bin_base};
+use hyperlight_testing::{callback_guest_as_pathbuf, rust_guest_as_pathbuf};
 use std::fs;
 use std::path::PathBuf;
 pub(crate) mod log_values;
 pub(crate) mod logger;
 pub(crate) mod tracing_subscriber;
 
-pub(crate) fn dummy_guest_buf() -> PathBuf {
-    // $REPO_ROOT/src/tests/Hyperlight.Tests/bin/Debug/net6.0/dummyguest.exe"
-    let mut base = test_bin_base();
-    base.push("dummyguest.exe");
-    base
-}
-
-/// Get a fully qualified OS-specific path to the dummyguest.exe
-/// binary. Convenience method for calling `dummy_guest_buf`, then converting
-/// the result into an owned `String`
-pub(crate) fn dummy_guest_path() -> Result<String> {
-    let buf = dummy_guest_buf();
-    buf.to_str()
-        .map(|s| s.to_string())
-        .ok_or_else(|| new_error!("couldn't convert dummy guest PathBuf to string"))
-}
-
 /// Get a `PEInfo` representing `simpleguest.exe`
 pub(crate) fn simple_guest_pe_info() -> Result<PEInfo> {
-    let bytes = bytes_for_path(simple_guest_buf())?;
+    let bytes = bytes_for_path(rust_guest_as_pathbuf("simpleguest"))?;
     PEInfo::new(bytes.as_slice())
 }
 
 /// Get a `PEInfo` representing `callbackguest.exe`
 pub(crate) fn callback_guest_pe_info() -> Result<PEInfo> {
-    let bytes = bytes_for_path(callback_guest_buf())?;
+    let bytes = bytes_for_path(callback_guest_as_pathbuf())?;
     PEInfo::new(bytes.as_slice())
 }
 

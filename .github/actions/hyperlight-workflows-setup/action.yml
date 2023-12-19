@@ -20,6 +20,10 @@ runs:
       if: ${{ (runner.os == 'Linux') }}  
       run: just cargo-login-ci
       shell: bash
+    - name: rustup nightly
+      if: ${{ (runner.os == 'Linux') }}  
+      run: rustup install nightly
+      shell: bash    
 
       ###
       ### Windows setup
@@ -28,3 +32,7 @@ runs:
       if: ${{ (runner.os == 'Windows') }}
       run: just cargo-login-ci-windows
       shell: pwsh
+    - name: rustup nightly
+      if: ${{ (runner.os == 'Windows') }}  
+      run: rustup install nightly
+      shell: pwsh      

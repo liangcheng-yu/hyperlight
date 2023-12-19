@@ -5,13 +5,13 @@ use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
 use hyperlight_host::sandbox_state::transition::Noop;
 use hyperlight_host::Result;
 use hyperlight_host::{new_error, GuestBinary};
-use hyperlight_testing::simple_guest_path;
+use hyperlight_testing::simple_guest_as_string;
 
 fn main() {
     // create a new `MultiUseSandbox` configured to run the `simpleguest.exe`
     // test guest binary
     let sbox1: MultiUseSandbox = {
-        let path = simple_guest_path().unwrap();
+        let path = simple_guest_as_string().unwrap();
         let u_sbox =
             UninitializedSandbox::new(GuestBinary::FilePath(path), None, None, None).unwrap();
         u_sbox.evolve(Noop::default())

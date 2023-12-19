@@ -24,7 +24,7 @@ namespace Hyperlight.Wrapper
 
             if (new_ctx == IntPtr.Zero)
             {
-                HyperlightException.LogAndThrowException<HyperlightException>("Invalid, empty context recieved from context_new call", GetType().Name);
+                HyperlightException.LogAndThrowException<HyperlightException>("Invalid, empty context received from context_new call", GetType().Name);
             }
 
             this.ctx = new_ctx;

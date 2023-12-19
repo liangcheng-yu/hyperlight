@@ -4,12 +4,17 @@ use crate::{
     OS_PAGE_SIZE, OUTB_PTR, OUTB_PTR_WITH_CONTEXT, P_PEB, RUNNING_IN_HYPERLIGHT,
 };
 
-use core::{arch::asm, ffi::c_void};
+use core::ffi::c_void;
 
 pub fn halt() {
     unsafe {
         if RUNNING_IN_HYPERLIGHT {
-            asm!("hlt");
+            let mut hlt_opcode: u8 = 0xF4;
+            let hlt_func: fn() = core::mem::transmute(&hlt_opcode);
+            core::ptr::write_volatile(&mut hlt_opcode as *mut u8, 0xF4);
+            // ^^^ write_volatile prevents the compiler
+            // from optimizing away access to the hlt_opcode.
+            hlt_func();
         }
     }
 }
@@ -49,9 +54,13 @@ pub extern "C" fn entrypoint(peb_address: i64, _seed: i64, ops: i32) -> i32 {
         let outb_ptr: fn(u16, u8) = core::mem::transmute((*peb_ptr).pOutb);
         OUTB_PTR = Some(outb_ptr as fn(u16, u8));
 
-        let outb_ptr_with_context: fn(*mut c_void, u16, u8) =
-            core::mem::transmute((*peb_ptr).pOutb);
-        OUTB_PTR_WITH_CONTEXT = Some(outb_ptr_with_context as fn(*mut c_void, u16, u8));
+        OUTB_PTR_WITH_CONTEXT = if (*peb_ptr).pOutbContext.is_null() {
+            None
+        } else {
+            let outb_ptr_with_context: fn(*mut c_void, u16, u8) =
+                core::mem::transmute((*peb_ptr).pOutb);
+            Some(outb_ptr_with_context as fn(*mut c_void, u16, u8))
+        };
 
         if (*peb_ptr).pOutb.is_null() {
             RUNNING_IN_HYPERLIGHT = true;

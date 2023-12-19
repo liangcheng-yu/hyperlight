@@ -11,17 +11,11 @@ env:
   
 jobs:
   #####
-  # start build-guest-binaries
+  # Start build-guest-binaries
   #
-  # building simpleguest.exe and callbackguest.exe are the guests
-  # in question. both need to be PE files, which currently requires
-  # we build on windows using the MSVC toolchain
+  # Builds dummyguest.exe, simpleguest.exe, and callbackguest.exe.
   #
-  # https://github.com/deislabs/hyperlight/issues/56 tracks the work
-  # needed to allow us to build these PE files with clang, which would
-  # help enable us to build on Linux.
-  #
-  # this job requires dep_build_host_library.yml, and that dependency
+  # This job requires dep_build_host_library.yml, and that dependency
   # should be expressed in the dependent workflow.
   #####
   build-guest-binaries:
@@ -45,6 +39,10 @@ jobs:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
+    - uses: ./.github/actions/hyperlight-workflows-setup
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PAT: ${{ secrets.ADO_CARGO_RO_PAT }}    
     # this is a workaround for the issue described at https://github.com/dotnet/sourcelink/issues/675 , it supresses the warning about the sourcelink package not being found.
     - name: Remove Submodule
       run: git rm munit
@@ -80,6 +78,10 @@ jobs:
     - name: Set up WHP_SHOULD_BE_PRESENT Env Var
       run: |
         echo "WHP_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
+    - name: Build Rust Guests
+      run: |
+        just build-rust-guests ${{ matrix.config }}
+        just move-rust-guests ${{ matrix.config }}
     - name: Build Solution
       run: msbuild -m hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
       shell: pwsh
@@ -87,4 +89,6 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: guest-binaries-${{ matrix.config }}
-        path: src\tests\Guests\*\${{ matrix.platform }}\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']
+        path: |
+          src\tests\Guests\*\${{ matrix.platform }}\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']
+          src\tests\rust_guests\*\target\x86_64-pc-windows-msvc\${{ matrix.config }}\*['.exe', '.pdb', !'.recipe']

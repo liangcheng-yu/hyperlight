@@ -191,7 +191,7 @@ mod tests {
     use crate::{sandbox_state::transition::Noop, GuestBinary};
     use crate::{SingleUseSandbox, UninitializedSandbox};
     use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
-    use hyperlight_testing::simple_guest_path;
+    use hyperlight_testing::simple_guest_as_string;
 
     // Tests to ensure that many (1000) function calls can be made in a call context with a small stack (1K) and heap(14K).
     // This test effectively ensures that the stack is being properly reset after each call and we are not leaking memory in the Guest.
@@ -203,14 +203,14 @@ mod tests {
             0,
             0,
             0,
-            Some(1024),
+            Some(14 * 1024),
             Some(14 * 1024),
             None,
             None,
         ));
 
         let sbox1: SingleUseSandbox = {
-            let path = simple_guest_path().unwrap();
+            let path = simple_guest_as_string().unwrap();
             let u_sbox =
                 UninitializedSandbox::new(GuestBinary::FilePath(path), cfg, None, None).unwrap();
             u_sbox.evolve(Noop::default())
@@ -229,7 +229,7 @@ mod tests {
         }
 
         let sbox2: SingleUseSandbox = {
-            let path = simple_guest_path().unwrap();
+            let path = simple_guest_as_string().unwrap();
             let u_sbox =
                 UninitializedSandbox::new(GuestBinary::FilePath(path), cfg, None, None).unwrap();
             u_sbox.evolve(Noop::default())

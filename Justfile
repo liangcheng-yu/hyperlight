@@ -6,6 +6,9 @@ set-trace-env-vars := if os() == "windows" { "$env:RUST_LOG='none,hyperlight_hos
 default-target:= "debug"
 # most recent github release that is not "latest". Note that backticks don't work correctly on windows so we use powershell command substitution $() instead
 latest-release:= if os() == "windows" {"$(git tag -l --sort=v:refname | select -last 1)"} else {`git tag -l --sort=v:refname | tail -n 1`}
+simpleguest_source := "src/tests/rust_guests/simpleguest/target/x86_64-pc-windows-msvc"
+dummyguest_source := "src/tests/rust_guests/dummyguest/target/x86_64-pc-windows-msvc"
+rust_guests_bin_dir := "src/tests/rust_guests/bin"
 
 set dotenv-load
 
@@ -23,6 +26,22 @@ update-dlmalloc:
     curl -Lv -o src/HyperlightGuest/third_party/dlmalloc/malloc.h https://gee.cs.oswego.edu/pub/misc/malloc.h
     curl -Lv -o src/HyperlightGuest/third_party/dlmalloc/malloc.c https://gee.cs.oswego.edu/pub/misc/malloc.c
     cd src/HyperlightGuest/third_party/dlmalloc && git apply --whitespace=nowarn --verbose malloc.patch || cd ../../../..
+
+build-rust-guests target=default-target:
+    # simpleguest needs to be built with nightly
+    cd src/tests/rust_guests/simpleguest && cargo build --profile={{ if target == "debug" {"dev"} else { target } }}
+    # dummyguest can be built with the default toolchain
+    cd src/tests/rust_guests/dummyguest && cargo build --profile={{ if target == "debug" {"dev"} else { target } }}
+
+move-rust-guests target=default-target:
+    cp {{simpleguest_source}}/{{target}}/simpleguest.* {{rust_guests_bin_dir}}/{{target}}/
+    cp {{dummyguest_source}}/{{target}}/dummyguest.* {{rust_guests_bin_dir}}/{{target}}/
+    
+build-and-move-rust-guests:
+    just build-rust-guests debug
+    just move-rust-guests debug
+    just build-rust-guests release
+    just move-rust-guests release    
 
 build-dotnet:
     cd src/Hyperlight && dotnet build || cd ../../

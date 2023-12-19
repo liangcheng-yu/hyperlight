@@ -165,12 +165,12 @@ mod tests {
     use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
         ParameterValue, ReturnType, ReturnValue,
     };
-    use hyperlight_testing::simple_guest_path;
+    use hyperlight_testing::simple_guest_as_string;
     use std::sync::mpsc::sync_channel;
     use std::thread::{self, JoinHandle};
 
     fn new_uninit<'a>() -> Result<UninitializedSandbox<'a>> {
-        let path = simple_guest_path().map_err(|e| {
+        let path = simple_guest_as_string().map_err(|e| {
             HyperlightError::Error(format!("failed to get simple guest path ({e:?})"))
         })?;
         UninitializedSandbox::new(GuestBinary::FilePath(path), None, None, None)
