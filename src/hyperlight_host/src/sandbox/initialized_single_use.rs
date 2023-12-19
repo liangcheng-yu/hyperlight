@@ -211,13 +211,8 @@ mod tests {
 
         let sbox1: SingleUseSandbox = {
             let path = simple_guest_as_string().unwrap();
-            let u_sbox = UninitializedSandbox::new(
-                GuestBinary::FilePath(path),
-                cfg,
-                None,
-                None,
-            )
-            .unwrap();
+            let u_sbox =
+                UninitializedSandbox::new(GuestBinary::FilePath(path), cfg, None, None).unwrap();
             u_sbox.evolve(Noop::default())
         }
         .unwrap();
