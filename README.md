@@ -256,6 +256,12 @@ This repo includes a script to download the latest versions of these binaries.
 
 Make sure you have a recent version of [GitHub Command line](https://github.com/cli/cli) installed (the best way to ensure you get a recent version is to dowload it directly from the repo). [Follow these instructions to install on Mariner](https://github.com/cli/cli/blob/trunk/docs/install_linux.md#fedora-centos-red-hat-enterprise-linux-dnf).
 
+Then run this script:
+
+```bash
+./dev/test-guests.sh
+```
+
 ## Debugging The Hyperlight Guest Applications or GuestLibrary
 
 To debug the guest applications or library the Sandbox instance needs to be created with the option flag `SandboxRunOptions.RunFromGuestBinary`.
