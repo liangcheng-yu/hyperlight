@@ -9,6 +9,7 @@ latest-release:= if os() == "windows" {"$(git tag -l --sort=v:refname | select -
 simpleguest_source := "src/tests/rust_guests/simpleguest/target/x86_64-pc-windows-msvc"
 dummyguest_source := "src/tests/rust_guests/dummyguest/target/x86_64-pc-windows-msvc"
 rust_guests_bin_dir := "src/tests/rust_guests/bin"
+set-env-command := if os() == "windows" { "$env:" } else { "export " }
 
 set dotenv-load
 
@@ -115,15 +116,19 @@ gen-all-fbs-c-code:
 
 gen-all-fbs: gen-all-fbs-rust-code gen-all-fbs-c-code gen-all-fbs-csharp-code
 
-cargo-login:
+set-cargo-registry-env:
+    {{ set-env-command }}CARGO_REGISTRIES_HYPERLIGHT_PACKAGES_INDEX="sparse+https://pkgs.dev.azure.com/AzureContainerUpstream/hyperlight/_packaging/hyperlight_packages_test/Cargo/index/"
+    {{ set-env-command }}CARGO_REGISTRIES_HYPERLIGHT_REDIST_INDEX="sparse+https://pkgs.dev.azure.com/AzureContainerUpstream/hyperlight/_packaging/hyperlight_redist/Cargo/index/"
+
+cargo-login: set-cargo-registry-env
     az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo login --registry hyperlight_redist
     az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo login --registry hyperlight_packages
 
-cargo-login-ci:
+cargo-login-ci: set-cargo-registry-env
     echo Basic $(echo -n PAT:$PAT | base64) | cargo login --registry hyperlight_redist
     echo Basic $(echo -n PAT:$PAT | base64) | cargo login --registry hyperlight_packages
 
-cargo-login-ci-windows:
+cargo-login-ci-windows: set-cargo-registry-env
     "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo login --registry hyperlight_redist
     "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo login --registry hyperlight_packages
 

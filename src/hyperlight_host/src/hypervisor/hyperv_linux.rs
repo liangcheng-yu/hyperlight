@@ -5,7 +5,7 @@ use super::{
 };
 
 use crate::{
-    error::HyperlightError::HypervisorError, hypervisor::hypervisor_mem::HypervisorAddrs,
+    error::HyperlightError::MSHVError, hypervisor::hypervisor_mem::HypervisorAddrs,
     mem::ptr::GuestPtr, new_error,
 };
 use crate::{hypervisor::HyperlightExit, mem::ptr::RawPtr};
@@ -44,7 +44,7 @@ pub fn is_hypervisor_present() -> Result<bool> {
             }
         }
         Err(e) => {
-            log_then_return!(HypervisorError(e));
+            log_then_return!(MSHVError(e));
         }
     }
 }

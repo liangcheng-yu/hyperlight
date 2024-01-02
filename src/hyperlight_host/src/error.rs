@@ -103,10 +103,6 @@ pub enum HyperlightError {
     #[error("HostFunction {0} was not found")]
     /// A Host function was called by the guest but it was not registered.
     HostFunctionNotFound(String),
-    #[error("HypervisorError Error {0:?}")]
-    #[cfg(target_os = "linux")]
-    /// HypervisorError Error Occurred
-    HypervisorError(#[from] vmm_sys_util::errno::Error),
     #[error("Failed To Convert Size to usize")]
     /// Failed to convert to Integer
     IntConversionFailure(#[from] TryFromIntError),
@@ -125,6 +121,10 @@ pub enum HyperlightError {
     #[error("Unable to lock resource")]
     /// An attempt to get a lock from a Mutex failed.
     LockAttemptFailed(String),
+    #[error("KVM Error {0:?}")]
+    #[cfg(target_os = "linux")]
+    /// Error occurred in KVM Operation
+    KVMError(#[from] kvm_ioctls::Error),
     #[error("Memory Allocation Failed with OS Error {0:?}.")]
     /// Memory Allocation Failed.
     MemoryAllocationFailed(Option<i32>),
@@ -137,6 +137,10 @@ pub enum HyperlightError {
     #[error("mmap failed with os error {0:?}")]
     /// mmap Failed.
     MmapFailed(Option<i32>),
+    #[error("mshv Error {0:?}")]
+    #[cfg(target_os = "linux")]
+    /// mshv Error Occurred
+    MSHVError(#[from] vmm_sys_util::errno::Error),
     #[error("No Hypervisor was found for Sandbox")]
     /// No Hypervisor was found for Sandbox.
     NoHypervisorFound(),
