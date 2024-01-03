@@ -149,6 +149,7 @@ jobs:
           just bench-download ${{ runner.os }} ${{ matrix.hypervisor }} latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
         if: ${{ matrix.config == 'release' }}
       - name: Run benchmarks
         run: |
