@@ -22,11 +22,11 @@ jobs:
     steps:
     - name: Set Debug Configuration
       if: ${{ github.ref=='refs/heads/dev' }}
-      run: echo "CONFIG=Debug" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
+      run: echo "CONFIG=debug" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
       shell: pwsh
     - name: Set Release Configuration
       if: ${{ contains(github.ref, 'refs/heads/release/') }}
-      run: echo "CONFIG=Release" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
+      run: echo "CONFIG=release" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
       shell: pwsh
     - uses: actions/checkout@v4
       with:
@@ -64,22 +64,22 @@ jobs:
       run:  echo "HYPERLIGHT_VERSION=$(minver -ve -tv)" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
       shell: pwsh
     - name: Ensure path exists for debug build
-      if: ${{ env.CONFIG }} == "Debug"
+      if: ${{ env.CONFIG }} == "debug"
       run: mkdir -p target\debug
       shell: pwsh
     - name: Ensure path exists for release build
-      if: ${{ env.CONFIG }} == "Release"
+      if: ${{ env.CONFIG }} == "release"
       run: mkdir -p target\release
       shell: pwsh
     - name: Download Debug DLL
       uses: actions/download-artifact@v3
-      if: ${{ env.CONFIG }} == "Debug"
+      if: ${{ env.CONFIG }} == "debug"
       with:
         name: debug_assets
         path: target/debug/
     - name: Download Release DLL
       uses: actions/download-artifact@v3
-      if: ${{ env.CONFIG }} == "Release"
+      if: ${{ env.CONFIG }} == "release"
       with:
         name: release_assets
         path: target/release/
@@ -135,12 +135,12 @@ jobs:
         name: hyperlight_capi.h
     - name: Download artifacts (debug)
       uses: actions/download-artifact@v3
-      if: ${{ env.CONFIG }} == "Debug"
+      if: ${{ env.CONFIG }} == "debug"
       with:
         name: debug_assets
     - name: Download artifacts (release)
       uses: actions/download-artifact@v3
-      if: ${{ env.CONFIG }} == "Release"
+      if: ${{ env.CONFIG }} == "release"
       with:
         name: release_assets
     # Publish the native guests so that its possible to use Hyperlight without building it.
@@ -190,10 +190,10 @@ jobs:
           libhyperlight_capi.d
           hyperlight_capi.dll
           hyperlight_capi.pdb
-          src/Hyperlight/bin/x64/Debug/Deislabs.HyperLight.*.nupkg
-          src/Hyperlight/bin/x64/Debug/Deislabs.HyperLight.*.snupkg
-          src/HyperlightDependencies/bin/x64/Debug/Deislabs.HyperlightDependencies.*.nupkg
-          src/HyperlightDependencies/bin/x64/Debug/Deislabs.HyperlightDependencies.*.snupkg
+          src/Hyperlight/bin/x64/debug/Deislabs.HyperLight.*.nupkg
+          src/Hyperlight/bin/x64/debug/Deislabs.HyperLight.*.snupkg
+          src/HyperlightDependencies/bin/x64/debug/Deislabs.HyperlightDependencies.*.nupkg
+          src/HyperlightDependencies/bin/x64/debug/Deislabs.HyperlightDependencies.*.snupkg
   build-rust-ubuntu:
     # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
     if:  ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }} 
