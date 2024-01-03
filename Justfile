@@ -5,7 +5,7 @@ bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
 set-trace-env-vars := if os() == "windows" { "$env:RUST_LOG='none,hyperlight_host=trace';" } else { "RUST_LOG=none,hyperlight_host=trace" }
 default-target:= "debug"
 # most recent github release that is not "latest". Note that backticks don't work correctly on windows so we use powershell command substitution $() instead
-latest-release:= if os() == "windows" {"$(git tag -l --sort=v:refname | select -last 1)"} else {`git tag -l --sort=v:refname | tail -n 1`}
+latest-release:= if os() == "windows" {"$(git tag -l --sort=v:refname | select -last 2 | select -first 1)"} else {`git tag -l --sort=v:refname | tail -n 2 | head -n 1`}
 simpleguest_source := "src/tests/rust_guests/simpleguest/target/x86_64-pc-windows-msvc"
 dummyguest_source := "src/tests/rust_guests/dummyguest/target/x86_64-pc-windows-msvc"
 rust_guests_bin_dir := "src/tests/rust_guests/bin"
