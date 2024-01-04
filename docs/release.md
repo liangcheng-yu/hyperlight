@@ -17,31 +17,44 @@ Create a PR with these changes and merge them into the dev branch.
 When the `dev` branch has reached a state in which you want to release a new Cargo version, you should create a tag. Although you can do this from the GitHub releases page, we currently recommend doing the tag from the command line (we will revisit this in the future). Do so with the following commands:
 
 ```bash
-$ git tag -a v0.3.4 -m"A brief description of the release"
-$ git push origin v0.3.4 # if you've named your git remote for the deislabs/hyperlight repo differently, change 'origin' to your remote name
+git tag -a v0.4.0 -m"A brief description of the release"
+git push origin v0.4.0 # if you've named your git remote for the deislabs/hyperlight repo differently, change 'origin' to your remote name
 ```
 
->Note: we'll use `v0.3.4` as the version for the above and all subsequent instructions. You should replace this with the version you're releasing. Make sure your version follows [SemVer](https://semver.org) conventions as closely as possible, and is prefixed with a `v` character
+>Note: we'll use `v0.4.0` as the version for the above and all subsequent instructions. You should replace this with the version you're releasing. Make sure your version follows [SemVer](https://semver.org) conventions as closely as possible, and is prefixed with a `v` character. *In particular do not use a patch version unless you are patching an issue in a release branch, releases from dev should always be minor or major versions* (see [here](https://github.com/deislabs/hyperlight/issues/1072) for reasons why).
+
+If you are creating a patch release see the instructions [here](#patching-a-release).
 
 ## Create a release branch (no manual steps)
 
-After you push your new tag in the previous section, the ["Create a Release Branch"](https://github.com/deislabs/hyperlight/actions/workflows/CreateReleaseBranch.yml) CI job will automatically run. When this job completes, a new `release/v0.3.4` branch will be automatically created for you.
+After you push your new tag in the previous section, the ["Create a Release Branch"](https://github.com/deislabs/hyperlight/actions/workflows/CreateReleaseBranch.yml) CI job will automatically run. When this job completes, a new `release/v0.4.0` branch will be automatically created for you.
 
-## Create a new GitHub release (no manual steps)
+## Create a new GitHub release
 
-After the previous CI job runs to create the new release branch, the ["Create a Release"](https://github.com/deislabs/hyperlight/actions/workflows/CreateRelease.yml) job will see the new branch and automatically run. When this job is done, a new [GitHub release](https://github.com/deislabs/hyperlight/releases) will be created for you. This release is not strictly necessary for releasing a new cargo crate to the internal feed, but it is necessary to house other artifacts (e.g. `simpleguest.exe`, `callbackguest.exe`, etc)
-
-## Run the publish job
-
-After the release branch is created by automation, go to the ["Publish crates to intenral cargo registry"](https://github.com/deislabs/hyperlight/actions/workflows/CargoPublish.yml) Github actions workflow (yup, `intenral` is misspelled, and we like it that way!) and do the following:
+After the previous CI job runs to create the new release branch, go to the ["Create a Release"](https://github.com/deislabs/hyperlight/actions/workflows/CreateRelease.yml) Github actions workflow and do the following:
 
 1. Click the "Run workflow" button near the top right
-1. Select the `release/v0.3.4` branch in the resulting dropdown
-    - Optionally specific the package version. By default the workflow will publish crates with a version that matches the release branch the workflow is run against (ex: If run against `release/v0.3.4` then crates with versions `0.3.4` will be published). If you want to publish with a different version (in case we need to patch a release branch for example) then specify the version before clicking **Run Workflow**.
+1. In the Use workflow from dropdown, select the `release/v0.4.0` branch
+1. Click the green **Run workflow** button
+
+When this job is done, a new [GitHub release](https://github.com/deislabs/hyperlight/releases) will be created for you. This release is not necessary for releasing a new cargo crate to the internal feed, but it is necessary to house other artifacts (e.g. `simpleguest.exe`, `callbackguest.exe`, etc) and also to create nuget packages, which, besides being used to create the dotnet version of Hyperlight are also currently used to distribute native libraries and headers to projects that consume Hyperlight, this will change in the future when [this issue](https://github.com/deislabs/hyperlight/issues/512) has been addressed.
+
+## Run the publish crates job
+
+Next, go to the ["Publish crates to intenral cargo registry"](https://github.com/deislabs/hyperlight/actions/workflows/CargoPublish.yml) Github actions workflow (yup, `intenral` is misspelled, and we like it that way!) and do the following:
+
+1. Click the "Run workflow" button near the top right
+1. In the Use workflow from dropdown, select the `release/v0.4.0` branch
 1. Click the green **Run workflow** button
 
 After step 3, the job will start and you'll have the following 3 crates published to the [internal Azure DevOps Cargo feeds](https://dev.azure.com/AzureContainerUpstream/hyperlight/_artifacts/feed/hyperlight_packages_test) upon completion:
 
 - `hyperlight_capi`
 - `hyperlight_host`
-- `hyperlight_testing`
+- `hyperlight_flatbuffers`
+
+## Patching a release
+
+If you need to update a previously released version of Hyperlight then you should open a Pull Request against the release branch you want to patch, for example if you wish to patch the release `v0.4.0` then you should open a PR against the `release/v0.4.0` branch.
+
+Once the PR is merged, then you should follow the instructions above. In this instance the version number of the tag should be a patch version, for example if you are patching the `release/v0.4.0` branch and this is the first patch release to that branch then the tag should be `v0.4.1`. If you are patching a patch release then the tag should be `v0.4.2` and the target branch should be `release/v0.4.1` and so on.

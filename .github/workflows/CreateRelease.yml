@@ -7,7 +7,7 @@ name: Create a Release
 on:
   workflow_dispatch:
   push:
-    branches: [ 'release/**', dev ]
+    branches: [ dev ]
 
 jobs:
   publish:
