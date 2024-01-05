@@ -25,12 +25,14 @@ jobs:
           git fetch --tags
           version=$(MINVER_TAG_PREFIX=v minver)
           echo "version=$version"
-          cargo ws version --force=hyperlight_* --no-git-tag --no-git-push --allow-branch=release/* --yes custom $version
+          cargo ws version --force=hyperlight_* --no-git-commit --yes custom $version
+      # allow-dirty is needed in the publish below because we are using the --no-git-commit option above to cover the case 
+      # where no changes are made by cargo ws version because the version is already correct
       - name: Publish hyperlight-flatbuffers
-        run: cargo publish --manifest-path ./src/hyperlight_flatbuffers/Cargo.toml --registry hyperlight_packages
+        run: cargo publish --manifest-path ./src/hyperlight_flatbuffers/Cargo.toml --registry hyperlight_packages --allow-dirty
       - name: Publish hyperlight-host 
-        run: cargo publish --manifest-path ./src/hyperlight_host/Cargo.toml --registry hyperlight_packages
+        run: cargo publish --manifest-path ./src/hyperlight_host/Cargo.toml --registry hyperlight_packages --allow-dirty
       - name: Publish hyperlight-capi
         # --no-verify is needed because the build.rs script generates ./include/hyperlight_capi.h 
         # and cargo does not want you to modify files outside of OUT_DIR
-        run: cargo publish --manifest-path ./src/hyperlight_capi/Cargo.toml --registry hyperlight_packages --no-verify
+        run: cargo publish --manifest-path ./src/hyperlight_capi/Cargo.toml --registry hyperlight_packages --no-verify --allow-dirty
