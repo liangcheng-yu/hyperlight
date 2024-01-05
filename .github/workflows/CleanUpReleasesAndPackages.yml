@@ -2,7 +2,7 @@
 
 # This job cleans up old pre-releases and pre-releases packages retaining the last 40 versions
 
-name: Clean up old pre-releases and packages
+name: Clean up old pre-releases and packages and artifacts
 on:
   schedule:
     - cron: '0 8 * * 1' # run at 8am every Monday
@@ -37,3 +37,19 @@ jobs:
           draft-drop: false
         env:
           GITHUB_TOKEN: ${{ github.token }}
+      - name: Delete old Github Actions Artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CUTOFF_DATE=$(date --date='7 days ago' +%s)
+          gh api repos/deislabs/hyperlight/actions/artifacts?per_page=100 --paginate | jq -crs --arg date $CUTOFF_DATE \
+              'map(.artifacts) \
+              | flatten | .[] \
+              | select((.created_at | fromdate) < ($date | tonumber) and (.workflow_run.head_branch | test("(release/)?v\\d+\\.\\d+\\.\\d+") | not)) \
+              | "\(.id),\(.size_in_bytes)"' > todelete.txt
+          awk -F',' '{ sum += $2 }END{ printf "Deleting %d artifacts taking up %d bytes.\n", NR, sum }' todelete.txt
+          cut -d "," -f 1 < todelete.txt | xargs -I{} gh api --method DELETE /repos/deislabs/hyperlight/actions/artifacts/{}
+        # CUTDOFF_DATE is the date up to which all artifacts will be deleted (in unix timestamp time)
+        # gh api ... gets all artifacts older than $CUTOFF_DATE, and writes them to todelete.txt in the format of two columns <artifact_id>,<size_in_bytes>. It excludes artifacts that are part of a release worlkflow: branch (e.g. release/v1.0.0) or tag (e.g. v1.0.0)
+        # awk ... calculates the number of artifacts and their total size to be deleted
+        # cut ... extracts only the artifact ids column and runs gh api --method DELETE for each artifact
