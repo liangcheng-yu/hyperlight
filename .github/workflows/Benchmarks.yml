@@ -99,6 +99,7 @@ jobs:
       - name: Download benchmarks from most recent release
         run: |
           just bench-download ${{ runner.os }} ${{ matrix.hypervisor }}
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
