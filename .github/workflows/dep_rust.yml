@@ -66,30 +66,41 @@ jobs:
         run: (Get-Service actions.runner.*) | Foreach { $_.Name, $_.UserName, $_.ServiceType }
         shell: pwsh
 
+      # Download all guests (which were built on windows), but we only use callbackguest.exe. Simpleguest and Dummyguest we build ourselves below
       - name: Download Guest Binaries
         uses: actions/download-artifact@v3
         with:
           name: guest-binaries-${{ matrix.config }}
-          path: ./
-      - name: Copy Guest Binaries
+          path: ./downloaded-guest-binaries-${{ matrix.config }}
+
+      - name: Check downloaded guests folder structure
+        if: ${{ (runner.os == 'Linux' )}}
+        run: |
+          find ./downloaded-guest-binaries-${{ matrix.config }} -type f
+
+      - name: Copy callbackguest.exe to expected locations
         run: |
           echo "Copying callbackguest binary for build config ${{ matrix.config }}"
-          mkdir -p ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0/
-          cp ./Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0/callbackguest.exe
           mkdir -p ./src/tests/Guests/callbackguest/x64/${{ matrix.config }}
-          cp ./Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe ./src/tests/Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe
-          echo "Copying simpleguest and dummyguest binaries for build config ${{ matrix.config }}"
-          cp ./rust_guests/simpleguest/target/x86_64-pc-windows-msvc/${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/simpleguest.exe
-          cp ./rust_guests/dummyguest/target/x86_64-pc-windows-msvc/${{ matrix.config }}/dummyguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/dummyguest.exe
+          cp ./downloaded-guest-binaries-${{ matrix.config }}/Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe ./src/tests/Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe
+
+      - name: Build and move dummyguest.exe and simpleguest.exe
+        run: |
+          echo "Building simpleguest and dummyguest binaries for build config ${{ matrix.config }}"
+          rustup toolchain install nightly-2023-11-28-x86_64-unknown-linux-gnu
+          rustup target add x86_64-pc-windows-msvc                                # for dummyguest
+          rustup target add --toolchain nightly-2023-11-28 x86_64-pc-windows-msvc # for simpleguest
+          just build-and-move-rust-guests
+
       - name: Display Guest Binaries
         run: |
-          echo "Displaying callbackguest binary in ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0"
-          ls ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0/
-          echo "Displaying simpleguest and dummyguest binaries in ./src/tests/rust_guests/bin/${{ matrix.config }}/"
-          ls ./src/tests/rust_guests/bin/${{ matrix.config }}/
+          echo "Displaying all guest binarires"
+          find . -type f -name *.exe 
+        if: ${{ (runner.os == 'Linux' )}}
           
       - name: Build
         run:  just build-rust ${{ matrix.config }}
+
       - name: Set up env vars for hyperv-linux tests
         if: ${{ (matrix.hypervisor == 'hyperv') && (runner.os == 'Linux') }}
         run: |

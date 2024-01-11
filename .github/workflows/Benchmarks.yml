@@ -43,29 +43,25 @@ jobs:
         run: Enable-WindowsOptionalFeature -Online -FeatureName HyperVisorPlatform
         shell: pwsh
 
-
       - name: Download Guest Binaries
         uses: actions/download-artifact@v3
         with:
           name: guest-binaries-release
-          path: ./
+          path: ./downloaded-guest-binaries-release
+
       - name: Copy Guest Binaries
         run: |
-          echo "Copying callbackguest binary for build config release"
-          mkdir -p ./src/tests/Hyperlight.Tests/bin/release/net6.0/
-          cp ./Guests/callbackguest/x64/release/callbackguest.exe ./src/tests/Hyperlight.Tests/bin/release/net6.0/callbackguest.exe
           mkdir -p ./src/tests/Guests/callbackguest/x64/release
-          cp ./Guests/callbackguest/x64/release/callbackguest.exe ./src/tests/Guests/callbackguest/x64/release/callbackguest.exe
-          echo "Copying simpleguest and dummyguest binaries for build config release"
-          cp ./rust_guests/simpleguest/target/x86_64-pc-windows-msvc/release/simpleguest.exe ./src/tests/rust_guests/bin/release/simpleguest.exe
-          cp ./rust_guests/dummyguest/target/x86_64-pc-windows-msvc/release/dummyguest.exe ./src/tests/rust_guests/bin/release/dummyguest.exe
+          cp ./downloaded-guest-binaries-release/Guests/callbackguest/x64/release/callbackguest.exe ./src/tests/Guests/callbackguest/x64/release/callbackguest.exe
+          cp ./downloaded-guest-binaries-release/rust_guests/bin/release/simpleguest.exe ./src/tests/rust_guests/bin/release/simpleguest.exe
+          cp ./downloaded-guest-binaries-release/rust_guests/bin/release/dummyguest.exe ./src/tests/rust_guests/bin/release/dummyguest.exe
+          
       - name: Display Guest Binaries
         run: |
-          echo "Displaying callbackguest binary in ./src/tests/Hyperlight.Tests/bin/release/net6.0"
-          ls ./src/tests/Hyperlight.Tests/bin/release/net6.0/
-          echo "Displaying simpleguest and dummyguest binaries in ./src/tests/rust_guests/bin/release/"
-          ls ./src/tests/rust_guests/bin/release/
-          
+          echo "Displaying all guest binaries"
+          find . -type f -name *.exe 
+        if: ${{ (runner.os == 'Linux' )}}
+
       - name: Set up env vars for hyperv-linux tests
         if: ${{ (matrix.hypervisor == 'hyperv') && (runner.os == 'Linux') }}
         run: |

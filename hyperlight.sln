@@ -11,16 +11,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Hyperlight", "src\Hyperligh
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Hyperlight.Tests", "src\tests\Hyperlight.Tests\Hyperlight.Tests.csproj", "{2E05D691-0742-4B7D-9613-31648B6AB9DD}"
 	ProjectSection(ProjectDependencies) = postProject
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A} = {0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}
 		{54F7736B-3D54-4F64-97B3-CDA63A3AABB2} = {54F7736B-3D54-4F64-97B3-CDA63A3AABB2}
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Test", "Test", "{782EB312-50B2-476A-9DB2-E58CA13FAD65}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "simpleguest", "src\tests\Guests\simpleguest\simpleguest.vcxproj", "{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}"
-	ProjectSection(ProjectDependencies) = postProject
-		{ED4A4CD0-DDC9-4A4A-9428-F22C3D07BB00} = {ED4A4CD0-DDC9-4A4A-9428-F22C3D07BB00}
-	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "callbackguest", "src\tests\Guests\callbackguest\callbackguest.vcxproj", "{54F7736B-3D54-4F64-97B3-CDA63A3AABB2}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -35,7 +29,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "NativeHost", "NativeHost", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NativeHost", "src\examples\NativeHost\NativeHost.csproj", "{B1E7FD52-2DA2-41BA-9AC5-73B28DD61669}"
 	ProjectSection(ProjectDependencies) = postProject
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A} = {0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}
 		{54F7736B-3D54-4F64-97B3-CDA63A3AABB2} = {54F7736B-3D54-4F64-97B3-CDA63A3AABB2}
 	EndProjectSection
 EndProject
@@ -44,8 +37,6 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HyperlightGuest", "src\HyperlightGuest\HyperlightGuest.vcxproj", "{ED4A4CD0-DDC9-4A4A-9428-F22C3D07BB00}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HyperlightDependencies", "src\HyperlightDependencies\HyperlightDependencies.csproj", "{73E808B4-E312-4758-9DF2-347927071338}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dumyguest", "src\tests\Guests\dummyguest\dumyguest.vcxproj", "{D3D0849A-6337-42DB-8B84-C1D0712E3852}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -71,14 +62,6 @@ Global
 		{2E05D691-0742-4B7D-9613-31648B6AB9DD}.release|Any CPU.Build.0 = release|Any CPU
 		{2E05D691-0742-4B7D-9613-31648B6AB9DD}.release|x64.ActiveCfg = release|Any CPU
 		{2E05D691-0742-4B7D-9613-31648B6AB9DD}.release|x64.Build.0 = release|Any CPU
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.debug|Any CPU.ActiveCfg = debug|x64
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.debug|Any CPU.Build.0 = debug|x64
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.debug|x64.ActiveCfg = debug|x64
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.debug|x64.Build.0 = debug|x64
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.release|Any CPU.ActiveCfg = release|x64
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.release|Any CPU.Build.0 = release|x64
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.release|x64.ActiveCfg = release|x64
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.release|x64.Build.0 = release|x64
 		{54F7736B-3D54-4F64-97B3-CDA63A3AABB2}.debug|Any CPU.ActiveCfg = debug|x64
 		{54F7736B-3D54-4F64-97B3-CDA63A3AABB2}.debug|Any CPU.Build.0 = debug|x64
 		{54F7736B-3D54-4F64-97B3-CDA63A3AABB2}.debug|x64.ActiveCfg = debug|x64
@@ -119,26 +102,16 @@ Global
 		{73E808B4-E312-4758-9DF2-347927071338}.release|Any CPU.Build.0 = release|Any CPU
 		{73E808B4-E312-4758-9DF2-347927071338}.release|x64.ActiveCfg = release|Any CPU
 		{73E808B4-E312-4758-9DF2-347927071338}.release|x64.Build.0 = release|Any CPU
-		{D3D0849A-6337-42DB-8B84-C1D0712E3852}.debug|Any CPU.ActiveCfg = debug|x64
-		{D3D0849A-6337-42DB-8B84-C1D0712E3852}.debug|Any CPU.Build.0 = debug|x64
-		{D3D0849A-6337-42DB-8B84-C1D0712E3852}.debug|x64.ActiveCfg = debug|x64
-		{D3D0849A-6337-42DB-8B84-C1D0712E3852}.debug|x64.Build.0 = debug|x64
-		{D3D0849A-6337-42DB-8B84-C1D0712E3852}.release|Any CPU.ActiveCfg = release|x64
-		{D3D0849A-6337-42DB-8B84-C1D0712E3852}.release|Any CPU.Build.0 = release|x64
-		{D3D0849A-6337-42DB-8B84-C1D0712E3852}.release|x64.ActiveCfg = release|x64
-		{D3D0849A-6337-42DB-8B84-C1D0712E3852}.release|x64.Build.0 = release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{2E05D691-0742-4B7D-9613-31648B6AB9DD} = {782EB312-50B2-476A-9DB2-E58CA13FAD65}
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A} = {AEFC44EB-B6D3-4CDE-A5C3-E2BB7F9A7C3C}
 		{54F7736B-3D54-4F64-97B3-CDA63A3AABB2} = {AEFC44EB-B6D3-4CDE-A5C3-E2BB7F9A7C3C}
 		{AEFC44EB-B6D3-4CDE-A5C3-E2BB7F9A7C3C} = {782EB312-50B2-476A-9DB2-E58CA13FAD65}
 		{E28F9ADB-0282-454C-8025-0469E57229AC} = {EFBE8459-3527-4D1C-BB31-70AA18EB3E3F}
 		{B1E7FD52-2DA2-41BA-9AC5-73B28DD61669} = {E28F9ADB-0282-454C-8025-0469E57229AC}
-		{D3D0849A-6337-42DB-8B84-C1D0712E3852} = {AEFC44EB-B6D3-4CDE-A5C3-E2BB7F9A7C3C}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6331C6E0-A203-4F01-AB5B-B66C824241C9}

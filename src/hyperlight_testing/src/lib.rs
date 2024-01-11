@@ -30,16 +30,16 @@ pub fn callback_guest_as_pathbuf() -> PathBuf {
         "release"
     };
 
-    // $REPO_ROOT/src/tests/Hyperlight.Tests/bin/Debug/net6.0/callbackguest.exe"
+    // $REPO_ROOT/src/tests/Guests/callbackguest/x64/{debug,release}/callbackguest.exe"
     join_to_path(
         MANIFEST_DIR,
         vec![
             "..",
             "tests",
-            "Hyperlight.Tests",
-            "bin",
+            "Guests",
+            "callbackguest",
+            "x64",
             build_dir_selector,
-            "net6.0",
             "callbackguest.exe",
         ],
     )

@@ -192,25 +192,18 @@ cd hyperlight
 ```
 
 1. [Set up the Hyperlight Cargo Feed](#hyperlight-cargo-feed)
-1. [Set Up simpleguest.exe and callguest.exe](#simpleguestexe-and-callguestexe)
+1. [Set Up simpleguest.exe and callguest.exe](<#simpleguest.exe dummyguest.exe, callbackguest.exe>)
 
 ```
 # Hyperlight uses submodules to pull in some dependencies such as munit
-# If you see munit errors when running tests, make sure you have the submodules cloned
-git submodule update --init
+# If you see munit errors when running tests, make sure you have the submodules
+# cloned by running the below command
 just init
+# then you can build using
 just build
 ```
 
 **Running tests**
-
-```
-mkdir -p src/tests/Hyperlight.Tests/bin/debug/net6.0/
-cp src/tests/Guests/simpleguest/x64/debug/simpleguest.exe src/tests/Hyperlight.Tests/bin/debug/net6.0/
-cp src/tests/Guests/callbackguest/x64/debug/callbackguest.exe src/tests/Hyperlight.Tests/bin/debug/net6.0/
-```
-
-You need an additional binary to run tests. Download the dummyguest.exe file from [here](https://github.com/deislabs/hyperlight/releases) and copy it to src/tests/Hyperlight.Tests/bin/debug/net6.0/dummyguest.exe
 
 ```
 just test-rust
@@ -248,13 +241,15 @@ cargo update --dry-run
 
 See [publishing-to-cargo.md](./docs/publishing-to-cargo.md) for more information.
 
-## simpleguest.exe and callguest.exe
+## simpleguest.exe, dummyguest.exe, callbackguest.exe
 
-To run the dotnet tests and examples you will need the simpleguest.exe and callbackguest.exe applications.
+To run the dotnet tests and examples you will need the dummyguest.exe, simpleguest.exe and callbackguest.exe applications. Run 
+```bash
+just build-and-move-rust-guests
+```
+to build dummyguest.exe and simpleguest.exe. 
 
-This repo includes a script to download the latest versions of these binaries.
-
-Make sure you have a recent version of [GitHub Command line](https://github.com/cli/cli) installed (the best way to ensure you get a recent version is to dowload it directly from the repo). [Follow these instructions to install on Mariner](https://github.com/cli/cli/blob/trunk/docs/install_linux.md#fedora-centos-red-hat-enterprise-linux-dnf).
+To get callbackguest.exe, make sure you have a recent version of [GitHub Command line](https://github.com/cli/cli) installed (the best way to ensure you get a recent version is to dowload it directly from the repo). [Follow these instructions to install on Mariner](https://github.com/cli/cli/blob/trunk/docs/install_linux.md#fedora-centos-red-hat-enterprise-linux-dnf).
 
 Then run this script:
 

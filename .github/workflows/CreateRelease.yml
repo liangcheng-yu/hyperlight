@@ -90,12 +90,7 @@ jobs:
     - name: Build Solution
       run: msbuild -m hyperlight.sln /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /p:ContinuousIntegrationBuild=true
       shell: pwsh
-    - name: Copy Rust Guests for dotnet tests
-      run: |
-        mkdir -p src\tests\Hyperlight.Tests\rust_guests\bin\${{ env.CONFIG }}
-        cp src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}
-        cp src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}
-      shell: pwsh
+
     - name: Test
       shell: pwsh
       run: dotnet test -c $env:CONFIG
@@ -181,8 +176,8 @@ jobs:
         title: "Release v${{ env.HYPERLIGHT_VERSION }}"
         files: |
           src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe
-          src/tests/Guests/dummyguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/dummyguest.exe
-          src/tests/Guests/simpleguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/simpleguest.exe
+          src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe
+          src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe
           src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
           src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz
           ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib
@@ -207,8 +202,8 @@ jobs:
         title: "Latest Development Build"
         files: |
           src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe
-          src/tests/Guests/dummyguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/dummyguest.exe
-          src/tests/Guests/simpleguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/simpleguest.exe
+          src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe
+          src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe
           src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
           src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz
           ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib

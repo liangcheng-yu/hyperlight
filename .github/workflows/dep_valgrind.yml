@@ -80,23 +80,20 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: guest-binaries-${{ matrix.config }}
-          path: ./
+          path: ./downloaded-guest-binaries-${{ matrix.config }}
+
       - name: Copy Guest Binaries
         run: |
-          echo "Copying callbackguest binary for build config ${{ matrix.config }}"
-          mkdir -p ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0/
-          cp ./Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0/callbackguest.exe
           mkdir -p ./src/tests/Guests/callbackguest/x64/${{ matrix.config }}
-          cp ./Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe ./src/tests/Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe
-          echo "Copying simpleguest and dummyguest binaries for build config ${{ matrix.config }}"
-          cp ./rust_guests/simpleguest/target/x86_64-pc-windows-msvc/${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/simpleguest.exe
-          cp ./rust_guests/dummyguest/target/x86_64-pc-windows-msvc/${{ matrix.config }}/dummyguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/dummyguest.exe
+          cp ./downloaded-guest-binaries-${{ matrix.config }}/Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe ./src/tests/Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe
+          cp ./downloaded-guest-binaries-${{ matrix.config }}/rust_guests/bin/${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/simpleguest.exe
+          cp ./downloaded-guest-binaries-${{ matrix.config }}/rust_guests/bin/${{ matrix.config }}/dummyguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/dummyguest.exe
+      
       - name: Display Guest Binaries
         run: |
-          echo "Displaying callbackguest binary in ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0"
-          ls ./src/tests/Hyperlight.Tests/bin/${{ matrix.config }}/net6.0/
-          echo "Displaying simpleguest and dummyguest binaries in ./src/tests/rust_guests/bin/${{ matrix.config }}/"
-          ls ./src/tests/rust_guests/bin/${{ matrix.config }}/
+            echo "Displaying all guest binarires"
+            find . -type f -name *.exe 
+        if: ${{ (runner.os == 'Linux' )}}
           
       - name: Valgrind Rust tests
         run: cargo valgrind test capi

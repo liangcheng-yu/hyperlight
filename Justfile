@@ -33,16 +33,11 @@ build-rust-guests target=default-target:
     cd src/tests/rust_guests/simpleguest && cargo build --profile={{ if target == "debug" {"dev"} else { target } }}
     # dummyguest can be built with the default toolchain
     cd src/tests/rust_guests/dummyguest && cargo build --profile={{ if target == "debug" {"dev"} else { target } }}
-
 move-rust-guests target=default-target:
     cp {{simpleguest_source}}/{{target}}/simpleguest.* {{rust_guests_bin_dir}}/{{target}}/
     cp {{dummyguest_source}}/{{target}}/dummyguest.* {{rust_guests_bin_dir}}/{{target}}/
     
-build-and-move-rust-guests:
-    just build-rust-guests debug
-    just move-rust-guests debug
-    just build-rust-guests release
-    just move-rust-guests release    
+build-and-move-rust-guests: (build-rust-guests "debug") (move-rust-guests "debug") (build-rust-guests "release") (move-rust-guests "release")  
 
 build-dotnet:
     cd src/Hyperlight && dotnet build || cd ../../
