@@ -90,7 +90,12 @@ jobs:
     - name: Build Solution
       run: msbuild -m hyperlight.sln /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /p:ContinuousIntegrationBuild=true
       shell: pwsh
-
+    # TODO This should not be needed, but for some reason the dotnet tests is looking for guest binaries in the wrong directory during "publish" workflow
+    - name: Copy Rust Guests for dotnet tests
+      run: |
+        mkdir -p src\tests\Hyperlight.Tests\rust_guests\bin\${{ env.CONFIG }}
+        cp src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}
+        cp src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}    
     - name: Test
       shell: pwsh
       run: dotnet test -c $env:CONFIG

@@ -1490,6 +1490,7 @@ namespace Hyperlight.Tests
 
             // Construct the path based on the configuration
             var basePath = AppDomain.CurrentDomain.BaseDirectory;
+            Console.WriteLine($"Base path: {basePath}");
             var relativePath = Path.Combine("..", "..", "..", "..", "rust_guests", "bin", configuration);
             var fullPath = Path.GetFullPath(Path.Combine(basePath, relativePath));
 
