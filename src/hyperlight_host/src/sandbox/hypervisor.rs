@@ -24,10 +24,10 @@ use tracing::{instrument, Span};
 #[derive(Clone)]
 pub(crate) struct HypervisorWrapper<'a> {
     hv_opt: Option<Arc<Mutex<Box<dyn Hypervisor>>>>,
-    outb_hdl: OutBHandlerWrapper<'a>,
-    mem_access_hdl: MemAccessHandlerWrapper<'a>,
-    max_execution_time: Duration,
-    max_wait_for_cancellation: Duration,
+    pub(crate) outb_hdl: OutBHandlerWrapper<'a>,
+    pub(crate) mem_access_hdl: MemAccessHandlerWrapper<'a>,
+    pub(crate) max_execution_time: Duration,
+    pub(crate) max_wait_for_cancellation: Duration,
 }
 
 impl<'a> HypervisorWrapper<'a> {
@@ -63,7 +63,7 @@ impl<'a> HypervisorWrapper<'a> {
     /// valid (the compiler won't let you do any operations on it, though,
     /// so you don't have to worry much about this consequence).
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub(super) fn get_hypervisor(&self) -> Result<MutexGuard<Box<dyn Hypervisor>>> {
+    pub(crate) fn get_hypervisor(&self) -> Result<MutexGuard<Box<dyn Hypervisor>>> {
         match self.hv_opt.as_ref() {
             None => {
                 log_then_return!(NoHypervisorFound());
@@ -120,24 +120,6 @@ impl<'a> HypervisorWrapper<'a> {
     pub(super) fn reset_rsp(&mut self, new_rsp: GuestPtr) -> Result<()> {
         let mut hv = self.hv_opt.as_mut().ok_or_else(NoHypervisorFound)?.lock()?;
         hv.reset_rsp(new_rsp)
-    }
-
-    /// Dispatch a call from the host to the guest
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub(crate) fn dispatch_call_from_host(&mut self, dispatch_func_addr: GuestPtr) -> Result<()> {
-        let outb_hdl = self.outb_hdl.clone();
-        let mem_access_hdl = self.mem_access_hdl.clone();
-        let max_execution_time = self.max_execution_time;
-        let max_wait_for_cancellation = self.max_wait_for_cancellation;
-        let mut hv = self.get_hypervisor()?;
-        let dispatch_raw_ptr = RawPtr::from(dispatch_func_addr.absolute()?);
-        hv.dispatch_call_from_host(
-            dispatch_raw_ptr,
-            outb_hdl,
-            mem_access_hdl,
-            max_execution_time,
-            max_wait_for_cancellation,
-        )
     }
 }
 

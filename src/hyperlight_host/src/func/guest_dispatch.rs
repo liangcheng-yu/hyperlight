@@ -1,5 +1,5 @@
 use super::guest_err::check_for_guest_error;
-use crate::mem::ptr::{GuestPtr, RawPtr};
+use crate::mem::ptr::RawPtr;
 use crate::sandbox::WrapperGetter;
 use crate::{HyperlightError, Result};
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
@@ -8,14 +8,14 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
 };
 use tracing::{instrument, Span};
 
-/// Call a guest function by name, using the given `hv_mem_mgr_getter`.
+/// Call a guest function by name, using the given `wrapper_getter`.
 #[instrument(
     err(Debug),
     skip(wrapper_getter, args),
     parent = Span::current(),
     level = "Trace"
 )]
-pub(super) fn dispatch_call_from_host<'a, HvMemMgrT: WrapperGetter<'a>>(
+pub(super) fn call_function_on_guest<'a, HvMemMgrT: WrapperGetter<'a>>(
     wrapper_getter: &mut HvMemMgrT,
     function_name: &str,
     return_type: ReturnType,
@@ -59,15 +59,18 @@ pub(super) fn dispatch_call_from_host<'a, HvMemMgrT: WrapperGetter<'a>>(
         // and the `dispatch` function can directly access that via shared memory.
         dispatch();
     } else {
-        let p_dispatch_gp = {
-            let p_dispatch_rp = RawPtr::from(p_dispatch);
-            GuestPtr::try_from(p_dispatch_rp)
-        }?;
         // this is the mutable borrow for which we had to do scope gynmastics
         // above
         {
-            let hv = wrapper_getter.get_hv_mut();
-            hv.dispatch_call_from_host(p_dispatch_gp)
+            let hv_wrapper = wrapper_getter.get_hv_mut();
+            let mut hv = hv_wrapper.get_hypervisor()?;
+            hv.dispatch_call_from_host(
+                RawPtr::from(p_dispatch),
+                hv_wrapper.outb_hdl.clone(),
+                hv_wrapper.mem_access_hdl.clone(),
+                hv_wrapper.max_execution_time,
+                hv_wrapper.max_wait_for_cancellation,
+            )
         }?;
     }
 

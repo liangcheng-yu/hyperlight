@@ -1,4 +1,4 @@
-use super::guest_dispatch::dispatch_call_from_host;
+use super::guest_dispatch::call_function_on_guest;
 #[cfg(feature = "function_call_metrics")]
 use crate::histogram_vec_time_micros;
 #[cfg(feature = "function_call_metrics")]
@@ -72,11 +72,11 @@ impl<'a> MultiUseGuestCallContext<'a> {
                 histogram_vec_time_micros!(
                     &GuestFunctionCallDurationMicroseconds,
                     &[func_name],
-                    dispatch_call_from_host(&mut self.sbox, func_name, func_ret_type, args)
+                    call_function_on_guest(&mut self.sbox, func_name, func_ret_type, args)
                 )
             }
             else {
-                dispatch_call_from_host(&mut self.sbox, func_name, func_ret_type, args)
+                call_function_on_guest(&mut self.sbox, func_name, func_ret_type, args)
             }
         }
     }
@@ -147,11 +147,11 @@ impl<'a> SingleUseGuestCallContext<'a> {
                 histogram_vec_time_micros!(
                     &GuestFunctionCallDurationMicroseconds,
                     &[func_name],
-                    dispatch_call_from_host(&mut self.sbox, func_name, func_ret_type, args)
+                    call_function_on_guest(&mut self.sbox, func_name, func_ret_type, args)
                 )
             }
             else {
-                dispatch_call_from_host(&mut self.sbox, func_name, func_ret_type, args)
+                call_function_on_guest(&mut self.sbox, func_name, func_ret_type, args)
             }
         }
     }
