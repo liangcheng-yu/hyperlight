@@ -1,20 +1,22 @@
+use std::time::Duration;
+
 use super::metrics::SandboxMetric::{
     CurrentNumberOfMultiUseSandboxes, CurrentNumberOfSingleUseSandboxes,
 };
 use super::{leaked_outb::LeakedOutBWrapper, WrapperGetter};
-#[cfg(target_os = "windows")]
-use crate::func::exports::get_os_page_size;
 #[cfg(target_os = "linux")]
 use crate::log_then_return;
-#[cfg(target_os = "windows")]
-use crate::mem::ptr::RawPtr;
-use crate::MultiUseSandbox;
 use crate::Result;
+use crate::{
+    func::exports::get_os_page_size, hypervisor::handlers::MemAccessHandlerWrapper,
+    mem::ptr::RawPtr, MultiUseSandbox,
+};
 use crate::{
     hypervisor::handlers::OutBHandlerWrapper, sandbox_state::sandbox::Sandbox, SingleUseSandbox,
     UninitializedSandbox,
 };
 use crate::{int_gauge_dec, int_gauge_inc};
+use rand::Rng;
 use tracing::{instrument, Span};
 
 pub(super) type CBFunc<'a> = Box<dyn FnOnce(&mut UninitializedSandbox<'a>) -> Result<()> + 'a>;
@@ -42,7 +44,7 @@ where
 {
     let outb_wrapper = {
         let hv = u_sbox.get_hv();
-        hv.get_outb_hdl_wrapper()
+        hv.outb_hdl.clone()
     };
     let run_from_proc_mem = u_sbox.run_from_process_memory;
     let leaked_outb = if run_from_proc_mem {
@@ -50,20 +52,15 @@ where
         Some(leaked_outb)
     } else {
         let orig_rsp = u_sbox.get_hv().orig_rsp()?;
-        let mem_mgr = {
-            // we are gonna borrow u_sbox mutably below in our
-            // get_hypervisor_mut call, so we need to borrow it
-            // immutably here, and disallow that borrow to escape this scope
-            // so we can do the mutable borrow later.
-            //
-            // luckily, cloning SandboxMemoryManagers is cheap, so we can do
-            // that and avoid the borrow going out of this scope by moving the
-            // clone
-            let mgr = u_sbox.mgr.as_ref();
-            mgr.clone()
-        };
-
-        { u_sbox.hv.initialise(&mem_mgr) }?;
+        {
+            hv_init(
+                &u_sbox,
+                u_sbox.hv.outb_hdl.clone(),
+                u_sbox.hv.mem_access_hdl.clone(),
+                u_sbox.hv.max_execution_time,
+                u_sbox.hv.max_wait_for_cancellation,
+            )
+        }?;
         {
             let mgr = u_sbox.mgr.as_ref();
             assert!(mgr.get_pointer_to_dispatch_function()? != 0);
@@ -188,6 +185,38 @@ fn evolve_in_proc<'a>(
         unsafe { u_sbox.call_entry_point(RawPtr::from(peb_address), seed, page_size) }?;
         Ok(leaked_outb)
     }
+}
+
+#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+fn hv_init<'a, WG: WrapperGetter<'a>>(
+    wrapper_getter: &WG,
+    outb_hdl: OutBHandlerWrapper<'a>,
+    mem_access_hdl: MemAccessHandlerWrapper<'a>,
+    max_execution_time: Duration,
+    max_wait_for_cancellation: Duration,
+) -> Result<()> {
+    let mut hv = wrapper_getter.get_hv().get_hypervisor()?;
+    let mem_mgr = wrapper_getter.get_mgr().get_mgr();
+    let seed = {
+        let mut rng = rand::thread_rng();
+        rng.gen::<u64>()
+    };
+    let peb_addr = {
+        let peb_u64 = u64::try_from(mem_mgr.layout.peb_address)?;
+        RawPtr::from(peb_u64)
+    };
+    let page_size = u32::try_from(get_os_page_size())?;
+    let outb_hdl = outb_hdl.clone();
+    let mem_access_hdl = mem_access_hdl.clone();
+    hv.initialise(
+        peb_addr,
+        seed,
+        page_size,
+        outb_hdl,
+        mem_access_hdl,
+        max_execution_time,
+        max_wait_for_cancellation,
+    )
 }
 
 #[cfg(test)]

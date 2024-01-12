@@ -1,6 +1,5 @@
 use crate::error::HyperlightError::NoHypervisorFound;
 use crate::{
-    func::exports::get_os_page_size,
     hypervisor::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
     hypervisor::Hypervisor,
     mem::{
@@ -12,11 +11,9 @@ use crate::{
     UninitializedSandbox,
 };
 use crate::{log_then_return, Result};
-use std::{sync::MutexGuard, time::Duration};
-
-use rand::Rng;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
+use std::{sync::MutexGuard, time::Duration};
 use tracing::{instrument, Span};
 
 /// A container with convenience methods attached for an
@@ -73,38 +70,6 @@ impl<'a> HypervisorWrapper<'a> {
                 Ok(h_ref_mutex.lock()?)
             }
         }
-    }
-
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(super) fn get_outb_hdl_wrapper(&self) -> OutBHandlerWrapper<'a> {
-        self.outb_hdl.clone()
-    }
-
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub(super) fn initialise(&mut self, mem_mgr: &SandboxMemoryManager) -> Result<()> {
-        let seed = {
-            let mut rng = rand::thread_rng();
-            rng.gen::<u64>()
-        };
-        let peb_addr = {
-            let peb_u64 = u64::try_from(mem_mgr.layout.peb_address)?;
-            RawPtr::from(peb_u64)
-        };
-        let page_size = u32::try_from(get_os_page_size())?;
-        let outb_hdl = self.outb_hdl.clone();
-        let mem_access_hdl = self.mem_access_hdl.clone();
-        let max_execution_time = self.max_execution_time;
-        let max_wait_for_cancellation = self.max_wait_for_cancellation;
-        let mut hv = self.get_hypervisor()?;
-        hv.initialise(
-            peb_addr,
-            seed,
-            page_size,
-            outb_hdl,
-            mem_access_hdl,
-            max_execution_time,
-            max_wait_for_cancellation,
-        )
     }
 
     /// Get the stack pointer -- the value of the RSP register --
