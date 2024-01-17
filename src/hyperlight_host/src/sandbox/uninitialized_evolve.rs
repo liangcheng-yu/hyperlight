@@ -51,7 +51,7 @@ where
         let leaked_outb = evolve_in_proc(&mut u_sbox, outb_wrapper)?;
         Some(leaked_outb)
     } else {
-        let orig_rsp = u_sbox.get_hv().orig_rsp()?;
+        let orig_rsp = u_sbox.get_hv().get_hypervisor()?.orig_rsp()?;
         {
             hv_init(
                 &u_sbox,
@@ -66,7 +66,7 @@ where
             assert!(mgr.get_pointer_to_dispatch_function()? != 0);
         }
         if u_sbox.run_from_process_memory {
-            u_sbox.get_hv_mut().reset_rsp(orig_rsp)?;
+            u_sbox.get_hv_mut().get_hypervisor()?.reset_rsp(orig_rsp)?;
         }
         None
     };

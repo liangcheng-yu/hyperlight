@@ -71,21 +71,6 @@ impl<'a> HypervisorWrapper<'a> {
             }
         }
     }
-
-    /// Get the stack pointer -- the value of the RSP register --
-    /// the contained `Hypervisor` had
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub(super) fn orig_rsp(&self) -> Result<GuestPtr> {
-        let hv = self.hv_opt.as_ref().ok_or_else(NoHypervisorFound)?.lock()?;
-        hv.orig_rsp()
-    }
-
-    /// Reset the stack pointer
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub(super) fn reset_rsp(&mut self, new_rsp: GuestPtr) -> Result<()> {
-        let mut hv = self.hv_opt.as_mut().ok_or_else(NoHypervisorFound)?.lock()?;
-        hv.reset_rsp(new_rsp)
-    }
 }
 
 impl<'a> UninitializedSandbox<'a> {

@@ -150,8 +150,8 @@ impl<'a> MultiUseSandbox<'a> {
         let mem_mgr = self.mem_mgr.get_mgr_mut();
         mem_mgr.restore_state()?;
         if !self.run_from_process_memory {
-            let orig_rsp = self.hv.orig_rsp()?;
-            self.hv.reset_rsp(orig_rsp)?;
+            let orig_rsp = self.hv.get_hypervisor()?.orig_rsp()?;
+            self.hv.get_hypervisor()?.reset_rsp(orig_rsp)?;
         }
 
         Ok(())
@@ -222,7 +222,7 @@ impl<'a>
         ret.mgr.as_mut().restore_state()?;
         if run_from_proc {
             let orig_rsp = ret.hv.get_hypervisor()?.orig_rsp()?;
-            ret.hv.reset_rsp(orig_rsp)?;
+            ret.hv.get_hypervisor()?.reset_rsp(orig_rsp)?;
         }
         Ok(ret)
     }
