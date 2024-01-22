@@ -37,6 +37,7 @@ jobs:
           draft-drop: false
         env:
           GITHUB_TOKEN: ${{ github.token }}
+      - uses: actions/checkout@v4
       - name: Delete old Github Actions Artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
