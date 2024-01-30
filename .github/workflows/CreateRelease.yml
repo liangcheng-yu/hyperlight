@@ -9,6 +9,9 @@ on:
   push:
     branches: [ dev ]
 
+permissions:
+  packages: write # Needed to publish nuget packages
+
 jobs:
   publish:
     # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref

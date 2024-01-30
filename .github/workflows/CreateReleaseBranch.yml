@@ -9,6 +9,9 @@ on:
     tags: 
       - 'v*'
 
+permissions:
+  contents: write # needed to push the new branch
+  
 jobs:
   create-branch:
     runs-on: ubuntu-20.04
