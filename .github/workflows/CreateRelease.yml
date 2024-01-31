@@ -10,7 +10,9 @@ on:
     branches: [ dev ]
 
 permissions:
+  contents: write
   packages: write # Needed to publish nuget packages
+  pull-requests: read
 
 jobs:
   publish:
