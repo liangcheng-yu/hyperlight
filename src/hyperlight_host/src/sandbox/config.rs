@@ -8,33 +8,33 @@ use tracing::{instrument, Span};
 #[repr(C)]
 pub struct SandboxConfiguration {
     /// The maximum size of the guest error buffer.
-    pub guest_error_buffer_size: usize,
+    guest_error_buffer_size: usize,
     /// The size of the memory buffer that is made available for Guest Function
     /// Definitions
-    pub host_function_definition_size: usize,
+    host_function_definition_size: usize,
     /// The size of the memory buffer that is made available for serialising
     /// Host Exceptions
-    pub host_exception_size: usize,
+    host_exception_size: usize,
     /// The size of the memory buffer that is made available for input to the
     /// Guest Binary
-    pub input_data_size: usize,
+    input_data_size: usize,
     /// The size of the memory buffer that is made available for input to the
     /// Guest Binary
-    pub output_data_size: usize,
+    output_data_size: usize,
     /// The stack size to use in the guest sandbox. If set to 0, the stack
     /// size will be determined from the PE file header
     ///
     /// Note: this is a C-compatible struct, so even though this optional
     /// field should be represented as an `Option`, that type is not
     /// FFI-safe, so it cannot be.
-    pub stack_size_override: u64,
+    stack_size_override: u64,
     /// The heap size to use in the guest sandbox. If set to 0, the heap
     /// size will be determined from the PE file header
     ///
     /// Note: this is a C-compatible struct, so even though this optional
     /// field should be represented as an `Option`, that type is not
     /// FFI-safe, so it cannot be.
-    pub heap_size_override: u64,
+    heap_size_override: u64,
     /// The max_execution_time of a guest execution in milliseconds. If set to 0, the max_execution_time
     /// will be set to the default value of 1000ms if the guest execution does not complete within the time specified
     /// then the execution will be cancelled, the minimum value is 1ms
@@ -42,7 +42,7 @@ pub struct SandboxConfiguration {
     /// Note: this is a C-compatible struct, so even though this optional
     /// field should be represented as an `Option`, that type is not
     /// FFI-safe, so it cannot be.
-    pub max_execution_time: u16,
+    max_execution_time: u16,
     /// The max_wait_for_cancellation represents the maximum time the host should wait for a guest execution to be cancelled
     /// If set to 0, the max_wait_for_cancellation will be set to the default value of 10ms.
     /// The minimum value is 1ms.
@@ -50,7 +50,7 @@ pub struct SandboxConfiguration {
     /// Note: this is a C-compatible struct, so even though this optional
     /// field should be represented as an `Option`, that type is not
     /// FFI-safe, so it cannot be.
-    pub max_wait_for_cancellation: u8,
+    max_wait_for_cancellation: u8,
 }
 
 impl SandboxConfiguration {
@@ -133,6 +133,103 @@ impl SandboxConfiguration {
                 }
             },
         }
+    }
+
+    /// Set the size of the memory buffer that is made available for input to the guest
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub fn set_input_data_size(&mut self, input_data_size: usize) {
+        self.input_data_size = max(input_data_size, Self::MIN_INPUT_SIZE);
+    }
+
+    /// Set the size of the memory buffer that is made available for output from the guest
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub fn set_output_data_size(&mut self, output_data_size: usize) {
+        self.output_data_size = max(output_data_size, Self::MIN_OUTPUT_SIZE);
+    }
+
+    /// Set the size of the memory buffer that is made available for serialising host function definitions
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub fn set_host_function_definition_size(&mut self, host_function_definition_size: usize) {
+        self.host_function_definition_size = max(
+            host_function_definition_size,
+            Self::MIN_HOST_FUNCTION_DEFINITION_SIZE,
+        );
+    }
+
+    /// Set the size of the memory buffer that is made available for serialising host exceptions
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub fn set_host_exception_size(&mut self, host_exception_size: usize) {
+        self.host_exception_size = max(host_exception_size, Self::MIN_HOST_EXCEPTION_SIZE);
+    }
+
+    /// Set the size of the memory buffer that is made available for serialising guest error messages
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub fn set_guest_error_buffer_size(&mut self, guest_error_buffer_size: usize) {
+        self.guest_error_buffer_size =
+            max(guest_error_buffer_size, Self::MIN_GUEST_ERROR_BUFFER_SIZE);
+    }
+
+    /// Set the stack size to use in the guest sandbox. If set to 0, the stack size will be determined from the PE file header
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub fn set_stack_size(&mut self, stack_size: u64) {
+        self.stack_size_override = stack_size;
+    }
+
+    /// Set the heap size to use in the guest sandbox. If set to 0, the heap size will be determined from the PE file header
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub fn set_heap_size(&mut self, heap_size: u64) {
+        self.heap_size_override = heap_size;
+    }
+
+    /// Set the max_execution_time of a guest execution in milliseconds. If set to 0, the max_execution_time
+    /// will be set to the default value of 1000ms if the guest execution does not complete within the time specified
+    /// then the execution will be cancelled, the minimum value is 1ms
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub fn set_max_execution_time(&mut self, max_execution_time: Duration) {
+        match max_execution_time.as_millis() {
+            0 => self.max_execution_time = Self::DEFAULT_MAX_EXECUTION_TIME,
+            1..=65_535u128 => {
+                self.max_execution_time = max(
+                    max_execution_time.as_millis(),
+                    Self::MIN_MAX_EXECUTION_TIME.into(),
+                ) as u16
+            }
+            _ => self.max_execution_time = Self::DEFAULT_MAX_EXECUTION_TIME,
+        }
+    }
+
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(crate) fn get_guest_error_buffer_size(&self) -> usize {
+        self.guest_error_buffer_size
+    }
+
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(crate) fn get_host_function_definition_size(&self) -> usize {
+        self.host_function_definition_size
+    }
+
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(crate) fn get_host_exception_size(&self) -> usize {
+        self.host_exception_size
+    }
+
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(crate) fn get_input_data_size(&self) -> usize {
+        self.input_data_size
+    }
+
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(crate) fn get_output_data_size(&self) -> usize {
+        self.output_data_size
+    }
+
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(crate) fn get_max_execution_time(&self) -> u16 {
+        self.max_execution_time
+    }
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(crate) fn get_max_wait_for_cancellation(&self) -> u8 {
+        self.max_wait_for_cancellation
     }
 
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]

@@ -294,8 +294,8 @@ impl<'a> UninitializedSandbox<'a> {
                 hv_opt,
                 outb_wrapper,
                 mem_access_wrapper,
-                Duration::from_millis(sandbox_cfg.max_execution_time as u64),
-                Duration::from_millis(sandbox_cfg.max_wait_for_cancellation as u64),
+                Duration::from_millis(sandbox_cfg.get_max_execution_time() as u64),
+                Duration::from_millis(sandbox_cfg.get_max_wait_for_cancellation() as u64),
             )
         };
 

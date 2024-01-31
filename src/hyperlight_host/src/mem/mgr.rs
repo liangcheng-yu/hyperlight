@@ -838,11 +838,9 @@ mod tests {
             let pe_info = PEInfo::new(guest_bytes.as_slice()).unwrap();
             let stack_size_override = 0x3000;
             let heap_size_override = 0x10000;
-            let cfg = SandboxConfiguration {
-                stack_size_override,
-                heap_size_override,
-                ..Default::default()
-            };
+            let mut cfg = SandboxConfiguration::default();
+            cfg.set_stack_size(stack_size_override);
+            cfg.set_heap_size(heap_size_override);
             let (layout, shared_mem, _, _) =
                 super::load_guest_binary_common(cfg, &pe_info, 100, |_| Ok(RawPtr::from(100)))
                     .unwrap();

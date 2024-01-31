@@ -252,11 +252,13 @@ impl SandboxMemoryLayout {
         let peb_address = usize::try_from(Self::BASE_ADDRESS + peb_offset)?;
         let host_function_definitions_offset = stack_data_offset + size_of::<GuestStack>();
         let host_exception_buffer_offset =
-            host_function_definitions_offset + cfg.host_function_definition_size;
-        let guest_error_buffer_offset = host_exception_buffer_offset + cfg.host_exception_size;
-        let input_data_buffer_offset = guest_error_buffer_offset + cfg.guest_error_buffer_size;
-        let output_data_buffer_offset = input_data_buffer_offset + cfg.input_data_size;
-        let guest_heap_buffer_offset = output_data_buffer_offset + cfg.output_data_size;
+            host_function_definitions_offset + cfg.get_host_function_definition_size();
+        let guest_error_buffer_offset =
+            host_exception_buffer_offset + cfg.get_host_exception_size();
+        let input_data_buffer_offset =
+            guest_error_buffer_offset + cfg.get_guest_error_buffer_size();
+        let output_data_buffer_offset = input_data_buffer_offset + cfg.get_input_data_size();
+        let guest_heap_buffer_offset = output_data_buffer_offset + cfg.get_output_data_size();
         let guest_stack_buffer_offset = guest_heap_buffer_offset + heap_size;
         Ok(Self {
             peb_offset,
@@ -446,11 +448,13 @@ impl SandboxMemoryLayout {
     pub(super) fn get_memory_size(&self) -> Result<usize> {
         let total_memory = self.code_size
             + Self::PAGE_TABLE_SIZE
-            + self.sandbox_memory_config.host_function_definition_size
-            + self.sandbox_memory_config.input_data_size
-            + self.sandbox_memory_config.output_data_size
-            + self.sandbox_memory_config.host_exception_size
-            + self.sandbox_memory_config.guest_error_buffer_size
+            + self
+                .sandbox_memory_config
+                .get_host_function_definition_size()
+            + self.sandbox_memory_config.get_input_data_size()
+            + self.sandbox_memory_config.get_output_data_size()
+            + self.sandbox_memory_config.get_host_exception_size()
+            + self.sandbox_memory_config.get_guest_error_buffer_size()
             + size_of::<GuestSecurityCookie>()
             + size_of::<GuestDispatchFunctionPointer>()
             + size_of::<HostFunctions>()
@@ -519,7 +523,7 @@ impl SandboxMemoryLayout {
         // Set up Guest Error Fields
         shared_mem.write_u64(
             self.get_guest_error_buffer_size_offset(),
-            u64::try_from(self.sandbox_memory_config.guest_error_buffer_size)?,
+            u64::try_from(self.sandbox_memory_config.get_guest_error_buffer_size())?,
         )?;
 
         let addr = get_address!(guest_error_buffer);
@@ -529,13 +533,17 @@ impl SandboxMemoryLayout {
         // Set up Host Exception Header
         shared_mem.write_u64(
             self.get_host_exception_size_offset(),
-            self.sandbox_memory_config.host_exception_size.try_into()?,
+            self.sandbox_memory_config
+                .get_host_exception_size()
+                .try_into()?,
         )?;
 
         // Set up input buffer pointer
         shared_mem.write_u64(
             self.get_input_data_size_offset(),
-            self.sandbox_memory_config.input_data_size.try_into()?,
+            self.sandbox_memory_config
+                .get_input_data_size()
+                .try_into()?,
         )?;
 
         let addr = get_address!(input_data_buffer);
@@ -545,7 +553,9 @@ impl SandboxMemoryLayout {
         // Set up output buffer pointer
         shared_mem.write_u64(
             self.get_output_data_size_offset(),
-            self.sandbox_memory_config.output_data_size.try_into()?,
+            self.sandbox_memory_config
+                .get_output_data_size()
+                .try_into()?,
         )?;
 
         let addr = get_address!(output_data_buffer);
@@ -564,7 +574,7 @@ impl SandboxMemoryLayout {
         shared_mem.write_u64(
             self.get_host_function_definitions_size_offset(),
             self.sandbox_memory_config
-                .host_function_definition_size
+                .get_host_function_definition_size()
                 .try_into()?,
         )?;
         shared_mem.write_u64(self.get_host_function_definitions_pointer_offset(), addr)?;
