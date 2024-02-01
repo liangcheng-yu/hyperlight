@@ -1,5 +1,5 @@
-use super::metrics::SandboxMetric::CurrentNumberOfMultiUseSandboxes;
 use super::{host_funcs::HostFuncsWrapper, leaked_outb::LeakedOutBWrapper, WrapperGetter};
+use super::{metrics::SandboxMetric::CurrentNumberOfMultiUseSandboxes, snapshot::Snapshot};
 use super::{HypervisorWrapper, MemMgrWrapper, UninitializedSandbox};
 use crate::func::call_ctx::MultiUseGuestCallContext;
 use crate::sandbox_state::{
@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex};
 use tracing::{instrument, Span};
 
 /// A sandbox that supports calling any number of guest functions, without
-/// any limits to how many
+/// any limits to how many.
 #[derive(Clone)]
 pub struct MultiUseSandbox<'a> {
     pub(super) host_funcs: Arc<Mutex<HostFuncsWrapper<'a>>>,
@@ -25,6 +25,7 @@ pub struct MultiUseSandbox<'a> {
     /// See the documentation for `SingleUseSandbox::_leaked_out_b` for
     /// details on the purpose of this field.
     _leaked_outb: Arc<Option<LeakedOutBWrapper<'a>>>,
+    pub(super) mem_snapshots: Arc<Mutex<Vec<Snapshot>>>,
 }
 
 impl<'a> MultiUseSandbox<'a> {
@@ -45,6 +46,7 @@ impl<'a> MultiUseSandbox<'a> {
             run_from_process_memory: val.run_from_process_memory,
             hv: val.hv,
             _leaked_outb: Arc::new(leaked_outb),
+            mem_snapshots: val.mem_snapshots.clone(),
         }
     }
 

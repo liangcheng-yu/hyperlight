@@ -125,8 +125,6 @@ pub mod sandbox_compat;
 pub mod sandbox_run_options;
 /// C-compatible API functions to manage guest / shared memory.
 pub mod shared_mem;
-/// C-compatible API functions to manage guest memory snapshots
-pub mod shared_mem_snapshot;
 /// C-compatible types and functions, and Rust helper functions
 /// for managing both Rust-native `String` types and C-style strings.
 pub mod strings;
