@@ -41,4 +41,4 @@ jobs:
       - name: Delete old Github Actions Artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./dev/cleanup-github-artifacts.sh
+        run: ./dev/clean-github-artifacts.sh
