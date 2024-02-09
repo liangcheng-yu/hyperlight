@@ -101,7 +101,11 @@ namespace Hyperlight.Hypervisors
                 {
                     case WindowsHypervisorPlatform.WHV_RUN_VP_EXIT_REASON.WHvRunVpExitReasonX64IoPortAccess:
                         {
-                            HandleOutb(exitContext.IoPortAccess.PortNumber, 0/*todo add value*/);
+                            // get rax as byte
+                            var rax = exitContext.IoPortAccess.Rax;
+                            var value = (byte)(rax & 0xFF);
+
+                            HandleOutb(exitContext.IoPortAccess.PortNumber, value);
 
                             // Move rip forward to next instruction (size of current instruction in lower byte of InstructionLength_Cr8_Reserved)
 

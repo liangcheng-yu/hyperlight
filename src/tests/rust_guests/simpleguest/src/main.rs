@@ -1,6 +1,6 @@
 #![no_std]
 #![no_main]
-
+const DEFAULT_GUEST_STACK_SIZE: i32 = 65536; // default stack size
 const MAX_BUFFER_SIZE: usize = 1024;
 // ^^^ arbitrary value for max buffer size
 // to support allocations when we'd get a
@@ -16,15 +16,14 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
     guest_function_definition::GuestFunctionDefinition,
 };
 use hyperlight_guest::{
-    entrypoint::halt,
     flatbuffer_utils::{
         get_flatbuffer_result_from_int, get_flatbuffer_result_from_size_prefixed_buffer,
         get_flatbuffer_result_from_string, get_flatbuffer_result_from_void,
     },
     guest_functions::register_function,
     host_function_call::{call_host_function, get_host_value_return_as_int},
-    DEFAULT_GUEST_STACK_SIZE,
 };
+use msvc_alloca::_alloca;
 
 extern crate hyperlight_guest;
 
@@ -306,7 +305,6 @@ pub extern "C" fn print_ten_args(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
-// TODO: This function could cause a stack overflow, update it once we have stack guards in place.
 #[no_mangle]
 #[allow(improper_ctypes_definitions)]
 pub extern "C" fn stack_allocate(function_call: &FunctionCall) -> Vec<u8> {
@@ -315,13 +313,11 @@ pub extern "C" fn stack_allocate(function_call: &FunctionCall) -> Vec<u8> {
             DEFAULT_GUEST_STACK_SIZE + 1
         } else {
             length
-        } as usize;
+        };
 
-        let mut _buffer: [u8; MAX_BUFFER_SIZE] = [0; MAX_BUFFER_SIZE];
-        // allocating the maximum alloc_length on the stack
-        // because Rust doesn't allow dynamic allocations on the stack
-
-        get_flatbuffer_result_from_int(alloc_length as i32)
+        _alloca(alloc_length as usize);
+        
+        get_flatbuffer_result_from_int(alloc_length)
     } else {
         Vec::new()
     }
@@ -351,19 +347,19 @@ pub extern "C" fn buffer_overrun(function_call: &FunctionCall) -> Vec<u8> {
 #[allow(improper_ctypes_definitions)]
 pub extern "C" fn stack_overflow(function_call: &FunctionCall) -> Vec<u8> {
     if let ParameterValue::Int(i) = function_call.parameters.clone().unwrap()[0].clone() {
-        // TODO(#1057): remove MAX_BUFFER_SIZE restriction once we have stack guards in place
-        let _ = recursive_stack_overflow(i.min(MAX_BUFFER_SIZE as i32), [0u8; MAX_BUFFER_SIZE]);
+        loop_stack_overflow(i);
         get_flatbuffer_result_from_int(i)
     } else {
         Vec::new()
     }
 }
-
-fn recursive_stack_overflow(i: i32, mut nums: [u8; MAX_BUFFER_SIZE]) {
-    nums[0] = i as u8;
-
+// This function will allocate i*16384 bytes on the stack
+fn loop_stack_overflow(mut i: i32) {
     if i > 0 {
-        recursive_stack_overflow(i - 1, nums);
+        let mut nums = [0u8; 16384];
+        nums[0] = i as u8;
+        i -= 1;
+        loop_stack_overflow(i);
     }
 }
 
@@ -699,13 +695,4 @@ pub extern "C" fn hyperlight_main() {
 pub extern "C" fn guest_dispatch_function() -> Vec<u8> {
     // return dummy value for now
     Vec::new()
-}
-
-// It looks like rust-analyzer doesn't correctly manage no_std crates,
-// and so it displays an error about a duplicate panic_handler.
-// See more here: https://github.com/rust-lang/rust-analyzer/issues/4490
-#[panic_handler]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
-    halt();
-    loop {}
 }

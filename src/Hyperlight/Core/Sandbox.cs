@@ -693,7 +693,7 @@ namespace Hyperlight
             countRunCalls++;
         }
 
-        internal void HandleOutb(ushort port, byte _)
+        internal void HandleOutb(ushort port, byte value)
         {
             try
             {
@@ -745,8 +745,22 @@ namespace Hyperlight
                         {
                             // TODO we should do something different here , maybe change the function to return a value to indicate that the guest aborted
                             // throwing an exception here will cause the host to write an outb exception and this results in the guest being invoked again when it should not be
-                            // as an abort signals that the guest should not be used again.
-                            throw new HyperlightException("Guest Aborted");
+                            // as an abort signals that the guest should not be used again.                        
+                            switch (value)
+                            {
+                                case 9:
+                                    {
+                                        HyperlightException.LogAndThrowException<StackOverflowException>("Guest Error", GetType().Name);
+                                        break;
+                                    }
+                                default:
+                                    {
+                                        HyperlightException.LogAndThrowException("Guest Aborted", GetType().Name);
+                                        break;
+                                    }
+                            }
+
+                            break;
                         }
                 }
             }

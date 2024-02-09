@@ -3,6 +3,7 @@ use crate::hypervisor::handlers::{OutBHandlerFunction, OutBHandlerWrapper};
 use crate::{hypervisor::handlers::OutBHandler, mem::mgr::SandboxMemoryManager};
 use crate::{HyperlightError, Result};
 use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::ParameterValue;
+use hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::ErrorCode;
 use hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_data::GuestLogData;
 use log::{Level, Record};
 use std::sync::{Arc, Mutex};
@@ -95,7 +96,7 @@ fn handle_outb_impl(
     mem_mgr: &mut MemMgrWrapper,
     host_funcs: Arc<Mutex<HostFuncsWrapper<'_>>>,
     port: u16,
-    _byte: u64,
+    byte: u64,
 ) -> Result<()> {
     match port.into() {
         OutBAction::Log => outb_log(mem_mgr.as_ref()),
@@ -110,7 +111,13 @@ fn handle_outb_impl(
 
             Ok(())
         }
-        OutBAction::Abort => Err(HyperlightError::GuestAborted()),
+        OutBAction::Abort => {
+            let guest_error = ErrorCode::from(byte);
+            match guest_error {
+                ErrorCode::StackOverflow => Err(HyperlightError::StackOverflow()),
+                _ => Err(HyperlightError::GuestAborted()),
+            }
+        }
     }
 }
 

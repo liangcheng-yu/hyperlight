@@ -13,6 +13,9 @@ pub(crate) fn write_error(error_code: ErrorCode, message: Option<&str>) {
     let guest_error_buffer: Vec<u8> = (&guest_error).try_into().unwrap();
 
     unsafe {
+        // TODO: We should probably review the use of asserts and do explicit checks here
+        // these asserts will cause a panic and we wont get much in the way of error information
+
         assert!(!(*P_PEB.unwrap()).pGuestErrorBuffer.is_null());
         assert!(guest_error_buffer.len() <= (*P_PEB.unwrap()).guestErrorBufferSize as usize);
 

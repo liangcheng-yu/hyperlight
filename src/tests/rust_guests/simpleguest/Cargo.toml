@@ -11,3 +11,4 @@ compiler_builtins = { version = "0.1.45", features = [ "mem" ] }
 # because of this dependency. It looks like rust-analyzer doesn't correctly
 # recognize that this single project in the workspace is on nightly, 
 # and so it complains about the use of `#![feature(..)]` items.
+msvc-alloca = "0.3"

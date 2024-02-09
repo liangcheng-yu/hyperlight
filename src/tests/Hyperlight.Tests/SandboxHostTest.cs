@@ -887,8 +887,7 @@ namespace Hyperlight.Tests
             }
         }
 
-        // [FactSkipIfHypervisorNotPresent]
-        [Fact(Skip = "Skipping because of issue 1057")]
+        [FactSkipIfHypervisorNotPresent]
         public void Test_Stack_Overflow()
         {
             var guestBinaryFileName = "simpleguest.exe";
@@ -913,12 +912,9 @@ namespace Hyperlight.Tests
                         int arg = 0;
                         functions.StackAllocate!(arg);
                     });
-                    //Assert.NotNull(ex);
-                    //Assert.IsType<System.StackOverflowException>(ex);
-                    //Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
-                    // ^^^ TODO(#1057): I am commenting out these lines
-                    // because we currently don't have
-                    // stack guards in place.
+                    Assert.NotNull(ex);
+                    Assert.IsType<System.StackOverflowException>(ex);
+                    Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
 
                 }
                 correlationId = Guid.NewGuid().ToString("N");
@@ -938,12 +934,9 @@ namespace Hyperlight.Tests
                     {
                         var result = functions.StackOverflow!(shouldOverflow);
                     });
-                    //Assert.NotNull(ex);
-                    //Assert.IsType<System.StackOverflowException>(ex);
-                    //Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
-                    // ^^^ TODO(#1057): I am commenting out these lines
-                    // because we currently don't have
-                    // stack guards in place.
+                    Assert.NotNull(ex);
+                    Assert.IsType<System.StackOverflowException>(ex);
+                    Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
                 }
                 correlationId = Guid.NewGuid().ToString("N");
                 using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
@@ -956,12 +949,9 @@ namespace Hyperlight.Tests
                     {
                         var result = functions.StackOverflow!(iterations);
                     });
-                    //Assert.NotNull(ex);
-                    //Assert.IsType<System.StackOverflowException>(ex);
-                    //Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
-                    // ^^^ TODO(#1057): I am commenting out these lines
-                    // because we currently don't have
-                    // stack guards in place.
+                    Assert.NotNull(ex);
+                    Assert.IsType<System.StackOverflowException>(ex);
+                    Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
                 }
 
                 correlationId = Guid.NewGuid().ToString("N");
@@ -973,12 +963,9 @@ namespace Hyperlight.Tests
                     {
                         var result = functions.LargeVar!();
                     });
-                    //Assert.NotNull(ex);
-                    //Assert.IsType<System.StackOverflowException>(ex);
-                    //Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
-                    // ^^^ TODO(#1057): I am commenting out these lines
-                    // because we currently don't have
-                    // stack guards in place.
+                    Assert.NotNull(ex);
+                    Assert.IsType<System.StackOverflowException>(ex);
+                    Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
                 }
 
                 correlationId = Guid.NewGuid().ToString("N");

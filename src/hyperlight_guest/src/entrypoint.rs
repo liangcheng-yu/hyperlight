@@ -1,7 +1,7 @@
 use crate::{
     guest_error::reset_error, guest_function_call::dispatch_function,
     guest_functions::finalise_function_table, hyperlight_peb::HyperlightPEB, HEAP_ALLOCATOR,
-    OS_PAGE_SIZE, OUTB_PTR, OUTB_PTR_WITH_CONTEXT, P_PEB, RUNNING_IN_HYPERLIGHT,
+    MIN_STACK_ADDRESS, OS_PAGE_SIZE, OUTB_PTR, OUTB_PTR_WITH_CONTEXT, P_PEB, RUNNING_IN_HYPERLIGHT,
 };
 
 use core::ffi::c_void;
@@ -64,6 +64,10 @@ pub extern "C" fn entrypoint(peb_address: i64, _seed: i64, ops: i32) -> i32 {
 
         if (*peb_ptr).pOutb.is_null() {
             RUNNING_IN_HYPERLIGHT = true;
+            // This static is to make it easier to implement the __chksstk function in assembly.
+            // It also means that should we change the layout of the struct in the future, we
+            // don't have to change the assembly code.
+            MIN_STACK_ADDRESS = (*peb_ptr).gueststackData.minStackAddress;
         }
 
         (*peb_ptr).guest_function_dispatch_ptr = dispatch_function as usize as u64;

@@ -29,3 +29,23 @@ runs:
       if: ${{ (runner.os == 'Windows') }}
       run: just cargo-login-ci-windows
       shell: pwsh
+
+    # Install clang-tools on Linux
+
+    - name: Install clang-tools (Linux mariner)
+      if: ${{ (runner.os == 'Linux' && matrix.hypervisor == 'hyperv') }}
+      run: |
+        sudo dnf remove clang -y|| true
+        sudo dnf install clang16 -y
+        sudo dnf install clang16-tools-extra -y
+      shell: bash
+
+    - name: Install clang-tools (Linux ubuntu)
+      if: ${{ (runner.os == 'Linux' && matrix.hypervisor == 'kvm') }}
+      run: |
+        wget https://apt.llvm.org/llvm.sh 
+        chmod +x ./llvm.sh
+        sudo ./llvm.sh 16 all
+        sudo ln -s /usr/lib/llvm-16/bin/clang-cl /usr/bin/clang-cl
+        sudo ln -s /usr/lib/llvm-16/bin/llvm-lib /usr/bin/llvm-lib
+      shell: bash
