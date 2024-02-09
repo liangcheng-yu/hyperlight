@@ -120,6 +120,9 @@ pub fn outb(port: u16, value: u8) {
     }
 }
 
+// this inline(never) is necessary to prevent the compiler
+// from optimizing out the call when compiling in release profile
+#[inline(never)]
 pub fn hloutb(port: u16, value: u8) {
     unsafe {
         asm!(

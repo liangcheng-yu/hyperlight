@@ -77,7 +77,7 @@ pub enum HyperlightError {
     FieldIsMissingInGuestLogData(String),
     #[error("Cannot run from guest binary when guest binary is a buffer")]
     /// Guest aborted during outb
-    GuestAborted(),
+    GuestAborted(u8),
     #[error("Guest aborted")]
     ///Cannot run from guest binary unless the binary is a file
     GuestBinaryShouldBeAFile(),

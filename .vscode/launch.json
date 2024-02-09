@@ -83,9 +83,26 @@
           ],
           "filter": {
             "name": "hyperlight_host",
-            "kind": "lib"}
+            "kind": "lib"
+          }
         },
         "args": ["sandbox::initialized_single_use::tests"]
+      },
+      {
+        "type": "lldb",
+        "request": "launch",
+        "name": "Cargo debug integration_test",
+        "cargo": {
+          "args": [
+            "test",
+            "--profile=dev",
+            "--no-run",
+          ],
+          "filter": {
+            "name": "integration_test",
+          }
+        },
+       "args": ["test_guest_abort"] // the specific test to run
       }
   ]
 }

@@ -1,7 +1,11 @@
 use crate::{
-    guest_error::reset_error, guest_function_call::dispatch_function,
-    guest_functions::finalise_function_table, hyperlight_peb::HyperlightPEB, HEAP_ALLOCATOR,
-    MIN_STACK_ADDRESS, OS_PAGE_SIZE, OUTB_PTR, OUTB_PTR_WITH_CONTEXT, P_PEB, RUNNING_IN_HYPERLIGHT,
+    guest_error::reset_error,
+    guest_function_call::dispatch_function,
+    guest_functions::finalise_function_table,
+    host_function_call::{outb, OutBAction},
+    hyperlight_peb::HyperlightPEB,
+    HEAP_ALLOCATOR, MIN_STACK_ADDRESS, OS_PAGE_SIZE, OUTB_PTR, OUTB_PTR_WITH_CONTEXT, P_PEB,
+    RUNNING_IN_HYPERLIGHT,
 };
 
 use core::ffi::c_void;
@@ -17,6 +21,14 @@ pub fn halt() {
             hlt_func();
         }
     }
+}
+
+pub fn abort() {
+    abort_with_code(0);
+}
+
+pub fn abort_with_code(code: i32) {
+    outb(OutBAction::Abort as u16, code as u8);
 }
 
 extern "C" {

@@ -24,6 +24,9 @@ pub mod host_functions;
 pub mod hyperlight_peb;
 
 pub mod flatbuffer_utils;
+pub mod memory;
+pub mod print;
+pub mod setjmp;
 
 // Unresolved symbols
 #[no_mangle]

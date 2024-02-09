@@ -15,6 +15,8 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
     function_types::{ParameterType, ParameterValue, ReturnType},
     guest_function_definition::GuestFunctionDefinition,
 };
+use hyperlight_guest::entrypoint::abort_with_code;
+use hyperlight_guest::memory::hlmalloc;
 use hyperlight_guest::{
     flatbuffer_utils::{
         get_flatbuffer_result_from_int, get_flatbuffer_result_from_size_prefixed_buffer,
@@ -316,7 +318,7 @@ pub extern "C" fn stack_allocate(function_call: &FunctionCall) -> Vec<u8> {
         };
 
         _alloca(alloc_length as usize);
-        
+
         get_flatbuffer_result_from_int(alloc_length)
     } else {
         Vec::new()
@@ -453,6 +455,25 @@ pub extern "C" fn spin(_: &FunctionCall) -> Vec<u8> {
 
     #[allow(unreachable_code)]
     get_flatbuffer_result_from_void()
+}
+
+#[no_mangle]
+#[allow(improper_ctypes_definitions)]
+pub extern "C" fn test_abort(function_call: &FunctionCall) -> Vec<u8> {
+    if let ParameterValue::Int(code) = function_call.parameters.clone().unwrap()[0].clone() {
+        abort_with_code(code);
+    }
+    get_flatbuffer_result_from_void()
+}
+
+#[no_mangle]
+#[allow(improper_ctypes_definitions)]
+pub extern "C" fn test_rust_malloc(function_call: &FunctionCall) -> Vec<u8> {
+    if let ParameterValue::Int(code) = function_call.parameters.clone().unwrap()[0].clone() {
+        let ptr = hlmalloc(code as usize);
+        return get_flatbuffer_result_from_int(ptr as i32);
+    }
+    Vec::new()
 }
 
 #[no_mangle]
@@ -688,6 +709,22 @@ pub extern "C" fn hyperlight_main() {
     let spin_def =
         GuestFunctionDefinition::new("Spin".to_string(), Vec::new(), ReturnType::Int, spin as i64);
     register_function(spin_def);
+
+    let abort_def = GuestFunctionDefinition::new(
+        "test_abort".to_string(),
+        Vec::from(&[ParameterType::Int]),
+        ReturnType::Void,
+        test_abort as i64,
+    );
+    register_function(abort_def);
+
+    let rust_malloc_def = GuestFunctionDefinition::new(
+        "test_rust_malloc".to_string(),
+        Vec::from(&[ParameterType::Int]),
+        ReturnType::Int,
+        test_rust_malloc as i64,
+    );
+    register_function(rust_malloc_def);
 }
 
 #[no_mangle]

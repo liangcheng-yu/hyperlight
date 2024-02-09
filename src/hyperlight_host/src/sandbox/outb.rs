@@ -115,7 +115,7 @@ fn handle_outb_impl(
             let guest_error = ErrorCode::from(byte);
             match guest_error {
                 ErrorCode::StackOverflow => Err(HyperlightError::StackOverflow()),
-                _ => Err(HyperlightError::GuestAborted()),
+                _ => Err(HyperlightError::GuestAborted(byte as u8)),
             }
         }
     }
