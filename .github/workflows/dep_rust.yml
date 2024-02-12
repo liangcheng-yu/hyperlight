@@ -87,9 +87,7 @@ jobs:
       - name: Build and move dummyguest.exe and simpleguest.exe
         run: |
           echo "Building simpleguest and dummyguest binaries for build config ${{ matrix.config }}"
-          rustup toolchain install nightly-2023-11-28-x86_64-unknown-linux-gnu
           rustup target add x86_64-pc-windows-msvc                                # for dummyguest
-          rustup target add --toolchain nightly-2023-11-28 x86_64-pc-windows-msvc # for simpleguest
           just build-and-move-rust-guests
 
       - name: Display Guest Binaries

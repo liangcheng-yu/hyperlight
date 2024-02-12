@@ -29,7 +29,6 @@ update-dlmalloc:
     cd src/HyperlightGuest/third_party/dlmalloc && git apply --whitespace=nowarn --verbose malloc.patch || cd ../../../..
 
 build-rust-guests target=default-target:
-    # simpleguest needs to be built with nightly
     cd src/tests/rust_guests/simpleguest && cargo build --profile={{ if target == "debug" {"dev"} else { target } }}
     # dummyguest can be built with the default toolchain
     cd src/tests/rust_guests/dummyguest && cargo build --profile={{ if target == "debug" {"dev"} else { target } }}
