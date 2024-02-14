@@ -60,6 +60,52 @@ pub fn get_host_value_return_as_int() -> i32 {
     }
 }
 
+// TODO: Make this generic, return a Result<T, ErrorCode>
+
+pub fn get_host_value_return_as_vecbytes() -> Vec<u8> {
+    let peb_ptr = unsafe { P_PEB.unwrap() };
+
+    let idb = unsafe {
+        from_raw_parts(
+            (*peb_ptr).inputdata.inputDataBuffer as *mut u8,
+            (*peb_ptr).inputdata.inputDataSize as usize,
+        )
+    };
+
+    // if buffer size is zero, error out
+    if idb.is_empty() {
+        set_error(
+            ErrorCode::GuestError,
+            "Got a 0-size buffer in GetHostReturnValueAsVecBytes",
+        );
+        return Vec::new();
+    }
+
+    let fcr = if let Ok(r) = ReturnValue::try_from(idb) {
+        r
+    } else {
+        set_error(
+            ErrorCode::GuestError,
+            "Could not convert buffer to ReturnValue in GetHostReturnValueAsVecBytes",
+        );
+        return Vec::new();
+    };
+
+    // check that return value is an Vec<u8> and return
+    if let ReturnValue::VecBytes(v) = fcr {
+        v
+    } else {
+        set_error(
+            ErrorCode::GuestError,
+            "Host return value was not an VecBytes as expected",
+        );
+        Vec::new()
+    }
+}
+
+// TODO: Make this generic, return a Result<T, ErrorCode> this should allow callers to call this function and get the result type they expect
+// without having to do the conversion themselves
+
 pub fn call_host_function(
     function_name: &str,
     parameters: Option<Vec<ParameterValue>>,

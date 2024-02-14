@@ -1,4 +1,5 @@
 use crate::{
+    __security_cookie,
     guest_error::reset_error,
     guest_function_call::dispatch_function,
     guest_functions::finalise_function_table,
@@ -8,7 +9,7 @@ use crate::{
     RUNNING_IN_HYPERLIGHT,
 };
 
-use core::ffi::c_void;
+use core::{ffi::c_void, hint::unreachable_unchecked};
 
 pub fn halt() {
     unsafe {
@@ -23,12 +24,14 @@ pub fn halt() {
     }
 }
 
-pub fn abort() {
-    abort_with_code(0);
+#[no_mangle]
+pub extern "C" fn abort() -> ! {
+    abort_with_code(0)
 }
-
-pub fn abort_with_code(code: i32) {
+#[no_mangle]
+pub extern "C" fn abort_with_code(code: i32) -> ! {
     outb(OutBAction::Abort as u16, code as u8);
+    unsafe { unreachable_unchecked() }
 }
 
 extern "C" {
@@ -36,11 +39,17 @@ extern "C" {
 }
 
 #[no_mangle]
-pub extern "C" fn entrypoint(peb_address: i64, _seed: i64, ops: i32) -> i32 {
+pub extern "C" fn entrypoint(peb_address: i64, seed: i64, ops: i32) -> i32 {
     unsafe {
         if peb_address == 0 {
+            // TODO this should call abort with a code
             return -1;
         }
+
+        // Set up the security cookie using the seed and the value passed in the PEB
+        // The security cookie is the first value in the peb struct so its address is the same as the peb address
+
+        __security_cookie = peb_address as u64 ^ seed as u64;
 
         P_PEB = Some(peb_address as *mut HyperlightPEB);
 

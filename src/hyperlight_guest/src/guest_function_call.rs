@@ -65,17 +65,24 @@ pub(crate) fn call_guest_function(function_call: &FunctionCall) -> Vec<u8> {
 
         p_function(function_call)
     } else {
-        extern "C" {
-            #[allow(improper_ctypes)]
+        // If the function was not found call the guest_dispatch_function method.
+
+        // TODO: ideally we would define a default implementation of this with weak linkage so the guest is not required
+        // to implement the function but its seems that weak linkage is an unstable feature so for now its probably better
+        // to not do that.
+        extern "Rust" {
             fn guest_dispatch_function(function_call: &FunctionCall) -> Vec<u8>;
         }
 
-        // If the function was not found call the guest_dispatch_function method.
         unsafe { guest_dispatch_function(function_call) }
     }
 }
 
-pub(crate) fn dispatch_function() {
+// This function is marked as no_mangle/inline to prevent the compiler from inlining it , if its inlined the epilogue will not be called
+// and we will leak memory as the epilogue will not be called as halt() is not going to return.
+#[no_mangle]
+#[inline(never)]
+fn internal_dispatch_function() {
     reset_error();
 
     let peb_ptr = unsafe { P_PEB.unwrap() };
@@ -101,5 +108,12 @@ pub(crate) fn dispatch_function() {
 
         copy_nonoverlapping(result_vec.as_ptr(), output_data_buffer, result_vec.len());
     }
+}
+
+// This is implemented as a separate function to make sure that epilogue in the internal_dispatch_function is called before the halt()
+// which if it were included in the internal_dispatch_function cause the epilogue to not be called because the halt() would not return
+// when running in the hypervisor.
+pub(crate) fn dispatch_function() {
+    internal_dispatch_function();
     halt();
 }

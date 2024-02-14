@@ -1,9 +1,11 @@
+use core::ffi::c_char;
 use core::ffi::c_void;
+use core::ffi::CStr;
 
 use alloc::{string::ToString, vec::Vec};
 use hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::{ErrorCode, GuestError};
 
-use crate::P_PEB;
+use crate::{entrypoint::halt, P_PEB};
 
 pub(crate) fn write_error(error_code: ErrorCode, message: Option<&str>) {
     let guest_error = GuestError::new(
@@ -46,9 +48,28 @@ pub(crate) fn reset_error() {
     }
 }
 
-pub(crate) fn set_error(error_code: ErrorCode, message: &str) {
+pub fn set_error(error_code: ErrorCode, message: &str) {
     write_error(error_code, Some(message));
     unsafe {
         (*P_PEB.unwrap()).outputdata.outputDataBuffer = usize::MAX as *mut c_void;
     }
+}
+
+// Exposes a C API to allow the guest to set an error
+
+#[no_mangle]
+#[allow(non_camel_case_types)]
+pub extern "C" fn setError(code: u64, message: *const c_char) {
+    let error_code = ErrorCode::from(code);
+    match message.is_null() {
+        true => write_error(error_code, None),
+        false => {
+            let message = match unsafe { CStr::from_ptr(message).to_str().ok() } {
+                Some(s) => s,
+                None => "Invalid error message, could not be converted to a string",
+            };
+            write_error(error_code, Some(message));
+        }
+    }
+    halt();
 }

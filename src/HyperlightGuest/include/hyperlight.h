@@ -1,5 +1,7 @@
 #pragma once
 
+//TODO: When we get rid of the C Guest Library we should remove this file entirely and generate it with bindgen.
+
 #include <stdint.h>
 #include <stdbool.h>
 #include "printf.h"
@@ -19,11 +21,31 @@
 
 #define ns(x) FLATBUFFERS_WRAP_NAMESPACE(Hyperlight_Generated, x) 
 
+#define GUEST_ERROR          15
+
+#ifdef USING_RUST_GUEST
+
+void* hlmalloc(size_t);
+void* hlcalloc(size_t);
+void* hlrealloc(void*, size_t);
+void hlfree(void*);
+void abort();
+void abort_with_code(int);
+
+#define free                 hlfree
+#define malloc               hlmalloc
+#define calloc               hlcalloc
+#define realloc              hlrealloc
+
+#else
+
 #define calloc               dlcalloc
 #define free                 dlfree
 #define malloc               dlmalloc
 #define realloc              dlrealloc
-#define GUEST_ERROR          15
+
+#endif
+
 
 #define GENERATE_FUNCTION(function, paramsc, ... ) GENERATE_FUNCTION_##paramsc(function, __VA_ARGS__)
 

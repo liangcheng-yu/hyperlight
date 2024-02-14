@@ -1,24 +1,34 @@
 use core::alloc::Layout;
 use core::ffi::c_void;
+use core::mem::align_of;
 use core::mem::size_of;
+use core::ptr;
 use hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::ErrorCode;
 
 use crate::entrypoint::abort_with_code;
 
 extern crate alloc;
 
-const ALIGN: usize = 8;
-
 #[no_mangle]
 pub extern "C" fn hlmalloc(size: usize) -> *const c_void {
+    alloc_helper(size, false)
+}
+
+pub fn alloc_helper(size: usize, zero: bool) -> *const c_void {
     // Allocate a block that includes space for both layout information and data
+    if size == 0 {
+        return ptr::null_mut();
+    }
+
     let total_size = size + size_of::<Layout>();
-    let layout = Layout::from_size_align(total_size, ALIGN).unwrap();
+    let layout = Layout::from_size_align(total_size, align_of::<usize>()).unwrap();
     unsafe {
-        let raw_ptr = alloc::alloc::alloc(layout);
+        let raw_ptr = match zero {
+            true => alloc::alloc::alloc_zeroed(layout),
+            false => alloc::alloc::alloc(layout),
+        };
         if raw_ptr.is_null() {
             abort_with_code(ErrorCode::MallocFailed as i32);
-            core::ptr::null()
         } else {
             let layout_ptr = raw_ptr as *mut Layout;
             layout_ptr.write(layout);
@@ -30,7 +40,7 @@ pub extern "C" fn hlmalloc(size: usize) -> *const c_void {
 #[no_mangle]
 pub extern "C" fn hlcalloc(n: usize, size: usize) -> *const c_void {
     let total_size = n * size;
-    hlmalloc(total_size)
+    alloc_helper(total_size, true)
 }
 
 #[no_mangle]
@@ -39,7 +49,7 @@ pub extern "C" fn hlfree(ptr: *const c_void) {
         unsafe {
             let block_start = (ptr as *const Layout).sub(1);
             let layout = block_start.read();
-            alloc::alloc::dealloc(block_start as *mut u8, layout);
+            alloc::alloc::dealloc(block_start as *mut u8, layout)
         }
     }
 }
@@ -61,7 +71,6 @@ pub extern "C" fn hlrealloc(ptr: *const c_void, size: usize) -> *const c_void {
         if new_block_start.is_null() {
             // Realloc failed
             abort_with_code(ErrorCode::MallocFailed as i32);
-            core::ptr::null()
         } else {
             // Return the pointer just after the layout information
             // since old layout should still as it would have been copied

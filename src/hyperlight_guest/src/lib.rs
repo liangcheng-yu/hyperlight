@@ -1,10 +1,9 @@
 #![no_std]
-
 // Deps
 use alloc::vec::Vec;
 use buddy_system_allocator::LockedHeap;
 use core::arch::global_asm;
-use entrypoint::halt;
+use entrypoint::abort;
 use hyperlight_flatbuffers::flatbuffer_wrappers::guest_function_details::GuestFunctionDetails;
 use hyperlight_peb::HyperlightPEB;
 
@@ -26,6 +25,7 @@ pub mod hyperlight_peb;
 pub mod flatbuffer_utils;
 pub mod memory;
 pub mod print;
+pub(crate) mod security_check;
 pub mod setjmp;
 
 // Unresolved symbols
@@ -34,28 +34,20 @@ pub(crate) extern "C" fn __CxxFrameHandler3() {}
 #[no_mangle]
 pub(crate) static _fltused: i32 = 0;
 
-// TODO: These symbols will be added in a later PR
-
 // __security_cookie
 #[no_mangle]
-pub(crate) static __security_cookie: u64 = 0;
-
-// __security_check_cookie
-#[no_mangle]
-pub(crate) extern "C" fn __security_check_cookie(_cookie: u64) {}
+pub(crate) static mut __security_cookie: u64 = 0;
 
 // It looks like rust-analyzer doesn't correctly manage no_std crates,
 // and so it displays an error about a duplicate panic_handler.
 // See more here: https://github.com/rust-lang/rust-analyzer/issues/4490
-#[panic_handler]
+// The cfg_attr attribute is used to avoid clippy failures as test pulls in std which pulls in a panic handler
+#[cfg_attr(not(test), panic_handler)]
+// to satisfy the clippy when cfg == test
+#[allow(dead_code)]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
-    // Rather than halt, we should probably abort with a code and potentially write some context to shared memory.
-    halt();
-
-    //TODO: We should maybe use https://doc.rust-lang.org/std/hint/fn.unreachable_unchecked.html here
-    // so we are more explicit about what is going on here?
-
-    loop {}
+    // TODO: Rather than abort, we should probably abort with a code and potentially write some context to shared memory.
+    abort()
 }
 
 extern "win64" {
@@ -104,7 +96,7 @@ global_asm!(
         running_in_hyperlight = sym RUNNING_IN_HYPERLIGHT,
         chkstk_in_proc = sym __chkstk_in_proc,
         min_stack_addr = sym MIN_STACK_ADDRESS,
-        set_error = sym set_error,
+        set_error = sym set_stack_allocate_error,
 
 );
 
@@ -149,11 +141,9 @@ pub(crate) static mut GUEST_FUNCTIONS_BUILDER: GuestFunctionDetails =
 pub(crate) static mut GUEST_FUNCTIONS: Vec<u8> = Vec::new();
 
 #[no_mangle]
-pub extern "win64" fn set_error() {
+extern "win64" fn set_stack_allocate_error() {
     guest_error::set_error(
         hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::ErrorCode::StackOverflow,
         "Stack Overflow",
-    );
-
-    halt();
+    )
 }
