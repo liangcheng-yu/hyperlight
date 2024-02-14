@@ -1,6 +1,5 @@
-use core::{arch::asm, ptr::copy_nonoverlapping, slice::from_raw_parts};
-
 use alloc::{format, string::ToString, vec::Vec};
+use core::{arch::global_asm, ptr::copy_nonoverlapping, slice::from_raw_parts};
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
     function_call::{FunctionCall, FunctionCallType},
     function_types::{ParameterValue, ReturnType, ReturnValue},
@@ -166,17 +165,16 @@ pub fn outb(port: u16, value: u8) {
     }
 }
 
-// this inline(never) is necessary to prevent the compiler
-// from optimizing out the call when compiling in release profile
-#[inline(never)]
-pub fn hloutb(port: u16, value: u8) {
-    unsafe {
-        asm!(
-            "mov al, {value}",
-            "mov dx, {port:x}",
-            "out dx, al",
-            port = in(reg) port,
-            value = in(reg_byte) value,
-        );
-    }
+extern "win64" {
+    fn hloutb(port: u16, value: u8);
 }
+
+// port: RCX(cx), value: RDX(dl)
+global_asm!(
+    ".global hloutb
+        hloutb:
+            mov al, dl
+            mov dx, cx
+            out dx, al
+            ret"
+);
