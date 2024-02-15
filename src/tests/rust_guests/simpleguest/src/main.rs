@@ -39,9 +39,7 @@ fn print_output(message: &str) -> Vec<u8> {
     get_flatbuffer_result_from_int(result)
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn simple_print_output(function_call: &FunctionCall) -> Vec<u8> {
+fn simple_print_output(function_call: &FunctionCall) -> Vec<u8> {
     if let ParameterValue::String(message) = function_call.parameters.clone().unwrap()[0].clone() {
         print_output(&message)
     } else {
@@ -49,9 +47,7 @@ pub extern "C" fn simple_print_output(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn set_byte_array_to_zero(function_call: &FunctionCall) -> Vec<u8> {
+fn set_byte_array_to_zero(function_call: &FunctionCall) -> Vec<u8> {
     if let (ParameterValue::VecBytes(vec), ParameterValue::Int(length)) = (
         function_call.parameters.clone().unwrap()[0].clone(),
         function_call.parameters.clone().unwrap()[1].clone(),
@@ -71,9 +67,7 @@ pub extern "C" fn set_byte_array_to_zero(function_call: &FunctionCall) -> Vec<u8
     }
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn print_two_args(function_call: &FunctionCall) -> Vec<u8> {
+fn print_two_args(function_call: &FunctionCall) -> Vec<u8> {
     if let (ParameterValue::String(arg1), ParameterValue::Int(arg2)) = (
         function_call.parameters.clone().unwrap()[0].clone(),
         function_call.parameters.clone().unwrap()[1].clone(),
@@ -85,9 +79,7 @@ pub extern "C" fn print_two_args(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn print_three_args(function_call: &FunctionCall) -> Vec<u8> {
+fn print_three_args(function_call: &FunctionCall) -> Vec<u8> {
     if let (ParameterValue::String(arg1), ParameterValue::Int(arg2), ParameterValue::Long(arg3)) = (
         function_call.parameters.clone().unwrap()[0].clone(),
         function_call.parameters.clone().unwrap()[1].clone(),
@@ -100,9 +92,7 @@ pub extern "C" fn print_three_args(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn print_four_args(function_call: &FunctionCall) -> Vec<u8> {
+fn print_four_args(function_call: &FunctionCall) -> Vec<u8> {
     if let (
         ParameterValue::String(arg1),
         ParameterValue::Int(arg2),
@@ -124,9 +114,7 @@ pub extern "C" fn print_four_args(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn print_five_args(function_call: &FunctionCall) -> Vec<u8> {
+fn print_five_args(function_call: &FunctionCall) -> Vec<u8> {
     if let (
         ParameterValue::String(arg1),
         ParameterValue::Int(arg2),
@@ -150,9 +138,7 @@ pub extern "C" fn print_five_args(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn print_six_args(function_call: &FunctionCall) -> Vec<u8> {
+fn print_six_args(function_call: &FunctionCall) -> Vec<u8> {
     if let (
         ParameterValue::String(arg1),
         ParameterValue::Int(arg2),
@@ -178,9 +164,7 @@ pub extern "C" fn print_six_args(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn print_seven_args(function_call: &FunctionCall) -> Vec<u8> {
+fn print_seven_args(function_call: &FunctionCall) -> Vec<u8> {
     if let (
         ParameterValue::String(arg1),
         ParameterValue::Int(arg2),
@@ -208,9 +192,7 @@ pub extern "C" fn print_seven_args(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn print_eight_args(function_call: &FunctionCall) -> Vec<u8> {
+fn print_eight_args(function_call: &FunctionCall) -> Vec<u8> {
     if let (
         ParameterValue::String(arg1),
         ParameterValue::Int(arg2),
@@ -240,9 +222,7 @@ pub extern "C" fn print_eight_args(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn print_nine_args(function_call: &FunctionCall) -> Vec<u8> {
+fn print_nine_args(function_call: &FunctionCall) -> Vec<u8> {
     if let (
         ParameterValue::String(arg1),
         ParameterValue::Int(arg2),
@@ -274,9 +254,7 @@ pub extern "C" fn print_nine_args(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn print_ten_args(function_call: &FunctionCall) -> Vec<u8> {
+fn print_ten_args(function_call: &FunctionCall) -> Vec<u8> {
     if let (
         ParameterValue::String(arg1),
         ParameterValue::Int(arg2),
@@ -307,9 +285,7 @@ pub extern "C" fn print_ten_args(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn stack_allocate(function_call: &FunctionCall) -> Vec<u8> {
+fn stack_allocate(function_call: &FunctionCall) -> Vec<u8> {
     if let ParameterValue::Int(length) = function_call.parameters.clone().unwrap()[0].clone() {
         let alloc_length = if length == 0 {
             DEFAULT_GUEST_STACK_SIZE + 1
@@ -325,9 +301,7 @@ pub extern "C" fn stack_allocate(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn buffer_overrun(function_call: &FunctionCall) -> Vec<u8> {
+fn buffer_overrun(function_call: &FunctionCall) -> Vec<u8> {
     if let ParameterValue::String(value) = function_call.parameters.clone().unwrap()[0].clone() {
         let c_str = value.as_str();
 
@@ -345,9 +319,7 @@ pub extern "C" fn buffer_overrun(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn stack_overflow(function_call: &FunctionCall) -> Vec<u8> {
+fn stack_overflow(function_call: &FunctionCall) -> Vec<u8> {
     if let ParameterValue::Int(i) = function_call.parameters.clone().unwrap()[0].clone() {
         loop_stack_overflow(i);
         get_flatbuffer_result_from_int(i)
@@ -365,25 +337,19 @@ fn loop_stack_overflow(mut i: i32) {
     }
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn large_var(_: &FunctionCall) -> Vec<u8> {
+fn large_var(_: &FunctionCall) -> Vec<u8> {
     let _buffer: [u8; (DEFAULT_GUEST_STACK_SIZE + 1) as usize] =
         [0; (DEFAULT_GUEST_STACK_SIZE + 1) as usize];
     get_flatbuffer_result_from_int(DEFAULT_GUEST_STACK_SIZE + 1)
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn small_var(_: &FunctionCall) -> Vec<u8> {
+fn small_var(_: &FunctionCall) -> Vec<u8> {
     let _buffer: [u8; 1024] = [0; 1024];
     get_flatbuffer_result_from_int(1024)
 }
 
 // TODO: This function could cause a stack overflow, update it once we have stack guards in place.
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn call_malloc(function_call: &FunctionCall) -> Vec<u8> {
+fn call_malloc(function_call: &FunctionCall) -> Vec<u8> {
     if let ParameterValue::Int(size) = function_call.parameters.clone().unwrap()[0].clone() {
         let alloc_length = if size < DEFAULT_GUEST_STACK_SIZE {
             // ^^^ arbitrary check to avoid stack overflow
@@ -401,9 +367,7 @@ pub extern "C" fn call_malloc(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn malloc_and_free(function_call: &FunctionCall) -> Vec<u8> {
+fn malloc_and_free(function_call: &FunctionCall) -> Vec<u8> {
     if let ParameterValue::Int(size) = function_call.parameters.clone().unwrap()[0].clone() {
         let alloc_length = if size < DEFAULT_GUEST_STACK_SIZE {
             size
@@ -420,9 +384,7 @@ pub extern "C" fn malloc_and_free(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn echo(function_call: &FunctionCall) -> Vec<u8> {
+fn echo(function_call: &FunctionCall) -> Vec<u8> {
     if let ParameterValue::String(value) = function_call.parameters.clone().unwrap()[0].clone() {
         get_flatbuffer_result_from_string(&value)
     } else {
@@ -430,9 +392,7 @@ pub extern "C" fn echo(function_call: &FunctionCall) -> Vec<u8> {
     }
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn get_size_prefixed_buffer(function_call: &FunctionCall) -> Vec<u8> {
+fn get_size_prefixed_buffer(function_call: &FunctionCall) -> Vec<u8> {
     // This assumes that the first parameter is a buffer and the second is the length.
     // You may need to adjust this based on how your FunctionCall and ParameterValues are structured.
     if let (ParameterValue::VecBytes(data), ParameterValue::Int(length)) = (
@@ -446,9 +406,7 @@ pub extern "C" fn get_size_prefixed_buffer(function_call: &FunctionCall) -> Vec<
     }
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn spin(_: &FunctionCall) -> Vec<u8> {
+fn spin(_: &FunctionCall) -> Vec<u8> {
     loop {
         // Keep the CPU 100% busy forever
     }
@@ -457,18 +415,14 @@ pub extern "C" fn spin(_: &FunctionCall) -> Vec<u8> {
     get_flatbuffer_result_from_void()
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn test_abort(function_call: &FunctionCall) -> Vec<u8> {
+fn test_abort(function_call: &FunctionCall) -> Vec<u8> {
     if let ParameterValue::Int(code) = function_call.parameters.clone().unwrap()[0].clone() {
         abort_with_code(code);
     }
     get_flatbuffer_result_from_void()
 }
 
-#[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn test_rust_malloc(function_call: &FunctionCall) -> Vec<u8> {
+fn test_rust_malloc(function_call: &FunctionCall) -> Vec<u8> {
     if let ParameterValue::Int(code) = function_call.parameters.clone().unwrap()[0].clone() {
         let ptr = hlmalloc(code as usize);
         return get_flatbuffer_result_from_int(ptr as i32);
@@ -728,8 +682,7 @@ pub extern "C" fn hyperlight_main() {
 }
 
 #[no_mangle]
-#[allow(improper_ctypes_definitions)]
-pub extern "C" fn guest_dispatch_function() -> Vec<u8> {
+pub extern "Rust" fn guest_dispatch_function() -> Vec<u8> {
     // return dummy value for now
     Vec::new()
 }
