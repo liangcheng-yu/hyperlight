@@ -11,7 +11,7 @@ bench = false # see https://bheisler.github.io/criterion.rs/book/faq.html#cargo-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-goblin = { version = "0.7.1" }
+goblin = { version = "0.8" }
 byteorder = { version = "1.4.3" }
 rand = { version = "0.8.5" }
 cfg-if = { version = "1.0.0" }

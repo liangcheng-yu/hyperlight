@@ -1,5 +1,5 @@
 use crate::Result;
-use goblin::pe::optional_header::OptionalHeader;
+use goblin::{error, pe::section_table::SectionTable};
 use scroll::Pread;
 use tracing::{instrument, Span};
 
@@ -40,7 +40,11 @@ impl<'a> BaseRelocations<'a> {
         offset: usize,
         number: usize,
     ) -> Result<BaseRelocations<'a>> {
-        let relocations = bytes.pread_with(offset, number * BASE_RELOCATION_SIZE)?;
+        let relocations = bytes
+            .pread_with(offset, number * BASE_RELOCATION_SIZE)
+            .map_err(|e| {
+                error::Error::Malformed(format!("Failed to parse base relocations: {}", e))
+            })?;
         Ok(BaseRelocations {
             offset: 0,
             relocations,
@@ -90,47 +94,49 @@ impl<'a> Iterator for BaseRelocations<'a> {
 #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 pub(super) fn get_base_relocations(
     payload: &[u8],
-    optional_header: OptionalHeader,
+    reloc_section: &Option<SectionTable>,
 ) -> Result<Vec<BaseRelocation>> {
     // Goblin doesn't implement retrieving base relocations (section relocations have a different format), so let's implement it here!
     // It would be nice to contribute this upstream later.
     // Go through each block in the relocations base table and parse the relocation entries
     // Here's a great picture of how the table and the relocation blocks are stored https://stackoverflow.com/a/22513813
-    let base_relocation_table = optional_header
-        .data_directories
-        .get_base_relocation_table()
-        .unwrap_or_default();
-    let mut next_block_offset = base_relocation_table.virtual_address as usize; // The offset to the first block of relocations in the table
-    let table_size = base_relocation_table.size as usize; // Total size of the relocation table that we need to process
-    let mut size_processed: usize = 0;
+
+    // An exe built with dynamicbase or fixed:no might have no reloc section if these have been optimised away or were not necessary.
 
     let mut base_relocations: Vec<BaseRelocation> = Vec::new();
 
-    // Process each block of relocations until we have processed the expected amount of relocation data
-    while size_processed < table_size {
-        // Read the header for the block, which is the same format as a DataDirectory so I'm reusing its parse function
-        let block_header =
-            goblin::pe::data_directories::DataDirectory::parse(payload, &mut next_block_offset)
-                .expect("oops");
-        // All relocation blocks in a page contain offsets against this address
-        let page_virtual_address = block_header.virtual_address;
+    if let Some(reloc_section) = reloc_section {
+        let mut next_block_offset = reloc_section.pointer_to_raw_data as usize; // The offset to the first block of relocations in the table
+        let table_size = reloc_section.virtual_size as usize; // Total size of the relocation table that we need to process
 
-        // Subtract 8 bytes for the block header, and then each relocation is 2 bytes
-        let reloc_num = (block_header.size as usize - 8) / BASE_RELOCATION_SIZE;
+        let mut size_processed: usize = 0;
 
-        // Keep track of how much of the relocation table has been processed
-        size_processed += block_header.size as usize;
+        // Process each block of relocations until we have processed the expected amount of relocation data
+        while size_processed < table_size {
+            // Read the header for the block, which is the same format as a DataDirectory so I'm reusing its parse function
+            let block_header =
+                goblin::pe::data_directories::DataDirectory::parse(payload, &mut next_block_offset)
+                    .expect("oops");
+            // All relocation blocks in a page contain offsets against this address
+            let page_virtual_address = block_header.virtual_address;
 
-        // Parse all of the relocation entries in the block after the header that we read above
-        let relocations = BaseRelocations::parse(payload, next_block_offset, reloc_num)?;
-        for mut r in relocations {
-            r.page_base_rva = page_virtual_address;
-            base_relocations.push(r);
+            // Subtract 8 bytes for the block header, and then each relocation is 2 bytes
+            let reloc_num = (block_header.size as usize - 8) / BASE_RELOCATION_SIZE;
+
+            // Keep track of how much of the relocation table has been processed
+            size_processed += block_header.size as usize;
+
+            // Parse all of the relocation entries in the block after the header that we read above
+            let relocations = BaseRelocations::parse(payload, next_block_offset, reloc_num)?;
+            for mut r in relocations {
+                r.page_base_rva = page_virtual_address;
+                base_relocations.push(r);
+            }
+            // goblin::pe::data_directories::DataDirectory::parse above will update next_block_offset
+            // by the size of a DtataDirectory, which is 8 bytes so we need to advance the offset by the size of the
+            // block header less the 8 bytes that DataDirectory::parse already advanced the offset by
+            next_block_offset += (block_header.size - 8) as usize;
         }
-        // goblin::pe::data_directories::DataDirectory::parse above will update next_block_offset
-        // by the size of a DtataDirectory, which is 8 bytes so we need to advance the offset by the size of the
-        // block header less the 8 bytes that DataDirectory::parse already advanced the offset by
-        next_block_offset += (block_header.size - 8) as usize;
     }
     Ok(base_relocations)
 }

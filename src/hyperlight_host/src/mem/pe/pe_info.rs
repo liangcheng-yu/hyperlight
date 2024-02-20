@@ -1,6 +1,7 @@
 use crate::mem::pe::base_relocations;
 use crate::{log_then_return, Result};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use goblin::pe::section_table::SectionTable;
 use goblin::pe::{optional_header::OptionalHeader, PE};
 use std::io::Cursor;
 use std::{fs::File, io::Read};
@@ -22,6 +23,7 @@ pub(crate) struct PEInfo {
     payload: Vec<u8>,
     payload_len: usize,
     optional_header: OptionalHeader,
+    reloc_section: Option<SectionTable>,
 }
 
 impl PEInfo {
@@ -61,16 +63,29 @@ impl PEInfo {
             .optional_header
             .expect("unsupported PE file, missing optional header entry");
 
+        // check that the PE file was built with the option /DYNAMICBASE
+
+        if optional_header.windows_fields.dll_characteristics & 0x0040 == 0 {
+            log_then_return!("unsupported PE file, not built with /DYNAMICBASE")
+        }
+
         if (pe.header.coff_header.characteristics & CHARACTERISTICS_RELOCS_STRIPPED)
             == CHARACTERISTICS_RELOCS_STRIPPED
         {
             log_then_return!("unsupported PE file, relocations have been removed")
         }
 
+        let reloc_section = pe
+            .sections
+            .iter()
+            .find(|section| section.name().unwrap_or_default() == ".reloc")
+            .cloned();
+
         Ok(Self {
             payload: Vec::from(pe_bytes),
             optional_header,
             payload_len: pe_bytes.len(),
+            reloc_section,
         })
     }
 
@@ -174,7 +189,7 @@ impl PEInfo {
             return Ok(Vec::new());
         }
 
-        let relocations = base_relocations::get_base_relocations(payload, self.optional_header)
+        let relocations = base_relocations::get_base_relocations(payload, &self.reloc_section)
             .expect("error parsing base relocations");
         let mut patches = Vec::with_capacity(relocations.len());
 

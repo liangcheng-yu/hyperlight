@@ -171,9 +171,6 @@ pub enum HyperlightError {
     #[error("Failed To Convert Return Value {0:?} to {1:?}")]
     /// Failed to get value from return value
     ReturnValueConversionFailure(ReturnValue, &'static str),
-    #[error("Scroll Error {0:?}")]
-    /// Scroll error occurred
-    ScrollError(#[from] scroll::Error),
     #[error("Stack overflow detected")]
     /// Stack overflow detected in guest
     StackOverflow(),
