@@ -7,9 +7,9 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
 };
 
 use crate::{
-    guest_error::set_error, host_error::check_for_host_error,
-    host_functions::validate_host_function_call, OUTB_PTR, OUTB_PTR_WITH_CONTEXT, P_PEB,
-    RUNNING_IN_HYPERLIGHT,
+    flatbuffer_utils::get_flatbuffer_result_from_int, guest_error::set_error,
+    host_error::check_for_host_error, host_functions::validate_host_function_call,
+    HyperlightGuestError, OUTB_PTR, OUTB_PTR_WITH_CONTEXT, P_PEB, RUNNING_IN_HYPERLIGHT,
 };
 
 pub enum OutBAction {
@@ -109,7 +109,7 @@ pub fn call_host_function(
     function_name: &str,
     parameters: Option<Vec<ParameterValue>>,
     return_type: ReturnType,
-) {
+) -> Result<(), HyperlightGuestError> {
     unsafe {
         let peb_ptr = P_PEB.unwrap();
 
@@ -121,7 +121,9 @@ pub fn call_host_function(
         );
 
         // validate host functions
-        validate_host_function_call(&host_function_call);
+        if validate_host_function_call(&host_function_call).is_err() {
+            return Err(HyperlightGuestError);
+        };
 
         let host_function_call_buffer: Vec<u8> = host_function_call.try_into().unwrap();
         let host_function_call_buffer_size = host_function_call_buffer.len();
@@ -134,7 +136,7 @@ pub fn call_host_function(
                 host_function_call_buffer_size, (*peb_ptr).outputdata.outputDataSize, function_name
             ),
             );
-            return;
+            return Err(HyperlightGuestError);
         }
 
         let output_data_buffer = (*peb_ptr).outputdata.outputDataBuffer as *mut u8;
@@ -146,6 +148,8 @@ pub fn call_host_function(
         );
 
         outb(OutBAction::CallFunction as u16, 0);
+
+        Ok(())
     }
 }
 
@@ -167,6 +171,24 @@ pub fn outb(port: u16, value: u8) {
 
 extern "win64" {
     fn hloutb(port: u16, value: u8);
+}
+
+pub fn print_output_as_guest_function(function_call: &FunctionCall) -> Vec<u8> {
+    if let ParameterValue::String(message) = function_call.parameters.clone().unwrap()[0].clone() {
+        match call_host_function(
+            "HostPrint",
+            Some(Vec::from(&[ParameterValue::String(message.to_string())])),
+            ReturnType::Int,
+        ) {
+            Ok(_) => {
+                let result = get_host_value_return_as_int();
+                get_flatbuffer_result_from_int(result)
+            }
+            Err(_) => Vec::new(),
+        }
+    } else {
+        Vec::new()
+    }
 }
 
 // port: RCX(cx), value: RDX(dl)

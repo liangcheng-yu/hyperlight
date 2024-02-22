@@ -18,6 +18,21 @@ pub enum LogLevel {
     None = 6,
 }
 
+impl From<u8> for LogLevel {
+    #[cfg_attr(feature = "tracing", instrument(skip_all, parent = Span::current(), level= "Trace"))]
+    fn from(val: u8) -> LogLevel {
+        match val {
+            0 => LogLevel::Trace,
+            1 => LogLevel::Debug,
+            2 => LogLevel::Information,
+            3 => LogLevel::Warning,
+            4 => LogLevel::Error,
+            5 => LogLevel::Critical,
+            _ => LogLevel::None,
+        }
+    }
+}
+
 impl TryFrom<&FbLogLevel> for LogLevel {
     type Error = Error;
     #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]

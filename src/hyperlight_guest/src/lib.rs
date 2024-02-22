@@ -28,6 +28,8 @@ pub mod print;
 pub(crate) mod security_check;
 pub mod setjmp;
 
+pub mod logging;
+
 // Unresolved symbols
 #[no_mangle]
 pub(crate) extern "C" fn __CxxFrameHandler3() {}
@@ -43,6 +45,7 @@ pub(crate) static mut __security_cookie: u64 = 0;
 // See more here: https://github.com/rust-lang/rust-analyzer/issues/4490
 // The cfg_attr attribute is used to avoid clippy failures as test pulls in std which pulls in a panic handler
 #[cfg_attr(not(test), panic_handler)]
+#[allow(clippy::panic)]
 // to satisfy the clippy when cfg == test
 #[allow(dead_code)]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
@@ -124,6 +127,9 @@ global_asm!(
 );
 
 // Globals
+
+#[derive(Debug)]
+pub struct HyperlightGuestError;
 
 #[global_allocator]
 pub(crate) static HEAP_ALLOCATOR: LockedHeap<32> = LockedHeap::<32>::empty();

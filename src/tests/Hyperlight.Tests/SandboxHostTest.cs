@@ -365,9 +365,8 @@ namespace Hyperlight.Tests
         public void Test_Error_Logging()
         {
             var options = GetSandboxRunOptions();
-            var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "callbackguest.exe";
-            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
             var message = "This is a test log message";
             var source = "SandboxHostTest";
 
@@ -518,9 +517,8 @@ namespace Hyperlight.Tests
         public void Test_Error_Logging_Cross_ExecutionContext()
         {
             var options = GetSandboxRunOptions();
-            var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "callbackguest.exe";
-            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
             var message = "This is a test log message";
             var source = "SandboxHostTest";
             foreach (var option in options)
@@ -747,9 +745,8 @@ namespace Hyperlight.Tests
         public void Test_Handles_Host_Exception()
         {
             var options = GetSandboxRunOptions();
-            var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "callbackguest.exe";
-            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
             var message = "This is a test exception message";
             foreach (var option in options)
             {
@@ -1221,9 +1218,8 @@ namespace Hyperlight.Tests
         public void Test_Invalid_Guest_Function_Causes_Exception()
         {
             var options = GetSandboxRunOptions();
-            var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "callbackguest.exe";
-            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
 
             foreach (var option in options)
             {
@@ -1335,9 +1331,8 @@ namespace Hyperlight.Tests
         public void Test_Invalid_Type_Of_Guest_Function_Parameter_Causes_Exception()
         {
             var options = GetSandboxRunOptions();
-            var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "callbackguest.exe";
-            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
 
             foreach (var option in options)
             {
@@ -1361,9 +1356,8 @@ namespace Hyperlight.Tests
         public void Test_Invalid_Number_Of_Guest_Function_Parameters_Causes_Exception()
         {
             var options = GetSandboxRunOptions();
-            var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "callbackguest.exe";
-            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
 
             foreach (var option in options)
             {
@@ -1604,9 +1598,8 @@ namespace Hyperlight.Tests
         private void Test_SandboxInit()
         {
             var options = GetSandboxRunOptions();
-            var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinaryFileName = "callbackguest.exe";
-            var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
             Assert.True(File.Exists(guestBinaryPath), $"Cannot find file {guestBinaryPath} to load into hyperlight");
 
             List<(Type type, List<string> exposedMethods, List<string> boundDelegates, List<string> exposedStaticMethods, List<(string delegateName, int returnValue, string expectedOutput, object[]? args)> expectedResults)> testData = new()
@@ -1951,8 +1944,8 @@ namespace Hyperlight.Tests
                 }
             }
 
-            var path = AppDomain.CurrentDomain.BaseDirectory;
-            var guestBinaryPath = Path.Combine(path, "callbackguest.exe");
+            var guestBinaryFileName = "callbackguest.exe";
+            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
             foreach (var option in options)
             {
                 var stopWatch = Stopwatch.StartNew();

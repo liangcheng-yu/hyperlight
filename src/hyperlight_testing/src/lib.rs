@@ -22,39 +22,6 @@ fn join_to_path(start: &str, v: Vec<&str>) -> PathBuf {
     v.iter().fold(fold_start, fold_closure)
 }
 
-/// Get a new `PathBuf` pointing to `callbackguest.exe`
-pub fn callback_guest_as_pathbuf() -> PathBuf {
-    let build_dir_selector = if cfg!(debug_assertions) {
-        "debug"
-    } else {
-        "release"
-    };
-
-    // $REPO_ROOT/src/tests/Guests/callbackguest/x64/{debug,release}/callbackguest.exe"
-    join_to_path(
-        MANIFEST_DIR,
-        vec![
-            "..",
-            "tests",
-            "Guests",
-            "callbackguest",
-            "x64",
-            build_dir_selector,
-            "callbackguest.exe",
-        ],
-    )
-}
-
-/// Get a fully qualified OS-specific path to the callbackguest.exe
-/// binary. Convenience method for calling `callback_guest_as_pathbuf`, then
-/// converting the result into an owned `String`
-pub fn callback_guest_as_string() -> Result<String> {
-    let buf = callback_guest_as_pathbuf();
-    buf.to_str()
-        .map(|s| s.to_string())
-        .ok_or_else(|| anyhow!("couldn't convert callback guest PathBuf to string"))
-}
-
 /// Get a new `PathBuf` to a specified Rust guest
 /// $REPO_ROOT/src/tests/rust_guests/bin/${profile}/net6.0
 pub fn rust_guest_as_pathbuf(guest: &str) -> PathBuf {
@@ -78,8 +45,7 @@ pub fn rust_guest_as_pathbuf(guest: &str) -> PathBuf {
 }
 
 /// Get a fully qualified OS-specific path to the simpleguest.exe
-/// binary. Convenience method for calling `simple_guest_as_pathbuf`, then
-/// converting the result into an owned `String`
+/// binary.
 pub fn simple_guest_as_string() -> Result<String> {
     let buf = rust_guest_as_pathbuf("simpleguest");
     buf.to_str()
@@ -88,13 +54,21 @@ pub fn simple_guest_as_string() -> Result<String> {
 }
 
 /// Get a fully qualified OS-specific path to the dummyguest.exe
-/// binary. Convenience method for calling `dummy_guest_as_pathbuf`, then converting
-/// the result into an owned `String`
+/// binary.
 pub fn dummy_guest_as_string() -> Result<String> {
     let buf = rust_guest_as_pathbuf("dummyguest");
     buf.to_str()
         .map(|s| s.to_string())
         .ok_or_else(|| anyhow!("couldn't convert dummy guest PathBuf to string"))
+}
+
+/// Get a fully qualified OS-specific path to the callbackguest.exe
+/// binary.
+pub fn callback_guest_as_string() -> Result<String> {
+    let buf = rust_guest_as_pathbuf("callbackguest");
+    buf.to_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| anyhow!("couldn't convert callback guest PathBuf to string"))
 }
 
 // The test data is a valid flatbuffers buffer representing a guestfunction call as follows:

@@ -17,6 +17,7 @@ members = [
 # to avoid cargo test failing on it.
 # Same for the simpleguest and dummyguest tests below.
 exclude = [
+    "src/tests/rust_guests/callbackguest",
     "src/tests/rust_guests/simpleguest",
     "src/tests/rust_guests/dummyguest",
 ]

@@ -247,9 +247,7 @@ To run the dotnet tests and examples you will need the dummyguest.exe, simplegue
 ```bash
 just build-and-move-rust-guests
 ```
-to build dummyguest.exe and simpleguest.exe. 
-
-To get callbackguest.exe, make sure you have a recent version of [GitHub Command line](https://github.com/cli/cli) installed (the best way to ensure you get a recent version is to dowload it directly from the repo). [Follow these instructions to install on Mariner](https://github.com/cli/cli/blob/trunk/docs/install_linux.md#fedora-centos-red-hat-enterprise-linux-dnf).
+to build dummyguest.exe, simpleguest.exe, and callbackguest.exe. 
 
 Then run this script:
 

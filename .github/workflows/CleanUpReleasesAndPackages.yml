@@ -9,7 +9,7 @@ on:
   workflow_dispatch: # allow manual triggering
 jobs:
   cleanup:
-    name: CLean up old pre-releases and packages
+    name: Clean up old pre-releases and packages
     runs-on: ubuntu-20.04
     steps:
       # https://github.com/marketplace/actions/delete-package-versions

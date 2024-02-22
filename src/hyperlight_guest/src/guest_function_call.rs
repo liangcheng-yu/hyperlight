@@ -1,6 +1,6 @@
 use core::{ptr::copy_nonoverlapping, slice::from_raw_parts};
 
-use alloc::{string::ToString, vec::Vec};
+use alloc::{format, string::ToString, vec::Vec};
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
     function_call::{FunctionCall, FunctionCallType},
     function_types::ParameterType,
@@ -15,16 +15,16 @@ use crate::{
 };
 
 type GuestFunc = fn(&FunctionCall) -> Vec<u8>;
-pub(crate) fn call_guest_function(function_call: &FunctionCall) -> Vec<u8> {
+pub(crate) fn call_guest_function(function_call: &FunctionCall) -> Result<Vec<u8>, ()> {
     let function_call_fparameters = function_call.parameters.clone().unwrap_or_default();
     let function_call_fname = function_call.clone().function_name;
 
     // Verify that the function does not have more than 10 parameters.
     const MAX_PARAMETERS: usize = 10;
-    assert!(
-        function_call_fparameters.len() <= MAX_PARAMETERS,
-        "Exceeded maximum parameter count"
-    );
+    if function_call_fparameters.len() > MAX_PARAMETERS {
+        set_error(ErrorCode::GuestError, "Too many parameters");
+        return Err(());
+    }
 
     // Get registered function definitions.
     let guest_function_details: GuestFunctionDetails =
@@ -35,10 +35,20 @@ pub(crate) fn call_guest_function(function_call: &FunctionCall) -> Vec<u8> {
         guest_function_details.find_by_function_name(&function_call_fname)
     {
         // Verify that the function call has the correct number of parameters.
-        assert!(
-            function_call_fparameters.len() == registered_function_definition.parameter_types.len(),
-            "Incorrect parameter count"
-        );
+        if function_call_fparameters.len() != registered_function_definition.parameter_types.len() {
+            set_error(
+                ErrorCode::GuestFunctionIncorrecNoOfParameters,
+                format!(
+                    "Called function {} with {} parameters but it takes {}.",
+                    function_call_fname,
+                    function_call_fparameters.len(),
+                    registered_function_definition.parameter_types.len()
+                )
+                .as_str(),
+            );
+
+            return Err(());
+        }
 
         let function_call_parameter_types = function_call_fparameters
             .iter()
@@ -51,19 +61,27 @@ pub(crate) fn call_guest_function(function_call: &FunctionCall) -> Vec<u8> {
         };
 
         // Verify that the function call has the correct parameter types.
-        registered_function_definition
+        if let Err(i) = registered_function_definition
             .verify_equal_parameter_types(&function_call_parameter_types)
-            .unwrap();
+        {
+            set_error(
+                ErrorCode::GuestFunctionParameterTypeMismatch,
+                format!("Function {} parameter {}.", function_call_fname, i).as_str(),
+            );
+            return Err(());
+        }
 
         // If a parameter is a vector of bytes (hlvecbytes), then we expect the next parameter
         // to be an integer specifying the length of that vector.
         // If this integer is not present, we should return an error.
-        registered_function_definition
+        if let Err(e) = registered_function_definition
             .verify_vector_parameter_lengths(function_call_parameter_types)
-            .map_err(|e| set_error(ErrorCode::ArrayLengthParamIsMissing, &e.to_string()))
-            .unwrap();
+        {
+            set_error(ErrorCode::ArrayLengthParamIsMissing, &e.to_string());
+            return Err(());
+        }
 
-        p_function(function_call)
+        Ok(p_function(function_call))
     } else {
         // If the function was not found call the guest_dispatch_function method.
 
@@ -74,7 +92,7 @@ pub(crate) fn call_guest_function(function_call: &FunctionCall) -> Vec<u8> {
             fn guest_dispatch_function(function_call: &FunctionCall) -> Vec<u8>;
         }
 
-        unsafe { guest_dispatch_function(function_call) }
+        unsafe { Ok(guest_dispatch_function(function_call)) }
     }
 }
 
@@ -101,7 +119,10 @@ fn internal_dispatch_function() {
         return;
     }
 
-    let result_vec = call_guest_function(&function_call);
+    let result_vec = match call_guest_function(&function_call) {
+        Ok(v) => v,
+        Err(_) => return,
+    };
 
     unsafe {
         let output_data_buffer = (*peb_ptr).outputdata.outputDataBuffer as *mut u8;

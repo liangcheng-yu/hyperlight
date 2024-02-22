@@ -2,7 +2,7 @@ name: Validate Pull Request
 
 on:
   pull_request:
-    branches: [ main, dev, 'release/**' ]
+    branches: [main, dev, "release/**"]
   merge_group:
 
 jobs:
@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        build: [ windows-debug, windows-release]
+        build: [windows-debug, windows-release]
         include:
           - build: windows-debug
             os: [self-hosted, Windows, X64, "1ES.Pool=HL-Windows-2022"]
@@ -44,102 +44,107 @@ jobs:
       DOTNET_INSTALL_DIR: "./.dotnet"
       RUST_BACKTRACE: FULL
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    # this is a workaround for the issue described at https://github.com/dotnet/sourcelink/issues/675 , it supresses the warning about the sourcelink package not being found.
-    - name: Remove Submodule
-      run: git rm munit
-      shell: pwsh   
-      working-directory: src/hyperlight_capi/tests_capi
-    - name: Setup dotnet
-      uses: actions/setup-dotnet@v4.0.0
-      with:
-        dotnet-version: | 
-          6.0.x 
-    - uses: actions/cache@v4
-      with:
-        path: ~/.nuget/packages
-        # Look to see if there is a cache hit for the corresponding requirements file
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget
-    - name: Enable WHP
-      run: Enable-WindowsOptionalFeature -Online -FeatureName HyperVisorPlatform
-      shell: pwsh
-    - name: Restore
-      run: dotnet restore
-      shell: pwsh
-    - name: Add msbuild to PATH
-      uses: microsoft/setup-msbuild@v1.3
-      with:
-        msbuild-architecture: x64
-    - name: Download hyperlight_capi.dll
-      uses: actions/download-artifact@v3
-      with:
-        name: ${{ matrix.config}}_assets 
-        path: target/${{ matrix.config }}
-    - name: Fetch printf
-      working-directory: src/HyperlightGuest/third_party/printf
-      run: git submodule update --init
-    - name: Set up WHP_SHOULD_BE_PRESENT Env Var
-      run: |
-        echo "WHP_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # this is a workaround for the issue described at https://github.com/dotnet/sourcelink/issues/675 , it supresses the warning about the sourcelink package not being found.
+      - name: Remove Submodule
+        run: git rm munit
+        shell: pwsh
+        working-directory: src/hyperlight_capi/tests_capi
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v4.0.0
+        with:
+          dotnet-version: |
+            6.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          # Look to see if there is a cache hit for the corresponding requirements file
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget
+      - name: Enable WHP
+        run: Enable-WindowsOptionalFeature -Online -FeatureName HyperVisorPlatform
+        shell: pwsh
+      - name: Restore
+        run: dotnet restore
+        shell: pwsh
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.3
+        with:
+          msbuild-architecture: x64
+      - name: Download hyperlight_capi.dll
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ matrix.config}}_assets
+          path: target/${{ matrix.config }}
+      - name: Fetch printf
+        working-directory: src/HyperlightGuest/third_party/printf
+        run: git submodule update --init
+      - name: Set up WHP_SHOULD_BE_PRESENT Env Var
+        run: |
+          echo "WHP_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
 
-    - name: Download Guest Binaries
-      uses: actions/download-artifact@v3
-      with:
-        name: guest-binaries-${{ matrix.config }}
-        path: ./downloaded-guest-binaries-${{ matrix.config }}
+      - name: Download Guest Binaries
+        uses: actions/download-artifact@v3
+        with:
+          name: guest-binaries-${{ matrix.config }}
+          path: ./downloaded-guest-binaries-${{ matrix.config }}
 
-    - name: Copy Guest Binaries
-      run: |
-        mkdir -p ./src/tests/Guests/callbackguest/x64/${{ matrix.config }}
-        cp ./downloaded-guest-binaries-${{ matrix.config }}/Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe ./src/tests/Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe
-        cp ./downloaded-guest-binaries-${{ matrix.config }}/rust_guests/bin/${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/simpleguest.exe
-        cp ./downloaded-guest-binaries-${{ matrix.config }}/rust_guests/bin/${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/dummyguest.exe
-    
-    - name: Display Guest Binaries
-      run: |
+      - name: Copy Guest Binaries
+        run: |
+          cp ./downloaded-guest-binaries-${{ matrix.config }}/callbackguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/callbackguest.exe
+          cp ./downloaded-guest-binaries-${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/simpleguest.exe
+          cp ./downloaded-guest-binaries-${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/dummyguest.exe
+
+      - name: Display Guest Binaries
+        run: |
           echo "Displaying all guest binarires"
-          find . -type f -name *.exe 
-      if: ${{ (runner.os == 'Linux' )}}
+          find . -type f -name *.exe
+        if: ${{ (runner.os == 'Linux' )}}
 
-    - name: Build Solution
-      run: msbuild -m hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
-      shell: pwsh
-    - name: Test
-      shell: pwsh
-      run: dotnet test -c ${{ matrix.config }} --logger "trx;verbosity=detailed;LogFilePrefix=win-${{ matrix.config }}" --blame
-      working-directory: src/tests/Hyperlight.Tests
-    - name: Build Example
-      shell: pwsh
-      run: dotnet build -c ${{ matrix.config }}
-      working-directory: src/examples/NativeHost
-    - name: Run Example
-      shell: pwsh
-      run:  dotnet run -c ${{ matrix.config }} -- -nowait
-      working-directory: src/examples/NativeHost
-    - name: Upload Test Results
-      if: always()
-      uses: actions/upload-artifact@v3
-      with:
-        name: test-results-${{ matrix.config }}
-        path: src\tests\Hyperlight.Tests\TestResults\*.trx
+      - name: Build Solution
+        run: msbuild -m hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
+        shell: pwsh
+      - name: Test
+        shell: pwsh
+        run: dotnet test -c ${{ matrix.config }} --logger "trx;verbosity=detailed;LogFilePrefix=win-${{ matrix.config }}" --blame
+        working-directory: src/tests/Hyperlight.Tests
+      - name: Build Example
+        shell: pwsh
+        run: dotnet build -c ${{ matrix.config }}
+        working-directory: src/examples/NativeHost
+      - name: Run Example
+        shell: pwsh
+        run: dotnet run -c ${{ matrix.config }} -- -nowait
+        working-directory: src/examples/NativeHost
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results-${{ matrix.config }}
+          path: src\tests\Hyperlight.Tests\TestResults\*.trx
   #####
   # end build-on-windows
   #####
-  
+
   #####
   # start build-on-linux
   #####
   build-on-linux:
-    needs: [ build-guest-binaries ]
+    needs: [build-guest-binaries]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
       matrix:
-        build: [ linux-kvm-debug, linux-kvm-release, linux-hyperv-debug, linux-hyperv-release]
+        build:
+          [
+            linux-kvm-debug,
+            linux-kvm-release,
+            linux-hyperv-debug,
+            linux-hyperv-release,
+          ]
         include:
           - build: linux-kvm-debug
             os: [self-hosted, Linux, X64, "1ES.Pool=HL-Ubuntu-20.04-KVM"]
@@ -164,96 +169,95 @@ jobs:
     env:
       RUST_BACKTRACE: FULL
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    # this is a workaround for the issue described at https://github.com/dotnet/sourcelink/issues/675 , it supresses the warning about the sourcelink package not being found.
-    - name: Remove Submodule
-      run: git rm munit
-      shell: bash  
-      working-directory: src/hyperlight_capi/tests_capi
-    - name: Setup dotnet (not on hyperv)
-      if: ${{ (matrix.hypervisor != 'hyperv') }}
-      uses: actions/setup-dotnet@v4.0.0
-      with:
-        dotnet-version: |
-          6.0.x 
-    - uses: actions/cache@v4
-      with:
-        path: ~/.nuget/packages
-        # Look to see if there is a cache hit for the corresponding requirements file
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # this is a workaround for the issue described at https://github.com/dotnet/sourcelink/issues/675 , it supresses the warning about the sourcelink package not being found.
+      - name: Remove Submodule
+        run: git rm munit
+        shell: bash
+        working-directory: src/hyperlight_capi/tests_capi
+      - name: Setup dotnet (not on hyperv)
+        if: ${{ (matrix.hypervisor != 'hyperv') }}
+        uses: actions/setup-dotnet@v4.0.0
+        with:
+          dotnet-version: |
+            6.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          # Look to see if there is a cache hit for the corresponding requirements file
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget
 
-    - name: Download Guest Binaries
-      uses: actions/download-artifact@v3
-      with:
-        name: guest-binaries-${{ matrix.config }}
-        path: ./downloaded-guest-binaries-${{ matrix.config }}
+      - name: Download Guest Binaries
+        uses: actions/download-artifact@v3
+        with:
+          name: guest-binaries-${{ matrix.config }}
+          path: ./downloaded-guest-binaries-${{ matrix.config }}
 
-    - name: Copy Guest Binaries
-      run: |
-        mkdir -p ./src/tests/Guests/callbackguest/x64/${{ matrix.config }}
-        cp ./downloaded-guest-binaries-${{ matrix.config }}/Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe ./src/tests/Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe
-        cp ./downloaded-guest-binaries-${{ matrix.config }}/rust_guests/bin/${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/simpleguest.exe
-        cp ./downloaded-guest-binaries-${{ matrix.config }}/rust_guests/bin/${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/dummyguest.exe
+      - name: Copy Guest Binaries
+        run: |
+          cp ./downloaded-guest-binaries-${{ matrix.config }}/callbackguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/callbackguest.exe
+          cp ./downloaded-guest-binaries-${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/simpleguest.exe
+          cp ./downloaded-guest-binaries-${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/dummyguest.exe
 
-    - name: Display Guest Binaries
-      run: |
-        echo "Displaying all guest binaries"
-        find . -type f -name *.exe 
+      - name: Display Guest Binaries
+        run: |
+          echo "Displaying all guest binaries"
+          find . -type f -name *.exe
 
-    - name: Download libhyperlight_capi.so
-      uses: actions/download-artifact@v3
-      with:
-        name: ${{ matrix.config }}_assets
-        path: target/${{ matrix.config }}
-    - name: List downloaded artificats
-      run: ls -lR target/
-      shell: bash
-    - name: Restore
-      run: dotnet restore
-      shell: bash      
-    - name: Build Hyperlight
-      shell: bash
-      run: dotnet build -c ${{ matrix.config }}
-      working-directory: src/Hyperlight
+      - name: Download libhyperlight_capi.so
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ matrix.config }}_assets
+          path: target/${{ matrix.config }}
+      - name: List downloaded artificats
+        run: ls -lR target/
+        shell: bash
+      - name: Restore
+        run: dotnet restore
+        shell: bash
+      - name: Build Hyperlight
+        shell: bash
+        run: dotnet build -c ${{ matrix.config }}
+        working-directory: src/Hyperlight
 
-      # Only clean the example if we're on a self-hosted
-      # runner. GitHub hosted runners are automatically
-      # cleaned.
-    - name: Set up env vars for hyperv-linux tests
-      if: ${{ (matrix.hypervisor == 'hyperv') && (runner.os == 'Linux') }}
-      run: |
-        echo "HYPERV_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
-        echo "HYPERV_SHOULD_HAVE_STABLE_API=false" >> $GITHUB_ENV
-    - name: Set up env vars for kvm-linux tests
-      if: ${{ (matrix.hypervisor == 'kvm') && (runner.os == 'Linux') }}
-      run: |
-        sudo ls -al /dev/kvm
-        sudo chgrp $(whoami) /dev/kvm
-        sudo ls -al /dev/kvm
-        echo "KVM_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
-    - name: Clean example
-      shell: bash
-      run: dotnet clean -c ${{ matrix.config }}
-      working-directory: src/examples/NativeHost
-      if: ${{ matrix.os }} == 'self-hosted'
-    - name: Run Example
-      shell: bash
-      run:  dotnet run -c ${{ matrix.config }} -- -nowait
-      working-directory: src/examples/NativeHost
-    - name: Test
-      shell: bash
-      run: dotnet test -c ${{ matrix.config }} --logger "trx;verbosity=detailed;LogFilePrefix=linux-${{ matrix.config }}-${{ matrix.hypervisor }}" --blame
-      working-directory: src/tests/Hyperlight.Tests
-    - name: Upload Test Results
-      if: always()        
-      uses: actions/upload-artifact@v3
-      with:
-        name: test-results-${{ matrix.config }}-${{ matrix.hypervisor }}
-        path: src/tests/Hyperlight.Tests/TestResults/*.trx
+        # Only clean the example if we're on a self-hosted
+        # runner. GitHub hosted runners are automatically
+        # cleaned.
+      - name: Set up env vars for hyperv-linux tests
+        if: ${{ (matrix.hypervisor == 'hyperv') && (runner.os == 'Linux') }}
+        run: |
+          echo "HYPERV_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
+          echo "HYPERV_SHOULD_HAVE_STABLE_API=false" >> $GITHUB_ENV
+      - name: Set up env vars for kvm-linux tests
+        if: ${{ (matrix.hypervisor == 'kvm') && (runner.os == 'Linux') }}
+        run: |
+          sudo ls -al /dev/kvm
+          sudo chgrp $(whoami) /dev/kvm
+          sudo ls -al /dev/kvm
+          echo "KVM_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
+      - name: Clean example
+        shell: bash
+        run: dotnet clean -c ${{ matrix.config }}
+        working-directory: src/examples/NativeHost
+        if: ${{ matrix.os }} == 'self-hosted'
+      - name: Run Example
+        shell: bash
+        run: dotnet run -c ${{ matrix.config }} -- -nowait
+        working-directory: src/examples/NativeHost
+      - name: Test
+        shell: bash
+        run: dotnet test -c ${{ matrix.config }} --logger "trx;verbosity=detailed;LogFilePrefix=linux-${{ matrix.config }}-${{ matrix.hypervisor }}" --blame
+        working-directory: src/tests/Hyperlight.Tests
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results-${{ matrix.config }}-${{ matrix.hypervisor }}
+          path: src/tests/Hyperlight.Tests/TestResults/*.trx
   #####
   # end build-on-linux
   #####

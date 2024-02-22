@@ -295,17 +295,27 @@ mod tests {
         // our PE parsing logic is working, so
         // specifics don't matter.
 
-        Ok(vec![
-            simple_guest_pe_file_test,
+        let callback_guest_pe_file_test = if cfg!(debug_assertions) {
             PEFileTest {
                 path: callback_guest_as_string()
                     .map_err(|e| new_error!("Callback Guest Path Error {}", e))?,
                 stack_size: 65536,
                 heap_size: 131072,
                 load_address: 5368709120,
-                num_relocations: vec![0],
-            },
-        ])
+                num_relocations: (600..700).collect(),
+            }
+        } else {
+            PEFileTest {
+                path: callback_guest_as_string()
+                    .map_err(|e| new_error!("Callback Guest Path Error {}", e))?,
+                stack_size: 65536,
+                heap_size: 131072,
+                load_address: 5368709120,
+                num_relocations: (500..700).collect(),
+            }
+        };
+
+        Ok(vec![simple_guest_pe_file_test, callback_guest_pe_file_test])
     }
 
     #[test]

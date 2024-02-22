@@ -13,10 +13,11 @@ use alloc::{format, string::ToString, vec::Vec};
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
     function_call::FunctionCall,
     function_types::{ParameterType, ParameterValue, ReturnType},
+    guest_error::ErrorCode,
     guest_function_definition::GuestFunctionDefinition,
 };
-use hyperlight_guest::entrypoint::abort_with_code;
 use hyperlight_guest::memory::hlmalloc;
+use hyperlight_guest::{entrypoint::abort_with_code, guest_error::set_error};
 use hyperlight_guest::{
     flatbuffer_utils::{
         get_flatbuffer_result_from_int, get_flatbuffer_result_from_size_prefixed_buffer,
@@ -34,7 +35,7 @@ fn print_output(message: &str) -> Vec<u8> {
         "HostPrint",
         Some(Vec::from(&[ParameterValue::String(message.to_string())])),
         ReturnType::Int,
-    );
+    ).unwrap();
     let result = get_host_value_return_as_int();
     get_flatbuffer_result_from_int(result)
 }
@@ -682,7 +683,10 @@ pub extern "C" fn hyperlight_main() {
 }
 
 #[no_mangle]
-pub extern "Rust" fn guest_dispatch_function() -> Vec<u8> {
-    // return dummy value for now
+pub extern "Rust" fn guest_dispatch_function(function_call: &FunctionCall) -> Vec<u8> {
+    set_error(
+        ErrorCode::GuestFunctionNotFound,
+        &function_call.function_name,
+    );
     Vec::new()
 }

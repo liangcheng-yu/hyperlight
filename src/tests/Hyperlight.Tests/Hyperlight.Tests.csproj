@@ -32,7 +32,7 @@
       <Link>dummyguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\..\tests\Guests\callbackguest\x64\$(Configuration.toLower())\callbackguest.exe">
+    <Content Include="..\..\tests\rust_guests\bin\$(Configuration.toLower())\callbackguest.exe">
       <Link>callbackguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

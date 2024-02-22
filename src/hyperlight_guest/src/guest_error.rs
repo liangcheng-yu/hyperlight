@@ -55,19 +55,19 @@ pub fn set_error(error_code: ErrorCode, message: &str) {
     }
 }
 
-// Exposes a C API to allow the guest to set an error
-
+/// Exposes a C API to allow the guest to set an error
+///
+/// # Safety
+/// TODO
 #[no_mangle]
 #[allow(non_camel_case_types)]
-pub extern "C" fn setError(code: u64, message: *const c_char) {
+pub unsafe extern "C" fn setError(code: u64, message: *const c_char) {
     let error_code = ErrorCode::from(code);
     match message.is_null() {
         true => write_error(error_code, None),
         false => {
-            let message = match unsafe { CStr::from_ptr(message).to_str().ok() } {
-                Some(s) => s,
-                None => "Invalid error message, could not be converted to a string",
-            };
+            let message = unsafe { CStr::from_ptr(message).to_str().ok() }
+                .unwrap_or("Invalid error message, could not be converted to a string");
             write_error(error_code, Some(message));
         }
     }

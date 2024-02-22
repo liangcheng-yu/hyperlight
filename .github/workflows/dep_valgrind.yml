@@ -11,7 +11,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # this job requires the build-guest-binaries job be complete prior to 
+  # this job requires the build-guest-binaries job be complete prior to
   # its execution. this dependency should be expressed in the dependent
   # workflow
   build:
@@ -64,8 +64,8 @@ jobs:
       - name: Install Valgrind dependencies
         if: ${{ (matrix.hypervisor == 'kvm') || (matrix.os == 'ubuntu-20.04') }}
         run: |
-                sudo apt-get update
-                sudo apt-get install -y libc6-dbg
+          sudo apt-get update
+          sudo apt-get install -y libc6-dbg
       - name: Install Valgrind (snap)
         if: ${{ (matrix.hypervisor != 'hyperv') }}
         run: sudo snap install valgrind --classic
@@ -84,20 +84,18 @@ jobs:
 
       - name: Copy Guest Binaries
         run: |
-          mkdir -p ./src/tests/Guests/callbackguest/x64/${{ matrix.config }}
-          cp ./downloaded-guest-binaries-${{ matrix.config }}/Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe ./src/tests/Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe
-          cp ./downloaded-guest-binaries-${{ matrix.config }}/rust_guests/bin/${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/simpleguest.exe
-          cp ./downloaded-guest-binaries-${{ matrix.config }}/rust_guests/bin/${{ matrix.config }}/dummyguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/dummyguest.exe
-      
+          cp ./downloaded-guest-binaries-${{ matrix.config }}/callbackguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/callbackguest.exe
+          cp ./downloaded-guest-binaries-${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/simpleguest.exe
+          cp ./downloaded-guest-binaries-${{ matrix.config }}/dummyguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/dummyguest.exe
+
       - name: Display Guest Binaries
         run: |
-            echo "Displaying all guest binarires"
-            find . -type f -name *.exe 
+          echo "Displaying all guest binarires"
+          find . -type f -name *.exe
         if: ${{ (runner.os == 'Linux' )}}
-          
+
       - name: Valgrind Rust tests
         run: cargo valgrind test capi
       - name: Valgrind C tests
         working-directory: src/hyperlight_capi
         run: just valgrind-tests-capi  ${{ matrix.config }}
-

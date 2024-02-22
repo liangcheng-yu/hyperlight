@@ -8,6 +8,7 @@ default-target:= "debug"
 latest-release:= if os() == "windows" {"$(git tag -l --sort=v:refname | select -last 2 | select -first 1)"} else {`git tag -l --sort=v:refname | tail -n 2 | head -n 1`}
 simpleguest_source := "src/tests/rust_guests/simpleguest/target/x86_64-pc-windows-msvc"
 dummyguest_source := "src/tests/rust_guests/dummyguest/target/x86_64-pc-windows-msvc"
+callbackguest_source := "src/tests/rust_guests/callbackguest/target/x86_64-pc-windows-msvc"
 rust_guests_bin_dir := "src/tests/rust_guests/bin"
 set-env-command := if os() == "windows" { "$env:" } else { "export " }
 
@@ -29,10 +30,11 @@ update-dlmalloc:
     cd src/HyperlightGuest/third_party/dlmalloc && git apply --whitespace=nowarn --verbose malloc.patch || cd ../../../..
 
 build-rust-guests target=default-target:
+    cd src/tests/rust_guests/callbackguest && cargo build --profile={{ if target == "debug" {"dev"} else { target } }}
     cd src/tests/rust_guests/simpleguest && cargo build --profile={{ if target == "debug" {"dev"} else { target } }}
-    # dummyguest can be built with the default toolchain
     cd src/tests/rust_guests/dummyguest && cargo build --profile={{ if target == "debug" {"dev"} else { target } }}
 move-rust-guests target=default-target:
+    cp {{callbackguest_source}}/{{target}}/callbackguest.* {{rust_guests_bin_dir}}/{{target}}/
     cp {{simpleguest_source}}/{{target}}/simpleguest.* {{rust_guests_bin_dir}}/{{target}}/
     cp {{dummyguest_source}}/{{target}}/dummyguest.* {{rust_guests_bin_dir}}/{{target}}/
     

@@ -185,7 +185,7 @@ jobs:
         automatic_release_tag: v${{ env.HYPERLIGHT_VERSION }}
         title: "Release v${{ env.HYPERLIGHT_VERSION }}"
         files: |
-          src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe
+          src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe
           src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe
           src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe
           src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
@@ -211,7 +211,7 @@ jobs:
         automatic_release_tag: latest
         title: "Latest Development Build"
         files: |
-          src/tests/Guests/callbackguest/${{ env.PLATFORM }}/${{ env.CONFIG }}/callbackguest.exe
+          src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe
           src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe
           src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe
           src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip

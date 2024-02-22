@@ -13,6 +13,10 @@ lazy_static! {
     static ref MESSAGE_LOCK: Mutex<Vec<u8>> = Mutex::new(Vec::with_capacity(BUFFER_SIZE));
 }
 
+/// Exposes a C API to allow the guest to print a string
+///
+/// # Safety
+/// TODO
 #[no_mangle]
 pub unsafe extern "C" fn _putchar(c: c_char) {
     let char = c as u8;
@@ -26,7 +30,8 @@ pub unsafe extern "C" fn _putchar(c: c_char) {
             "HostPrint",
             Some(Vec::from(&[ParameterValue::String(str)])),
             ReturnType::Void,
-        );
+        )
+        .unwrap();
         buffer.clear();
     }
 }

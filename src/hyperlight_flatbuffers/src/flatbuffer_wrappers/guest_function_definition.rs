@@ -59,12 +59,7 @@ impl GuestFunctionDefinition {
 
         for (i, parameter_type) in self.parameter_types.iter().enumerate() {
             if parameter_type != &parameter_types[i] {
-                return Err(anyhow!(
-                    "Expected parameter {} to be {:?}, but got {:?}",
-                    i,
-                    parameter_type,
-                    parameter_types[i]
-                ));
+                return Err(anyhow!("{}", i));
             }
         }
 

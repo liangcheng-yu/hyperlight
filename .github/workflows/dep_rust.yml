@@ -7,20 +7,28 @@ on:
     secrets:
       ADO_CARGO_RO_PAT:
         required: true
-  
+
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: FULL
 
 jobs:
-  # this job requires the build-guest-binaries job be complete prior to 
+  # this job requires the build-guest-binaries job be complete prior to
   # its execution. this dependency should be expressed in the dependent
   # workflow
   build:
     strategy:
       fail-fast: true
       matrix:
-        build: [windows-2022-debug, linux-kvm-debug, linux-hyperv-debug, windows-2022-release, linux-kvm-release, linux-hyperv-release]
+        build:
+          [
+            windows-2022-debug,
+            linux-kvm-debug,
+            linux-hyperv-debug,
+            windows-2022-release,
+            linux-kvm-release,
+            linux-hyperv-release,
+          ]
         include:
           - build: windows-2022-debug
             os: [self-hosted, Windows, X64, "1ES.Pool=HL-Windows-2022"]
@@ -66,38 +74,20 @@ jobs:
         run: (Get-Service actions.runner.*) | Foreach { $_.Name, $_.UserName, $_.ServiceType }
         shell: pwsh
 
-      # Download all guests (which were built on windows), but we only use callbackguest.exe. Simpleguest and Dummyguest we build ourselves below
-      - name: Download Guest Binaries
-        uses: actions/download-artifact@v3
-        with:
-          name: guest-binaries-${{ matrix.config }}
-          path: ./downloaded-guest-binaries-${{ matrix.config }}
-
-      - name: Check downloaded guests folder structure
-        if: ${{ (runner.os == 'Linux' )}}
+      - name: Build and move dummyguest.exe, simpleguest.exe, and callbackguest.exe
         run: |
-          find ./downloaded-guest-binaries-${{ matrix.config }} -type f
-
-      - name: Copy callbackguest.exe to expected locations
-        run: |
-          echo "Copying callbackguest binary for build config ${{ matrix.config }}"
-          mkdir -p ./src/tests/Guests/callbackguest/x64/${{ matrix.config }}
-          cp ./downloaded-guest-binaries-${{ matrix.config }}/Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe ./src/tests/Guests/callbackguest/x64/${{ matrix.config }}/callbackguest.exe
-
-      - name: Build and move dummyguest.exe and simpleguest.exe
-        run: |
-          echo "Building simpleguest and dummyguest binaries for build config ${{ matrix.config }}"
+          echo "Building callbackguest, simpleguest, and dummyguest binaries for build config ${{ matrix.config }}"
           rustup target add x86_64-pc-windows-msvc                                # for dummyguest
           just build-and-move-rust-guests
 
       - name: Display Guest Binaries
         run: |
           echo "Displaying all guest binarires"
-          find . -type f -name *.exe 
+          find . -type f -name *.exe
         if: ${{ (runner.os == 'Linux' )}}
-          
+
       - name: Build
-        run:  just build-rust ${{ matrix.config }}
+        run: just build-rust ${{ matrix.config }}
 
       - name: Set up env vars for hyperv-linux tests
         if: ${{ (matrix.hypervisor == 'hyperv') && (runner.os == 'Linux') }}
@@ -126,20 +116,20 @@ jobs:
         if: ${{ (runner.os == 'Windows')}}
         env:
           CARGO_TERM_COLOR: always
-          RUST_LOG: debug  
-        run: just run-rust-examples ${{ matrix.config }}  
+          RUST_LOG: debug
+        run: just run-rust-examples ${{ matrix.config }}
       - name: Run Rust examples - linux
         if: ${{ (runner.os != 'Windows')}}
         env:
           CARGO_TERM_COLOR: always
-          RUST_LOG: debug  
-        run: just run-rust-examples-linux ${{ matrix.config }}  
+          RUST_LOG: debug
+        run: just run-rust-examples-linux ${{ matrix.config }}
       - name: Set up munit
         working-directory: src/hyperlight_capi/tests_capi
         run: |
           git submodule init
           git submodule update
-      - name: Run C Tests 
+      - name: Run C Tests
         working-directory: src/hyperlight_capi
         run: |
           just run-tests-capi  ${{ matrix.config }}

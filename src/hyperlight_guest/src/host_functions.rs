@@ -8,14 +8,14 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
 
 use crate::{guest_error::set_error, P_PEB};
 
-pub(crate) fn validate_host_function_call(function_call: &FunctionCall) {
+pub(crate) fn validate_host_function_call(function_call: &FunctionCall) -> Result<(), ()> {
     // get host function details
     let host_function_details = get_host_function_details();
 
     // check if there are any host functions
     if host_function_details.host_functions.is_none() {
         set_error(ErrorCode::GuestError, "No host functions found");
-        return;
+        return Err(());
     }
 
     // check if function w/ given name exists
@@ -31,7 +31,7 @@ pub(crate) fn validate_host_function_call(function_call: &FunctionCall) {
                 function_call.function_name.clone()
             ),
         );
-        return;
+        return Err(());
     };
 
     let function_call_fparameters = if let Some(parameters) = function_call.parameters.clone() {
@@ -45,7 +45,7 @@ pub(crate) fn validate_host_function_call(function_call: &FunctionCall) {
                     function_call.function_name.clone()
                 ),
             );
-            return;
+            return Err(());
         }
         Vec::new()
     };
@@ -56,7 +56,7 @@ pub(crate) fn validate_host_function_call(function_call: &FunctionCall) {
         .collect::<Vec<ParameterType>>();
 
     // Verify that the function call has the correct parameter types.
-    host_function
+    let verifier = host_function
         .verify_equal_parameter_types(&function_call_parameter_types)
         .map_err(|e| {
             set_error(
@@ -67,8 +67,13 @@ pub(crate) fn validate_host_function_call(function_call: &FunctionCall) {
                 ),
             );
             e
-        })
-        .unwrap();
+        });
+
+    if verifier.is_err() {
+        return Err(());
+    }
+
+    Ok(())
 }
 
 pub(crate) fn get_host_function_details() -> HostFunctionDetails {

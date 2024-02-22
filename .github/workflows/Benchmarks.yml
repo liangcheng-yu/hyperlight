@@ -51,10 +51,9 @@ jobs:
 
       - name: Copy Guest Binaries
         run: |
-          mkdir -p ./src/tests/Guests/callbackguest/x64/release
-          cp ./downloaded-guest-binaries-release/Guests/callbackguest/x64/release/callbackguest.exe ./src/tests/Guests/callbackguest/x64/release/callbackguest.exe
-          cp ./downloaded-guest-binaries-release/rust_guests/bin/release/simpleguest.exe ./src/tests/rust_guests/bin/release/simpleguest.exe
-          cp ./downloaded-guest-binaries-release/rust_guests/bin/release/dummyguest.exe ./src/tests/rust_guests/bin/release/dummyguest.exe
+          cp ./downloaded-guest-binaries-release/callbackguest.exe ./src/tests/rust_guests/bin/release/callbackguest.exe
+          cp ./downloaded-guest-binaries-release/simpleguest.exe ./src/tests/rust_guests/bin/release/simpleguest.exe
+          cp ./downloaded-guest-binaries-release/dummyguest.exe ./src/tests/rust_guests/bin/release/dummyguest.exe
           
       - name: Display Guest Binaries
         run: |
