@@ -101,6 +101,7 @@ jobs:
         mkdir -p src\tests\Hyperlight.Tests\rust_guests\bin\${{ env.CONFIG }}
         cp src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}
         cp src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}    
+        cp src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}
     - name: Test
       shell: pwsh
       run: dotnet test -c $env:CONFIG
