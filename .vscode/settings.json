@@ -29,6 +29,16 @@
     "sstream": "c"
   },
 "rust-analyzer.showUnlinkedFileNotification": false,
+"rust-analyzer.linkedProjects": [
+  "Cargo.toml",
+  "src/hyperlight_host/Cargo.toml",
+  "src/hyperlight_capi/Cargo.toml",
+  "src/hyperlight_guest/Cargo.toml",
+  "src/hyperlight_testing/Cargo.toml",
+  "src/hyperlight_flatbuffers/Cargo.toml",
+  "src/tests/rust_guests/dummyguest/Cargo.toml",
+  "src/tests/rust_guests/simpleguest/Cargo.toml"
+],
 "githubPullRequests.ignoredPullRequestBranches": [
     "dev"
 ]
