@@ -473,3 +473,6 @@ libhyperlight_host.d
 hyperlight_host.dll
 .envrc
 vgcore.*
+
+# packer artifacts
+.pem
