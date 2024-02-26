@@ -36,6 +36,7 @@ pub extern "C" fn abort_with_code(code: i32) -> ! {
 
 extern "C" {
     fn hyperlight_main();
+    fn srand(seed: u32);
 }
 
 #[no_mangle]
@@ -50,6 +51,13 @@ pub extern "C" fn entrypoint(peb_address: i64, seed: i64, ops: i32) -> i32 {
         // The security cookie is the first value in the peb struct so its address is the same as the peb address
 
         __security_cookie = peb_address as u64 ^ seed as u64;
+
+        // for now we will calcualte a seed for srand from the data used for the security cookie but we should pass in a proper seed
+
+        let srand_seed = ((peb_address << 8 ^ seed >> 4) >> 32) as u32;
+
+        // Set the seed for the random number generator
+        srand(srand_seed);
 
         P_PEB = Some(peb_address as *mut HyperlightPEB);
 
