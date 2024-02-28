@@ -1,5 +1,5 @@
 use hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::ErrorCode;
-use hyperlight_host::func::{ParameterValue, ReturnType};
+use hyperlight_host::func::{ParameterValue, ReturnType, ReturnValue};
 use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
 use hyperlight_host::sandbox_state::transition::Noop;
 use hyperlight_host::{GuestBinary, HyperlightError, Result};
@@ -16,11 +16,9 @@ fn new_uninit<'a>() -> Result<UninitializedSandbox<'a>> {
     )
 }
 
-// Makes sure that the guest can abort with a specific code.
-// Note that this tests will fail if hloutb is optimized away
-// which can happen, see #1141
+// Checks that guest can abort with a specific code.
 #[test]
-fn test_guest_abort() {
+fn guest_abort() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
     let mut ctx1 = sbox1.new_call_context();
 
@@ -36,8 +34,25 @@ fn test_guest_abort() {
     assert!(matches!(res, HyperlightError::GuestAborted(code) if code == error_code));
 }
 
+// checks that malloc works
 #[test]
-fn test_guest_malloc_abort() {
+fn guest_malloc() {
+    let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+    let mut ctx1 = sbox1.new_call_context();
+
+    let size = 200; // some small number that should be ok
+    let _res = ctx1
+        .call(
+            "test_rust_malloc",
+            ReturnType::Int,
+            Some(vec![ParameterValue::Int(size)]),
+        )
+        .unwrap();
+}
+
+// checks that malloc failures are captured correctly
+#[test]
+fn guest_malloc_abort() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
     let mut ctx1 = sbox1.new_call_context();
 
@@ -55,17 +70,94 @@ fn test_guest_malloc_abort() {
     );
 }
 
+// checks that alloca works
 #[test]
-fn test_guest_malloc() {
+fn dynamic_stack_allocate() {
+    let sbox: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+    let mut ctx = sbox.new_call_context();
+
+    let bytes = 10_000; // some low number that can be allocated on stack
+
+    ctx.call(
+        "StackAllocate",
+        ReturnType::Int,
+        Some(vec![ParameterValue::Int(bytes)]),
+    )
+    .unwrap();
+}
+
+// checks alloca fails with stackoverflow for huge allocations
+#[test]
+fn dynamic_stack_allocate_overflow() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
     let mut ctx1 = sbox1.new_call_context();
 
-    let size = 200; // some small number that should be ok
-    let _res = ctx1
+    let bytes = 0; // zero is handled as special case in guest, will turn into large number
+
+    let res = ctx1
         .call(
-            "test_rust_malloc",
+            "StackAllocate",
             ReturnType::Int,
-            Some(vec![ParameterValue::Int(size)]),
+            Some(vec![ParameterValue::Int(bytes)]),
         )
+        .unwrap_err();
+    println!("{:?}", res);
+    assert!(matches!(res, HyperlightError::StackOverflow()));
+}
+
+// checks that a small buffer on stack works
+#[test]
+fn static_stack_allocate() {
+    let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+    let mut ctx1 = sbox1.new_call_context();
+
+    let res = ctx1
+        .call("SmallVar", ReturnType::Int, Some(Vec::new()))
         .unwrap();
+    assert!(matches!(res, ReturnValue::Int(1024)));
+}
+
+// checks that a huge buffer on stack fails with stackoverflow
+#[test]
+fn static_stack_allocate_overflow() {
+    let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+    let mut ctx1 = sbox1.new_call_context();
+    let res = ctx1
+        .call("LargeVar", ReturnType::Int, Some(Vec::new()))
+        .unwrap_err();
+    assert!(matches!(res, HyperlightError::StackOverflow()));
+}
+
+// checks that a recursive function with stack allocation works
+#[test]
+fn recursive_stack_allocate() {
+    let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+    let mut ctx1 = sbox1.new_call_context();
+
+    let iterations = 1;
+
+    ctx1.call(
+        "StackOverflow",
+        ReturnType::Int,
+        Some(vec![ParameterValue::Int(iterations)]),
+    )
+    .unwrap();
+}
+
+// checks that a recursive function with stack allocation eventually fails with stackoverflow
+#[test]
+fn recursive_stack_allocate_overflow() {
+    let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+    let mut ctx1 = sbox1.new_call_context();
+
+    let iterations = 10;
+
+    let res = ctx1
+        .call(
+            "StackOverflow",
+            ReturnType::Void,
+            Some(vec![ParameterValue::Int(iterations)]),
+        )
+        .unwrap_err();
+    assert!(matches!(res, HyperlightError::StackOverflow()));
 }

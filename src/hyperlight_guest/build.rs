@@ -1,8 +1,6 @@
-#[cfg(unix)]
-use std::env;
-
 fn main() {
     println!("cargo:rerun-if-changed=third_party");
+    println!("cargo:rerun-if-changed=src/alloca");
 
     let mut cfg = cc::Build::new();
 
@@ -64,7 +62,17 @@ fn main() {
             .include("third_party/libc/musl/arch/x86_64");
     }
 
-    if cfg!(any(feature = "printf", feature = "libc")) {
+    if cfg!(feature = "alloca") {
+        cfg.file("src/alloca/alloca.c")
+            .define("_alloca", "_alloca_wrapper")
+            .flag("-Wno-return-stack-address");
+    }
+
+    if cfg!(any(
+        feature = "printf",
+        feature = "libc",
+        feature = "alloca"
+    )) {
         cfg.define("hidden", "");
         cfg.define("__DEFINED_va_list", None);
         cfg.define("__DEFINED___isoc_va_list", None);

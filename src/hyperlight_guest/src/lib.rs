@@ -1,12 +1,15 @@
 #![no_std]
 // Deps
+use crate::host_function_call::outb;
 use alloc::vec::Vec;
 use buddy_system_allocator::LockedHeap;
 use core::arch::global_asm;
 use entrypoint::abort;
-use hyperlight_flatbuffers::flatbuffer_wrappers::guest_function_details::GuestFunctionDetails;
+use host_function_call::OutBAction;
+use hyperlight_flatbuffers::flatbuffer_wrappers::{
+    guest_error::ErrorCode, guest_function_details::GuestFunctionDetails,
+};
 use hyperlight_peb::HyperlightPEB;
-
 extern crate alloc;
 
 // Modules
@@ -22,6 +25,7 @@ pub mod host_functions;
 
 pub mod hyperlight_peb;
 
+pub mod alloca;
 pub mod flatbuffer_utils;
 pub mod memory;
 pub mod print;
@@ -79,12 +83,15 @@ global_asm!(
         lea r10,[rsp+0x18]  
         /* Calculate what the new stack pointer will be */
         sub r10, rax
+        /* If result is negative, cause StackOverflow */
+        js call_set_error
         /* Compare the new stack pointer with the minimum stack address */
         cmp r10,r11   
         /* If the new stack pointer is above the minimum stack address, jump to cs_ret */
         jae cs_ret
         /* If the new stack pointer is below the minimum stack address, 
         then set the error code to 9 (stack overflow) call set_error and halt */
+    call_set_error:
         call {set_error}
         hlt
     call_chk_inproc:
@@ -148,8 +155,5 @@ pub(crate) static mut GUEST_FUNCTIONS: Vec<u8> = Vec::new();
 
 #[no_mangle]
 extern "win64" fn set_stack_allocate_error() {
-    guest_error::set_error(
-        hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::ErrorCode::StackOverflow,
-        "Stack Overflow",
-    )
+    outb(OutBAction::Abort as u16, ErrorCode::StackOverflow as u8);
 }

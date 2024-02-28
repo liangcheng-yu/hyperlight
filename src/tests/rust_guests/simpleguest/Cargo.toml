@@ -6,4 +6,3 @@ edition = "2021"
 [dependencies]
 hyperlight_guest = { path = "../../../hyperlight_guest" }
 hyperlight_flatbuffers = { path = "../../../hyperlight_flatbuffers", default-features = false }
-msvc-alloca = "0.3"

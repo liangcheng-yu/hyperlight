@@ -195,6 +195,7 @@ pub fn print_output_as_guest_function(function_call: &FunctionCall) -> Vec<u8> {
 global_asm!(
     ".global hloutb
         hloutb:
+            xor rax, rax
             mov al, dl
             mov dx, cx
             out dx, al

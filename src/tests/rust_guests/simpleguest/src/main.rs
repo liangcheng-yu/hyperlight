@@ -9,6 +9,8 @@ const MAX_BUFFER_SIZE: usize = 1024;
 
 extern crate alloc;
 
+use core::hint::black_box;
+
 use alloc::{format, string::ToString, vec::Vec};
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
     function_call::FunctionCall,
@@ -16,8 +18,10 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
     guest_error::ErrorCode,
     guest_function_definition::GuestFunctionDefinition,
 };
+use hyperlight_guest::alloca::_alloca;
+use hyperlight_guest::entrypoint::abort_with_code;
+use hyperlight_guest::guest_error::set_error;
 use hyperlight_guest::memory::hlmalloc;
-use hyperlight_guest::{entrypoint::abort_with_code, guest_error::set_error};
 use hyperlight_guest::{
     flatbuffer_utils::{
         get_flatbuffer_result_from_int, get_flatbuffer_result_from_size_prefixed_buffer,
@@ -26,7 +30,6 @@ use hyperlight_guest::{
     guest_functions::register_function,
     host_function_call::{call_host_function, get_host_value_return_as_int},
 };
-use msvc_alloca::_alloca;
 
 extern crate hyperlight_guest;
 
@@ -328,24 +331,21 @@ fn stack_overflow(function_call: &FunctionCall) -> Vec<u8> {
         Vec::new()
     }
 }
-// This function will allocate i*16384 bytes on the stack
-fn loop_stack_overflow(mut i: i32) {
+// This function will allocate i * (8KiB + 1B) on the stack
+fn loop_stack_overflow(i: i32) {
     if i > 0 {
-        let mut nums = [0u8; 16384];
-        nums[0] = i as u8;
-        i -= 1;
-        loop_stack_overflow(i);
+        let _nums = black_box([0u8; 0x2000 + 1]); // chkstk guaranteed to be called for > 8KiB
+        loop_stack_overflow(i - 1);
     }
 }
 
 fn large_var(_: &FunctionCall) -> Vec<u8> {
-    let _buffer: [u8; (DEFAULT_GUEST_STACK_SIZE + 1) as usize] =
-        [0; (DEFAULT_GUEST_STACK_SIZE + 1) as usize];
+    let _buffer = black_box([0u8; (DEFAULT_GUEST_STACK_SIZE + 1) as usize]);
     get_flatbuffer_result_from_int(DEFAULT_GUEST_STACK_SIZE + 1)
 }
 
 fn small_var(_: &FunctionCall) -> Vec<u8> {
-    let _buffer: [u8; 1024] = [0; 1024];
+    let _buffer = black_box([0u8; 1024]);
     get_flatbuffer_result_from_int(1024)
 }
 

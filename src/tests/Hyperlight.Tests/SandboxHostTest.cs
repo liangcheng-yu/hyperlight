@@ -887,93 +887,98 @@ namespace Hyperlight.Tests
         [FactSkipIfHypervisorNotPresent]
         public void Test_Stack_Overflow()
         {
-            var guestBinaryFileName = "simpleguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
-            var options = GetSandboxRunInHyperVisorOptions();
-            var size = GetAssemblyMetadataAttribute("GUESTSTACKSIZE") / 2;
+            // These are commented out because there currently exists no easy way to get back into dotnet code from an
+            // outb abort. Therefore these tests are replicated in rust hyperlight_host integration tests.
+            // TODO We should re-enable these tests once we have a way to get the exit code from the outb handler.
+            // see issue https://github.com/deislabs/hyperlight/issues/1184.
 
-            // StackOverflow(int) function allocates a 16384 sized array and recursively calls itself int times
+            // var guestBinaryFileName = "simpleguest.exe";
+            // var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            // var options = GetSandboxRunInHyperVisorOptions();
+            // var size = GetAssemblyMetadataAttribute("GUESTSTACKSIZE") / 2;
 
-            var shouldNotOverflow = (GetAssemblyMetadataAttribute("GUESTSTACKSIZE") / 16384) - 2;
-            var shouldOverflow = (GetAssemblyMetadataAttribute("GUESTSTACKSIZE") / 16384) + 1;
+            // // StackOverflow(int) function allocates a 16384 sized array and recursively calls itself int times
 
-            foreach (var option in options)
-            {
-                var correlationId = Guid.NewGuid().ToString("N");
-                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
-                {
-                    var functions = new StackOverflowTests();
-                    sandbox.BindGuestFunction("StackAllocate", functions);
-                    var ex = Record.Exception(() =>
-                    {
-                        int arg = 0;
-                        functions.StackAllocate!(arg);
-                    });
-                    Assert.NotNull(ex);
-                    Assert.IsType<System.StackOverflowException>(ex);
-                    Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+            // var shouldNotOverflow = (GetAssemblyMetadataAttribute("GUESTSTACKSIZE") / 16384) - 2;
+            // var shouldOverflow = (GetAssemblyMetadataAttribute("GUESTSTACKSIZE") / 16384) + 1;
 
-                }
-                correlationId = Guid.NewGuid().ToString("N");
-                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
-                {
-                    var functions = new StackOverflowTests();
-                    sandbox.BindGuestFunction("StackAllocate", functions);
-                    var result = functions.StackAllocate!(size);
-                    Assert.Equal(size, result);
-                }
-                correlationId = Guid.NewGuid().ToString("N");
-                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
-                {
-                    var functions = new StackOverflowTests();
-                    sandbox.BindGuestFunction("StackOverflow", functions);
-                    var ex = Record.Exception(() =>
-                    {
-                        var result = functions.StackOverflow!(shouldOverflow);
-                    });
-                    Assert.NotNull(ex);
-                    Assert.IsType<System.StackOverflowException>(ex);
-                    Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
-                }
-                correlationId = Guid.NewGuid().ToString("N");
-                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
-                {
-                    var memorySize = GetMemorySize(sandbox);
-                    var iterations = (int)(memorySize / 16384) * 2;
-                    var functions = new StackOverflowTests();
-                    sandbox.BindGuestFunction("StackOverflow", functions);
-                    var ex = Record.Exception(() =>
-                    {
-                        var result = functions.StackOverflow!(iterations);
-                    });
-                    Assert.NotNull(ex);
-                    Assert.IsType<System.StackOverflowException>(ex);
-                    Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
-                }
+            // foreach (var option in options)
+            // {
+            //     var correlationId = Guid.NewGuid().ToString("N");
+            //     using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
+            //     {
+            //         var functions = new StackOverflowTests();
+            //         sandbox.BindGuestFunction("StackAllocate", functions);
+            //         var ex = Record.Exception(() =>
+            //         {
+            //             int arg = 0;
+            //             functions.StackAllocate!(arg);
+            //         });
+            //         Assert.NotNull(ex);
+            //         Assert.IsType<System.StackOverflowException>(ex);
+            //         Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
 
-                correlationId = Guid.NewGuid().ToString("N");
-                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
-                {
-                    var functions = new StackOverflowTests();
-                    sandbox.BindGuestFunction("LargeVar", functions);
-                    var ex = Record.Exception(() =>
-                    {
-                        var result = functions.LargeVar!();
-                    });
-                    Assert.NotNull(ex);
-                    Assert.IsType<System.StackOverflowException>(ex);
-                    Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
-                }
+            //     }
+            //     correlationId = Guid.NewGuid().ToString("N");
+            //     using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
+            //     {
+            //         var functions = new StackOverflowTests();
+            //         sandbox.BindGuestFunction("StackAllocate", functions);
+            //         var result = functions.StackAllocate!(size);
+            //         Assert.Equal(size, result);
+            //     }
+            //     correlationId = Guid.NewGuid().ToString("N");
+            //     using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
+            //     {
+            //         var functions = new StackOverflowTests();
+            //         sandbox.BindGuestFunction("StackOverflow", functions);
+            //         var ex = Record.Exception(() =>
+            //         {
+            //             var result = functions.StackOverflow!(shouldOverflow);
+            //         });
+            //         Assert.NotNull(ex);
+            //         Assert.IsType<System.StackOverflowException>(ex);
+            //         Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+            //     }
+            //     correlationId = Guid.NewGuid().ToString("N");
+            //     using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
+            //     {
+            //         var memorySize = GetMemorySize(sandbox);
+            //         var iterations = (int)(memorySize / 16384) * 2;
+            //         var functions = new StackOverflowTests();
+            //         sandbox.BindGuestFunction("StackOverflow", functions);
+            //         var ex = Record.Exception(() =>
+            //         {
+            //             var result = functions.StackOverflow!(iterations);
+            //         });
+            //         Assert.NotNull(ex);
+            //         Assert.IsType<System.StackOverflowException>(ex);
+            //         Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+            //     }
 
-                correlationId = Guid.NewGuid().ToString("N");
-                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
-                {
-                    var functions = new StackOverflowTests();
-                    sandbox.BindGuestFunction("SmallVar", functions);
-                    var result = functions.SmallVar!();
-                    Assert.Equal(1024, result);
-                }
-            }
+            //     correlationId = Guid.NewGuid().ToString("N");
+            //     using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
+            //     {
+            //         var functions = new StackOverflowTests();
+            //         sandbox.BindGuestFunction("LargeVar", functions);
+            //         var ex = Record.Exception(() =>
+            //         {
+            //             var result = functions.LargeVar!();
+            //         });
+            //         Assert.NotNull(ex);
+            //         Assert.IsType<System.StackOverflowException>(ex);
+            //         Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+            //     }
+
+            //     correlationId = Guid.NewGuid().ToString("N");
+            //     using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
+            //     {
+            //         var functions = new StackOverflowTests();
+            //         sandbox.BindGuestFunction("SmallVar", functions);
+            //         var result = functions.SmallVar!();
+            //         Assert.Equal(1024, result);
+            //     }
+            // }
         }
 
         [FactSkipIfHypervisorNotPresent]

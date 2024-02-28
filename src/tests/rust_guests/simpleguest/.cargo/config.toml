@@ -9,9 +9,7 @@ rustflags = [
 linker = "rust-lld"
 
 [profile.release]
-opt-level = 0
 panic = "abort"
 
 [profile.dev]
-opt-level = 0
 panic = "abort"
