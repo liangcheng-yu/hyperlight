@@ -30,6 +30,8 @@ jobs:
       # where no changes are made by cargo ws version because the version is already correct
       - name: Publish hyperlight-flatbuffers
         run: cargo publish --manifest-path ./src/hyperlight_flatbuffers/Cargo.toml --registry hyperlight_packages --allow-dirty
+      - name: Publish hyperlight-guest
+        run: cargo publish --manifest-path ./src/hyperlight_guest/Cargo.toml --registry hyperlight_packages --allow-dirty
       - name: Publish hyperlight-host 
         run: cargo publish --manifest-path ./src/hyperlight_host/Cargo.toml --registry hyperlight_packages --allow-dirty
       - name: Publish hyperlight-capi

@@ -77,7 +77,6 @@ jobs:
       - name: Build and move dummyguest.exe, simpleguest.exe, and callbackguest.exe
         run: |
           echo "Building callbackguest, simpleguest, and dummyguest binaries for build config ${{ matrix.config }}"
-          rustup target add x86_64-pc-windows-msvc                                # for dummyguest
           just build-and-move-rust-guests
 
       - name: Display Guest Binaries

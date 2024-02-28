@@ -21,15 +21,6 @@ runs:
       run: just cargo-login-ci
       shell: bash
 
-
-    ###
-    ### Windows setup
-    ###
-    - name: Cargo login
-      if: ${{ (runner.os == 'Windows') }}
-      run: just cargo-login-ci-windows
-      shell: pwsh
-
     # Install clang-tools on Linux
 
     - name: Install clang-tools (Linux mariner)
@@ -49,3 +40,25 @@ runs:
         sudo ln -s /usr/lib/llvm-16/bin/clang-cl /usr/bin/clang-cl
         sudo ln -s /usr/lib/llvm-16/bin/llvm-lib /usr/bin/llvm-lib
       shell: bash
+
+    # This is needed to build the rust guests
+    - name: Install x86_64-pc-windows-msvc target
+      if: ${{ (runner.os == 'Linux') }}
+      run: |
+        rustup target add x86_64-pc-windows-msvc
+      shell: bash
+
+
+    ###
+    ### Windows setup
+    ###
+    - name: Cargo login
+      if: ${{ (runner.os == 'Windows') }}
+      run: just cargo-login-ci-windows
+      shell: pwsh
+
+    - name: Install x86_64-pc-windows-msvc target
+      if: ${{ (runner.os == 'Windows') }}
+      run: |
+        rustup target add x86_64-pc-windows-msvc
+      shell: pwsh
