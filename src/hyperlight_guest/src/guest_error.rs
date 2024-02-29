@@ -5,6 +5,8 @@ use core::ffi::CStr;
 use alloc::{string::ToString, vec::Vec};
 use hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::{ErrorCode, GuestError};
 
+use crate::host_function_call::outb;
+use crate::host_function_call::OutBAction;
 use crate::{entrypoint::halt, P_PEB};
 
 pub(crate) fn write_error(error_code: ErrorCode, message: Option<&str>) {
@@ -12,12 +14,11 @@ pub(crate) fn write_error(error_code: ErrorCode, message: Option<&str>) {
         error_code,
         message.map_or("".to_string(), |m| m.to_string()),
     );
-    let guest_error_buffer: Vec<u8> = (&guest_error).try_into().unwrap();
+    let guest_error_buffer: Vec<u8> = (&guest_error)
+        .try_into()
+        .expect("Invalid guest_error_buffer, could not be converted to a Vec<u8>");
 
     unsafe {
-        // TODO: We should probably review the use of asserts and do explicit checks here
-        // these asserts will cause a panic and we wont get much in the way of error information
-
         assert!(!(*P_PEB.unwrap()).pGuestErrorBuffer.is_null());
         assert!(guest_error_buffer.len() <= (*P_PEB.unwrap()).guestErrorBufferSize as usize);
 
@@ -48,11 +49,21 @@ pub(crate) fn reset_error() {
     }
 }
 
-pub fn set_error(error_code: ErrorCode, message: &str) {
+pub(crate) fn set_error(error_code: ErrorCode, message: &str) {
     write_error(error_code, Some(message));
     unsafe {
         (*P_PEB.unwrap()).outputdata.outputDataBuffer = usize::MAX as *mut c_void;
     }
+}
+
+pub(crate) fn set_error_and_halt(error_code: ErrorCode, message: &str) {
+    set_error(error_code, message);
+    halt();
+}
+
+#[no_mangle]
+pub(crate) extern "win64" fn set_stack_allocate_error() {
+    outb(OutBAction::Abort as u16, ErrorCode::StackOverflow as u8);
 }
 
 /// Exposes a C API to allow the guest to set an error
@@ -67,7 +78,7 @@ pub unsafe extern "C" fn setError(code: u64, message: *const c_char) {
         true => write_error(error_code, None),
         false => {
             let message = unsafe { CStr::from_ptr(message).to_str().ok() }
-                .unwrap_or("Invalid error message, could not be converted to a string");
+                .expect("Invalid error message, could not be converted to a string");
             write_error(error_code, Some(message));
         }
     }

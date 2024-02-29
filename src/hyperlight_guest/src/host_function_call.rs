@@ -7,9 +7,11 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
 };
 
 use crate::{
-    flatbuffer_utils::get_flatbuffer_result_from_int, guest_error::set_error,
-    host_error::check_for_host_error, host_functions::validate_host_function_call,
-    HyperlightGuestError, OUTB_PTR, OUTB_PTR_WITH_CONTEXT, P_PEB, RUNNING_IN_HYPERLIGHT,
+    error::{HyperlightGuestError, Result},
+    flatbuffer_utils::get_flatbuffer_result_from_int,
+    host_error::check_for_host_error,
+    host_functions::validate_host_function_call,
+    OUTB_PTR, OUTB_PTR_WITH_CONTEXT, P_PEB, RUNNING_IN_HYPERLIGHT,
 };
 
 pub enum OutBAction {
@@ -18,7 +20,7 @@ pub enum OutBAction {
     Abort = 102,
 }
 
-pub fn get_host_value_return_as_int() -> i32 {
+pub fn get_host_value_return_as_int() -> Result<i32> {
     let peb_ptr = unsafe { P_PEB.unwrap() };
 
     let idb = unsafe {
@@ -30,38 +32,35 @@ pub fn get_host_value_return_as_int() -> i32 {
 
     // if buffer size is zero, error out
     if idb.is_empty() {
-        set_error(
+        return Err(HyperlightGuestError::new(
             ErrorCode::GuestError,
-            "Got a 0-size buffer in GetHostReturnValueAsInt",
-        );
-        return -1;
+            "Got a 0-size buffer in GetHostReturnValueAsInt".to_string(),
+        ));
     }
 
     let fcr = if let Ok(r) = ReturnValue::try_from(idb) {
         r
     } else {
-        set_error(
+        return Err(HyperlightGuestError::new(
             ErrorCode::GuestError,
-            "Could not convert buffer to ReturnValue in GetHostReturnValueAsInt",
-        );
-        return -1;
+            "Could not convert buffer to ReturnValue in GetHostReturnValueAsInt".to_string(),
+        ));
     };
 
     // check that return value is an int and return
     if let ReturnValue::Int(i) = fcr {
-        i
+        Ok(i)
     } else {
-        set_error(
+        Err(HyperlightGuestError::new(
             ErrorCode::GuestError,
-            "Host return value was not an int as expected",
-        );
-        -1
+            "Host return value was not an int as expected".to_string(),
+        ))
     }
 }
 
 // TODO: Make this generic, return a Result<T, ErrorCode>
 
-pub fn get_host_value_return_as_vecbytes() -> Vec<u8> {
+pub fn get_host_value_return_as_vecbytes() -> Result<Vec<u8>> {
     let peb_ptr = unsafe { P_PEB.unwrap() };
 
     let idb = unsafe {
@@ -73,32 +72,29 @@ pub fn get_host_value_return_as_vecbytes() -> Vec<u8> {
 
     // if buffer size is zero, error out
     if idb.is_empty() {
-        set_error(
+        return Err(HyperlightGuestError::new(
             ErrorCode::GuestError,
-            "Got a 0-size buffer in GetHostReturnValueAsVecBytes",
-        );
-        return Vec::new();
+            "Got a 0-size buffer in GetHostReturnValueAsVecBytes".to_string(),
+        ));
     }
 
     let fcr = if let Ok(r) = ReturnValue::try_from(idb) {
         r
     } else {
-        set_error(
+        return Err(HyperlightGuestError::new(
             ErrorCode::GuestError,
-            "Could not convert buffer to ReturnValue in GetHostReturnValueAsVecBytes",
-        );
-        return Vec::new();
+            "Could not convert buffer to ReturnValue in GetHostReturnValueAsVecBytes".to_string(),
+        ));
     };
 
     // check that return value is an Vec<u8> and return
     if let ReturnValue::VecBytes(v) = fcr {
-        v
+        Ok(v)
     } else {
-        set_error(
+        Err(HyperlightGuestError::new(
             ErrorCode::GuestError,
-            "Host return value was not an VecBytes as expected",
-        );
-        Vec::new()
+            "Host return value was not an VecBytes as expected".to_string(),
+        ))
     }
 }
 
@@ -109,7 +105,7 @@ pub fn call_host_function(
     function_name: &str,
     parameters: Option<Vec<ParameterValue>>,
     return_type: ReturnType,
-) -> Result<(), HyperlightGuestError> {
+) -> Result<()> {
     unsafe {
         let peb_ptr = P_PEB.unwrap();
 
@@ -120,23 +116,19 @@ pub fn call_host_function(
             return_type,
         );
 
-        // validate host functions
-        if validate_host_function_call(&host_function_call).is_err() {
-            return Err(HyperlightGuestError);
-        };
+        validate_host_function_call(&host_function_call)?;
 
         let host_function_call_buffer: Vec<u8> = host_function_call.try_into().unwrap();
         let host_function_call_buffer_size = host_function_call_buffer.len();
 
         if host_function_call_buffer_size as u64 > (*peb_ptr).outputdata.outputDataSize {
-            set_error(
+            return Err(HyperlightGuestError::new(
                 ErrorCode::GuestError,
-                &format!(
-                "Host Function Call Buffer is too big ({}) for output data ({}) Function Name: {}",
-                host_function_call_buffer_size, (*peb_ptr).outputdata.outputDataSize, function_name
-            ),
-            );
-            return Err(HyperlightGuestError);
+                format!(
+                    "Host Function Call Buffer is too big ({}) for output data ({}) Function Name: {}",
+                    host_function_call_buffer_size, (*peb_ptr).outputdata.outputDataSize, function_name
+                ),
+            ));
         }
 
         let output_data_buffer = (*peb_ptr).outputdata.outputDataBuffer as *mut u8;
@@ -173,21 +165,20 @@ extern "win64" {
     fn hloutb(port: u16, value: u8);
 }
 
-pub fn print_output_as_guest_function(function_call: &FunctionCall) -> Vec<u8> {
+pub fn print_output_as_guest_function(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::String(message) = function_call.parameters.clone().unwrap()[0].clone() {
-        match call_host_function(
+        call_host_function(
             "HostPrint",
             Some(Vec::from(&[ParameterValue::String(message.to_string())])),
             ReturnType::Int,
-        ) {
-            Ok(_) => {
-                let result = get_host_value_return_as_int();
-                get_flatbuffer_result_from_int(result)
-            }
-            Err(_) => Vec::new(),
-        }
+        )?;
+        let res_i = get_host_value_return_as_int()?;
+        Ok(get_flatbuffer_result_from_int(res_i))
     } else {
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestError,
+            "Wrong Parameters passed to print_output_as_guest_function".to_string(),
+        ))
     }
 }
 

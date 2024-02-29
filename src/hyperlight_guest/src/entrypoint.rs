@@ -28,6 +28,7 @@ pub fn halt() {
 pub extern "C" fn abort() -> ! {
     abort_with_code(0)
 }
+
 #[no_mangle]
 pub extern "C" fn abort_with_code(code: i32) -> ! {
     outb(OutBAction::Abort as u16, code as u8);
@@ -93,6 +94,7 @@ pub extern "C" fn entrypoint(peb_address: i64, seed: i64, ops: i32) -> i32 {
 
         if (*peb_ptr).pOutb.is_null() {
             RUNNING_IN_HYPERLIGHT = true;
+
             // This static is to make it easier to implement the __chksstk function in assembly.
             // It also means that should we change the layout of the struct in the future, we
             // don't have to change the assembly code.

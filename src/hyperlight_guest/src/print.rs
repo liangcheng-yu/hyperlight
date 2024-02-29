@@ -25,13 +25,14 @@ pub unsafe extern "C" fn _putchar(c: c_char) {
 
     if buffer.len() == BUFFER_SIZE || char == b'\0' {
         // buffer is full or was passed in nullbyte, so flush
-        let str = alloc::string::String::from_utf8(buffer.to_vec()).unwrap();
+        let str = alloc::string::String::from_utf8(buffer.to_vec())
+            .expect("Failed to convert buffer to string");
         call_host_function(
             "HostPrint",
             Some(Vec::from(&[ParameterValue::String(str)])),
             ReturnType::Void,
         )
-        .unwrap();
+        .expect("Failed to call HostPrint"); // optimally, this would be a `?`, but we need to match the expected `extern` def
         buffer.clear();
     }
 }

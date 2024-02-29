@@ -1,21 +1,26 @@
 use core::slice::from_raw_parts;
 
-use alloc::{format, vec::Vec};
+use alloc::{format, string::ToString, vec::Vec};
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
     function_call::FunctionCall, function_types::ParameterType, guest_error::ErrorCode,
     host_function_details::HostFunctionDetails,
 };
 
-use crate::{guest_error::set_error, P_PEB};
+use crate::{
+    error::{HyperlightGuestError, Result},
+    P_PEB,
+};
 
-pub(crate) fn validate_host_function_call(function_call: &FunctionCall) -> Result<(), ()> {
+pub(crate) fn validate_host_function_call(function_call: &FunctionCall) -> Result<()> {
     // get host function details
     let host_function_details = get_host_function_details();
 
     // check if there are any host functions
     if host_function_details.host_functions.is_none() {
-        set_error(ErrorCode::GuestError, "No host functions found");
-        return Err(());
+        return Err(HyperlightGuestError::new(
+            ErrorCode::GuestError,
+            "No host functions found".to_string(),
+        ));
     }
 
     // check if function w/ given name exists
@@ -24,30 +29,29 @@ pub(crate) fn validate_host_function_call(function_call: &FunctionCall) -> Resul
     {
         host_function
     } else {
-        set_error(
+        return Err(HyperlightGuestError::new(
             ErrorCode::GuestError,
-            &format!(
+            format!(
                 "Host Function Not Found: {}",
                 function_call.function_name.clone()
             ),
-        );
-        return Err(());
+        ));
     };
 
     let function_call_fparameters = if let Some(parameters) = function_call.parameters.clone() {
         parameters
     } else {
         if host_function.parameter_types.is_some() {
-            set_error(
+            return Err(HyperlightGuestError::new(
                 ErrorCode::GuestError,
-                &format!(
+                format!(
                     "Incorrect parameter count for function: {}",
                     function_call.function_name.clone()
                 ),
-            );
-            return Err(());
+            ));
         }
-        Vec::new()
+
+        Vec::new() // if no parameters (and no mismatches), return empty vector
     };
 
     let function_call_parameter_types = function_call_fparameters
@@ -56,22 +60,17 @@ pub(crate) fn validate_host_function_call(function_call: &FunctionCall) -> Resul
         .collect::<Vec<ParameterType>>();
 
     // Verify that the function call has the correct parameter types.
-    let verifier = host_function
+    host_function
         .verify_equal_parameter_types(&function_call_parameter_types)
-        .map_err(|e| {
-            set_error(
+        .map_err(|_| {
+            HyperlightGuestError::new(
                 ErrorCode::GuestError,
-                &format!(
+                format!(
                     "Incorrect parameter type for function: {}",
                     function_call.function_name.clone()
                 ),
-            );
-            e
-        });
-
-    if verifier.is_err() {
-        return Err(());
-    }
+            )
+        })?;
 
     Ok(())
 }
@@ -91,5 +90,7 @@ pub(crate) fn get_host_function_details() -> HostFunctionDetails {
         )
     };
 
-    host_function_details_slice.try_into().unwrap()
+    host_function_details_slice
+        .try_into()
+        .expect("Failed to convert buffer to HostFunctionDetails")
 }

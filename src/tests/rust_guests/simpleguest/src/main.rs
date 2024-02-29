@@ -20,9 +20,9 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
 };
 use hyperlight_guest::alloca::_alloca;
 use hyperlight_guest::entrypoint::abort_with_code;
-use hyperlight_guest::guest_error::set_error;
 use hyperlight_guest::memory::hlmalloc;
 use hyperlight_guest::{
+    error::{HyperlightGuestError, Result},
     flatbuffer_utils::{
         get_flatbuffer_result_from_int, get_flatbuffer_result_from_size_prefixed_buffer,
         get_flatbuffer_result_from_string, get_flatbuffer_result_from_void,
@@ -33,25 +33,28 @@ use hyperlight_guest::{
 
 extern crate hyperlight_guest;
 
-fn print_output(message: &str) -> Vec<u8> {
+fn print_output(message: &str) -> Result<Vec<u8>> {
     call_host_function(
         "HostPrint",
         Some(Vec::from(&[ParameterValue::String(message.to_string())])),
         ReturnType::Int,
-    ).unwrap();
-    let result = get_host_value_return_as_int();
-    get_flatbuffer_result_from_int(result)
+    )?;
+    let result = get_host_value_return_as_int()?;
+    Ok(get_flatbuffer_result_from_int(result))
 }
 
-fn simple_print_output(function_call: &FunctionCall) -> Vec<u8> {
+fn simple_print_output(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::String(message) = function_call.parameters.clone().unwrap()[0].clone() {
         print_output(&message)
     } else {
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to simple_print_output".to_string(),
+        ))
     }
 }
 
-fn set_byte_array_to_zero(function_call: &FunctionCall) -> Vec<u8> {
+fn set_byte_array_to_zero(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let (ParameterValue::VecBytes(vec), ParameterValue::Int(length)) = (
         function_call.parameters.clone().unwrap()[0].clone(),
         function_call.parameters.clone().unwrap()[1].clone(),
@@ -65,13 +68,16 @@ fn set_byte_array_to_zero(function_call: &FunctionCall) -> Vec<u8> {
                 }
             }
         }
-        get_flatbuffer_result_from_void()
+        Ok(get_flatbuffer_result_from_void())
     } else {
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to set_byte_array_to_zero".to_string(),
+        ))
     }
 }
 
-fn print_two_args(function_call: &FunctionCall) -> Vec<u8> {
+fn print_two_args(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let (ParameterValue::String(arg1), ParameterValue::Int(arg2)) = (
         function_call.parameters.clone().unwrap()[0].clone(),
         function_call.parameters.clone().unwrap()[1].clone(),
@@ -79,11 +85,14 @@ fn print_two_args(function_call: &FunctionCall) -> Vec<u8> {
         let message = format!("Message: arg1:{} arg2:{}.", arg1, arg2);
         print_output(&message)
     } else {
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to print_two_args".to_string(),
+        ))
     }
 }
 
-fn print_three_args(function_call: &FunctionCall) -> Vec<u8> {
+fn print_three_args(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let (ParameterValue::String(arg1), ParameterValue::Int(arg2), ParameterValue::Long(arg3)) = (
         function_call.parameters.clone().unwrap()[0].clone(),
         function_call.parameters.clone().unwrap()[1].clone(),
@@ -92,11 +101,14 @@ fn print_three_args(function_call: &FunctionCall) -> Vec<u8> {
         let message = format!("Message: arg1:{} arg2:{} arg3:{}.", arg1, arg2, arg3);
         print_output(&message)
     } else {
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to print_three_args".to_string(),
+        ))
     }
 }
 
-fn print_four_args(function_call: &FunctionCall) -> Vec<u8> {
+fn print_four_args(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let (
         ParameterValue::String(arg1),
         ParameterValue::Int(arg2),
@@ -114,11 +126,14 @@ fn print_four_args(function_call: &FunctionCall) -> Vec<u8> {
         );
         print_output(&message)
     } else {
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to print_four_args".to_string(),
+        ))
     }
 }
 
-fn print_five_args(function_call: &FunctionCall) -> Vec<u8> {
+fn print_five_args(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let (
         ParameterValue::String(arg1),
         ParameterValue::Int(arg2),
@@ -138,11 +153,14 @@ fn print_five_args(function_call: &FunctionCall) -> Vec<u8> {
         );
         print_output(&message)
     } else {
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to print_five_args".to_string(),
+        ))
     }
 }
 
-fn print_six_args(function_call: &FunctionCall) -> Vec<u8> {
+fn print_six_args(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let (
         ParameterValue::String(arg1),
         ParameterValue::Int(arg2),
@@ -164,11 +182,14 @@ fn print_six_args(function_call: &FunctionCall) -> Vec<u8> {
         );
         print_output(&message)
     } else {
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to print_six_args".to_string(),
+        ))
     }
 }
 
-fn print_seven_args(function_call: &FunctionCall) -> Vec<u8> {
+fn print_seven_args(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let (
         ParameterValue::String(arg1),
         ParameterValue::Int(arg2),
@@ -192,11 +213,14 @@ fn print_seven_args(function_call: &FunctionCall) -> Vec<u8> {
         );
         print_output(&message)
     } else {
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to print_seven_args".to_string(),
+        ))
     }
 }
 
-fn print_eight_args(function_call: &FunctionCall) -> Vec<u8> {
+fn print_eight_args(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let (
         ParameterValue::String(arg1),
         ParameterValue::Int(arg2),
@@ -222,11 +246,14 @@ fn print_eight_args(function_call: &FunctionCall) -> Vec<u8> {
         );
         print_output(&message)
     } else {
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to print_eight_args".to_string(),
+        ))
     }
 }
 
-fn print_nine_args(function_call: &FunctionCall) -> Vec<u8> {
+fn print_nine_args(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let (
         ParameterValue::String(arg1),
         ParameterValue::Int(arg2),
@@ -254,11 +281,14 @@ fn print_nine_args(function_call: &FunctionCall) -> Vec<u8> {
         );
         print_output(&message)
     } else {
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to print_nine_args".to_string(),
+        ))
     }
 }
 
-fn print_ten_args(function_call: &FunctionCall) -> Vec<u8> {
+fn print_ten_args(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let (
         ParameterValue::String(arg1),
         ParameterValue::Int(arg2),
@@ -285,11 +315,14 @@ fn print_ten_args(function_call: &FunctionCall) -> Vec<u8> {
         let message = format!("Message: arg1:{} arg2:{} arg3:{} arg4:{} arg5:{} arg6:{} arg7:{} arg8:{} arg9:{} arg10:{}.", arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);
         print_output(&message)
     } else {
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to print_ten_args".to_string(),
+        ))
     }
 }
 
-fn stack_allocate(function_call: &FunctionCall) -> Vec<u8> {
+fn stack_allocate(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::Int(length) = function_call.parameters.clone().unwrap()[0].clone() {
         let alloc_length = if length == 0 {
             DEFAULT_GUEST_STACK_SIZE + 1
@@ -299,13 +332,16 @@ fn stack_allocate(function_call: &FunctionCall) -> Vec<u8> {
 
         _alloca(alloc_length as usize);
 
-        get_flatbuffer_result_from_int(alloc_length)
+        Ok(get_flatbuffer_result_from_int(alloc_length))
     } else {
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to stack_allocate".to_string(),
+        ))
     }
 }
 
-fn buffer_overrun(function_call: &FunctionCall) -> Vec<u8> {
+fn buffer_overrun(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::String(value) = function_call.parameters.clone().unwrap()[0].clone() {
         let c_str = value.as_str();
 
@@ -317,18 +353,24 @@ fn buffer_overrun(function_call: &FunctionCall) -> Vec<u8> {
 
         let result = (17i32).saturating_sub(length as i32);
 
-        get_flatbuffer_result_from_int(result)
+        Ok(get_flatbuffer_result_from_int(result))
     } else {
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to buffer_overrun".to_string(),
+        ))
     }
 }
 
-fn stack_overflow(function_call: &FunctionCall) -> Vec<u8> {
+fn stack_overflow(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::Int(i) = function_call.parameters.clone().unwrap()[0].clone() {
         loop_stack_overflow(i);
-        get_flatbuffer_result_from_int(i)
+        Ok(get_flatbuffer_result_from_int(i))
     } else {
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to stack_overflow".to_string(),
+        ))
     }
 }
 // This function will allocate i * (8KiB + 1B) on the stack
@@ -339,18 +381,18 @@ fn loop_stack_overflow(i: i32) {
     }
 }
 
-fn large_var(_: &FunctionCall) -> Vec<u8> {
+fn large_var(_: &FunctionCall) -> Result<Vec<u8>> {
     let _buffer = black_box([0u8; (DEFAULT_GUEST_STACK_SIZE + 1) as usize]);
-    get_flatbuffer_result_from_int(DEFAULT_GUEST_STACK_SIZE + 1)
+    Ok(get_flatbuffer_result_from_int(DEFAULT_GUEST_STACK_SIZE + 1))
 }
 
-fn small_var(_: &FunctionCall) -> Vec<u8> {
+fn small_var(_: &FunctionCall) -> Result<Vec<u8>> {
     let _buffer = black_box([0u8; 1024]);
-    get_flatbuffer_result_from_int(1024)
+    Ok(get_flatbuffer_result_from_int(1024))
 }
 
 // TODO: This function could cause a stack overflow, update it once we have stack guards in place.
-fn call_malloc(function_call: &FunctionCall) -> Vec<u8> {
+fn call_malloc(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::Int(size) = function_call.parameters.clone().unwrap()[0].clone() {
         let alloc_length = if size < DEFAULT_GUEST_STACK_SIZE {
             // ^^^ arbitrary check to avoid stack overflow
@@ -362,13 +404,16 @@ fn call_malloc(function_call: &FunctionCall) -> Vec<u8> {
         let mut allocated_buffer = Vec::with_capacity(alloc_length as usize);
         allocated_buffer.resize(alloc_length as usize, 0);
 
-        get_flatbuffer_result_from_int(size)
+        Ok(get_flatbuffer_result_from_int(size))
     } else {
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to call_malloc".to_string(),
+        ))
     }
 }
 
-fn malloc_and_free(function_call: &FunctionCall) -> Vec<u8> {
+fn malloc_and_free(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::Int(size) = function_call.parameters.clone().unwrap()[0].clone() {
         let alloc_length = if size < DEFAULT_GUEST_STACK_SIZE {
             size
@@ -379,56 +424,73 @@ fn malloc_and_free(function_call: &FunctionCall) -> Vec<u8> {
         allocated_buffer.resize(alloc_length as usize, 0);
         drop(allocated_buffer);
 
-        get_flatbuffer_result_from_int(size)
+        Ok(get_flatbuffer_result_from_int(size))
     } else {
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to malloc_and_free".to_string(),
+        ))
     }
 }
 
-fn echo(function_call: &FunctionCall) -> Vec<u8> {
+fn echo(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::String(value) = function_call.parameters.clone().unwrap()[0].clone() {
-        get_flatbuffer_result_from_string(&value)
+        Ok(get_flatbuffer_result_from_string(&value))
     } else {
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to echo".to_string(),
+        ))
     }
 }
 
-fn get_size_prefixed_buffer(function_call: &FunctionCall) -> Vec<u8> {
+fn get_size_prefixed_buffer(function_call: &FunctionCall) -> Result<Vec<u8>> {
     // This assumes that the first parameter is a buffer and the second is the length.
     // You may need to adjust this based on how your FunctionCall and ParameterValues are structured.
     if let (ParameterValue::VecBytes(data), ParameterValue::Int(length)) = (
         function_call.parameters.clone().unwrap()[0].clone(),
         function_call.parameters.clone().unwrap()[1].clone(),
     ) {
-        unsafe { get_flatbuffer_result_from_size_prefixed_buffer(data.as_ptr(), length) }
+        unsafe {
+            Ok(get_flatbuffer_result_from_size_prefixed_buffer(
+                data.as_ptr(),
+                length,
+            ))
+        }
     } else {
-        // If the parameters are not a buffer and a length, return an empty buffer.
-        Vec::new()
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to get_size_prefixed_buffer".to_string(),
+        ))
     }
 }
 
-fn spin(_: &FunctionCall) -> Vec<u8> {
+fn spin(_: &FunctionCall) -> Result<Vec<u8>> {
     loop {
         // Keep the CPU 100% busy forever
     }
 
     #[allow(unreachable_code)]
-    get_flatbuffer_result_from_void()
+    Ok(get_flatbuffer_result_from_void())
 }
 
-fn test_abort(function_call: &FunctionCall) -> Vec<u8> {
+fn test_abort(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::Int(code) = function_call.parameters.clone().unwrap()[0].clone() {
         abort_with_code(code);
     }
-    get_flatbuffer_result_from_void()
+    Ok(get_flatbuffer_result_from_void())
 }
 
-fn test_rust_malloc(function_call: &FunctionCall) -> Vec<u8> {
+fn test_rust_malloc(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::Int(code) = function_call.parameters.clone().unwrap()[0].clone() {
         let ptr = hlmalloc(code as usize);
-        return get_flatbuffer_result_from_int(ptr as i32);
+        Ok(get_flatbuffer_result_from_int(ptr as i32))
+    } else {
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to test_rust_malloc".to_string(),
+        ))
     }
-    Vec::new()
 }
 
 #[no_mangle]
@@ -683,10 +745,9 @@ pub extern "C" fn hyperlight_main() {
 }
 
 #[no_mangle]
-pub extern "Rust" fn guest_dispatch_function(function_call: &FunctionCall) -> Vec<u8> {
-    set_error(
+pub fn guest_dispatch_function(function_call: &FunctionCall) -> Result<Vec<u8>> {
+    Err(HyperlightGuestError::new(
         ErrorCode::GuestFunctionNotFound,
-        &function_call.function_name,
-    );
-    Vec::new()
+        function_call.function_name.clone(),
+    ))
 }

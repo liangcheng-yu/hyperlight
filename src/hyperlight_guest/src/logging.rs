@@ -27,7 +27,9 @@ fn write_log_data(
         line,
     );
 
-    let bytes: Vec<u8> = guest_log_data.try_into().unwrap();
+    let bytes: Vec<u8> = guest_log_data
+        .try_into()
+        .expect("Failed to convert GuestLogData to bytes");
 
     unsafe {
         let peb_ptr = P_PEB.unwrap();

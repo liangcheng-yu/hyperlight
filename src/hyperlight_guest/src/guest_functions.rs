@@ -15,7 +15,8 @@ pub fn finalise_function_table() {
         let gfd = &mut GUEST_FUNCTIONS_BUILDER;
         gfd.sort_by_function_name();
 
-        let gfd_finalised: Vec<u8> = Vec::try_from(&*gfd).unwrap();
+        let gfd_finalised: Vec<u8> =
+            Vec::try_from(&*gfd).expect("Could not convert GUEST_FUNCTIONS_BUILDER to Vec<u8>");
         GUEST_FUNCTIONS = gfd_finalised.clone();
     }
 }

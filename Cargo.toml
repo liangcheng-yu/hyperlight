@@ -2,15 +2,15 @@
 resolver = "2"
 default-members = [
     "src/hyperlight_capi",
+    "src/hyperlight_flatbuffers",
     "src/hyperlight_host",
     "src/hyperlight_testing",
-    "src/hyperlight_flatbuffers",
 ]
 members = [
     "src/hyperlight_capi",
+    "src/hyperlight_guest",
     "src/hyperlight_host",
     "src/hyperlight_testing",
-    "src/hyperlight_guest",
 ]
 # Because hyperlight_guest has custom linker flags,
 # we exclude it from the default-members list
@@ -18,8 +18,8 @@ members = [
 # Same for the simpleguest and dummyguest tests below.
 exclude = [
     "src/tests/rust_guests/callbackguest",
-    "src/tests/rust_guests/simpleguest",
     "src/tests/rust_guests/dummyguest",
+    "src/tests/rust_guests/simpleguest",
 ]
 
 # this will generate symbols for release builds

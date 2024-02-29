@@ -13,8 +13,8 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
     guest_log_level::LogLevel,
 };
 use hyperlight_guest::{
+    error::{HyperlightGuestError, Result},
     flatbuffer_utils::{get_flatbuffer_result_from_int, get_flatbuffer_result_from_void},
-    guest_error::set_error,
     guest_functions::register_function,
     host_function_call::{
         call_host_function, get_host_value_return_as_int, print_output_as_guest_function,
@@ -26,77 +26,76 @@ fn send_message_to_host_method(
     method_name: &str,
     guest_message: &str,
     message: &str,
-) -> Result<Vec<u8>, ()> {
+) -> Result<Vec<u8>> {
     let message = format!("{}{}", guest_message, message);
-    if let Err(_) = call_host_function(
+    call_host_function(
         method_name,
         Some(Vec::from(&[ParameterValue::String(message.to_string())])),
         ReturnType::Int,
-    ) {
-        return Err(());
-    }
-    let result = get_host_value_return_as_int();
+    )?;
+
+    let result = get_host_value_return_as_int()?;
 
     Ok(get_flatbuffer_result_from_int(result))
 }
 
-fn guest_function(function_call: &FunctionCall) -> Vec<u8> {
+fn guest_function(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::String(message) = &function_call.parameters.as_ref().unwrap()[0] {
-        match send_message_to_host_method("HostMethod", "Hello from GuestFunction, ", message) {
-            Ok(result) => result,
-            Err(_) => Vec::new(),
-        }
+        send_message_to_host_method("HostMethod", "Hello from GuestFunction, ", message)
     } else {
-        Vec::new()
+        return Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to guest_function".to_string(),
+        ));
     }
 }
 
-fn guest_function1(function_call: &FunctionCall) -> Vec<u8> {
+fn guest_function1(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::String(message) = &function_call.parameters.as_ref().unwrap()[0] {
-        match send_message_to_host_method("HostMethod1", "Hello from GuestFunction1, ", message) {
-            Ok(result) => result,
-            Err(_) => Vec::new(),
-        }
+        send_message_to_host_method("HostMethod1", "Hello from GuestFunction1, ", message)
     } else {
-        Vec::new()
+        return Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to guest_function1".to_string(),
+        ));
     }
 }
 
-fn guest_function2(function_call: &FunctionCall) -> Vec<u8> {
+fn guest_function2(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::String(message) = &function_call.parameters.as_ref().unwrap()[0] {
-        match send_message_to_host_method("HostMethod1", "Hello from GuestFunction2, ", message) {
-            Ok(result) => result,
-            Err(_) => Vec::new(),
-        }
+        send_message_to_host_method("HostMethod1", "Hello from GuestFunction2, ", message)
     } else {
-        Vec::new()
+        return Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to guest_function2".to_string(),
+        ));
     }
 }
 
-fn guest_function3(function_call: &FunctionCall) -> Vec<u8> {
+fn guest_function3(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::String(message) = &function_call.parameters.as_ref().unwrap()[0] {
-        match send_message_to_host_method("HostMethod1", "Hello from GuestFunction3, ", message) {
-            Ok(result) => result,
-            Err(_) => Vec::new(),
-        }
+        send_message_to_host_method("HostMethod1", "Hello from GuestFunction3, ", message)
     } else {
-        Vec::new()
+        return Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to guest_function3".to_string(),
+        ));
     }
 }
 
-fn guest_function4() -> Vec<u8> {
+fn guest_function4() -> Result<Vec<u8>> {
     call_host_function(
         "HostMethod4",
         Some(Vec::from(&[ParameterValue::String(
             "Hello from GuestFunction4".to_string(),
         )])),
         ReturnType::Void,
-    ).unwrap();
+    )?;
 
-    get_flatbuffer_result_from_void()
+    Ok(get_flatbuffer_result_from_void())
 }
 
-fn log_message(function_call: &FunctionCall) -> Vec<u8> {
+fn log_message(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let (
         ParameterValue::String(message),
         ParameterValue::String(source),
@@ -120,26 +119,29 @@ fn log_message(function_call: &FunctionCall) -> Vec<u8> {
             line!(),
         );
 
-        get_flatbuffer_result_from_int(message.len() as i32)
+        Ok(get_flatbuffer_result_from_int(message.len() as i32))
     } else {
-        Vec::new()
+        return Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to log_message".to_string(),
+        ));
     }
 }
 
-fn call_error_method(function_call: &FunctionCall) -> Vec<u8> {
+fn call_error_method(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::String(message) = &function_call.parameters.as_ref().unwrap()[0] {
-        match send_message_to_host_method("ErrorMethod", "Error From Host: ", message) {
-            Ok(result) => result,
-            Err(_) => Vec::new(),
-        }
+        send_message_to_host_method("ErrorMethod", "Error From Host: ", message)
     } else {
-        Vec::new()
+        return Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to call_error_method".to_string(),
+        ));
     }
 }
 
-fn call_host_spin() -> Vec<u8> {
-    call_host_function("Spin", None, ReturnType::Void).unwrap();
-    get_flatbuffer_result_from_void()
+fn call_host_spin() -> Result<Vec<u8>> {
+    call_host_function("Spin", None, ReturnType::Void)?;
+    Ok(get_flatbuffer_result_from_void())
 }
 
 #[no_mangle]
@@ -222,10 +224,9 @@ pub extern "C" fn hyperlight_main() {
 }
 
 #[no_mangle]
-pub fn guest_dispatch_function(function_call: &FunctionCall) -> Vec<u8> {
-    set_error(
+pub fn guest_dispatch_function(function_call: &FunctionCall) -> Result<Vec<u8>> {
+    Err(HyperlightGuestError::new(
         ErrorCode::GuestFunctionNotFound,
-        &function_call.function_name,
-    );
-    Vec::new()
+        function_call.function_name.clone(),
+    ))
 }
