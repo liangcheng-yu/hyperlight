@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
 name: Build Hyperlight development image
 
 on:
@@ -12,32 +14,37 @@ permissions:
 
 env:
   PRODUCT_VERSION: "latest"
-      
-jobs: 
+
+jobs:
   build-image:
     runs-on: ubuntu-latest
+
     steps:
-    - name: 'Az CLI login'
-      uses: azure/login@v1
-      with:
+      - name: "Az CLI login"
+        uses: azure/login@v1
+        with:
           client-id: ${{ secrets.AZ_IMAGE_BUILDER_CLIENT_ID }}
           tenant-id: ${{ secrets.AZ_IMAGE_BUILDER_TENANT_ID }}
           subscription-id: ${{ secrets.AZ_IMAGE_BUILDER_SUB_ID }}
-    - name: Setup `packer`
-      uses: hashicorp/setup-packer@v3.0.0
-      id: setup
-      with:
-        version: ${{ env.PRODUCT_VERSION }}
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Run `packer init`
-      id: init
-      run: "packer init ./dev/packer/hyperlight.pkr.hcl"
-    - name: Run `packer validate`
-      id: validate
-      run: "packer validate ./dev/packer/hyperlight.pkr.hcl"
-    - name: Run `packer build`
-      id: build
-      # force here is used to overwrite the managed image that gets created in the build process
-      run: "packer build -force -color=false ./dev/packer/hyperlight.pkr.hcl"
 
+      - name: Setup `packer`
+        uses: hashicorp/setup-packer@v3.0.0
+        id: setup
+        with:
+          version: ${{ env.PRODUCT_VERSION }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run `packer init`
+        id: init
+        run: "packer init ./dev/packer/hyperlight.pkr.hcl"
+
+      - name: Run `packer validate`
+        id: validate
+        run: "packer validate ./dev/packer/hyperlight.pkr.hcl"
+
+      - name: Run `packer build`
+        id: build
+        # force here is used to overwrite the managed image that gets created in the build process
+        run: "packer build -force -color=false ./dev/packer/hyperlight.pkr.hcl"

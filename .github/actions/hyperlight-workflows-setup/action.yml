@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 
-name: 'Hyperlight Workflow Setup'
-description: 'Common setup steps for GitHub workflows in the Hyperlight project'
+name: "Hyperlight Workflow Setup"
+description: "Common setup steps for GitHub workflows in the Hyperlight project"
 
 runs:
   using: composite
@@ -11,13 +11,11 @@ runs:
         components: clippy, rustfmt
     - uses: extractions/setup-just@v1
       with:
-        just-version: '1.15.0' # optional semver specification, otherwise latest
+        just-version: "1.15.0" # optional semver specification, otherwise latest
 
-    ###
-    ### Linux setup
-    ###
+    ### Linux setup ###
     - name: Cargo login
-      if: ${{ (runner.os == 'Linux') }}  
+      if: ${{ (runner.os == 'Linux') }}
       run: just cargo-login-ci
       shell: bash
 
@@ -48,10 +46,7 @@ runs:
         rustup target add x86_64-pc-windows-msvc
       shell: bash
 
-
-    ###
-    ### Windows setup
-    ###
+    ### Windows setup ###
     - name: Cargo login
       if: ${{ (runner.os == 'Windows') }}
       run: just cargo-login-ci-windows

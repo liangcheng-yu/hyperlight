@@ -2,22 +2,13 @@
 
 name: Build Guest Binaries
 
-# See README.md in this directory for more information about workflow_call
 on:
   workflow_call:
 
 env:
   CARGO_TERM_COLOR: always
-  
+
 jobs:
-  #####
-  # Start build-guest-binaries
-  #
-  # Builds dummyguest.exe, simpleguest.exe, and callbackguest.exe.
-  #
-  # This job requires dep_build_host_library.yml, and that dependency
-  # should be expressed in the dependent workflow.
-  #####
   build-guest-binaries:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -28,69 +19,27 @@ jobs:
           - build: windows-2022-debug
             os: windows-2022
             config: debug
-            platform: x64
           - build: windows-2022-release
             os: windows-2022
             config: release
-            platform: x64
-    env:
-      DOTNET_INSTALL_DIR: "./.dotnet"
+
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    - uses: ./.github/actions/hyperlight-workflows-setup
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        PAT: ${{ secrets.ADO_CARGO_RO_PAT }}    
-    # this is a workaround for the issue described at https://github.com/dotnet/sourcelink/issues/675 , it supresses the warning about the sourcelink package not being found.
-    - name: Remove Submodule
-      run: git rm munit
-      shell: pwsh   
-      working-directory: src/hyperlight_capi/tests_capi
-    - name: Setup dotnet
-      uses: actions/setup-dotnet@v4.0.0
-      with:
-        dotnet-version: | 
-          6.0.x 
-    - uses: actions/cache@v4
-      with:
-        path: ~/.nuget/packages
-        # Look to see if there is a cache hit for the corresponding requirements file
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget
-    - name: Restore
-      run: dotnet restore
-      shell: pwsh
-    - name: Add msbuild to PATH
-      uses: microsoft/setup-msbuild@v1.3
-      with:
-        msbuild-architecture: x64
-    - name: Download hyperlight_capi.dll
-      uses: actions/download-artifact@v3
-      with:
-        name: ${{ matrix.config}}_assets 
-        path: target/${{ matrix.config }}
-    - name: Fetch printf
-      working-directory: src/HyperlightGuest/third_party/printf
-      run: git submodule update --init
-    - name: Set up WHP_SHOULD_BE_PRESENT Env Var
-      run: |
-        echo "WHP_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
-    - name: Build Rust Guests
-      run: |
-        just build-rust-guests ${{ matrix.config }}
-        just move-rust-guests ${{ matrix.config }}
-    - name: Build Solution
-      run: msbuild -m hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
-      shell: pwsh
-    - name: Upload Binary Artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: guest-binaries-${{ matrix.config }}
-        path: |
-          src\tests\rust_guests\bin\${{ matrix.config }}\callbackguest.exe
-          src\tests\rust_guests\bin\${{ matrix.config }}\dummyguest.exe
-          src\tests\rust_guests\bin\${{ matrix.config }}\simpleguest.exe
-        if-no-files-found: error
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/hyperlight-workflows-setup
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
+
+      - name: Build and move Rust guests
+        run: just build-and-move-rust-guests
+
+      - name: Upload Binary Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: guest-binaries-${{ matrix.config }}
+          path: |
+            src\tests\rust_guests\bin\${{ matrix.config }}\callbackguest.exe
+            src\tests\rust_guests\bin\${{ matrix.config }}\dummyguest.exe
+            src\tests\rust_guests\bin\${{ matrix.config }}\simpleguest.exe
+          if-no-files-found: error

@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
 name: Rust Tests and Lints
 
 # See README.md in this directory for more information about workflow_call
@@ -54,36 +55,34 @@ jobs:
             os: [self-hosted, Linux, X64, "1ES.Pool=HL-CBLMariner-mshv"]
             hypervisor: hyperv
             config: release
+
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: ./.github/actions/hyperlight-workflows-setup
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
+
       - name: fmt
         run: cargo fmt --all -- --check
+
       - name: clippy
         run: just clippy ${{ matrix.config }}
+
       - name: Enable WHP on Windows
         if: ${{ (runner.os == 'Windows')}}
         run: Enable-WindowsOptionalFeature -Online -FeatureName HyperVisorPlatform
         shell: pwsh
+
       - name: Get gh action service name
         if: ${{ (runner.os == 'Windows' )}}
         run: (Get-Service actions.runner.*) | Foreach { $_.Name, $_.UserName, $_.ServiceType }
         shell: pwsh
 
-      - name: Build and move dummyguest.exe, simpleguest.exe, and callbackguest.exe
-        run: |
-          echo "Building callbackguest, simpleguest, and dummyguest binaries for build config ${{ matrix.config }}"
-          just build-and-move-rust-guests
-
-      - name: Display Guest Binaries
-        run: |
-          echo "Displaying all guest binarires"
-          find . -type f -name *.exe
-        if: ${{ (runner.os == 'Linux' )}}
+      - name: Build and move Rust guests
+        run: just build-and-move-rust-guests
 
       - name: Build
         run: just build-rust ${{ matrix.config }}
@@ -93,62 +92,64 @@ jobs:
         run: |
           echo "HYPERV_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
           echo "HYPERV_SHOULD_HAVE_STABLE_API=false" >> $GITHUB_ENV
-          ls -al /dev/mshv
-          whoami
+
       - name: Set up env vars for kvm-linux tests
         if: ${{ (matrix.hypervisor == 'kvm') && (runner.os == 'Linux') }}
         run: |
-          sudo ls -al /dev/kvm
           sudo chgrp $(whoami) /dev/kvm
-          sudo ls -al /dev/kvm
           echo "KVM_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
+
       - name: Set up env vars for windows tests
         if: ${{ (runner.os == 'Windows') }}
-        run: |
-          echo "RUST_BACKTRACE=1" >> $GITHUB_ENV
+        run: echo "RUST_BACKTRACE=1" >> $GITHUB_ENV
+
       - name: Run Rust tests
         env:
           CARGO_TERM_COLOR: always
         run: just test-rust ${{ matrix.config }}
+
         # One of the examples is flaky on Windows GH runners, so this allows us to disable it for now
       - name: Run Rust examples - windows
-        if: ${{ (runner.os == 'Windows')}}
+        if: ${{ (runner.os == 'Windows') }}
         env:
           CARGO_TERM_COLOR: always
           RUST_LOG: debug
         run: just run-rust-examples ${{ matrix.config }}
+
       - name: Run Rust examples - linux
-        if: ${{ (runner.os != 'Windows')}}
+        if: ${{ (runner.os != 'Windows') }}
         env:
           CARGO_TERM_COLOR: always
           RUST_LOG: debug
         run: just run-rust-examples-linux ${{ matrix.config }}
+
       - name: Set up munit
         working-directory: src/hyperlight_capi/tests_capi
         run: |
           git submodule init
           git submodule update
+
       - name: Run C Tests
         working-directory: src/hyperlight_capi
         run: |
-          just run-tests-capi  ${{ matrix.config }}
+          just run-tests-capi ${{ matrix.config }}
 
-      # Install GH cli
+      ### Benchmarks ###
       - name: Install github-cli (Linux mariner)
         if: runner.os == 'Linux' && matrix.hypervisor == 'hyperv'
         run: sudo dnf install gh -y
+
       - name: Install github-cli (Linux ubuntu)
         if: runner.os == 'Linux' && matrix.hypervisor == 'kvm'
         run: sudo apt install gh -y
 
-      # Benchmarks
       - name: Download benchmarks from "latest"
-        run: |
-          just bench-download ${{ runner.os }} ${{ matrix.hypervisor }} latest
+        run: just bench-download ${{ runner.os }} ${{ matrix.hypervisor }} latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
         if: ${{ matrix.config == 'release' }}
+
       - name: Run benchmarks
         run: |
           just bench-ci dev ${{ matrix.config }}

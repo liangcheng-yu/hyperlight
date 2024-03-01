@@ -1,308 +1,317 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-# TODO: Add tests for linux before publish
-
 name: Create a Release
 
 on:
   workflow_dispatch:
   push:
-    branches: [ dev ]
+    branches: [dev]
 
 permissions:
   contents: write
-  packages: write # Needed to publish nuget packages
+  packages: write # This is needed to publish nuget packages
   pull-requests: read
 
 jobs:
+  build-hyperlight-capi:
+    uses: ./.github/workflows/dep_build_hyperlight_capi.yml
+    secrets: inherit
+
+  build-rust-ubuntu:
+    # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
+    if: ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }}
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/hyperlight-workflows-setup
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
+
+      - name: Build Debug
+        run: cargo build --verbose
+
+      - name: Build Release
+        run: cargo build --verbose --release
+
+  build-rust-windows:
+    # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
+    if: ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }}
+    runs-on: windows-2022
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/hyperlight-workflows-setup
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
+
+      - name: Build Debug
+        run: cargo build --verbose
+
+      - name: Build Release
+        run: cargo build --verbose --release
+
+  build-guest-binaries:
+    uses: ./.github/workflows/dep_build_guest_binaries.yml
+    secrets: inherit
+
+  benchmarks:
+    uses: ./.github/workflows/Benchmarks.yml
+    secrets: inherit
+    permissions:
+      contents: read
+
   publish:
     # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
-    if:  ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }} 
+    if: ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }}
     runs-on: windows-2022
-    needs: [build-rust-ubuntu, build-rust-windows, benchmarks]
+    needs:
+      [
+        build-hyperlight-capi,
+        build-rust-ubuntu,
+        build-rust-windows,
+        build-guest-binaries,
+        benchmarks,
+      ]
+
     env:
       PLATFORM: x64
       FRAMEWORK: net6.0
       DOTNET_INSTALL_DIR: "./.dotnet"
+
     steps:
-    - name: Set Debug Configuration
-      if: ${{ github.ref=='refs/heads/dev' }}
-      run: echo "CONFIG=debug" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
-      shell: pwsh
-    - name: Set Release Configuration
-      if: ${{ contains(github.ref, 'refs/heads/release/') }}
-      run: echo "CONFIG=release" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
-      shell: pwsh
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    - uses: ./.github/actions/hyperlight-workflows-setup
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
-    - name: Setup dotnet
-      uses: actions/setup-dotnet@v4.0.0
-      with:
-        dotnet-version: | 
-          6.0.x 
-    - uses: actions/cache@v4
-      with:
-        path: ~/.nuget/packages
-        # Look to see if there is a cache hit for the corresponding requirements file
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget
-    - name: Fetch printf
-      working-directory: src/HyperlightGuest/third_party/printf
-      run: git submodule update --init
-    - name: Restore
-      run: dotnet restore
-      shell: pwsh
-    - name: Add msbuild to PATH
-      uses: microsoft/setup-msbuild@v1.3
-      with:
-        msbuild-architecture: x64
-    - name: Install minver cli
-      run: dotnet tool install minver-cli --global 
-      shell: pwsh
-    - name: Set HYPERLIGHT_VERSION
-      run:  echo "HYPERLIGHT_VERSION=$(minver -ve -tv)" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
-      shell: pwsh
-    - name: Ensure path exists for debug build
-      if: ${{ env.CONFIG }} == "debug"
-      run: mkdir -p target\debug
-      shell: pwsh
-    - name: Ensure path exists for release build
-      if: ${{ env.CONFIG }} == "release"
-      run: mkdir -p target\release
-      shell: pwsh
-    - name: Download Debug DLL
-      uses: actions/download-artifact@v3
-      if: ${{ env.CONFIG }} == "debug"
-      with:
-        name: debug_assets
-        path: target/debug/
-    - name: Download Release DLL
-      uses: actions/download-artifact@v3
-      if: ${{ env.CONFIG }} == "release"
-      with:
-        name: release_assets
-        path: target/release/
-    - name: Build Rust Guests
-      run: |
-        just build-rust-guests ${{ env.CONFIG }}
-        just move-rust-guests ${{ env.CONFIG }}
-    - name: Build Solution
-      run: msbuild -m hyperlight.sln /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /p:ContinuousIntegrationBuild=true
-      shell: pwsh
-    # TODO This should not be needed, but for some reason the dotnet tests is looking for guest binaries in the wrong directory during "publish" workflow
-    - name: Copy Rust Guests for dotnet tests
+      - name: Set Debug Configuration
+        if: ${{ github.ref=='refs/heads/dev' }}
+        run: echo "CONFIG=debug" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
+        shell: pwsh
+
+      - name: Set Release Configuration
+        if: ${{ contains(github.ref, 'refs/heads/release/') }}
+        run: echo "CONFIG=release" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
+        shell: pwsh
+
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/hyperlight-workflows-setup
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
+
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v4.0.0
+        with:
+          dotnet-version: 6.0.x
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget
+
+      - name: Fetch printf
+        working-directory: src/HyperlightGuest/third_party/printf
+        run: git submodule update --init
+
+      - name: Restore
+        run: dotnet restore
+        shell: pwsh
+
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.3
+        with:
+          msbuild-architecture: x64
+
+      - name: Install minver cli
+        run: dotnet tool install minver-cli --global
+        shell: pwsh
+
+      - name: Set HYPERLIGHT_VERSION
+        run: echo "HYPERLIGHT_VERSION=$(minver -ve -tv)" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
+        shell: pwsh
+
+      - name: Ensure path exists for debug build
+        if: ${{ env.CONFIG }} == "debug"
+        run: mkdir -p target\debug
+        shell: pwsh
+
+      - name: Ensure path exists for release build
+        if: ${{ env.CONFIG }} == "release"
+        run: mkdir -p target\release
+        shell: pwsh
+
+      - name: Download Debug DLL
+        uses: actions/download-artifact@v3
+        if: ${{ env.CONFIG }} == "debug"
+        with:
+          name: debug_assets
+          path: target/debug/
+
+      - name: Download Release DLL
+        uses: actions/download-artifact@v3
+        if: ${{ env.CONFIG }} == "release"
+        with:
+          name: release_assets
+          path: target/release/
+
+      - name: Build Solution
+        run: msbuild -m hyperlight.sln /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /p:ContinuousIntegrationBuild=true
+        shell: pwsh
+
+      - name: Copy Rust Guests for dotnet tests
       run: |
         mkdir -p src\tests\Hyperlight.Tests\rust_guests\bin\${{ env.CONFIG }}
         cp src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}
         cp src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}    
-        cp src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}
-    - name: Test
-      shell: pwsh
-      run: dotnet test -c $env:CONFIG
-      working-directory: src/tests/Hyperlight.Tests
-    - name: Build Example for Windows 
-      shell: pwsh
-      run: dotnet publish -c $env:CONFIG --self-contained -r win-x64 -f $env:FRAMEWORK
-      working-directory: src/examples/NativeHost
-    - name: Archive Windows Release
-      shell: pwsh
-      run: 7z a -tzip  ../windows-x64.zip .
-      working-directory: src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/publish
-    - name: Build Example for Linux
-      shell: pwsh
-      run: dotnet publish -c $env:CONFIG --self-contained -r linux-x64 -f $env:FRAMEWORK
-      working-directory: src/examples/NativeHost
-    - name: Archive Linux Release
-      shell: pwsh
-      run: tar -zcvf ../linux-x64.tar.gz .
-      working-directory: src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/publish
-    - name: Package Hyperlight
-      run: dotnet pack -c $env:CONFIG --include-symbols -p:RepositoryUrl=https://github.com/${{ github.repository }}.git 
-      working-directory: src/Hyperlight
-      shell: pwsh
-    - name: Package Hyperlight Dependencies
-      run: dotnet pack -c $env:CONFIG --include-symbols
-      working-directory: src/HyperlightDependencies
-      shell: pwsh
-    - name: Publish Github Packages
-      # Only publish if we are on a release branch
-      if: ${{ contains(github.ref, 'refs/heads/release/') }} 
-      run: |
+        cp src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}        
+
+      - name: Test
+        shell: pwsh
+        run: dotnet test -c $env:CONFIG
+        working-directory: src/tests/Hyperlight.Tests
+
+      - name: Build Example for Windows
+        shell: pwsh
+        run: dotnet publish -c $env:CONFIG --self-contained -r win-x64 -f $env:FRAMEWORK
+        working-directory: src/examples/NativeHost
+
+      - name: Archive Windows Release
+        shell: pwsh
+        run: 7z a -tzip  ../windows-x64.zip .
+        working-directory: src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/publish
+
+      - name: Build Example for Linux
+        shell: pwsh
+        run: dotnet publish -c $env:CONFIG --self-contained -r linux-x64 -f $env:FRAMEWORK
+        working-directory: src/examples/NativeHost
+
+      - name: Archive Linux Release
+        shell: pwsh
+        run: tar -zcvf ../linux-x64.tar.gz .
+        working-directory: src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/publish
+
+      - name: Package Hyperlight
+        run: dotnet pack -c $env:CONFIG --include-symbols -p:RepositoryUrl=https://github.com/${{ github.repository }}.git
+        working-directory: src/Hyperlight
+        shell: pwsh
+
+      - name: Package Hyperlight Dependencies
+        run: dotnet pack -c $env:CONFIG --include-symbols
+        working-directory: src/HyperlightDependencies
+        shell: pwsh
+
+      - name: Publish Github Packages
+        # Only publish if we are on a release branch
+        if: ${{ contains(github.ref, 'refs/heads/release/') }}
+        run: |
           for nupkg in $(find . -name *.nupkg)
           do
             echo Pushing $nupkg
             dotnet nuget push $nupkg --api-key ${{ secrets.GHPACKAGES_PAT }} --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json --skip-duplicate
           done
-      shell: bash
-      working-directory: src/
-    - name: Download header file
-      uses: "actions/download-artifact@v3"
-      with:
-        name: hyperlight_capi.h
-    - name: Download artifacts (debug)
-      uses: actions/download-artifact@v3
-      if: ${{ env.CONFIG }} == "debug"
-      with:
-        name: debug_assets
-    - name: Download artifacts (release)
-      uses: actions/download-artifact@v3
-      if: ${{ env.CONFIG }} == "release"
-      with:
-        name: release_assets
-    - name: Download Benchmarks (Windows)
-      uses: actions/download-artifact@v3
-      with:
-        name: benchmarks_Windows_none
-        path: benchmarks_Windows_none
-    - name: Download Benchmarks (Linux hyperv)
-      uses: actions/download-artifact@v3
-      with:
-        name: benchmarks_Linux_hyperv
-        path: benchmarks_Linux_hyperv
-    - name: Download Benchmarks (Linux kvm)
-      uses: actions/download-artifact@v3
-      with:
-        name: benchmarks_Linux_kvm
-        path: benchmarks_Linux_kvm
-    - name: Archive benchmarks
-      run: |
-        tar -zcvf benchmarks_Windows_none.tar.gz benchmarks_Windows_none
-        tar -zcvf benchmarks_Linux_hyperv.tar.gz benchmarks_Linux_hyperv
-        tar -zcvf benchmarks_Linux_kvm.tar.gz benchmarks_Linux_kvm
-    # Publish the native guests so that its possible to use Hyperlight without building it.
-    - name: Create Release 
-      # Only create a release from tag if we are on a release branch
-      if: ${{ contains(github.ref, 'refs/heads/release/') }} 
-      uses: "marvinpinto/action-automatic-releases@latest"
-      with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        prerelease: true
-        automatic_release_tag: v${{ env.HYPERLIGHT_VERSION }}
-        title: "Release v${{ env.HYPERLIGHT_VERSION }}"
-        files: |
-          src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe
-          src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe
-          src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe
-          src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
-          src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz
-          ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib
-          src/HyperlightGuest/include/hyperlight.h
-          src/HyperlightGuest/third_party/printf/printf.h
-          hyperlight_capi.h
-          libhyperlight_capi.so
-          libhyperlight_capi.d
-          hyperlight_capi.dll
-          hyperlight_capi.pdb
-          benchmarks_Windows_none.tar.gz
-          benchmarks_Linux_hyperv.tar.gz
-          benchmarks_Linux_kvm.tar.gz
-    - name: Create Release (latest)
-      # Only create a latest release if we are on the dev branch
-      if: ${{ github.ref=='refs/heads/dev' }}
-      uses: "marvinpinto/action-automatic-releases@latest"
-      with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        prerelease: true
-        automatic_release_tag: latest
-        title: "Latest Development Build"
-        files: |
-          src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe
-          src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe
-          src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe
-          src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
-          src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz
-          ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib
-          src/HyperlightGuest/include/hyperlight.h
-          src/HyperlightGuest/third_party/printf/printf.h
-          hyperlight_capi.h
-          libhyperlight_capi.so
-          libhyperlight_capi.d
-          hyperlight_capi.dll
-          hyperlight_capi.pdb
-          src/Hyperlight/bin/x64/debug/Deislabs.HyperLight.*.nupkg
-          src/Hyperlight/bin/x64/debug/Deislabs.HyperLight.*.snupkg
-          src/HyperlightDependencies/bin/x64/debug/Deislabs.HyperlightDependencies.*.nupkg
-          src/HyperlightDependencies/bin/x64/debug/Deislabs.HyperlightDependencies.*.snupkg
-          benchmarks_Windows_none.tar.gz
-          benchmarks_Linux_hyperv.tar.gz
-          benchmarks_Linux_kvm.tar.gz
-          
-  benchmarks:
-    uses: ./.github/workflows/Benchmarks.yml
-    secrets: inherit
-    permissions: 
-      contents: read
+        shell: bash
+        working-directory: src/
 
-  build-rust-ubuntu:
-    # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
-    if:  ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }} 
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/hyperlight-workflows-setup
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
-      - name: Build Debug
-        run: cargo build --verbose
-      - name: Build Release 
-        run: cargo build --verbose --release
-      - name: Upload shared object file for debug
-        uses: actions/upload-artifact@v3
-        with:
-          name: debug_assets
-          if-no-files-found: error
-          path: | 
-            target/debug/libhyperlight_capi.so
-            target/debug/libhyperlight_capi.d
-      - name: Upload shared object file for release
-        uses: actions/upload-artifact@v3
-        with:
-          name: release_assets
-          if-no-files-found: error
-          path: | 
-            target/release/libhyperlight_capi.so
-            target/release/libhyperlightcapi.d
-      - name: Upload header file
-        uses: actions/upload-artifact@v3
+      - name: Download header file
+        uses: "actions/download-artifact@v3"
         with:
           name: hyperlight_capi.h
-          if-no-files-found: error
-          path: src/hyperlight_capi/include/hyperlight_capi.h
-  build-rust-windows:
-    # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
-    if:  ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }} 
-    runs-on: windows-2022
-    steps:
-      - uses: actions/checkout@v4
-      ###
-      ### Build rust stuff
-      ###
-      - uses: ./.github/actions/hyperlight-workflows-setup
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
-      - name: Build Debug
-        run: cargo build --verbose
-      - name: Build Release
-        run: cargo build --verbose --release
-      - name: Upload debug DLL file
-        uses: actions/upload-artifact@v3
+
+      - name: Download artifacts (debug)
+        uses: actions/download-artifact@v3
+        if: ${{ env.CONFIG }} == "debug"
         with:
           name: debug_assets
-          if-no-files-found: error
-          path: |
-            target/debug/hyperlight_capi.dll
-            target/debug/hyperlight_capi.pdb
-      - name: Upload release DLL file
-        uses: actions/upload-artifact@v3
+
+      - name: Download artifacts (release)
+        uses: actions/download-artifact@v3
+        if: ${{ env.CONFIG }} == "release"
         with:
           name: release_assets
-          if-no-files-found: error
-          path: target/release/hyperlight_capi.dll
+
+      - name: Download benchmarks (Windows)
+        uses: actions/download-artifact@v3
+        with:
+          name: benchmarks_Windows_none
+          path: benchmarks_Windows_none
+
+      - name: Download benchmarks (Linux hyperv)
+        uses: actions/download-artifact@v3
+        with:
+          name: benchmarks_Linux_hyperv
+          path: benchmarks_Linux_hyperv
+
+      - name: Download benchmarks (Linux kvm)
+        uses: actions/download-artifact@v3
+        with:
+          name: benchmarks_Linux_kvm
+          path: benchmarks_Linux_kvm
+
+      - name: Archive benchmarks
+        run: |
+          tar -zcvf benchmarks_Windows_none.tar.gz benchmarks_Windows_none
+          tar -zcvf benchmarks_Linux_hyperv.tar.gz benchmarks_Linux_hyperv
+          tar -zcvf benchmarks_Linux_kvm.tar.gz benchmarks_Linux_kvm
+
+      # Publish the native guests so that its possible to use Hyperlight without building it.
+      - name: Create release
+        # Only create a release from tag if we are on a release branch
+        if: ${{ contains(github.ref, 'refs/heads/release/') }}
+        uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: true
+          automatic_release_tag: v${{ env.HYPERLIGHT_VERSION }}
+          title: "Release v${{ env.HYPERLIGHT_VERSION }}"
+          files: |
+            src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe
+            src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe
+            src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe
+            src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
+            src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz
+            ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib
+            src/HyperlightGuest/include/hyperlight.h
+            src/HyperlightGuest/third_party/printf/printf.h
+            hyperlight_capi.h
+            libhyperlight_capi.so
+            libhyperlight_capi.d
+            hyperlight_capi.dll
+            hyperlight_capi.pdb
+            benchmarks_Windows_none.tar.gz
+            benchmarks_Linux_hyperv.tar.gz
+            benchmarks_Linux_kvm.tar.gz
+
+      - name: Create release (latest)
+        # Only create a latest release if we are on the dev branch
+        if: ${{ github.ref=='refs/heads/dev' }}
+        uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: true
+          automatic_release_tag: latest
+          title: "Latest Development Build"
+          files: |
+            src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe
+            src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe
+            src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe
+            src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip
+            src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz
+            ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib
+            src/HyperlightGuest/include/hyperlight.h
+            src/HyperlightGuest/third_party/printf/printf.h
+            hyperlight_capi.h
+            libhyperlight_capi.so
+            libhyperlight_capi.d
+            hyperlight_capi.dll
+            hyperlight_capi.pdb
+            src/Hyperlight/bin/x64/debug/Deislabs.HyperLight.*.nupkg
+            src/Hyperlight/bin/x64/debug/Deislabs.HyperLight.*.snupkg
+            src/HyperlightDependencies/bin/x64/debug/Deislabs.HyperlightDependencies.*.nupkg
+            src/HyperlightDependencies/bin/x64/debug/Deislabs.HyperlightDependencies.*.snupkg
+            benchmarks_Windows_none.tar.gz
+            benchmarks_Linux_hyperv.tar.gz
+            benchmarks_Linux_kvm.tar.gz
