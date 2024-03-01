@@ -22,7 +22,7 @@ void handle_assert_no_error_impl(const Context *ctx, Handle h, const char *file,
     }
 }
 
-MunitResult test_handle_is_empty()
+MunitResult test_handle_is_empty(const MunitParameter params[], void *user_data)
 {
     Context *ctx = context_new("test correlation id");
     Handle empty_ref = handle_new_empty();
@@ -32,7 +32,7 @@ MunitResult test_handle_is_empty()
     return MUNIT_OK;
 }
 
-MunitResult test_handle_get_error_message()
+MunitResult test_handle_get_error_message(const MunitParameter params[], void *user_data)
 {
     const char *err_msg = "test error message";
     Context *ctx = context_new("test correlation id");
@@ -46,7 +46,7 @@ MunitResult test_handle_get_error_message()
     return MUNIT_OK;
 }
 
-MunitResult test_handle_new_error_null_ptr()
+MunitResult test_handle_new_error_null_ptr(const MunitParameter params[], void *user_data)
 {
     Context *ctx = context_new("test correlation id");
 

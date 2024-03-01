@@ -5,7 +5,7 @@
 
 // intended to create a lot of Handles without freeing them,
 // making sure that context_free frees up all the memory created.
-MunitResult test_context_contains_memory()
+MunitResult test_context_contains_memory(const MunitParameter params[], void *user_data)
 {
     Context *ctx = context_new("test correlation id");
 

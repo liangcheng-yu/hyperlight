@@ -3,17 +3,18 @@
 
 /**
  * This struct is setup in the test setup function hypervisor_set_availablity and is used to determine
- * If a Hypervisor should be available. 
+ * If a Hypervisor should be available.
  * It also indicates which Hypervisor is available if any.
  */
-typedef struct  HypervisorAvailability {
+typedef struct HypervisorAvailability
+{
   /**
    * If it is expected that hyperv on linux should be present
    */
   bool expect_hyperv_linux_present;
 
   /**
-   * If it is expected that hyperv on linux should be a pre-release 
+   * If it is expected that hyperv on linux should be a pre-release
    */
   bool expect_hyperv_linux_prerelease_api;
 

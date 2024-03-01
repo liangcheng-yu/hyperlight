@@ -1,12 +1,12 @@
 #pragma once
 #include "munit/munit.h"
 
-MunitResult test_int_64();
-MunitResult test_int_32();
+MunitResult test_int_64(const MunitParameter params[], void *user_data);
+MunitResult test_int_32(const MunitParameter params[], void *user_data);
 
 static MunitTest int_handle_tests[] = {
     {
-        "/test_int_64",         /* name */
+        (char *)"/test_int_64", /* name */
         test_int_64,            /* test */
         NULL,                   /* setup */
         NULL,                   /* tear_down */
@@ -14,7 +14,7 @@ static MunitTest int_handle_tests[] = {
         NULL                    /* parameters */
     },
     {
-        "/test_int_32",         /* name */
+        (char *)"/test_int_32", /* name */
         test_int_32,            /* test */
         NULL,                   /* setup */
         NULL,                   /* tear_down */

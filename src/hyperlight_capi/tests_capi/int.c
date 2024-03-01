@@ -2,7 +2,7 @@
 #include "munit/munit.h"
 #include "hyperlight_capi.h"
 
-MunitResult test_int_64()
+MunitResult test_int_64(const MunitParameter params[], void *user_data)
 {
     const int64_t val = 6400;
     Context *ctx = context_new("test correlation id");
@@ -13,7 +13,7 @@ MunitResult test_int_64()
     context_free(ctx);
     return MUNIT_OK;
 }
-MunitResult test_int_32()
+MunitResult test_int_32(const MunitParameter params[], void *user_data)
 {
     const int32_t val = 3200;
     Context *ctx = context_new("test correlation id");

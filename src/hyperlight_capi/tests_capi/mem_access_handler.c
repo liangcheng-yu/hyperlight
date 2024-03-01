@@ -2,7 +2,7 @@
 #include "hyperlight_capi.h"
 #include "err.h"
 
-void mem_access_handler_func()
+void mem_access_handler_func(void)
 {
     return;
 }

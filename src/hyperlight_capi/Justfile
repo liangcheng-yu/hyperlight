@@ -1,8 +1,6 @@
 lib-suffix := if os() == "windows" { ".dll" } else { "" }
 bin-suffix := if os() == "windows" { ".exe" } else { ".out" }
-# TODO: use UMDH here for windows?
-# https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/umdh
-clang-checks := if os() == "windows" { "-Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" } else { "-Wall -Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" }
+clang-checks := if os() == "windows" { "-Wstrict-prototypes -Wwrite-strings -Wbad-function-cast -Wignored-qualifiers -Wformat-security -Wformat -Wempty-body -Wcast-align -Wmissing-declarations -Wpointer-arith -Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" } else { "-Wall -Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" }
 valgrind-command := if os() == "windows" { "echo 'valgrind not supported on windows'" } else { "./scripts/valgrind-command.sh" }
 test-command := if os() == "windows" { "./scripts/test-command.bat" } else { "./scripts/test-command.sh" }
 gen-suppressions:= if os() == "windows" { " " } else { "GEN_SUPPRESSIONS_ON=1 LOG_FILE_ON=1" }

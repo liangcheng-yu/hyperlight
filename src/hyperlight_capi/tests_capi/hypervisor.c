@@ -32,7 +32,7 @@ bool check_only_one_set(bool a, bool b, bool c)
 void *hypervisor_check_flags(const MunitParameter params[], void *user_data)
 {
 
-    HypervisorAvailabilityType *hypervisorAvailability =  (HypervisorAvailabilityType*)malloc(sizeof(HypervisorAvailabilityType));
+    HypervisorAvailabilityType *hypervisorAvailability = (HypervisorAvailabilityType *)malloc(sizeof(HypervisorAvailabilityType));
 
     hypervisorAvailability->expect_hyperv_linux_present = false;
     hypervisorAvailability->expect_hyperv_linux_prerelease_api = true;
@@ -76,7 +76,7 @@ void *hypervisor_check_flags(const MunitParameter params[], void *user_data)
 #ifdef _WIN32
 
     // Set env var WHP_SHOULD_BE_PRESENT to true to require WHP to be present for this test.
-    char * env_var_buffer = NULL;
+    char *env_var_buffer = NULL;
     size_t env_var_buffer_size = 0;
     _dupenv_s(&env_var_buffer, &env_var_buffer_size, "WHP_SHOULD_BE_PRESENT");
     munit_logf(MUNIT_LOG_INFO, "env var WHP_SHOULD_BE_PRESENT %s\n", env_var_buffer);
@@ -92,20 +92,19 @@ void *hypervisor_check_flags(const MunitParameter params[], void *user_data)
     munit_logf(MUNIT_LOG_INFO, "EXPECT_HYPERV_LINUX_PRERELEASE_API: %s\n", hypervisorAvailability->expect_hyperv_linux_prerelease_api ? "true" : "false");
     munit_logf(MUNIT_LOG_INFO, "EXPECT_KVM_PRESENT: %s\n", hypervisorAvailability->expect_kvm_present ? "true" : "false");
     munit_logf(MUNIT_LOG_INFO, "EXPECT_WHP_PRESENT: %s\n", hypervisorAvailability->expect_whp_present ? "true" : "false");
-    
+
     if (!check_only_one_set(hypervisorAvailability->expect_kvm_present, hypervisorAvailability->expect_hyperv_linux_present, hypervisorAvailability->expect_whp_present))
     {
         munit_log(MUNIT_LOG_INFO, "Only one of KVM_SHOULD_BE_PRESENT, WHP_SHOULD_BE_PRESENT and HYPERV_SHOULD_BE_PRESENT should be set.\n");
         exit(1);
     }
-    
-    return (void*) hypervisorAvailability;
 
+    return (void *)hypervisorAvailability;
 }
 
 bool check_kvm_available(HypervisorAvailabilityType *hypervisorAvailability)
 {
-    
+
     if (is_hypervisor_present() && hypervisorAvailability->expect_kvm_present)
     {
         return true;

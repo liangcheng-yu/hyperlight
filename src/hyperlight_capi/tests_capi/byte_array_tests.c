@@ -5,7 +5,7 @@
 #include "stdint.h"
 #include "stdio.h"
 
-MunitResult test_byte_array_null_ptr()
+MunitResult test_byte_array_null_ptr(const MunitParameter params[], void *user_data)
 {
     struct Context *ctx = context_new("test correlation id");
     Handle barr_ref = byte_array_new(ctx, NULL, 123);
@@ -20,7 +20,7 @@ MunitResult test_byte_array_null_ptr()
     return MUNIT_OK;
 }
 
-MunitResult test_byte_array_lifecycle()
+MunitResult test_byte_array_lifecycle(const MunitParameter params[], void *user_data)
 {
     struct Context *ctx = context_new("test correlation id");
     const uint8_t size = 100;
@@ -38,7 +38,7 @@ MunitResult test_byte_array_lifecycle()
     return MUNIT_OK;
 }
 
-MunitResult test_byte_array_new_from_file()
+MunitResult test_byte_array_new_from_file(const MunitParameter params[], void *user_data)
 {
     const char *file_name = "./tests_capi/byte_array_tests.c";
     struct Context *ctx = context_new("test correlation id");

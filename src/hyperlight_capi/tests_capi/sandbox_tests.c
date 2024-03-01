@@ -58,9 +58,9 @@ MunitResult test_host_print(const MunitParameter params[], void *fixture)
 #endif
     handle_assert_no_error(ctx, binary);
 
-    Handle sbx = sandbox_new(ctx, binary, cfg, 0,host_print);
+    Handle sbx = sandbox_new(ctx, binary, cfg, 0, host_print);
     handle_assert_no_error(ctx, sbx);
-   
+
     sandbox_call_host_print(ctx, sbx, "Hello, world!");
 
     handle_free(ctx, binary);
