@@ -1,19 +1,24 @@
-
 alias build-rust-debug := build-rust
+
 set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
-bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
+set dotenv-load := true
+
 set-trace-env-vars := if os() == "windows" { "$env:RUST_LOG='none,hyperlight_host=trace';" } else { "RUST_LOG=none,hyperlight_host=trace" }
-default-target:= "debug"
-# most recent github release that is not "latest". Note that backticks don't work correctly on windows so we use powershell command substitution $() instead
-latest-release:= if os() == "windows" {"$(git tag -l --sort=v:refname | select -last 2 | select -first 1)"} else {`git tag -l --sort=v:refname | tail -n 2 | head -n 1`}
+set-env-command := if os() == "windows" { "$env:" } else { "export " }
+bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
+
+# Note: most recent github release that is not "latest".
+# Backticks don't work correctly on windows so we use powershell
+# command substitution $() instead
+
+latest-release := if os() == "windows" { "$(git tag -l --sort=v:refname | select -last 2 | select -first 1)" } else { `git tag -l --sort=v:refname | tail -n 2 | head -n 1` }
+default-target := "debug"
 simpleguest_source := "src/tests/rust_guests/simpleguest/target/x86_64-pc-windows-msvc"
 dummyguest_source := "src/tests/rust_guests/dummyguest/target/x86_64-pc-windows-msvc"
 callbackguest_source := "src/tests/rust_guests/callbackguest/target/x86_64-pc-windows-msvc"
 rust_guests_bin_dir := "src/tests/rust_guests/bin"
-set-env-command := if os() == "windows" { "$env:" } else { "export " }
 
-set dotenv-load
-
+# INITIALIZATION/INSTALLATION
 init:
     git submodule update --init --recursive
 
@@ -27,79 +32,83 @@ install-flatbuffers-with-vcpkg: install-vcpkg
 update-dlmalloc:
     curl -Lv -o src/HyperlightGuest/third_party/dlmalloc/malloc.h https://gee.cs.oswego.edu/pub/misc/malloc.h
     curl -Lv -o src/HyperlightGuest/third_party/dlmalloc/malloc.c https://gee.cs.oswego.edu/pub/misc/malloc.c
-    cd src/HyperlightGuest/third_party/dlmalloc && git apply --whitespace=nowarn --verbose malloc.patch || cd ../../../..
+    cd src/HyperlightGuest/third_party/dlmalloc && git apply --whitespace=nowarn --verbose malloc.patch 
 
+# BUILDING
 build-rust-guests target=default-target:
-    cd src/tests/rust_guests/callbackguest && cargo build --profile={{ if target == "debug" {"dev"} else { target } }}
-    cd src/tests/rust_guests/simpleguest && cargo build --profile={{ if target == "debug" {"dev"} else { target } }}
-    cd src/tests/rust_guests/dummyguest && cargo build --profile={{ if target == "debug" {"dev"} else { target } }}
+    cd src/tests/rust_guests/callbackguest && cargo build --profile={{ if target == "debug" { "dev" } else { target } }} 
+    cd src/tests/rust_guests/simpleguest && cargo build --profile={{ if target == "debug" { "dev" } else { target } }} 
+    cd src/tests/rust_guests/dummyguest && cargo build --profile={{ if target == "debug" { "dev" } else { target } }} 
+
 move-rust-guests target=default-target:
-    cp {{callbackguest_source}}/{{target}}/callbackguest.* {{rust_guests_bin_dir}}/{{target}}/
-    cp {{simpleguest_source}}/{{target}}/simpleguest.* {{rust_guests_bin_dir}}/{{target}}/
-    cp {{dummyguest_source}}/{{target}}/dummyguest.* {{rust_guests_bin_dir}}/{{target}}/
-    
-build-and-move-rust-guests: (build-rust-guests "debug") (move-rust-guests "debug") (build-rust-guests "release") (move-rust-guests "release")  
+    cp {{ callbackguest_source }}/{{ target }}/callbackguest.* {{ rust_guests_bin_dir }}/{{ target }}/
+    cp {{ simpleguest_source }}/{{ target }}/simpleguest.* {{ rust_guests_bin_dir }}/{{ target }}/
+    cp {{ dummyguest_source }}/{{ target }}/dummyguest.* {{ rust_guests_bin_dir }}/{{ target }}/
+
+build-and-move-rust-guests: (build-rust-guests "debug") (move-rust-guests "debug") (build-rust-guests "release") (move-rust-guests "release")
 
 build-dotnet:
-    cd src/Hyperlight && dotnet build || cd ../../
-    cd src/examples/NativeHost && dotnet build || cd ../../../
+    cd src/Hyperlight && dotnet build 
+    cd src/examples/NativeHost && dotnet build 
 
 build-rust target=default-target:
-    cargo build --verbose --profile={{ if target == "debug" {"dev"} else { target } }}
+    cargo build --verbose --profile={{ if target == "debug" { "dev" } else { target } }}
 
 build: build-rust build-dotnet
-    echo "built all .Net and Rust projects"
+    echo "built all .NET and Rust projects"
 
+# TESTING
+# Tracing tests cannot run with other tests they are marked as ignored so that cargo test works
+# there may be tests that we really want to ignore so we cant just use --ignored and we have to
+
+# Specify the test name of the ignored tests that we want to run
 test-rust target=default-target:
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} 
-    # tracing tests cannot run with other tests they are marked as ignored so that cargo test works
-    # there may be tests that we really want to ignore so we cant just use --ignored and we have to specify the test name of the ignored tests that we want to run
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_trace -p hyperlight_host -- --ignored
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_drop  -p hyperlight_host -- --ignored
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} hypervisor::metrics::tests::test_gather_metrics -p hyperlight_host -- --ignored
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} sandbox::metrics::tests::test_gather_metrics -p hyperlight_host -- --ignored
-    cargo test --profile={{ if target == "debug" {"dev"} else { target } }} test_metrics -p hyperlight_host -- --ignored
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} 
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} test_trace -p hyperlight_host -- --ignored 
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} test_drop  -p hyperlight_host -- --ignored 
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} hypervisor::metrics::tests::test_gather_metrics -p hyperlight_host -- --ignored 
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} sandbox::metrics::tests::test_gather_metrics -p hyperlight_host -- --ignored 
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} test_metrics -p hyperlight_host -- --ignored 
 
 test-dotnet-hl target=default-target:
-    cd src/tests/Hyperlight.Tests && dotnet test -c {{ target }} || cd ../../../
+    cd src/tests/Hyperlight.Tests && dotnet test -c {{ target }} 
 
 test-dotnet-nativehost target=default-target:
-    cd src/examples/NativeHost && dotnet run -c {{ target }} -- -nowait || cd ../../../
+    cd src/examples/NativeHost && dotnet run -c {{ target }} -- -nowait 
 
 test-dotnet target=default-target: (test-dotnet-hl target) (test-dotnet-nativehost target)
 
 test-capi target=default-target:
-    cd src/hyperlight_capi && just run-tests-capi {{ target }} || cd ../../
+    cd src/hyperlight_capi && just run-tests-capi {{ target }} 
 
 build-capi target=default-target:
-    cd src/hyperlight_capi && just build-tests-capi {{ target }} || cd ../../
+    cd src/hyperlight_capi && just build-tests-capi {{ target }} 
 
 valgrind-capi target=default-target:
-    cd src/hyperlight_capi && just valgrind-tests-capi {{ target }} || cd ../../
+    cd src/hyperlight_capi && just valgrind-tests-capi {{ target }} 
 
 test target=default-target: (test-rust target) (test-dotnet target) (valgrind-capi target) (test-capi target)
 
+# RUST LINTING
 check:
     cargo check
 
 fmt-check:
     cargo fmt --all -- --check
 
-fmt: 
-    cargo fmt
+fmt-apply:
+    cargo fmt --all    
 
 clippy target=default-target:
-    cargo clippy --all-targets --all-features --profile={{ if target == "debug" {"dev"} else { target } }} -- -D warnings
+    cargo clippy --all-targets --all-features --profile={{ if target == "debug" { "dev" } else { target } }} -- -D warnings 
 
 clippy-apply-fix-unix:
-    cargo clippy --fix --all
+    cargo clippy --fix --all 
 
 clippy-apply-fix-windows:
-    cargo clippy --target x86_64-pc-windows-msvc --fix --all
+    cargo clippy --target x86_64-pc-windows-msvc --fix --all 
 
-fmt-apply:
-    cargo fmt --all
-
+# GEN FLATBUFFERS
 gen-all-fbs-rust-code:
     for fbs in `find src -name "*.fbs"`; do flatc -r --rust-module-root-file --gen-all -o ./src/hyperlight_host/src/flatbuffers/ $fbs; done
     cargo fmt --all
@@ -112,10 +121,9 @@ gen-all-fbs-c-code:
 
 gen-all-fbs: gen-all-fbs-rust-code gen-all-fbs-c-code gen-all-fbs-csharp-code
 
-set-cargo-registry-env:
-    {{ set-env-command }}CARGO_REGISTRIES_HYPERLIGHT_PACKAGES_INDEX="sparse+https://pkgs.dev.azure.com/AzureContainerUpstream/hyperlight/_packaging/hyperlight_packages_test/Cargo/index/"
-    {{ set-env-command }}CARGO_REGISTRIES_HYPERLIGHT_REDIST_INDEX="sparse+https://pkgs.dev.azure.com/AzureContainerUpstream/hyperlight/_packaging/hyperlight_redist/Cargo/index/"
+# CARGO REGISTRY
 
+# Note: You need to do `az login` before running this command
 cargo-login: set-cargo-registry-env
     az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo login --registry hyperlight_redist
     az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo login --registry hyperlight_packages
@@ -128,25 +136,32 @@ cargo-login-ci-windows: set-cargo-registry-env
     "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo login --registry hyperlight_redist
     "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo login --registry hyperlight_packages
 
+set-cargo-registry-env:
+    {{ set-env-command }}CARGO_REGISTRIES_HYPERLIGHT_PACKAGES_INDEX="sparse+https://pkgs.dev.azure.com/AzureContainerUpstream/hyperlight/_packaging/hyperlight_packages_test/Cargo/index/"
+    {{ set-env-command }}CARGO_REGISTRIES_HYPERLIGHT_REDIST_INDEX="sparse+https://pkgs.dev.azure.com/AzureContainerUpstream/hyperlight/_packaging/hyperlight_redist/Cargo/index/"
+
+# RUST EXAMPLES
 run-rust-examples target=default-target: (build-rust target)
-    cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example metrics
-    cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example metrics --features "function_call_metrics"
-    {{set-trace-env-vars}} cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example logging
-# the two tracing eamples are flaky on windows so we run them on linux only for now, need to figure out why as they run fine locally on windows
+    cargo run --profile={{ if target == "debug" { "dev" } else { target } }} --example metrics
+    cargo run --profile={{ if target == "debug" { "dev" } else { target } }} --example metrics --features "function_call_metrics"
+    {{ set-trace-env-vars }} cargo run --profile={{ if target == "debug" { "dev" } else { target } }} --example logging
+
+# The two tracing eamples are flaky on windows so we run them on linux only for now, need to figure out why as they run fine locally on windows
 run-rust-examples-linux target=default-target: (build-rust target) (run-rust-examples target)
-    {{set-trace-env-vars}} cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example tracing
-    {{set-trace-env-vars}} cargo run --profile={{ if target == "debug" {"dev"} else { target } }} --example tracing --features "function_call_metrics"
+    {{ set-trace-env-vars }} cargo run --profile={{ if target == "debug" { "dev" } else { target } }} --example tracing
+    {{ set-trace-env-vars }} cargo run --profile={{ if target == "debug" { "dev" } else { target } }} --example tracing --features "function_call_metrics"
 
-# warning, compares to and then OVERWRITES the given baseline
-bench-ci baseline target=default-target:
-    cargo bench --profile={{ if target == "debug" {"dev"} else { target } }} -- --verbose --save-baseline {{baseline}}
+# BENCHMARKING
 
-bench target=default-target:
-    cargo bench --profile={{ if target == "debug" {"dev"} else { target } }} -- --verbose
-
-# warning, can overwrite previous local benchmarks, so run this before running benchmarks
+# Warning: can overwrite previous local benchmarks, so run this before running benchmarks
 bench-download os hypervisor tag=latest-release:
     gh release download {{ tag }} -D ./target/ -p benchmarks_{{ os }}_{{ hypervisor }}.tar.gz
     mkdir -p target/criterion {{ if os() == "windows" { "-Force" } else { "" } }}
     tar -zxvf target/benchmarks_{{ os }}_{{ hypervisor }}.tar.gz -C target/criterion/ --strip-components=1
-    
+
+# Warning: compares to and then OVERWRITES the given baseline
+bench-ci baseline target=default-target:
+    cargo bench --profile={{ if target == "debug" { "dev" } else { target } }} -- --verbose --save-baseline {{ baseline }}
+
+bench target=default-target:
+    cargo bench --profile={{ if target == "debug" { "dev" } else { target } }} -- --verbose

@@ -67,7 +67,7 @@
   </ItemGroup>
 
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent" Condition="'$(BuildingInsideVisualStudio)' == true  or '$(BuildHyperLightHost)' == true">
-    <Exec Command="just fmt&#xD;&#xA;just clippy&#xD;&#xA;just build-rust $(configuration.ToLower())" />
+    <Exec Command="just fmt-apply&#xD;&#xA;just clippy&#xD;&#xA;just build-rust $(configuration.ToLower())" />
   </Target>
 
 </Project>
