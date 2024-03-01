@@ -66,7 +66,7 @@ namespace Hyperlight.Hypervisors
                     pDispatchFunction
                 )
             );
-            hdlWrapper.ThrowIfError();
+            hdlWrapper.ThrowIfUnusable();
         }
 
         internal override void ResetRSP(ulong rsp)
@@ -104,7 +104,7 @@ namespace Hyperlight.Hypervisors
                     pageSize
                 )
             );
-            hdlWrapper.ThrowIfError();
+            hdlWrapper.ThrowIfUnusable();
         }
 
         private void Dispose(bool disposing)

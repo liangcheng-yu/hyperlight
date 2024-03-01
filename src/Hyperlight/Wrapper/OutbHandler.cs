@@ -85,7 +85,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = outb_fn_handler_call(this.hpr.ctx.ctx, this.hpr.handle, port, payload);
             using (var hdl = new Handle(this.hpr.ctx, rawHdl))
             {
-                hdl.ThrowIfError();
+                hdl.ThrowIfUnusable();
             }
         }
 

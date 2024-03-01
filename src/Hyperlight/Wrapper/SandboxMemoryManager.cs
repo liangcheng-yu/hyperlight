@@ -109,7 +109,7 @@ namespace Hyperlight.Wrapper
         )
         {
             this.ctxWrapper = ctx;
-            hdl.ThrowIfError();
+            hdl.ThrowIfUnusable();
             this.memMgrHdl = hdl;
         }
 

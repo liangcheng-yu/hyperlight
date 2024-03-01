@@ -58,7 +58,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_access_handler_call(this.hpr.ctx.ctx, this.hpr.handle);
             using (var hdl = new Handle(this.hpr.ctx, rawHdl))
             {
-                hdl.ThrowIfError();
+                hdl.ThrowIfUnusable();
             }
         }
 

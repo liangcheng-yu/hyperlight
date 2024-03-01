@@ -69,7 +69,7 @@ namespace Hyperlight.Wrapper
             this.handle = hdl;
             if (checkErr)
             {
-                this.ThrowIfError();
+                this.ThrowIfUnusable();
             }
 
         }
@@ -180,6 +180,11 @@ namespace Hyperlight.Wrapper
         {
             var hdl = handle_get_status(this.handle);
             return hdl == HandleStatus.Invalid || hdl == HandleStatus.InvalidNullContext;
+        }
+
+        public static bool IsInvalid(NativeHandle hdl)
+        {
+            return handle_get_status(hdl) == HandleStatus.Invalid || handle_get_status(hdl) == HandleStatus.InvalidNullContext;
         }
 
         /// <summary>

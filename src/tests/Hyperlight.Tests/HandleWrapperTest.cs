@@ -84,13 +84,13 @@ namespace Hyperlight.Tests
                 );
 
         [Fact]
-        public void Test_NewError_ThrowIfError()
+        public void Test_NewError_ThrowIfUnusable()
         {
             const String errMsg = "TEST ERR MSG";
             using var ctx = new Wrapper.Context("sample_corr_id");
             using var errHdl = Wrapper.Handle.NewError(ctx, errMsg);
             Assert.Throws<HyperlightException>(
-                () => errHdl.ThrowIfError()
+                () => errHdl.ThrowIfUnusable()
             );
         }
 

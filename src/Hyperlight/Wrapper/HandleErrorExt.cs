@@ -7,29 +7,29 @@ namespace Hyperlight.Wrapper
 {
     public static class NativeHandleWrapperErrorExtensions
     {
-        /// Extension method on Handle to throw if hdl was an error
-        public static void ThrowIfError(this Handle hdl)
+        /// Extension method on Handle to throw if hdl was an error or is in an invalid state (doesn't include empty checks)
+        public static void ThrowIfUnusable(this Handle hdl)
         {
             HyperlightException.ThrowIfNull(
                 hdl,
                 MethodBase.GetCurrentMethod()!.DeclaringType!.Name
             );
-            ThrowIfError(hdl.ctx, hdl.handle);
+            ThrowIfUnusable(hdl.ctx, hdl.handle);
         }
 
         /// <summary>
         /// Given a context wrapper and a raw handle, throw if the handle represents
-        /// an error
+        /// an error or is in an invalid state (doesn't include empty checks)
         /// </summary>
         /// <param name="ctx">the context wrapper</param>
         /// <param name="hdl">the raw handle in question</param>
-        public static void ThrowIfError(Context ctx, NativeHandle hdl)
+        public static void ThrowIfUnusable(Context ctx, NativeHandle hdl)
         {
             HyperlightException.ThrowIfNull(
                 ctx,
                 MethodBase.GetCurrentMethod()!.DeclaringType!.Name
             );
-            if (Handle.IsError(hdl))
+            if (Handle.IsError(hdl) || Handle.IsInvalid(hdl))
             {
                 {
                     var errMsg = GetErrorMessage(ctx, hdl);
