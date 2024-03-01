@@ -161,14 +161,14 @@ jobs:
       - name: Download Guest Binaries
         uses: actions/download-artifact@v3
         with:
-          name: guest-binaries-${{ matrix.config }}
-          path: ./downloaded-guest-binaries-${{ matrix.config }}
+          name: guest-binaries-${{ env.CONFIG }}
+          path: ./downloaded-guest-binaries-${{ env.CONFIG }}
 
       - name: Copy Guest Binaries
         run: |
-          cp ./downloaded-guest-binaries-${{ matrix.config }}/callbackguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/callbackguest.exe
-          cp ./downloaded-guest-binaries-${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/simpleguest.exe
-          cp ./downloaded-guest-binaries-${{ matrix.config }}/dummyguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/dummyguest.exe
+          cp ./downloaded-guest-binaries-${{ env.CONFIG }}/callbackguest.exe ./src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe
+          cp ./downloaded-guest-binaries-${{ env.CONFIG }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe
+          cp ./downloaded-guest-binaries-${{ env.CONFIG }}/dummyguest.exe ./src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe
 
       - name: Build Solution
         run: msbuild -m hyperlight.sln /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /p:ContinuousIntegrationBuild=true
