@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="debug|x64">
+      <Configuration>debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="release|x64">
+      <Configuration>release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{54F7736B-3D54-4F64-97B3-CDA63A3AABB2}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UsedebugLibraries>false</UsedebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UsedebugLibraries>false</UsedebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.props" />
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">
+    <GenerateManifest>false</GenerateManifest>
+    <OutDir>$(SolutionDir)src\tests\Guests\$(ProjectName)\$(Platform)\$(Configuration.toLower())\</OutDir>
+    <IncludePath>$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\internal;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\generic;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\x86_64;$(ProjectDir)..\..\..\HyperlightGuest\third_party\printf;$(ProjectDir)..\..\..\HyperlightGuest\third_party\musl;$(ProjectDir)..\..\..\HyperlightGuest\include\flatbuffers\generated;$(ProjectDir)..\..\..\HyperlightGuest\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\flatcc\include</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">
+    <OutDir>$(SolutionDir)src\tests\Guests\$(ProjectName)\$(Platform)\$(Configuration.toLower())\</OutDir>
+    <IncludePath>$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\internal;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\generic;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\x86_64;$(ProjectDir)..\..\..\HyperlightGuest\third_party\printf;$(ProjectDir)..\..\..\HyperlightGuest\third_party\musl;$(ProjectDir)..\..\..\HyperlightGuest\include\flatbuffers\generated;$(ProjectDir)..\..\..\HyperlightGuest\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\flatcc\include</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='debug|x64'">
+    <ExternalIncludePath />
+    <ReferencePath />
+    <LibraryPath />
+    <LibraryWPath />
+    <SourcePath />
+    <ExcludePath />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='release|x64'">
+    <ExternalIncludePath />
+    <ReferencePath />
+    <LibraryPath />
+    <LibraryWPath />
+    <SourcePath />
+    <ExcludePath />
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">
+    <ClCompile>
+      <InlineFunctionExpansion>
+      </InlineFunctionExpansion>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <WarningLevel>Level3</WarningLevel>
+      <IntrinsicFunctions>
+      </IntrinsicFunctions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='release|x64'">hidden=;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='release|x64'">stdc17</LanguageStandard_C>
+      <SDLCheck Condition="'$(Configuration)|$(Platform)'=='release|x64'">true</SDLCheck>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>HyperlightGuest.lib</AdditionalDependencies>
+      <EnableUAC>false</EnableUAC>
+      <GeneratedebugInformation>false</GeneratedebugInformation>
+      <EntryPointSymbol>entryPoint</EntryPointSymbol>
+      <SectionAlignment>512</SectionAlignment>
+      <SubSystem>Native</SubSystem>
+      <AdditionalLibraryDirectories>$(SolutionDir)$(Platform)\$(Configuration.toLower())\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+      <AdditionalOptions>/ignore:4108 %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">
+    <ClCompile>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <WarningLevel>Level3</WarningLevel>
+      <debugInformationFormat>ProgramDatabase</debugInformationFormat>
+      <UseFullPaths />
+      <IntrinsicFunctions>false</IntrinsicFunctions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='debug|x64'">hidden=;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='debug|x64'">stdc17</LanguageStandard_C>
+      <SDLCheck Condition="'$(Configuration)|$(Platform)'=='debug|x64'">true</SDLCheck>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>HyperlightGuest.lib</AdditionalDependencies>
+      <EnableUAC>false</EnableUAC>
+      <GeneratedebugInformation>true</GeneratedebugInformation>
+      <EntryPointSymbol>entryPoint</EntryPointSymbol>
+      <GenerateMapFile>false</GenerateMapFile>
+      <SectionAlignment>512</SectionAlignment>
+      <SubSystem>Native</SubSystem>
+      <AdditionalLibraryDirectories>$(SolutionDir)$(Platform)\$(Configuration.toLower())\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+      <AdditionalOptions>/ignore:4108 %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="main.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\HyperlightGuest\HyperlightGuest.vcxproj">
+      <Project>{ed4a4cd0-ddc9-4a4a-9428-f22c3d07bb00}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
+  </ImportGroup>
+</Project>

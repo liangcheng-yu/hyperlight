@@ -51,6 +51,9 @@ build-dotnet:
     cd src/Hyperlight && dotnet build 
     cd src/examples/NativeHost && dotnet build 
 
+build-c-guests target=default-target:
+    msbuild -m hyperlight.sln /p:Configuration={{ target }} /t:simpleguest,callbackguest,HyperlightSurrogate,HyperlightGuest
+
 build-rust target=default-target:
     cargo build --verbose --profile={{ if target == "debug" { "dev" } else { target } }}
 
@@ -75,6 +78,16 @@ test-dotnet-hl target=default-target:
 
 test-dotnet-nativehost target=default-target:
     cd src/examples/NativeHost && dotnet run -c {{ target }} -- -nowait 
+
+test-dotnet-nativehost-c-guests target=default-target:
+    cd src/examples/NativeHost && dotnet run -c {{ target }} -- -nowait -usecguests
+
+test-dotnet-hl-c-guests target=default-target:
+    set guesttype="c"
+    cd src/tests/Hyperlight.Tests && dotnet test -c {{ target }}
+    set guesttype=
+
+test-dotnet-c-guests target=default-target: (test-dotnet-hl-c-guests target) (test-dotnet-nativehost-c-guests target)
 
 test-dotnet target=default-target: (test-dotnet-hl target) (test-dotnet-nativehost target)
 

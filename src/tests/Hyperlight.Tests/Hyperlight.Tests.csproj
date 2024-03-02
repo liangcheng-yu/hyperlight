@@ -25,15 +25,23 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="..\..\tests\rust_guests\bin\$(Configuration.toLower())\simpleguest.exe">
-      <Link>simpleguest.exe</Link>
+      <Link>guests\rust\simpleguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="..\..\tests\rust_guests\bin\$(Configuration.toLower())\dummyguest.exe">
-      <Link>dummyguest.exe</Link>
+      <Link>guests\rust\dummyguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="..\..\tests\rust_guests\bin\$(Configuration.toLower())\callbackguest.exe">
-      <Link>callbackguest.exe</Link>
+      <Link>guests\rust\callbackguest.exe</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\tests\Guests\simpleguest\x64\$(Configuration.toLower())\simpleguest.exe" Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+      <Link>guests\c\simpleguest.exe</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\tests\Guests\callbackguest\x64\$(Configuration.toLower())\callbackguest.exe" Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+      <Link>guests\c\callbackguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
@@ -47,6 +55,10 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="guests\rust\" />
   </ItemGroup>
 
 </Project>

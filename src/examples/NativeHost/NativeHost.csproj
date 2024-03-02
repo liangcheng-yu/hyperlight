@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -6,6 +6,10 @@
     <Nullable>enable</Nullable>
     <Platforms>AnyCpu</Platforms>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="guests\c\simpleguest.exe" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../Hyperlight/Hyperlight.csproj" />
@@ -23,13 +27,26 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="../../tests/rust_guests/bin/$(Configuration.toLower())/callbackguest.exe">
-      <Link>callbackguest.exe</Link>
+      <Link>guests\rust\callbackguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="../../tests/rust_guests/bin/$(Configuration.toLower())/simpleguest.exe">
-      <Link>simpleguest.exe</Link>
+      <Link>guests\rust\simpleguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="../../tests/Guests/simpleguest/x64/$(Configuration.toLower())/simpleguest.exe" Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+      <Link>guests\c\simpleguest.exe</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="../../tests/Guests/callbackguest/x64/$(Configuration.toLower())/callbackguest.exe" Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+      <Link>guests\c\callbackguest.exe</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="guests\rust\" />
+    <Folder Include="guests\c\" />
   </ItemGroup>
 
 </Project>

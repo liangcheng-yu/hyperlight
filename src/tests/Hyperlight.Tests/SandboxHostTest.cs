@@ -13,12 +13,14 @@ using System.Threading.Tasks;
 using Hyperlight.Core;
 using HyperlightDependencies;
 using Microsoft.Extensions.Logging;
+using Microsoft.VisualStudio.TestPlatform.ObjectModel.Engine.ClientProtocol;
 using Moq;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace Hyperlight.Tests
 {
+
     public class SandboxHostTest
     {
         private readonly ITestOutputHelper testOutput;
@@ -81,7 +83,7 @@ namespace Hyperlight.Tests
             )
             {
                 var path = AppDomain.CurrentDomain.BaseDirectory;
-                var guestBinaryPath = Path.Combine(path, guestBinaryFileName);
+                var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
                 Assert.True(File.Exists(guestBinaryPath), $"Cannot find file {guestBinaryPath} to load into hyperlight");
                 this.GuestBinaryPath = guestBinaryPath;
                 this.ExpectedOutput = expectedOutput;
@@ -124,6 +126,7 @@ namespace Hyperlight.Tests
                 return Array.Empty<object?>();
             }
         }
+
         public class SimpleTestMembers
         {
 #pragma warning disable IDE0049 // Simplify Names
@@ -174,6 +177,7 @@ namespace Hyperlight.Tests
         }
 
         public class NoExposedMembers { }
+
         public class ExposedMembers
         {
             public int GetOne() => 1;
@@ -301,7 +305,7 @@ namespace Hyperlight.Tests
 
             var options = GetSandboxRunOptions();
             var guestBinaryFileName = "simpleguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
             foreach (var option in options)
             {
                 var correlationId = Guid.NewGuid().ToString("N");
@@ -341,7 +345,7 @@ namespace Hyperlight.Tests
         {
             var options = GetSandboxRunOptions();
             var guestBinaryFileName = "simpleguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
             // Heap size is set on the assembly metadata and linker arguments using the build property GUESTHEAPSIZE
             // this is set in \src\tests\Directory.Build.props
             // the value used can be changed by running msbuild with /p:GUESTHEAPSIZE=VALUE
@@ -366,7 +370,7 @@ namespace Hyperlight.Tests
         {
             var options = GetSandboxRunOptions();
             var guestBinaryFileName = "callbackguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
             var message = "This is a test log message";
             var source = "SandboxHostTest";
 
@@ -518,7 +522,7 @@ namespace Hyperlight.Tests
         {
             var options = GetSandboxRunOptions();
             var guestBinaryFileName = "callbackguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
             var message = "This is a test log message";
             var source = "SandboxHostTest";
             foreach (var option in options)
@@ -746,7 +750,7 @@ namespace Hyperlight.Tests
         {
             var options = GetSandboxRunOptions();
             var guestBinaryFileName = "callbackguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
             var message = "This is a test exception message";
             foreach (var option in options)
             {
@@ -785,7 +789,7 @@ namespace Hyperlight.Tests
             }
 
             var guestBinaryFileName = "simpleguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
             // Stack size is set on the assembly metadata and linker arguments using the build property GUESTSTACKSIZE
             // this is set in \src\tests\Directory.Build.props
             // the value used can be changed by running msbuild with /p:GUESTSTACKSIZE=VALUE
@@ -809,7 +813,7 @@ namespace Hyperlight.Tests
             using var ctx = new Wrapper.Context("sample_corr_id");
             var option = SandboxRunOptions.RunFromGuestBinary;
             var guestBinaryFileName = "simpleguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
             var sandboxConfiguration = new SandboxConfiguration();
 
             ulong expectedSize = GetExpectedMemorySize(sandboxConfiguration, guestBinaryPath, option);
@@ -826,7 +830,7 @@ namespace Hyperlight.Tests
         public void Test_Memory_Size_InProcess()
         {
             var guestBinaryFileName = "simpleguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
             var sandboxConfiguration = new SandboxConfiguration();
             var options = new SandboxRunOptions[] { SandboxRunOptions.RunInProcess, SandboxRunOptions.RunInProcess | SandboxRunOptions.RecycleAfterRun };
 
@@ -846,7 +850,7 @@ namespace Hyperlight.Tests
         {
             using var ctx = new Wrapper.Context("sample_corr_id");
             var guestBinaryFileName = "simpleguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
             var options = GetSandboxRunOptions();
             foreach (var option in options)
             {
@@ -893,7 +897,7 @@ namespace Hyperlight.Tests
             // see issue https://github.com/deislabs/hyperlight/issues/1184.
 
             // var guestBinaryFileName = "simpleguest.exe";
-            // var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            // var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
             // var options = GetSandboxRunInHyperVisorOptions();
             // var size = GetAssemblyMetadataAttribute("GUESTSTACKSIZE") / 2;
 
@@ -985,7 +989,7 @@ namespace Hyperlight.Tests
         public void Test_Memory_Size_InHypervisor()
         {
             var guestBinaryFileName = "simpleguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
             var sandboxConfiguration = new SandboxConfiguration();
             var options = new SandboxRunOptions[] { SandboxRunOptions.None, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
 
@@ -1007,7 +1011,7 @@ namespace Hyperlight.Tests
             using var ctx = new Wrapper.Context(correlationId);
             var option = SandboxRunOptions.RunInProcess;
             var guestBinaryFileName = "simpleguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
             var sandboxConfiguration = new SandboxConfiguration()
                 .WithInputDataSize(1073741824);
             var ex = Record.Exception(() =>
@@ -1070,7 +1074,7 @@ namespace Hyperlight.Tests
         {
             var options = GetSandboxRunOptions();
             var guestBinaryFileName = "simpleguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
 
             foreach (var option in options)
             {
@@ -1094,7 +1098,7 @@ namespace Hyperlight.Tests
         {
             var options = GetSandboxRunOptions();
             var guestBinaryFileName = "simpleguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
 
             foreach (var option in options)
             {
@@ -1118,7 +1122,7 @@ namespace Hyperlight.Tests
         {
             var options = GetSandboxRunOptions();
             var guestBinaryFileName = "simpleguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
 
             foreach (var option in options)
             {
@@ -1142,7 +1146,7 @@ namespace Hyperlight.Tests
         {
             var options = GetSandboxRunOptions();
             var guestBinaryFileName = "simpleguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
 
             foreach (var option in options)
             {
@@ -1186,7 +1190,7 @@ namespace Hyperlight.Tests
         {
             var options = GetSandboxRunOptions();
             var guestBinaryFileName = "simpleguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
 
             foreach (var option in options)
             {
@@ -1224,7 +1228,7 @@ namespace Hyperlight.Tests
         {
             var options = GetSandboxRunOptions();
             var guestBinaryFileName = "callbackguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
 
             foreach (var option in options)
             {
@@ -1251,7 +1255,7 @@ namespace Hyperlight.Tests
             using var ctx = new Wrapper.Context("sample_corr_id");
             var options = GetSandboxRunOptions();
             var guestBinaryFileName = "simpleguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
 
             List<(string Method, object[] args, int returnValue, string expectedOutput)> testData = new()
             {
@@ -1337,7 +1341,7 @@ namespace Hyperlight.Tests
         {
             var options = GetSandboxRunOptions();
             var guestBinaryFileName = "callbackguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
 
             foreach (var option in options)
             {
@@ -1362,7 +1366,7 @@ namespace Hyperlight.Tests
         {
             var options = GetSandboxRunOptions();
             var guestBinaryFileName = "callbackguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
 
             foreach (var option in options)
             {
@@ -1388,7 +1392,7 @@ namespace Hyperlight.Tests
             using var ctx = new Wrapper.Context("sample_corr_id");
             var options = GetSandboxRunOptions();
             var guestBinaryFileName = "simpleguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
             var heapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
             // dlmalloc minimum allocation is 64K
             // simpleguest.exe will do a memory allocation prior to CallMalloc being called;
@@ -1457,7 +1461,7 @@ namespace Hyperlight.Tests
             }
         }
 
-        public static string GetPathForRustGuest(string guestBinaryFileName)
+        public static string GetPathForGuest(string guestBinaryFileName)
         {
             // Assume we are in debug mode unless the assembly was built in release mode
             var configuration = Assembly.GetExecutingAssembly()
@@ -1474,10 +1478,17 @@ namespace Hyperlight.Tests
                 configuration = "release";
             }
 
+            var guestType = "rust";
+            if (Environment.GetEnvironmentVariable("guesttype") == "c")
+            {
+                guestType = "c";
+            }
+
             // Construct the path based on the configuration
             var basePath = AppDomain.CurrentDomain.BaseDirectory;
             Console.WriteLine($"Base path: {basePath}");
-            var relativePath = Path.Combine("..", "..", "..", "..", "rust_guests", "bin", configuration);
+            //var relativePath = Path.Combine("..", "..", "..", "..", "rust_guests", "bin", configuration);
+            var relativePath = Path.Combine("guests", guestType);
             var fullPath = Path.GetFullPath(Path.Combine(basePath, relativePath));
 
             return Path.Combine(fullPath, guestBinaryFileName);
@@ -1525,7 +1536,7 @@ namespace Hyperlight.Tests
         {
             var options = GetSandboxRunOptions();
             var guestBinaryFileName = "simpleguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
             Assert.True(File.Exists(guestBinaryPath), $"Cannot find file {guestBinaryPath} to load into hyperlight");
 
             List<(Type type, List<string> exposedMethods, List<string> boundDelegates, List<string> exposedStaticMethods)> testData = new()
@@ -1604,7 +1615,7 @@ namespace Hyperlight.Tests
         {
             var options = GetSandboxRunOptions();
             var guestBinaryFileName = "callbackguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
             Assert.True(File.Exists(guestBinaryPath), $"Cannot find file {guestBinaryPath} to load into hyperlight");
 
             List<(Type type, List<string> exposedMethods, List<string> boundDelegates, List<string> exposedStaticMethods, List<(string delegateName, int returnValue, string expectedOutput, object[]? args)> expectedResults)> testData = new()
@@ -1817,7 +1828,7 @@ namespace Hyperlight.Tests
             foreach (var option in options)
             {
                 var guestBinaryFileName = "simpleguest.exe";
-                var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+                var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
                 var correlationId = Guid.NewGuid().ToString("N");
                 var ex = Record.Exception(() =>
                 {
@@ -1950,7 +1961,7 @@ namespace Hyperlight.Tests
             }
 
             var guestBinaryFileName = "callbackguest.exe";
-            var guestBinaryPath = GetPathForRustGuest(guestBinaryFileName);
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
             foreach (var option in options)
             {
                 var stopWatch = Stopwatch.StartNew();

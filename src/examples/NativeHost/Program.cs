@@ -14,6 +14,7 @@ namespace NativeHost
     {
         private static readonly BlockingCollection<string> outputBuffer = new();
         private static bool waitforuserinput = true;
+        private static string guestType = "rust";
         const int DEFAULT_NUMBER_OF_PARALLEL_INSTANCES = 100;
         const int DEFAULT_NUMBER_OF_ITERATIONS = 50;
         static void Main()
@@ -23,6 +24,11 @@ namespace NativeHost
                 if (arg.ToLowerInvariant().Contains("nowait"))
                 {
                     waitforuserinput = false;
+                }
+
+                if (arg.ToLowerInvariant().Contains("usecguests"))
+                {
+                    guestType = "c";
                 }
             }
 
@@ -52,7 +58,7 @@ namespace NativeHost
 
             var path = AppDomain.CurrentDomain.BaseDirectory;
             var guestBinary = "simpleguest.exe";
-            var guestBinaryPath = Path.Combine(path, guestBinary);
+            var guestBinaryPath = Path.Combine(path, "guests", guestType, guestBinary);
             Stopwatch stopWatch;
             TimeSpan elapsed;
 
@@ -73,7 +79,7 @@ namespace NativeHost
                 // The type or object containing the methods/delegates can be passed to the sandbox as a constructor parameter
                 // Methods or delegates can also be exposed or bound to the guest explicitly using the BindGuestFunction or ExposeHostMethod methods.
 
-                Console.WriteLine($"Running guest binary {guestBinary} by loading exe into memory");
+                Console.WriteLine($"Running {guestType} guest binary {guestBinaryPath} by loading exe into memory");
                 Console.WriteLine();
 
                 var config = new SandboxConfiguration();
@@ -95,9 +101,9 @@ namespace NativeHost
                 WaitForUserInput();
 
                 guestBinary = "callbackguest.exe";
-                guestBinaryPath = Path.Combine(path, guestBinary);
+                guestBinaryPath = Path.Combine(path, "guests", guestType, guestBinary);
 
-                Console.WriteLine($"Running guest binary {guestBinary} by loading exe into memory with host and guest method execution");
+                Console.WriteLine($"Running {guestType} guest binary {guestBinary} by loading exe into memory with host and guest method execution");
                 Console.WriteLine();
                 var exposedMethods = new ExposedMethods();
                 builder = new SandboxBuilder()
@@ -125,7 +131,7 @@ namespace NativeHost
                 // This is done by passing an Action<Sandbox> to the Sandbox constructor, the constructor will call the Action 
                 // after the entrypoint in the guest binary has been called and before the state of the Sandbox is snapshotted
 
-                Console.WriteLine($"Running guest binary {guestBinary} by loading exe into memory and customising Sandbox initialisation");
+                Console.WriteLine($"Running {guestType} guest binary {guestBinary} by loading exe into memory and customising Sandbox initialisation");
                 Console.WriteLine();
 
                 exposedMethods = new ExposedMethods();
@@ -157,10 +163,10 @@ namespace NativeHost
                 // The binary can also be executed by copying it into host process memory and executing.
 
                 guestBinary = "simpleguest.exe";
-                guestBinaryPath = Path.Combine(path, guestBinary);
+                guestBinaryPath = Path.Combine(path, "guests", guestType, guestBinary);
                 options = SandboxRunOptions.RunInProcess;
 
-                Console.WriteLine($"Running {numberofparallelInstances} parallel instances of guest binary {guestBinary} from memory");
+                Console.WriteLine($"Running {numberofparallelInstances} parallel instances of {guestType} guest binary {guestBinary} from memory");
                 Console.WriteLine();
                 stopWatch = Stopwatch.StartNew();
                 Parallel.For(0, numberofparallelInstances, i =>
@@ -195,9 +201,9 @@ namespace NativeHost
                 // Call between the guest and host in-process.
 
                 guestBinary = "callbackguest.exe";
-                guestBinaryPath = Path.Combine(path, guestBinary);
+                guestBinaryPath = Path.Combine(path, "guests", guestType, guestBinary);
 
-                Console.WriteLine($"Running {numberofparallelInstances} parallel instances of guest binary {guestBinary} from memory with host and guest method execution");
+                Console.WriteLine($"Running {numberofparallelInstances} parallel instances of {guestType} guest binary {guestBinary} from memory with host and guest method execution");
                 Console.WriteLine();
                 stopWatch = Stopwatch.StartNew();
                 Parallel.For(0, numberofparallelInstances, i =>
@@ -234,14 +240,14 @@ namespace NativeHost
             }
 
             guestBinary = "simpleguest.exe";
-            guestBinaryPath = Path.Combine(path, guestBinary);
+            guestBinaryPath = Path.Combine(path,"guests", guestType, guestBinary);
 
             // if a supported Hypervisor is available, we can run the guest binary in a Hypervisor sandbox.
 
             if (Sandbox.IsHypervisorPresent())
             {
 
-                Console.WriteLine($"Running {numberofparallelInstances} parallel instances of guest binary {guestBinary} in Hypervisor sandbox");
+                Console.WriteLine($"Running {numberofparallelInstances} parallel instances of {guestType} guest binary {guestBinary} in Hypervisor sandbox");
                 Console.WriteLine();
 
                 var config = new SandboxConfiguration();
@@ -279,9 +285,9 @@ namespace NativeHost
                 // Call between the guest and host .
 
                 guestBinary = "callbackguest.exe";
-                guestBinaryPath = Path.Combine(path, guestBinary);
+                guestBinaryPath = Path.Combine(path, "guests", guestType, guestBinary);
 
-                Console.WriteLine($"Running {numberofparallelInstances} parallel instances of guest binary {guestBinary} in Hypervisor sandbox with host and guest method execution");
+                Console.WriteLine($"Running {numberofparallelInstances} parallel instances of {guestType} guest binary {guestBinary} in Hypervisor sandbox with host and guest method execution");
                 Console.WriteLine();
                 stopWatch = Stopwatch.StartNew();
 
@@ -313,7 +319,7 @@ namespace NativeHost
                 Console.WriteLine($"Created and run {numberofparallelInstances} parallel instances in {elapsed.TotalSeconds:00}.{elapsed.Milliseconds:000}{microseconds:000} seconds");
 
                 guestBinary = "simpleguest.exe";
-                guestBinaryPath = Path.Combine(path, guestBinary);
+                guestBinaryPath = Path.Combine(path, "guests", guestType, guestBinary);
 
                 WaitForUserInput();
 
@@ -368,9 +374,9 @@ namespace NativeHost
                 WaitForUserInput();
 
                 guestBinary = "callbackguest.exe";
-                guestBinaryPath = Path.Combine(path, guestBinary);
+                guestBinaryPath = Path.Combine(path, "guests", guestType, guestBinary);
 
-                Console.WriteLine($"Running {numberofparallelInstances} parallel instances of guest binary {guestBinary} in Hypervisor sandbox with host and guest method execution {numberofIterations} times");
+                Console.WriteLine($"Running {numberofparallelInstances} parallel instances of {guestType} guest binary {guestBinary} in Hypervisor sandbox with host and guest method execution {numberofIterations} times");
                 Console.WriteLine();
                 stopWatch = Stopwatch.StartNew();
 
