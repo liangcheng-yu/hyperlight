@@ -170,6 +170,13 @@ jobs:
           cp ./downloaded-guest-binaries-${{ env.CONFIG }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe
           cp ./downloaded-guest-binaries-${{ env.CONFIG }}/dummyguest.exe ./src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe
 
+      - name: Copy Rust Guests for dotnet tests
+        run: |
+          mkdir -p src\tests\Hyperlight.Tests\rust_guests\bin\${{ env.CONFIG }}
+          cp src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}
+          cp src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}    
+          cp src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}
+
       - name: Build Solution
         run: msbuild -m hyperlight.sln /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /p:ContinuousIntegrationBuild=true
         shell: pwsh
