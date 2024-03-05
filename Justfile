@@ -83,9 +83,7 @@ test-dotnet-nativehost-c-guests target=default-target:
     cd src/examples/NativeHost && dotnet run -c {{ target }} -- -nowait -usecguests
 
 test-dotnet-hl-c-guests target=default-target:
-    set guesttype="c"
-    cd src/tests/Hyperlight.Tests && dotnet test -c {{ target }}
-    set guesttype=
+    [Environment]::SetEnvironmentVariable('guesttype','c', 'Process') && cd src/tests/Hyperlight.Tests && dotnet test -c {{ target }}
 
 test-dotnet-c-guests target=default-target: (test-dotnet-hl-c-guests target) (test-dotnet-nativehost-c-guests target)
 

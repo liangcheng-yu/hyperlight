@@ -80,7 +80,7 @@ uint8_t* printSixArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4
     {
         setError(GUEST_ERROR, "Malloc Failed");
     }
-    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False");
+    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s.", arg1, arg2, arg3, arg4, arg5, arg6 ? "true" : "false");
     return printOutputAsGuestFunction(message);
 }
 
@@ -92,7 +92,7 @@ uint8_t* printSevenArgs(const char* arg1, int arg2, int64_t arg3, const char* ar
     {
         setError(GUEST_ERROR, "Malloc Failed");
     }
-    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False", arg7 ? "True" : "False");
+    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s.", arg1, arg2, arg3, arg4, arg5, arg6 ? "true" : "false", arg7 ? "true" : "false");
     return printOutputAsGuestFunction(message);
 }
 
@@ -104,7 +104,7 @@ uint8_t* printEightArgs(const char* arg1, int arg2, int64_t arg3, const char* ar
     {
         setError(GUEST_ERROR, "Malloc Failed");
     }
-    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%s.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False", arg7 ? "True" : "False", arg8);
+    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%s.", arg1, arg2, arg3, arg4, arg5, arg6 ? "true" : "false", arg7 ? "true" : "false", arg8);
     return printOutputAsGuestFunction(message);
 }
 
@@ -116,7 +116,7 @@ uint8_t* printNineArgs(const char* arg1, int arg2, int64_t arg3, const char* arg
     {
         setError(GUEST_ERROR, "Malloc Failed");
     }
-    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%s arg9:%d.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False", arg7 ? "True" : "False", arg8, arg9);
+    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%s arg9:%d.", arg1, arg2, arg3, arg4, arg5, arg6 ? "true" : "false", arg7 ? "true" : "false", arg8, arg9);
     return printOutputAsGuestFunction(message);
 }
 
@@ -128,7 +128,7 @@ uint8_t* printTenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4
     {
         setError(GUEST_ERROR, "Malloc Failed");
     }
-    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%s arg9:%d arg10:%d.", arg1, arg2, arg3, arg4, arg5, arg6 ? "True" : "False", arg7 ? "True" : "False", arg8, arg9, arg10);
+    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%s arg9:%d arg10:%d.", arg1, arg2, arg3, arg4, arg5, arg6 ? "true" : "false", arg7 ? "true" : "false", arg8, arg9, arg10);
     return printOutputAsGuestFunction(message);
 }
 
