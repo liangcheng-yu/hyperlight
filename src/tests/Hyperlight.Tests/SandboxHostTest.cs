@@ -366,6 +366,9 @@ namespace Hyperlight.Tests
         }
 
         [Fact(Skip = "This test is failing with the cancel vCPU changes.  Need to investigate.")]
+        // These tests are proably failing because the test Logger stores logs in ThreadLocal storage
+        // See this PR https://github.com/deislabs/hyperlight/pull/1213 which introduced a new logger
+        // that works for guest logging.
         public void Test_Error_Logging()
         {
             var options = GetSandboxRunOptions();
@@ -1800,7 +1803,8 @@ namespace Hyperlight.Tests
                 var ex = Record.Exception(() => sandbox2 = sboxBuilder2.Build());
                 Assert.NotNull(ex);
                 Assert.IsType<HyperlightException>(ex);
-                Assert.Equal($"Only one instance of Sandbox is allowed when running from guest binary CorrelationId: {correlationId} Source: NativeHandleWrapperErrorExtensions", ex.Message);
+                Assert.StartsWith("Only one instance of Sandbox is allowed when running from guest binary", ex.Message);
+                Assert.Contains($"CorrelationId: {correlationId} Source: NativeHandleWrapperErrorExtensions", ex.Message);
                 sandbox1.Dispose();
                 sandbox2?.Dispose();
                 output1.Dispose();
@@ -2043,10 +2047,8 @@ namespace Hyperlight.Tests
                     var ex = Record.Exception(() => sandbox2 = new Sandbox(testData.GuestBinaryPath, option, null, output2, correlationId2, null, GetSandboxConfiguration()));
                     Assert.NotNull(ex);
                     Assert.IsType<HyperlightException>(ex);
-                    Assert.Equal(
-                        $"Only one instance of Sandbox is allowed when running from guest binary CorrelationId: {correlationId2} Source: NativeHandleWrapperErrorExtensions",
-                        ex.Message
-                    );
+                    Assert.StartsWith("Only one instance of Sandbox is allowed when running from guest binary", ex.Message);
+                    Assert.Contains($"CorrelationId: {correlationId2} Source: NativeHandleWrapperErrorExtensions", ex.Message);
                     sandbox1.Dispose();
                     sandbox2?.Dispose();
                     output1.Dispose();

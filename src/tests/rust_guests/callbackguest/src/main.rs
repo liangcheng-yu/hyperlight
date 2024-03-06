@@ -19,7 +19,7 @@ use hyperlight_guest::{
     host_function_call::{
         call_host_function, get_host_value_return_as_int, print_output_as_guest_function,
     },
-    logging::log,
+    logging::log_message,
 };
 
 fn send_message_to_host_method(
@@ -95,7 +95,7 @@ fn guest_function4() -> Result<Vec<u8>> {
     Ok(get_flatbuffer_result_from_void())
 }
 
-fn log_message(function_call: &FunctionCall) -> Result<Vec<u8>> {
+fn guest_log_message(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let (
         ParameterValue::String(message),
         ParameterValue::String(source),
@@ -110,11 +110,11 @@ fn log_message(function_call: &FunctionCall) -> Result<Vec<u8>> {
             log_level = 0;
         }
 
-        log(
+        log_message(
             LogLevel::from(log_level as u8),
             message,
             source,
-            "log_message",
+            "guest_log_message",
             file!(),
             line!(),
         );
@@ -123,7 +123,7 @@ fn log_message(function_call: &FunctionCall) -> Result<Vec<u8>> {
     } else {
         return Err(HyperlightGuestError::new(
             ErrorCode::GuestFunctionParameterTypeMismatch,
-            "Invalid parameters passed to log_message".to_string(),
+            "Invalid parameters passed to guest_log_message".to_string(),
         ));
     }
 }
@@ -194,7 +194,7 @@ pub extern "C" fn hyperlight_main() {
     );
     register_function(guest_function4_def);
 
-    let log_message_def = GuestFunctionDefinition::new(
+    let guest_log_message_def = GuestFunctionDefinition::new(
         "LogMessage".to_string(),
         Vec::from(&[
             ParameterType::String,
@@ -202,9 +202,9 @@ pub extern "C" fn hyperlight_main() {
             ParameterType::Int,
         ]),
         ReturnType::Int,
-        log_message as i64,
+        guest_log_message as i64,
     );
-    register_function(log_message_def);
+    register_function(guest_log_message_def);
 
     let call_error_method_def = GuestFunctionDefinition::new(
         "CallErrorMethod".to_string(),

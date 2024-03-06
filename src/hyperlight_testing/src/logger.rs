@@ -5,17 +5,17 @@ use std::sync::Once;
 use std::thread::current;
 use tracing_log::LogTracer;
 
-pub(crate) static LOGGER: Logger = Logger {};
+pub static LOGGER: Logger = Logger {};
 static LOG_TRACER: Lazy<LogTracer> = Lazy::new(LogTracer::new);
 static INITLOGGER: Once = Once::new();
 #[derive(Clone, Eq, PartialEq)]
-pub(crate) struct LogCall {
-    pub(crate) level: Level,
-    pub(crate) args: String,
-    pub(crate) target: String,
-    pub(crate) line: Option<u32>,
-    pub(crate) file: Option<String>,
-    pub(crate) module_path: Option<String>,
+pub struct LogCall {
+    pub level: Level,
+    pub args: String,
+    pub target: String,
+    pub line: Option<u32>,
+    pub file: Option<String>,
+    pub module_path: Option<String>,
 }
 
 thread_local!(
@@ -23,40 +23,40 @@ thread_local!(
     static LOGGER_MAX_LEVEL: RefCell<LevelFilter> = RefCell::new(LevelFilter::Off);
 );
 
-pub(crate) struct Logger {}
+pub struct Logger {}
 
 impl Logger {
-    pub(crate) fn initialize_test_logger() {
+    pub fn initialize_test_logger() {
         INITLOGGER.call_once(|| {
             set_logger(&LOGGER).unwrap();
             set_max_level(log::LevelFilter::Trace);
         });
     }
 
-    pub(crate) fn initialize_log_tracer() {
+    pub fn initialize_log_tracer() {
         INITLOGGER.call_once(|| {
             set_logger(&*LOG_TRACER).unwrap();
             set_max_level(log::LevelFilter::Trace);
         });
     }
 
-    pub(crate) fn num_log_calls(&self) -> usize {
+    pub fn num_log_calls(&self) -> usize {
         LOGCALLS.with(|log_calls| log_calls.borrow().len())
     }
-    pub(crate) fn get_log_call(&self, idx: usize) -> Option<LogCall> {
+    pub fn get_log_call(&self, idx: usize) -> Option<LogCall> {
         LOGCALLS.with(|log_calls| log_calls.borrow().get(idx).cloned())
     }
 
-    pub(crate) fn clear_log_calls(&self) {
+    pub fn clear_log_calls(&self) {
         LOGCALLS.with(|log_calls| log_calls.borrow_mut().clear());
     }
 
-    pub(crate) fn test_log_records<F: Fn(&Vec<LogCall>)>(&self, f: F) {
+    pub fn test_log_records<F: Fn(&Vec<LogCall>)>(&self, f: F) {
         LOGCALLS.with(|log_calls| f(&log_calls.borrow()));
         self.clear_log_calls();
     }
 
-    pub(crate) fn set_max_level(&self, level: LevelFilter) {
+    pub fn set_max_level(&self, level: LevelFilter) {
         LOGGER_MAX_LEVEL.with(|max_level| {
             *max_level.borrow_mut() = level;
         });
@@ -73,6 +73,10 @@ impl Log for Logger {
         }
 
         LOGCALLS.with(|log_calls| {
+            if record.target().contains("hyperlight_guest") {
+                println!("Thread {:?} {:?}", current().id(), record);
+                println!("Thread {:?} {:?}", current().id(), record.metadata());
+            }
             log_calls.borrow_mut().push(LogCall {
                 level: record.level(),
                 args: format!("{}", record.args()),

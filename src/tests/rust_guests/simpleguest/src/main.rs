@@ -23,6 +23,7 @@ use hyperlight_guest::alloca::_alloca;
 use hyperlight_guest::memory::hlmalloc;
 use hyperlight_guest::{entrypoint::abort_with_code, entrypoint::abort_with_code_and_message};
 use hyperlight_guest::{
+    debug, error,
     error::{HyperlightGuestError, Result},
     flatbuffer_utils::{
         get_flatbuffer_result_from_int, get_flatbuffer_result_from_size_prefixed_buffer,
@@ -30,6 +31,7 @@ use hyperlight_guest::{
     },
     guest_functions::register_function,
     host_function_call::{call_host_function, get_host_value_return_as_int},
+    info, trace, warn,
 };
 
 extern crate hyperlight_guest;
@@ -516,6 +518,39 @@ pub extern "C" fn test_rust_malloc(function_call: &FunctionCall) -> Result<Vec<u
     }
 }
 
+fn log_message(function_call: &FunctionCall) -> Result<Vec<u8>> {
+    if function_call.parameters.clone().unwrap().len() != 2 {
+        return Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionIncorrecNoOfParameters,
+            format!(
+                "Invalid number of parameters passed to log_message, expected 2 got {}",
+                function_call.parameters.clone().unwrap().len()
+            ),
+        ));
+    }
+
+    if let (ParameterValue::String(message), ParameterValue::Int(level)) = (
+        function_call.parameters.clone().unwrap()[0].clone(),
+        function_call.parameters.clone().unwrap()[1].clone(),
+    ) {
+        match level {
+            0 => trace!(&message),
+            1 => debug!(&message),
+            2 => info!(&message),
+            3 => warn!(&message),
+            4 => error!(&message),
+            5 => error!(&message),
+            _ => info!(&message),
+        };
+        Ok(get_flatbuffer_result_from_void())
+    } else {
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to log_message".to_string(),
+        ))
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn hyperlight_main() {
     let simple_print_output_def = GuestFunctionDefinition::new(
@@ -781,6 +816,14 @@ pub extern "C" fn hyperlight_main() {
         test_rust_malloc as i64,
     );
     register_function(rust_malloc_def);
+
+    let log_message_def = GuestFunctionDefinition::new(
+        "LogMessage".to_string(),
+        Vec::from(&[ParameterType::String, ParameterType::Int]),
+        ReturnType::Void,
+        log_message as i64,
+    );
+    register_function(log_message_def);
 }
 
 #[no_mangle]

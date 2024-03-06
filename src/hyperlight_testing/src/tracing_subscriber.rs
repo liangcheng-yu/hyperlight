@@ -24,12 +24,12 @@ thread_local!(
 );
 
 impl TracingSubscriber {
-    pub(crate) fn new(trace_level: Level) -> Self {
+    pub fn new(trace_level: Level) -> Self {
         LEVEL_FILTER.with(|level_filter| *level_filter.borrow_mut() = trace_level.into());
         Self {}
     }
 
-    pub(crate) fn get_span_metadata(&self, id: u64) -> &'static Metadata<'static> {
+    pub fn get_span_metadata(&self, id: u64) -> &'static Metadata<'static> {
         SPAN_METADATA.with(
             |span_metadata: &RefCell<HashMap<u64, &Metadata<'static>>>| -> &Metadata<'static> {
                 span_metadata
@@ -40,7 +40,7 @@ impl TracingSubscriber {
         )
     }
 
-    pub(crate) fn get_span(&self, id: u64) -> Value {
+    pub fn get_span(&self, id: u64) -> Value {
         SPANS.with(|spans| {
             spans
                 .borrow()
@@ -50,11 +50,11 @@ impl TracingSubscriber {
         })
     }
 
-    pub(crate) fn get_events(&self) -> Vec<Value> {
+    pub fn get_events(&self) -> Vec<Value> {
         EVENTS.with(|events| events.borrow().clone())
     }
 
-    pub(crate) fn test_trace_records<F: Fn(&HashMap<u64, Value>, &Vec<Value>)>(&self, f: F) {
+    pub fn test_trace_records<F: Fn(&HashMap<u64, Value>, &Vec<Value>)>(&self, f: F) {
         SPANS.with(|spans| {
             EVENTS.with(|events| {
                 f(&spans.borrow().clone(), &events.borrow().clone());
@@ -63,7 +63,7 @@ impl TracingSubscriber {
         });
     }
 
-    pub(crate) fn clear(&self) {
+    pub fn clear(&self) {
         SPANS.with(|spans| spans.borrow_mut().clear());
         EVENTS.with(|events| events.borrow_mut().clear());
         SPAN_STACK.with(|span_stack| span_stack.borrow_mut().clear());

@@ -161,8 +161,8 @@ mod tests {
     use crate::sandbox::{outb::GuestLogData, SandboxConfiguration};
     use crate::testing::log_values::test_value_as_str;
     use crate::testing::simple_guest_pe_info;
-    use crate::testing::{logger::Logger, logger::LOGGER};
     use hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel;
+    use hyperlight_testing::{logger::Logger, logger::LOGGER};
     use log::Level;
     use tracing_core::callsite::rebuild_interest_cache;
 
@@ -283,7 +283,7 @@ mod tests {
         Logger::initialize_log_tracer();
         rebuild_interest_cache();
         let subscriber =
-            crate::testing::tracing_subscriber::TracingSubscriber::new(tracing::Level::TRACE);
+            hyperlight_testing::tracing_subscriber::TracingSubscriber::new(tracing::Level::TRACE);
         tracing::subscriber::with_default(subscriber.clone(), || {
             let new_mgr = || {
                 let mut pe_info = simple_guest_pe_info().unwrap();

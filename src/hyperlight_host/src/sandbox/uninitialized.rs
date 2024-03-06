@@ -485,8 +485,11 @@ impl<'a> UninitializedSandbox<'a> {
                 &mut pe_info,
                 run_from_process_memory,
             )
-            .map_err(|_: crate::HyperlightError| {
-                new_error!("Only one instance of Sandbox is allowed when running from guest binary")
+            .map_err(|e: crate::HyperlightError| {
+                new_error!(
+                    "Only one instance of Sandbox is allowed when running from guest binary: {:?}",
+                    e
+                )
             })
         } else {
             SandboxMemoryManager::load_guest_binary_into_memory(
@@ -509,13 +512,7 @@ mod tests {
         UninitializedSandbox,
     };
     use crate::{sandbox::WrapperGetter, Result};
-    use crate::{
-        sandbox_state::sandbox::EvolvableSandbox,
-        testing::{
-            log_values::test_value_as_str, logger::Logger as TestLogger,
-            logger::LOGGER as TEST_LOGGER, tracing_subscriber::TracingSubscriber as TestSubcriber,
-        },
-    };
+    use crate::{sandbox_state::sandbox::EvolvableSandbox, testing::log_values::test_value_as_str};
     use crate::{sandbox_state::transition::MutatingCallback, sandbox_state::transition::Noop};
     use crate::{testing::log_values::try_to_strings, MultiUseSandbox};
     use crossbeam_queue::ArrayQueue;
@@ -523,6 +520,10 @@ mod tests {
         ParameterValue, ReturnValue,
     };
     use hyperlight_testing::simple_guest_as_string;
+    use hyperlight_testing::{
+        logger::Logger as TestLogger, logger::LOGGER as TEST_LOGGER,
+        tracing_subscriber::TracingSubscriber as TestSubcriber,
+    };
     use log::Level;
     use serde_json::{Map, Value};
     use serial_test::serial;

@@ -72,6 +72,7 @@ test-rust target=default-target:
     cargo test --profile={{ if target == "debug" { "dev" } else { target } }} hypervisor::metrics::tests::test_gather_metrics -p hyperlight_host -- --ignored 
     cargo test --profile={{ if target == "debug" { "dev" } else { target } }} sandbox::metrics::tests::test_gather_metrics -p hyperlight_host -- --ignored 
     cargo test --profile={{ if target == "debug" { "dev" } else { target } }} test_metrics -p hyperlight_host -- --ignored 
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --test integration_test log_message -- --ignored
 
 test-dotnet-hl target=default-target:
     cd src/tests/Hyperlight.Tests && dotnet test -c {{ target }}

@@ -1,5 +1,6 @@
 use anyhow::{bail, Error, Result};
 use log::Level;
+use strum_macros::EnumIter;
 
 #[cfg(feature = "tracing")]
 use tracing::{instrument, Span};
@@ -7,7 +8,7 @@ use tracing::{instrument, Span};
 use crate::flatbuffers::hyperlight::generated::LogLevel as FbLogLevel;
 
 #[repr(u8)]
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, EnumIter)]
 pub enum LogLevel {
     Trace = 0,
     Debug = 1,

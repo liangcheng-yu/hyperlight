@@ -39,7 +39,7 @@ fn write_log_data(
     }
 }
 
-pub fn log(
+pub fn log_message(
     log_level: LogLevel,
     message: &str,
     source: &str,
@@ -49,4 +49,94 @@ pub fn log(
 ) {
     write_log_data(log_level, message, source, caller, source_file, line);
     outb(OutBAction::Log as u16, 0);
+}
+
+#[macro_export]
+macro_rules! log {
+    ($log_level:expr, $message:expr) => {{
+        $crate::logging::log_message(
+            $log_level,
+            $message,
+            module_path!(),
+            // there is no way to defnitively get the caller name
+            "Unknown",
+            file!(),
+            line!(),
+        )
+    }};
+}
+
+#[macro_export]
+macro_rules! info {
+    ($message:expr) => {{
+        $crate::logging::log_message(
+            hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel::Information,
+            $message,
+            module_path!(),
+            // there is no way to defnitively get the caller name
+            "Unknown",
+            file!(),
+            line!(),
+        )
+    }};
+}
+
+#[macro_export]
+macro_rules! warn {
+    ($message:expr) => {{
+        $crate::logging::log_message(
+            hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel::Warning,
+            $message,
+            module_path!(),
+            // there is no way to defnitively get the caller name
+            "Unknown",
+            file!(),
+            line!(),
+        )
+    }};
+}
+
+#[macro_export]
+macro_rules! error {
+    ($message:expr) => {{
+        $crate::logging::log_message(
+            hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel::Error,
+            $message,
+            module_path!(),
+            // there is no way to defnitively get the caller name
+            "Unknown",
+            file!(),
+            line!(),
+        )
+    }};
+}
+
+#[macro_export]
+macro_rules! debug {
+    ($message:expr) => {{
+        $crate::logging::log_message(
+            hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel::Debug,
+            $message,
+            module_path!(),
+            // there is no way to defnitively get the caller name
+            "Unknown",
+            file!(),
+            line!(),
+        )
+    }};
+}
+
+#[macro_export]
+macro_rules! trace {
+    ($message:expr) => {{
+        $crate::logging::log_message(
+            hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel::Trace,
+            $message,
+            module_path!(),
+            // there is no way to defnitively get the caller name
+            "Unknown",
+            file!(),
+            line!(),
+        )
+    }};
 }

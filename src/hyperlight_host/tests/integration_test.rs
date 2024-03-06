@@ -5,6 +5,7 @@ use hyperlight_host::sandbox_state::transition::Noop;
 use hyperlight_host::{GuestBinary, HyperlightError, Result};
 use hyperlight_host::{SingleUseSandbox, UninitializedSandbox};
 use hyperlight_testing::{c_simple_guest_as_string, simple_guest_as_string};
+use strum::IntoEnumIterator;
 
 fn new_uninit<'a>() -> Result<UninitializedSandbox<'a>> {
     let path = simple_guest_as_string().unwrap();
@@ -268,4 +269,39 @@ fn recursive_stack_allocate_overflow() {
         )
         .unwrap_err();
     assert!(matches!(res, HyperlightError::StackOverflow()));
+}
+
+// Check that log messages are emitted correctly from the guest
+// This test is ignored as it sets a logger and therefore maybe impacted by other tests running concurrently
+// or it may impact other tests.
+// It will run from the command just test-rust as it is included in that target
+// It can also be run explicitly with `cargo test --test integration_test log_message -- --ignored`
+#[test]
+#[ignore]
+fn log_message() {
+    use hyperlight_testing::{simplelogger::SimpleLogger, simplelogger::LOGGER};
+    SimpleLogger::initialize_test_logger();
+    LOGGER.set_max_level(log::LevelFilter::Trace);
+    LOGGER.clear_log_calls();
+    assert_eq!(0, LOGGER.num_log_calls());
+
+    for level in hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel::iter() {
+        if level == hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel::None {
+            continue;
+        }
+        let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+        let mut ctx1 = sbox1.new_call_context();
+
+        let message = format!("Hello from log_message level {}", level as i32);
+        ctx1.call(
+            "LogMessage",
+            ReturnType::Void,
+            Some(vec![
+                ParameterValue::String(message.to_string()),
+                ParameterValue::Int(level as i32),
+            ]),
+        )
+        .unwrap();
+    }
+    assert_eq!(6, LOGGER.num_log_calls());
 }

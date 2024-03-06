@@ -5,6 +5,9 @@ use hex_literal::hex;
 use std::path::PathBuf;
 
 pub const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
+pub mod logger;
+pub mod simplelogger;
+pub mod tracing_subscriber;
 
 /// Join all the `&str`s in the `v` parameter as a path with appropriate
 /// path separators, then prefix it with `start`, again with the appropriate

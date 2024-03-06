@@ -5,8 +5,6 @@ use hyperlight_testing::rust_guest_as_pathbuf;
 use std::fs;
 use std::path::PathBuf;
 pub(crate) mod log_values;
-pub(crate) mod logger;
-pub(crate) mod tracing_subscriber;
 
 /// Get a `PEInfo` representing `simpleguest.exe`
 pub(crate) fn simple_guest_pe_info() -> Result<PEInfo> {
