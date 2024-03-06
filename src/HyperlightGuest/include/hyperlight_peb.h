@@ -32,6 +32,7 @@ typedef struct
 {
     uint64_t guestHeapSize;
     void* guestHeapBuffer;
+
 } GuestHeapData;
 
 typedef struct
@@ -39,6 +40,13 @@ typedef struct
     uint64_t minStackAddress;
 
 } GuestStackData;
+
+typedef struct
+{
+    uint64_t guestPanicContextDataSize;
+    void* guestPanicContextDataBuffer;
+
+} GuestPanicContextData;
 
 typedef struct
 {
@@ -53,6 +61,7 @@ typedef struct
     void *pOutbContext;
     InputData inputdata;
     OutputData outputdata;
+    GuestPanicContextData GuestPanicContextData;
     GuestHeapData guestheapData;
     GuestStackData gueststackData;
 } HyperlightPEB;

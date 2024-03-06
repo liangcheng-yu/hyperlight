@@ -10,6 +10,7 @@ const MAX_BUFFER_SIZE: usize = 1024;
 extern crate alloc;
 
 use core::hint::black_box;
+use core::ffi::c_char;
 
 use alloc::{format, string::ToString, vec::Vec};
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
@@ -19,8 +20,8 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
     guest_function_definition::GuestFunctionDefinition,
 };
 use hyperlight_guest::alloca::_alloca;
-use hyperlight_guest::entrypoint::abort_with_code;
 use hyperlight_guest::memory::hlmalloc;
+use hyperlight_guest::{entrypoint::abort_with_code, entrypoint::abort_with_code_and_message};
 use hyperlight_guest::{
     error::{HyperlightGuestError, Result},
     flatbuffer_utils::{
@@ -481,7 +482,29 @@ fn test_abort(function_call: &FunctionCall) -> Result<Vec<u8>> {
     Ok(get_flatbuffer_result_from_void())
 }
 
-fn test_rust_malloc(function_call: &FunctionCall) -> Result<Vec<u8>> {
+fn test_abort_with_code_and_message(function_call: &FunctionCall) -> Result<Vec<u8>> {
+    if let (
+        ParameterValue::Int(code),
+        ParameterValue::String(message),
+    ) = (
+        function_call.parameters.clone().unwrap()[0].clone(),
+        function_call.parameters.clone().unwrap()[1].clone(),
+    ) {
+        abort_with_code_and_message(code, message.as_ptr() as *const c_char);
+    } 
+    Ok(get_flatbuffer_result_from_void())
+}
+
+fn test_guest_panic(function_call: &FunctionCall) -> Result<Vec<u8>> {
+    if let ParameterValue::String(message) = function_call.parameters.clone().unwrap()[0].clone() {
+        panic!{"{}", message};
+    }
+    Ok(get_flatbuffer_result_from_void())
+}
+
+#[no_mangle]
+#[allow(improper_ctypes_definitions)]
+pub extern "C" fn test_rust_malloc(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::Int(code) = function_call.parameters.clone().unwrap()[0].clone() {
         let ptr = hlmalloc(code as usize);
         Ok(get_flatbuffer_result_from_int(ptr as i32))
@@ -734,6 +757,22 @@ pub extern "C" fn hyperlight_main() {
         test_abort as i64,
     );
     register_function(abort_def);
+
+    let abort_with_code_message_def = GuestFunctionDefinition::new(
+        "abort_with_code_and_message".to_string(),
+        Vec::from(&[ParameterType::Int, ParameterType::String]),
+        ReturnType::Void,
+        test_abort_with_code_and_message as i64,
+    );
+    register_function(abort_with_code_message_def);
+
+    let guest_panic_def = GuestFunctionDefinition::new(
+        "guest_panic".to_string(),
+        Vec::from(&[ParameterType::String]),
+        ReturnType::Void,
+        test_guest_panic as i64,
+    );
+    register_function(guest_panic_def);
 
     let rust_malloc_def = GuestFunctionDefinition::new(
         "test_rust_malloc".to_string(),

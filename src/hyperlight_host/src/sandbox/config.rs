@@ -51,6 +51,9 @@ pub struct SandboxConfiguration {
     /// field should be represented as an `Option`, that type is not
     /// FFI-safe, so it cannot be.
     max_wait_for_cancellation: u8,
+    /// The size of the memory buffer that is made available for serializing
+    /// guest panic context
+    guest_panic_context_buffer_size: usize,
 }
 
 impl SandboxConfiguration {
@@ -75,6 +78,8 @@ impl SandboxConfiguration {
     /// The default and minimum values for max wait for cancellation (in milliseconds)
     const DEFAULT_MAX_WAIT_FOR_CANCELLATION: u8 = 100;
     const MIN_MAX_WAIT_FOR_CANCELLATION: u8 = 10;
+    /// The default and values for guest panic context data
+    const DEFAULT_GUEST_PANIC_CONTEXT_BUFFER_SIZE: usize = 0x400;
 
     #[allow(clippy::too_many_arguments)]
     /// Create a new configuration for a sandbox with the given sizes.
@@ -132,6 +137,7 @@ impl SandboxConfiguration {
                     None => Self::DEFAULT_MAX_WAIT_FOR_CANCELLATION,
                 }
             },
+            guest_panic_context_buffer_size: Self::DEFAULT_GUEST_PANIC_CONTEXT_BUFFER_SIZE,
         }
     }
 
@@ -223,10 +229,16 @@ impl SandboxConfiguration {
         self.output_data_size
     }
 
+    #[instrument(skip_all, parent = Span::current(), level="Trace")]
+    pub(crate) fn get_guest_panic_context_buffer_size(&self) -> usize {
+        self.guest_panic_context_buffer_size
+    }
+
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn get_max_execution_time(&self) -> u16 {
         self.max_execution_time
     }
+
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn get_max_wait_for_cancellation(&self) -> u8 {
         self.max_wait_for_cancellation

@@ -232,6 +232,12 @@ uint8_t* printUsingPrintf(const char* msg)
     return GetFlatBufferResultFromVoid();
 }
 
+uint8_t* guestAbortWithMessage(uint32_t code, const char* message)
+{
+    abort_with_code_and_message(code, message);
+    return GetFlatBufferResultFromVoid();
+}
+
 GENERATE_FUNCTION(simpleprintOutput,1,hlstring);
 GENERATE_FUNCTION(stackAllocate, 1, hlint);
 GENERATE_FUNCTION(stackOverflow, 1, hlint);
@@ -254,6 +260,7 @@ GENERATE_FUNCTION(echo, 1, hlstring);
 GENERATE_FUNCTION(getSizePrefixedBuffer, 2, hlvecbytes, hlint);
 GENERATE_FUNCTION(spin, 0);
 GENERATE_FUNCTION(printUsingPrintf, 1, hlstring);
+GENERATE_FUNCTION(guestAbortWithMessage, 2, hlint, hlstring);
 
 void HyperlightMain()
 {
@@ -279,4 +286,5 @@ void HyperlightMain()
     RegisterFunction(FUNCTIONDETAILS("GetSizePrefixedBuffer", getSizePrefixedBuffer));
     RegisterFunction(FUNCTIONDETAILS("Spin", spin));
     RegisterFunction(FUNCTIONDETAILS("PrintUsingPrintf", printUsingPrintf));
+    RegisterFunction(FUNCTIONDETAILS("GuestAbortWithMessage", guestAbortWithMessage));
 }

@@ -31,6 +31,7 @@ void* hlrealloc(void*, size_t);
 void hlfree(void*);
 void abort();
 void abort_with_code(int);
+void abort_with_code_and_message(int, void*);
 
 #define free                 hlfree
 #define malloc               hlmalloc
@@ -260,3 +261,5 @@ uint8_t* GetFlatBufferResultFromVoid();
 uint8_t* GetFlatBufferResultFromSizePrefixedBuffer(void*, int32_t);
 
 ns(GuestFunctionDefinition_ref_t) CreateFunctionDefinition(const char*, guestFunc, int, ns(ParameterType_enum_t)[]);
+
+void abort_with_code_and_message(uint32_t, const char*);

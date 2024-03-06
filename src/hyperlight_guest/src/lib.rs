@@ -1,8 +1,10 @@
 #![no_std]
 // Deps
-use alloc::vec::Vec;
+use crate::host_function_call::{outb, OutBAction};
+use alloc::{string::ToString, vec::Vec};
 use buddy_system_allocator::LockedHeap;
-use entrypoint::abort;
+use core::hint::unreachable_unchecked;
+use core::ptr::copy_nonoverlapping;
 use hyperlight_flatbuffers::flatbuffer_wrappers::guest_function_details::GuestFunctionDetails;
 use hyperlight_peb::HyperlightPEB;
 extern crate alloc;
@@ -45,9 +47,17 @@ pub(crate) static _fltused: i32 = 0;
 #[allow(clippy::panic)]
 // to satisfy the clippy when cfg == test
 #[allow(dead_code)]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
-    // TODO: Rather than abort, we should probably abort with a code and potentially write some context to shared memory.
-    abort()
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    unsafe {
+        let peb_ptr = P_PEB.unwrap();
+        copy_nonoverlapping(
+            info.to_string().as_ptr(),
+            (*peb_ptr).guestPanicContextData.guestPanicContextDataBuffer as *mut u8,
+            (*peb_ptr).guestPanicContextData.guestPanicContextDataSize as usize,
+        );
+    }
+    outb(OutBAction::Abort as u16, 0x0 as u8);
+    unsafe { unreachable_unchecked() }
 }
 
 // Globals

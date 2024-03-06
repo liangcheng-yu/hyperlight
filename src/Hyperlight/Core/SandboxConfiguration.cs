@@ -68,6 +68,13 @@ namespace Hyperlight.Core
         public byte MaxWaitForCancellation { get; init; }
 
         /// <summary>
+        /// defines the size of the buffer used for getting context from
+        /// the guest in the event of an assert / panic / abort in the guest code.
+        /// this value is defaulted to 1024 in the rust code.
+        /// </summary>
+        public ulong GuestPanicBufferSize { get; init; }
+
+        /// <summary>
         /// Create a new SandboxMemoryConfiguration, with default
         /// values.
         /// 
@@ -107,7 +114,8 @@ namespace Hyperlight.Core
             ulong stackSizeOverride = 0,
             ulong heapSizeOverride = 0,
             ushort maxExecutionTime =0,
-            byte maxWaitForCancellation=0
+            byte maxWaitForCancellation=0,
+            ulong guestPanicBufferSize=1024
         )
         {
             var config = config_new(
@@ -130,6 +138,7 @@ namespace Hyperlight.Core
             this.StackSizeOverride = config.StackSizeOverride;
             this.MaxExecutionTime = config.MaxExecutionTime;
             this.MaxWaitForCancellation = config.MaxWaitForCancellation;
+            this.GuestPanicBufferSize = 1024;
         }
 
         public SandboxConfiguration WithInputDataSize(ulong size)

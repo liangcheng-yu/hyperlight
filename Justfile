@@ -74,7 +74,7 @@ test-rust target=default-target:
     cargo test --profile={{ if target == "debug" { "dev" } else { target } }} test_metrics -p hyperlight_host -- --ignored 
 
 test-dotnet-hl target=default-target:
-    cd src/tests/Hyperlight.Tests && dotnet test -c {{ target }} 
+    cd src/tests/Hyperlight.Tests && dotnet test -c {{ target }}
 
 test-dotnet-nativehost target=default-target:
     cd src/examples/NativeHost && dotnet run -c {{ target }} -- -nowait 

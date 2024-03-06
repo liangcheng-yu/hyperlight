@@ -274,7 +274,7 @@ mod tests {
                 stack_size: 65536,
                 heap_size: 131072,
                 load_address: 5368709120,
-                num_relocations: (800..900).collect(),
+                num_relocations: (850..950).collect(),
                 // range of possible # of relocations
                 // (hardware dependant)
             }
@@ -285,7 +285,7 @@ mod tests {
                 stack_size: 65536,
                 heap_size: 131072,
                 load_address: 5368709120,
-                num_relocations: (600..800).collect(),
+                num_relocations: (650..850).collect(),
             }
         };
         // if your test fails w/ num_relocations,
@@ -302,7 +302,7 @@ mod tests {
                 stack_size: 65536,
                 heap_size: 131072,
                 load_address: 5368709120,
-                num_relocations: (600..700).collect(),
+                num_relocations: (650..750).collect(),
             }
         } else {
             PEFileTest {
@@ -311,7 +311,7 @@ mod tests {
                 stack_size: 65536,
                 heap_size: 131072,
                 load_address: 5368709120,
-                num_relocations: (500..700).collect(),
+                num_relocations: (550..750).collect(),
             }
         };
 

@@ -113,9 +113,20 @@ fn handle_outb_impl(
         }
         OutBAction::Abort => {
             let guest_error = ErrorCode::from(byte);
+            let panic_context = mem_mgr.as_mut().read_guest_panic_context_data().unwrap();
+            // trim off trailing \0 bytes if they exist
+            let index_opt = panic_context.iter().position(|&x| x == 0x00);
+            let trimmed = match index_opt {
+                Some(n) => &panic_context[0..n],
+                None => &panic_context,
+            };
+            let s = String::from_utf8_lossy(trimmed);
             match guest_error {
                 ErrorCode::StackOverflow => Err(HyperlightError::StackOverflow()),
-                _ => Err(HyperlightError::GuestAborted(byte as u8)),
+                _ => Err(HyperlightError::GuestAborted(
+                    byte as u8,
+                    s.trim().to_string(),
+                )),
             }
         }
     }

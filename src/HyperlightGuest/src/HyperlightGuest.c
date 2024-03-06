@@ -951,10 +951,26 @@ void __report_rangecheckfailure(void)
 // TODO: Once we update the host to deal with aborts correctly we should update these handlers so that they return a code to explain what caused the abort
 // i.e. they should be updated to call abort_with_code(ERROR_CODE) instead of abort()
 
+void abort_with_code_and_message(uint32_t code, char* message)
+{
+    void* guestPanicDataBuffer = pPeb->GuestPanicContextData.guestPanicContextDataBuffer;
+    size_t guestPanicDataBufferSize = pPeb->GuestPanicContextData.guestPanicContextDataSize;
+
+    memcpy(
+        guestPanicDataBuffer,
+        message,
+        guestPanicDataBufferSize);
+
+    outb(OUTB_ABORT, code);
+}
+
 void dlmalloc_abort()
 {
     WriteLogData(CRTICAL, "dlmalloc_abort", "HyperLightGuest", __FUNCTION__, __FILE__, __LINE__);
-    abort();
+    size_t message_size = 256;
+    char message[256] = {'0'};
+    snprintf(message, message_size, "dlmalloc_abort in HyperlightGuest");
+    abort_with_code_and_message(FAILURE_IN_DLMALLOC, message);
 }
 
 void __assert_fail(const char *expr, const char *file, int line, const char *func)
@@ -963,7 +979,7 @@ void __assert_fail(const char *expr, const char *file, int line, const char *fun
     char message[256] = {'0'};
     snprintf(message, message_size, "Assertion failed: %s ", expr);
     WriteLogData(CRTICAL, message, "HyperLightGuest", func, file, line);
-    abort();
+    abort_with_code_and_message(UNKNOWN_ERROR, message);
 }
 
 // Called by dlmalloc using ABORT

@@ -4,7 +4,7 @@ use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
 use hyperlight_host::sandbox_state::transition::Noop;
 use hyperlight_host::{GuestBinary, HyperlightError, Result};
 use hyperlight_host::{SingleUseSandbox, UninitializedSandbox};
-use hyperlight_testing::simple_guest_as_string;
+use hyperlight_testing::{c_simple_guest_as_string, simple_guest_as_string};
 
 fn new_uninit<'a>() -> Result<UninitializedSandbox<'a>> {
     let path = simple_guest_as_string().unwrap();
@@ -31,23 +31,131 @@ fn guest_abort() {
         )
         .unwrap_err();
     println!("{:?}", res);
-    assert!(matches!(res, HyperlightError::GuestAborted(code) if code == error_code));
+    assert!(
+        matches!(res, HyperlightError::GuestAborted(code, message) if (code == error_code && message.is_empty()) )
+    );
 }
 
-// checks that malloc works
 #[test]
-fn guest_malloc() {
+fn guest_abort_with_context1() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
     let mut ctx1 = sbox1.new_call_context();
 
-    let size = 200; // some small number that should be ok
-    let _res = ctx1
+    let res = ctx1
         .call(
-            "test_rust_malloc",
-            ReturnType::Int,
-            Some(vec![ParameterValue::Int(size)]),
+            "abort_with_code_and_message",
+            ReturnType::Void,
+            Some(vec![
+                ParameterValue::Int(25),
+                ParameterValue::String("Oh no".to_string()),
+            ]),
         )
-        .unwrap();
+        .unwrap_err();
+    println!("{:?}", res);
+    assert!(
+        matches!(res, HyperlightError::GuestAborted(code, context) if (code == 25 && context == "Oh no"))
+    );
+}
+
+#[test]
+fn guest_abort_with_context2() {
+    let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+    let mut ctx1 = sbox1.new_call_context();
+
+    // The buffer size for the panic context is 1024 bytes.
+    // This test will see what happens if the panic message is longer than that
+    let abort_message = "Lorem ipsum dolor sit amet, \
+                                consectetur adipiscing elit, \
+                                sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. \
+                                Nec feugiat nisl pretium fusce. \
+                                Amet mattis vulputate enim nulla aliquet porttitor lacus. \
+                                Nunc congue nisi vitae suscipit tellus. \
+                                Erat imperdiet sed euismod nisi porta lorem mollis aliquam ut. \
+                                Amet tellus cras adipiscing enim eu turpis egestas. \
+                                Blandit volutpat maecenas volutpat blandit aliquam etiam erat velit scelerisque. \
+                                Tristique senectus et netus et malesuada. \
+                                Eu turpis egestas pretium aenean pharetra magna ac placerat vestibulum. \
+                                Adipiscing at in tellus integer feugiat. \
+                                Faucibus vitae aliquet nec ullamcorper sit amet risus. \
+                                \n\
+                                Eros in cursus turpis massa tincidunt dui. \
+                                Purus non enim praesent elementum facilisis leo vel fringilla. \
+                                Dolor sit amet consectetur adipiscing elit pellentesque habitant morbi. \
+                                Id leo in vitae turpis. At lectus urna duis convallis convallis tellus id interdum. \
+                                Purus sit amet volutpat consequat. Egestas purus viverra accumsan in. \
+                                Sodales ut etiam sit amet nisl. Lacus sed viverra tellus in hac. \
+                                Nec ullamcorper sit amet risus nullam eget. \
+                                Adipiscing bibendum est ultricies integer quis auctor. \
+                                Vitae elementum curabitur vitae nunc sed velit dignissim sodales ut. \
+                                Auctor neque vitae tempus quam pellentesque nec. \
+                                Non pulvinar neque laoreet suspendisse interdum consectetur libero. \
+                                Mollis nunc sed id semper. \
+                                Et sollicitudin ac orci phasellus egestas tellus rutrum tellus pellentesque. \
+                                Arcu felis bibendum ut tristique et. \
+                                Proin sagittis nisl rhoncus mattis rhoncus urna. Magna eget est lorem ipsum.";
+
+    let res = ctx1
+        .call(
+            "abort_with_code_and_message",
+            ReturnType::Void,
+            Some(vec![
+                ParameterValue::Int(60),
+                ParameterValue::String(abort_message.to_string()),
+            ]),
+        )
+        .unwrap_err();
+    println!("{:?}", res);
+    assert!(
+        matches!(res, HyperlightError::GuestAborted(_, context) if context.contains(&abort_message[..400]))
+    );
+}
+
+// Ensure abort with context works for c guests.
+// Just run this manually for now since we only build c guests on Windows and will
+// hopefully be removing the c guest library soon.
+#[test]
+#[ignore]
+fn guest_abort_c_guest() {
+    let path = c_simple_guest_as_string().unwrap();
+    let guest_path = GuestBinary::FilePath(path);
+    let uninit = UninitializedSandbox::new(guest_path, None, None, None);
+    let sbox1: SingleUseSandbox = uninit.unwrap().evolve(Noop::default()).unwrap();
+    let mut ctx1 = sbox1.new_call_context();
+
+    let res = ctx1
+        .call(
+            "GuestAbortWithMessage",
+            ReturnType::Void,
+            Some(vec![
+                ParameterValue::Int(75_i32),
+                ParameterValue::String("This is a test error message".to_string()),
+            ]),
+        )
+        .unwrap_err();
+    println!("{:?}", res);
+    assert!(
+        matches!(res, HyperlightError::GuestAborted(code, message) if (code == 75 && message == "This is a test error message"))
+    );
+}
+
+#[test]
+fn guest_panic() {
+    let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+    let mut ctx1 = sbox1.new_call_context();
+
+    let res = ctx1
+        .call(
+            "guest_panic",
+            ReturnType::Void,
+            Some(vec![ParameterValue::String(
+                "Error... error...".to_string(),
+            )]),
+        )
+        .unwrap_err();
+    println!("{:?}", res);
+    assert!(
+        matches!(res, HyperlightError::GuestAborted(code, context) if code == 0 && context.contains("\nError... error..."))
+    )
 }
 
 // checks that malloc failures are captured correctly
@@ -66,7 +174,7 @@ fn guest_malloc_abort() {
         .unwrap_err();
     println!("{:?}", res);
     assert!(
-        matches!(res, HyperlightError::GuestAborted(code) if code == ErrorCode::MallocFailed as u8)
+        matches!(res, HyperlightError::GuestAborted(code, _) if code == ErrorCode::MallocFailed as u8)
     );
 }
 

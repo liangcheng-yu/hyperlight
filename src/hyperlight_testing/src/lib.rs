@@ -71,6 +71,34 @@ pub fn callback_guest_as_string() -> Result<String> {
         .ok_or_else(|| anyhow!("couldn't convert callback guest PathBuf to string"))
 }
 
+pub fn c_guest_as_pathbuf(guest: &str) -> PathBuf {
+    let build_dir_selector = if cfg!(debug_assertions) {
+        "debug"
+    } else {
+        "release"
+    };
+
+    join_to_path(
+        MANIFEST_DIR,
+        vec![
+            "..",
+            "tests",
+            "Guests",
+            guest,
+            "x64",
+            build_dir_selector,
+            format!("{}.exe", guest).as_str(),
+        ],
+    )
+}
+
+pub fn c_simple_guest_as_string() -> Result<String> {
+    let buf = c_guest_as_pathbuf("simpleguest");
+    buf.to_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| anyhow!("couldn't conver simple guest PathBuf to string"))
+}
+
 // The test data is a valid flatbuffers buffer representing a guestfunction call as follows:
 // int PrintSevenArgs(string="Test7", int=8, long=9, string="Tested", string="Test7", bool=false, bool=true)
 pub fn get_guest_function_call_test_data() -> Vec<u8> {

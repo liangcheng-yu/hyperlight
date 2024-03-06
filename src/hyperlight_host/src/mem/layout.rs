@@ -88,16 +88,25 @@ struct GuestStack {
     min_guest_stack_address: u64,
 }
 
+#[repr(C)]
+struct GuestPanicContext {
+    /// This is the size of the buffer guests can use to relay panic context back to the host if one occurred.
+    guest_panic_context_size: u64,
+    /// This is a pointer to a buffer guests can use to relay panic context back to the host if one occurred.
+    guest_panic_context_buffer: u64,
+}
+
 // Following these structures are the memory buffers as follows:
 //
 // Host Function definitions - length SandboxConfiguration.HostFunctionDefinitionSize
 // Host Exception Details - length SandboxConfiguration.HostExceptionSize , this contains details of any Host Exception that occurred in outb function
 // it contains a 32 bit length following by a json serialisation of any error that occurred.
-// Guest Error Buffer - length SandboxConfiguration.GuestErrorBufferSize this contains the details of any guest error that occurre, it is serialised and deserialised using flatbuffers.
+// Guest Error Buffer - length SandboxConfiguration.GuestErrorBufferSize this contains the details of any guest error that occurred, it is serialised and deserialised using flatbuffers.
 // Input Data Buffer - length SandboxConfiguration.InputDataSize this is a buffer that is used for input data to the host program
 // Output Data Buffer - length SandboxConfiguration.OutputDataSize this is a buffer that is used for output data from host program
 // Guest Heap - length heapSize this is a memory buffer provided to the guest to be used as heap memory.
 // Guest Stack - length stackSize this is the memory used for the guest stack (in reality the stack may be slightly bigger or smaller as the total memory size is rounded up to nearest 4K and there is a 16 bte stack guard written to the top of the stack).
+// Guest Panic Context - length bufferSize this is a memory buffer that contains additional context of any guest panics, it is read from shared memory when an AbortWithContext Outb operation is received by the host.
 
 /// Mostly a collection of utilities organized around the layout of the
 /// memory in a sandbox.
@@ -113,7 +122,7 @@ struct GuestStack {
 /// serialisation of any error that occurred. the length of this field is
 /// `HostExceptionSize` from` `SandboxConfiguration`
 ///
-/// - `GuestError` - contains an buffer for any guest error that occurred.
+/// - `GuestError` - contains a buffer for any guest error that occurred.
 /// the length of this field is `GuestErrorBufferSize` from `SandboxConfiguration`
 ///
 /// - `InputData` -  this is a buffer that is used for input data to the host program.
@@ -131,7 +140,9 @@ struct GuestStack {
 /// size is rounded up to the nearest 4K, and there is a 16-byte stack guard written
 /// to the top of the stack.
 ///
-///
+/// - `GuestPanicContext` - contains a buffer for context associated with any guest
+/// panic that occurred.
+/// the length of this field is returned by the `guest_panic_context_size()` fn of this struct.
 
 #[derive(Copy, Clone, Debug)]
 //TODO:(#1029) Once we have a complete C API, we can restrict visibility to crate level.
@@ -146,7 +157,7 @@ pub struct SandboxMemoryLayout {
     /// The offset to the start of host functions within this sandbox.
     host_functions_offset: Offset,
     /// The offset to the start of host exceptions within this sandbox.
-    host_exception_offset: Offset,
+    pub(crate) host_exception_offset: Offset,
     /// The offset to the pointer to the guest error buffer within this sandbox.
     guest_error_buffer_pointer_offset: Offset,
     /// The offset to the size of the guest error buffer within this sandbox.
@@ -158,6 +169,8 @@ pub struct SandboxMemoryLayout {
     input_data_offset: Offset,
     /// The offset to the start of output data within this sandbox.
     output_data_offset: Offset,
+    /// The offset to the start of the guest panic context data within this sandbox.
+    guest_panic_context_offset: Offset,
     /// The offset to the start of the guest heap within this sandbox.
     heap_data_offset: Offset,
     /// The offset to the start of the guest stack within this sandbox.
@@ -169,7 +182,7 @@ pub struct SandboxMemoryLayout {
     pub(super) host_function_definitions_offset: Offset,
     /// The offset to the start of the buffer for host exceptions inside
     /// this sandbox.
-    host_exception_buffer_offset: Offset,
+    pub(crate) host_exception_buffer_offset: Offset,
     /// The offset to the start of guest errors inside this sandbox.
     pub(super) guest_error_buffer_offset: Offset,
     /// The offset to the start of the input data buffer inside this
@@ -190,6 +203,8 @@ pub struct SandboxMemoryLayout {
     guest_security_cookie_seed_offset: Offset,
     /// The offset to the guest dispatch function pointer
     guest_dispatch_function_ptr_offset: Offset,
+    // The offset to the start of the guest panic context buffer within this sandbox.
+    guest_panic_context_buffer_offset: Offset,
 }
 impl SandboxMemoryLayout {
     /// Four Kilobytes (16^3 bytes) - used to round the total amount of memory
@@ -247,8 +262,10 @@ impl SandboxMemoryLayout {
             guest_error_buffer_pointer_offset + size_of::<GuestError>();
         let input_data_offset = code_and_outb_pointer_offset + size_of::<CodeAndOutBPointers>();
         let output_data_offset = input_data_offset + size_of::<InputData>();
-        let heap_data_offset = output_data_offset + size_of::<OutputData>();
+        let guest_panic_context_offset = output_data_offset + size_of::<OutputData>();
+        let heap_data_offset = guest_panic_context_offset + size_of::<GuestPanicContext>();
         let stack_data_offset = heap_data_offset + size_of::<GuestHeap>();
+
         let peb_address = usize::try_from(Self::BASE_ADDRESS + peb_offset)?;
         let host_function_definitions_offset = stack_data_offset + size_of::<GuestStack>();
         let host_exception_buffer_offset =
@@ -258,8 +275,12 @@ impl SandboxMemoryLayout {
         let input_data_buffer_offset =
             guest_error_buffer_offset + cfg.get_guest_error_buffer_size();
         let output_data_buffer_offset = input_data_buffer_offset + cfg.get_input_data_size();
-        let guest_heap_buffer_offset = output_data_buffer_offset + cfg.get_output_data_size();
+        let guest_panic_context_buffer_offset =
+            output_data_buffer_offset + cfg.get_guest_panic_context_buffer_size();
+        let guest_heap_buffer_offset =
+            guest_panic_context_buffer_offset + cfg.get_output_data_size();
         let guest_stack_buffer_offset = guest_heap_buffer_offset + heap_size;
+
         Ok(Self {
             peb_offset,
             stack_size,
@@ -271,6 +292,7 @@ impl SandboxMemoryLayout {
             code_and_outb_pointer_offset,
             input_data_offset,
             output_data_offset,
+            guest_panic_context_offset,
             heap_data_offset,
             stack_data_offset,
             sandbox_memory_config: cfg,
@@ -285,6 +307,7 @@ impl SandboxMemoryLayout {
             peb_address,
             guest_security_cookie_seed_offset,
             guest_dispatch_function_ptr_offset,
+            guest_panic_context_buffer_offset,
         })
     }
 
@@ -442,6 +465,33 @@ impl SandboxMemoryLayout {
         self.guest_stack_buffer_offset
     }
 
+    // Get the offset in guest memory to the start of the guest panic context data
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(crate) fn get_guest_panic_context_offset(&self) -> Offset {
+        self.guest_panic_context_offset
+    }
+
+    // Get the offset to the guest panic context buffer size
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(crate) fn get_guest_panic_context_size_offset(&self) -> Offset {
+        // The size field is the first field in the `GuestPanicContext` data
+        self.guest_panic_context_offset
+    }
+
+    /// Get the offset to the guest panic context buffer pointer
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(crate) fn get_guest_panic_context_buffer_pointer_offset(&self) -> Offset {
+        // The guest panic data pointer is immediately after the guest
+        // panic data size field in the `GuestPanicCOntext` data which is a `u64`
+        self.get_guest_panic_context_size_offset() + size_of::<u64>()
+    }
+
+    /// Get the offset to the guest panic context buffer pointer
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(crate) fn get_guest_panic_context_buffer_offset(&self) -> Offset {
+        self.guest_panic_context_buffer_offset
+    }
+
     /// Get the total size of guest memory in `self`'s memory
     /// layout.
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
@@ -463,6 +513,7 @@ impl SandboxMemoryLayout {
             + size_of::<CodeAndOutBPointers>()
             + size_of::<InputData>()
             + size_of::<OutputData>()
+            + size_of::<GuestPanicContext>()
             + size_of::<GuestHeap>()
             + size_of::<GuestStack>()
             + self.heap_size
@@ -562,9 +613,8 @@ impl SandboxMemoryLayout {
 
         shared_mem.write_u64(self.get_output_data_pointer_offset(), addr)?;
 
-        let addr = get_address!(guest_heap_buffer);
-
         // Set up heap buffer pointer
+        let addr = get_address!(guest_heap_buffer);
         shared_mem.write_u64(self.get_heap_size_offset(), self.heap_size.try_into()?)?;
         shared_mem.write_u64(self.get_heap_pointer_offset(), addr)?;
 
@@ -594,6 +644,16 @@ impl SandboxMemoryLayout {
             &security_cookie_seed,
             self.guest_security_cookie_seed_offset,
         )?;
+
+        // Set up the guest panic context buffer
+        let addr = get_address!(guest_panic_context_buffer);
+        shared_mem.write_u64(
+            self.get_guest_panic_context_size_offset(),
+            self.sandbox_memory_config
+                .get_guest_panic_context_buffer_size()
+                .try_into()?,
+        )?;
+        shared_mem.write_u64(self.get_guest_panic_context_buffer_pointer_offset(), addr)?;
 
         Ok(())
     }

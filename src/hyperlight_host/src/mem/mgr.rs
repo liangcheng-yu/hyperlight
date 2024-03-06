@@ -763,6 +763,22 @@ impl SandboxMemoryManager {
             )
         })
     }
+
+    /// Read guest panic data from the `SharedMemory` contained within `self`
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    pub fn read_guest_panic_context_data(&self) -> Result<Vec<u8>> {
+        let offset = self.layout.get_guest_panic_context_buffer_offset();
+        let buffer_size = {
+            let size_u64 = self
+                .shared_mem
+                .read_u64(self.layout.get_guest_panic_context_size_offset())?;
+            usize::try_from(size_u64)
+        }?;
+        let mut vec_out = vec![0; buffer_size];
+        self.shared_mem
+            .copy_to_slice(vec_out.as_mut_slice(), offset)?;
+        Ok(vec_out)
+    }
 }
 
 /// Common setup functionality for the

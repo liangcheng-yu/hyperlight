@@ -9,7 +9,11 @@ use crate::{
     RUNNING_IN_HYPERLIGHT,
 };
 
-use core::{ffi::c_void, hint::unreachable_unchecked};
+use core::{
+    ffi::{c_char, c_void},
+    hint::unreachable_unchecked,
+    ptr::copy_nonoverlapping,
+};
 
 pub fn halt() {
     unsafe {
@@ -31,6 +35,20 @@ pub extern "C" fn abort() -> ! {
 
 #[no_mangle]
 pub extern "C" fn abort_with_code(code: i32) -> ! {
+    outb(OutBAction::Abort as u16, code as u8);
+    unsafe { unreachable_unchecked() }
+}
+
+#[no_mangle]
+pub extern "C" fn abort_with_code_and_message(code: i32, message_ptr: *const c_char) -> ! {
+    unsafe {
+        let peb_ptr = P_PEB.unwrap();
+        copy_nonoverlapping(
+            message_ptr,
+            (*peb_ptr).guestPanicContextData.guestPanicContextDataBuffer as *mut c_char,
+            (*peb_ptr).guestPanicContextData.guestPanicContextDataSize as usize,
+        );
+    }
     outb(OutBAction::Abort as u16, code as u8);
     unsafe { unreachable_unchecked() }
 }

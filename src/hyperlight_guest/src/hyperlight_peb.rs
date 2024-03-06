@@ -37,6 +37,12 @@ pub struct GuestStackData {
 }
 
 #[repr(C)]
+pub struct GuestPanicContextData {
+    pub guestPanicContextDataSize: u64,
+    pub guestPanicContextDataBuffer: *mut c_void,
+}
+
+#[repr(C)]
 pub struct HyperlightPEB {
     pub security_cookie_seed: u64,
     pub guest_function_dispatch_ptr: u64,
@@ -49,6 +55,7 @@ pub struct HyperlightPEB {
     pub pOutbContext: *mut c_void,
     pub inputdata: InputData,
     pub outputdata: OutputData,
+    pub guestPanicContextData: GuestPanicContextData,
     pub guestheapData: GuestHeapData,
     pub gueststackData: GuestStackData,
 }
