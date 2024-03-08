@@ -195,13 +195,34 @@ fn dynamic_stack_allocate() {
     .unwrap();
 }
 
-// checks alloca fails with stackoverflow for huge allocations
+// checks alloca fails with stackoverflow for large allocations
 #[test]
 fn dynamic_stack_allocate_overflow() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
     let mut ctx1 = sbox1.new_call_context();
 
-    let bytes = 0; // zero is handled as special case in guest, will turn into large number
+    // zero is handled as special case in guest,
+    // will turn DEFAULT_GUEST_STACK_SIZE + 1
+    let bytes = 0;
+
+    let res = ctx1
+        .call(
+            "StackAllocate",
+            ReturnType::Int,
+            Some(vec![ParameterValue::Int(bytes)]),
+        )
+        .unwrap_err();
+    println!("{:?}", res);
+    assert!(matches!(res, HyperlightError::StackOverflow()));
+}
+
+// checks alloca fails with overflow when stack pointer overflows
+#[test]
+fn dynamic_stack_allocate_pointer_overflow() {
+    let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+    let mut ctx1 = sbox1.new_call_context();
+
+    let bytes = 10 * 1024 * 1024; // 10Mb
 
     let res = ctx1
         .call(

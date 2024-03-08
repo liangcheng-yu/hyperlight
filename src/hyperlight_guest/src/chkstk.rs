@@ -27,12 +27,15 @@ global_asm!(
         lea r10,[rsp+0x18]  
         /* Calculate what the new stack pointer will be */
         sub r10, rax
+        /* If result is negative, cause StackOverflow */
+        js call_set_error
         /* Compare the new stack pointer with the minimum stack address */
         cmp r10,r11   
         /* If the new stack pointer is above the minimum stack address, jump to cs_ret */
         jae cs_ret
         /* If the new stack pointer is below the minimum stack address, 
         then set the error code to 9 (stack overflow) call set_error and halt */
+    call_set_error:
         call {set_error}
         hlt
     call_chk_inproc:
