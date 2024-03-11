@@ -1,40 +1,58 @@
 use core::ffi::c_char;
-use core::ffi::c_void;
 use core::ffi::CStr;
 
 use alloc::{string::ToString, vec::Vec};
 use hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::{ErrorCode, GuestError};
 
+use crate::error;
 use crate::host_function_call::outb;
 use crate::host_function_call::OutBAction;
 use crate::{entrypoint::halt, P_PEB};
+use alloc::string::String;
 
 pub(crate) fn write_error(error_code: ErrorCode, message: Option<&str>) {
     let guest_error = GuestError::new(
-        error_code,
+        error_code.clone(),
         message.map_or("".to_string(), |m| m.to_string()),
     );
-    let guest_error_buffer: Vec<u8> = (&guest_error)
+    let mut guest_error_buffer: Vec<u8> = (&guest_error)
         .try_into()
         .expect("Invalid guest_error_buffer, could not be converted to a Vec<u8>");
 
     unsafe {
         assert!(!(*P_PEB.unwrap()).pGuestErrorBuffer.is_null());
-        assert!(guest_error_buffer.len() <= (*P_PEB.unwrap()).guestErrorBufferSize as usize);
+        let len = guest_error_buffer.len();
+        if guest_error_buffer.len() > (*P_PEB.unwrap()).guestErrorBufferSize as usize {
+            error!(
+                "Guest error buffer is too small to hold the error message: size {} buffer size {} message may be truncated",
+                guest_error_buffer.len(),
+                (*P_PEB.unwrap()).guestErrorBufferSize as usize
+            );
+            // get the length of the message
+            let message_len = message.map_or("".to_string(), |m| m.to_string()).len();
+            // message is too long, truncate it
+            let truncate_len = message_len
+                - (guest_error_buffer.len() - (*P_PEB.unwrap()).guestErrorBufferSize as usize);
+            let truncated_message = message
+                .map_or("".to_string(), |m| m.to_string())
+                .chars()
+                .take(truncate_len)
+                .collect::<String>();
+            let guest_error = GuestError::new(error_code, truncated_message);
+            guest_error_buffer = (&guest_error)
+                .try_into()
+                .expect("Invalid guest_error_buffer, could not be converted to a Vec<u8>");
+        }
 
         // Optimally, we'd use copy_from_slice here, but, because
         // p_guest_error_buffer is a *mut c_void, we can't do that.
         // Instead, we do the copying manually using pointer arithmetic.
         // Plus; before, we'd do an assert w/ the result from copy_from_slice,
         // but, because copy_nonoverlapping doesn't return anything, we can't do that.
-        // Instead, we do the prior asserts to check the destination pointer isn't null
+        // Instead, we do the prior asserts/checks to check the destination pointer isn't null
         // and that there is enough space in the destination buffer for the copy.
         let dest_ptr = (*P_PEB.unwrap()).pGuestErrorBuffer as *mut u8;
-        core::ptr::copy_nonoverlapping(
-            guest_error_buffer.as_ptr(),
-            dest_ptr,
-            guest_error_buffer.len(),
-        );
+        core::ptr::copy_nonoverlapping(guest_error_buffer.as_ptr(), dest_ptr, len);
     }
 }
 
@@ -51,9 +69,6 @@ pub(crate) fn reset_error() {
 
 pub(crate) fn set_error(error_code: ErrorCode, message: &str) {
     write_error(error_code, Some(message));
-    unsafe {
-        (*P_PEB.unwrap()).outputdata.outputDataBuffer = usize::MAX as *mut c_void;
-    }
 }
 
 pub(crate) fn set_error_and_halt(error_code: ErrorCode, message: &str) {

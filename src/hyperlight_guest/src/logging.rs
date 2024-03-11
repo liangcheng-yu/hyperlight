@@ -68,75 +68,71 @@ macro_rules! log {
 
 #[macro_export]
 macro_rules! info {
+    ($fmtstr:expr, $($arg:tt)*) => {
+        let __msg = alloc::format!($fmtstr, $($arg)*);
+        $crate::info!(&__msg);
+    };
     ($message:expr) => {{
-        $crate::logging::log_message(
+        $crate::log!(
             hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel::Information,
-            $message,
-            module_path!(),
-            // there is no way to defnitively get the caller name
-            "Unknown",
-            file!(),
-            line!(),
+            $message
         )
     }};
 }
 
 #[macro_export]
 macro_rules! warn {
+    ($fmtstr:expr, $($arg:tt)*) => {
+        let __msg = alloc::format!($fmtstr, $($arg)*);
+        $crate::warn!(&__msg);
+    };
     ($message:expr) => {{
-        $crate::logging::log_message(
+        $crate::log!(
             hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel::Warning,
-            $message,
-            module_path!(),
-            // there is no way to defnitively get the caller name
-            "Unknown",
-            file!(),
-            line!(),
+            $message
         )
     }};
 }
 
 #[macro_export]
 macro_rules! error {
+    ($fmtstr:expr, $($arg:tt)*) => {
+        let __msg = alloc::format!($fmtstr, $($arg)*);
+        $crate::error!(&__msg);
+    };
     ($message:expr) => {{
-        $crate::logging::log_message(
+        $crate::log!(
             hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel::Error,
-            $message,
-            module_path!(),
-            // there is no way to defnitively get the caller name
-            "Unknown",
-            file!(),
-            line!(),
+            $message
         )
     }};
 }
 
 #[macro_export]
 macro_rules! debug {
+    ($fmtstr:expr, $($arg:tt)*) => {
+        let __msg = alloc::format!($fmtstr, $($arg)*);
+        $crate::debug!(&__msg);
+    };
     ($message:expr) => {{
-        $crate::logging::log_message(
+        $crate::log!(
             hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel::Debug,
-            $message,
-            module_path!(),
-            // there is no way to defnitively get the caller name
-            "Unknown",
-            file!(),
-            line!(),
+            $message
         )
     }};
 }
 
 #[macro_export]
 macro_rules! trace {
+
+    ($fmtstr:expr, $($arg:tt)*) => {
+        let __msg = alloc::format!($fmtstr, $($arg)*);
+        $crate::trace!(&__msg);
+    };
     ($message:expr) => {{
-        $crate::logging::log_message(
+        $crate::log!(
             hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel::Trace,
-            $message,
-            module_path!(),
-            // there is no way to defnitively get the caller name
-            "Unknown",
-            file!(),
-            line!(),
+            $message
         )
     }};
 }

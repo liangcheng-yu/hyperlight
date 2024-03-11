@@ -31,7 +31,6 @@ void* hlrealloc(void*, size_t);
 void hlfree(void*);
 void abort();
 void abort_with_code(int);
-void abort_with_code_and_message(int, void*);
 
 #define free                 hlfree
 #define malloc               hlmalloc
