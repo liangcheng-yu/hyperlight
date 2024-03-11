@@ -235,6 +235,29 @@ fn dynamic_stack_allocate_pointer_overflow() {
     assert!(matches!(res, HyperlightError::StackOverflow()));
 }
 
+// checks alloca fails with stackoverflow for huge allocations with c guest lib
+#[test]
+#[ignore]
+fn dynamic_stack_allocate_overflow_c_guest() {
+    let path = c_simple_guest_as_string().unwrap();
+    let guest_path = GuestBinary::FilePath(path);
+    let uninit = UninitializedSandbox::new(guest_path, None, None, None);
+    let sbox1: SingleUseSandbox = uninit.unwrap().evolve(Noop::default()).unwrap();
+    let mut ctx1 = sbox1.new_call_context();
+
+    let bytes = 0; // zero is handled as special case in guest, will turn into large number
+
+    let res = ctx1
+        .call(
+            "StackAllocate",
+            ReturnType::Int,
+            Some(vec![ParameterValue::Int(bytes)]),
+        )
+        .unwrap_err();
+    println!("{:?}", res);
+    assert!(matches!(res, HyperlightError::StackOverflow()));
+}
+
 // checks that a small buffer on stack works
 #[test]
 fn static_stack_allocate() {

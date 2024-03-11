@@ -48,6 +48,9 @@ typedef struct
 
 } GuestPanicContextData;
 
+
+// If updating this structure, also update the offset of the GuestStackData
+// in src\HyperlightGuest\src\asm\__chkstk.asm!!!
 typedef struct
 {
     uint64_t security_cookie_seed;
