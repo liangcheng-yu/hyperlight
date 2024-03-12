@@ -136,6 +136,14 @@ namespace Hyperlight.Tests
 #pragma warning restore IDE0049 // Simplify Names
         }
 
+        public class DontExistMembers
+        {
+#pragma warning disable IDE0049 // Simplify Names
+            public Func<int>? ThisIsNotARealFunctionButTheNameIsImportant;
+            public Func<int>? SomethingElse;
+#pragma warning restore IDE0049 // Simplify Names
+        }
+
         public class CallbackTestMembers
         {
             readonly StringWriter? output;
@@ -887,6 +895,51 @@ namespace Hyperlight.Tests
                     Assert.Null(ex);
 
                     Assert.Equal(0, result);
+                }
+            }
+        }
+
+        // The following tests fails if the shared input/output buffer
+        // can be overwritten. If the input/output buffers are properly
+        // implemented as a stack, this test should pass.
+        [FactSkipIfNotCGuest]
+        public void Test_InputOutput_Stack()
+        {
+            using var ctx = new Wrapper.Context("sample_corr_id");
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
+            var options = GetSandboxRunInHyperVisorOptions();
+            foreach (var option in options)
+            {
+                var correlationId = Guid.NewGuid().ToString("N");
+                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, null, null, GetSandboxConfiguration()))
+                {
+                    var functions = new DontExistMembers();
+                    sandbox.BindGuestFunction("ThisIsNotARealFunctionButTheNameIsImportant", functions);
+                    var result = 0;
+                    var ex = Record.Exception(() =>
+                    {
+                        result = functions.ThisIsNotARealFunctionButTheNameIsImportant!();
+                    });
+                    // should not fail
+                    Assert.Null(ex);
+
+                    Assert.Equal(99, result);
+                    // 99 is a special return value to indicate good execution,
+                    // see c simpleguest dynamic GuestDispatchFunction fn
+                }
+                correlationId = Guid.NewGuid().ToString("N");
+                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, null, null, GetSandboxConfiguration()))
+                {
+                    var functions = new DontExistMembers();
+                    sandbox.BindGuestFunction("SomethingElse", functions);
+                    var result = 0;
+                    var ex = Record.Exception(() =>
+                    {
+                        result = functions.SomethingElse!();
+                    });
+                    // should fail
+                    Assert.NotNull(ex);
                 }
             }
         }

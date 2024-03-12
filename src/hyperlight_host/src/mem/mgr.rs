@@ -13,7 +13,7 @@ use crate::{
         ExceptionDataLengthIncorrect, ExceptionMessageTooBig, JsonConversionFailure,
         NoMemorySnapshot, UTF8SliceConversionFailure,
     },
-    log_then_return,
+    log_then_return, HyperlightError,
 };
 use crate::{error::HyperlightHostError, sandbox::SandboxConfiguration};
 use crate::{new_error, Result};
@@ -244,9 +244,14 @@ impl SandboxMemoryManager {
     /// if no such return value was present.
     //TODO:(#1029) Once we have a full C API this can be removed.
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub fn get_return_value(&self) -> Result<i32> {
-        let offset = self.layout.output_data_buffer_offset;
-        self.shared_mem.read_i32(offset)
+    pub fn get_return_value(&mut self) -> Result<i32> {
+        match self.shared_mem.try_pop_buffer_into::<I32Wrapper>(
+            self.layout.output_data_buffer_offset,
+            self.layout.sandbox_memory_config.get_output_data_size(),
+        ) {
+            Ok(wrapper) => Ok(wrapper.0),
+            Err(e) => Err(e),
+        }
     }
 
     /// Sets `addr` to the correct offset in the memory referenced by
@@ -578,23 +583,6 @@ impl SandboxMemoryManager {
     //TODO:(#1029) Once we have a full C API visibility can be pub(crate)
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn write_guest_function_call(&mut self, buffer: &[u8]) -> Result<()> {
-        let layout = self.layout;
-
-        let buffer_size = {
-            let size_u64 = self
-                .shared_mem
-                .read_u64(layout.get_input_data_size_offset())?;
-            usize::try_from(size_u64)
-        }?;
-
-        if buffer.len() > buffer_size {
-            return Err(new_error!(
-                "Guest function call buffer {} is too big for the input data buffer {}",
-                buffer.len(),
-                buffer_size
-            ));
-        }
-
         validate_guest_function_call_buffer(buffer).map_err(|e| {
             new_error!(
                 "Guest function call buffer validation failed: {}",
@@ -602,37 +590,21 @@ impl SandboxMemoryManager {
             )
         })?;
 
-        self.shared_mem
-            .copy_from_slice(buffer, layout.input_data_buffer_offset)?;
-
-        Ok(())
+        self.shared_mem.push_buffer(
+            self.layout.input_data_buffer_offset,
+            self.layout.sandbox_memory_config.get_input_data_size(),
+            buffer,
+        )
     }
 
     /// Writes a host function call to memory
     //TODO:(#1029) Once we have a full C API visibility can be private
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn write_host_function_call(&mut self, buffer: &[u8]) -> Result<()> {
-        let layout = self.layout;
-
-        let buffer_size = {
-            let size_u64 = self
-                .shared_mem
-                .read_u64(layout.get_output_data_size_offset())?;
-            usize::try_from(size_u64)
-        }?;
-
-        if buffer.len() > buffer_size {
-            return Err(new_error!(
-                "Host function call buffer {} is too big for the output data buffer {}",
-                buffer.len(),
-                buffer_size
-            ));
-        }
-
         validate_host_function_call_buffer(buffer)
             .map_err(|e| new_error!("Invalid host function call buffer: {}", e.to_string()))?;
         self.shared_mem
-            .copy_from_slice(buffer, layout.host_function_definitions_offset)?;
+            .copy_from_slice(buffer, self.layout.host_function_definitions_offset)?;
 
         Ok(())
     }
@@ -641,127 +613,46 @@ impl SandboxMemoryManager {
     //TODO:(#1029) Once we have a full C API visibility can be pub(crate)
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn write_response_from_host_method_call(&mut self, res: &ReturnValue) -> Result<()> {
-        let input_data_offset = self.layout.input_data_buffer_offset;
         let function_call_ret_val_buffer = Vec::<u8>::try_from(res).map_err(|_| {
             new_error!(
                 "write_response_from_host_method_call: failed to convert ReturnValue to Vec<u8>"
             )
         })?;
-        self.shared_mem
-            .copy_from_slice(function_call_ret_val_buffer.as_slice(), input_data_offset)
+        self.shared_mem.push_buffer(
+            self.layout.input_data_buffer_offset,
+            self.layout.sandbox_memory_config.get_input_data_size(),
+            function_call_ret_val_buffer.as_slice(),
+        )
     }
 
     /// Reads a host function call from memory
     //TODO:(#1029) Once we have a full C API visibility can be pub(crate)
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub fn get_host_function_call(&self) -> Result<FunctionCall> {
-        let layout = self.layout;
-
-        // Get the size of the flatbuffer buffer from memory
-        let fb_buffer_size = {
-            let size_i32 = self.shared_mem.read_i32(layout.output_data_buffer_offset)? + 4;
-            usize::try_from(size_i32)
-        }?;
-
-        let mut function_call_buffer = vec![0; fb_buffer_size];
-        self.shared_mem
-            .copy_to_slice(&mut function_call_buffer, layout.output_data_buffer_offset)?;
-        #[cfg(debug_assertions)]
-        validate_host_function_call_buffer(&function_call_buffer)
-            .map_err(|e| new_error!("Invalid host function call buffer: {}", e.to_string()))?;
-
-        FunctionCall::try_from(function_call_buffer.as_slice()).map_err(|e| {
-            new_error!(
-                "get_host_function_call: failed to convert buffer to FunctionCall: {}",
-                e
-            )
-        })
-    }
-
-    /// Reads a guest function call from memory
-    //TODO: Why is this unused?
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    #[allow(unused)]
-    fn get_guest_function_call(&self) -> Result<FunctionCall> {
-        let layout = self.layout;
-
-        // read guest function call from memory
-        let fb_buffer_size = {
-            let size_i32 = self.shared_mem.read_i32(layout.input_data_buffer_offset)? + 4;
-            usize::try_from(size_i32)
-        }?;
-
-        let mut function_call_buffer = vec![0; fb_buffer_size];
-        self.shared_mem
-            .copy_to_slice(&mut function_call_buffer, layout.input_data_buffer_offset)?;
-
-        #[cfg(debug_assertions)]
-        validate_guest_function_call_buffer(&function_call_buffer).map_err(|e| {
-            new_error!(
-                "get_guest_function_call: failed to validate guest function call buffer: {}",
-                e
-            )
-        })?;
-
-        FunctionCall::try_from(function_call_buffer.as_slice()).map_err(|e| {
-            new_error!(
-                "get_guest_function_call: failed to convert buffer to FunctionCall: {}",
-                e
-            )
-        })
+    pub fn get_host_function_call(&mut self) -> Result<FunctionCall> {
+        self.shared_mem.try_pop_buffer_into::<FunctionCall>(
+            self.layout.output_data_buffer_offset,
+            self.layout.sandbox_memory_config.get_output_data_size(),
+        )
     }
 
     /// Reads a function call result from memory
     //TODO:(#1029) Once we have a full C API visibility can be pub(crate)
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub fn get_function_call_result(&self) -> Result<ReturnValue> {
-        let fb_buffer_size = {
-            let size_i32 = self
-                .shared_mem
-                .read_i32(self.layout.output_data_buffer_offset)?
-                + 4;
-            // ^^^ flatbuffer byte arrays are prefixed by 4 bytes
-            // indicating its size, so, to get the actual size, we need
-            // to add 4.
-            usize::try_from(size_i32)
-        }?;
-
-        let mut function_call_result_buffer = vec![0; fb_buffer_size];
-
-        self.shared_mem.copy_to_slice(
-            &mut function_call_result_buffer,
+    pub fn get_guest_function_call_result(&mut self) -> Result<ReturnValue> {
+        self.shared_mem.try_pop_buffer_into::<ReturnValue>(
             self.layout.output_data_buffer_offset,
-        )?;
-        ReturnValue::try_from(function_call_result_buffer.as_slice()).map_err(|e| {
-            new_error!(
-                "get_function_call_result: failed to convert buffer to ReturnValue: {}",
-                e
-            )
-        })
+            self.layout.sandbox_memory_config.get_output_data_size(),
+        )
     }
 
     /// Read guest log data from the `SharedMemory` contained within `self`
     //TODO:(#1029) Once we have a full C API visibility can be pub(crate)
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub fn read_guest_log_data(&self) -> Result<GuestLogData> {
-        let offset = self.layout.get_output_data_offset();
-        // there's a u32 at the beginning of the GuestLogData
-        // with the size
-        let size = self.shared_mem.read_u32(offset)?;
-        // read size + 32 bits from shared memory, starting at
-        // layout.get_output_data_offset
-        let mut vec_out = {
-            let len_usize = usize::try_from(size)? + size_of::<u32>();
-            vec![0; len_usize]
-        };
-        self.shared_mem
-            .copy_to_slice(vec_out.as_mut_slice(), offset)?;
-        GuestLogData::try_from(vec_out.as_slice()).map_err(|e| {
-            new_error!(
-                "read_guest_log_data: failed to convert buffer to GuestLogData: {}",
-                e
-            )
-        })
+    pub fn read_guest_log_data(&mut self) -> Result<GuestLogData> {
+        self.shared_mem.try_pop_buffer_into::<GuestLogData>(
+            self.layout.output_data_buffer_offset,
+            self.layout.sandbox_memory_config.get_output_data_size(),
+        )
     }
 
     /// Read guest panic data from the `SharedMemory` contained within `self`
@@ -778,6 +669,23 @@ impl SandboxMemoryManager {
         self.shared_mem
             .copy_to_slice(vec_out.as_mut_slice(), offset)?;
         Ok(vec_out)
+    }
+}
+
+// this is just to give i32 a TryFrom implementation so that we can call pop on it
+struct I32Wrapper(i32);
+
+impl TryFrom<&[u8]> for I32Wrapper {
+    type Error = HyperlightError;
+
+    fn try_from(bytes: &[u8]) -> Result<Self> {
+        if bytes.len() != 4 {
+            Err("I32Wrapper: byte slice length must be 4".into())
+        } else {
+            let mut data = [0u8; 4];
+            data.copy_from_slice(&bytes[..4]);
+            Ok(I32Wrapper(i32::from_le_bytes(data)))
+        }
     }
 }
 
@@ -832,8 +740,8 @@ mod tests {
     use crate::{
         error::HyperlightHostError,
         mem::{
-            layout::SandboxMemoryLayout, pe::pe_info::PEInfo, ptr::RawPtr, ptr_offset::Offset,
-            shared_mem::SharedMemory,
+            layout::SandboxMemoryLayout, mgr::I32Wrapper, pe::pe_info::PEInfo, ptr::RawPtr,
+            ptr_offset::Offset, shared_mem::SharedMemory,
         },
         sandbox::SandboxConfiguration,
         testing::bytes_for_path,
@@ -949,5 +857,23 @@ mod tests {
             .expect("get_host_err should return an Ok");
         assert!(host_err_opt.is_some());
         assert_eq!(err, host_err_opt.unwrap());
+    }
+
+    #[test]
+    fn i32_wrapper_sanity() {
+        let int_values = [12732310i32, -9876543i32, 0i32, 42i32, i32::MAX, i32::MIN];
+
+        for int in int_values.iter() {
+            let bytes = int.to_le_bytes();
+            let round_trip_int = I32Wrapper::try_from(&bytes[..]).unwrap().0;
+            assert_eq!(*int, round_trip_int);
+        }
+
+        let bad_bytes: Vec<&[u8]> = vec![&[0u8; 3], &[255u8; 5], &[]];
+
+        for bytes in &bad_bytes {
+            let res = I32Wrapper::try_from(*bytes);
+            assert!(res.is_err());
+        }
     }
 }

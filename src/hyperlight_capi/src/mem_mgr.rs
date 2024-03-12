@@ -158,7 +158,10 @@ pub unsafe extern "C" fn mem_mgr_restore_state(ctx: *mut Context, mgr_hdl: Handl
 #[no_mangle]
 pub unsafe extern "C" fn mem_mgr_get_return_value(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
     validate_context!(ctx);
-    let mgr = get_mgr!(ctx, mgr_hdl);
+    let mgr = match get_mem_mgr_mut(&mut *ctx, mgr_hdl) {
+        Ok(m) => m,
+        Err(e) => return (*ctx).register_err(e),
+    };
     let ret_val = match mgr.get_return_value() {
         Ok(v) => v,
         Err(e) => return (*ctx).register_err(e),
@@ -617,7 +620,7 @@ pub unsafe extern "C" fn mem_mgr_get_function_call_result(
         Ok(m) => m,
         Err(e) => return (*ctx).register_err(e),
     };
-    match mgr.get_function_call_result() {
+    match mgr.get_guest_function_call_result() {
         Ok(output) => {
             Context::register(output, &mut (*ctx).function_call_results, Hdl::ReturnValue)
         }

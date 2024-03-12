@@ -238,6 +238,40 @@ uint8_t* guestAbortWithMessage(uint32_t code, const char* message)
     return GetFlatBufferResultFromVoid();
 }
 
+uint8_t *GuestDispatchFunction(ns(FunctionCall_table_t) functionCall)
+{
+    // this function is only used for a specific dotnet test.
+    // The test checks the stack behavior of the input/output buffer
+    // by calling the host before serializing the function call.
+    // If the stack is not working correctly, the input or output buffer will be 
+    // overwritten before the function call is serialized, and we will not be able
+    // to verify that the function call name is "ThisIsNotARealFunction"
+
+    LogToHost("Hi this is a log message that will overwrite the shared buffer if the stack is not working correctly", INFORMATION);
+    
+    int host_res = printOutput("Hi this is a log message that will overwrite the shared buffer if the stack is not working correctly");
+    
+    // verify that the function call is same format as expected
+    flatbuffers_string_t name = Hyperlight_Generated_FunctionCall_function_name_get(functionCall);
+    Hyperlight_Generated_Parameter_vec_t params = Hyperlight_Generated_FunctionCall_parameters_get(functionCall);
+    size_t param_len = Hyperlight_Generated_Parameter_vec_len(params);
+    Hyperlight_Generated_FunctionCallType_enum_t call_type = Hyperlight_Generated_FunctionCall_function_call_type_get(functionCall);
+    Hyperlight_Generated_ReturnType_enum_t return_type = Hyperlight_Generated_FunctionCall_expected_return_type_get(functionCall);
+
+    if (strcmp(name, "ThisIsNotARealFunctionButTheNameIsImportant") != 0 
+        || param_len != 0
+        || call_type != Hyperlight_Generated_FunctionCallType_guest
+        || return_type != Hyperlight_Generated_ReturnType_hlint
+        || host_res != 100)
+    {
+        // the function call got overwritten
+        setError(GUEST_ERROR, "Unexpected function call, did it get overwritten?");
+        return GetFlatBufferResultFromInt(-1);
+    }
+
+    return GetFlatBufferResultFromInt(99);
+}
+
 GENERATE_FUNCTION(simpleprintOutput,1,hlstring);
 GENERATE_FUNCTION(stackAllocate, 1, hlint);
 GENERATE_FUNCTION(stackOverflow, 1, hlint);

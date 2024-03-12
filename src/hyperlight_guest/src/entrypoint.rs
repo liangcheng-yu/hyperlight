@@ -129,5 +129,5 @@ pub extern "C" fn entrypoint(peb_address: i64, seed: i64, ops: i32) -> i32 {
     }
 
     halt();
-    0
+    0 // this is never checked
 }

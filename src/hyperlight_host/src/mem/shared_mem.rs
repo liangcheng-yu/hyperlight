@@ -3,11 +3,12 @@ use super::try_add_ext::UnsafeTryAddExt;
 #[cfg(target_os = "linux")]
 use crate::error::HyperlightError::MmapFailed;
 use crate::error::HyperlightError::{BoundsCheckFailed, IOError, MemoryAllocationFailed};
-use crate::log_then_return;
 use crate::Result;
+use crate::{log_then_return, new_error};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 #[cfg(target_os = "linux")]
 use libc::{mmap, munmap};
+use std::any::type_name;
 use std::ffi::c_void;
 use std::io::{Cursor, Error};
 use std::mem::size_of;
@@ -222,6 +223,23 @@ impl SharedMemory {
         Ok(())
     }
 
+    /// Fill the memory in the range `[offset, offset + len)` with `value`
+    pub fn fill(&mut self, value: u8, offset: Offset, len: usize) -> Result<()> {
+        bounds_check!(offset, self.mem_size());
+        bounds_check!(offset + len, self.mem_size());
+
+        unsafe {
+            let dst_ptr = {
+                let ptr = self.raw_ptr() as *mut u8;
+                ptr.try_add(offset)?
+            };
+
+            std::ptr::write_bytes::<u8>(dst_ptr, value, len);
+        }
+
+        Ok(())
+    }
+
     /// copy all of `self` in the range `[ offset, offset + slc.len() )`
     /// into `slc` and return `Ok`. If the range is invalid, return `Err`
     ///
@@ -404,6 +422,116 @@ impl SharedMemory {
     unsafe fn as_slice(&self) -> &[u8] {
         std::slice::from_raw_parts(self.raw_ptr() as *const u8, self.mem_size())
     }
+
+    /// Pushes the given data onto shared memory to the buffer at the given offset.
+    /// NOTE! buffer_start_offset must point to the beginning of the buffer
+    pub fn push_buffer(
+        &mut self,
+        buffer_start_offset: Offset,
+        buffer_size: usize,
+        data: &[u8],
+    ) -> Result<()> {
+        let stack_pointer_rel = self.read_u64(buffer_start_offset).unwrap();
+        let buffer_size_u64: u64 = buffer_size.try_into()?;
+
+        if stack_pointer_rel > buffer_size_u64 || stack_pointer_rel < 8 {
+            return Err(new_error!(
+                "Unable to push data to buffer: Stack pointer is out of bounds. Stack pointer: {}, Buffer size: {}",
+                stack_pointer_rel,
+                buffer_size_u64
+            ));
+        }
+
+        let size_required = (data.len() + 8) as u64;
+        let size_available = buffer_size_u64 - stack_pointer_rel;
+
+        if size_required > size_available {
+            return Err(new_error!(
+                "Not enough space in buffer to push data. Required: {}, Available: {}",
+                size_required,
+                size_available
+            ));
+        }
+
+        // get absolute
+        let stack_pointer_abs = stack_pointer_rel + buffer_start_offset;
+
+        // write the actual data to the top of stack
+        self.copy_from_slice(data, stack_pointer_abs)?;
+
+        // write the offset to the newly written data, to the top of stack.
+        // this is used when popping the stack, to know how far back to jump
+        self.write_u64(stack_pointer_abs + data.len(), stack_pointer_rel)?;
+
+        // update stack pointer to point to the next free address
+        self.write_u64(
+            buffer_start_offset,
+            stack_pointer_rel + data.len() as u64 + 8,
+        )
+    }
+
+    /// Pops the given given buffer into a `T` and returns it.
+    /// NOTE! the data must be a size-prefixed flatbuffer, and
+    /// buffer_start_offset must point to the beginning of the buffer
+    pub fn try_pop_buffer_into<T>(
+        &mut self,
+        buffer_start_offset: Offset,
+        buffer_size: usize,
+    ) -> Result<T>
+    where
+        T: for<'a> TryFrom<&'a [u8]>,
+    {
+        // get the stackpointer
+        let stack_pointer_rel = self.read_u64(buffer_start_offset)?;
+
+        if stack_pointer_rel > buffer_size.try_into()? || stack_pointer_rel < 16 {
+            return Err(new_error!(
+                "Unable to pop data from buffer: Stack pointer is out of bounds. Stack pointer: {}, Buffer size: {}",
+                stack_pointer_rel,
+                buffer_size
+            ));
+        }
+
+        // make it absolute
+        let last_element_offset_abs = stack_pointer_rel + buffer_start_offset;
+
+        // go back 8 bytes to get offset to element on top of stack
+        let last_element_offset_rel: Offset = self
+            .read_u64(last_element_offset_abs - 8u64)
+            .unwrap()
+            .into();
+
+        // make it absolute
+        let last_element_offset_abs = last_element_offset_rel + buffer_start_offset;
+
+        // Get the size of the flatbuffer buffer from memory
+        let fb_buffer_size = {
+            let size_i32 = self.read_u32(last_element_offset_abs)? + 4;
+            // ^^^ flatbuffer byte arrays are prefixed by 4 bytes
+            // indicating its size, so, to get the actual size, we need
+            // to add 4.
+            usize::try_from(size_i32)
+        }?;
+
+        let mut result_buffer = vec![0; fb_buffer_size];
+
+        self.copy_to_slice(&mut result_buffer, last_element_offset_abs)?;
+        let to_return = T::try_from(result_buffer.as_slice()).map_err(|_e| {
+            new_error!(
+                "pop_buffer_into: failed to convert buffer to {}",
+                type_name::<T>()
+            )
+        })?;
+
+        // update the stack pointer to point to the element we just popped off since that is now free
+        self.write_u64(buffer_start_offset, last_element_offset_rel.into())?;
+
+        // zero out the memory we just popped off
+        let num_bytes_to_zero = stack_pointer_rel - u64::from(last_element_offset_rel);
+        self.fill(0, last_element_offset_abs, num_bytes_to_zero.try_into()?)?;
+
+        Ok(to_return)
+    }
 }
 
 #[cfg(test)]
@@ -423,6 +551,31 @@ mod tests {
     /// was successfully decoded to a `u8`, and `Err` otherwise.
     fn read_u8(shared_mem: &SharedMemory, offset: Offset) -> Result<u8> {
         shared_mem.read(offset, Box::new(|mut c| c.read_u8().map_err(IOError)))
+    }
+
+    #[test]
+    fn fill() {
+        let mem_size: usize = 4096;
+        let mut gm = SharedMemory::new(mem_size).unwrap();
+        gm.fill(1, Offset::from(0), 1024).unwrap();
+        gm.fill(2, Offset::from(1024), 1024).unwrap();
+        gm.fill(3, Offset::from(2048), 1024).unwrap();
+        gm.fill(4, Offset::from(3072), 1024).unwrap();
+
+        let vec = gm.copy_all_to_vec().unwrap();
+
+        assert!(vec[0..1024].iter().all(|&x| x == 1));
+        assert!(vec[1024..2048].iter().all(|&x| x == 2));
+        assert!(vec[2048..3072].iter().all(|&x| x == 3));
+        assert!(vec[3072..4096].iter().all(|&x| x == 4));
+
+        gm.fill(5, Offset::from(0), 4096).unwrap();
+
+        let vec2 = gm.copy_all_to_vec().unwrap();
+        assert!(vec2.iter().all(|&x| x == 5));
+
+        assert!(gm.fill(0, Offset::from(0), mem_size + 1).is_err());
+        assert!(gm.fill(0, Offset::from(mem_size as u64), 1).is_err());
     }
 
     #[test]

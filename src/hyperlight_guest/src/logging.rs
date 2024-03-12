@@ -1,5 +1,3 @@
-use core::ptr::copy_nonoverlapping;
-
 use alloc::{string::ToString, vec::Vec};
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
     guest_log_data::GuestLogData, guest_log_level::LogLevel,
@@ -7,7 +5,7 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
 
 use crate::{
     host_function_call::{outb, OutBAction},
-    P_PEB,
+    shared_output_data::push_shared_output_data,
 };
 
 fn write_log_data(
@@ -31,12 +29,7 @@ fn write_log_data(
         .try_into()
         .expect("Failed to convert GuestLogData to bytes");
 
-    unsafe {
-        let peb_ptr = P_PEB.unwrap();
-        let output_data_buffer = (*peb_ptr).outputdata.outputDataBuffer as *mut u8;
-
-        copy_nonoverlapping(bytes.as_ptr(), output_data_buffer, bytes.len());
-    }
+    push_shared_output_data(bytes).expect("Unable to push log data to shared output data");
 }
 
 pub fn log_message(

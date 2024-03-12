@@ -29,7 +29,7 @@ impl From<u16> for OutBAction {
 }
 
 #[instrument(err(Debug), skip_all, parent = Span::current(), level="Trace")]
-pub(super) fn outb_log(mgr: &SandboxMemoryManager) -> Result<()> {
+pub(super) fn outb_log(mgr: &mut SandboxMemoryManager) -> Result<()> {
     // This code will create either a logging record or a tracing record for the GuestLogData depending on if the host has set up a tracing subscriber.
     // In theory as we have enabled the log feature in the Cargo.toml for tracing this should happen
     // automatically (based on if there is tracing subscriber present) but only works if the event created using macros. (see https://github.com/tokio-rs/tracing/blob/master/tracing/src/macros.rs#L2421 )
@@ -99,15 +99,15 @@ fn handle_outb_impl(
     byte: u64,
 ) -> Result<()> {
     match port.into() {
-        OutBAction::Log => outb_log(mem_mgr.as_ref()),
+        OutBAction::Log => outb_log(mem_mgr.as_mut()),
         OutBAction::CallFunction => {
-            let call = mem_mgr.as_ref().get_host_function_call()?;
+            let call = mem_mgr.as_mut().get_host_function_call()?; // pop output buffer
             let name = call.function_name.clone();
             let args: Vec<ParameterValue> = call.parameters.unwrap_or(vec![]);
             let res = host_funcs.lock()?.call_host_function(&name, args)?;
             mem_mgr
                 .as_mut()
-                .write_response_from_host_method_call(&res)?;
+                .write_response_from_host_method_call(&res)?; // push input buffers
 
             Ok(())
         }
@@ -157,6 +157,7 @@ pub(super) fn outb_handler_wrapper<'a>(
 mod tests {
     use super::outb_log;
 
+    use crate::mem::layout::SandboxMemoryLayout;
     use crate::mem::mgr::SandboxMemoryManager;
     use crate::sandbox::{outb::GuestLogData, SandboxConfiguration};
     use crate::testing::log_values::test_value_as_str;
@@ -182,37 +183,48 @@ mod tests {
         Logger::initialize_test_logger();
         LOGGER.set_max_level(log::LevelFilter::Off);
 
+        let sandbox_cfg = SandboxConfiguration::default();
+
         let new_mgr = || {
             let mut pe_info = simple_guest_pe_info().unwrap();
-            SandboxMemoryManager::load_guest_binary_into_memory(
-                SandboxConfiguration::default(),
+            let mut mgr = SandboxMemoryManager::load_guest_binary_into_memory(
+                sandbox_cfg,
                 &mut pe_info,
                 false,
             )
-            .unwrap()
+            .unwrap();
+            let mem_size = mgr.get_shared_mem_mut().mem_size();
+            let layout = mgr.layout;
+            let shared_mem = mgr.get_shared_mem_mut();
+            layout
+                .write(shared_mem, SandboxMemoryLayout::BASE_ADDRESS, mem_size)
+                .unwrap();
+            mgr
         };
         {
             // We set a logger but there is no guest log data
             // in memory, so expect a log operation to fail
-            let mgr = new_mgr();
-            assert!(outb_log(&mgr).is_err());
+            let mut mgr = new_mgr();
+            assert!(outb_log(&mut mgr).is_err());
         }
         {
             // Write a log message so outb_log will succeed.
             // Since the logger level is set off, expect logs to be no-ops
             let mut mgr = new_mgr();
-            let layout = mgr.layout;
             let log_msg = new_guest_log_data(LogLevel::Information);
 
             let guest_log_data_buffer: Vec<u8> = log_msg.try_into().unwrap();
+            let offset = mgr.layout.get_output_data_offset();
             mgr.get_shared_mem_mut()
-                .copy_from_slice(
-                    guest_log_data_buffer.as_slice(),
-                    layout.get_output_data_offset(),
+                .push_buffer(
+                    offset,
+                    sandbox_cfg.get_output_data_size(),
+                    &guest_log_data_buffer,
                 )
                 .unwrap();
 
-            assert!(outb_log(&mgr).is_ok());
+            let res = outb_log(&mut mgr);
+            assert!(res.is_ok());
             assert_eq!(0, LOGGER.num_log_calls());
             LOGGER.clear_log_calls();
         }
@@ -241,13 +253,14 @@ mod tests {
 
                 let guest_log_data_buffer: Vec<u8> = log_data.clone().try_into().unwrap();
                 mgr.get_shared_mem_mut()
-                    .copy_from_slice(
-                        guest_log_data_buffer.as_slice(),
+                    .push_buffer(
                         layout.get_output_data_offset(),
+                        sandbox_cfg.get_output_data_size(),
+                        guest_log_data_buffer.as_slice(),
                     )
                     .unwrap();
 
-                outb_log(&mgr).unwrap();
+                outb_log(&mut mgr).unwrap();
 
                 LOGGER.test_log_records(|log_calls| {
                     let expected_level: Level = (&level).into();
@@ -284,15 +297,23 @@ mod tests {
         rebuild_interest_cache();
         let subscriber =
             hyperlight_testing::tracing_subscriber::TracingSubscriber::new(tracing::Level::TRACE);
+        let sandbox_cfg = SandboxConfiguration::default();
         tracing::subscriber::with_default(subscriber.clone(), || {
             let new_mgr = || {
                 let mut pe_info = simple_guest_pe_info().unwrap();
-                SandboxMemoryManager::load_guest_binary_into_memory(
-                    SandboxConfiguration::default(),
+                let mut mgr = SandboxMemoryManager::load_guest_binary_into_memory(
+                    sandbox_cfg,
                     &mut pe_info,
                     false,
                 )
-                .unwrap()
+                .unwrap();
+                let mem_size = mgr.get_shared_mem_mut().mem_size();
+                let layout = mgr.layout;
+                let shared_mem = mgr.get_shared_mem_mut();
+                layout
+                    .write(shared_mem, SandboxMemoryLayout::BASE_ADDRESS, mem_size)
+                    .unwrap();
+                mgr
             };
 
             // as a span does not exist one will be automatically created
@@ -316,13 +337,14 @@ mod tests {
 
                 let guest_log_data_buffer: Vec<u8> = log_data.try_into().unwrap();
                 mgr.get_shared_mem_mut()
-                    .copy_from_slice(
-                        guest_log_data_buffer.as_slice(),
+                    .push_buffer(
                         layout.get_output_data_offset(),
+                        sandbox_cfg.get_output_data_size(),
+                        guest_log_data_buffer.as_slice(),
                     )
                     .unwrap();
                 subscriber.clear();
-                outb_log(&mgr).unwrap();
+                outb_log(&mut mgr).unwrap();
 
                 subscriber.test_trace_records(|spans, events| {
                     let expected_level = match level {
@@ -337,11 +359,11 @@ mod tests {
 
                     // We cannot get the parent span using the `current_span()` method as by the time we get to this point that span has been exited so there is no current span
                     // We need to make sure that the span that we created is in the spans map instead
-                    // We expect to have created 23 spans at this point. We are only interested in the first one that was created when calling outb_log.
+                    // We expect to have created 71 spans at this point. We are only interested in the first one that was created when calling outb_log.
 
                     assert!(
-                        spans.len() == 23,
-                        "expected 23 spans, found {}",
+                        spans.len() == 80,
+                        "expected 80 spans, found {}",
                         spans.len()
                     );
 

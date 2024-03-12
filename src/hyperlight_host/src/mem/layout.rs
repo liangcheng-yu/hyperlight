@@ -147,7 +147,7 @@ struct GuestPanicContext {
 #[derive(Copy, Clone, Debug)]
 //TODO:(#1029) Once we have a complete C API, we can restrict visibility to crate level.
 pub struct SandboxMemoryLayout {
-    sandbox_memory_config: SandboxConfiguration,
+    pub(super) sandbox_memory_config: SandboxConfiguration,
     /// The peb offset into this sandbox.
     peb_offset: Offset,
     /// The stack size of this sandbox.
@@ -600,6 +600,12 @@ impl SandboxMemoryLayout {
         let addr = get_address!(input_data_buffer);
 
         shared_mem.write_u64(self.get_input_data_pointer_offset(), addr)?;
+
+        // Initialize the stack pointers of input data and output data
+        // to point to the ninth (index 8) byte, which is the first free address
+        // of the each respective stack. The first 8 bytes are the stack pointer itself.
+        shared_mem.write_u64(self.input_data_buffer_offset, 8)?;
+        shared_mem.write_u64(self.output_data_buffer_offset, 8)?;
 
         // Set up output buffer pointer
         shared_mem.write_u64(

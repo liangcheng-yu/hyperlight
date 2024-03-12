@@ -380,7 +380,7 @@ impl TryFrom<&[u8]> for ReturnValue {
     #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
     fn try_from(value: &[u8]) -> Result<Self> {
         let function_call_result_fb = size_prefixed_root_as_function_call_result(value)
-            .map_err(|e| anyhow!("Failed to get function call result from bytes: {:?}", e))?;
+            .map_err(|e| anyhow!("Failed to get ReturnValue from bytes: {:?}", e))?;
         function_call_result_fb.try_into()
     }
 }

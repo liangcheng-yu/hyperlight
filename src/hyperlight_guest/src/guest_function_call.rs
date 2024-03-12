@@ -1,6 +1,5 @@
-use core::{ptr::copy_nonoverlapping, slice::from_raw_parts};
-
 use alloc::{format, string::ToString, vec::Vec};
+
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
     function_call::{FunctionCall, FunctionCallType},
     function_types::ParameterType,
@@ -12,7 +11,9 @@ use crate::{
     entrypoint::halt,
     error::{HyperlightGuestError, Result},
     guest_error::{reset_error, set_error},
-    GUEST_FUNCTIONS, P_PEB,
+    shared_input_data::try_pop_shared_input_data_into,
+    shared_output_data::push_shared_output_data,
+    GUEST_FUNCTIONS,
 };
 
 type GuestFunc = fn(&FunctionCall) -> Result<Vec<u8>>;
@@ -123,27 +124,21 @@ pub(crate) fn call_guest_function(function_call: &FunctionCall) -> Result<Vec<u8
 fn internal_dispatch_function() -> Result<()> {
     reset_error();
 
-    let peb_ptr = unsafe { P_PEB.unwrap() };
+    // We should enable this once we have finer tracing control
+    // (i.e, we don't go into the guest for every single trace)
+    // see https://github.com/deislabs/hyperlight/issues/1215
+    // #[cfg(debug_assertions)]
+    // crate::trace!("internal_dispatch_function");
 
-    let idb = unsafe {
-        from_raw_parts(
-            (*peb_ptr).inputdata.inputDataBuffer as *mut u8,
-            (*peb_ptr).inputdata.inputDataSize as usize,
-        )
-    };
-    let function_call = FunctionCall::try_from(idb).expect("Invalid Function Call");
+    let function_call = try_pop_shared_input_data_into::<FunctionCall>()
+        .expect("Function call deserialization failed");
 
     let result_vec = call_guest_function(&function_call).map_err(|e| {
         set_error(e.kind.clone(), e.message.as_str());
         e
     })?;
-    unsafe {
-        let output_data_buffer = (*peb_ptr).outputdata.outputDataBuffer as *mut u8;
 
-        copy_nonoverlapping(result_vec.as_ptr(), output_data_buffer, result_vec.len());
-    }
-
-    Ok(())
+    push_shared_output_data(result_vec)
 }
 
 // This is implemented as a separate function to make sure that epilogue in the internal_dispatch_function is called before the halt()

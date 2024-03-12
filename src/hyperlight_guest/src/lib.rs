@@ -11,6 +11,8 @@ extern crate alloc;
 
 // Modules
 pub mod entrypoint;
+pub mod shared_input_data;
+pub mod shared_output_data;
 
 pub mod guest_error;
 pub mod guest_function_call;

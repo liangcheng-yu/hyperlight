@@ -37,7 +37,8 @@
   "src/hyperlight_testing/Cargo.toml",
   "src/hyperlight_flatbuffers/Cargo.toml",
   "src/tests/rust_guests/dummyguest/Cargo.toml",
-  "src/tests/rust_guests/simpleguest/Cargo.toml"
+  "src/tests/rust_guests/simpleguest/Cargo.toml",
+  "src/tests/rust_guests/callbackguest/Cargo.toml"
 ],
 "githubPullRequests.ignoredPullRequestBranches": [
     "dev"

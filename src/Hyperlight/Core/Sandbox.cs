@@ -462,7 +462,6 @@ namespace Hyperlight
 
         private void Initialise()
         {
-            var returnValue = 0;
             var seedBytes = new byte[8];
             using (var randomNumberGenerator = RandomNumberGenerator.Create())
             {
@@ -525,13 +524,6 @@ namespace Hyperlight
                 HyperlightException.LogAndThrowException<StackOverflowException>("Init Function Failed", GetType().Name);
             }
 
-            returnValue = sandboxMemoryManager.GetInitReturnValue();
-
-            if (returnValue != 0)
-            {
-                CheckForGuestError();
-                HyperlightException.LogAndThrowException($"Init Function Failed with error code:{returnValue}", GetType().Name);
-            }
 
             {
                 // call sandbox_initialize _after_ all the init logic

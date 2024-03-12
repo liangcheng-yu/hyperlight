@@ -4,7 +4,7 @@ use crate::error::HyperlightError;
 use crate::Result;
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use std::convert::From;
-use std::ops::Add;
+use std::ops::{Add, Sub};
 
 /// An offset into a given address space.
 ///
@@ -130,6 +130,46 @@ impl Add<Offset> for u64 {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn add(self, rhs: Offset) -> Offset {
         rhs.add(self)
+    }
+}
+
+impl Sub<Offset> for Offset {
+    type Output = Offset;
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn sub(self, rhs: Offset) -> Offset {
+        Offset::from(self.0 - rhs.0)
+    }
+}
+
+impl Sub<usize> for Offset {
+    type Output = Offset;
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn sub(self, rhs: usize) -> Offset {
+        Offset(self.0 - rhs as u64)
+    }
+}
+
+impl Sub<Offset> for usize {
+    type Output = Offset;
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn sub(self, rhs: Offset) -> Offset {
+        rhs.sub(self)
+    }
+}
+
+impl Sub<u64> for Offset {
+    type Output = Offset;
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn sub(self, rhs: u64) -> Offset {
+        Offset(self.0 - rhs)
+    }
+}
+
+impl Sub<Offset> for u64 {
+    type Output = Offset;
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn sub(self, rhs: Offset) -> Offset {
+        rhs.sub(self)
     }
 }
 

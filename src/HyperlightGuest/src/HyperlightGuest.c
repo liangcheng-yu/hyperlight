@@ -107,7 +107,6 @@ void checkForHostError()
         ns(GuestError_table_t guestError = ns(GuestError_as_root(buffer)));
         if (ns(GuestError_code(guestError) != ns(ErrorCode_NoError)))
         {
-            *(uint32_t *)pPeb->outputdata.outputDataBuffer = -1;
             longjmp(jmpbuf, 1);
         }
     }
@@ -220,8 +219,95 @@ void resetError()
 void setError(uint64_t errorCode, char *message)
 {
     writeError(errorCode, message);
-    *(uint32_t *)pPeb->outputdata.outputDataBuffer = -1;
     longjmp(jmpbuf, 1);
+}
+
+// Pushes to the shared output buffer
+void push_shared_output_data(void *buffer, size_t size)
+{
+    // get relative offset to next free address
+    uint64_t stack_ptr_rel = *((uint64_t*)pPeb->outputdata.outputDataBuffer);
+    
+    // check if the stack pointer is within the bounds of the buffer. 
+    // It can be equal to the size, but never greater
+    // It can never be less than 8. An empty buffer's stack pointer is 8
+    if (stack_ptr_rel > pPeb->outputdata.outputDataSize || stack_ptr_rel < 8)
+    {
+        char message[100];
+        snprintf(message, 100, "Corrupt OutputDataBuffer pointer: %lu, OutputDataSize: %lu\n", stack_ptr_rel, pPeb->outputdata.outputDataSize);
+        setError(GUEST_ERROR, message);
+    }
+
+    // check if there is enough space in the buffer
+    size_t size_required = size + 8; // the data plus the pointer pointing to the data
+    size_t size_available = pPeb->outputdata.outputDataSize - stack_ptr_rel;
+    if (size_required > size_available)
+    {
+        char message[100];	
+        snprintf(message, 100, "Not enough space to push data to shared OutputDataBuffer. Required: %d, Available: %d\n", size_required, size_available);
+        setError(GUEST_ERROR, message);
+    }
+
+    // write the data
+    memcpy((char*)pPeb->outputdata.outputDataBuffer + stack_ptr_rel, buffer, size);
+
+    // write the offset to the newly written data, to the top of the stack
+    *((uint64_t*)((char*)pPeb->outputdata.outputDataBuffer + stack_ptr_rel + size)) = stack_ptr_rel;
+
+    // update the stack pointer to point to next free address
+    *((uint64_t*) pPeb->outputdata.outputDataBuffer) = stack_ptr_rel + size + 8;
+}
+
+// Pops the shared input buffer and returns a pointer to the popped off buffer.
+// The caller is responsible for freeing the buffer.
+// Returns NULL if there was an error. 
+void* pop_shared_input_buffer()
+{
+    // get relative offset to next free address
+    uint64_t stack_ptr_rel = *((uint64_t*)pPeb->inputdata.inputDataBuffer);
+    
+    // check if the stack pointer is within the bounds of the buffer. 
+    // It can be equal to the size, but never greater
+    // It can never be less than 16 since empty buffer's stack pointer is 8
+    // so, the first element occupies at least 8 bytes
+    if (stack_ptr_rel > pPeb->inputdata.inputDataSize || stack_ptr_rel < 16)
+    {
+        char message[100];
+        snprintf(message, 100, "Corrupt InputDataBuffer pointer: %lu, InputDataSize: %lu\n", stack_ptr_rel, pPeb->inputdata.inputDataSize);
+        setError(GUEST_ERROR, message);
+        return NULL;
+    }
+
+    // Convert to absolute and go back 8 bytes. This is the pointer to the offset of the element on the top of the stack
+    uint64_t* last_element_pointer_offset_abs = (uint64_t*)((char*)pPeb->inputdata.inputDataBuffer + stack_ptr_rel - 8);
+
+    // read to get the actual offset to the last element
+    uint64_t last_element_start_rel = *(last_element_pointer_offset_abs);
+    // convert to absolute
+    void* last_element_offset_abs = (char*)pPeb->inputdata.inputDataBuffer + last_element_start_rel;
+
+    // read the flatbuffer
+    size_t size;
+    void *temp_buffer = flatbuffers_read_size_prefix(last_element_offset_abs, &size);
+    
+    if (size <= 0)
+    {
+        setError(GUEST_ERROR, "Got a 0-size buffer in pop_shared_input_buffer");
+        return NULL;
+    }
+
+    // copy the buffer, since otherwise it would be overwritten
+    // by subsequent pushes to the shared buffer
+    void* buffer = malloc(size + 4); // size is excluding the size prefix
+    memcpy(buffer, temp_buffer, size + 4);
+
+    // update the stack pointer to point to the element we just popped off, since that is now free
+    *((uint64_t*) pPeb->inputdata.inputDataBuffer) = last_element_start_rel;
+
+    // zero out popped off buffer
+    uint64_t num_bytes_to_zero = stack_ptr_rel - last_element_start_rel;
+    memset(last_element_offset_abs, 0, num_bytes_to_zero);
+    return buffer;
 }
 
 void ValidateHostFunctionCall(flatcc_builder_t *HostFunctionCallBuilder, int32_t numArgs, char *functionName, va_list ap)
@@ -368,13 +454,8 @@ void CallHostFunction(char *functionName, int32_t numArgs, va_list ap)
     void *buffer = flatcc_builder_finalize_buffer(&hostFunctionCallBuilder, &size);
     assert(buffer);
 
-    if (size > pPeb->outputdata.outputDataSize)
-    {
-        char message[100];
-        snprintf(message, 100, "Host Function Call Buffer is too big (%d) for output data (%d) Function Name: %s", size, pPeb->outputdata.outputDataSize, functionName);
-        setError(GUEST_ERROR, message);
-    }
-    memcpy(pPeb->outputdata.outputDataBuffer, buffer, size);
+    push_shared_output_data(buffer, size);
+    
     free(buffer);
     flatcc_builder_clear(&hostFunctionCallBuilder);
     outb(OUTB_CALL_FUNCTION, 0);
@@ -399,13 +480,9 @@ int native_symbol_thunk_returning_int(char *functionName,int32_t numArgs, ...)
 
 int GetHostReturnValueAsInt()
 {
-    size_t bufferSize;
-    void *buffer = flatbuffers_read_size_prefix(pPeb->inputdata.inputDataBuffer, &bufferSize);
-    assert(NULL != buffer);
-    // No need to free buffer as its just a pointer to an offset in the message buffer in the PEB
-    if (bufferSize <= 0)
+    void *buffer = pop_shared_input_buffer();
+    if (NULL == buffer)
     {
-        setError(GUEST_ERROR, "Got a 0-size buffer in GetHostReturnValueAsInt");
         return -1;
     }
 
@@ -420,10 +497,12 @@ int GetHostReturnValueAsInt()
         ns(hlint_table_t) hlintTable = (ns(hlint_table_t))ns(FunctionCallResult_return_value(
             funcCallRes));
         int32_t hlintVal = ns(hlint_value_get(hlintTable));
+        free(buffer);
         return hlintVal;
     }
     else
     {
+        free(buffer);
         setError(GUEST_ERROR, "Host return value was not an int as expected");
         return -1;
     }
@@ -488,13 +567,9 @@ long long native_symbol_thunk_returning_longlong(char *functionName, int32_t num
 
 long long GetHostReturnValueAsLongLong()
 {
-    size_t bufferSize;
-    void *buffer = flatbuffers_read_size_prefix(pPeb->inputdata.inputDataBuffer, &bufferSize);
-    assert(NULL != buffer);
-    // No need to free buffer as its just a pointer to an offset in the message buffer in the PEB
-    if (bufferSize <= 0)
+    void *buffer = pop_shared_input_buffer();
+    if (NULL == buffer)
     {
-        setError(GUEST_ERROR, "Got a 0-size buffer in GetHostReturnValueAsLongLong");
         return -1;
     }
 
@@ -509,10 +584,12 @@ long long GetHostReturnValueAsLongLong()
         ns(hllong_table_t) hllongTable = (ns(hllong_table_t))ns(FunctionCallResult_return_value(
             funcCallRes));
         int64_t hllongVal = ns(hllong_value_get(hllongTable));
+        free(buffer);
         return hllongVal;
     }
     else
     {
+        free(buffer);
         setError(GUEST_ERROR, "Host return value was not an int as expected");
         return -1;
     }
@@ -768,29 +845,39 @@ uint8_t *CallGuestFunction(ns(FunctionCall_table_t) functionCall)
 void DispatchFunction()
 {
     // setjmp is used to capture state so that if an error occurs then lngjmp is called in setError and control returns to this point , the if returns false and the program exits/halts
+    void* buffer = NULL;
     if (!setjmp(jmpbuf))
     {
         resetError();
 
-        // read the Function Call FlatBuffer from memory
-
         size_t size;
-        void *buffer = flatbuffers_read_size_prefix(pPeb->inputdata.inputDataBuffer, &size);
+
+        // pop the shared input buffer
+        buffer = pop_shared_input_buffer();
         assert(NULL != buffer);
-        // No need to free buffer as its just a pointer to an offset in the message buffer in the PEB
+
         ns(FunctionCall_table_t functionCall = ns(FunctionCall_as_root(buffer)));
         // Validate this is a Guest Function Call
         if (ns(FunctionCall_function_call_type(functionCall)) != ns(FunctionCallType_guest))
         {
             setError(GUEST_ERROR, "Invalid Function Call Type");
         }
+
+        // dispatch the function and get result as a flatbuffer
         uint8_t *result = CallGuestFunction(functionCall);
-        buffer = flatbuffers_read_size_prefix(result, &size);
-        assert(NULL != buffer);
-        memcpy(pPeb->outputdata.outputDataBuffer, result, size + 4);
+
+        // Confirm the result is a flatbuffer
+        assert(flatbuffers_read_size_prefix(result, &size));
+
+        // Push result
+        push_shared_output_data(result, size + 4);
         free(result);
     }
 
+    if (buffer != NULL)
+    {
+        free(buffer);
+    }
     halt(); // This is a nop if we were just loaded into memory
 }
 
@@ -918,11 +1005,7 @@ void WriteLogData(
     flatcc_builder_finalize_buffer(&logDataBuilder, &size);
     void *buffer = flatcc_builder_get_direct_buffer(&logDataBuilder, &size);
     {
-        void *outputBuffer = pPeb->outputdata.outputDataBuffer;
-        memcpy(
-            outputBuffer,
-            buffer,
-            size);
+        push_shared_output_data(buffer, size);
     }
     flatcc_builder_clear(&logDataBuilder);
     free(buffer);
@@ -1095,13 +1178,10 @@ __declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int o
         // This is done as the we are using flatbuffers to serialise the function table and its easier and faster than trying to mutate the tabel each ime it is updated.
 
         FinaliseFunctionTable();
-
-        // Setup return values
-        *(int32_t *)pPeb->outputdata.outputDataBuffer = 0;
     }
 
     halt(); // This is a nop if we were just loaded into memory
-    return 0;
+    return 0; // this is never checked
 }
 
 /// <summary>

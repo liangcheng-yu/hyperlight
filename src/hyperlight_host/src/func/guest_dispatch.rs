@@ -74,11 +74,11 @@ pub(super) fn call_function_on_guest<'a, HvMemMgrT: WrapperGetter<'a>>(
         }?;
     }
 
-    let mem_mgr = wrapper_getter.get_mgr();
+    let mem_mgr = wrapper_getter.get_mgr_mut();
     mem_mgr.check_stack_guard()?; // <- wrapper around mem_mgr `check_for_stack_guard`
     check_for_guest_error(mem_mgr)?;
 
-    mem_mgr.as_ref().get_function_call_result()
+    mem_mgr.as_mut().get_guest_function_call_result()
 }
 
 #[cfg(test)]

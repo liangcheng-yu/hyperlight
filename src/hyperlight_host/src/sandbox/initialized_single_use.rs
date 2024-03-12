@@ -241,7 +241,7 @@ mod tests {
         for i in 0..1000 {
             ctx.call(
                 "PrintUsingPrintf",
-                ReturnType::Void,
+                ReturnType::Int,
                 Some(vec![ParameterValue::String(
                     format!("Hello World {}\n", i).to_string(),
                 )]),
