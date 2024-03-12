@@ -237,6 +237,7 @@ impl Hypervisor for KVMDriver {
         regs.rsp = self.rsp.absolute()?;
         regs.rdx = seed;
         regs.r8 = u64::from(page_size);
+        regs.r9 = self.get_max_log_level().into();
         regs.rcx = peb_addr.into();
         regs.rflags = 0x2;
         self.vcpu_fd.set_regs(&regs)?;

@@ -17,10 +17,11 @@ use mshv_bindings::{
     hv_register_name, hv_register_name_HV_X64_REGISTER_CR0, hv_register_name_HV_X64_REGISTER_CR3,
     hv_register_name_HV_X64_REGISTER_CR4, hv_register_name_HV_X64_REGISTER_CS,
     hv_register_name_HV_X64_REGISTER_EFER, hv_register_name_HV_X64_REGISTER_R8,
-    hv_register_name_HV_X64_REGISTER_RAX, hv_register_name_HV_X64_REGISTER_RBX,
-    hv_register_name_HV_X64_REGISTER_RCX, hv_register_name_HV_X64_REGISTER_RDX,
-    hv_register_name_HV_X64_REGISTER_RFLAGS, hv_register_name_HV_X64_REGISTER_RIP,
-    hv_register_name_HV_X64_REGISTER_RSP, hv_register_value, hv_u128, mshv_user_mem_region,
+    hv_register_name_HV_X64_REGISTER_R9, hv_register_name_HV_X64_REGISTER_RAX,
+    hv_register_name_HV_X64_REGISTER_RBX, hv_register_name_HV_X64_REGISTER_RCX,
+    hv_register_name_HV_X64_REGISTER_RDX, hv_register_name_HV_X64_REGISTER_RFLAGS,
+    hv_register_name_HV_X64_REGISTER_RIP, hv_register_name_HV_X64_REGISTER_RSP, hv_register_value,
+    hv_u128, mshv_user_mem_region,
 };
 use mshv_ioctls::{Mshv, VcpuFd, VmFd};
 use once_cell::sync::Lazy;
@@ -333,6 +334,12 @@ impl Hypervisor for HypervLinuxDriver {
         self.registers.insert(
             hv_register_name_HV_X64_REGISTER_R8,
             hv_register_value { reg32: page_size },
+        );
+        self.registers.insert(
+            hv_register_name_HV_X64_REGISTER_R9,
+            hv_register_value {
+                reg32: self.get_max_log_level(),
+            },
         );
         self.apply_registers()?;
         self.execute_until_halt(

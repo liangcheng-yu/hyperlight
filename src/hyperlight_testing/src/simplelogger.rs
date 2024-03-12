@@ -19,6 +19,7 @@ pub struct LogCall {
 }
 
 static mut LOGCALLS: Vec<LogCall> = Vec::<LogCall>::new();
+static mut NUMBER_OF_ENABLED_CALLS: usize = 0;
 static mut LOGGER_MAX_LEVEL: LevelFilter = LevelFilter::Off;
 
 pub struct SimpleLogger {}
@@ -31,6 +32,10 @@ impl SimpleLogger {
         });
     }
 
+    pub fn num_enabled_calls(&self) -> usize {
+        unsafe { NUMBER_OF_ENABLED_CALLS }
+    }
+
     pub fn num_log_calls(&self) -> usize {
         unsafe { LOGCALLS.len() }
     }
@@ -41,6 +46,7 @@ impl SimpleLogger {
     pub fn clear_log_calls(&self) {
         unsafe {
             LOGCALLS.clear();
+            NUMBER_OF_ENABLED_CALLS = 0;
         }
     }
 
@@ -60,7 +66,16 @@ impl SimpleLogger {
 
 impl Log for SimpleLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
-        unsafe { metadata.target() == "hyperlight_guest" && metadata.level() <= LOGGER_MAX_LEVEL }
+        // This allows us to count the actual number of messages that have been logged by the guest
+        // because the guest derives its log level from the host log level then the number times that enabled is called for
+        // the "hyperlight_guest" target will be the same as the number of messages logged by the guest.
+        // In other words this function should always return true for the "hyperlight_guest" target.
+        unsafe {
+            if metadata.target() == "hyperlight_guest" {
+                NUMBER_OF_ENABLED_CALLS += 1;
+            }
+            metadata.target() == "hyperlight_guest" && metadata.level() <= LOGGER_MAX_LEVEL
+        }
     }
     fn log(&self, record: &Record) {
         if !self.enabled(record.metadata()) {

@@ -1,10 +1,10 @@
 use core::ffi::c_char;
 use core::ffi::CStr;
+use log::error;
 
 use alloc::{string::ToString, vec::Vec};
 use hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::{ErrorCode, GuestError};
 
-use crate::error;
 use crate::host_function_call::outb;
 use crate::host_function_call::OutBAction;
 use crate::{entrypoint::halt, P_PEB};

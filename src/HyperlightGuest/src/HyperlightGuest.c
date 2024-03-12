@@ -1140,7 +1140,8 @@ ns(HostFunctionDetails_table_t) GetHostFunctionDetails()
     return hostFunctionDetails;
 }
 
-__declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int osPageSize)
+// maxLogLevel is the maximum log level that the guest can log at, its not used in the C guest
+__declspec(safebuffers) int entryPoint(uint64_t pebAddress, uint64_t seed, int osPageSize, int maxLogLevel)
 {
 
     // TODO: We should try and write to stderr here in case the program was started from the command line, note that we dont link against the CRT so we cant use printf

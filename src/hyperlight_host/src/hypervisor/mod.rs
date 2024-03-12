@@ -525,6 +525,11 @@ pub trait Hypervisor: Debug + Sync + Send {
 
     /// Allow the hypervisor to be downcast
     fn as_any(&self) -> &dyn Any;
+
+    /// Get the logging level to pass to the guest entrypoint
+    fn get_max_log_level(&self) -> u32 {
+        log::max_level() as u32
+    }
 }
 
 #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]

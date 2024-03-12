@@ -26,9 +26,10 @@ use tracing::{instrument, Span};
 use windows::Win32::System::Hypervisor::{
     WHvMapGpaRangeFlagExecute, WHvMapGpaRangeFlagRead, WHvMapGpaRangeFlagWrite, WHvX64RegisterCr0,
     WHvX64RegisterCr3, WHvX64RegisterCr4, WHvX64RegisterCs, WHvX64RegisterEfer, WHvX64RegisterR8,
-    WHvX64RegisterRcx, WHvX64RegisterRdx, WHvX64RegisterRflags, WHvX64RegisterRip,
-    WHvX64RegisterRsp, WHV_PARTITION_HANDLE, WHV_REGISTER_NAME, WHV_REGISTER_VALUE,
-    WHV_RUN_VP_EXIT_CONTEXT, WHV_RUN_VP_EXIT_REASON, WHV_UINT128, WHV_UINT128_0,
+    WHvX64RegisterR9, WHvX64RegisterRcx, WHvX64RegisterRdx, WHvX64RegisterRflags,
+    WHvX64RegisterRip, WHvX64RegisterRsp, WHV_PARTITION_HANDLE, WHV_REGISTER_NAME,
+    WHV_REGISTER_VALUE, WHV_RUN_VP_EXIT_CONTEXT, WHV_RUN_VP_EXIT_REASON, WHV_UINT128,
+    WHV_UINT128_0,
 };
 /// Wrapper around WHV_REGISTER_NAME so we can impl
 /// Hash on the struct.
@@ -236,6 +237,12 @@ impl Hypervisor for HypervWindowsDriver {
         self.registers.insert(
             WhvRegisterNameWrapper(WHvX64RegisterR8),
             WHV_REGISTER_VALUE { Reg32: page_size },
+        );
+        self.registers.insert(
+            WhvRegisterNameWrapper(WHvX64RegisterR9),
+            WHV_REGISTER_VALUE {
+                Reg32: self.get_max_log_level(),
+            },
         );
         self.processor.set_registers(&self.registers)?;
         self.execute_until_halt(

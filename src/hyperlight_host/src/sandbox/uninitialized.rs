@@ -432,7 +432,7 @@ impl<'a> UninitializedSandbox<'a> {
         if !self.run_from_process_memory {
             log_then_return!(CallEntryPointIsInProcOnly());
         }
-        type EntryPoint = extern "C" fn(i64, u64, u32) -> i32;
+        type EntryPoint = extern "C" fn(i64, u64, u32, u32) -> i32;
         let entry_point: EntryPoint = {
             let addr = {
                 let mgr = self.get_mgr().as_ref();
@@ -444,8 +444,8 @@ impl<'a> UninitializedSandbox<'a> {
             std::mem::transmute(fn_location)
         };
         let peb_i64 = i64::try_from(u64::from(peb_address))?;
-
-        entry_point(peb_i64, seed, page_size);
+        let max_log_level = log::max_level() as u32;
+        entry_point(peb_i64, seed, page_size, max_log_level);
         Ok(())
     }
 

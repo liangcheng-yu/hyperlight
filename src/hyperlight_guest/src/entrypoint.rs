@@ -3,13 +3,17 @@ use crate::{
     guest_error::reset_error,
     guest_function_call::dispatch_function,
     guest_functions::finalise_function_table,
+    guest_logger::{GuestLogger, LOGGER},
     host_function_call::{outb, OutBAction},
     hyperlight_peb::HyperlightPEB,
     HEAP_ALLOCATOR, MIN_STACK_ADDRESS, OS_PAGE_SIZE, OUTB_PTR, OUTB_PTR_WITH_CONTEXT, P_PEB,
     RUNNING_IN_HYPERLIGHT,
 };
 
+use log::LevelFilter;
+
 use core::{
+    arch::asm,
     ffi::{c_char, c_void},
     hint::unreachable_unchecked,
     ptr::copy_nonoverlapping,
@@ -59,28 +63,67 @@ extern "C" {
 }
 
 #[no_mangle]
-pub extern "C" fn entrypoint(peb_address: i64, seed: i64, ops: i32) -> i32 {
+pub extern "C" fn entrypoint(peb_address: i64, seed: i64, ops: i32, log_level_filter: i32) -> i32 {
     unsafe {
         if peb_address == 0 {
             // TODO this should call abort with a code
             return -1;
         }
 
-        // Set up the security cookie using the seed and the value passed in the PEB
-        // The security cookie is the first value in the peb struct so its address is the same as the peb address
+        P_PEB = Some(peb_address as *mut HyperlightPEB);
+        let peb_ptr = P_PEB.unwrap();
 
-        __security_cookie = peb_address as u64 ^ seed as u64;
+        if (*peb_ptr).pOutb.is_null() {
+            RUNNING_IN_HYPERLIGHT = true;
 
-        // for now we will calcualte a seed for srand from the data used for the security cookie but we should pass in a proper seed
+            // This static is to make it easier to implement the __chksstk function in assembly.
+            // It also means that should we change the layout of the struct in the future, we
+            // don't have to change the assembly code.
+            MIN_STACK_ADDRESS = (*peb_ptr).gueststackData.minStackAddress;
+            let mut rand_num: u64;
 
-        let srand_seed = ((peb_address << 8 ^ seed >> 4) >> 32) as u32;
+            asm!(
+                "rdrand rax",
+                out("rax") rand_num,
+                options(nostack)
+            );
 
-        // Set the seed for the random number generator
+            // Set up the security cookie
+            // The security cookie is the first value in the peb struct so its address is the same as the peb address
+            __security_cookie = peb_address as u64 ^ rand_num as u64;
+        } else {
+            RUNNING_IN_HYPERLIGHT = false;
+            __security_cookie = peb_address as u64 ^ seed as u64;
+        }
+
+        let srand_seed = if RUNNING_IN_HYPERLIGHT {
+            let mut rand_num: u32;
+            asm!(
+                "rdrand eax",
+                out("eax") rand_num,
+                options(nostack)
+            );
+            rand_num
+        } else {
+            // if running in proc calcualte a seed for srand from the data used for the security cookie
+            ((peb_address << 8 ^ seed >> 4) >> 32) as u32
+        };
+
+        // Set the seed for the random number generator for C code using rand;
         srand(srand_seed);
 
-        P_PEB = Some(peb_address as *mut HyperlightPEB);
-
-        let peb_ptr = P_PEB.unwrap();
+        // set up the logger
+        log::set_logger(&LOGGER).unwrap();
+        let log_level = match log_level_filter {
+            0 => LevelFilter::Off,
+            1 => LevelFilter::Error,
+            2 => LevelFilter::Warn,
+            3 => LevelFilter::Info,
+            4 => LevelFilter::Debug,
+            5 => LevelFilter::Trace,
+            _ => LevelFilter::Error,
+        };
+        set_max_level(log_level);
 
         let heap_start = (*peb_ptr).guestheapData.guestHeapBuffer as usize;
         let heap_size = (*peb_ptr).guestheapData.guestHeapSize as usize;
@@ -110,15 +153,6 @@ pub extern "C" fn entrypoint(peb_address: i64, seed: i64, ops: i32) -> i32 {
             Some(outb_ptr_with_context as fn(*mut c_void, u16, u8))
         };
 
-        if (*peb_ptr).pOutb.is_null() {
-            RUNNING_IN_HYPERLIGHT = true;
-
-            // This static is to make it easier to implement the __chksstk function in assembly.
-            // It also means that should we change the layout of the struct in the future, we
-            // don't have to change the assembly code.
-            MIN_STACK_ADDRESS = (*peb_ptr).gueststackData.minStackAddress;
-        }
-
         (*peb_ptr).guest_function_dispatch_ptr = dispatch_function as usize as u64;
 
         reset_error();
@@ -130,4 +164,9 @@ pub extern "C" fn entrypoint(peb_address: i64, seed: i64, ops: i32) -> i32 {
 
     halt();
     0 // this is never checked
+}
+
+fn set_max_level(level: LevelFilter) {
+    GuestLogger::set_max_level(level);
+    log::set_max_level(level);
 }

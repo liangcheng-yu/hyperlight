@@ -86,3 +86,15 @@ impl From<&LogLevel> for Level {
         }
     }
 }
+
+impl From<Level> for LogLevel {
+    fn from(val: Level) -> LogLevel {
+        match val {
+            Level::Trace => LogLevel::Trace,
+            Level::Debug => LogLevel::Debug,
+            Level::Info => LogLevel::Information,
+            Level::Warn => LogLevel::Warning,
+            Level::Error => LogLevel::Error,
+        }
+    }
+}

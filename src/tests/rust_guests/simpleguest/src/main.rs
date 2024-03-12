@@ -9,8 +9,8 @@ const MAX_BUFFER_SIZE: usize = 1024;
 
 extern crate alloc;
 
-use core::hint::black_box;
 use core::ffi::c_char;
+use core::hint::black_box;
 
 use alloc::{format, string::ToString, vec::Vec};
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
@@ -23,7 +23,6 @@ use hyperlight_guest::alloca::_alloca;
 use hyperlight_guest::memory::hlmalloc;
 use hyperlight_guest::{entrypoint::abort_with_code, entrypoint::abort_with_code_and_message};
 use hyperlight_guest::{
-    debug, error,
     error::{HyperlightGuestError, Result},
     flatbuffer_utils::{
         get_flatbuffer_result_from_int, get_flatbuffer_result_from_size_prefixed_buffer,
@@ -31,8 +30,8 @@ use hyperlight_guest::{
     },
     guest_functions::register_function,
     host_function_call::{call_host_function, get_host_value_return_as_int},
-    info, trace, warn,
 };
+use log::{debug, error, info, trace, warn};
 
 extern crate hyperlight_guest;
 
@@ -485,15 +484,12 @@ fn test_abort(function_call: &FunctionCall) -> Result<Vec<u8>> {
 }
 
 fn test_abort_with_code_and_message(function_call: &FunctionCall) -> Result<Vec<u8>> {
-    if let (
-        ParameterValue::Int(code),
-        ParameterValue::String(message),
-    ) = (
+    if let (ParameterValue::Int(code), ParameterValue::String(message)) = (
         function_call.parameters.clone().unwrap()[0].clone(),
         function_call.parameters.clone().unwrap()[1].clone(),
     ) {
         abort_with_code_and_message(code, message.as_ptr() as *const c_char);
-    } 
+    }
     Ok(get_flatbuffer_result_from_void())
 }
 
@@ -534,13 +530,13 @@ fn log_message(function_call: &FunctionCall) -> Result<Vec<u8>> {
         function_call.parameters.clone().unwrap()[1].clone(),
     ) {
         match level {
-            0 => trace!(&message),
-            1 => debug!(&message),
-            2 => info!(&message),
-            3 => warn!(&message),
-            4 => error!(&message),
-            5 => error!(&message),
-            _ => info!(&message),
+            0 => trace!("{}", &message),
+            1 => debug!("{}", &message),
+            2 => info!("{}", &message),
+            3 => warn!("{}", &message),
+            4 => error!("{}", &message),
+            5 => error!("{}", &message),
+            _ => info!("{}", &message),
         };
         Ok(get_flatbuffer_result_from_void())
     } else {

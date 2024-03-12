@@ -326,9 +326,31 @@ fn log_message() {
     use hyperlight_testing::{simplelogger::SimpleLogger, simplelogger::LOGGER};
     SimpleLogger::initialize_test_logger();
     LOGGER.set_max_level(log::LevelFilter::Trace);
+    // The hyperlight guest should derive its max log level from the level set here for the host
+    // this then should restrict the number of log messages that are emitted by the guest
+    // so that they do not have to be filtered out by the host.
+    log::set_max_level(log::LevelFilter::Trace);
     LOGGER.clear_log_calls();
     assert_eq!(0, LOGGER.num_log_calls());
 
+    log_test_messages();
+    assert_eq!(6, LOGGER.num_log_calls());
+
+    log::set_max_level(log::LevelFilter::Error);
+    LOGGER.set_max_level(log::LevelFilter::Error);
+    LOGGER.clear_log_calls();
+    assert_eq!(0, LOGGER.num_log_calls());
+
+    log_test_messages();
+    assert_eq!(2, LOGGER.num_log_calls());
+    // The number of enabled calls is the number of times that the enabled function is called
+    // with a target of "hyperlight_guest"
+    // This should be the same as the number of log calls as all the log calls for the "hyperlight_guest" target should be filtered in
+    // the guest
+    assert_eq!(LOGGER.num_log_calls(), LOGGER.num_enabled_calls());
+}
+
+fn log_test_messages() {
     for level in hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel::iter() {
         if level == hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel::None {
             continue;
@@ -347,5 +369,4 @@ fn log_message() {
         )
         .unwrap();
     }
-    assert_eq!(6, LOGGER.num_log_calls());
 }
