@@ -177,3 +177,7 @@ bench-ci baseline target=default-target:
 
 bench target=default-target:
     cargo bench --profile={{ if target == "debug" { "dev" } else { target } }} -- --verbose
+
+# FUZZING
+fuzz:
+    cd src/hyperlight_host && cargo +nightly fuzz run fuzz_target_1
