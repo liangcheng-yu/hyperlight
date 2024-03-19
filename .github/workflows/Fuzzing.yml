@@ -6,43 +6,8 @@ on:
   workflow_dispatch: # Allow manual triggering
 
 jobs:
-  build-guest-binaries:
-    uses: ./.github/workflows/dep_build_guest_binaries.yml
-
-  fuzz:
-    runs-on: ubuntu-latest
-    steps:
-
-      - name: Checkout code
-        uses: actions/checkout@v2    
-        
-      - name: Setup
-        uses: ./.github/actions/hyperlight-workflows-setup
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
-            
-      - name: Set up Rust (w/ Nightly)
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-
-      - name: Download Guest Binaries
-        uses: actions/download-artifact@v3
-        with:
-          name: guest-binaries-release
-          path: ./downloaded-guest-binaries-release
-
-      - name: Copy Guest Binaries
-        run: |
-          cp ./downloaded-guest-binaries-release/callbackguest.exe ./src/tests/rust_guests/bin/release/callbackguest.exe
-          cp ./downloaded-guest-binaries-release/simpleguest.exe ./src/tests/rust_guests/bin/release/simpleguest.exe
-          cp ./downloaded-guest-binaries-release/dummyguest.exe ./src/tests/rust_guests/bin/release/dummyguest.exe          
-
-      - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz
-
-      - name: Run Fuzzing
-        run: cargo +nightly fuzz run fuzz_target_1 -- -max_total_time=86400
-        working-directory: src/hyperlight_host
+  fuzzing:
+    uses: ./.github/workflows/dep_fuzzing.yml
+    with:
+      max_total_time: 86400 # 24 hours in seconds
+    secrets: inherit

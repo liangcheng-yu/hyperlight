@@ -277,3 +277,12 @@ jobs:
   #####
   # end build-on-linux
   #####
+
+  #####
+  # fuzzing
+  #####
+  fuzzing:
+    uses: ./.github/workflows/dep_fuzzing.yml
+    with:
+      max_total_time: 300 # 5 minutes in seconds
+    secrets: inherit
