@@ -1110,6 +1110,7 @@ namespace Hyperlight.Tests
                                 + sandboxConfiguration.OutputDataSize
                                 + sandboxConfiguration.HostExceptionSize
                                 + sandboxConfiguration.GuestErrorBufferSize
+                                + sandboxConfiguration.GuestPanicBufferSize
                                 + headerSize);
 
             var rem = totalSize % 4096;

@@ -141,6 +141,22 @@ impl SandboxConfiguration {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
+    /// Create a new configuration for a sandbox with default sizes.
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn default() -> Self {
+        Self::new(
+            Self::DEFAULT_INPUT_SIZE,
+            Self::DEFAULT_OUTPUT_SIZE,
+            Self::DEFAULT_HOST_FUNCTION_DEFINITION_SIZE,
+            Self::DEFAULT_HOST_EXCEPTION_SIZE,
+            Self::DEFAULT_GUEST_ERROR_BUFFER_SIZE,
+            None,
+            None,
+            None,
+            None,
+        )
+    }
     /// Set the size of the memory buffer that is made available for input to the guest
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn set_input_data_size(&mut self, input_data_size: usize) {

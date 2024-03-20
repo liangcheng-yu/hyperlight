@@ -276,9 +276,9 @@ impl SandboxMemoryLayout {
             guest_error_buffer_offset + cfg.get_guest_error_buffer_size();
         let output_data_buffer_offset = input_data_buffer_offset + cfg.get_input_data_size();
         let guest_panic_context_buffer_offset =
-            output_data_buffer_offset + cfg.get_guest_panic_context_buffer_size();
+            output_data_buffer_offset + cfg.get_output_data_size();
         let guest_heap_buffer_offset =
-            guest_panic_context_buffer_offset + cfg.get_output_data_size();
+            guest_panic_context_buffer_offset + cfg.get_guest_panic_context_buffer_size();
         let guest_stack_buffer_offset = guest_heap_buffer_offset + heap_size;
 
         Ok(Self {
@@ -358,6 +358,11 @@ impl SandboxMemoryLayout {
     fn get_min_guest_stack_address_offset(&self) -> Offset {
         // The minimum guest stack address is the start of the guest stack
         self.stack_data_offset
+    }
+
+    #[cfg(test)]
+    pub(super) fn get_stack_size(&self) -> usize {
+        self.stack_size
     }
 
     /// Get the offset in guest memory to the start of host errors
@@ -492,11 +497,10 @@ impl SandboxMemoryLayout {
         self.guest_panic_context_buffer_offset
     }
 
-    /// Get the total size of guest memory in `self`'s memory
-    /// layout.
+    /// Gets the total size of the guest memory in `self`'s memory layout.
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(super) fn get_memory_size(&self) -> Result<usize> {
-        let total_memory = self.code_size
+    fn get_unaligned_memory_size(&self) -> usize {
+        self.code_size
             + Self::PAGE_TABLE_SIZE
             + self
                 .sandbox_memory_config
@@ -505,6 +509,9 @@ impl SandboxMemoryLayout {
             + self.sandbox_memory_config.get_output_data_size()
             + self.sandbox_memory_config.get_host_exception_size()
             + self.sandbox_memory_config.get_guest_error_buffer_size()
+            + self
+                .sandbox_memory_config
+                .get_guest_panic_context_buffer_size()
             + size_of::<GuestSecurityCookie>()
             + size_of::<GuestDispatchFunctionPointer>()
             + size_of::<HostFunctions>()
@@ -517,7 +524,14 @@ impl SandboxMemoryLayout {
             + size_of::<GuestHeap>()
             + size_of::<GuestStack>()
             + self.heap_size
-            + self.stack_size;
+            + self.stack_size
+    }
+
+    /// Get the total size of guest memory in `self`'s memory
+    /// layout aligned to 4k page boundaries.
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get_memory_size(&self) -> Result<usize> {
+        let total_memory = self.get_unaligned_memory_size();
 
         // Size should be a multiple of 4K.
         let remainder = total_memory % Self::FOUR_K;
@@ -669,7 +683,7 @@ impl SandboxMemoryLayout {
 mod tests {
     use crate::mem::{ptr_offset::Offset, shared_mem::SharedMemory};
 
-    use super::SandboxMemoryLayout;
+    use super::{SandboxConfiguration, SandboxMemoryLayout};
 
     #[test]
     fn get_host_code_address() {
@@ -680,5 +694,17 @@ mod tests {
         assert_eq!(hca_in_proc.offset(), code_offset);
         assert_eq!(hca_in_vm.offset(), code_offset);
         assert_eq!(hca_in_proc, hca_in_vm);
+    }
+
+    #[test]
+    fn test_get_memory_size() {
+        // Note: this test assumes that the stack is the element in the guest memory layout in order to determine the total size
+        // of the memory layout.
+        let sbox_cfg = SandboxConfiguration::default();
+        let sbox_mem_layout = SandboxMemoryLayout::new(sbox_cfg, 4096, 2048, 4096).unwrap();
+        let mem_size = sbox_mem_layout.get_unaligned_memory_size() as u64;
+        let end_of_memory = u64::try_from(sbox_mem_layout.get_top_of_stack_offset()).unwrap()
+            + sbox_mem_layout.get_stack_size() as u64;
+        assert_eq!(mem_size, end_of_memory);
     }
 }
