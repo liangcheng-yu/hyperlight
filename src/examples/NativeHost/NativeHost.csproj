@@ -26,6 +26,7 @@
     <Content Include="../../../target/$(Configuration.toLower())/libhyperlight_capi.d" Condition=" ('$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'  == 'true' And  '$(RuntimeIdentifier)'=='') or '$(RuntimeIdentifier)'=='linux-x64'  ">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Folder Include="guests\rust\" />
     <Content Include="../../tests/rust_guests/bin/$(Configuration.toLower())/callbackguest.exe">
       <Link>guests\rust\callbackguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -34,19 +35,22 @@
       <Link>guests\rust\simpleguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="../../tests/Guests/simpleguest/x64/$(Configuration.toLower())/simpleguest.exe" Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <Folder Include="guests\c\" />
+    <Content Include="../../tests/Guests/simpleguest/x64/$(Configuration.toLower())/simpleguest.exe">
       <Link>guests\c\simpleguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="../../tests/Guests/callbackguest/x64/$(Configuration.toLower())/callbackguest.exe" Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <Content Include="../../tests/Guests/simpleguest/x64/$(Configuration.toLower())/simpleguest.pdb">
+      <Link>guests\c\simpleguest.pdb</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="../../tests/Guests/callbackguest/x64/$(Configuration.toLower())/callbackguest.exe">
       <Link>guests\c\callbackguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="../../tests/Guests/callbackguest/x64/$(Configuration.toLower())/callbackguest.pdb">
+      <Link>guests\c\callbackguest.pdb</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="guests\rust\" />
-    <Folder Include="guests\c\" />
-  </ItemGroup>
-
 </Project>

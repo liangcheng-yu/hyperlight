@@ -1,3 +1,4 @@
+import 'c.just'
 alias build-rust-debug := build-rust
 
 set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
@@ -51,9 +52,6 @@ build-dotnet:
     cd src/Hyperlight && dotnet build 
     cd src/examples/NativeHost && dotnet build 
 
-build-c-guests target=default-target:
-    msbuild -m hyperlight.sln /p:Configuration={{ target }} /t:simpleguest,callbackguest,HyperlightSurrogate,HyperlightGuest
-
 build-rust target=default-target:
     cargo build --verbose --profile={{ if target == "debug" { "dev" } else { target } }}
 
@@ -88,7 +86,10 @@ test-dotnet-hl-c-guests target=default-target:
 
 test-dotnet-c-guests target=default-target: (test-dotnet-hl-c-guests target) (test-dotnet-nativehost-c-guests target)
 
-test-dotnet target=default-target: (test-dotnet-hl target) (test-dotnet-nativehost target)
+test-dotnet target=default-target: (build-hyperlight-surrogate target) (test-dotnet-hl target) (test-dotnet-nativehost target)
+
+build-hyperlight-surrogate target=default-target:
+    msbuild -m hyperlight.sln /p:Configuration={{ target }} /t:HyperlightSurrogate
 
 test-capi target=default-target:
     cd src/hyperlight_capi && just run-tests-capi {{ target }} 

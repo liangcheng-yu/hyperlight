@@ -1034,7 +1034,7 @@ void __report_rangecheckfailure(void)
 // TODO: Once we update the host to deal with aborts correctly we should update these handlers so that they return a code to explain what caused the abort
 // i.e. they should be updated to call abort_with_code(ERROR_CODE) instead of abort()
 
-void abort_with_code_and_message(uint32_t code, char* message)
+void abort_with_code_and_message(uint32_t code, const char* message)
 {
     void* guestPanicDataBuffer = pPeb->GuestPanicContextData.guestPanicContextDataBuffer;
     size_t guestPanicDataBufferSize = pPeb->GuestPanicContextData.guestPanicContextDataSize;

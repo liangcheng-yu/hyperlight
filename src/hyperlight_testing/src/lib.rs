@@ -99,7 +99,7 @@ pub fn c_simple_guest_as_string() -> Result<String> {
     let buf = c_guest_as_pathbuf("simpleguest");
     buf.to_str()
         .map(|s| s.to_string())
-        .ok_or_else(|| anyhow!("couldn't conver simple guest PathBuf to string"))
+        .ok_or_else(|| anyhow!("couldn't convert simple guest PathBuf to string"))
 }
 
 // The test data is a valid flatbuffers buffer representing a guestfunction call as follows:

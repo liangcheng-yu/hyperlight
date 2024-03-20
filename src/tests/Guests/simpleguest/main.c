@@ -12,10 +12,7 @@ uint8_t* simpleprintOutput(const char *message)
 
 uint8_t* setByteArrayToZero(const uint8_t* arrayPtr, int length)
 {
-    while (length--)
-    {
-        *((char*)arrayPtr)++ = 0;
-    }
+    memset(arrayPtr, 0, length );
     return GetFlatBufferResultFromVoid();
 }
 

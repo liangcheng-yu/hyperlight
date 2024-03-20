@@ -6,7 +6,7 @@ dnf install -y 'dnf-command(config-manager)'
 dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
 dnf install -y vim kernel-mshv git lldb binutils glibc-devel kernel-headers nano gh grubby ca-certificates mshv-bootloader-lx mshv hvloader azure-cli
 dnf remove -y llvm
-dnf install -y clang16 clang16-tools-extra
+dnf install -y clang16 clang16-tools-extra lld16
 update-ca-trust
 groupadd mshv
 

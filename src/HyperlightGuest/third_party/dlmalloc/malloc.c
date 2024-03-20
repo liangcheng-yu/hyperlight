@@ -1525,7 +1525,7 @@ extern "C" {
 #include <unistd.h>     /* for sbrk, sysconf */
 #else /* LACKS_UNISTD_H */
 #if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__NetBSD__)
-extern void* sbrk(ptrdiff_t);
+extern void*     sbrk(void* ptrdiff_t);
 #endif /* FreeBSD etc */
 #endif /* LACKS_UNISTD_H */
 
@@ -4210,7 +4210,7 @@ static void* sys_alloc(mstate m, size_t nb) {
             end = (char*)(CALL_MORECORE(0));
             RELEASE_MALLOC_GLOBAL_LOCK();
             if (br != CMFAIL && end != CMFAIL && br < end) {
-                size_t ssize = ((size_t*)end) - br;
+                size_t ssize = end - br;
                 if (ssize > nb + TOP_FOOT_SIZE) {
                     tbase = br;
                     tsize = ssize;

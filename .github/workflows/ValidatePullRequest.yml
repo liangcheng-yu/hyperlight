@@ -106,11 +106,15 @@ jobs:
           name: guest-binaries-${{ matrix.config }}
           path: ./downloaded-guest-binaries-${{ matrix.config }}
 
-      - name: Copy Guest Binaries
+      - name: Copy Rust Guest Binaries
         run: |
           cp ./downloaded-guest-binaries-${{ matrix.config }}/callbackguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/callbackguest.exe
           cp ./downloaded-guest-binaries-${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/simpleguest.exe
           cp ./downloaded-guest-binaries-${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/dummyguest.exe
+
+      - name: Build C Guest Binaries
+        run: |
+          just build-c-guests ${{ matrix.config }}
 
       - name: Build Solution
         run: msbuild -m hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
@@ -134,7 +138,6 @@ jobs:
       - name: Test dotnet with c guests
         shell: pwsh
         run: |
-          just build-c-guests ${{ matrix.config }}
           just test-dotnet-c-guests ${{ matrix.config }}
 
       - name: Upload Test Results
@@ -197,6 +200,11 @@ jobs:
         shell: bash
         working-directory: src/hyperlight_capi/tests_capi
 
+      - uses: ./.github/actions/hyperlight-workflows-setup
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
+
       - name: Setup dotnet (not on hyperv)
         if: ${{ (matrix.hypervisor != 'hyperv') }}
         uses: actions/setup-dotnet@v4.0.0
@@ -257,6 +265,10 @@ jobs:
         run: dotnet clean -c ${{ matrix.config }}
         working-directory: src/examples/NativeHost
         if: ${{ matrix.os }} == 'self-hosted'
+
+      - name: Build C Guest Binaries
+        run: |
+          just build-c-guests ${{ matrix.config }}
 
       - name: Run Example
         shell: bash

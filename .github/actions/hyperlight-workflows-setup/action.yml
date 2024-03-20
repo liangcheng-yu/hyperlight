@@ -11,7 +11,7 @@ runs:
         components: clippy, rustfmt
     - uses: extractions/setup-just@v1
       with:
-        just-version: "1.15.0" # optional semver specification, otherwise latest
+        just-version: "1.25.2" # optional semver specification, otherwise latest
 
     ### Linux setup ###
     - name: Cargo login
@@ -25,8 +25,10 @@ runs:
       if: ${{ (runner.os == 'Linux' && matrix.hypervisor == 'hyperv') }}
       run: |
         sudo dnf remove clang -y|| true
+        sudo dnf remove lld -y|| true
         sudo dnf install clang16 -y
         sudo dnf install clang16-tools-extra -y
+        sudo dnf install lld16 -y
       shell: bash
 
     - name: Install clang-tools (Linux ubuntu)
@@ -37,6 +39,8 @@ runs:
         sudo ./llvm.sh 16 all
         sudo ln -s /usr/lib/llvm-16/bin/clang-cl /usr/bin/clang-cl
         sudo ln -s /usr/lib/llvm-16/bin/llvm-lib /usr/bin/llvm-lib
+        sudo ln -s /usr/lib/llvm-16/bin/lld-link /usr/bin/lld-link
+        sudo ln -s /usr/lib/llvm-16/bin/llvm-ml /usr/bin/llvm-ml
       shell: bash
 
     # This is needed to build the rust guests

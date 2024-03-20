@@ -25,10 +25,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HyperlightGuest", "src\Hype
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HyperlightDependencies", "src\HyperlightDependencies\HyperlightDependencies.csproj", "{73E808B4-E312-4758-9DF2-347927071338}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "simpleguest", "src\tests\Guests\simpleguest\simpleguest.vcxproj", "{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "callbackguest", "src\tests\Guests\callbackguest\callbackguest.vcxproj", "{54F7736B-3D54-4F64-97B3-CDA63A3AABB2}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		debug|Any CPU = debug|Any CPU
@@ -85,22 +81,6 @@ Global
 		{73E808B4-E312-4758-9DF2-347927071338}.release|Any CPU.Build.0 = release|Any CPU
 		{73E808B4-E312-4758-9DF2-347927071338}.release|x64.ActiveCfg = release|Any CPU
 		{73E808B4-E312-4758-9DF2-347927071338}.release|x64.Build.0 = release|Any CPU
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.debug|Any CPU.ActiveCfg = debug|x64
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.debug|Any CPU.Build.0 = debug|x64
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.debug|x64.ActiveCfg = debug|x64
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.debug|x64.Build.0 = debug|x64
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.release|Any CPU.ActiveCfg = release|x64
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.release|Any CPU.Build.0 = release|x64
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.release|x64.ActiveCfg = release|x64
-		{0B0FA8C8-AC88-4B4F-B3C4-1E2073F7B71A}.release|x64.Build.0 = release|x64
-		{54F7736B-3D54-4F64-97B3-CDA63A3AABB2}.debug|Any CPU.ActiveCfg = debug|x64
-		{54F7736B-3D54-4F64-97B3-CDA63A3AABB2}.debug|Any CPU.Build.0 = debug|x64
-		{54F7736B-3D54-4F64-97B3-CDA63A3AABB2}.debug|x64.ActiveCfg = debug|x64
-		{54F7736B-3D54-4F64-97B3-CDA63A3AABB2}.debug|x64.Build.0 = debug|x64
-		{54F7736B-3D54-4F64-97B3-CDA63A3AABB2}.release|Any CPU.ActiveCfg = release|x64
-		{54F7736B-3D54-4F64-97B3-CDA63A3AABB2}.release|Any CPU.Build.0 = release|x64
-		{54F7736B-3D54-4F64-97B3-CDA63A3AABB2}.release|x64.ActiveCfg = release|x64
-		{54F7736B-3D54-4F64-97B3-CDA63A3AABB2}.release|x64.Build.0 = release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

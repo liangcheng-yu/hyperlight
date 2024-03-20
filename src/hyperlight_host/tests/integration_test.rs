@@ -17,6 +17,28 @@ fn new_uninit<'a>() -> Result<UninitializedSandbox<'a>> {
     )
 }
 
+#[test]
+fn print_four_args_c_guest() {
+    let path = c_simple_guest_as_string().unwrap();
+    let guest_path = GuestBinary::FilePath(path);
+    let uninit = UninitializedSandbox::new(guest_path, None, None, None);
+    let sbox1: SingleUseSandbox = uninit.unwrap().evolve(Noop::default()).unwrap();
+    let mut ctx1 = sbox1.new_call_context();
+
+    let res = ctx1.call(
+        "PrintFourArgs",
+        ReturnType::String,
+        Some(vec![
+            ParameterValue::String("Test4".to_string()),
+            ParameterValue::Int(3_i32),
+            ParameterValue::Long(4_i64),
+            ParameterValue::String("Tested".to_string()),
+        ]),
+    );
+    println!("{:?}", res);
+    assert!(matches!(res, Ok(ReturnValue::Int(46))));
+}
+
 // Checks that guest can abort with a specific code.
 #[test]
 fn guest_abort() {
@@ -115,7 +137,6 @@ fn guest_abort_with_context2() {
 // Just run this manually for now since we only build c guests on Windows and will
 // hopefully be removing the c guest library soon.
 #[test]
-#[ignore]
 fn guest_abort_c_guest() {
     let path = c_simple_guest_as_string().unwrap();
     let guest_path = GuestBinary::FilePath(path);
@@ -237,7 +258,6 @@ fn dynamic_stack_allocate_pointer_overflow() {
 
 // checks alloca fails with stackoverflow for huge allocations with c guest lib
 #[test]
-#[ignore]
 fn dynamic_stack_allocate_overflow_c_guest() {
     let path = c_simple_guest_as_string().unwrap();
     let guest_path = GuestBinary::FilePath(path);

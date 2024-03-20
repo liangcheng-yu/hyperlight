@@ -84,6 +84,9 @@ jobs:
       - name: Build and move Rust guests
         run: just build-and-move-rust-guests
 
+      - name: Build c guests
+        run: just build-c-guests ${{ matrix.config}}
+
       - name: Build
         run: just build-rust ${{ matrix.config }}
 
@@ -106,7 +109,8 @@ jobs:
       - name: Run Rust tests
         env:
           CARGO_TERM_COLOR: always
-        run: just test-rust ${{ matrix.config }}
+        run: |
+          just test-rust ${{ matrix.config }}
 
         # One of the examples is flaky on Windows GH runners, so this allows us to disable it for now
       - name: Run Rust examples - windows
