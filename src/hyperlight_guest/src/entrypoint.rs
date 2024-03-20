@@ -13,7 +13,6 @@ use crate::{
 use log::LevelFilter;
 
 use core::{
-    arch::asm,
     ffi::{c_char, c_void},
     hint::unreachable_unchecked,
     ptr::copy_nonoverlapping,
@@ -72,6 +71,7 @@ pub extern "C" fn entrypoint(peb_address: i64, seed: i64, ops: i32, log_level_fi
 
         P_PEB = Some(peb_address as *mut HyperlightPEB);
         let peb_ptr = P_PEB.unwrap();
+        __security_cookie = peb_address as u64 ^ seed as u64;
 
         if (*peb_ptr).pOutb.is_null() {
             RUNNING_IN_HYPERLIGHT = true;
@@ -80,34 +80,9 @@ pub extern "C" fn entrypoint(peb_address: i64, seed: i64, ops: i32, log_level_fi
             // It also means that should we change the layout of the struct in the future, we
             // don't have to change the assembly code.
             MIN_STACK_ADDRESS = (*peb_ptr).gueststackData.minStackAddress;
-            let mut rand_num: u64;
-
-            asm!(
-                "rdrand rax",
-                out("rax") rand_num,
-                options(nostack)
-            );
-
-            // Set up the security cookie
-            // The security cookie is the first value in the peb struct so its address is the same as the peb address
-            __security_cookie = peb_address as u64 ^ rand_num as u64;
-        } else {
-            RUNNING_IN_HYPERLIGHT = false;
-            __security_cookie = peb_address as u64 ^ seed as u64;
         }
 
-        let srand_seed = if RUNNING_IN_HYPERLIGHT {
-            let mut rand_num: u32;
-            asm!(
-                "rdrand eax",
-                out("eax") rand_num,
-                options(nostack)
-            );
-            rand_num
-        } else {
-            // if running in proc calcualte a seed for srand from the data used for the security cookie
-            ((peb_address << 8 ^ seed >> 4) >> 32) as u32
-        };
+        let srand_seed = ((peb_address << 8 ^ seed >> 4) >> 32) as u32;
 
         // Set the seed for the random number generator for C code using rand;
         srand(srand_seed);
