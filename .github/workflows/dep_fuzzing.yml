@@ -59,3 +59,10 @@ jobs:
       - name: Run Fuzzing
         run: cargo +nightly-2023-11-28-x86_64-unknown-linux-gnu fuzz run --release fuzz_target_1 -- -max_total_time=${{ inputs.max_total_time }}
         working-directory: src/hyperlight_host
+
+      - name: Upload Crash Artifacts
+        if: failure() # This ensures artifacts are only uploaded on failure
+        uses: actions/upload-artifact@v3
+        with:
+          name: fuzz-crash-artifacts
+          path: src/hyperlight_host/fuzz/artifacts/

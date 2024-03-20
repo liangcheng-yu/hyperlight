@@ -16,10 +16,18 @@ As per Microsoft's Offensive Research & Security Engineering (MORSE) team, all h
 
 Currently, we only fuzz the `PrintOutput` function. We plan to add more fuzzers in the future.
 
-If you encounter a failure, you can run a single test case with:
+## On Failure 
+
+If you encounter a failure, you can re-run an entire seed (i.e., group of inputs) with:
 ```sh
 cargo +nightly-2023-11-28-x86_64-unknown-linux-gnu fuzz run --release <fuzzer_name> -- -seed=<seed-number>
 ```
 
 The seed number can be seed in a specific run, like:
 ![fuzz-seed](doc-assets/image.png)
+
+Or, if repro-ing a failure from CI, you can download the artifact from the fuzzing run, and run it like:
+
+```sh
+cargo +nightly-2023-11-28-x86_64-unknown-linux-gnu fuzz run --release -O <fuzzer_name> <fuzzer-input (e.g., fuzz/artifacts/fuzz_target_1/crash-93c522e64ee822034972ccf7026d3a8f20d5267c>
+```
