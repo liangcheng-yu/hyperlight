@@ -183,6 +183,10 @@ jobs:
           cp src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}    
           cp src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}
 
+      # The dotnet test solutions require the c and rust guests to exist before the projects will build
+      - name: Build C guests
+        run: just build-c-guests {{ env.CONFIG}}
+
       - name: Build Solution
         run: msbuild -m hyperlight.sln /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /p:ContinuousIntegrationBuild=true
         shell: pwsh
