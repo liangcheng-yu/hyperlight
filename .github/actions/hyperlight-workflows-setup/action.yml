@@ -32,7 +32,8 @@ runs:
       shell: bash
 
     - name: Install clang-tools (Linux ubuntu)
-      if: ${{ (runner.os == 'Linux' && matrix.hypervisor == 'kvm') }}
+      # Assume ubuntu if not running as part of a matrix so cargo publishing package workflows will work
+      if: ${{ (runner.os == 'Linux' && matrix.hypervisor != 'hyperv') }}
       run: |
         wget https://apt.llvm.org/llvm.sh 
         chmod +x ./llvm.sh
