@@ -9,5 +9,5 @@ jobs:
   fuzzing:
     uses: ./.github/workflows/dep_fuzzing.yml
     with:
-      max_total_time: 86400 # 24 hours in seconds
+      max_total_time: 18000 # 5 hours in seconds
     secrets: inherit
