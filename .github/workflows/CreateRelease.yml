@@ -185,7 +185,7 @@ jobs:
 
       # The dotnet test solutions require the c and rust guests to exist before the projects will build
       - name: Build C guests
-        run: just build-c-guests {{ env.CONFIG}}
+        run: just build-c-guests ${{ env.CONFIG }}
 
       - name: Build Solution
         run: msbuild -m hyperlight.sln /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /p:ContinuousIntegrationBuild=true
