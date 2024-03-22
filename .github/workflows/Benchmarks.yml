@@ -9,11 +9,10 @@ on:
         required: true
 
 jobs:
-  build-guest-binaries:
-    uses: ./.github/workflows/dep_build_guest_binaries.yml
-
+  # this job requires the build-guest-binaries job be complete prior to
+  # its execution. this dependency should be expressed in the dependent
+  # workflow
   benchmark:
-    needs: [build-guest-binaries]
     strategy:
       fail-fast: true
       matrix:

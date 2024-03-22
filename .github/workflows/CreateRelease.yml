@@ -60,12 +60,14 @@ jobs:
     secrets: inherit
 
   fuzzing:
+    needs: [build-guest-binaries]
     uses: ./.github/workflows/dep_fuzzing.yml
     with:
       max_total_time: 3600 # 1 hour in seconds
     secrets: inherit
 
   benchmarks:
+    needs: [build-guest-binaries]
     uses: ./.github/workflows/Benchmarks.yml
     secrets: inherit
     permissions:
