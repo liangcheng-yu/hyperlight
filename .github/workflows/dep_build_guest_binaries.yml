@@ -9,6 +9,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # this job has no dependencies
   build-guest-binaries:
     runs-on: ${{ matrix.os }}
     strategy:

@@ -9,12 +9,10 @@ on:
         type: number
 
 jobs:
-  build-guest-binaries:
-    uses: ./.github/workflows/dep_build_guest_binaries.yml
-    secrets: inherit
-
+  # this job requires the build-guest-binaries job be complete prior to
+  # its execution. this dependency should be expressed in the dependent
+  # workflow
   fuzz:
-    needs: [build-guest-binaries]
     runs-on: [self-hosted, Linux, X64, "1ES.Pool=HL-Ubuntu-20.04-KVM"]
     steps:
       - name: Checkout code

@@ -12,6 +12,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # this job has no dependencies
   build-hyperlight-capi:
     runs-on: ${{ matrix.os }}
     strategy:

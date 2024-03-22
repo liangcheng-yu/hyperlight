@@ -13,7 +13,6 @@ jobs:
     secrets: inherit
   build-guest-binaries:
     uses: ./.github/workflows/dep_build_guest_binaries.yml
-    needs: [build-hyperlight-capi]
   rust:
     uses: ./.github/workflows/dep_rust.yml
     needs: [build-guest-binaries]
@@ -22,13 +21,19 @@ jobs:
     uses: ./.github/workflows/dep_valgrind.yml
     needs: [build-guest-binaries]
     secrets: inherit
+  fuzzing:
+    uses: ./.github/workflows/dep_fuzzing.yml
+    needs: [build-guest-binaries]
+    with:
+      max_total_time: 300 # 5 minutes in seconds
+    secrets: inherit
 
   #####
   # start build-on-windows
   #####
   build-on-windows:
     runs-on: ${{ matrix.os }}
-    needs: [build-guest-binaries]
+    needs: [build-guest-binaries, build-hyperlight-capi]
     strategy:
       fail-fast: true
       matrix:
@@ -155,7 +160,7 @@ jobs:
   # start build-on-linux
   #####
   build-on-linux:
-    needs: [build-guest-binaries]
+    needs: [build-guest-binaries, build-hyperlight-capi]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
@@ -289,12 +294,3 @@ jobs:
   #####
   # end build-on-linux
   #####
-
-  #####
-  # fuzzing
-  #####
-  fuzzing:
-    uses: ./.github/workflows/dep_fuzzing.yml
-    with:
-      max_total_time: 300 # 5 minutes in seconds
-    secrets: inherit

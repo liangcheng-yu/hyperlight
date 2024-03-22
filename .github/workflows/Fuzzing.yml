@@ -6,7 +6,11 @@ on:
   workflow_dispatch: # Allow manual triggering
 
 jobs:
+  build-guest-binaries:
+    uses: ./.github/workflows/dep_build_guest_binaries.yml
+    
   fuzzing:
+    needs: [build-guest-binaries]
     uses: ./.github/workflows/dep_fuzzing.yml
     with:
       max_total_time: 18000 # 5 hours in seconds
