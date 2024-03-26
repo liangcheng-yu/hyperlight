@@ -46,3 +46,6 @@ jobs:
       # and cargo does not want you to modify files outside of OUT_DIR
       - name: Publish hyperlight-capi
         run: cargo publish --manifest-path ./src/hyperlight_capi/Cargo.toml --registry hyperlight_packages --no-verify --allow-dirty
+
+      - name: Publish hyperlight_guestlib_c_includes
+        run: cargo publish --manifest-path ./src/HyperlightGuest --registry hyperlight_packages --allow-dirty
