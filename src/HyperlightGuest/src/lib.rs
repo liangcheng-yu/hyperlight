@@ -1,7 +1,7 @@
+use rust_embed::RustEmbed;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
-use rust_embed::RustEmbed;
 
 #[derive(RustEmbed)]
 #[folder = "."]
@@ -14,7 +14,7 @@ struct Assets;
 /// We are doing this so we can consume these header files in other Rust projects.
 pub fn extract_files(p: &Path) -> Result<(), String> {
     if !Path::new(p).exists() {
-        return Err::<(), String>(format!("{} does not exist", p.display()))
+        return Err::<(), String>(format!("{} does not exist", p.display()));
     }
 
     for f in Assets::iter() {
