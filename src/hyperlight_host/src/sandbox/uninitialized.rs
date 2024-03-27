@@ -561,25 +561,22 @@ mod tests {
         assert!(uninitialized_sandbox.is_err());
 
         // Non default memory configuration
+        let cfg = {
+            let mut cfg = SandboxConfiguration::default();
+            cfg.set_input_data_size(0x1000);
+            cfg.set_output_data_size(0x1000);
+            cfg.set_host_function_definition_size(0x1000);
+            cfg.set_host_exception_size(0x1000);
+            cfg.set_guest_error_buffer_size(0x1000);
+            cfg.set_stack_size(0x1000);
+            cfg.set_heap_size(0x1000);
+            cfg.set_max_execution_time(Duration::from_millis(1001));
+            cfg.set_max_execution_cancel_wait_time(Duration::from_millis(9));
+            Some(cfg)
+        };
 
-        let cfg = SandboxConfiguration::new(
-            0x1000,
-            0x1000,
-            0x1000,
-            0x1000,
-            0x1000,
-            Some(0x1000),
-            Some(0x1000),
-            Some(Duration::from_millis(1001)),
-            Some(Duration::from_millis(9)),
-        );
-
-        let uninitialized_sandbox = UninitializedSandbox::new(
-            GuestBinary::FilePath(binary_path.clone()),
-            Some(cfg),
-            None,
-            None,
-        );
+        let uninitialized_sandbox =
+            UninitializedSandbox::new(GuestBinary::FilePath(binary_path.clone()), cfg, None, None);
         assert!(uninitialized_sandbox.is_ok());
 
         let uninitialized_sandbox =

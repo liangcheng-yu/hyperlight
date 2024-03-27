@@ -58,33 +58,42 @@ pub struct SandboxConfiguration {
 
 impl SandboxConfiguration {
     /// The default size of input data
-    const DEFAULT_INPUT_SIZE: usize = 0x4000;
-    const MIN_INPUT_SIZE: usize = 0x2000;
+    pub const DEFAULT_INPUT_SIZE: usize = 0x4000;
+    /// The minimum size of input data
+    pub const MIN_INPUT_SIZE: usize = 0x2000;
     /// The default size of output data
-    const DEFAULT_OUTPUT_SIZE: usize = 0x4000;
-    const MIN_OUTPUT_SIZE: usize = 0x2000;
+    pub const DEFAULT_OUTPUT_SIZE: usize = 0x4000;
+    /// The minimum size of output data
+    pub const MIN_OUTPUT_SIZE: usize = 0x2000;
     /// The default size of host function definitions
-    const DEFAULT_HOST_FUNCTION_DEFINITION_SIZE: usize = 0x1000;
-    const MIN_HOST_FUNCTION_DEFINITION_SIZE: usize = 0x400;
+    pub const DEFAULT_HOST_FUNCTION_DEFINITION_SIZE: usize = 0x1000;
+    /// The minimum size of host function definitions
+    pub const MIN_HOST_FUNCTION_DEFINITION_SIZE: usize = 0x400;
     /// The default size for host exceptions
-    const DEFAULT_HOST_EXCEPTION_SIZE: usize = 0x4000;
-    const MIN_HOST_EXCEPTION_SIZE: usize = 0x4000;
+    pub const DEFAULT_HOST_EXCEPTION_SIZE: usize = 0x4000;
+    /// The minimum size for host exceptions
+    pub const MIN_HOST_EXCEPTION_SIZE: usize = 0x4000;
     /// The default size for guest error messages
-    const DEFAULT_GUEST_ERROR_BUFFER_SIZE: usize = 0x100;
-    const MIN_GUEST_ERROR_BUFFER_SIZE: usize = 0x80;
+    pub const DEFAULT_GUEST_ERROR_BUFFER_SIZE: usize = 0x100;
+    /// The minimum size for guest error messages
+    pub const MIN_GUEST_ERROR_BUFFER_SIZE: usize = 0x80;
     /// The default and minimum values for max execution time (in milliseconds)
-    const DEFAULT_MAX_EXECUTION_TIME: u16 = 1000;
-    const MIN_MAX_EXECUTION_TIME: u16 = 1;
+    pub const DEFAULT_MAX_EXECUTION_TIME: u16 = 1000;
+    /// The minimum value for max execution time (in milliseconds)
+    pub const MIN_MAX_EXECUTION_TIME: u16 = 1;
     /// The default and minimum values for max wait for cancellation (in milliseconds)
-    const DEFAULT_MAX_WAIT_FOR_CANCELLATION: u8 = 100;
-    const MIN_MAX_WAIT_FOR_CANCELLATION: u8 = 10;
-    /// The default and values for guest panic context data
-    const DEFAULT_GUEST_PANIC_CONTEXT_BUFFER_SIZE: usize = 0x400;
+    pub const DEFAULT_MAX_WAIT_FOR_CANCELLATION: u8 = 100;
+    /// The minimum value for max wait for cancellation (in milliseconds)
+    pub const MIN_MAX_WAIT_FOR_CANCELLATION: u8 = 10;
+    /// The default and minimum values for guest panic context data
+    pub const DEFAULT_GUEST_PANIC_CONTEXT_BUFFER_SIZE: usize = 0x400;
+    /// The minimum value for guest panic context data
+    pub const MIN_GUEST_PANIC_CONTEXT_BUFFER_SIZE: usize = 0x400;
 
     #[allow(clippy::too_many_arguments)]
     /// Create a new configuration for a sandbox with the given sizes.
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub fn new(
+    fn new(
         input_data_size: usize,
         output_data_size: usize,
         function_definition_size: usize,
@@ -94,6 +103,7 @@ impl SandboxConfiguration {
         heap_size_override: Option<u64>,
         max_execution_time: Option<Duration>,
         max_wait_for_cancellation: Option<Duration>,
+        guest_panic_context_buffer_size: usize,
     ) -> Self {
         Self {
             input_data_size: max(input_data_size, Self::MIN_INPUT_SIZE),
@@ -137,39 +147,29 @@ impl SandboxConfiguration {
                     None => Self::DEFAULT_MAX_WAIT_FOR_CANCELLATION,
                 }
             },
-            guest_panic_context_buffer_size: Self::DEFAULT_GUEST_PANIC_CONTEXT_BUFFER_SIZE,
+            guest_panic_context_buffer_size: max(
+                guest_panic_context_buffer_size,
+                Self::MIN_GUEST_PANIC_CONTEXT_BUFFER_SIZE,
+            ),
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    /// Create a new configuration for a sandbox with default sizes.
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn default() -> Self {
-        Self::new(
-            Self::DEFAULT_INPUT_SIZE,
-            Self::DEFAULT_OUTPUT_SIZE,
-            Self::DEFAULT_HOST_FUNCTION_DEFINITION_SIZE,
-            Self::DEFAULT_HOST_EXCEPTION_SIZE,
-            Self::DEFAULT_GUEST_ERROR_BUFFER_SIZE,
-            None,
-            None,
-            None,
-            None,
-        )
-    }
     /// Set the size of the memory buffer that is made available for input to the guest
+    /// the minimum value is MIN_INPUT_SIZE
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn set_input_data_size(&mut self, input_data_size: usize) {
         self.input_data_size = max(input_data_size, Self::MIN_INPUT_SIZE);
     }
 
     /// Set the size of the memory buffer that is made available for output from the guest
+    /// the minimum value is MIN_OUTPUT_SIZE
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn set_output_data_size(&mut self, output_data_size: usize) {
         self.output_data_size = max(output_data_size, Self::MIN_OUTPUT_SIZE);
     }
 
     /// Set the size of the memory buffer that is made available for serialising host function definitions
+    /// the minimum value is MIN_HOST_FUNCTION_DEFINITION_SIZE
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn set_host_function_definition_size(&mut self, host_function_definition_size: usize) {
         self.host_function_definition_size = max(
@@ -179,12 +179,14 @@ impl SandboxConfiguration {
     }
 
     /// Set the size of the memory buffer that is made available for serialising host exceptions
+    /// the minimum value is MIN_HOST_EXCEPTION_SIZE
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn set_host_exception_size(&mut self, host_exception_size: usize) {
         self.host_exception_size = max(host_exception_size, Self::MIN_HOST_EXCEPTION_SIZE);
     }
 
     /// Set the size of the memory buffer that is made available for serialising guest error messages
+    /// the minimum value is MIN_GUEST_ERROR_BUFFER_SIZE
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn set_guest_error_buffer_size(&mut self, guest_error_buffer_size: usize) {
         self.guest_error_buffer_size =
@@ -203,9 +205,9 @@ impl SandboxConfiguration {
         self.heap_size_override = heap_size;
     }
 
-    /// Set the max_execution_time of a guest execution in milliseconds. If set to 0, the max_execution_time
-    /// will be set to the default value of 1000ms if the guest execution does not complete within the time specified
-    /// then the execution will be cancelled, the minimum value is 1ms
+    /// Set the maximum execution time of a guest function execution. If set to 0, the max_execution_time
+    /// will be set to the default value of DEFAULT_MAX_EXECUTION_TIME if the guest execution does not complete within the time specified
+    /// then the execution will be cancelled, the minimum value is MIN_MAX_EXECUTION_TIME
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn set_max_execution_time(&mut self, max_execution_time: Duration) {
         match max_execution_time.as_millis() {
@@ -218,6 +220,32 @@ impl SandboxConfiguration {
             }
             _ => self.max_execution_time = Self::DEFAULT_MAX_EXECUTION_TIME,
         }
+    }
+
+    /// Set the maximum time to wait for guest execution calculation. If set to 0, the maximum cancellation time
+    /// will be set to the default value of DEFAULT_MAX_WAIT_FOR_CANCELLATION if the guest execution cancellation does not complete within the time specified
+    /// then an eror will be returned, the minimum value is MIN_MAX_WAIT_FOR_CANCELLATION
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub fn set_max_execution_cancel_wait_time(&mut self, max_wait_for_cancellation: Duration) {
+        match max_wait_for_cancellation.as_millis() {
+            0 => self.max_wait_for_cancellation = Self::DEFAULT_MAX_WAIT_FOR_CANCELLATION,
+            1..=255u128 => {
+                self.max_wait_for_cancellation = max(
+                    max_wait_for_cancellation.as_millis(),
+                    Self::MIN_MAX_WAIT_FOR_CANCELLATION.into(),
+                ) as u8
+            }
+            _ => self.max_wait_for_cancellation = Self::DEFAULT_MAX_WAIT_FOR_CANCELLATION,
+        }
+    }
+
+    /// Set the size of the memory buffer that is made available for serializing guest panic context
+    /// the minimum value is MIN_GUEST_PANIC_CONTEXT_BUFFER_SIZE
+    pub fn set_guest_panic_context_buffer_size(&mut self, guest_panic_context_buffer_size: usize) {
+        self.guest_panic_context_buffer_size = max(
+            guest_panic_context_buffer_size,
+            Self::MIN_GUEST_PANIC_CONTEXT_BUFFER_SIZE,
+        );
     }
 
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
@@ -300,6 +328,7 @@ impl Default for SandboxConfiguration {
             None,
             None,
             None,
+            Self::DEFAULT_GUEST_PANIC_CONTEXT_BUFFER_SIZE,
         )
     }
 }
@@ -322,6 +351,7 @@ mod tests {
         const GUEST_ERROR_BUFFER_SIZE_OVERRIDE: usize = 0x40004;
         const MAX_EXECUTION_TIME_OVERRIDE: u16 = 1010;
         const MAX_WAIT_FOR_CANCELLATION_OVERRIDE: u8 = 200;
+        const GUEST_PANIC_CONTEXT_BUFFER_SIZE_OVERRIDE: usize = 0x4005;
         let cfg = SandboxConfiguration::new(
             INPUT_DATA_SIZE_OVERRIDE,
             OUTPUT_DATA_SIZE_OVERRIDE,
@@ -334,6 +364,7 @@ mod tests {
             Some(Duration::from_millis(
                 MAX_WAIT_FOR_CANCELLATION_OVERRIDE as u64,
             )),
+            GUEST_PANIC_CONTEXT_BUFFER_SIZE_OVERRIDE,
         );
         let pe_infos = vec![
             simple_guest_pe_info().unwrap(),
@@ -357,6 +388,7 @@ mod tests {
             Some(Duration::from_millis(
                 MAX_WAIT_FOR_CANCELLATION_OVERRIDE as u64,
             )),
+            GUEST_PANIC_CONTEXT_BUFFER_SIZE_OVERRIDE,
         );
         assert_eq!(1024, cfg.stack_size_override);
         assert_eq!(2048, cfg.heap_size_override);
@@ -375,6 +407,10 @@ mod tests {
         assert_eq!(
             MAX_WAIT_FOR_CANCELLATION_OVERRIDE,
             cfg.max_wait_for_cancellation
+        );
+        assert_eq!(
+            GUEST_PANIC_CONTEXT_BUFFER_SIZE_OVERRIDE,
+            cfg.guest_panic_context_buffer_size
         );
     }
 }

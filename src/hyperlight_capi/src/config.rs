@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use hyperlight_host::option_when;
 use hyperlight_host::sandbox::SandboxConfiguration;
 
 /// Return a new `SandboxConfiguration` with the default
@@ -29,15 +28,17 @@ pub extern "C" fn config_new(
     max_execution_time: u16,
     max_wait_for_cancellation: u8,
 ) -> SandboxConfiguration {
-    SandboxConfiguration::new(
-        input_size,
-        output_size,
-        host_function_definition_size,
-        host_exception_size,
-        guest_error_message_size,
-        option_when(stack_size_override, stack_size_override > 0),
-        option_when(heap_size_override, heap_size_override > 0),
-        Some(Duration::from_millis(max_execution_time as u64)),
-        Some(Duration::from_millis(max_wait_for_cancellation as u64)),
-    )
+    let mut config = SandboxConfiguration::default();
+    config.set_input_data_size(input_size);
+    config.set_output_data_size(output_size);
+    config.set_host_function_definition_size(host_function_definition_size);
+    config.set_host_exception_size(host_exception_size);
+    config.set_guest_error_buffer_size(guest_error_message_size);
+    config.set_stack_size(stack_size_override);
+    config.set_heap_size(heap_size_override);
+    config.set_max_execution_time(Duration::from_millis(max_execution_time as u64));
+    config.set_max_execution_cancel_wait_time(Duration::from_millis(
+        max_wait_for_cancellation as u64,
+    ));
+    config
 }

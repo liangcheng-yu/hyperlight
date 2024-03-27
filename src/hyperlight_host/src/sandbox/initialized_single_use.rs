@@ -197,17 +197,12 @@ mod tests {
     // This test effectively ensures that the stack is being properly reset after each call and we are not leaking memory in the Guest.
     #[test]
     fn test_with_small_stack_and_heap() {
-        let cfg = Some(SandboxConfiguration::new(
-            0,
-            0,
-            0,
-            0,
-            0,
-            Some(14 * 1024),
-            Some(14 * 1024),
-            None,
-            None,
-        ));
+        let cfg = {
+            let mut cfg = SandboxConfiguration::default();
+            cfg.set_heap_size(14 * 1024);
+            cfg.set_stack_size(14 * 1024);
+            Some(cfg)
+        };
 
         let sbox1: SingleUseSandbox = {
             let path = simple_guest_as_string().unwrap();
