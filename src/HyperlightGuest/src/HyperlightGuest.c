@@ -99,7 +99,7 @@ void FinaliseFunctionTable()
 void checkForHostError()
 {
     size_t size;
-    void *buffer = flatbuffers_read_size_prefix(pPeb->pGuestErrorBuffer, &size);
+    void *buffer = flatbuffers_read_size_prefix(pPeb->guestErrorData.guestErrorBuffer, &size);
     assert(NULL != buffer);
     // No need to free buffer as its just a pointer to an offset in the message buffer in the PEB
     if (size > 0)
@@ -201,17 +201,17 @@ void writeError(uint64_t errorCode, char *message)
     ns(GuestError_end_as_root(&builder));
 
     size_t flatb_size = flatcc_builder_get_buffer_size(&builder);
-    assert(flatb_size <= pPeb->guestErrorBufferSize);
+    assert(flatb_size <= pPeb->guestErrorData.guestErrorSize);
 
     // Write the flatbuffer to the guest error buffer
 
-    assert(flatcc_builder_copy_buffer(&builder, (void *)pPeb->pGuestErrorBuffer, flatb_size));
+    assert(flatcc_builder_copy_buffer(&builder, (void *)pPeb->guestErrorData.guestErrorBuffer, flatb_size));
     flatcc_builder_clear(&builder);
 }
 
 void resetError()
 {
-    memset(pPeb->pGuestErrorBuffer, 0, pPeb->guestErrorBufferSize);
+    memset(pPeb->guestErrorData.guestErrorBuffer, 0, pPeb->guestErrorData.guestErrorSize);
 }
 
 // SetError sets the specified error and message in memory and then halts execution by returning the the point that setjmp was called

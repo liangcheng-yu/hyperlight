@@ -439,6 +439,27 @@ pub unsafe extern "C" fn mem_mgr_get_mem_size(ctx: *mut Context, mgr_hdl: Handle
     register_u64(&mut *ctx, val)
 }
 
+/// Get a new `Handle` referencing the uint64 guard_page_offset for the
+/// `SandboxMemoryManager` in `ctx` referenced by the given `mgr_hdl`
+///
+/// # Safety
+///
+/// `ctx` must be created by `context_new`, owned by the caller, and
+/// not yet freed by `context_free`.
+///
+/// `mem_mgr_hdl` must be a valid `Handle` returned by `mem_mgr_new` and associated with the `ctx`
+#[no_mangle]
+pub unsafe extern "C" fn mem_mgr_get_guard_page_offset(
+    ctx: *mut Context,
+    mgr_hdl: Handle,
+) -> Handle {
+    validate_context!(ctx);
+    let mgr = get_mgr!(ctx, mgr_hdl);
+    let val_usize = mgr.layout.get_guard_page_offset();
+    let val = u64::from(val_usize);
+    register_u64(&mut *ctx, val)
+}
+
 /// Writes the data pointed to by `fb_guest_function_call_ptr` as a `FunctionCall` flatbuffer to shared memory.
 /// The buffer should contain a valid size prefixed FunctionCall flatbuffer representing a Guest Function Call.
 ///

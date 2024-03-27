@@ -52,13 +52,21 @@ pub unsafe extern "C" fn kvm_create_driver(
     ctx: *mut Context,
     source_addr: u64,
     pml4_addr: u64,
+    guard_page_offset: u64,
     mem_size: u64,
     entrypoint: u64,
     rsp: u64,
 ) -> Handle {
     CFunc::new("kvm_create_driver", ctx)
         .and_then_mut(|ctx, _| {
-            let driver = KVMDriver::new(source_addr, pml4_addr, mem_size, entrypoint, rsp)?;
+            let driver = KVMDriver::new(
+                source_addr,
+                pml4_addr,
+                guard_page_offset,
+                mem_size,
+                entrypoint,
+                rsp,
+            )?;
             Ok(Context::register(
                 driver,
                 &mut ctx.kvm_drivers,

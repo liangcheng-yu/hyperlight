@@ -20,6 +20,16 @@ impl Offset {
     pub fn zero() -> Self {
         Self::default()
     }
+
+    /// round up to the nearest multiple of `alignment`
+    pub fn round_up_to(self, alignment: u64) -> Self {
+        let remainder = self.0 % alignment;
+        let multiples = self.0 / alignment;
+        match remainder {
+            0 => self,
+            _ => Offset::from((multiples + 1) * alignment),
+        }
+    }
 }
 
 impl Default for Offset {
@@ -256,5 +266,28 @@ mod tests {
                 assert_eq!(u64_val, u64::from(start + u64_val));
             }
         }
+    }
+
+    #[test]
+    fn round_up_to() {
+        let offset = Offset::from(0);
+        let rounded = offset.round_up_to(4);
+        assert_eq!(rounded, offset);
+
+        let offset = Offset::from(1);
+        let rounded = offset.round_up_to(4);
+        assert_eq!(rounded, Offset::from(4));
+
+        let offset = Offset::from(3);
+        let rounded = offset.round_up_to(4);
+        assert_eq!(rounded, Offset::from(4));
+
+        let offset = Offset::from(4);
+        let rounded = offset.round_up_to(4);
+        assert_eq!(rounded, Offset::from(4));
+
+        let offset = Offset::from(5);
+        let rounded = offset.round_up_to(4);
+        assert_eq!(rounded, Offset::from(8));
     }
 }

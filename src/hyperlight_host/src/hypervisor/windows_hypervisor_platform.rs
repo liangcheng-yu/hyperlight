@@ -1,6 +1,7 @@
 use super::hyperv_windows::WhvRegisterNameWrapper;
 use crate::Result;
 use core::ffi::c_void;
+use hyperlight_flatbuffers::mem::PAGE_SIZE;
 use std::collections::HashMap;
 use tracing::{instrument, Span};
 use windows::Win32::Foundation::HANDLE;
@@ -68,6 +69,7 @@ impl VMPartition {
         process_handle: &HANDLE,
         source_address: *const c_void,
         guest_address: u64,
+        stack_guard_offset: u64,
         size: usize,
         flags: WHV_MAP_GPA_RANGE_FLAGS,
     ) -> Result<()> {
@@ -79,6 +81,22 @@ impl VMPartition {
                 guest_address,
                 size.try_into().unwrap(),
                 flags,
+            )?;
+
+            // Map the stack guard page to be only readable
+            // Note, from the windows docs "The operation (WHvMapGpaRange2)
+            // replaces any previous mappings for the specified GPA pages"
+            WHvMapGpaRange2(
+                self.0,
+                *process_handle,
+                (source_address as *const u8).add(usize::try_from(stack_guard_offset)?)
+                    as *const c_void,
+                guest_address + stack_guard_offset,
+                PAGE_SIZE,
+                WHvMapGpaRangeFlagRead, // None is not allowed, since WHvUnmapGpaRange should probably
+                                        // be used in that case. However there doesn't exist a
+                                        // WHvUnmapGpaRange2 so we just let it be readable, which should
+                                        // be fine for our purposes
             )?;
         }
 

@@ -7,8 +7,8 @@ use crate::P_PEB;
 pub(crate) fn check_for_host_error() {
     unsafe {
         let peb_ptr = P_PEB.unwrap();
-        let guest_error_buffer_ptr = (*peb_ptr).pGuestErrorBuffer as *mut u8;
-        let guest_error_buffer_size = (*peb_ptr).guestErrorBufferSize as usize;
+        let guest_error_buffer_ptr = (*peb_ptr).guestErrorData.guestErrorBuffer as *mut u8;
+        let guest_error_buffer_size = (*peb_ptr).guestErrorData.guestErrorSize as usize;
 
         let guest_error_buffer = from_raw_parts(guest_error_buffer_ptr, guest_error_buffer_size);
 

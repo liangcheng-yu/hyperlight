@@ -6,6 +6,7 @@ use super::{
 };
 use super::{surrogate_process::SurrogateProcess, surrogate_process_manager::*};
 use super::{windows_hypervisor_platform as whp, HyperlightExit};
+use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::ptr::GuestPtr;
 use crate::Result;
 use crate::{
@@ -17,11 +18,12 @@ use crate::{
     HyperlightError::{NoHypervisorFound, WindowsErrorHResult},
 };
 use core::ffi::c_void;
-use std::any::Any;
+use hyperlight_flatbuffers::mem::PAGE_SIZE;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::string::String;
 use std::time::Duration;
+use std::{any::Any, ops::Range};
 use tracing::{instrument, Span};
 use windows::Win32::System::Hypervisor::{
     WHvMapGpaRangeFlagExecute, WHvMapGpaRangeFlagRead, WHvMapGpaRangeFlagWrite, WHvX64RegisterCr0,
@@ -51,6 +53,7 @@ pub(crate) struct HypervWindowsDriver {
     source_address: PtrCVoidMut,
     registers: HashMap<WhvRegisterNameWrapper, WHV_REGISTER_VALUE>,
     orig_rsp: GuestPtr,
+    guard_page_region: Range<u64>,
 }
 
 impl std::fmt::Debug for HypervWindowsDriver {
@@ -67,6 +70,7 @@ impl HypervWindowsDriver {
         size: usize,
         source_address: *mut c_void,
         sandbox_base_address: u64,
+        guard_page_offset: u64,
         pml4_address: u64,
         entry_point: u64,
         rsp: u64,
@@ -96,6 +100,7 @@ impl HypervWindowsDriver {
             &surrogate_process.process_handle,
             source_address,
             sandbox_base_address,
+            guard_page_offset,
             size,
             whp_map_gpa_range_flags,
         )?;
@@ -175,6 +180,8 @@ impl HypervWindowsDriver {
             source_address: PtrCVoidMut::from(source_address),
             registers,
             orig_rsp: GuestPtr::try_from(RawPtr::from(rsp))?,
+            guard_page_region: SandboxMemoryLayout::BASE_ADDRESS as u64 + guard_page_offset
+                ..SandboxMemoryLayout::BASE_ADDRESS as u64 + guard_page_offset + PAGE_SIZE,
         })
     }
 
@@ -398,10 +405,13 @@ impl Hypervisor for HypervWindowsDriver {
             // HvRunVpExitReasonX64Halt
             WHV_RUN_VP_EXIT_REASON(8i32) => HyperlightExit::Halt(),
             // WHvRunVpExitReasonMemoryAccess
-            WHV_RUN_VP_EXIT_REASON(1i32) =>
-            // TODO: Get the address
-            {
-                HyperlightExit::Mmio(0)
+            WHV_RUN_VP_EXIT_REASON(1i32) => {
+                let gpa = unsafe { exit_context.Anonymous.MemoryAccess.Gpa };
+                if (self.guard_page_region).contains(&gpa) {
+                    HyperlightExit::GuardPageViolation(gpa)
+                } else {
+                    HyperlightExit::Mmio(gpa)
+                }
             }
             //  WHvRunVpExitReasonCanceled
             //  Execution was cancelled by the host.
@@ -470,6 +480,7 @@ pub mod tests {
                     mgr.shared_mem.mem_size(),
                     host_addr as *mut core::ffi::c_void,
                     u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?,
+                    mgr.layout.get_guard_page_offset().into(),
                     pml4_ptr.absolute()?,
                     entrypoint.absolute().unwrap(),
                     rsp,

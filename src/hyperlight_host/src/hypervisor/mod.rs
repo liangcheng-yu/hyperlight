@@ -2,6 +2,7 @@
 use crate::error::HyperlightError::HostFailedToCancelGuestExecutionSendingSignals;
 use crate::hypervisor::metrics::HypervisorMetric::NumberOfCancelledGuestExecutions;
 use crate::new_error;
+use crate::HyperlightError;
 use crate::Result;
 use crate::{
     error::HyperlightError::{ExecutionCanceledByHost, HostFailedToCancelGuestExecution},
@@ -87,6 +88,8 @@ pub enum HyperlightExit {
     IoOut(u16, Vec<u8>, u64, u64),
     /// The vCPU has attempted to read or write from an unmapped address
     Mmio(u64),
+    /// The vCPU tried to write to the guard page
+    GuardPageViolation(u64),
     /// The vCPU execution has been cancelled
     Cancelled(),
     /// The vCPU has exited for a reason that is not handled by Hyperlight
@@ -632,6 +635,9 @@ impl VirtualCPU {
                         .map_err(|e| new_error!("error locking: {:?}", e))?
                         .call()?;
                     log_then_return!("MMIO access address {:#x}", addr);
+                }
+                HyperlightExit::GuardPageViolation(addr) => {
+                    log_then_return!(HyperlightError::GuardPageViolation(addr));
                 }
                 HyperlightExit::Cancelled() => {
                     // Shutdown is returned when the host has cancelled execution

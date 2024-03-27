@@ -9,8 +9,8 @@ const MAX_BUFFER_SIZE: usize = 1024;
 
 extern crate alloc;
 
-use core::ffi::c_char;
 use core::hint::black_box;
+use core::{ffi::c_char, ptr::write_volatile};
 
 use alloc::{format, string::ToString, vec::Vec};
 use hyperlight_flatbuffers::flatbuffer_wrappers::{
@@ -19,8 +19,10 @@ use hyperlight_flatbuffers::flatbuffer_wrappers::{
     guest_error::ErrorCode,
     guest_function_definition::GuestFunctionDefinition,
 };
+use hyperlight_flatbuffers::mem::PAGE_SIZE;
 use hyperlight_guest::alloca::_alloca;
 use hyperlight_guest::memory::hlmalloc;
+use hyperlight_guest::MIN_STACK_ADDRESS;
 use hyperlight_guest::{entrypoint::abort_with_code, entrypoint::abort_with_code_and_message};
 use hyperlight_guest::{
     error::{HyperlightGuestError, Result},
@@ -364,6 +366,15 @@ fn buffer_overrun(function_call: &FunctionCall) -> Result<Vec<u8>> {
     }
 }
 
+#[allow(unconditional_recursion)]
+fn infinite_recursion(a: &FunctionCall) -> Result<Vec<u8>> {
+    let param = black_box(5); // blackbox is needed so something
+                              //is written to the stack in release mode,
+                              //to trigger guard page violation
+    black_box(param);
+    infinite_recursion(a)
+}
+
 fn stack_overflow(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::Int(i) = function_call.parameters.clone().unwrap()[0].clone() {
         loop_stack_overflow(i);
@@ -495,9 +506,32 @@ fn test_abort_with_code_and_message(function_call: &FunctionCall) -> Result<Vec<
 
 fn test_guest_panic(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::String(message) = function_call.parameters.clone().unwrap()[0].clone() {
-        panic!{"{}", message};
+        panic!("{}", message);
     }
     Ok(get_flatbuffer_result_from_void())
+}
+
+fn test_write_raw_ptr(function_call: &FunctionCall) -> Result<Vec<u8>> {
+    if let ParameterValue::Long(offset) = function_call.parameters.clone().unwrap()[0].clone() {
+        let min_stack_addr = unsafe { MIN_STACK_ADDRESS };
+        let page_guard_start = min_stack_addr - PAGE_SIZE;
+        let addr = {
+            let abs = u64::try_from(offset.abs())
+                .map_err(|_| error!("Invalid offset"))
+                .unwrap();
+            if offset.is_negative() {
+                page_guard_start - abs
+            } else {
+                page_guard_start + abs
+            }
+        };
+        unsafe {
+            print_output(format!("writing to {:#x}\n", addr).as_str()).unwrap();
+            write_volatile(addr as *mut u8, 0u8);
+        }
+        return Ok(get_flatbuffer_result_from_string("success"));
+    }
+    Ok(get_flatbuffer_result_from_string("fail"))
 }
 
 #[no_mangle]
@@ -820,6 +854,22 @@ pub extern "C" fn hyperlight_main() {
         log_message as i64,
     );
     register_function(log_message_def);
+
+    let infinite_recursion_def = GuestFunctionDefinition::new(
+        "InfiniteRecursion".to_string(),
+        Vec::new(),
+        ReturnType::Void,
+        infinite_recursion as i64,
+    );
+    register_function(infinite_recursion_def);
+
+    let test_write_raw_ptr_def = GuestFunctionDefinition::new(
+        "test_write_raw_ptr".to_string(),
+        Vec::from(&[ParameterType::Long]),
+        ReturnType::String,
+        test_write_raw_ptr as i64,
+    );
+    register_function(test_write_raw_ptr_def)
 }
 
 #[no_mangle]

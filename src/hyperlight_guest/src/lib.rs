@@ -6,7 +6,7 @@ use buddy_system_allocator::LockedHeap;
 use core::hint::unreachable_unchecked;
 use core::ptr::copy_nonoverlapping;
 use hyperlight_flatbuffers::flatbuffer_wrappers::guest_function_details::GuestFunctionDetails;
-use hyperlight_peb::HyperlightPEB;
+use hyperlight_flatbuffers::mem::HyperlightPEB;
 extern crate alloc;
 
 // Modules
@@ -21,8 +21,6 @@ pub mod guest_functions;
 pub mod host_error;
 pub mod host_function_call;
 pub mod host_functions;
-
-pub mod hyperlight_peb;
 
 pub mod alloca;
 pub mod flatbuffer_utils;
@@ -71,7 +69,7 @@ pub(crate) static HEAP_ALLOCATOR: LockedHeap<32> = LockedHeap::<32>::empty();
 pub(crate) static mut __security_cookie: u64 = 0;
 
 pub(crate) static mut P_PEB: Option<*mut HyperlightPEB> = None;
-pub(crate) static mut MIN_STACK_ADDRESS: u64 = 0;
+pub static mut MIN_STACK_ADDRESS: u64 = 0;
 
 pub(crate) static mut OS_PAGE_SIZE: u32 = 0;
 pub(crate) static mut OUTB_PTR: Option<fn(u16, u8)> = None;

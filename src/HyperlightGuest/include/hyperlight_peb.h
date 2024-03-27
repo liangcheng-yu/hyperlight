@@ -14,6 +14,13 @@ typedef struct
 
 } HostException;
 
+typedef struct 
+{
+    uint64_t guestErrorSize;
+    void* guestErrorBuffer;
+} GuestErrorData;
+
+
 typedef struct
 {
     uint64_t inputDataSize;
@@ -57,8 +64,7 @@ typedef struct
     uint64_t guest_function_dispatch_ptr;
     HostFunctionDefinitions hostFunctionDefinitions;
     HostException hostException;
-    void* pGuestErrorBuffer;
-    uint64_t guestErrorBufferSize;
+    GuestErrorData guestErrorData;
     char* pCode;
     void* pOutb;
     void *pOutbContext;

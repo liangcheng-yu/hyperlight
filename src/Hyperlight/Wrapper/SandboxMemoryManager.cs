@@ -103,6 +103,25 @@ namespace Hyperlight.Wrapper
             }
         }
 
+        public ulong GuardPageOffset
+        {
+            get
+            {
+                var rawHdl = mem_mgr_get_guard_page_offset(
+                    this.ctxWrapper.ctx,
+                    this.memMgrHdl.handle
+                );
+                using var hdl = new Handle(this.ctxWrapper, rawHdl, true);
+                if (!hdl.IsUInt64())
+                {
+                    throw new HyperlightException(
+                        "mem_mgr_get_guard_page_offset did not return a uint64"
+                    );
+                }
+                return hdl.GetUInt64();
+            }
+        }
+
         internal SandboxMemoryManager(
             Context ctx,
             Handle hdl
@@ -808,6 +827,13 @@ namespace Hyperlight.Wrapper
         [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle mem_mgr_get_mem_size(
+            NativeContext ctx,
+            NativeHandle memMgrHdl
+        );
+
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle mem_mgr_get_guard_page_offset(
             NativeContext ctx,
             NativeHandle memMgrHdl
         );

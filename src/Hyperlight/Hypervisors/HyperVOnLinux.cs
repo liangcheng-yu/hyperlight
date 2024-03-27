@@ -20,6 +20,7 @@ namespace Hyperlight.Hypervisors
             ulong pml4_addr,
             ulong size,
             ulong entryPoint,
+            ulong guardPageOffset,
             ulong rsp,
             Action<ushort, byte> outb,
             Action handleMemoryAccess
@@ -34,6 +35,7 @@ namespace Hyperlight.Hypervisors
             var addrs = new HypervisorAddrs(
                 entryPoint,
                 (ulong)sourceAddress.ToInt64(),
+                guardPageOffset,
                 size
             );
             var rawHdl = hyperv_linux_create_driver(

@@ -20,19 +20,20 @@ pub(crate) fn write_error(error_code: ErrorCode, message: Option<&str>) {
         .expect("Invalid guest_error_buffer, could not be converted to a Vec<u8>");
 
     unsafe {
-        assert!(!(*P_PEB.unwrap()).pGuestErrorBuffer.is_null());
+        assert!(!(*P_PEB.unwrap()).guestErrorData.guestErrorBuffer.is_null());
         let len = guest_error_buffer.len();
-        if guest_error_buffer.len() > (*P_PEB.unwrap()).guestErrorBufferSize as usize {
+        if guest_error_buffer.len() > (*P_PEB.unwrap()).guestErrorData.guestErrorSize as usize {
             error!(
                 "Guest error buffer is too small to hold the error message: size {} buffer size {} message may be truncated",
                 guest_error_buffer.len(),
-                (*P_PEB.unwrap()).guestErrorBufferSize as usize
+                (*P_PEB.unwrap()).guestErrorData.guestErrorSize as usize
             );
             // get the length of the message
             let message_len = message.map_or("".to_string(), |m| m.to_string()).len();
             // message is too long, truncate it
             let truncate_len = message_len
-                - (guest_error_buffer.len() - (*P_PEB.unwrap()).guestErrorBufferSize as usize);
+                - (guest_error_buffer.len()
+                    - (*P_PEB.unwrap()).guestErrorData.guestErrorSize as usize);
             let truncated_message = message
                 .map_or("".to_string(), |m| m.to_string())
                 .chars()
@@ -51,7 +52,7 @@ pub(crate) fn write_error(error_code: ErrorCode, message: Option<&str>) {
         // but, because copy_nonoverlapping doesn't return anything, we can't do that.
         // Instead, we do the prior asserts/checks to check the destination pointer isn't null
         // and that there is enough space in the destination buffer for the copy.
-        let dest_ptr = (*P_PEB.unwrap()).pGuestErrorBuffer as *mut u8;
+        let dest_ptr = (*P_PEB.unwrap()).guestErrorData.guestErrorBuffer as *mut u8;
         core::ptr::copy_nonoverlapping(guest_error_buffer.as_ptr(), dest_ptr, len);
     }
 }
@@ -60,9 +61,9 @@ pub(crate) fn reset_error() {
     unsafe {
         let peb_ptr = P_PEB.unwrap();
         core::ptr::write_bytes(
-            (*peb_ptr).pGuestErrorBuffer,
+            (*peb_ptr).guestErrorData.guestErrorBuffer,
             0,
-            (*peb_ptr).guestErrorBufferSize as usize,
+            (*peb_ptr).guestErrorData.guestErrorSize as usize,
         );
     }
 }

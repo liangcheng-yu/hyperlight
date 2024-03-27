@@ -75,6 +75,9 @@ pub enum HyperlightError {
     #[error("Field Name {0} not found in decoded GuestLogData")]
     ///Field Name not found in decoded GuestLogData
     FieldIsMissingInGuestLogData(String),
+    #[error("Guard Page Violation at address {0:#x}")]
+    /// Guard Page Violation
+    GuardPageViolation(u64),
     #[error("Cannot run from guest binary when guest binary is a buffer")]
     ///Cannot run from guest binary unless the binary is a file
     GuestBinaryShouldBeAFile(),

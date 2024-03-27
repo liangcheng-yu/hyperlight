@@ -5,11 +5,11 @@ use crate::{
     guest_functions::finalise_function_table,
     guest_logger::{GuestLogger, LOGGER},
     host_function_call::{outb, OutBAction},
-    hyperlight_peb::HyperlightPEB,
     HEAP_ALLOCATOR, MIN_STACK_ADDRESS, OS_PAGE_SIZE, OUTB_PTR, OUTB_PTR_WITH_CONTEXT, P_PEB,
     RUNNING_IN_HYPERLIGHT,
 };
 
+use hyperlight_flatbuffers::mem::HyperlightPEB;
 use log::LevelFilter;
 
 use core::{

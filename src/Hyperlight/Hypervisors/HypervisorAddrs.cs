@@ -9,20 +9,23 @@ namespace Hyperlight.Hypervisors
     public struct HypervisorAddrs : IEquatable<HypervisorAddrs>
     {
         // IMPORTANT: do not change the order of these fields,
-        // unless you change them to match in hyperv_linux_mem.rs
+        // unless you change them to match in hyperv_mem.rs
         public ulong entrypoint;
         public ulong guestPFN;
         public ulong hostAddr;
+        public ulong guardPageOffset;
         public ulong memSize;
         public HypervisorAddrs(
             ulong entrypoint,
             ulong hostAddr,
+            ulong guardPageOffset,
             ulong memSize
         )
         {
             this.entrypoint = entrypoint;
             this.hostAddr = hostAddr;
             this.guestPFN = (ulong)SandboxMemoryLayout.BaseAddress >> 12;
+            this.guardPageOffset = guardPageOffset;
             this.memSize = memSize;
         }
 
@@ -48,6 +51,7 @@ namespace Hyperlight.Hypervisors
                 other.entrypoint == this.entrypoint &&
                 other.hostAddr == this.hostAddr &&
                 other.guestPFN == this.guestPFN &&
+                other.guardPageOffset == this.guardPageOffset &&
                 other.memSize == this.memSize
             );
         }
@@ -67,6 +71,7 @@ namespace Hyperlight.Hypervisors
                 this.entrypoint +
                 this.hostAddr +
                 this.guestPFN +
+                this.guardPageOffset +
                 this.memSize
             );
         }

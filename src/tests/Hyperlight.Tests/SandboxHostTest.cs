@@ -26,6 +26,7 @@ namespace Hyperlight.Tests
         private readonly ITestOutputHelper testOutput;
         public const int NUMBER_OF_ITERATIONS = 10;
         public const int NUMBER_OF_PARALLEL_TESTS = 10;
+        public const int PAGE_SIZE = 4096;
         // These are the host functions that are exposed automatically by Hyperlight
         private readonly string[] internalFunctions = { "GetStackBoundary", "GetTimeSinceBootMicrosecond" };
 
@@ -1111,12 +1112,13 @@ namespace Hyperlight.Tests
                                 + sandboxConfiguration.HostExceptionSize
                                 + sandboxConfiguration.GuestErrorBufferSize
                                 + sandboxConfiguration.GuestPanicBufferSize
+                                + PAGE_SIZE // guard page
                                 + headerSize);
 
-            var rem = totalSize % 4096;
+            var rem = totalSize % PAGE_SIZE;
             if (rem != 0)
             {
-                totalSize += 4096 - rem;
+                totalSize += PAGE_SIZE - rem;
             }
             return totalSize;
         }

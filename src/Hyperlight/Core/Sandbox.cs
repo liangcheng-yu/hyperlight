@@ -415,6 +415,7 @@ namespace Hyperlight
                         pml4Addr,
                         memSize,
                         entryPoint,
+                        sandboxMemoryManager.GuardPageOffset,
                         rsp,
                         HandleOutb,
                         HandleMMIOExit
@@ -428,6 +429,7 @@ namespace Hyperlight
                         pml4Addr,
                         memSize,
                         entryPoint,
+                        sandboxMemoryManager.GuardPageOffset,
                         rsp,
                         HandleOutb,
                         HandleMMIOExit

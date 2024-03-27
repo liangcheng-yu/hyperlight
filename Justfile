@@ -53,10 +53,20 @@ build-dotnet:
     cd src/examples/NativeHost && dotnet build 
 
 build-rust target=default-target:
-    cargo build --verbose --profile={{ if target == "debug" { "dev" } else { target } }}
+    cargo build --profile={{ if target == "debug" { "dev" } else { target } }}
 
 build: build-rust build-dotnet
     echo "built all .NET and Rust projects"
+
+# CLEANING
+clean: clean-rust
+
+clean-rust: 
+    rm {{ if os() == "windows" {"-Force -Exclude .gitkeep"} else {"-f"} }} src/tests/rust_guests/bin/debug/* && rm {{ if os() == "windows" {"-Force -Exclude .gitkeep"} else {"-f"} }} src/tests/rust_guests/bin/release/*
+    cargo clean
+    cd src/tests/rust_guests/simpleguest && cargo clean
+    cd src/tests/rust_guests/dummyguest && cargo clean
+    cd src/tests/rust_guests/callbackguest && cargo clean
 
 # TESTING
 # Tracing tests cannot run with other tests they are marked as ignored so that cargo test works

@@ -22,6 +22,8 @@ pub struct HypervisorAddrs {
     /// TODO: instead of this, just put a &SharedMemory in here.
     /// this should be done after the Rust rewrite is complete
     pub(crate) host_addr: u64,
+    /// The offset from the start of the memory to start of the stack guard page
+    pub(crate) guard_page_offset: u64,
     /// Total size of the memory that starts at `host_addr`.
     ///
     /// You must own all bytes in memory in the range
@@ -44,12 +46,14 @@ impl HypervisorAddrs {
         region_mem_size: u64,
         entrypoint: u64,
         guest_pfn: u64,
+        guard_page_offset: u64,
     ) -> Result<Self> {
         Ok(Self {
             entrypoint,
             guest_pfn,
             host_addr: shared_mem.base_addr() as u64,
             mem_size: region_mem_size,
+            guard_page_offset,
         })
     }
 }

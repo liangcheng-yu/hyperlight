@@ -22,6 +22,7 @@ internal sealed class KVM : Hypervisor, IDisposable
         ulong pml4Addr,
         ulong memSize,
         ulong entryPoint,
+        ulong guardPageOffset,
         ulong rsp,
         Action<ushort, byte> outb,
         Action handleMemoryAccess
@@ -43,6 +44,7 @@ internal sealed class KVM : Hypervisor, IDisposable
             ctx.ctx,
             (ulong)sourceAddr.ToInt64(),
             pml4Addr,
+            guardPageOffset,
             memSize,
             entryPoint,
             rsp
@@ -132,6 +134,7 @@ internal sealed class KVM : Hypervisor, IDisposable
         NativeContext ctx,
         ulong sourceAddr,
         ulong pml4Addr,
+        ulong guardPageOffset,
         ulong memSize,
         ulong entryPoint,
         ulong rsp

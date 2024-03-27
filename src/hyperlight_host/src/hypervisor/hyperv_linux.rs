@@ -10,11 +10,13 @@ use crate::{
 };
 use crate::{hypervisor::HyperlightExit, mem::ptr::RawPtr};
 use crate::{log_then_return, Result};
+use hyperlight_flatbuffers::mem::{PAGE_SHIFT, PAGE_SIZE};
 use log::error;
 use mshv_bindings::{
-    hv_message, hv_message_type, hv_message_type_HVMSG_UNMAPPED_GPA,
-    hv_message_type_HVMSG_X64_HALT, hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT, hv_register_assoc,
-    hv_register_name, hv_register_name_HV_X64_REGISTER_CR0, hv_register_name_HV_X64_REGISTER_CR3,
+    hv_message, hv_message_type, hv_message_type_HVMSG_GPA_INTERCEPT,
+    hv_message_type_HVMSG_UNMAPPED_GPA, hv_message_type_HVMSG_X64_HALT,
+    hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT, hv_register_assoc, hv_register_name,
+    hv_register_name_HV_X64_REGISTER_CR0, hv_register_name_HV_X64_REGISTER_CR3,
     hv_register_name_HV_X64_REGISTER_CR4, hv_register_name_HV_X64_REGISTER_CS,
     hv_register_name_HV_X64_REGISTER_EFER, hv_register_name_HV_X64_REGISTER_R8,
     hv_register_name_HV_X64_REGISTER_R9, hv_register_name_HV_X64_REGISTER_RAX,
@@ -78,7 +80,7 @@ pub struct HypervLinuxDriver {
     _mshv: Mshv,
     vm_fd: VmFd,
     vcpu_fd: VcpuFd,
-    mem_region: mshv_user_mem_region,
+    mem_regions: Vec<mshv_user_mem_region>,
     // note: we should use a HashSet here rather than this
     // HashMap, but to do that, hv_register_assoc needs to
     // implement Eq and PartialEq
@@ -91,7 +93,7 @@ pub struct HypervLinuxDriver {
 impl std::fmt::Debug for HypervLinuxDriver {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("HypervLinuxDriver")
-            .field("mem_region", &self.mem_region)
+            .field("mem_region", &self.mem_regions)
             .finish()
     }
 }
@@ -124,14 +126,34 @@ impl HypervLinuxDriver {
         let pr = Default::default();
         let vm_fd = mshv.create_vm_with_config(&pr)?;
         let mut vcpu_fd = vm_fd.create_vcpu(0)?;
-        let mem_region = mshv_user_mem_region {
-            size: addrs.mem_size,
-            guest_pfn: addrs.guest_pfn,
-            userspace_addr: addrs.host_addr,
-            flags: HV_MAP_GPA_READABLE | HV_MAP_GPA_WRITABLE | HV_MAP_GPA_EXECUTABLE,
-        };
+        let mem_regions = vec![
+            // everything up to but not including guard page
+            mshv_user_mem_region {
+                size: addrs.guard_page_offset,
+                guest_pfn: addrs.guest_pfn,
+                userspace_addr: addrs.host_addr,
+                flags: HV_MAP_GPA_READABLE | HV_MAP_GPA_WRITABLE | HV_MAP_GPA_EXECUTABLE,
+            },
+            // guard page
+            mshv_user_mem_region {
+                size: PAGE_SIZE,
+                guest_pfn: addrs.guest_pfn + (addrs.guard_page_offset >> PAGE_SHIFT),
+                userspace_addr: addrs.host_addr + addrs.guard_page_offset,
+                flags: HV_MAP_GPA_READABLE,
+            },
+            // everything after guard_page
+            mshv_user_mem_region {
+                size: addrs.mem_size - addrs.guard_page_offset - PAGE_SIZE,
+                guest_pfn: addrs.guest_pfn + (addrs.guard_page_offset >> PAGE_SHIFT) + 1,
+                userspace_addr: addrs.host_addr + addrs.guard_page_offset + PAGE_SIZE,
+                flags: HV_MAP_GPA_READABLE | HV_MAP_GPA_WRITABLE | HV_MAP_GPA_EXECUTABLE,
+            },
+        ];
 
-        vm_fd.map_user_memory(mem_region)?;
+        for region in &mem_regions {
+            vm_fd.map_user_memory(*region)?;
+        }
+
         let registers = {
             let mut hm = HashMap::new();
             Self::add_registers(&mut vcpu_fd, &mut hm, addrs, rsp_ptr, pml4_ptr)?;
@@ -141,7 +163,7 @@ impl HypervLinuxDriver {
             _mshv: mshv,
             vm_fd,
             vcpu_fd,
-            mem_region,
+            mem_regions,
             registers,
             orig_rsp: rsp_ptr,
         })
@@ -377,6 +399,7 @@ impl Hypervisor for HypervLinuxDriver {
         const IO_PORT_INTERCEPT_MESSAGE: hv_message_type =
             hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT;
         const UNMAPPED_GPA_MESSAGE: hv_message_type = hv_message_type_HVMSG_UNMAPPED_GPA;
+        const GUARD_PAGE_MESSAGE: hv_message_type = hv_message_type_HVMSG_GPA_INTERCEPT;
 
         let hv_message: hv_message = Default::default();
         let result = match &self.vcpu_fd.run(hv_message) {
@@ -400,6 +423,11 @@ impl Hypervisor for HypervLinuxDriver {
                     let mimo_message = m.to_memory_info()?;
                     let addr = mimo_message.guest_physical_address;
                     HyperlightExit::Mmio(addr)
+                }
+                GUARD_PAGE_MESSAGE => {
+                    let mimo_message = m.to_memory_info()?;
+                    let addr = mimo_message.guest_physical_address;
+                    HyperlightExit::GuardPageViolation(addr)
                 }
                 other => {
                     log_then_return!("unknown Hyper-V run message type {:?}", other);
@@ -464,10 +492,12 @@ impl Hypervisor for HypervLinuxDriver {
 impl Drop for HypervLinuxDriver {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn drop(&mut self) {
-        match self.vm_fd.unmap_user_memory(self.mem_region) {
-            Ok(_) => (),
-            Err(e) => {
-                error!("Failed to unmap user memory in HyperVOnLinux ({:?})", e)
+        for region in &self.mem_regions {
+            match self.vm_fd.unmap_user_memory(*region) {
+                Ok(_) => (),
+                Err(e) => {
+                    error!("Failed to unmap user memory in HyperVOnLinux ({:?})", e)
+                }
             }
         }
     }
@@ -579,9 +609,9 @@ mod tests {
     #[test]
     fn create_driver() {
         should_run_hyperv_linux_test!();
-        const MEM_SIZE: usize = 0x1000;
+        const MEM_SIZE: usize = 0x3000;
         let gm = shared_mem_with_code(CODE.as_slice(), MEM_SIZE, Offset::zero()).unwrap();
-        let addrs = HypervisorAddrs::for_shared_mem(&gm, MEM_SIZE as u64, 0, 0).unwrap();
+        let addrs = HypervisorAddrs::for_shared_mem(&gm, MEM_SIZE as u64, 0, 0, 0x1000).unwrap();
         let rsp_ptr = GuestPtr::try_from(Offset::from(0)).unwrap();
         let pml4_ptr = GuestPtr::try_from(Offset::from(0)).unwrap();
         super::HypervLinuxDriver::new(&addrs, rsp_ptr, pml4_ptr).unwrap();

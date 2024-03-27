@@ -1,4 +1,5 @@
 use hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::ErrorCode;
+use hyperlight_flatbuffers::mem::PAGE_SIZE;
 use hyperlight_host::func::{ParameterValue, ReturnType, ReturnValue};
 use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
 use hyperlight_host::sandbox_state::transition::Noop;
@@ -315,6 +316,54 @@ fn recursive_stack_allocate() {
         Some(vec![ParameterValue::Int(iterations)]),
     )
     .unwrap();
+}
+
+// checks stack guard page (between guest stack and heap)
+// is properly set up and cannot be written to
+#[test]
+fn guard_page_check() {
+    let offsets_from_page_guard_start: Vec<i64> = vec![
+        -1024,
+        -1,
+        0,                    // should fail
+        1,                    // should fail
+        1024,                 // should fail
+        PAGE_SIZE as i64 - 1, // should fail
+        PAGE_SIZE as i64,
+        PAGE_SIZE as i64 + 1024,
+    ];
+
+    let guard_range = 0..PAGE_SIZE as i64;
+
+    for offset in offsets_from_page_guard_start {
+        // we have to create a sandbox each iteration because can't reuse after MMIO error in release mode
+        let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+        let mut ctx1 = sbox1.new_call_context();
+        let result = ctx1.call(
+            "test_write_raw_ptr",
+            ReturnType::String,
+            Some(vec![ParameterValue::Long(offset)]),
+        );
+        if guard_range.contains(&offset) {
+            // should have failed
+            assert!(matches!(
+                result.unwrap_err(),
+                HyperlightError::GuardPageViolation(_)
+            ));
+        } else {
+            assert!(result.is_ok(), "offset {} should pass", offset)
+        }
+    }
+}
+
+#[test]
+fn guard_page_check_2() {
+    let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+    let mut ctx1 = sbox1.new_call_context();
+    let result = ctx1
+        .call("InfiniteRecursion", ReturnType::Void, Some(vec![]))
+        .unwrap_err();
+    assert!(matches!(result, HyperlightError::GuardPageViolation(_)));
 }
 
 // checks that a recursive function with stack allocation eventually fails with stackoverflow

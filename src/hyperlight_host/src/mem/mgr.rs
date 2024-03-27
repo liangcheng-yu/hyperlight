@@ -60,7 +60,8 @@ pub struct SandboxMemoryManager {
     /// Shared memory for the Sandbox
     //TODO:(#1029) Once we have a full C API visibility can be pub(crate)
     pub shared_mem: SharedMemory,
-    pub(crate) layout: SandboxMemoryLayout,
+    /// The memory layout of the underlying shared memory
+    pub layout: SandboxMemoryLayout,
     /// Pointer to where to load memory from
     //TODO:(#1029) Once we have a full C API visibility can be pub(crate)
     pub load_addr: RawPtr,
@@ -574,7 +575,7 @@ impl SandboxMemoryManager {
 
         self.shared_mem.copy_from_slice(
             host_function_call_buffer.as_slice(),
-            self.layout.host_function_definitions_offset,
+            self.layout.host_function_definitions_buffer_offset,
         )?;
         Ok(())
     }
@@ -604,7 +605,7 @@ impl SandboxMemoryManager {
         validate_host_function_call_buffer(buffer)
             .map_err(|e| new_error!("Invalid host function call buffer: {}", e.to_string()))?;
         self.shared_mem
-            .copy_from_slice(buffer, self.layout.host_function_definitions_offset)?;
+            .copy_from_slice(buffer, self.layout.host_function_definitions_buffer_offset)?;
 
         Ok(())
     }
