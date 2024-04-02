@@ -13,20 +13,19 @@ use hyperlight_flatbuffers::mem::HyperlightPEB;
 use log::LevelFilter;
 
 use core::{
+    arch::asm,
     ffi::{c_char, c_void},
     hint::unreachable_unchecked,
     ptr::copy_nonoverlapping,
 };
 
+#[inline(never)]
 pub fn halt() {
     unsafe {
         if RUNNING_IN_HYPERLIGHT {
-            let mut hlt_opcode: u8 = 0xF4;
-            let hlt_func: fn() = core::mem::transmute(&hlt_opcode);
-            core::ptr::write_volatile(&mut hlt_opcode as *mut u8, 0xF4);
-            // ^^^ write_volatile prevents the compiler
-            // from optimizing away access to the hlt_opcode.
-            hlt_func();
+            // nostack and inline(never) is strictly necessary for dotnet tests
+            // to run in release mode, but unsure why
+            asm!("hlt", options(nostack));
         }
     }
 }

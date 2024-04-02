@@ -23,7 +23,7 @@ use mshv_bindings::{
     hv_register_name_HV_X64_REGISTER_RBX, hv_register_name_HV_X64_REGISTER_RCX,
     hv_register_name_HV_X64_REGISTER_RDX, hv_register_name_HV_X64_REGISTER_RFLAGS,
     hv_register_name_HV_X64_REGISTER_RIP, hv_register_name_HV_X64_REGISTER_RSP, hv_register_value,
-    hv_u128, mshv_user_mem_region,
+    hv_u128, mshv_user_mem_region, HV_MAP_GPA_EXECUTABLE, HV_MAP_GPA_READABLE, HV_MAP_GPA_WRITABLE,
 };
 use mshv_ioctls::{Mshv, VcpuFd, VmFd};
 use once_cell::sync::Lazy;
@@ -51,15 +51,6 @@ pub fn is_hypervisor_present() -> Result<bool> {
         }
     }
 }
-/// The constant to map guest physical addresses as readable
-/// in an mshv memory region
-const HV_MAP_GPA_READABLE: u32 = 1;
-/// The constant to map guest physical addresses as writable
-/// in an mshv memory region
-const HV_MAP_GPA_WRITABLE: u32 = 2;
-/// The constant to map guest physical addresses as executable
-/// in an mshv memory region
-const HV_MAP_GPA_EXECUTABLE: u32 = 12;
 
 // TODO: Question should we make the default true (i.e. we only allow unstable API if the Env Var is set)
 // The only reason the default is as it is now is because there is no stable API for hyperv on Linux
@@ -146,7 +137,7 @@ impl HypervLinuxDriver {
                 size: addrs.mem_size - addrs.guard_page_offset - PAGE_SIZE,
                 guest_pfn: addrs.guest_pfn + (addrs.guard_page_offset >> PAGE_SHIFT) + 1,
                 userspace_addr: addrs.host_addr + addrs.guard_page_offset + PAGE_SIZE,
-                flags: HV_MAP_GPA_READABLE | HV_MAP_GPA_WRITABLE | HV_MAP_GPA_EXECUTABLE,
+                flags: HV_MAP_GPA_READABLE | HV_MAP_GPA_WRITABLE,
             },
         ];
 
@@ -399,7 +390,7 @@ impl Hypervisor for HypervLinuxDriver {
         const IO_PORT_INTERCEPT_MESSAGE: hv_message_type =
             hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT;
         const UNMAPPED_GPA_MESSAGE: hv_message_type = hv_message_type_HVMSG_UNMAPPED_GPA;
-        const GUARD_PAGE_MESSAGE: hv_message_type = hv_message_type_HVMSG_GPA_INTERCEPT;
+        const INVALID_GPA_ACCESS_MESSAGE: hv_message_type = hv_message_type_HVMSG_GPA_INTERCEPT;
 
         let hv_message: hv_message = Default::default();
         let result = match &self.vcpu_fd.run(hv_message) {
@@ -424,10 +415,15 @@ impl Hypervisor for HypervLinuxDriver {
                     let addr = mimo_message.guest_physical_address;
                     HyperlightExit::Mmio(addr)
                 }
-                GUARD_PAGE_MESSAGE => {
+                INVALID_GPA_ACCESS_MESSAGE => {
                     let mimo_message = m.to_memory_info()?;
                     let addr = mimo_message.guest_physical_address;
-                    HyperlightExit::GuardPageViolation(addr)
+                    if mimo_message.header.intercept_access_type == 0x2 {
+                        // 0x2 is execute.
+                        HyperlightExit::ExecutionAccessViolation(addr)
+                    } else {
+                        HyperlightExit::GuardPageViolation(addr)
+                    }
                 }
                 other => {
                     log_then_return!("unknown Hyper-V run message type {:?}", other);

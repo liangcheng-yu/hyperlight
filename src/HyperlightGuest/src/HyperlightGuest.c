@@ -160,10 +160,9 @@ void outb(uint16_t port, uint8_t value)
 
 void halt()
 {
-    const uint8_t hlt = 0xF4;
     if (runningInHyperlight)
     {
-        ((void (*)()) & hlt)();
+        __asm__("hlt");
     }
 }
 

@@ -366,6 +366,28 @@ fn guard_page_check_2() {
     assert!(matches!(result, HyperlightError::GuardPageViolation(_)));
 }
 
+#[test]
+fn execute_on_stack() {
+    #[cfg(target_os = "linux")]
+    {
+        use hyperlight_host::hypervisor::kvm;
+
+        if kvm::is_hypervisor_present().is_ok() {
+            // This test is not supported on KVM because the stack in KVM cannot be marked non-executable
+            return;
+        }
+    }
+    let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+    let mut ctx1 = sbox1.new_call_context();
+    let result = ctx1
+        .call("execute_on_stack", ReturnType::String, Some(vec![]))
+        .unwrap_err();
+    assert!(matches!(
+        result,
+        HyperlightError::ExecutionAccessViolation(_)
+    ));
+}
+
 // checks that a recursive function with stack allocation eventually fails with stackoverflow
 #[test]
 fn recursive_stack_allocate_overflow() {

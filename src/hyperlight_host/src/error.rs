@@ -174,6 +174,9 @@ pub enum HyperlightError {
     #[error("Failed To Convert Return Value {0:?} to {1:?}")]
     /// Failed to get value from return value
     ReturnValueConversionFailure(ReturnValue, &'static str),
+    #[error("Non-executable address {0:#x} tried to be executed")]
+    /// Execution violation
+    ExecutionAccessViolation(u64),
     #[error("Stack overflow detected")]
     /// Stack overflow detected in guest
     StackOverflow(),

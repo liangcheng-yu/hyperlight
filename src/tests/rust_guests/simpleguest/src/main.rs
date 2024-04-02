@@ -534,6 +534,16 @@ fn test_write_raw_ptr(function_call: &FunctionCall) -> Result<Vec<u8>> {
     Ok(get_flatbuffer_result_from_string("fail"))
 }
 
+fn execute_on_stack(_function_call: &FunctionCall) -> Result<Vec<u8>> {
+    unsafe {
+        let mut noop: u8 = 0x90;
+        let noop_fn: fn() = core::mem::transmute(&mut noop as *mut u8);
+        core::ptr::write_volatile(&mut noop as *mut u8, noop);
+        noop_fn();
+    };
+    Ok(get_flatbuffer_result_from_string("fail"))
+}
+
 #[no_mangle]
 #[allow(improper_ctypes_definitions)]
 pub extern "C" fn test_rust_malloc(function_call: &FunctionCall) -> Result<Vec<u8>> {
@@ -869,7 +879,15 @@ pub extern "C" fn hyperlight_main() {
         ReturnType::String,
         test_write_raw_ptr as i64,
     );
-    register_function(test_write_raw_ptr_def)
+    register_function(test_write_raw_ptr_def);
+
+    let execute_on_stack_def = GuestFunctionDefinition::new(
+        "execute_on_stack".to_string(),
+        Vec::new(),
+        ReturnType::String,
+        execute_on_stack as i64,
+    );
+    register_function(execute_on_stack_def);
 }
 
 #[no_mangle]

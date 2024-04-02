@@ -26,9 +26,8 @@ use std::time::Duration;
 use std::{any::Any, ops::Range};
 use tracing::{instrument, Span};
 use windows::Win32::System::Hypervisor::{
-    WHvMapGpaRangeFlagExecute, WHvMapGpaRangeFlagRead, WHvMapGpaRangeFlagWrite, WHvX64RegisterCr0,
-    WHvX64RegisterCr3, WHvX64RegisterCr4, WHvX64RegisterCs, WHvX64RegisterEfer, WHvX64RegisterR8,
-    WHvX64RegisterR9, WHvX64RegisterRcx, WHvX64RegisterRdx, WHvX64RegisterRflags,
+    WHvX64RegisterCr0, WHvX64RegisterCr3, WHvX64RegisterCr4, WHvX64RegisterCs, WHvX64RegisterEfer,
+    WHvX64RegisterR8, WHvX64RegisterR9, WHvX64RegisterRcx, WHvX64RegisterRdx, WHvX64RegisterRflags,
     WHvX64RegisterRip, WHvX64RegisterRsp, WHV_PARTITION_HANDLE, WHV_REGISTER_NAME,
     WHV_REGISTER_VALUE, WHV_RUN_VP_EXIT_CONTEXT, WHV_RUN_VP_EXIT_REASON, WHV_UINT128,
     WHV_UINT128_0,
@@ -94,15 +93,12 @@ impl HypervWindowsDriver {
             mgr.get_surrogate_process(size, source_address)
         }?;
 
-        let whp_map_gpa_range_flags =
-            WHvMapGpaRangeFlagRead | WHvMapGpaRangeFlagWrite | WHvMapGpaRangeFlagExecute;
         partition.map_gpa_range(
             &surrogate_process.process_handle,
             source_address,
             sandbox_base_address,
             guard_page_offset,
             size,
-            whp_map_gpa_range_flags,
         )?;
 
         let proc = VMProcessor::new(partition)?;
@@ -407,7 +403,11 @@ impl Hypervisor for HypervWindowsDriver {
             // WHvRunVpExitReasonMemoryAccess
             WHV_RUN_VP_EXIT_REASON(1i32) => {
                 let gpa = unsafe { exit_context.Anonymous.MemoryAccess.Gpa };
-                if (self.guard_page_region).contains(&gpa) {
+                let access_info =
+                    unsafe { exit_context.Anonymous.MemoryAccess.AccessInfo.AsUINT32 };
+                if access_info == 0x2 {
+                    HyperlightExit::ExecutionAccessViolation(gpa)
+                } else if (self.guard_page_region).contains(&gpa) {
                     HyperlightExit::GuardPageViolation(gpa)
                 } else {
                     HyperlightExit::Mmio(gpa)

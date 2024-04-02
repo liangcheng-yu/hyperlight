@@ -90,6 +90,8 @@ pub enum HyperlightExit {
     Mmio(u64),
     /// The vCPU tried to write to the guard page
     GuardPageViolation(u64),
+    /// The vCPU tried to execute code on the stack
+    ExecutionAccessViolation(u64),
     /// The vCPU execution has been cancelled
     Cancelled(),
     /// The vCPU has exited for a reason that is not handled by Hyperlight
@@ -638,6 +640,9 @@ impl VirtualCPU {
                 }
                 HyperlightExit::GuardPageViolation(addr) => {
                     log_then_return!(HyperlightError::GuardPageViolation(addr));
+                }
+                HyperlightExit::ExecutionAccessViolation(addr) => {
+                    log_then_return!(HyperlightError::ExecutionAccessViolation(addr));
                 }
                 HyperlightExit::Cancelled() => {
                     // Shutdown is returned when the host has cancelled execution
