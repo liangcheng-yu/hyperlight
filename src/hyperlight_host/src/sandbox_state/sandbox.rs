@@ -1,6 +1,6 @@
 use super::transition::TransitionMetadata;
 use crate::Result;
-use std::fmt::Debug;
+use std::{fmt::Debug, panic};
 use tracing::{instrument, Span};
 
 /// The minimal functionality of a Hyperlight sandbox. Most of the types
@@ -16,19 +16,22 @@ use tracing::{instrument, Span};
 /// `DevolvableSandbox` implementations any `Sandbox` implementation can
 /// opt into.
 pub trait Sandbox: Sized + Debug {
-    /// By default, a Sandbox is non-reusable
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn is_reusable(&self) -> bool {
-        false
-    }
-
     /// Check to ensure the current stack cookie matches the one that
     /// was selected when the stack was constructed.
     ///
     /// Return an `Err` if there was an error inspecting the stack, `Ok(false)`
     /// if there was no such error but the stack guard doesn't match, and
     /// `Ok(true)` in the same situation where the stack guard does match.
-    fn check_stack_guard(&self) -> Result<bool>;
+    ///
+
+    // NOTE: this is only needed for the C API and for UnitilizedSandbox, SingleUseSandbox, and MultiUseSandbox
+    // Those are the only types that need implement this trait
+    // The default implementation is provided so that types that implement Sandbox (e.g. JSSandbox) but do not need to implement this trait do not need to provide an implementation
+    // TODO: Once the C API has been updated to use the Rust API then we can remove this
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn check_stack_guard(&self) -> Result<bool> {
+        panic!("check_stack_guard not implemented for this type");
+    }
 }
 
 /// A utility trait to recognize a Sandbox that has not yet been initialized.

@@ -157,11 +157,6 @@ impl<'a> WrapperGetter<'a> for SingleUseSandbox<'a> {
 
 impl<'a> Sandbox for SingleUseSandbox<'a> {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn is_reusable(&self) -> bool {
-        false
-    }
-
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn check_stack_guard(&self) -> Result<bool> {
         self.mem_mgr.check_stack_guard()
     }

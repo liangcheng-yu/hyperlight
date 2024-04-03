@@ -149,9 +149,8 @@ where
             let cb = move |u_sbox: &mut UninitializedSandbox<'a>| tsn.call(u_sbox);
             Box::new(cb)
         };
+
         let i_sbox = evolve_impl_multi_use(self, Some(cb_box))?;
-        // TODO: snapshot memory here so we can take the returned
-        // Sandbox and revert back to an UninitializedSandbox
         Ok(i_sbox)
     }
 }
@@ -219,8 +218,6 @@ impl<'a>
         } else {
             evolve_impl_multi_use(self, None)
         }?;
-        // TODO: snapshot memory here so we can take the returned
-        // Sandbox and revert back to an UninitializedSandbox
         Ok(i_sbox)
     }
 }

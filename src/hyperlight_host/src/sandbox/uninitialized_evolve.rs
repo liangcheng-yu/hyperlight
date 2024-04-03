@@ -78,8 +78,6 @@ pub(super) fn evolve_impl_multi_use<'a>(
     cb_opt: Option<CBFunc<'a>>,
 ) -> Result<MultiUseSandbox<'a>> {
     evolve_impl(u_sbox, cb_opt, |mut u, leaked_outb| {
-        // only snapshot state if we're a multi-use sandbox. do not
-        // call snapshot_state in the evolve_impl_single_use function
         {
             u.get_mgr_mut().as_mut().snapshot_state()?;
         }
@@ -93,6 +91,9 @@ pub(super) fn evolve_impl_single_use<'a>(
     cb_opt: Option<CBFunc<'a>>,
 ) -> Result<SingleUseSandbox<'a>> {
     evolve_impl(u_sbox, cb_opt, |u, leaked_outb| {
+        // Its intentional not to snapshot state here. This is because
+        // single use sandboxes are not reusable and so there is no need
+        // to snapshot state as they cannot be devolved back to an uninitialized sandbox.
         Ok(SingleUseSandbox::from_uninit(u, leaked_outb))
     })
 }
