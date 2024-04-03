@@ -19,6 +19,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: ./.github/actions/hyperlight-workflows-setup
+        env:
+          PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
+         
+
+      - name: Set up cargo workspaces version
+        run: |
+            cargo install cargo-workspaces
+            cargo install minver_rs
+            git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+            git config --global user.Name "${{ github.actor }}"
+      
+      - name: Set crate versions
+        run: |
+            git fetch --tags
+            version=$(MINVER_TAG_PREFIX=v minver)
+            cargo ws version --force=hyperlight_* --allow-branch dev --no-git-tag --no-git-push --yes custom $version
+            # the GH_DEV_UPDATE_PAT token is used to update the dev branch with the new version information
+            # the token should be from an account that has the ability to bypass the branch protection rules
+            # this means its an admin or a member of a custom role with the "bypass branch protections" permission.
+            # This token expires on 2th June 2024
+            git push https://${{ secrets.GH_DEV_UPDATE_PAT }}@github.com/${{ github.repository }}.git HEAD:dev
+
       - name: Create Release Branch
         run: |
           git checkout -b release/${GITHUB_REF_NAME}
