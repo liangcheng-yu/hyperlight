@@ -15,7 +15,7 @@ use tracing::{instrument, Span};
     parent = Span::current(),
     level = "Trace"
 )]
-pub(super) fn call_function_on_guest<'a, HvMemMgrT: WrapperGetter<'a>>(
+pub(crate) fn call_function_on_guest<'a, HvMemMgrT: WrapperGetter<'a>>(
     wrapper_getter: &mut HvMemMgrT,
     function_name: &str,
     return_type: ReturnType,

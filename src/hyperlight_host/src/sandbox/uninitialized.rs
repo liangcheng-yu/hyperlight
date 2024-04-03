@@ -6,6 +6,7 @@ use super::{
 use super::{host_funcs::HostFuncsWrapper, snapshot::Snapshot};
 use super::{hypervisor::HypervisorWrapper, run_options::SandboxRunOptions};
 use super::{mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper};
+use crate::func::guest_dispatch::call_function_on_guest;
 use crate::mem::{mgr::SandboxMemoryManager, pe::pe_info::PEInfo};
 use crate::sandbox::SandboxConfiguration;
 use crate::sandbox::WrapperGetter;
@@ -19,6 +20,9 @@ use crate::{
 use crate::{func::host_functions::HostFunction1, MultiUseSandbox};
 use crate::{log_then_return, mem::ptr::RawPtr};
 use crate::{mem::mgr::STACK_COOKIE_LEN, SingleUseSandbox};
+use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
+    ParameterValue, ReturnType, ReturnValue,
+};
 use std::option::Option;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -499,6 +503,19 @@ impl<'a> UninitializedSandbox<'a> {
                 run_from_process_memory,
             )
         }
+    }
+
+    /// This function only exists to allow the UninitializedSandbox to be initialized through calling guest functions
+    /// Importantly state is not snapshoted and after a call to this function (i.e. there is no call context)
+    /// It is expected that the caller will eventually transform this unitilized sandbox into a SingleUseSandbox or MultiUseSandbox
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub fn call_guest_function(
+        &mut self,
+        func_name: &str,
+        func_ret_type: ReturnType,
+        args: Option<Vec<ParameterValue>>,
+    ) -> Result<ReturnValue> {
+        call_function_on_guest(self, func_name, func_ret_type, args)
     }
 }
 
