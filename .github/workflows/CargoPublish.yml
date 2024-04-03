@@ -17,19 +17,35 @@ jobs:
         env:
           PAT: ${{ secrets.ADO_CARGO_RW_PAT }}
 
+      - name: Set up cargo workspaces version
+        run: |
+          cargo install cargo-workspaces
+          cargo install minver_rs
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+          git config --global user.Name "${{ github.actor }}"
+
+      - name: Set crate versions
+        run: |
+          git fetch --tags
+          version=$(MINVER_TAG_PREFIX=v minver)
+          cargo ws version --force=hyperlight_* --no-git-commit --yes custom $version
+
+      # `allow-dirty` is needed in the publish below because we are using the `--no-git-commit`
+      # option above to cover the case where no changes are made by cargo ws version because the version
+      # is already correct
       - name: Publish hyperlight-flatbuffers
-        run: cargo publish --manifest-path ./src/hyperlight_flatbuffers/Cargo.toml --registry hyperlight_packages 
+        run: cargo publish --manifest-path ./src/hyperlight_flatbuffers/Cargo.toml --registry hyperlight_packages --allow-dirty
 
       - name: Publish hyperlight-guest
-        run: cargo publish --manifest-path ./src/hyperlight_guest/Cargo.toml --registry hyperlight_packages 
+        run: cargo publish --manifest-path ./src/hyperlight_guest/Cargo.toml --registry hyperlight_packages --allow-dirty
 
       - name: Publish hyperlight-host
-        run: cargo publish --manifest-path ./src/hyperlight_host/Cargo.toml --registry hyperlight_packages 
+        run: cargo publish --manifest-path ./src/hyperlight_host/Cargo.toml --registry hyperlight_packages --allow-dirty
 
       # `--no-verify` is needed because the build.rs script generates ./include/hyperlight_capi.h
       # and cargo does not want you to modify files outside of OUT_DIR
       - name: Publish hyperlight-capi
-        run: cargo publish --manifest-path ./src/hyperlight_capi/Cargo.toml --registry hyperlight_packages --no-verify 
+        run: cargo publish --manifest-path ./src/hyperlight_capi/Cargo.toml --registry hyperlight_packages --no-verify --allow-dirty
 
       - name: Publish hyperlight-guestlib-c-includes
-        run: cargo publish --manifest-path ./src/HyperlightGuest/Cargo.toml --registry hyperlight_packages 
+        run: cargo publish --manifest-path ./src/HyperlightGuest/Cargo.toml --registry hyperlight_packages --allow-dirty
