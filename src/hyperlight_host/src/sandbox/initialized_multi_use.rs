@@ -1,12 +1,12 @@
 use super::{host_funcs::HostFuncsWrapper, leaked_outb::LeakedOutBWrapper, WrapperGetter};
-use super::{metrics::SandboxMetric::CurrentNumberOfMultiUseSandboxes, snapshot::Snapshot};
 use super::{HypervisorWrapper, MemMgrWrapper, UninitializedSandbox};
 use crate::func::call_ctx::MultiUseGuestCallContext;
+use crate::sandbox::snapshot::Snapshot;
 use crate::sandbox_state::{
     sandbox::{DevolvableSandbox, Sandbox},
     transition::Noop,
 };
-use crate::{int_gauge_dec, Result};
+use crate::Result;
 use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
 };
@@ -227,12 +227,5 @@ impl<'a>
             ret.hv.get_hypervisor()?.reset_rsp(orig_rsp)?;
         }
         Ok(ret)
-    }
-}
-
-impl<'a> Drop for MultiUseSandbox<'a> {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn drop(&mut self) {
-        int_gauge_dec!(&CurrentNumberOfMultiUseSandboxes);
     }
 }

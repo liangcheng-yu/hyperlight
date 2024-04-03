@@ -242,23 +242,24 @@ fn get_histogram_opts(name: &str, help: &str, buckets: Vec<f64>) -> HistogramOpt
     opts.buckets(buckets)
 }
 
-#[cfg(test)]
+/// Provides functionaility to help with testing Hyperlight Metrics
 pub mod tests {
     use std::collections::HashSet;
 
     use super::*;
 
+    /// A trait that provides test helper functions for Hyperlight Metrics
     pub trait HyperlightMetricEnumTest<T>:
         HyperlightMetricEnum<T> + From<T> + Into<&'static str>
     where
         &'static str: From<Self>,
         &'static str: for<'a> From<&'a Self>,
     {
+        /// Defines a function that should return the names of all the metric enum variants
         fn get_enum_variant_names() -> &'static [&'static str];
 
-        // Provides a function to test that all hyperlight metric definitions in a module have a corresponding enum variant
-        // Should be called in tests in modules that define hyperlight metrics.
-
+        /// Provides a function to test that all hyperlight metric definitions in a module have a corresponding enum variant
+        /// Should be called in tests in modules that define hyperlight metrics.
         #[track_caller]
         fn enum_has_variant_for_all_metrics() {
             let metric_definitions = Self::get_metric_definitions().iter();
@@ -271,10 +272,10 @@ pub mod tests {
                 );
             }
         }
-        // Provides a function to test that all hyperlight metric definitions have a unique help text
-        // and that there are the same number of enum variants as metric definitions
-        // Should be called in tests in modules that define hyperlight metrics.
 
+        /// Provides a function to test that all hyperlight metric definitions have a unique help text
+        /// and that there are the same number of enum variants as metric definitions
+        /// Should be called in tests in modules that define hyperlight metrics.
         #[track_caller]
         fn check_metric_definitions() {
             let sandbox_metric_definitions = Self::get_metric_definitions();
@@ -293,6 +294,7 @@ pub mod tests {
             );
         }
 
+        /// Gets a named int gauge metric
         fn get_intguage_metric(name: &str) -> Result<&IntGauge> {
             Self::get_metrics()
                 .get()
@@ -302,6 +304,7 @@ pub mod tests {
                 .try_into()
         }
 
+        /// Gets a named int counter vec metric
         fn get_intcountervec_metric(name: &str) -> Result<&IntCounterVec> {
             Self::get_metrics()
                 .get()
@@ -311,6 +314,7 @@ pub mod tests {
                 .try_into()
         }
 
+        /// Gets a named int counter metric
         fn get_intcounter_metric(name: &str) -> Result<&IntCounter> {
             Self::get_metrics()
                 .get()
@@ -320,6 +324,7 @@ pub mod tests {
                 .try_into()
         }
 
+        /// Gets a named histogram vec metric
         fn get_histogramvec_metric(name: &str) -> Result<&HistogramVec> {
             Self::get_metrics()
                 .get()

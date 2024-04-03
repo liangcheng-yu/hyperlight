@@ -1,8 +1,6 @@
-use super::metrics::SandboxMetric::CurrentNumberOfSingleUseSandboxes;
 use super::{leaked_outb::LeakedOutBWrapper, WrapperGetter};
 use super::{HypervisorWrapper, MemMgrWrapper, UninitializedSandbox};
 use crate::func::call_ctx::SingleUseGuestCallContext;
-use crate::int_gauge_dec;
 use crate::sandbox_state::sandbox::Sandbox;
 use crate::Result;
 use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
@@ -174,13 +172,6 @@ impl<'a> std::fmt::Debug for SingleUseSandbox<'a> {
         f.debug_struct("SingleUseSandbox")
             .field("stack_guard", &self.mem_mgr.get_stack_cookie())
             .finish()
-    }
-}
-
-impl<'a> Drop for SingleUseSandbox<'a> {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn drop(&mut self) {
-        int_gauge_dec!(&CurrentNumberOfSingleUseSandboxes);
     }
 }
 

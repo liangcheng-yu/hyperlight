@@ -33,6 +33,7 @@ use tracing::{instrument, Span};
 /// host-implemented functions you need to be available to the guest, then
 /// call either `initialize` or `evolve to transform your
 /// `UninitializedSandbox` into an initialized `Sandbox`.
+#[derive(Clone)]
 pub struct UninitializedSandbox<'a> {
     /// Registered host functions
     pub(crate) host_funcs: Arc<Mutex<HostFuncsWrapper<'a>>>,

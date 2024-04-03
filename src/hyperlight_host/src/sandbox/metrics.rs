@@ -18,20 +18,6 @@ static METRICS: OnceCell<HashMap<&'static str, HyperlightMetric>> = OnceCell::ne
 // This is the definition of all the metrics used by the sandbox module
 static SANDBOX_METRIC_DEFINITIONS: &[HyperlightMetricDefinition] = &[
     HyperlightMetricDefinition {
-        name: "current_number_of_multi_use_sandboxes",
-        help: "Current number of multi use sandboxes",
-        metric_type: HyperlightMetricType::IntGauge,
-        labels: &[],
-        buckets: &[],
-    },
-    HyperlightMetricDefinition {
-        name: "current_number_of_single_use_sandboxes",
-        help: "Current number of single use sandboxes",
-        metric_type: HyperlightMetricType::IntGauge,
-        labels: &[],
-        buckets: &[],
-    },
-    HyperlightMetricDefinition {
         name: "guest_error_count",
         help: "Number of guest errors encountered",
         metric_type: HyperlightMetricType::IntCounterVec,
@@ -86,8 +72,6 @@ static SANDBOX_METRIC_DEFINITIONS: &[HyperlightMetricDefinition] = &[
 #[derive(Debug, EnumIter, EnumVariantNames, IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 pub(crate) enum SandboxMetric {
-    CurrentNumberOfMultiUseSandboxes,
-    CurrentNumberOfSingleUseSandboxes,
     GuestErrorCount,
     #[cfg(feature = "function_call_metrics")]
     GuestFunctionCallDurationMicroseconds,
@@ -248,8 +232,8 @@ mod tests {
         let registry = get_metrics_registry();
         let result = registry.gather();
         #[cfg(feature = "function_call_metrics")]
-        assert_eq!(result.len(), 5);
-        #[cfg(not(feature = "function_call_metrics"))]
         assert_eq!(result.len(), 3);
+        #[cfg(not(feature = "function_call_metrics"))]
+        assert_eq!(result.len(), 1);
     }
 }
