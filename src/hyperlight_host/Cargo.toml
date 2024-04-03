@@ -1,6 +1,6 @@
 [package]
 name = "hyperlight_host"
-version = "0.4.0"
+version = "0.5.4"
 edition = "2021"
 
 [lib]
@@ -35,7 +35,7 @@ tracing-log = "0.2.0"
 tracing-core = "0.1.31"
 uuid = { version = "1.4.1", features = ["v4"] }
 tracing-subscriber = { version = "0.3.17", features = ["json"] }
-hyperlight_flatbuffers = { path = "../hyperlight_flatbuffers", version = "0.4.0", registry = "hyperlight_packages"}
+hyperlight_flatbuffers = { path = "../hyperlight_flatbuffers", version = "0.5.4", registry = "hyperlight_packages"}
 rust-embed = { version = "8.3.0", features = ["debug-embed", "include-exclude", "interpolate-folder-path"] }
 sha256 = "1.4.0"
 vmm-sys-util = "0.12.1"
