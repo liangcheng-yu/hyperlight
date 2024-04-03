@@ -68,7 +68,7 @@ jobs:
             tag_message=$(git show -s --format=%s $latest_tag)
 
             # Delete the latest tag locally
-            git tag -D $latest_tag
+            git tag -d $latest_tag
 
             # Move the tag to the current commit
             git tag $latest_tag -m "$tag_message"
