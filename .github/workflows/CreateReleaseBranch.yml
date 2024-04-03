@@ -16,8 +16,31 @@ jobs:
   create-branch:
     runs-on: ubuntu-20.04
 
+
+    # we are checking out the dev branch because we are going to update the crate versions in the dev branch and move the tag to the new commit
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-tags: true
+
+      # This is to sanity check that the tag that triggered the action is the same as the latest tag in the repository
+      - name: Check tag against ref
+        run: |
+            # Extract the tag name from GITHUB_REF (refs/tags/<tagname>)
+            ref_tag=${GITHUB_REF#refs/tags/}
+  
+            # Get the latest tag from Git
+            git_tag=$( git tag --sort=-v:refname -l "v*" | head -n 1)
+  
+            # Compare the tags
+            if [[ "$ref_tag" == "$git_tag" ]]; then
+              echo "The tag from Git matches the ref that triggered the action."
+            else
+              echo "The tag from Git does not match the ref that triggered the action."
+              exit 1
+            fi
+        shell: bash
 
       - uses: ./.github/actions/hyperlight-workflows-setup
         env:
@@ -31,16 +54,38 @@ jobs:
             git config --global user.email "${{ github.actor }}@users.noreply.github.com"
             git config --global user.Name "${{ github.actor }}"
       
-      - name: Set crate versions
+      - name: Set crate versions and update dev branch
         run: |
-            git fetch --tags
+           
             version=$(MINVER_TAG_PREFIX=v minver)
             cargo ws version --force=hyperlight_* --allow-branch dev --no-git-tag --no-git-push --yes custom $version
+            
+            # We want to move the tag to the current commit that contains the updates to Cargo.toml version number
+
+            # Get the latest tag from Git
+            latest_tag=$( git tag --sort=-v:refname -l "v*" | head -n 1)
+            # Get the message of the latest tag
+            tag_message=$(git show -s --format=%s $latest_tag)
+
+            # Delete the latest tag locally
+            git tag -D $latest_tag
+
+            # Move the tag to the current commit
+            git tag $latest_tag -m "$tag_message"
+            
+            # Delete the old tag from the remote repository
+            git push https://${{ secrets.GH_DEV_UPDATE_PAT }}@github.com/${{ github.repository }}.git :refs/tags/$latest_tag
+
+            
             # the GH_DEV_UPDATE_PAT token is used to update the dev branch with the new version information
             # the token should be from an account that has the ability to bypass the branch protection rules
             # this means its an admin or a member of a custom role with the "bypass branch protections" permission.
             # This token expires on 2th June 2024
+
             git push https://${{ secrets.GH_DEV_UPDATE_PAT }}@github.com/${{ github.repository }}.git HEAD:dev
+
+            # Push the new tag to the remote repository
+            git push https://${{ secrets.GH_DEV_UPDATE_PAT }}@github.com/${{ github.repository }}.git $latest_tag
 
       - name: Create Release Branch
         run: |
