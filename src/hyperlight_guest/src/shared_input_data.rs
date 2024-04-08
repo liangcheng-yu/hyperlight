@@ -1,7 +1,7 @@
 use core::{any::type_name, slice::from_raw_parts_mut};
 
 use alloc::{format, string::ToString};
-use hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::ErrorCode;
+use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
 
 use crate::{error::HyperlightGuestError, error::Result, P_PEB};
 

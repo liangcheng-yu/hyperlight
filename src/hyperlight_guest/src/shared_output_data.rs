@@ -3,7 +3,7 @@ use core::slice::from_raw_parts_mut;
 use alloc::format;
 use alloc::string::ToString;
 use alloc::vec::Vec;
-use hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::ErrorCode;
+use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
 
 use crate::error::{HyperlightGuestError, Result};
 use crate::P_PEB;

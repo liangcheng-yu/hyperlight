@@ -9,7 +9,7 @@ use crate::{
     RUNNING_IN_HYPERLIGHT,
 };
 
-use hyperlight_flatbuffers::mem::HyperlightPEB;
+use hyperlight_common::mem::HyperlightPEB;
 use log::LevelFilter;
 
 use core::{

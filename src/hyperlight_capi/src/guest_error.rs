@@ -2,7 +2,7 @@ use super::handle::Handle;
 use super::hdl::Hdl;
 use super::{arrays::raw_vec::RawVec, context::Context};
 use crate::validate_context_or_panic;
-use hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::GuestError;
+use hyperlight_common::flatbuffer_wrappers::guest_error::GuestError;
 use hyperlight_host::{new_error, Result};
 use std::mem;
 

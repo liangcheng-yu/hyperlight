@@ -9,7 +9,7 @@ use super::{
 };
 use crate::mem_access_handler::MemAccessHandlerWrapper;
 use crate::outb_handler::OutBHandlerWrapper;
-use hyperlight_flatbuffers::flatbuffer_wrappers::{
+use hyperlight_common::flatbuffer_wrappers::{
     function_call::FunctionCall, function_types::ReturnValue, guest_error::GuestError,
     guest_log_data::GuestLogData,
 };

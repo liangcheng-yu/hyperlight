@@ -19,7 +19,7 @@ bench = false # see https://bheisler.github.io/criterion.rs/book/faq.html#cargo-
 
 [dependencies]
 hyperlight_host = { path = "../hyperlight_host", version = "0.5.4", registry = "hyperlight_packages" }
-hyperlight_flatbuffers = { path = "../hyperlight_flatbuffers", version = "0.5.4", registry = "hyperlight_packages"}
+hyperlight_common = { path = "../hyperlight_common", version = "0.5.4", registry = "hyperlight_packages"}
 tracing-subscriber = { version = "0.3.17", features = ["json"] }
 anyhow = { version = "1.0.72" }
 cfg-if = { version = "1.0.0" }

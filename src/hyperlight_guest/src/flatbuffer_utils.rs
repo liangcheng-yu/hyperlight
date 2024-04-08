@@ -3,7 +3,7 @@ use core::slice::from_raw_parts;
 use alloc::vec::Vec;
 use flatbuffers::{FlatBufferBuilder, UnionWIPOffset, WIPOffset};
 
-use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::{
+use hyperlight_common::flatbuffers::hyperlight::generated::{
     hlint as Fbhlint, hlintArgs as FbhlintArgs, hlsizeprefixedbuffer as Fbhlsizeprefixedbuffer,
     hlsizeprefixedbufferArgs as FbhlsizeprefixedbufferArgs, hlstring as Fbhlstring,
     hlstringArgs as FbhlstringArgs, hlvoid as Fbhlvoid, hlvoidArgs as FbhlvoidArgs,

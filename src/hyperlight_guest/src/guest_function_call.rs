@@ -1,6 +1,6 @@
 use alloc::{format, string::ToString, vec::Vec};
 
-use hyperlight_flatbuffers::flatbuffer_wrappers::{
+use hyperlight_common::flatbuffer_wrappers::{
     function_call::{FunctionCall, FunctionCallType},
     function_types::ParameterType,
     guest_error::ErrorCode,

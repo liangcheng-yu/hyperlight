@@ -105,7 +105,7 @@ impl<'a> UninitializedSandbox<'a> {
             use crate::hypervisor::hypervisor_mem::HypervisorAddrs;
             use crate::hypervisor::{hyperv_linux, hyperv_linux::HypervLinuxDriver};
             use crate::hypervisor::{kvm, kvm::KVMDriver};
-            use hyperlight_flatbuffers::mem::PAGE_SHIFT;
+            use hyperlight_common::mem::PAGE_SHIFT;
 
             if hyperv_linux::is_hypervisor_present().unwrap_or(false) {
                 // the following line resolves to page frame number 512, because it's BASE_ADDRESS / 4096.

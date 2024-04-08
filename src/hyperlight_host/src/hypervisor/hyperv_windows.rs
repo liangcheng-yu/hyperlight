@@ -18,7 +18,7 @@ use crate::{
     HyperlightError::{NoHypervisorFound, WindowsErrorHResult},
 };
 use core::ffi::c_void;
-use hyperlight_flatbuffers::mem::PAGE_SIZE;
+use hyperlight_common::mem::PAGE_SIZE;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::string::String;

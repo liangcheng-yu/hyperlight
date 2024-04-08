@@ -5,7 +5,7 @@ use crate::histogram_vec_time_micros;
 use crate::sandbox::metrics::SandboxMetric::GuestFunctionCallDurationMicroseconds;
 use crate::{MultiUseSandbox, Result, SingleUseSandbox};
 use cfg_if::cfg_if;
-use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
+use hyperlight_common::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
 };
 use std::marker::PhantomData;
@@ -162,7 +162,7 @@ mod tests {
     use crate::{sandbox_state::sandbox::EvolvableSandbox, MultiUseSandbox};
     use crate::{sandbox_state::transition::Noop, GuestBinary, HyperlightError};
     use crate::{Result, SingleUseSandbox, UninitializedSandbox};
-    use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
+    use hyperlight_common::flatbuffer_wrappers::function_types::{
         ParameterValue, ReturnType, ReturnValue,
     };
     use hyperlight_testing::simple_guest_as_string;

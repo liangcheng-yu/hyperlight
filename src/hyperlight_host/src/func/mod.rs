@@ -27,11 +27,11 @@ pub(crate) mod param_type;
 pub mod ret_type;
 
 /// Re-export for `ParameterValue` enum
-pub use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::ParameterValue;
+pub use hyperlight_common::flatbuffer_wrappers::function_types::ParameterValue;
 /// Re-export for `ReturnType` enum
-pub use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::ReturnType;
+pub use hyperlight_common::flatbuffer_wrappers::function_types::ReturnType;
 /// Re-export for `ReturnType` enum
-pub use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::ReturnValue;
+pub use hyperlight_common::flatbuffer_wrappers::function_types::ReturnValue;
 
 pub use param_type::SupportedParameterType;
 pub use ret_type::SupportedReturnType;

@@ -4,7 +4,7 @@ use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::shared_mem::SharedMemory;
 use crate::{log_then_return, HyperlightError, Result};
 use flatbuffers::WIPOffset;
-use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::{
+use hyperlight_common::flatbuffers::hyperlight::generated::{
     size_prefixed_root_as_host_function_details,
     HostFunctionDefinition as FbHostFunctionDefinition,
     HostFunctionDetails as FbHostFunctionDetails,
@@ -177,7 +177,7 @@ mod tests {
     use super::*;
     use crate::{sandbox::SandboxConfiguration, Result};
     use hex_literal::hex;
-    use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterType, ReturnType};
+    use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterType, ReturnType};
 
     #[test]
     fn read_from_flatbuffer() -> Result<()> {

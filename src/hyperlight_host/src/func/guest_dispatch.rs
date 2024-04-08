@@ -2,7 +2,7 @@ use super::guest_err::check_for_guest_error;
 use crate::mem::ptr::RawPtr;
 use crate::sandbox::WrapperGetter;
 use crate::{HyperlightError, Result};
-use hyperlight_flatbuffers::flatbuffer_wrappers::{
+use hyperlight_common::flatbuffer_wrappers::{
     function_call::{FunctionCall, FunctionCallType},
     function_types::{ParameterValue, ReturnType, ReturnValue},
 };

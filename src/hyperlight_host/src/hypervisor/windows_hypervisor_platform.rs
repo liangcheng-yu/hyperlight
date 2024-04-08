@@ -1,7 +1,7 @@
 use super::hyperv_windows::WhvRegisterNameWrapper;
 use crate::Result;
 use core::ffi::c_void;
-use hyperlight_flatbuffers::mem::{PAGE_SIZE, PAGE_SIZE_USIZE};
+use hyperlight_common::mem::{PAGE_SIZE, PAGE_SIZE_USIZE};
 use std::collections::HashMap;
 use tracing::{instrument, Span};
 use windows::Win32::Foundation::HANDLE;

@@ -10,7 +10,7 @@ use crate::{
 };
 use crate::{hypervisor::HyperlightExit, mem::ptr::RawPtr};
 use crate::{log_then_return, Result};
-use hyperlight_flatbuffers::mem::{PAGE_SHIFT, PAGE_SIZE};
+use hyperlight_common::mem::{PAGE_SHIFT, PAGE_SIZE};
 use log::error;
 use mshv_bindings::{
     hv_message, hv_message_type, hv_message_type_HVMSG_GPA_INTERCEPT,

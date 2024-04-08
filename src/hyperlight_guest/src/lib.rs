@@ -5,8 +5,8 @@ use alloc::{string::ToString, vec::Vec};
 use buddy_system_allocator::LockedHeap;
 use core::hint::unreachable_unchecked;
 use core::ptr::copy_nonoverlapping;
-use hyperlight_flatbuffers::flatbuffer_wrappers::guest_function_details::GuestFunctionDetails;
-use hyperlight_flatbuffers::mem::HyperlightPEB;
+use hyperlight_common::flatbuffer_wrappers::guest_function_details::GuestFunctionDetails;
+use hyperlight_common::mem::HyperlightPEB;
 extern crate alloc;
 
 // Modules

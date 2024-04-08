@@ -1,4 +1,4 @@
-use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
+use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
 use hyperlight_host::func::call_ctx::MultiUseGuestCallContext;
 use hyperlight_host::sandbox::{MultiUseSandbox, UninitializedSandbox};
 use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;

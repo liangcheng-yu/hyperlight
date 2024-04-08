@@ -5,4 +5,4 @@ edition = "2021"
 
 [dependencies]
 hyperlight_guest = { path = "../../../hyperlight_guest" }
-hyperlight_flatbuffers = { path = "../../../hyperlight_flatbuffers", default-features = false }
+hyperlight_common = { path = "../../../hyperlight_common", default-features = false }

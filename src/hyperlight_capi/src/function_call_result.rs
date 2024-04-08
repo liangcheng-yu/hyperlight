@@ -3,7 +3,7 @@ use super::hdl::Hdl;
 use super::{arrays::raw_vec::RawVec, context::Context};
 use crate::strings::get_string;
 use crate::validate_context_or_panic;
-use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::ReturnValue;
+use hyperlight_common::flatbuffer_wrappers::function_types::ReturnValue;
 use hyperlight_host::{HyperlightError, Result};
 use std::mem;
 /// Return true if the given handle `hdl` in `ctx` references a `FunctionCallResult` representing a return value from a function call ,

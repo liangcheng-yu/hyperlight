@@ -1,5 +1,5 @@
-use hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::ErrorCode;
-use hyperlight_flatbuffers::mem::PAGE_SIZE;
+use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
+use hyperlight_common::mem::PAGE_SIZE;
 use hyperlight_host::func::{ParameterValue, ReturnType, ReturnValue};
 use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
 use hyperlight_host::sandbox_state::transition::Noop;
@@ -442,8 +442,8 @@ fn log_message() {
 }
 
 fn log_test_messages() {
-    for level in hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel::iter() {
-        if level == hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_level::LogLevel::None {
+    for level in hyperlight_common::flatbuffer_wrappers::guest_log_level::LogLevel::iter() {
+        if level == hyperlight_common::flatbuffer_wrappers::guest_log_level::LogLevel::None {
             continue;
         }
         let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();

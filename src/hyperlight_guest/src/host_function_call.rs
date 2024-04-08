@@ -1,6 +1,6 @@
 use alloc::{string::ToString, vec::Vec};
 use core::arch::global_asm;
-use hyperlight_flatbuffers::flatbuffer_wrappers::{
+use hyperlight_common::flatbuffer_wrappers::{
     function_call::{FunctionCall, FunctionCallType},
     function_types::{ParameterValue, ReturnType, ReturnValue},
     guest_error::ErrorCode,

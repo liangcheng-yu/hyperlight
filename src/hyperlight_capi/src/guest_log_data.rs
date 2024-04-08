@@ -1,7 +1,7 @@
 use super::{
     arrays::raw_vec::RawVec, context::Context, handle::Handle, hdl::Hdl, validate_context_or_panic,
 };
-use hyperlight_flatbuffers::flatbuffer_wrappers::guest_log_data::GuestLogData;
+use hyperlight_common::flatbuffer_wrappers::guest_log_data::GuestLogData;
 use hyperlight_host::{new_error, Result};
 use std::mem;
 

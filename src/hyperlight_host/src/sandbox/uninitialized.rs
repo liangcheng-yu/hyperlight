@@ -20,7 +20,7 @@ use crate::{
 use crate::{func::host_functions::HostFunction1, MultiUseSandbox};
 use crate::{log_then_return, mem::ptr::RawPtr};
 use crate::{mem::mgr::STACK_COOKIE_LEN, SingleUseSandbox};
-use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
+use hyperlight_common::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
 };
 use std::option::Option;
@@ -531,9 +531,7 @@ mod tests {
     use crate::{sandbox_state::transition::MutatingCallback, sandbox_state::transition::Noop};
     use crate::{testing::log_values::try_to_strings, MultiUseSandbox};
     use crossbeam_queue::ArrayQueue;
-    use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
-        ParameterValue, ReturnValue,
-    };
+    use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnValue};
     use hyperlight_testing::simple_guest_as_string;
     use hyperlight_testing::{
         logger::Logger as TestLogger, logger::LOGGER as TEST_LOGGER,

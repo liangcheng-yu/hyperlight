@@ -2,7 +2,7 @@
 // calls report_gsfailure if value is invalid
 
 use crate::{__security_cookie, guest_error::set_error_and_halt};
-use hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::ErrorCode::GsCheckFailed;
+use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode::GsCheckFailed;
 
 #[no_mangle]
 pub(crate) extern "C" fn __security_check_cookie(cookie: u64) {

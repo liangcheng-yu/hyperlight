@@ -2,7 +2,7 @@ use crate::error::HyperlightError::{GuestError, OutBHandlingError, StackOverflow
 use crate::sandbox::mem_mgr::MemMgrWrapper;
 use crate::sandbox::metrics::SandboxMetric::GuestErrorCount;
 use crate::{int_counter_vec_inc, log_then_return, Result};
-use hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::{
+use hyperlight_common::flatbuffer_wrappers::guest_error::{
     ErrorCode, GuestError as GuestErrorStruct,
 };
 /// Check for a guest error and return an `Err` if one was found,

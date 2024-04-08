@@ -1,7 +1,7 @@
 use crate::{HyperlightError, Result};
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
-use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterType, ReturnType};
-use hyperlight_flatbuffers::flatbuffers::hyperlight::generated::{
+use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterType, ReturnType};
+use hyperlight_common::flatbuffers::hyperlight::generated::{
     HostFunctionDefinition as FbHostFunctionDefinition,
     HostFunctionDefinitionArgs as FbHostFunctionDefinitionArgs, ParameterType as FbParameterType,
 };

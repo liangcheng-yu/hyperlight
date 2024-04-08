@@ -13,13 +13,13 @@ use core::hint::black_box;
 use core::{ffi::c_char, ptr::write_volatile};
 
 use alloc::{format, string::ToString, vec::Vec};
-use hyperlight_flatbuffers::flatbuffer_wrappers::{
+use hyperlight_common::flatbuffer_wrappers::{
     function_call::FunctionCall,
     function_types::{ParameterType, ParameterValue, ReturnType},
     guest_error::ErrorCode,
     guest_function_definition::GuestFunctionDefinition,
 };
-use hyperlight_flatbuffers::mem::PAGE_SIZE;
+use hyperlight_common::mem::PAGE_SIZE;
 use hyperlight_guest::alloca::_alloca;
 use hyperlight_guest::memory::hlmalloc;
 use hyperlight_guest::MIN_STACK_ADDRESS;

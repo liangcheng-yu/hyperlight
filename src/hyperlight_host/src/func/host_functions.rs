@@ -1,5 +1,5 @@
-use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::ParameterValue;
-use hyperlight_flatbuffers::flatbuffer_wrappers::host_function_definition::HostFunctionDefinition;
+use hyperlight_common::flatbuffer_wrappers::function_types::ParameterValue;
+use hyperlight_common::flatbuffer_wrappers::host_function_definition::HostFunctionDefinition;
 use tracing::{instrument, Span};
 
 use crate::sandbox::UninitializedSandbox;

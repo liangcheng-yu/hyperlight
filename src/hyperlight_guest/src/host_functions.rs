@@ -1,7 +1,7 @@
 use core::slice::from_raw_parts;
 
 use alloc::{format, string::ToString, vec::Vec};
-use hyperlight_flatbuffers::flatbuffer_wrappers::{
+use hyperlight_common::flatbuffer_wrappers::{
     function_call::FunctionCall, function_types::ParameterType, guest_error::ErrorCode,
     host_function_details::HostFunctionDetails,
 };

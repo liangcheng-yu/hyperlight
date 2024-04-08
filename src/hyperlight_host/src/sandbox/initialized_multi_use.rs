@@ -7,7 +7,7 @@ use crate::sandbox_state::{
     transition::Noop,
 };
 use crate::Result;
-use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
+use hyperlight_common::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
 };
 use std::sync::{Arc, Mutex};
@@ -68,7 +68,7 @@ impl<'a> MultiUseSandbox<'a> {
     ///
     /// ```no_run
     /// use hyperlight_host::sandbox::{UninitializedSandbox, MultiUseSandbox};
-    /// use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ReturnType, ParameterValue, ReturnValue};
+    /// use hyperlight_common::flatbuffer_wrappers::function_types::{ReturnType, ParameterValue, ReturnValue};
     /// use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
     /// use hyperlight_host::sandbox_state::transition::Noop;
     /// use hyperlight_host::GuestBinary;

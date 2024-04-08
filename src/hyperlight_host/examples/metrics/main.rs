@@ -1,5 +1,5 @@
 extern crate hyperlight_host;
-use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
+use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
 use hyperlight_host::{
     sandbox::uninitialized::UninitializedSandbox,
     sandbox_state::{sandbox::EvolvableSandbox, transition::Noop},

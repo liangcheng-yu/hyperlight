@@ -2,7 +2,7 @@
 resolver = "2"
 default-members = [
     "src/hyperlight_capi",
-    "src/hyperlight_flatbuffers",
+    "src/hyperlight_common",
     "src/hyperlight_host",
     "src/hyperlight_testing",
     "src/HyperlightGuest",

@@ -1,4 +1,4 @@
-use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
+use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
 use rand::Rng;
 use tracing::{span, Level};
 extern crate hyperlight_host;

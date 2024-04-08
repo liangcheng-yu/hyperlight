@@ -5,7 +5,7 @@ use crate::error::HyperlightError::{GuestOffsetIsInvalid, MemoryRequestTooBig};
 use crate::mem::ptr_offset::Offset;
 use crate::sandbox::SandboxConfiguration;
 use crate::Result;
-use hyperlight_flatbuffers::mem::{
+use hyperlight_common::mem::{
     GuestErrorData, GuestHeapData, GuestPanicContextData, GuestStackData, HostException,
     HostFunctionDefinitions, HyperlightPEB, InputData, OutputData, PAGE_SIZE_USIZE,
 };

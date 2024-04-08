@@ -3,7 +3,7 @@ use super::{HypervisorWrapper, MemMgrWrapper, UninitializedSandbox};
 use crate::func::call_ctx::SingleUseGuestCallContext;
 use crate::sandbox_state::sandbox::Sandbox;
 use crate::Result;
-use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{
+use hyperlight_common::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
 };
 use std::marker::PhantomData;
@@ -76,7 +76,7 @@ impl<'a> SingleUseSandbox<'a> {
     ///
     /// ```no_run
     /// use hyperlight_host::sandbox::{UninitializedSandbox, SingleUseSandbox};
-    /// use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ReturnType, ParameterValue, ReturnValue};
+    /// use hyperlight_common::flatbuffer_wrappers::function_types::{ReturnType, ParameterValue, ReturnValue};
     /// use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
     /// use hyperlight_host::sandbox_state::transition::Noop;
     /// use hyperlight_host::GuestBinary;
@@ -176,7 +176,7 @@ mod tests {
     use crate::sandbox_state::sandbox::EvolvableSandbox;
     use crate::{sandbox_state::transition::Noop, GuestBinary};
     use crate::{SingleUseSandbox, UninitializedSandbox};
-    use hyperlight_flatbuffers::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
+    use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
     use hyperlight_testing::simple_guest_as_string;
 
     // Tests to ensure that many (1000) function calls can be made in a call context with a small stack (1K) and heap(14K).

@@ -1,6 +1,6 @@
 use core::{ffi::c_void, slice::from_raw_parts};
 
-use hyperlight_flatbuffers::flatbuffer_wrappers::guest_error::{ErrorCode, GuestError};
+use hyperlight_common::flatbuffer_wrappers::guest_error::{ErrorCode, GuestError};
 
 use crate::P_PEB;
 

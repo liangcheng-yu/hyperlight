@@ -7,7 +7,7 @@ use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::ptr::{GuestPtr, RawPtr};
 use crate::Result;
 use crate::{log_then_return, new_error};
-use hyperlight_flatbuffers::mem::PAGE_SIZE;
+use hyperlight_common::mem::PAGE_SIZE;
 use kvm_bindings::{kvm_segment, kvm_userspace_memory_region, KVM_MEM_READONLY};
 use kvm_ioctls::{Cap::UserMemory, Kvm, VcpuExit, VcpuFd, VmFd};
 use std::{any::Any, convert::TryFrom, ops::Range, time::Duration};

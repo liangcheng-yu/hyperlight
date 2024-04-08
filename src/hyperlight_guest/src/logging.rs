@@ -1,5 +1,5 @@
 use alloc::{string::ToString, vec::Vec};
-use hyperlight_flatbuffers::flatbuffer_wrappers::{
+use hyperlight_common::flatbuffer_wrappers::{
     guest_log_data::GuestLogData, guest_log_level::LogLevel,
 };
 
