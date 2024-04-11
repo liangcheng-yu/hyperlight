@@ -26,41 +26,21 @@ use mshv_bindings::{
     hv_u128, mshv_user_mem_region, HV_MAP_GPA_EXECUTABLE, HV_MAP_GPA_READABLE, HV_MAP_GPA_WRITABLE,
 };
 use mshv_ioctls::{Mshv, VcpuFd, VmFd};
-use once_cell::sync::Lazy;
-use std::{any::Any, env};
+use std::any::Any;
 use std::{collections::HashMap, time::Duration};
 use tracing::{instrument, Span};
 
 /// Determine whether the HyperV for Linux hypervisor API is present
-/// and functional. If `REQUIRE_STABLE_API` is true, determines only whether a
-/// stable API for the Linux HyperV hypervisor is present.
+/// and functional.
 #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 //TODO:(#1029) Once CAPI is complete this does not need to be public
-pub fn is_hypervisor_present() -> Result<bool> {
-    let mshv = Mshv::new()?;
-    match mshv.check_stable() {
-        Ok(stable) => {
-            if stable {
-                Ok(true)
-            } else {
-                Ok(!*REQUIRE_STABLE_API)
-            }
-        }
-        Err(e) => {
-            log_then_return!(MSHVError(e));
-        }
+pub fn is_hypervisor_present() -> Result<()> {
+    let mshv_fd = Mshv::open_with_cloexec(true);
+    match mshv_fd {
+        Ok(_fd) => Ok(()),
+        Err(e) => Err(MSHVError(e)),
     }
 }
-
-// TODO: Question should we make the default true (i.e. we only allow unstable API if the Env Var is set)
-// The only reason the default is as it is now is because there is no stable API for hyperv on Linux
-// But at some point a release will be made and this will seem backwards
-
-static REQUIRE_STABLE_API: Lazy<bool> =
-    Lazy::new(|| match env::var("HYPERV_SHOULD_HAVE_STABLE_API") {
-        Ok(val) => val.parse::<bool>().unwrap_or(false),
-        Err(_) => false,
-    });
 
 type RegistersHashMap = HashMap<hv_register_name, hv_register_value>;
 
@@ -102,13 +82,7 @@ impl HypervLinuxDriver {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn new(addrs: &HypervisorAddrs, rsp_ptr: GuestPtr, pml4_ptr: GuestPtr) -> Result<Self> {
         match is_hypervisor_present() {
-            Ok(true) => (),
-            Ok(false) => {
-                log_then_return!(
-                    "Hypervisor not present (stable api was {:?})",
-                    *REQUIRE_STABLE_API
-                );
-            }
+            Ok(()) => (),
             Err(e) => {
                 log_then_return!(e);
             }
@@ -513,39 +487,30 @@ pub(crate) mod test_cfg {
 
     fn is_hyperv_present() -> bool {
         println!(
-            "HYPERV_SHOULD_HAVE_STABLE_API is {}",
-            TEST_CONFIG.hyperv_should_have_stable_api
-        );
-        println!(
             "HYPERV_SHOULD_BE_PRESENT is {}",
             TEST_CONFIG.hyperv_should_be_present
         );
-        let is_present = super::is_hypervisor_present().unwrap_or(false);
+        let is_present = super::is_hypervisor_present().is_ok();
         if (is_present && !TEST_CONFIG.hyperv_should_be_present)
             || (!is_present && TEST_CONFIG.hyperv_should_be_present)
         {
             panic!(
-                "WARNING Hyper-V is present returned  {}, should be present is: {} HYPERV_SHOULD_HAVE_STABLE_API is {}",
-                is_present, TEST_CONFIG.hyperv_should_be_present, TEST_CONFIG.hyperv_should_have_stable_api
+                "WARNING Hyper-V is present returned  {}, should be present is: {}",
+                is_present, TEST_CONFIG.hyperv_should_be_present
             );
         }
         is_present
     }
+
     fn hyperv_should_be_present_default() -> bool {
         false
     }
 
-    fn hyperv_should_have_stable_api_default() -> bool {
-        false
-    }
     #[derive(Deserialize, Debug)]
     pub(crate) struct TestConfig {
         #[serde(default = "hyperv_should_be_present_default")]
         // Set env var HYPERV_SHOULD_BE_PRESENT to require hyperv to be present for the tests.
         pub(crate) hyperv_should_be_present: bool,
-        #[serde(default = "hyperv_should_have_stable_api_default")]
-        // Set env var HYPERV_SHOULD_HAVE_STABLE_API to require a stable api for the tests.
-        pub(crate) hyperv_should_have_stable_api: bool,
     }
 
     #[macro_export]
@@ -597,8 +562,7 @@ mod tests {
 
     #[test]
     fn is_hypervisor_present() {
-        // TODO add test for HYPERV_SHOULD_HAVE_STABLE_API = true
-        let result = super::is_hypervisor_present().unwrap_or(false);
+        let result = super::is_hypervisor_present().is_ok();
         assert_eq!(result, TEST_CONFIG.hyperv_should_be_present);
     }
 

@@ -25,6 +25,11 @@ exclude = [
     "src/tests/rust_guests/simpleguest",
 ]
 
+[workspace.dependencies]
+mshv-bindings = { version = "0.1.2-20240321-96f6653", registry = "hyperlight_redist" }
+mshv-ioctls = { version = "0.1.2-20240321-96f6653", registry = "hyperlight_redist" }
+
+
 # this will generate symbols for release builds
 # so is handy for debugging issues in release builds
 # to use, run `cargo build --profile=release-with-debug`

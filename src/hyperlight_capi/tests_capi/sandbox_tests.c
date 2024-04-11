@@ -10,9 +10,7 @@ MunitResult test_is_hypervisor_present(const MunitParameter params[], void *fixt
     HypervisorAvailabilityType *hypervisorAvailability = (HypervisorAvailabilityType *)fixture;
     bool status = is_hypervisor_present();
 
-    bool should_be_true = ((
-                               hypervisorAvailability->expect_hyperv_linux_present &&
-                               hypervisorAvailability->expect_hyperv_linux_prerelease_api) ||
+    bool should_be_true = (hypervisorAvailability->expect_hyperv_linux_present ||
                            hypervisorAvailability->expect_kvm_present ||
                            hypervisorAvailability->expect_whp_present);
 

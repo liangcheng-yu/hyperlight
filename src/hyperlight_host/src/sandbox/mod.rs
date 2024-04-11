@@ -117,8 +117,7 @@ impl<'a> Eq for FunctionsMap<'a> {}
 pub fn is_hypervisor_present() -> bool {
     #[cfg(target_os = "linux")]
     {
-        hyperv_linux::is_hypervisor_present().unwrap_or(false)
-            || kvm::is_hypervisor_present().is_ok()
+        hyperv_linux::is_hypervisor_present().is_ok() || kvm::is_hypervisor_present().is_ok()
     }
     #[cfg(target_os = "windows")]
     {

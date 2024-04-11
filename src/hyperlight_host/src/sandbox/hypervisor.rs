@@ -107,10 +107,7 @@ impl<'a> UninitializedSandbox<'a> {
             use crate::hypervisor::{kvm, kvm::KVMDriver};
             use hyperlight_common::mem::PAGE_SHIFT;
 
-            if hyperv_linux::is_hypervisor_present().unwrap_or(false) {
-                // the following line resolves to page frame number 512, because it's BASE_ADDRESS / 4096.
-                // Each page is 4096 bytes, so this is the number of pages to the base address,
-                // which will exactly result in the memory starting at the base address.
+            if hyperv_linux::is_hypervisor_present().is_ok() {
                 let guest_pfn = u64::try_from(SandboxMemoryLayout::BASE_ADDRESS >> PAGE_SHIFT)?;
                 let host_addr = u64::try_from(mgr.shared_mem.base_addr())?;
                 let addrs = HypervisorAddrs {

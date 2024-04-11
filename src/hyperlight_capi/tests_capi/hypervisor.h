@@ -14,11 +14,6 @@ typedef struct HypervisorAvailability
   bool expect_hyperv_linux_present;
 
   /**
-   * If it is expected that hyperv on linux should be a pre-release
-   */
-  bool expect_hyperv_linux_prerelease_api;
-
-  /**
    * If it is expected that KVM should be present
    */
   bool expect_kvm_present;

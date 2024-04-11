@@ -35,7 +35,6 @@ void *hypervisor_check_flags(const MunitParameter params[], void *user_data)
     HypervisorAvailabilityType *hypervisorAvailability = (HypervisorAvailabilityType *)malloc(sizeof(HypervisorAvailabilityType));
 
     hypervisorAvailability->expect_hyperv_linux_present = false;
-    hypervisorAvailability->expect_hyperv_linux_prerelease_api = true;
     hypervisorAvailability->expect_kvm_present = false;
     hypervisorAvailability->expect_whp_present = false;
 
@@ -49,16 +48,6 @@ void *hypervisor_check_flags(const MunitParameter params[], void *user_data)
     if (env_var != NULL)
     {
         hypervisorAvailability->expect_hyperv_linux_present = get_flag_value(env_var);
-    }
-
-    // Set env var HYPERV_SHOULD_HAVE_STABLE_API to false to require a stable api for this test.
-    env_var = NULL;
-    env_var = getenv("HYPERV_SHOULD_HAVE_STABLE_API");
-    munit_logf(MUNIT_LOG_INFO, "env var HYPERV_SHOULD_HAVE_STABLE_API %s\n", env_var);
-
-    if (env_var != NULL)
-    {
-        hypervisorAvailability->expect_hyperv_linux_prerelease_api = !get_flag_value(env_var);
     }
 
     // Set env var KVM_SHOULD_BE_PRESENT to true to require KVM for this test.
@@ -89,7 +78,6 @@ void *hypervisor_check_flags(const MunitParameter params[], void *user_data)
 #endif
 
     munit_logf(MUNIT_LOG_INFO, "EXPECT_HYPERV_LINUX_PRESENT: %s\n", hypervisorAvailability->expect_hyperv_linux_present ? "true" : "false");
-    munit_logf(MUNIT_LOG_INFO, "EXPECT_HYPERV_LINUX_PRERELEASE_API: %s\n", hypervisorAvailability->expect_hyperv_linux_prerelease_api ? "true" : "false");
     munit_logf(MUNIT_LOG_INFO, "EXPECT_KVM_PRESENT: %s\n", hypervisorAvailability->expect_kvm_present ? "true" : "false");
     munit_logf(MUNIT_LOG_INFO, "EXPECT_WHP_PRESENT: %s\n", hypervisorAvailability->expect_whp_present ? "true" : "false");
 

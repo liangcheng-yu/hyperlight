@@ -28,21 +28,19 @@ fn get_driver(ctx: &Context, hdl: Handle) -> Result<&HypervLinuxDriver> {
     })
 }
 
-/// Returns a bool indicating if hyperv is present on the machine
-/// Takes an argument to indicate if the hypervisor api must be stable
-/// If the hypervisor api is not stable, the function will return false even if the hypervisor is present
+/// Returns a bool indicating if hyperv is present on the machine.
 ///
 /// # Examples
 ///
 /// ```
 /// use hyperlight_host::capi::hyperv_linux::is_hyperv_linux_present;
 ///
-/// assert_eq!(is_hyperv_linux_present(require_stable_api), true );
+/// assert_eq!(is_hyperv_linux_present(), true );
 /// ```
 #[no_mangle]
 pub extern "C" fn is_hyperv_linux_present() -> bool {
-    // At this point we dont have any way to report the error if one occurs.
-    is_hypervisor_present().unwrap_or(false)
+    // At this point we don't have any way to report the error if one occurs.
+    is_hypervisor_present().is_ok()
 }
 
 /// Creates a new HyperV-Linux driver with the given parameters and
