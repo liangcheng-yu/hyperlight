@@ -262,3 +262,4 @@ uint8_t* GetFlatBufferResultFromSizePrefixedBuffer(void*, int32_t);
 ns(GuestFunctionDefinition_ref_t) CreateFunctionDefinition(const char*, guestFunc, int, ns(ParameterType_enum_t)[]);
 
 void abort_with_code_and_message(uint32_t, const char*);
+void __halt();

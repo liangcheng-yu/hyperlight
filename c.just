@@ -94,7 +94,8 @@ assemble-asm target=default-target:
     llvm-ml -m64 /c /nologo /Fo "x64/{{target}}/__security_cookie.obj" /Ta "src/asm/__security_cookie.asm" && \
     llvm-ml -m64 /c /nologo /Fo "x64/{{target}}/jmp.obj" /Ta "src/asm/jmp.asm" && \
     llvm-ml -m64 /c /nologo /Fo "x64/{{target}}/outb.obj" /Ta "src/asm/outb.asm" && \
-    llvm-ml -m64 /c /nologo /Fo "x64/{{target}}/regaccess.obj" /Ta "src/asm/regaccess.asm" 
+    llvm-ml -m64 /c /nologo /Fo "x64/{{target}}/regaccess.obj" /Ta "src/asm/regaccess.asm" && \
+    llvm-ml -m64 /c /nologo /Fo "x64/{{target}}/__halt.obj" /Ta "src/asm/__halt.asm" 
 
 build-c-lib target=default-target:
     cd src/HyperlightGuest && {{mkdir}} x64/{{target}} && clang-cl \
@@ -163,4 +164,5 @@ link-c-lib target=default-target:
         x64/{{target}}/regaccess.obj \
         x64/{{target}}/__chkstk.obj \
         x64/{{target}}/__security_cookie.obj \
+        x64/{{target}}/__halt.obj \
         x64/{{target}}/outb.obj

@@ -162,7 +162,7 @@ void halt()
 {
     if (runningInHyperlight)
     {
-        __asm__("hlt");
+        __halt();
     }
 }
 

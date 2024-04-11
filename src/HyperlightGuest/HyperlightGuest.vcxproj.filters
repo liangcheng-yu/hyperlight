@@ -284,5 +284,8 @@
     <MASM Include="src\asm\outb.asm">
       <Filter>Source Files\asm</Filter>
     </MASM>
+    <MASM Include="src\asm\__halt.asm">
+      <Filter>Source Files\asm</Filter>
+    </MASM>
   </ItemGroup>
 </Project>
