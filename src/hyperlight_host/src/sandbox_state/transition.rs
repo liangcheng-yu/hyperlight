@@ -1,5 +1,5 @@
 use super::sandbox::Sandbox;
-use crate::Result;
+use crate::{func::call_ctx::MultiUseGuestCallContext, Result};
 use std::marker::PhantomData;
 use tracing::{instrument, Span};
 
@@ -144,6 +144,62 @@ where
     }
 }
 
+/// A `TransitionMetadata` that calls a callback. The callback function takes
+/// a mutable reference to a `MultiUseGuestCallContext` and returns a `Result<()>`
+/// to signify success or failure of the function.
+///
+/// The function use the context to call guest functions.
+///
+/// Construct one of these by passing your callback to
+/// `MultiUseContextCallback::from`, as in the following code (assuming `MySandbox`
+/// is a `Sandbox` implementation):
+///
+/// ```ignore
+/// let my_cb_fn: dyn FnOnce(&mut MultiUseGuestCallContext) -> Result<()> = |_sbox| {
+///     println!("hello world!");
+/// };
+/// let mutating_cb = MultiUseContextCallback::from(my_cb_fn);
+/// ```
+
+pub struct MultiUseContextCallback<'func, Cur: Sandbox, F>
+where
+    F: FnOnce(&mut MultiUseGuestCallContext) -> Result<()> + 'func,
+{
+    cur_ph: PhantomData<Cur>,
+    fn_life_ph: PhantomData<&'func ()>,
+    cb: F,
+}
+
+impl<'a, Cur: Sandbox, Next: Sandbox, F> TransitionMetadata<Cur, Next>
+    for MultiUseContextCallback<'a, Cur, F>
+where
+    F: FnOnce(&mut MultiUseGuestCallContext) -> Result<()>,
+{
+}
+
+impl<'a, Cur: Sandbox, F> MultiUseContextCallback<'a, Cur, F>
+where
+    F: FnOnce(&mut MultiUseGuestCallContext) -> Result<()>,
+{
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub fn call(self, cur: &mut MultiUseGuestCallContext) -> Result<()> {
+        (self.cb)(cur)
+    }
+}
+
+impl<'a, Cur: Sandbox, F> From<F> for MultiUseContextCallback<'a, Cur, F>
+where
+    F: FnOnce(&mut MultiUseGuestCallContext) -> Result<()> + 'a,
+{
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn from(val: F) -> Self {
+        MultiUseContextCallback {
+            cur_ph: PhantomData,
+            fn_life_ph: PhantomData,
+            cb: val,
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::{MutatingCallback, Noop};
@@ -154,16 +210,9 @@ mod tests {
     struct MySandbox1 {}
     #[derive(Debug, Eq, PartialEq, Clone)]
     struct MySandbox2 {}
-    impl Sandbox for MySandbox1 {
-        fn check_stack_guard(&self) -> Result<bool> {
-            Ok(true)
-        }
-    }
-    impl Sandbox for MySandbox2 {
-        fn check_stack_guard(&self) -> Result<bool> {
-            Ok(true)
-        }
-    }
+
+    impl Sandbox for MySandbox1 {}
+    impl Sandbox for MySandbox2 {}
 
     impl EvolvableSandbox<MySandbox1, MySandbox2, Noop<MySandbox1, MySandbox2>> for MySandbox1 {
         fn evolve(self, _: Noop<MySandbox1, MySandbox2>) -> Result<MySandbox2> {

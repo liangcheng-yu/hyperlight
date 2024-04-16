@@ -57,14 +57,12 @@ impl<'a> SingleUseSandbox<'a> {
         }
     }
 
-    /// Create a new `SingleUseCallContext` suitable for making 0 or more
-    /// calls to guest functions within the same context.
+    /// Create a new `SingleUseCallContext` . The main purpose of the
+    /// a SingleUseSandbox is to allow mutiple calls to guest functions from within a callback function.
     ///
     /// Since this function consumes `self`, the returned
     /// `SingleUseGuestCallContext` is guaranteed mutual exclusion for calling
-    /// functions within the sandbox. This guarantee is enforced at compile
-    /// time, and no locks, atomics, or any other mutual exclusion mechanisms
-    /// are used at runtime.
+    /// functions within the sandbox.
     ///
     /// Since this is a `SingleUseSandbox`, the returned
     /// context cannot be converted back into the original `SingleUseSandbox`.
@@ -95,10 +93,16 @@ impl<'a> SingleUseSandbox<'a> {
     /// // original `sbox` variable.
     /// let mut ctx = sbox.new_call_context();
     ///
-    /// // Do a guest call with the context. Assues that the loaded binary
-    /// // ("some_guest_binary") has a function therein called "SomeGuestFunc"
-    /// // that takes a single integer argument and returns an integer.
-    /// match ctx.call(
+    ///
+    /// // Create a closure to call multiple guest functions usings the contexts
+    /// // call_from-func method. Assues that the loaded binary
+    /// // ("some_guest_binary") has a function therein called "SomeGuestFunc" and another called "SomeOtherGuestFunc"
+    /// // that take a single integer argument and return an integer.
+    ///
+    ///
+    /// let result = ctx.call_from_func( |call_ctx| {
+    ///
+    /// match call_ctx.call(
     ///     "SomeGuestFunc",
     ///     ReturnType::Int,
     ///     Some(vec![ParameterValue::Int(1)])
@@ -112,10 +116,27 @@ impl<'a> SingleUseSandbox<'a> {
     ///         other,
     ///     ),
     /// }
-    /// // You can make further calls with the same context if you want.
-    /// // Otherwise, `ctx` will be dropped and all resources, including the
-    /// // underlying `SingleUseSandbox`, will be released and no further
-    //  // contexts can be created from that sandbox.
+    ///
+    /// match call_ctx.call(
+    ///     "SomeOtherGuestFunc",
+    ///     ReturnType::Int,
+    ///     Some(vec![ParameterValue::Int(1)])
+    /// ) {
+    ///     Ok(ReturnValue::Int(i)) => println!(
+    ///         "got successful return value {}",
+    ///         i,
+    ///     ),
+    ///     other => panic!(
+    ///         "failed to get return value as expected ({:?})",
+    ///         other,
+    ///     ),
+    /// }
+    ///
+    /// Ok(ReturnValue::Int(0))
+    ///
+    /// });
+    ///
+    /// // After the call context is dropped, the sandbox is also dropped.
     /// ```
     #[instrument(skip_all, parent = Span::current())]
     pub fn new_call_context(self) -> SingleUseGuestCallContext<'a> {
@@ -167,67 +188,5 @@ impl<'a> std::fmt::Debug for SingleUseSandbox<'a> {
         f.debug_struct("SingleUseSandbox")
             .field("stack_guard", &self.mem_mgr.get_stack_cookie())
             .finish()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::sandbox::SandboxConfiguration;
-    use crate::sandbox_state::sandbox::EvolvableSandbox;
-    use crate::{sandbox_state::transition::Noop, GuestBinary};
-    use crate::{SingleUseSandbox, UninitializedSandbox};
-    use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
-    use hyperlight_testing::simple_guest_as_string;
-
-    // Tests to ensure that many (1000) function calls can be made in a call context with a small stack (1K) and heap(14K).
-    // This test effectively ensures that the stack is being properly reset after each call and we are not leaking memory in the Guest.
-    #[test]
-    fn test_with_small_stack_and_heap() {
-        let cfg = {
-            let mut cfg = SandboxConfiguration::default();
-            cfg.set_heap_size(14 * 1024);
-            cfg.set_stack_size(14 * 1024);
-            Some(cfg)
-        };
-
-        let sbox1: SingleUseSandbox = {
-            let path = simple_guest_as_string().unwrap();
-            let u_sbox =
-                UninitializedSandbox::new(GuestBinary::FilePath(path), cfg, None, None).unwrap();
-            u_sbox.evolve(Noop::default())
-        }
-        .unwrap();
-
-        let mut ctx = sbox1.new_call_context();
-
-        for _ in 0..1000 {
-            ctx.call(
-                "StackAllocate",
-                ReturnType::Int,
-                Some(vec![ParameterValue::Int(1)]),
-            )
-            .unwrap();
-        }
-
-        let sbox2: SingleUseSandbox = {
-            let path = simple_guest_as_string().unwrap();
-            let u_sbox =
-                UninitializedSandbox::new(GuestBinary::FilePath(path), cfg, None, None).unwrap();
-            u_sbox.evolve(Noop::default())
-        }
-        .unwrap();
-
-        let mut ctx = sbox2.new_call_context();
-
-        for i in 0..1000 {
-            ctx.call(
-                "PrintUsingPrintf",
-                ReturnType::Int,
-                Some(vec![ParameterValue::String(
-                    format!("Hello World {}\n", i).to_string(),
-                )]),
-            )
-            .unwrap();
-        }
     }
 }

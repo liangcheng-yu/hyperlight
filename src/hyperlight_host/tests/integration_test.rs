@@ -24,9 +24,8 @@ fn print_four_args_c_guest() {
     let guest_path = GuestBinary::FilePath(path);
     let uninit = UninitializedSandbox::new(guest_path, None, None, None);
     let sbox1: SingleUseSandbox = uninit.unwrap().evolve(Noop::default()).unwrap();
-    let mut ctx1 = sbox1.new_call_context();
 
-    let res = ctx1.call(
+    let res = sbox1.call_guest_function_by_name(
         "PrintFourArgs",
         ReturnType::String,
         Some(vec![
@@ -44,11 +43,9 @@ fn print_four_args_c_guest() {
 #[test]
 fn guest_abort() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
-    let mut ctx1 = sbox1.new_call_context();
-
     let error_code: u8 = 13; // this is arbitrary
-    let res = ctx1
-        .call(
+    let res = sbox1
+        .call_guest_function_by_name(
             "test_abort",
             ReturnType::Void,
             Some(vec![ParameterValue::Int(error_code as i32)]),
@@ -63,10 +60,8 @@ fn guest_abort() {
 #[test]
 fn guest_abort_with_context1() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
-    let mut ctx1 = sbox1.new_call_context();
-
-    let res = ctx1
-        .call(
+    let res = sbox1
+        .call_guest_function_by_name(
             "abort_with_code_and_message",
             ReturnType::Void,
             Some(vec![
@@ -84,7 +79,6 @@ fn guest_abort_with_context1() {
 #[test]
 fn guest_abort_with_context2() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
-    let mut ctx1 = sbox1.new_call_context();
 
     // The buffer size for the panic context is 1024 bytes.
     // This test will see what happens if the panic message is longer than that
@@ -118,8 +112,8 @@ fn guest_abort_with_context2() {
                                 Arcu felis bibendum ut tristique et. \
                                 Proin sagittis nisl rhoncus mattis rhoncus urna. Magna eget est lorem ipsum.";
 
-    let res = ctx1
-        .call(
+    let res = sbox1
+        .call_guest_function_by_name(
             "abort_with_code_and_message",
             ReturnType::Void,
             Some(vec![
@@ -143,10 +137,9 @@ fn guest_abort_c_guest() {
     let guest_path = GuestBinary::FilePath(path);
     let uninit = UninitializedSandbox::new(guest_path, None, None, None);
     let sbox1: SingleUseSandbox = uninit.unwrap().evolve(Noop::default()).unwrap();
-    let mut ctx1 = sbox1.new_call_context();
 
-    let res = ctx1
-        .call(
+    let res = sbox1
+        .call_guest_function_by_name(
             "GuestAbortWithMessage",
             ReturnType::Void,
             Some(vec![
@@ -164,10 +157,9 @@ fn guest_abort_c_guest() {
 #[test]
 fn guest_panic() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
-    let mut ctx1 = sbox1.new_call_context();
 
-    let res = ctx1
-        .call(
+    let res = sbox1
+        .call_guest_function_by_name(
             "guest_panic",
             ReturnType::Void,
             Some(vec![ParameterValue::String(
@@ -185,11 +177,10 @@ fn guest_panic() {
 #[test]
 fn guest_malloc_abort() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
-    let mut ctx1 = sbox1.new_call_context();
 
     let size = 20000000; // some big number that should fail when allocated
-    let res = ctx1
-        .call(
+    let res = sbox1
+        .call_guest_function_by_name(
             "test_rust_malloc",
             ReturnType::Int,
             Some(vec![ParameterValue::Int(size)]),
@@ -205,11 +196,10 @@ fn guest_malloc_abort() {
 #[test]
 fn dynamic_stack_allocate() {
     let sbox: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
-    let mut ctx = sbox.new_call_context();
 
     let bytes = 10_000; // some low number that can be allocated on stack
 
-    ctx.call(
+    sbox.call_guest_function_by_name(
         "StackAllocate",
         ReturnType::Int,
         Some(vec![ParameterValue::Int(bytes)]),
@@ -221,14 +211,13 @@ fn dynamic_stack_allocate() {
 #[test]
 fn dynamic_stack_allocate_overflow() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
-    let mut ctx1 = sbox1.new_call_context();
 
     // zero is handled as special case in guest,
     // will turn DEFAULT_GUEST_STACK_SIZE + 1
     let bytes = 0;
 
-    let res = ctx1
-        .call(
+    let res = sbox1
+        .call_guest_function_by_name(
             "StackAllocate",
             ReturnType::Int,
             Some(vec![ParameterValue::Int(bytes)]),
@@ -242,12 +231,10 @@ fn dynamic_stack_allocate_overflow() {
 #[test]
 fn dynamic_stack_allocate_pointer_overflow() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
-    let mut ctx1 = sbox1.new_call_context();
-
     let bytes = 10 * 1024 * 1024; // 10Mb
 
-    let res = ctx1
-        .call(
+    let res = sbox1
+        .call_guest_function_by_name(
             "StackAllocate",
             ReturnType::Int,
             Some(vec![ParameterValue::Int(bytes)]),
@@ -264,12 +251,11 @@ fn dynamic_stack_allocate_overflow_c_guest() {
     let guest_path = GuestBinary::FilePath(path);
     let uninit = UninitializedSandbox::new(guest_path, None, None, None);
     let sbox1: SingleUseSandbox = uninit.unwrap().evolve(Noop::default()).unwrap();
-    let mut ctx1 = sbox1.new_call_context();
 
     let bytes = 0; // zero is handled as special case in guest, will turn into large number
 
-    let res = ctx1
-        .call(
+    let res = sbox1
+        .call_guest_function_by_name(
             "StackAllocate",
             ReturnType::Int,
             Some(vec![ParameterValue::Int(bytes)]),
@@ -283,10 +269,9 @@ fn dynamic_stack_allocate_overflow_c_guest() {
 #[test]
 fn static_stack_allocate() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
-    let mut ctx1 = sbox1.new_call_context();
 
-    let res = ctx1
-        .call("SmallVar", ReturnType::Int, Some(Vec::new()))
+    let res = sbox1
+        .call_guest_function_by_name("SmallVar", ReturnType::Int, Some(Vec::new()))
         .unwrap();
     assert!(matches!(res, ReturnValue::Int(1024)));
 }
@@ -295,9 +280,8 @@ fn static_stack_allocate() {
 #[test]
 fn static_stack_allocate_overflow() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
-    let mut ctx1 = sbox1.new_call_context();
-    let res = ctx1
-        .call("LargeVar", ReturnType::Int, Some(Vec::new()))
+    let res = sbox1
+        .call_guest_function_by_name("LargeVar", ReturnType::Int, Some(Vec::new()))
         .unwrap_err();
     assert!(matches!(res, HyperlightError::StackOverflow()));
 }
@@ -306,16 +290,16 @@ fn static_stack_allocate_overflow() {
 #[test]
 fn recursive_stack_allocate() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
-    let mut ctx1 = sbox1.new_call_context();
 
     let iterations = 1;
 
-    ctx1.call(
-        "StackOverflow",
-        ReturnType::Int,
-        Some(vec![ParameterValue::Int(iterations)]),
-    )
-    .unwrap();
+    sbox1
+        .call_guest_function_by_name(
+            "StackOverflow",
+            ReturnType::Int,
+            Some(vec![ParameterValue::Int(iterations)]),
+        )
+        .unwrap();
 }
 
 // checks stack guard page (between guest stack and heap)
@@ -338,8 +322,7 @@ fn guard_page_check() {
     for offset in offsets_from_page_guard_start {
         // we have to create a sandbox each iteration because can't reuse after MMIO error in release mode
         let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
-        let mut ctx1 = sbox1.new_call_context();
-        let result = ctx1.call(
+        let result = sbox1.call_guest_function_by_name(
             "test_write_raw_ptr",
             ReturnType::String,
             Some(vec![ParameterValue::Long(offset)]),
@@ -359,9 +342,8 @@ fn guard_page_check() {
 #[test]
 fn guard_page_check_2() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
-    let mut ctx1 = sbox1.new_call_context();
-    let result = ctx1
-        .call("InfiniteRecursion", ReturnType::Void, Some(vec![]))
+    let result = sbox1
+        .call_guest_function_by_name("InfiniteRecursion", ReturnType::Void, Some(vec![]))
         .unwrap_err();
     assert!(matches!(result, HyperlightError::GuardPageViolation(_)));
 }
@@ -378,9 +360,8 @@ fn execute_on_stack() {
         }
     }
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
-    let mut ctx1 = sbox1.new_call_context();
-    let result = ctx1
-        .call("execute_on_stack", ReturnType::String, Some(vec![]))
+    let result = sbox1
+        .call_guest_function_by_name("execute_on_stack", ReturnType::String, Some(vec![]))
         .unwrap_err();
     assert!(matches!(
         result,
@@ -392,12 +373,11 @@ fn execute_on_stack() {
 #[test]
 fn recursive_stack_allocate_overflow() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
-    let mut ctx1 = sbox1.new_call_context();
 
     let iterations = 10;
 
-    let res = ctx1
-        .call(
+    let res = sbox1
+        .call_guest_function_by_name(
             "StackOverflow",
             ReturnType::Void,
             Some(vec![ParameterValue::Int(iterations)]),
@@ -447,17 +427,17 @@ fn log_test_messages() {
             continue;
         }
         let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
-        let mut ctx1 = sbox1.new_call_context();
 
         let message = format!("Hello from log_message level {}", level as i32);
-        ctx1.call(
-            "LogMessage",
-            ReturnType::Void,
-            Some(vec![
-                ParameterValue::String(message.to_string()),
-                ParameterValue::Int(level as i32),
-            ]),
-        )
-        .unwrap();
+        sbox1
+            .call_guest_function_by_name(
+                "LogMessage",
+                ReturnType::Void,
+                Some(vec![
+                    ParameterValue::String(message.to_string()),
+                    ParameterValue::Int(level as i32),
+                ]),
+            )
+            .unwrap();
     }
 }

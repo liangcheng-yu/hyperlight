@@ -60,6 +60,10 @@ where
             let mgr = u_sbox.mgr.as_ref();
             assert!(mgr.get_pointer_to_dispatch_function()? != 0);
         }
+
+        // TODO: this if check makes no sense , first getting a hypervisor when running in process is not going to work
+        // secondly, this branch of the if statement on line 45 means this could never be true
+        // so we should probably remove this if statement and just call the function
         if u_sbox.run_from_process_memory {
             u_sbox.get_hv_mut().get_hypervisor()?.reset_rsp(orig_rsp)?;
         }
@@ -79,7 +83,7 @@ pub(super) fn evolve_impl_multi_use<'a>(
 ) -> Result<MultiUseSandbox<'a>> {
     evolve_impl(u_sbox, cb_opt, |mut u, leaked_outb| {
         {
-            u.get_mgr_mut().as_mut().snapshot_state()?;
+            u.get_mgr_mut().as_mut().push_state()?;
         }
         Ok(MultiUseSandbox::from_uninit(u, leaked_outb))
     })

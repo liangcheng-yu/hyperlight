@@ -24,8 +24,6 @@ pub(crate) mod mem_mgr;
 mod outb;
 /// Options for configuring a sandbox
 mod run_options;
-/// Snapshots of internal `Sandbox` state
-pub mod snapshot;
 /// Functionality for creating uninitialized sandboxes, manipulating them,
 /// and converting them to initialized sandboxes.
 pub mod uninitialized;

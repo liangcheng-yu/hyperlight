@@ -77,7 +77,6 @@ fn run_example() -> Result<()> {
                     Some(vec![ParameterValue::String("a".to_string())]),
                 );
                 assert!(result.is_ok());
-                multiuse_sandbox = result.unwrap().0;
             }
 
             // Define a message to send to the guest.
@@ -92,7 +91,6 @@ fn run_example() -> Result<()> {
                     Some(vec![ParameterValue::String(msg.clone())]),
                 );
                 assert!(result.is_ok());
-                multiuse_sandbox = result.unwrap().0;
             }
             Ok(())
         });

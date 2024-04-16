@@ -1,7 +1,12 @@
 use super::guest_err::check_for_guest_error;
+#[cfg(feature = "function_call_metrics")]
+use crate::histogram_vec_time_micros;
 use crate::mem::ptr::RawPtr;
+#[cfg(feature = "function_call_metrics")]
+use crate::sandbox::metrics::SandboxMetric::GuestFunctionCallDurationMicroseconds;
 use crate::sandbox::WrapperGetter;
 use crate::{HyperlightError, Result};
+use cfg_if::cfg_if;
 use hyperlight_common::flatbuffer_wrappers::{
     function_call::{FunctionCall, FunctionCallType},
     function_types::{ParameterValue, ReturnType, ReturnValue},
@@ -57,20 +62,48 @@ pub(crate) fn call_function_on_guest<'a, HvMemMgrT: WrapperGetter<'a>>(
         // A: That's because we've already written the function call details to memory
         // with `mem_mgr.write_guest_function_call(&buffer)?;`
         // and the `dispatch` function can directly access that via shared memory.
-        dispatch();
+        cfg_if! {
+            if #[cfg(feature = "function_call_metrics")] {
+                histogram_vec_time_micros!(
+                    &GuestFunctionCallDurationMicroseconds,
+                    &[function_name],
+                    dispatch()
+                );
+            }
+            else {
+                dispatch();
+            }
+        }
     } else {
         // this is the mutable borrow for which we had to do scope gynmastics
         // above
         {
             let hv_wrapper = wrapper_getter.get_hv_mut();
             let mut hv = hv_wrapper.get_hypervisor()?;
-            hv.dispatch_call_from_host(
-                RawPtr::from(p_dispatch),
-                hv_wrapper.outb_hdl.clone(),
-                hv_wrapper.mem_access_hdl.clone(),
-                hv_wrapper.max_execution_time,
-                hv_wrapper.max_wait_for_cancellation,
-            )
+            cfg_if! {
+                if #[cfg(feature = "function_call_metrics")] {
+                    histogram_vec_time_micros!(
+                        &GuestFunctionCallDurationMicroseconds,
+                        &[function_name],
+                        hv.dispatch_call_from_host(
+                            RawPtr::from(p_dispatch),
+                            hv_wrapper.outb_hdl.clone(),
+                            hv_wrapper.mem_access_hdl.clone(),
+                            hv_wrapper.max_execution_time,
+                            hv_wrapper.max_wait_for_cancellation,
+                        )
+                    )
+                }
+                else {
+                    hv.dispatch_call_from_host(
+                        RawPtr::from(p_dispatch),
+                        hv_wrapper.outb_hdl.clone(),
+                        hv_wrapper.mem_access_hdl.clone(),
+                        hv_wrapper.max_execution_time,
+                        hv_wrapper.max_wait_for_cancellation,
+                    )
+                }
+            }
         }?;
     }
 

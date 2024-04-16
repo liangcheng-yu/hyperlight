@@ -591,6 +591,34 @@ fn log_message(function_call: &FunctionCall) -> Result<Vec<u8>> {
     }
 }
 
+static mut COUNTER: i32 = 0;
+
+fn add_to_static(function_call: &FunctionCall) -> Result<Vec<u8>> {
+    if let ParameterValue::Int(i) = function_call.parameters.clone().unwrap()[0].clone() {
+        let res = unsafe {
+            COUNTER += i;
+            COUNTER
+        };
+        Ok(get_flatbuffer_result_from_int(res))
+    } else {
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to add_to_static".to_string(),
+        ))
+    }
+}
+
+fn get_static(function_call: &FunctionCall) -> Result<Vec<u8>> {
+    if function_call.parameters.is_none() {
+        Ok(get_flatbuffer_result_from_int(unsafe { COUNTER }))
+    } else {
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to get_static".to_string(),
+        ))
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn hyperlight_main() {
     let simple_print_output_def = GuestFunctionDefinition::new(
@@ -888,6 +916,20 @@ pub extern "C" fn hyperlight_main() {
         execute_on_stack as i64,
     );
     register_function(execute_on_stack_def);
+    let add_to_static_def = GuestFunctionDefinition::new(
+        "AddToStatic".to_string(),
+        Vec::from(&[ParameterType::Int]),
+        ReturnType::Int,
+        add_to_static as i64,
+    );
+    register_function(add_to_static_def);
+    let get_static_def = GuestFunctionDefinition::new(
+        "GetStatic".to_string(),
+        Vec::new(),
+        ReturnType::Int,
+        get_static as i64,
+    );
+    register_function(get_static_def);
 }
 
 #[no_mangle]

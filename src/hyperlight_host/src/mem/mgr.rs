@@ -29,7 +29,11 @@ use hyperlight_common::flatbuffer_wrappers::{
     guest_log_data::GuestLogData, host_function_details::HostFunctionDetails,
 };
 use serde_json::from_str;
-use std::{cmp::Ordering, str::from_utf8};
+use std::{
+    cmp::Ordering,
+    str::from_utf8,
+    sync::{Arc, Mutex},
+};
 use tracing::{instrument, Span};
 
 /// Whether or not the 64-bit page directory entry (PDE) record is
@@ -56,6 +60,9 @@ pub(crate) const STACK_COOKIE_LEN: usize = 16;
 pub struct SandboxMemoryManager {
     /// Whether or not to run a sandbox in-process
     run_from_process_memory: bool,
+    // This memory snapshot is used by the C API to restore
+    // Once we have a full C API based on the rust snapshot implementation, this field can be removed
+    //TODO:(#1029)
     mem_snapshot: Option<SharedMemorySnapshot>,
     /// Shared memory for the Sandbox
     //TODO:(#1029) Once we have a full C API visibility can be pub(crate)
@@ -68,6 +75,9 @@ pub struct SandboxMemoryManager {
     /// Offset for the execution entrypoint from `load_addr`
     //TODO:(#1029) Once we have a full C API visibility can be pub(crate)
     pub entrypoint_offset: Offset,
+    /// A vector of memory snapshots that can be used to save and  restore the state of the memory
+    /// This is used by the Rust Sandbox implementation (rather than the mem_snapshot field above which only exists to support current C API)
+    snapshots: Arc<Mutex<Vec<SharedMemorySnapshot>>>,
     /// This field must be present, even though it's not read,
     /// so that its underlying resources are properly dropped at
     /// the right time.
@@ -93,6 +103,7 @@ impl SandboxMemoryManager {
             shared_mem,
             load_addr,
             entrypoint_offset,
+            snapshots: Arc::new(Mutex::new(Vec::new())),
             #[cfg(target_os = "windows")]
             _lib: lib,
         }
@@ -239,6 +250,39 @@ impl SandboxMemoryManager {
         } else {
             log_then_return!(NoMemorySnapshot);
         }
+    }
+
+    /// this function will create a memory snapshot and push it onto the stack of snapshots
+    /// It should be used when you want to save the state of the memory, for example, when evolving a sandbox to a new state
+    pub(crate) fn push_state(&mut self) -> Result<()> {
+        let snapshot = SharedMemorySnapshot::new(self.shared_mem.clone())?;
+        self.snapshots.lock()?.push(snapshot);
+        Ok(())
+    }
+
+    /// this function restores a memory snapshot from the last snapshot in the list but does not pop the snapshot
+    /// off the stack
+    /// It should be used when you want to restore the state of the memory to a previous state but still want to
+    /// retain that state, for example after calling a function in the guest
+    pub(crate) fn restore_state_from_last_snapshot(&mut self) -> Result<()> {
+        let mut snapshots = self.snapshots.lock()?;
+        let last = snapshots.last_mut();
+        if last.is_none() {
+            log_then_return!(NoMemorySnapshot);
+        }
+        let snapshot = last.unwrap();
+        snapshot.restore_from_snapshot()
+    }
+
+    /// this function pops the last snapshot off the stack and restores the memory to the previous state
+    /// It should be used when you want to restore the state of the memory to a previous state and do not need to retain that state
+    /// for example when devolving a sandbox to a previous state.
+    pub(crate) fn pop_and_restore_state_from_snapshot(&mut self) -> Result<()> {
+        let last = self.snapshots.lock()?.pop();
+        if last.is_none() {
+            log_then_return!(NoMemorySnapshot);
+        }
+        self.restore_state_from_last_snapshot()
     }
 
     /// Get the return value of an executable that ran, or an `Err`

@@ -1,12 +1,11 @@
+use super::host_funcs::HostFuncsWrapper;
 use super::mem_access::mem_access_handler_wrapper;
 use super::{
     host_funcs::default_writer_func,
     uninitialized_evolve::{evolve_impl_multi_use, evolve_impl_single_use},
 };
-use super::{host_funcs::HostFuncsWrapper, snapshot::Snapshot};
 use super::{hypervisor::HypervisorWrapper, run_options::SandboxRunOptions};
 use super::{mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper};
-use crate::func::guest_dispatch::call_function_on_guest;
 use crate::mem::{mgr::SandboxMemoryManager, pe::pe_info::PEInfo};
 use crate::sandbox::SandboxConfiguration;
 use crate::sandbox::WrapperGetter;
@@ -20,9 +19,6 @@ use crate::{
 use crate::{func::host_functions::HostFunction1, MultiUseSandbox};
 use crate::{log_then_return, mem::ptr::RawPtr};
 use crate::{mem::mgr::STACK_COOKIE_LEN, SingleUseSandbox};
-use hyperlight_common::flatbuffer_wrappers::function_types::{
-    ParameterValue, ReturnType, ReturnValue,
-};
 use std::option::Option;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -35,7 +31,7 @@ use tracing::{instrument, Span};
 /// Prior to initializing a full-fledged `Sandbox`, you must create one of
 /// these `UninitializedSandbox`es with the `new` function, register all the
 /// host-implemented functions you need to be available to the guest, then
-/// call either `initialize` or `evolve to transform your
+/// call  `evolve` to transform your
 /// `UninitializedSandbox` into an initialized `Sandbox`.
 #[derive(Clone)]
 pub struct UninitializedSandbox<'a> {
@@ -49,7 +45,6 @@ pub struct UninitializedSandbox<'a> {
     ///
     /// This is a hack.
     pub(crate) is_csharp: bool,
-    pub(super) mem_snapshots: Arc<Mutex<Vec<Snapshot>>>,
 }
 
 impl<'a> WrapperGetter<'a> for UninitializedSandbox<'a> {
@@ -308,7 +303,6 @@ impl<'a> UninitializedSandbox<'a> {
             hv,
             run_from_process_memory,
             is_csharp: false,
-            mem_snapshots: Arc::new(Mutex::new(Vec::new())),
         };
 
         // If we were passed a writer for host print register it otherwise use the default.
@@ -328,34 +322,6 @@ impl<'a> UninitializedSandbox<'a> {
         }
 
         Ok(sandbox)
-    }
-
-    /// Take a snapshot of the shared memory used by this `Sandbox`
-    /// and store it on the internal stack of memory snapshots
-    ///
-    /// Note: in the future, this snapshot will not be purely a memory
-    /// snapshot, hence the absence of "memory" in the function name.
-    pub fn take_snapshot(&mut self) -> Result<()> {
-        let mgr = self.mgr.as_mut();
-        let mem_snap = mgr.get_shared_mem_mut().copy_all_to_vec()?;
-        let snap = Snapshot { mem: mem_snap };
-        self.mem_snapshots.lock()?.push(snap);
-        Ok(())
-    }
-
-    /// Pop a snapshot off the internal stack of memory snapshots
-    /// and return it. Return an `Err` if there are no snapshots on
-    /// the stack.
-    ///
-    /// Note: in the future, this snapshot will not be purely a memory
-    /// snapshot, hence the absence of "memory" in the function name.
-    pub fn pop_snapshot(&mut self) -> Result<Snapshot> {
-        let snap = self
-            .mem_snapshots
-            .lock()?
-            .pop()
-            .ok_or_else(|| new_error!("no memory snapshots available"))?;
-        Ok(snap)
     }
 
     /// Get a reference to the internally-stored `SandboxMemoryManager`.
@@ -393,7 +359,6 @@ impl<'a> UninitializedSandbox<'a> {
             hv: sbox.hv.clone(),
             run_from_process_memory: sbox.run_from_process_memory,
             is_csharp: false,
-            mem_snapshots: sbox.mem_snapshots.clone(),
         }
     }
     /// Clone the internally-stored `Arc` holding the `HostFuncsWrapper`
@@ -500,19 +465,6 @@ impl<'a> UninitializedSandbox<'a> {
                 run_from_process_memory,
             )
         }
-    }
-
-    /// This function only exists to allow the UninitializedSandbox to be initialized through calling guest functions
-    /// Importantly state is not snapshoted and after a call to this function (i.e. there is no call context)
-    /// It is expected that the caller will eventually transform this unitilized sandbox into a SingleUseSandbox or MultiUseSandbox
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub fn call_guest_function(
-        &mut self,
-        func_name: &str,
-        func_ret_type: ReturnType,
-        args: Option<Vec<ParameterValue>>,
-    ) -> Result<ReturnValue> {
-        call_function_on_guest(self, func_name, func_ret_type, args)
     }
 }
 
