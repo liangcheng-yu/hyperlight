@@ -56,4 +56,4 @@ jobs:
       - name: Run `packer build`
         id: build
         # force here is used to overwrite the managed image that gets created in the build process
-        run: "packer build -var 'vm_size=${{ github.event.inputs.machine_size }}' -var 'location=${{ github.event.inputs.machine_size }}'  -force -color=false ./dev/packer/hyperlight.pkr.hcl"
+        run: "packer build -var 'vm_size=${{ github.event.inputs.machine_size }}' -var 'location=${{ github.event.inputs.location }}' -force -color=false ./dev/packer/hyperlight.pkr.hcl"
