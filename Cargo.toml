@@ -26,8 +26,8 @@ exclude = [
 ]
 
 [workspace.dependencies]
-mshv-bindings = { version = "0.1.2-20240321-96f6653", registry = "hyperlight_redist" }
-mshv-ioctls = { version = "0.1.2-20240321-96f6653", registry = "hyperlight_redist" }
+mshv-bindings = { version = "=0.1.2-20240416", registry = "hyperlight_redist" }
+mshv-ioctls = { version = "=0.1.2-20240416", registry = "hyperlight_redist" }
 
 
 # this will generate symbols for release builds

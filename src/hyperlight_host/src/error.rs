@@ -140,10 +140,14 @@ pub enum HyperlightError {
     #[error("mmap failed with os error {0:?}")]
     /// mmap Failed.
     MmapFailed(Option<i32>),
+    #[error("vmm sys Error {0:?}")]
+    #[cfg(target_os = "linux")]
+    /// vmm sys Error Occurred
+    VmmSysError(#[from] vmm_sys_util::errno::Error),
     #[error("mshv Error {0:?}")]
     #[cfg(target_os = "linux")]
     /// mshv Error Occurred
-    MSHVError(#[from] vmm_sys_util::errno::Error),
+    MSHVError(#[from] mshv_ioctls::MshvError),
     #[error("No Hypervisor was found for Sandbox")]
     /// No Hypervisor was found for Sandbox.
     NoHypervisorFound(),
