@@ -4,6 +4,15 @@ name: Build Hyperlight development image
 
 on:
   workflow_dispatch:
+    inputs:
+        machine_size:
+          description: 'Build Machine size'
+          required: true
+          default: 'Standard_D4as_v5' 
+        location:
+          description: 'Location to build and store the image'
+          required: true
+          default: 'westus3' # Default value
 
 # This job will build and publish a Hyperlight development image to a Shared Image Gallery.
 # Packer is configured to use Azure CLI authentication using ODIC credentials.
@@ -47,4 +56,4 @@ jobs:
       - name: Run `packer build`
         id: build
         # force here is used to overwrite the managed image that gets created in the build process
-        run: "packer build -force -color=false ./dev/packer/hyperlight.pkr.hcl"
+        run: "packer build -var 'vm_size=${{ github.event.inputs.machine_size }}' -var 'location=${{ github.event.inputs.machine_size }}'  -force -color=false ./dev/packer/hyperlight.pkr.hcl"
