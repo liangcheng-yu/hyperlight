@@ -60,7 +60,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ./.github/actions/hyperlight-workflows-setup
+      - uses: deislabs/hyperlight-workflow-setup@v1.0.0
+        with:
+          rust-toolchain: "1.74.0"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
@@ -70,11 +72,6 @@ jobs:
 
       - name: clippy
         run: just clippy ${{ matrix.config }}
-
-      - name: Enable WHP on Windows
-        if: ${{ (runner.os == 'Windows')}}
-        run: Enable-WindowsOptionalFeature -Online -FeatureName HyperVisorPlatform
-        shell: pwsh
 
       - name: Get gh action service name
         if: ${{ (runner.os == 'Windows' )}}
@@ -89,21 +86,6 @@ jobs:
 
       - name: Build
         run: just build-rust ${{ matrix.config }}
-
-      - name: Set up env vars for hyperv-linux tests
-        if: ${{ (matrix.hypervisor == 'hyperv') && (runner.os == 'Linux') }}
-        run: |
-          echo "HYPERV_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
-
-      - name: Set up env vars for kvm-linux tests
-        if: ${{ (matrix.hypervisor == 'kvm') && (runner.os == 'Linux') }}
-        run: |
-          sudo chgrp $(whoami) /dev/kvm
-          echo "KVM_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
-
-      - name: Set up env vars for windows tests
-        if: ${{ (runner.os == 'Windows') }}
-        run: echo "RUST_BACKTRACE=1" >> $GITHUB_ENV
 
       - name: Run Rust tests
         env:

@@ -18,16 +18,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4    
         
-      - name: Setup
-        uses: ./.github/actions/hyperlight-workflows-setup
+      - uses: deislabs/hyperlight-workflow-setup@v1.0.0
+        with:
+          rust-toolchain: "1.74.0"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
-
-      - name: Set up env vars for kvm
-        run: |
-          sudo chgrp $(whoami) /dev/kvm
-          echo "KVM_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV          
+  
             
       - name: Set up Rust (w/ Nightly)
         uses: actions-rs/toolchain@v1

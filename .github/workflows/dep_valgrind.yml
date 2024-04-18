@@ -40,24 +40,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # TODO: move this to an image build in 1ES
-      - name: Set up env vars for kvm-linux tests
-        if: ${{ (matrix.hypervisor == 'kvm') }}
-        run: |
-          sudo chgrp $(whoami) /dev/kvm
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang 
-          echo "KVM_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
-
-      - uses: ./.github/actions/hyperlight-workflows-setup
+      - uses: deislabs/hyperlight-workflow-setup@v1.0.0
+        with:
+          rust-toolchain: "1.74.0"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
-
-      - name: Set up env vars for hyperv-linux tests
-        if: ${{ (matrix.hypervisor == 'hyperv') }}
-        run: |
-          echo "HYPERV_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
 
       - name: Set up munit
         working-directory: src/hyperlight_capi/tests_capi
