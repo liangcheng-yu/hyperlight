@@ -1112,8 +1112,9 @@ namespace Hyperlight.Tests
                                 + sandboxConfiguration.HostExceptionSize
                                 + sandboxConfiguration.GuestErrorBufferSize
                                 + sandboxConfiguration.GuestPanicBufferSize
-                                + PAGE_SIZE // guard page
-                                + headerSize);
+                                + PAGE_SIZE // stack guard page
+                                + headerSize
+                                + 2 * PAGE_SIZE); // surrounding guard pages
 
             var rem = totalSize % PAGE_SIZE;
             if (rem != 0)

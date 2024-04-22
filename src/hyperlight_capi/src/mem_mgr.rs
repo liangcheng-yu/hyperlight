@@ -9,6 +9,7 @@ use crate::{
     validate_context,
     {arrays::borrowed_slice::borrow_ptr_as_slice, shared_mem::register_shared_mem},
 };
+use hyperlight_common::mem::PAGE_SIZE;
 use hyperlight_host::mem::mgr::SandboxMemoryManager;
 use hyperlight_host::{log_then_return, new_error, Result};
 
@@ -96,7 +97,8 @@ pub unsafe extern "C" fn mem_mgr_get_peb_address(
 ) -> Handle {
     validate_context!(ctx);
     let mgr = get_mgr!(ctx, mem_mgr_hdl);
-    let addr = match mgr.get_peb_address(mem_start_addr) {
+    let addr = match mgr.get_peb_address(mem_start_addr + PAGE_SIZE) {
+        // mem_start_addr is raw_ptr (it points to the first guard page), so we offset by a PAGE to get the start of the memory
         Ok(a) => a,
         Err(e) => return (*ctx).register_err(e),
     };
@@ -426,7 +428,7 @@ pub unsafe extern "C" fn mem_mgr_get_load_addr(ctx: *mut Context, mgr_hdl: Handl
 pub unsafe extern "C" fn mem_mgr_get_mem_size(ctx: *mut Context, mgr_hdl: Handle) -> Handle {
     validate_context!(ctx);
     let mgr = get_mgr!(ctx, mgr_hdl);
-    let val_usize = mgr.shared_mem.mem_size();
+    let val_usize = mgr.shared_mem.raw_mem_size();
     let val = match u64::try_from(val_usize) {
         Ok(s) => s,
         Err(_) => {

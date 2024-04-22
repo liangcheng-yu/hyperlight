@@ -49,13 +49,15 @@ impl AddressSpace for HostAddressSpace {
 
 #[cfg(test)]
 mod tests {
+    use hyperlight_common::mem::PAGE_SIZE_USIZE;
+
     use crate::mem::{layout::SandboxMemoryLayout, shared_mem::SharedMemory};
 
     use super::{AddressSpace, GuestAddressSpace, HostAddressSpace};
 
     #[test]
     fn host_addr_space_base() {
-        let gm = SharedMemory::new(10).unwrap();
+        let gm = SharedMemory::new(PAGE_SIZE_USIZE).unwrap();
         let space = HostAddressSpace::new(&gm).unwrap();
         assert_eq!(gm.base_addr() as u64, space.base());
     }

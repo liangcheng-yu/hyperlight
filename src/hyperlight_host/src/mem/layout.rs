@@ -616,13 +616,15 @@ impl SandboxMemoryLayout {
 
 #[cfg(test)]
 mod tests {
+    use hyperlight_common::mem::PAGE_SIZE_USIZE;
+
     use crate::mem::{ptr_offset::Offset, shared_mem::SharedMemory};
 
     use super::{SandboxConfiguration, SandboxMemoryLayout};
 
     #[test]
     fn get_host_code_address() {
-        let sm = SharedMemory::new(100).unwrap();
+        let sm = SharedMemory::new(PAGE_SIZE_USIZE).unwrap();
         let hca_in_proc = SandboxMemoryLayout::get_host_code_address(&sm).unwrap();
         let hca_in_vm = SandboxMemoryLayout::get_host_code_address(&sm).unwrap();
         let code_offset: Offset = SandboxMemoryLayout::CODE_OFFSET.try_into().unwrap();

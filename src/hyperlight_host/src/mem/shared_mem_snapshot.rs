@@ -49,13 +49,16 @@ impl SharedMemorySnapshot {
 
 #[cfg(test)]
 mod tests {
+    use hyperlight_common::mem::PAGE_SIZE_USIZE;
+
     use crate::mem::{ptr_offset::Offset, shared_mem::SharedMemory};
 
     #[test]
     fn restore_replace() {
-        let data1 = vec![b'a', b'b', b'c'];
+        let mut data1 = vec![b'a', b'b', b'c'];
+        data1.resize_with(PAGE_SIZE_USIZE, || 0);
         let data2 = data1.iter().map(|b| b + 1).collect::<Vec<u8>>();
-        let mut gm = SharedMemory::new(data1.len()).unwrap();
+        let mut gm = SharedMemory::new(PAGE_SIZE_USIZE).unwrap();
         gm.copy_from_slice(data1.as_slice(), Offset::zero())
             .unwrap();
         let mut snap = super::SharedMemorySnapshot::new(gm.clone()).unwrap();

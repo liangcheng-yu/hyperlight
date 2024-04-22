@@ -1,13 +1,10 @@
 use super::ptr_offset::Offset;
 use super::try_add_ext::UnsafeTryAddExt;
-#[cfg(target_os = "linux")]
-use crate::error::HyperlightError::MmapFailed;
-use crate::error::HyperlightError::{BoundsCheckFailed, IOError, MemoryAllocationFailed};
+use crate::error::HyperlightError::{BoundsCheckFailed, IOError};
 use crate::Result;
 use crate::{log_then_return, new_error};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-#[cfg(target_os = "linux")]
-use libc::{mmap, munmap};
+use hyperlight_common::mem::PAGE_SIZE_USIZE;
 use std::any::type_name;
 use std::ffi::c_void;
 use std::io::{Cursor, Error};
@@ -15,9 +12,7 @@ use std::mem::size_of;
 use std::ptr::null_mut;
 use std::sync::Arc;
 #[cfg(target_os = "windows")]
-use windows::Win32::System::Memory::{
-    VirtualAlloc, VirtualFree, MEM_COMMIT, MEM_DECOMMIT, PAGE_EXECUTE_READWRITE,
-};
+use windows::Win32::System::Memory::{VirtualAlloc, MEM_COMMIT, PAGE_EXECUTE_READWRITE};
 
 // TODO: Check for underflow as well as overflow
 macro_rules! bounds_check {
@@ -79,18 +74,20 @@ struct PtrAndSize {
 }
 
 impl Drop for PtrAndSize {
+    #[cfg(target_os = "linux")]
     fn drop(&mut self) {
-        #[cfg(target_os = "linux")]
-        {
-            unsafe {
-                munmap(self.ptr.0, self.size);
-            }
+        use libc::munmap;
+
+        unsafe {
+            munmap(self.ptr.0, self.size);
         }
-        #[cfg(target_os = "windows")]
-        {
-            unsafe {
-                VirtualFree(self.ptr.0, self.size, MEM_DECOMMIT);
-            }
+    }
+    #[cfg(target_os = "windows")]
+    fn drop(&mut self) {
+        use windows::Win32::System::Memory::{VirtualFree, MEM_DECOMMIT};
+
+        unsafe {
+            VirtualFree(self.ptr.0, self.size, MEM_DECOMMIT);
         }
     }
 }
@@ -119,69 +116,121 @@ impl Clone for SharedMemory {
 
 impl SharedMemory {
     /// Create a new region of shared memory with the given minimum
-    /// size in bytes.
+    /// size in bytes. The region will be surrounded by guard pages.
     ///
     /// Return `Err` if shared memory could not be allocated.
+    #[cfg(target_os = "linux")]
     pub fn new(min_size_bytes: usize) -> Result<Self> {
-        cfg_if::cfg_if! {
-            if #[cfg(unix)] {
-                use libc::{
-                    size_t,
-                    c_int,
-                    off_t,
-                    PROT_READ,
-                    PROT_WRITE,
-                    MAP_ANONYMOUS,
-                    MAP_SHARED,
-                    MAP_NORESERVE,
-                    MAP_FAILED,
-                };
-                // https://docs.rs/libc/latest/libc/fn.mmap.html
-                let addr = unsafe {
-                    let ptr = mmap(
-                        null_mut(),
-                        min_size_bytes as size_t,
-                        PROT_READ | PROT_WRITE,
-                        MAP_ANONYMOUS | MAP_SHARED | MAP_NORESERVE,
-                        -1 as c_int,
-                        0 as off_t,
-                    );
-                    if ptr == MAP_FAILED {
-                        log_then_return!(MmapFailed(Error::last_os_error().raw_os_error()));
-                    }
-                    ptr
-                };
-            } else {
-                let addr = unsafe {
-                    // https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/System/Memory/fn.VirtualAlloc.html
-                    VirtualAlloc(
-                        Some(null_mut()),
-                        min_size_bytes,
-                        MEM_COMMIT,
-                        PAGE_EXECUTE_READWRITE,
-                    )
-                };
+        use crate::error::HyperlightError::{MmapFailed, MprotectFailed};
+        use libc::{
+            c_int, mmap, mprotect, off_t, size_t, MAP_ANONYMOUS, MAP_FAILED, MAP_NORESERVE,
+            MAP_SHARED, PROT_NONE, PROT_READ, PROT_WRITE,
+        };
+
+        if min_size_bytes == 0 {
+            return Err(new_error!("Cannot create shared memory with size 0"));
+        }
+
+        let total_size = min_size_bytes
+            .checked_add(2 * PAGE_SIZE_USIZE) // guard page around the memory
+            .ok_or_else(|| new_error!("Memory required for sandbox exceeded usize::MAX"))?;
+
+        assert!(
+            total_size % PAGE_SIZE_USIZE == 0,
+            "shared memory must be a multiple of 4096"
+        );
+
+        // allocate the memory
+        let addr = unsafe {
+            let ptr = mmap(
+                null_mut(),
+                total_size as size_t,
+                PROT_READ | PROT_WRITE,
+                MAP_ANONYMOUS | MAP_SHARED | MAP_NORESERVE,
+                -1 as c_int,
+                0 as off_t,
+            );
+            if ptr == MAP_FAILED {
+                log_then_return!(MmapFailed(Error::last_os_error().raw_os_error()));
+            }
+            ptr
+        };
+
+        // protect the guard pages
+        unsafe {
+            let res = mprotect(addr, PAGE_SIZE_USIZE, PROT_NONE);
+            if res != 0 {
+                return Err(MprotectFailed(Error::last_os_error().raw_os_error()));
+            }
+            let res = mprotect(
+                (addr as *const u8).add(total_size - PAGE_SIZE_USIZE) as *mut c_void,
+                PAGE_SIZE_USIZE,
+                PROT_NONE,
+            );
+            if res != 0 {
+                return Err(MprotectFailed(Error::last_os_error().raw_os_error()));
             }
         }
-        match addr as i64 {
-            0 | -1 => {
+
+        Ok(Self {
+            ptr_and_size: Arc::new(PtrAndSize {
+                ptr: PtrCVoidMut(addr),
+                size: total_size,
+            }),
+        })
+    }
+
+    /// Create a new region of shared memory with the given minimum
+    /// size in bytes. The region will be surrounded by guard pages.
+    ///
+    /// Return `Err` if shared memory could not be allocated.
+    #[cfg(target_os = "windows")]
+    pub fn new(min_size_bytes: usize) -> Result<Self> {
+        use crate::HyperlightError::MemoryAllocationFailed;
+
+        if min_size_bytes == 0 {
+            return Err(new_error!("Cannot create shared memory with size 0"));
+        }
+
+        let total_size = min_size_bytes
+            .checked_add(2 * PAGE_SIZE_USIZE)
+            .ok_or_else(|| new_error!("Memory required for sandbox exceeded {}", usize::MAX))?;
+
+        if total_size % PAGE_SIZE_USIZE != 0 {
+            return Err(new_error!(
+                "shared memory must be a multiple of {}",
+                PAGE_SIZE_USIZE
+            ));
+        }
+
+        // allocate the memory
+        let addr = unsafe {
+            let ptr = VirtualAlloc(
+                Some(null_mut()),
+                total_size,
+                MEM_COMMIT,
+                PAGE_EXECUTE_READWRITE,
+            );
+            if ptr.is_null() {
                 log_then_return!(MemoryAllocationFailed(
                     Error::last_os_error().raw_os_error()
                 ));
             }
-            _ => Ok(Self {
-                ptr_and_size: Arc::new(PtrAndSize {
-                    ptr: PtrCVoidMut(addr),
-                    size: min_size_bytes,
-                }),
+            ptr
+        };
+
+        // TODO protect the guard pages
+
+        Ok(Self {
+            ptr_and_size: Arc::new(PtrAndSize {
+                ptr: PtrCVoidMut(addr),
+                size: total_size,
             }),
-        }
+        })
     }
 
-    /// Get the base address of shared memory as a `usize`.
-    /// This method is equivalent to casting the internal
-    /// `*const c_void` pointer to a `usize` by doing
-    /// `pointer as usize`.
+    /// Get the base address of shared memory as a `usize`,
+    /// which is the first usable byte of the shared memory.
     ///
     /// # Safety
     ///
@@ -189,7 +238,34 @@ impl SharedMemory {
     /// Only use it to get the base address of the memory map so you
     /// can do things like calculate offsets, etc...
     pub fn base_addr(&self) -> usize {
-        self.raw_ptr() as usize
+        self.raw_ptr() as usize + PAGE_SIZE_USIZE
+    }
+
+    /// Return the length of usable memory contained in `self`.
+    /// The returned size does not include the size of the surrounding
+    /// guard pages.
+    pub fn mem_size(&self) -> usize {
+        self.ptr_and_size.size - 2 * PAGE_SIZE_USIZE
+    }
+
+    /// Get the raw pointer to the memory region. This pointer will point
+    /// into the first guard page of the shared memory region.
+    ///
+    /// # Safety
+    ///
+    /// The pointer will point to a shared memory region
+    /// of size `self.size`. The caller must ensure that any
+    /// writes they do directly to this pointer fall completely
+    /// within this region, and that they do not attempt to
+    /// free any of this memory, since it is owned and will
+    /// be cleaned up by `self`.
+    pub fn raw_ptr(&self) -> *mut c_void {
+        self.ptr_and_size.ptr.0
+    }
+
+    /// Returns the total raw size of the memory region, including the guard pages.
+    pub fn raw_mem_size(&self) -> usize {
+        self.ptr_and_size.size
     }
 
     /// If all memory locations within the range
@@ -214,7 +290,7 @@ impl SharedMemory {
         let num_bytes = if len > slc.len() { slc.len() } else { len };
         bounds_check!(offset + num_bytes, self.mem_size());
         let dst_ptr = {
-            let ptr = self.raw_ptr() as *mut u8;
+            let ptr = self.base_addr() as *mut u8;
             ptr.try_add(offset)?
         };
 
@@ -230,7 +306,7 @@ impl SharedMemory {
 
         unsafe {
             let dst_ptr = {
-                let ptr = self.raw_ptr() as *mut u8;
+                let ptr = self.base_addr() as *mut u8;
                 ptr.try_add(offset)?
             };
 
@@ -252,14 +328,14 @@ impl SharedMemory {
     /// # use hyperlight_host::Result;
     /// # use hyperlight_host::mem::shared_mem::SharedMemory;
     /// let mut ret_vec = vec![b'\0'; 20];
-    /// let shared_mem = SharedMemory::new(1024).unwrap();
+    /// let shared_mem = SharedMemory::new(4096).unwrap();
     /// shared_mem.copy_to_slice(ret_vec.as_mut_slice(), 0.into());
     /// ```
     pub fn copy_to_slice(&self, slc: &mut [u8], offset: Offset) -> Result<()> {
         bounds_check!(offset, self.mem_size());
         bounds_check!(offset + slc.len(), self.mem_size());
         let src_ptr = {
-            let ptr = self.raw_ptr() as *const u8;
+            let ptr = self.base_addr() as *const u8;
             unsafe {
                 // safety: we know ptr+offset is owned by `ptr`
                 ptr.try_add(offset)?
@@ -282,28 +358,6 @@ impl SharedMemory {
         let mut ret_vec = vec![b'\0'; self.mem_size()];
         self.copy_to_slice(ret_vec.as_mut_slice(), Offset::zero())?;
         Ok(ret_vec)
-    }
-
-    /// Get the raw pointer to the memory region.
-    ///
-    /// # Safety
-    ///
-    /// The pointer will point to a shared memory region
-    /// of size `self.size`. The caller must ensure that any
-    /// writes they do directly to this pointer fall completely
-    /// within this region, and that they do not attempt to
-    /// free any of this memory, since it is owned and will
-    /// be cleaned up by `self`.
-    pub(crate) fn raw_ptr(&self) -> *mut c_void {
-        self.ptr_and_size.ptr.0
-    }
-
-    /// Return the length of the memory contained in `self`.
-    ///
-    /// The return value is guaranteed to be the size of memory
-    /// of which `self.raw_ptr()` points to the beginning.
-    pub fn mem_size(&self) -> usize {
-        self.ptr_and_size.size
     }
 
     /// Return the address of memory at an offset to this `SharedMemory` checking
@@ -416,11 +470,11 @@ impl SharedMemory {
 
     unsafe fn as_mut_slice(&mut self) -> &mut [u8] {
         // inspired by https://docs.rs/mmap-rs/0.3.0/src/mmap_rs/lib.rs.html#309
-        std::slice::from_raw_parts_mut(self.raw_ptr() as *mut u8, self.mem_size())
+        std::slice::from_raw_parts_mut(self.base_addr() as *mut u8, self.mem_size())
     }
 
     unsafe fn as_slice(&self) -> &[u8] {
-        std::slice::from_raw_parts(self.raw_ptr() as *const u8, self.mem_size())
+        std::slice::from_raw_parts(self.base_addr() as *const u8, self.mem_size())
     }
 
     /// Pushes the given data onto shared memory to the buffer at the given offset.
@@ -542,6 +596,7 @@ mod tests {
     use crate::mem::shared_mem_tests::read_write_test_suite;
     use crate::Result;
     use byteorder::ReadBytesExt;
+    use hyperlight_common::mem::PAGE_SIZE_USIZE;
     use proptest::prelude::*;
 
     /// Read a `u8` (i.e. a byte) from shared memory starting at `offset`
@@ -714,9 +769,8 @@ mod tests {
 
     proptest! {
         #[test]
-        fn read_write_i32(mem_size in 256_usize..4096_usize, val in -0x1000_i32..0x1000_i32) {
+        fn read_write_i32(val in -0x1000_i32..0x1000_i32) {
             read_write_test_suite(
-                mem_size,
                 val,
                 Box::new(SharedMemory::read_i32),
                 Box::new(SharedMemory::write_i32),
@@ -733,16 +787,15 @@ mod tests {
         assert!(gm.is_err());
     }
 
-    const MIN_SIZE: usize = 123;
     #[test]
     fn clone() {
-        let mut gm1 = SharedMemory::new(MIN_SIZE).unwrap();
+        let mut gm1 = SharedMemory::new(PAGE_SIZE_USIZE).unwrap();
         let mut gm2 = gm1.clone();
 
         // after gm1 is cloned, gm1 and gm2 should have identical
         // memory sizes and pointers.
         assert_eq!(gm1.mem_size(), gm2.mem_size());
-        assert_eq!(gm1.raw_ptr(), gm2.raw_ptr());
+        assert_eq!(gm1.base_addr(), gm2.base_addr());
 
         // we should be able to copy a byte array into both gm1 and gm2,
         // and have both changes be reflected in all clones
@@ -773,7 +826,8 @@ mod tests {
 
     #[test]
     fn copy_all_to_vec() {
-        let data = vec![b'a', b'b', b'c'];
+        let mut data = vec![b'a', b'b', b'c'];
+        data.resize(4096, 0);
         let mut gm = SharedMemory::new(data.len()).unwrap();
         gm.copy_from_slice(data.as_slice(), Offset::from(0_u64))
             .unwrap();
@@ -797,23 +851,18 @@ mod tests {
     #[ignore]
     #[cfg(target_os = "linux")]
     fn test_drop() {
+        use proc_maps::maps_contain_addr;
+
         let pid = std::process::id();
 
-        let address_in_ranges = |addr: usize, maps: Vec<proc_maps::MapRange>| {
-            maps.iter().any(|map| {
-                let start = map.start();
-                let end = start + map.size();
-                start <= addr && addr <= end
-            })
-        };
-
-        let sm1 = SharedMemory::new(MIN_SIZE).unwrap();
+        let sm1 = SharedMemory::new(PAGE_SIZE_USIZE).unwrap();
         let sm2 = sm1.clone();
         let addr = sm1.raw_ptr() as usize;
+
         // ensure the address is in the process's virtual memory
-        let maps = proc_maps::get_process_maps(pid.try_into().unwrap()).unwrap();
+        let maps_before_drop = proc_maps::get_process_maps(pid.try_into().unwrap()).unwrap();
         assert!(
-            address_in_ranges(addr, maps),
+            maps_contain_addr(addr, &maps_before_drop),
             "shared memory address {:#x} was not found in process map, but should be",
             addr,
         );
@@ -822,13 +871,83 @@ mod tests {
         drop(sm1);
         drop(sm2);
 
-        let maps = proc_maps::get_process_maps(pid.try_into().unwrap()).unwrap();
+        let maps_after_drop = proc_maps::get_process_maps(pid.try_into().unwrap()).unwrap();
         // now, ensure the address is not in the process's virtual memory
         assert!(
-            address_in_ranges(addr, maps),
+            !maps_contain_addr(addr, &maps_after_drop),
             "shared memory address {:#x} was found in the process map, but shouldn't be",
             addr
         );
+    }
+
+    #[cfg(target_os = "linux")]
+    mod guard_page_crash_test {
+        use crate::mem::shared_mem::SharedMemory;
+
+        const TEST_EXIT_CODE: u8 = 211; // an uncommon exit code, used for testing purposes
+
+        /// hook sigsegv to exit with status code, to make it testable, rather than have it exit from a signal
+        /// NOTE: We CANNOT panic!() in the handler, and make the tests #[should_panic], because
+        ///     the test harness process will crash anyway after the test passes
+        unsafe fn setup_signal_handler() {
+            signal_hook_registry::register_signal_unchecked(libc::SIGSEGV, || {
+                std::process::exit(TEST_EXIT_CODE.into());
+            })
+            .unwrap();
+        }
+
+        #[test]
+        #[ignore] // this test is ignored because it will crash the running process
+        fn read() {
+            unsafe { setup_signal_handler() };
+
+            let mem = SharedMemory::new(4096).unwrap();
+            let guard_page_ptr = mem.raw_ptr();
+            unsafe { std::ptr::read_volatile(guard_page_ptr) };
+        }
+
+        #[test]
+        #[ignore] // this test is ignored because it will crash the running process
+        fn write() {
+            unsafe { setup_signal_handler() };
+
+            let mem = SharedMemory::new(4096).unwrap();
+            let guard_page_ptr = mem.raw_ptr();
+            unsafe { std::ptr::write_volatile(guard_page_ptr as *mut u8, 0u8) };
+        }
+
+        #[test]
+        #[ignore] // this test is ignored because it will crash the running process
+        fn exec() {
+            unsafe { setup_signal_handler() };
+
+            let mem = SharedMemory::new(4096).unwrap();
+            let guard_page_ptr = mem.raw_ptr();
+            let func: fn() = unsafe { std::mem::transmute(guard_page_ptr) };
+            func();
+        }
+
+        // provides a way for running the above tests in a separate process since they expect to crash
+        #[test]
+        fn guard_page_testing_shim() {
+            let tests = vec!["read", "write", "exec"];
+
+            for test in tests {
+                let status = std::process::Command::new("cargo")
+                    .args(["test", "-p", "hyperlight_host", "--", "--ignored", test])
+                    .stdin(std::process::Stdio::null())
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status()
+                    .expect("Unable to launch tests");
+                assert_eq!(
+                    status.code(),
+                    Some(TEST_EXIT_CODE.into()),
+                    "Guard Page test failed: {}",
+                    test
+                );
+            }
+        }
     }
 }
 
@@ -837,6 +956,7 @@ mod prop_tests {
     use crate::mem::ptr_offset::Offset;
 
     use super::SharedMemory;
+    use hyperlight_common::mem::PAGE_SIZE_USIZE;
     use proptest::prelude::*;
 
     proptest! {
@@ -853,10 +973,7 @@ mod prop_tests {
             slice_val in b'\0'..b'z',
         ) {
             let offset = Offset::try_from(slice_size / 2).unwrap();
-            let mut shared_mem = {
-                let mem_size = usize::try_from(slice_size + offset).unwrap();
-                SharedMemory::new(mem_size).unwrap()
-            };
+            let mut shared_mem = SharedMemory::new(PAGE_SIZE_USIZE).unwrap();
 
             let orig_vec = {
                 let the_vec = vec![slice_val; slice_size];

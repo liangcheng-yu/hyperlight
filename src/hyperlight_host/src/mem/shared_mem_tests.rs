@@ -1,4 +1,6 @@
 #![cfg(test)]
+use hyperlight_common::mem::PAGE_SIZE_USIZE;
+
 use super::{ptr_offset::Offset, shared_mem::SharedMemory};
 use crate::log_then_return;
 use crate::new_error;
@@ -29,7 +31,6 @@ type WriterFn<T> = dyn Fn(&mut SharedMemory, Offset, T) -> Result<()>;
 /// `Debug`able, and you must be able to check if `T`, the one returned
 /// by the `reader`, is equal to `U`, the one accepted by the writer.
 pub(super) fn read_write_test_suite<T, U>(
-    mem_size: usize,
     initial_val: U,
     reader: Box<ReaderFn<T>>,
     writer: Box<WriterFn<U>>,
@@ -38,6 +39,7 @@ where
     T: PartialEq + Debug + Clone + TryFrom<U>,
     U: Debug + Clone,
 {
+    let mem_size = PAGE_SIZE_USIZE;
     let test_read = |mem_size, offset| {
         let sm = SharedMemory::new(mem_size)?;
         (reader)(&sm, offset)

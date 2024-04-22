@@ -42,10 +42,10 @@ internal sealed class KVM : Hypervisor, IDisposable
 
         var rawHdl = kvm_create_driver(
             ctx.ctx,
-            (ulong)sourceAddr.ToInt64(),
+            (ulong)sourceAddr.ToInt64() + OS.GetPageSize(),
             pml4Addr,
             guardPageOffset,
-            memSize,
+            memSize - 2 * OS.GetPageSize(),
             entryPoint,
             rsp
         );

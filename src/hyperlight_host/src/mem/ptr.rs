@@ -260,6 +260,8 @@ impl<T: AddressSpace> TryFrom<Ptr<T>> for usize {
 
 #[cfg(test)]
 mod tests {
+    use hyperlight_common::mem::PAGE_SIZE_USIZE;
+
     use crate::mem::{
         layout::SandboxMemoryLayout,
         ptr_addr_space::{GuestAddressSpace, HostAddressSpace},
@@ -272,7 +274,7 @@ mod tests {
     #[test]
     fn ptr_basic_ops() {
         {
-            let gm = SharedMemory::new(10).unwrap();
+            let gm = SharedMemory::new(PAGE_SIZE_USIZE).unwrap();
 
             let raw_host_ptr = RawPtr(OFFSET + gm.base_addr() as u64);
             let host_ptr = HostPtr::try_from((raw_host_ptr, &gm)).unwrap();
@@ -294,7 +296,7 @@ mod tests {
         // guest memory, so you shouldn't be able to create a host or guest
         // address
         {
-            let gm = SharedMemory::new(10).unwrap();
+            let gm = SharedMemory::new(PAGE_SIZE_USIZE).unwrap();
 
             let raw_host_ptr = RawPtr(gm.base_addr() as u64 - 1);
             let host_ptr = HostPtr::try_from((raw_host_ptr, &gm));
@@ -309,7 +311,7 @@ mod tests {
 
     #[test]
     fn round_trip() {
-        let gm = SharedMemory::new(10).unwrap();
+        let gm = SharedMemory::new(PAGE_SIZE_USIZE).unwrap();
         let raw_host_ptr = RawPtr(gm.base_addr() as u64 + OFFSET);
 
         let host_ptr = {
@@ -348,14 +350,14 @@ mod prop_tests {
     use super::{HostPtr, RawPtr};
     use crate::mem::ptr_addr_space::{GuestAddressSpace, HostAddressSpace};
     use crate::mem::{layout::SandboxMemoryLayout, shared_mem::SharedMemory};
+    use hyperlight_common::mem::PAGE_SIZE_USIZE;
     use proptest::prelude::*;
     proptest! {
         #[test]
         fn test_round_trip(
             offset in 1_u64..1000_u64,
-            guest_mem_size in 10_usize..100_usize,
         ) {
-            let shared_mem = SharedMemory::new(guest_mem_size).unwrap();
+            let shared_mem = SharedMemory::new(PAGE_SIZE_USIZE).unwrap();
             let raw_host_ptr = RawPtr(shared_mem.base_addr() as u64 + offset);
             let host_ptr = {
                 let hp = HostPtr::try_from((raw_host_ptr, &shared_mem));

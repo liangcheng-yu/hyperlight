@@ -4,7 +4,7 @@ alias build-rust-debug := build-rust
 set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 set dotenv-load := true
 
-set-trace-env-vars := if os() == "windows" { "$env:RUST_LOG='none,hyperlight_host=trace';" } else { "RUST_LOG=none,hyperlight_host=trace" }
+set-trace-env-vars := if os() == "windows" { "$env:RUST_LOG='none,hyperlight_host=info';" } else { "RUST_LOG=none,hyperlight_host=info" }
 set-env-command := if os() == "windows" { "$env:" } else { "export " }
 bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
 

@@ -1,11 +1,13 @@
 use super::{surrogate_process::SurrogateProcess, wrappers::PSTRWrapper};
 use crate::mem::shared_mem::PtrCVoidMut;
+use crate::HyperlightError::MemoryProtectionFailed;
 use crate::{log_then_return, new_error, Result};
 use core::ffi::c_void;
 use crossbeam_channel::{unbounded, Receiver, Sender};
+use hyperlight_common::mem::PAGE_SIZE_USIZE;
 use rust_embed::RustEmbed;
 use std::fs::File;
-use std::io::Write;
+use std::io::{Error, Write};
 use std::mem::size_of;
 use std::path::{Path, PathBuf};
 use tracing::{info, instrument, Span};
@@ -18,7 +20,10 @@ use windows::Win32::System::JobObjects::{
     SetInformationJobObject, TerminateJobObject, JOBOBJECT_BASIC_LIMIT_INFORMATION,
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
 };
-use windows::Win32::System::Memory::{VirtualAllocEx, MEM_COMMIT, MEM_RESERVE, PAGE_READWRITE};
+use windows::Win32::System::Memory::{
+    VirtualAllocEx, VirtualProtectEx, MEM_COMMIT, MEM_RESERVE, PAGE_NOACCESS,
+    PAGE_PROTECTION_FLAGS, PAGE_READWRITE,
+};
 use windows::Win32::System::Threading::{
     CreateProcessA, CREATE_SUSPENDED, PROCESS_INFORMATION, STARTUPINFOA,
 };
@@ -121,24 +126,63 @@ impl SurrogateProcessManager {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn get_surrogate_process(
         &self,
-        size: usize,
-        memory_address: *const c_void,
+        raw_size: usize,
+        raw_source_address: *const c_void,
     ) -> Result<SurrogateProcess> {
         let process_handle = self.process_receiver.recv()?;
 
+        // allocate memory
         let allocated_address = unsafe {
-            VirtualAllocEx(
+            let allocated_ptr = VirtualAllocEx(
                 process_handle,
-                Some(memory_address),
-                size,
+                Some(raw_source_address),
+                raw_size,
                 MEM_COMMIT | MEM_RESERVE,
                 PAGE_READWRITE,
-            )
+            );
+            if allocated_ptr.is_null() {
+                log_then_return!(
+                    "VirtualAllocEx failed for mem address {:?}",
+                    raw_source_address
+                );
+            }
+            allocated_ptr
         };
 
-        if allocated_address.is_null() {
-            log_then_return!("VirtualAllocEx failed for mem address {:?}", memory_address);
-        }
+        // set up guard page
+        unsafe {
+            let mut unused_out_old_prot_flags = PAGE_PROTECTION_FLAGS(0);
+
+            // the first page of the raw_size is the guard page
+            let first_guard_page_start = raw_source_address;
+            let success = VirtualProtectEx(
+                process_handle,
+                first_guard_page_start,
+                PAGE_SIZE_USIZE,
+                PAGE_NOACCESS,
+                &mut unused_out_old_prot_flags,
+            );
+            if !success.as_bool() {
+                log_then_return!(MemoryProtectionFailed(
+                    Error::last_os_error().raw_os_error()
+                ));
+            }
+
+            // the last page of the raw_size is the guard page
+            let last_guard_page_start = raw_source_address.add(raw_size - PAGE_SIZE_USIZE);
+            let success = VirtualProtectEx(
+                process_handle,
+                last_guard_page_start,
+                PAGE_SIZE_USIZE,
+                PAGE_NOACCESS,
+                &mut unused_out_old_prot_flags,
+            );
+            if !success.as_bool() {
+                log_then_return!(MemoryProtectionFailed(
+                    Error::last_os_error().raw_os_error()
+                ));
+            }
+        };
 
         Ok(SurrogateProcess::new(
             PtrCVoidMut::from(allocated_address),
@@ -338,6 +382,8 @@ fn create_surrogate_process(surrogate_process_path: &Path, job_handle: &HANDLE) 
 }
 #[cfg(test)]
 mod tests {
+    use crate::mem::shared_mem::SharedMemory;
+
     use super::*;
     use rand::{thread_rng, Rng};
     use serial_test::serial;
@@ -363,7 +409,7 @@ mod tests {
             let thread_handle = thread::spawn(move || -> Result<()> {
                 let surrogate_process_manager_res = get_surrogate_process_manager();
                 let mut rng = thread_rng();
-                let size = 4096;
+                let size = PAGE_SIZE_USIZE * 3;
                 assert!(surrogate_process_manager_res.is_ok());
                 let surrogate_process_manager = surrogate_process_manager_res.unwrap();
                 let job_handle = surrogate_process_manager.job_handle;
@@ -377,7 +423,7 @@ mod tests {
                     let timer = Instant::now();
                     let surrogate_process = {
                         let res = surrogate_process_manager
-                            .get_surrogate_process(1024, allocated_address)?;
+                            .get_surrogate_process(size, allocated_address)?;
                         let elapsed = timer.elapsed();
                         // Print out the time it took to get the process if its greater than 150ms (this is just to allow us to see that threads are blocking on the process queue)
                         if (elapsed.as_millis() as u64) > 150 {
@@ -454,6 +500,53 @@ mod tests {
                 assert_eq!(count, expected_count);
                 break;
             }
+        }
+    }
+
+    #[test]
+    fn windows_guard_page() {
+        // NOTE, functions like ReadProcessMemory do not trigger guard pages, the function fails instead
+        const SIZE: usize = 4096;
+        let mgr = get_surrogate_process_manager().unwrap();
+        let mem = SharedMemory::new(SIZE).unwrap();
+
+        let process = mgr
+            .get_surrogate_process(mem.raw_mem_size(), mem.raw_ptr())
+            .unwrap();
+
+        let buffer = vec![0u8; SIZE];
+        let bytes_read: Option<*mut usize> = None;
+
+        unsafe {
+            // read the first guard page, should fail
+            let success = windows::Win32::System::Diagnostics::Debug::ReadProcessMemory(
+                process.process_handle,
+                process.allocated_address.as_ptr(),
+                buffer.as_ptr() as *mut c_void,
+                SIZE,
+                bytes_read,
+            );
+            assert!(!success.as_bool());
+
+            // read the memory, should be OK
+            let success = windows::Win32::System::Diagnostics::Debug::ReadProcessMemory(
+                process.process_handle,
+                process.allocated_address.as_ptr().add(SIZE),
+                buffer.as_ptr() as *mut c_void,
+                SIZE,
+                bytes_read,
+            );
+            assert!(success.as_bool());
+
+            // read the second guard page, should fail
+            let success = windows::Win32::System::Diagnostics::Debug::ReadProcessMemory(
+                process.process_handle,
+                process.allocated_address.as_ptr().add(2 * SIZE),
+                buffer.as_ptr() as *mut c_void,
+                SIZE,
+                bytes_read,
+            );
+            assert!(!success.as_bool());
         }
     }
 }

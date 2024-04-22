@@ -14,7 +14,7 @@ mod impls {
     /// Get the starting address of the shared memory in `ctx` referenced by `hdl`
     pub(crate) fn get_address(ctx: &Context, hdl: Handle) -> Result<usize> {
         let shared_mem = super::get_shared_memory(ctx, hdl)?;
-        Ok(shared_mem.base_addr())
+        Ok(shared_mem.raw_ptr() as usize)
     }
 
     /// Look up the `[u8]` referenced by `byte_arr_hdl` in `ctx`,
@@ -263,12 +263,12 @@ pub unsafe extern "C" fn shared_memory_get_size(ctx: *mut Context, hdl: Handle) 
         Ok(s) => s,
         Err(e) => return (*ctx).register_err(e),
     };
-    let size = match u64::try_from(sm.mem_size()) {
+    let size = match u64::try_from(sm.raw_mem_size()) {
         Ok(s) => s,
         Err(_) => {
             return (*ctx).register_err(new_error!(
                 "shared_memory_get_size: couldn't convert usize memory size value ({:?}) to u64",
-                sm.mem_size()
+                sm.raw_mem_size()
             ))
         }
     };

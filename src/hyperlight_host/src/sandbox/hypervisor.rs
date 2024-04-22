@@ -140,12 +140,12 @@ impl<'a> UninitializedSandbox<'a> {
         {
             use crate::hypervisor::hyperv_windows::HypervWindowsDriver;
             use crate::hypervisor::windows_hypervisor_platform;
+
             if windows_hypervisor_platform::is_hypervisor_present().unwrap_or(false) {
-                let source_addr = mgr.shared_mem.raw_ptr();
                 let guest_base_addr = u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?;
                 let hv = HypervWindowsDriver::new(
-                    mgr.shared_mem.mem_size(),
-                    source_addr,
+                    mgr.shared_mem.raw_mem_size(), // we use raw_* here because windows driver requires 64K aligned addresses,
+                    mgr.shared_mem.raw_ptr(), // and instead convert it to base_addr where needed in the driver itself
                     guest_base_addr,
                     guard_page_offset,
                     pml4_ptr.absolute()?,

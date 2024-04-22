@@ -102,7 +102,7 @@
             "name": "integration_test",
           }
         },
-       "args": ["test_guest_abort"] // the specific test to run
+       "args": ["--exact", "guest_abort"] // the specific test to run
       }
   ]
 }

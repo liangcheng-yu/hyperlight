@@ -34,9 +34,9 @@ namespace Hyperlight.Hypervisors
         {
             var addrs = new HypervisorAddrs(
                 entryPoint,
-                (ulong)sourceAddress.ToInt64(),
+                (ulong)sourceAddress.ToInt64() + OS.GetPageSize(), // offset by a page since sourceAddress points to the start of the page
                 guardPageOffset,
-                size
+                size - 2 * OS.GetPageSize() // the size includes the 2 guard pages, which don't want
             );
             var rawHdl = hyperv_linux_create_driver(
                 ctxWrapper.ctx,

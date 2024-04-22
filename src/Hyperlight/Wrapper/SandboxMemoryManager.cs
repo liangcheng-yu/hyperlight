@@ -5,6 +5,7 @@ using System.Text;
 using Google.FlatBuffers;
 using Hyperlight.Core;
 using Hyperlight.Generated;
+using Hyperlight.Native;
 using Newtonsoft.Json;
 
 namespace Hyperlight.Wrapper
@@ -137,7 +138,7 @@ namespace Hyperlight.Wrapper
             var rawHdl = mem_mgr_set_up_hypervisor_partition(
                 this.ctxWrapper.ctx,
                 this.memMgrHdl.handle,
-                this.Size
+                this.Size - 2 * OS.GetPageSize() // this.Size is raw_mem_size and includes guard pages, so we need to subtract 2 * OS.GetPageSize() to get the actual memory size
             );
             using var hdl = new Handle(
                 this.ctxWrapper,

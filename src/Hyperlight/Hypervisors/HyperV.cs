@@ -30,6 +30,10 @@ namespace Hyperlight.Hypervisors
             WindowsHypervisorPlatform.WHvSetupPartition(hPartition);
             surrogateProcess = HyperVSurrogateProcessManager.Instance.GetProcess((IntPtr)size, sourceAddress);
             var hProcess = surrogateProcess.SafeProcessHandle.DangerousGetHandle();
+            // sourceAddress points to first guard page, so we offset by 1 page
+            sourceAddress += (int)OS.GetPageSize();
+            // size is size including guard pages, so we subtract 2 * 4096
+            size -= 2 * OS.GetPageSize();
             WindowsHypervisorPlatform.WHvMapGpaRange2(hPartition, hProcess, sourceAddress, (IntPtr)SandboxMemoryLayout.BaseAddress, size, WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagRead | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagWrite | WindowsHypervisorPlatform.WHV_MAP_GPA_RANGE_FLAGS.WHvMapGpaRangeFlagExecute);
             WindowsHypervisorPlatform.WHvCreateVirtualProcessor(hPartition, 0, 0);
             virtualProcessorCreated = true;

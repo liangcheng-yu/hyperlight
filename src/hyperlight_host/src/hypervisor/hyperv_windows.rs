@@ -18,7 +18,7 @@ use crate::{
     HyperlightError::{NoHypervisorFound, WindowsErrorHResult},
 };
 use core::ffi::c_void;
-use hyperlight_common::mem::PAGE_SIZE;
+use hyperlight_common::mem::{PAGE_SIZE, PAGE_SIZE_USIZE};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::string::String;
@@ -46,10 +46,10 @@ impl Hash for WhvRegisterNameWrapper {
 
 /// A Hypervisor driver for HyperV-on-Windows.
 pub(crate) struct HypervWindowsDriver {
-    size: usize,
+    size: usize, // this is the size of the memory region, excluding the 2 surrounding guard pages
     processor: VMProcessor,
     surrogate_process: SurrogateProcess,
-    source_address: PtrCVoidMut,
+    source_address: PtrCVoidMut, // this points into the first guard page
     registers: HashMap<WhvRegisterNameWrapper, WHV_REGISTER_VALUE>,
     orig_rsp: GuestPtr,
     guard_page_region: Range<u64>,
@@ -66,8 +66,8 @@ impl std::fmt::Debug for HypervWindowsDriver {
 impl HypervWindowsDriver {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn new(
-        size: usize,
-        source_address: *mut c_void,
+        raw_size: usize,
+        raw_source_address: *mut c_void,
         sandbox_base_address: u64,
         guard_page_offset: u64,
         pml4_address: u64,
@@ -87,18 +87,23 @@ impl HypervWindowsDriver {
         // create and setup hypervisor partition
         let mut partition = VMPartition::new(1)?;
 
-        // get a surrogate process
+        // get a surrogate process with preallocated memory of size SharedMemory::raw_mem_size()
+        // with guard pages setup
         let surrogate_process = {
             let mgr = get_surrogate_process_manager()?;
-            mgr.get_surrogate_process(size, source_address)
+            mgr.get_surrogate_process(raw_size, raw_source_address)
         }?;
+
+        // raw_source_address is SharedMem::raw_ptr(), which means it points to
+        // the guard page. We need to map the memory starting after the guard page
+        let starting_source_address = unsafe { raw_source_address.add(PAGE_SIZE_USIZE) };
 
         partition.map_gpa_range(
             &surrogate_process.process_handle,
-            source_address,
+            starting_source_address,
             sandbox_base_address,
             guard_page_offset,
-            size,
+            raw_size,
         )?;
 
         let proc = VMProcessor::new(partition)?;
@@ -169,11 +174,14 @@ impl HypervWindowsDriver {
             hm
         };
 
+        // subtract 2 pages for the guard pages, since when we copy memory to and from surrogate process,
+        // we don't want to copy the guard pages themselves (that would cause access violation)
+        let mem_size = raw_size - 2 * PAGE_SIZE_USIZE;
         Ok(Self {
-            size,
+            size: mem_size,
             processor: proc,
             surrogate_process,
-            source_address: PtrCVoidMut::from(source_address),
+            source_address: PtrCVoidMut::from(raw_source_address),
             registers,
             orig_rsp: GuestPtr::try_from(RawPtr::from(rsp))?,
             guard_page_region: SandboxMemoryLayout::BASE_ADDRESS as u64 + guard_page_offset
@@ -347,8 +355,11 @@ impl Hypervisor for HypervWindowsDriver {
         unsafe {
             if !windows::Win32::System::Diagnostics::Debug::WriteProcessMemory(
                 self.surrogate_process.process_handle,
-                self.surrogate_process.allocated_address.as_ptr(),
-                self.source_address.as_ptr(),
+                self.surrogate_process
+                    .allocated_address
+                    .as_ptr()
+                    .add(PAGE_SIZE_USIZE),
+                self.source_address.as_ptr().add(PAGE_SIZE_USIZE),
                 self.size,
                 bytes_written,
             )
@@ -366,8 +377,11 @@ impl Hypervisor for HypervWindowsDriver {
         unsafe {
             if !windows::Win32::System::Diagnostics::Debug::ReadProcessMemory(
                 self.surrogate_process.process_handle,
-                self.surrogate_process.allocated_address.as_ptr(),
-                self.source_address.as_mut_ptr(),
+                self.surrogate_process
+                    .allocated_address
+                    .as_ptr()
+                    .add(PAGE_SIZE_USIZE),
+                self.source_address.as_mut_ptr().add(PAGE_SIZE_USIZE),
                 self.size,
                 bytes_read,
             )
@@ -466,7 +480,7 @@ pub mod tests {
             outb_handler,
             mem_access_handler,
             |mgr, rsp_ptr, pml4_ptr| {
-                let host_addr = u64::try_from(mgr.shared_mem.base_addr())?;
+                let host_addr = mgr.shared_mem.raw_ptr();
                 let rsp = rsp_ptr.absolute()?;
                 let _guest_pfn = u64::try_from(SandboxMemoryLayout::BASE_ADDRESS << 12)?;
                 let entrypoint = {
@@ -477,8 +491,8 @@ pub mod tests {
                     GuestPtr::try_from(total_offset)
                 }?;
                 let driver = HypervWindowsDriver::new(
-                    mgr.shared_mem.mem_size(),
-                    host_addr as *mut core::ffi::c_void,
+                    mgr.shared_mem.raw_mem_size(),
+                    host_addr,
                     u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?,
                     mgr.layout.get_guard_page_offset().into(),
                     pml4_ptr.absolute()?,
