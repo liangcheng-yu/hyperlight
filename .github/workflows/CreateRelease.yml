@@ -89,6 +89,7 @@ jobs:
     uses: ./.github/workflows/Benchmarks.yml
     secrets: inherit
     permissions:
+      id-token: write
       contents: read
 
   publish:
