@@ -86,7 +86,11 @@ printf-sources := './third_party/printf/printf.c'
 
 c-lib-defines := '/D "HAVE_MMAP=0" /D "HAVE_MORECORE=1" /D "MORECORE=hyperlightMoreCore" /D "MORECORE_CANNOT_TRIM=1" /D "MORECORE_CONTIGUOUS=1" /D "USE_DL_PREFIX" /D "NO_MALLOC_STATS" /D "ABORT=dlmalloc_abort()" /D "HYPERLIGHT" /D "HYPERLIGHT_PAGESIZE=4096" /D "HYPERLIGHT_GRANULARITYSIZE=65536" /D "__x86_64__" /D "LACKS_SYS_TYPES_H" /D "LACKS_UNISTD_H" /D "__DEFINED_va_list" /D "__DEFINED___isoc_va_list" /D "hidden=" /D "MMAP_CLEARS=0" /D "__FLT_EVAL_METHOD__=1" /D "__x86_64__" /D "__LITTLE_ENDIAN__" /D "calloc=dlcalloc" /D "free=dlfree" /D "malloc=dlmalloc" /D "realloc=dlrealloc" /D "FLATCC_USE_GENERIC_ALIGNED_ALLOC=0" /D "MALLOC_FAILURE_ACTION=dlmalloc_failure()" /D "_UNICODE" /D "UNICODE" /D "weak_alias(old, new) = "'
 
-c-lib-flags := '/WX- /W3 /GS /Z7 /Od /Ob0 /fp:precise  /Gd /MDd'
+c-lib-flags-debug := '/MDd /Od /Ob0 /Z7 /LDd'
+
+c-lib-flags-release := '/MD /O2 /Gy /LD' 
+
+c-lib-flags-common := '/std:c17 /WX- -Wno-error=implicit-function-declaration /W3 /GS /fp:precise /Gd'
 
 assemble-asm target=default-target:
     cd src/HyperlightGuest && {{mkdir}} x64/{{target}} && \
@@ -105,11 +109,15 @@ build-c-lib target=default-target:
     {{libc-sources}} \
     {{printf-sources}} \
     {{c-lib-includes}} \
-    {{c-lib-defines}} /std:c17 /GS /Gd /MDd /LDd -Wno-error=implicit-function-declaration /Fa"x64/{{target}}/" /nologo /Fo"x64/{{target}}/" /diagnostics:column /X -v /c
+    {{c-lib-defines}} \
+    {{c-lib-flags-common}} \
+    {{ if target == "debug" { c-lib-flags-debug } else { c-lib-flags-release } }} \
+    /Fa"x64/{{target}}/" /nologo /Fo"x64/{{target}}/" /diagnostics:column /X -v /c
 
 link-c-lib target=default-target:
     cd src/HyperlightGuest && {{mkdir}} ../../x64/{{target}} && \
-    llvm-lib /MACHINE:X64 /NOLOGO /OUT:"../../x64/{{target}}/HyperlightGuest.lib" \
+    llvm-lib /MACHINE:X64 /NOLOGO {{ if target == "debug" { "" } else { "/LTCG" } }} \
+        /OUT:"../../x64/{{target}}/HyperlightGuest.lib" \
         x64/{{target}}/HyperlightGuest.obj \
         x64/{{target}}/malloc.obj \
         x64/{{target}}/printf.obj \
