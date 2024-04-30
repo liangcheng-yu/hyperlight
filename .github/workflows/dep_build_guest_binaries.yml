@@ -4,10 +4,21 @@ name: Build Guest Binaries
 
 on:
   workflow_call:
+    secrets:
+      AZURE_CLIENT_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        required: true
 
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  id-token: write
+  contents: read
+  
 jobs:
   # this job has no dependencies
   build-guest-binaries:
@@ -27,12 +38,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: deislabs/hyperlight-workflow-setup@v1.0.0
+      - uses: deislabs/hyperlight-workflow-setup@v1.1.0
         with:
           rust-toolchain: "1.74.0"
+          azure-client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }} 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
 
       - name: Build and move Rust guests
         run: just build-and-move-rust-guests

@@ -151,14 +151,6 @@ cargo-login: set-cargo-registry-env
     az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo login --registry hyperlight_redist
     az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo login --registry hyperlight_packages
 
-cargo-login-ci: set-cargo-registry-env
-    echo Basic $(echo -n PAT:$PAT | base64) | cargo login --registry hyperlight_redist
-    echo Basic $(echo -n PAT:$PAT | base64) | cargo login --registry hyperlight_packages
-
-cargo-login-ci-windows: set-cargo-registry-env
-    "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo login --registry hyperlight_redist
-    "Basic " + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("PAT:" + ($Env:PAT))) | cargo login --registry hyperlight_packages
-
 set-cargo-registry-env:
     {{ set-env-command }}CARGO_REGISTRIES_HYPERLIGHT_PACKAGES_INDEX="sparse+https://pkgs.dev.azure.com/AzureContainerUpstream/hyperlight/_packaging/hyperlight_packages_test/Cargo/index/"
     {{ set-env-command }}CARGO_REGISTRIES_HYPERLIGHT_REDIST_INDEX="sparse+https://pkgs.dev.azure.com/AzureContainerUpstream/hyperlight/_packaging/hyperlight_redist/Cargo/index/"

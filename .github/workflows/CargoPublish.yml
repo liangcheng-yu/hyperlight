@@ -13,11 +13,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: deislabs/hyperlight-workflow-setup@v1.0.0
+      - uses: deislabs/hyperlight-workflow-setup@v1.1.0
         with:
           rust-toolchain: "1.74.0"
-        env:
-          PAT: ${{ secrets.ADO_CARGO_RW_PAT }}
+          azure-client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RW_AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }} 
 
       - name: Set up cargo workspaces version
         run: |

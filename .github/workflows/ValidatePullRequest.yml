@@ -7,12 +7,17 @@ on:
     branches: [main, dev, "release/**"]
   merge_group:
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   build-hyperlight-capi:
     uses: ./.github/workflows/dep_build_hyperlight_capi.yml
     secrets: inherit
   build-guest-binaries:
     uses: ./.github/workflows/dep_build_guest_binaries.yml
+    secrets: inherit
   rust:
     uses: ./.github/workflows/dep_rust.yml
     needs: [build-guest-binaries]
@@ -55,12 +60,14 @@ jobs:
       - uses: actions/checkout@v4
 
       # Run this so we can use just targets in this workflow
-      - uses: deislabs/hyperlight-workflow-setup@v1.0.0
+      - uses: deislabs/hyperlight-workflow-setup@v1.1.0
         with:
           rust-toolchain: "1.74.0"
+          azure-client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }} 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
 
       # This is a workaround for the issue described at https://github.com/dotnet/sourcelink/issues/675 ,
       # it supresses the warning about the sourcelink package not being found.
@@ -203,12 +210,14 @@ jobs:
         shell: bash
         working-directory: src/hyperlight_capi/tests_capi
 
-      - uses: deislabs/hyperlight-workflow-setup@v1.0.0
+      - uses: deislabs/hyperlight-workflow-setup@v1.1.0
         with:
           rust-toolchain: "1.74.0"
+          azure-client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }} 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PAT: ${{ secrets.ADO_CARGO_RO_PAT }}
 
       - name: Setup dotnet (not on hyperv)
         if: ${{ (matrix.hypervisor != 'hyperv') }}
