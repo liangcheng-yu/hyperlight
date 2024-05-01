@@ -40,7 +40,7 @@ fn get_driver(ctx: &Context, hdl: Handle) -> Result<&HypervLinuxDriver> {
 #[no_mangle]
 pub extern "C" fn is_hyperv_linux_present() -> bool {
     // At this point we don't have any way to report the error if one occurs.
-    is_hypervisor_present().is_ok()
+    is_hypervisor_present()
 }
 
 /// Creates a new HyperV-Linux driver with the given parameters and

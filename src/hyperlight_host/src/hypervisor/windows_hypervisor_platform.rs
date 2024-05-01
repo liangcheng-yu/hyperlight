@@ -18,19 +18,21 @@ const REGISTER_COUNT: usize = 16;
 /// Documentation can be found at:
 /// - https://learn.microsoft.com/en-us/virtualization/api/hypervisor-platform/hypervisor-platform
 /// - https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/System/Hypervisor/index.html
-#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-pub(crate) fn is_hypervisor_present() -> Result<bool> {
+#[instrument(skip_all, parent = Span::current(), level= "Trace")]
+pub(crate) fn is_hypervisor_present() -> bool {
     let mut capability: WHV_CAPABILITY = Default::default();
     let written_size: Option<*mut u32> = None;
 
     unsafe {
-        WHvGetCapability(
+        match WHvGetCapability(
             WHvCapabilityCodeHypervisorPresent,
             &mut capability as *mut _ as *mut c_void,
             std::mem::size_of::<WHV_CAPABILITY>() as u32,
             written_size,
-        )?;
-        Ok(capability.HypervisorPresent.as_bool())
+        ) {
+            Ok(_) => capability.HypervisorPresent.as_bool(),
+            Err(_) => false,
+        }
     }
 }
 

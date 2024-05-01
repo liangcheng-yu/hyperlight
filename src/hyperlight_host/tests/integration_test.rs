@@ -354,7 +354,7 @@ fn execute_on_stack() {
     {
         use hyperlight_host::hypervisor::kvm;
 
-        if kvm::is_hypervisor_present().is_ok() {
+        if kvm::is_hypervisor_present() {
             // This test is not supported on KVM because the stack in KVM cannot be marked non-executable
             return;
         }

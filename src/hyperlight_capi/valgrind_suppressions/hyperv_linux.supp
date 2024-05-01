@@ -892,7 +892,6 @@
    fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_registers*closure*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_registers*
-   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*closure*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
    fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host..sandbox..uninitialized..UninitializedSandbox*set_up_hypervisor_partition*closure*
    fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host..sandbox..uninitialized..UninitializedSandbox*set_up_hypervisor_partition*
@@ -907,7 +906,6 @@
    fun:ioctl
    fun:_*vmm_sys_util*linux*ioctl*ioctl_with_ref*
    fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
-   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*closure*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
    fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host..sandbox..uninitialized..UninitializedSandbox*set_up_hypervisor_partition*closure*
    fun:*hyperlight_host*sandbox*hypervisor*impl*hyperlight_host..sandbox..uninitialized..UninitializedSandbox*set_up_hypervisor_partition*

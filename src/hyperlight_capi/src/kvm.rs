@@ -32,7 +32,7 @@ fn get_driver_mut(ctx: &mut Context, handle: Handle) -> Result<&mut KVMDriver> {
 #[no_mangle]
 pub extern "C" fn is_kvm_present() -> bool {
     // At this point we dont have any way to report the error if one occurs.
-    kvm::is_hypervisor_present().map(|_| true).unwrap_or(false)
+    kvm::is_hypervisor_present()
 }
 
 /// Creates a new KVM driver with the given parameters

@@ -13,22 +13,27 @@ use kvm_ioctls::{Cap::UserMemory, Kvm, VcpuExit, VcpuFd, VmFd};
 use std::{any::Any, convert::TryFrom, ops::Range, time::Duration};
 use tracing::{instrument, Span};
 
-/// Return `Ok(())` if the KVM API is available, or `Err` otherwise
+/// Return `true` if the KVM API is available, version 12, and has UserMemory capability, or `false` otherwise
 // TODO: Once CAPI is complete this does not need to be public
-#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-pub fn is_hypervisor_present() -> Result<()> {
-    let kvm = Kvm::new()?;
-    let ver = kvm.get_api_version();
-    if -1 == ver {
-        log_then_return!("KVM_GET_API_VERSION returned -1");
-    } else if ver != 12 {
-        log_then_return!("KVM_GET_API_VERSION returned {}, expected 12", ver);
+#[instrument(skip_all, parent = Span::current(), level= "Trace")]
+pub fn is_hypervisor_present() -> bool {
+    if let Ok(kvm) = Kvm::new() {
+        let api_version = kvm.get_api_version();
+        match api_version {
+            version if version == 12 && kvm.check_extension(UserMemory) => true,
+            12 => {
+                log::info!("KVM does not have KVM_CAP_USER_MEMORY capability");
+                false
+            }
+            version => {
+                log::info!("KVM GET_API_VERSION returned {}, expected 12", version);
+                false
+            }
+        }
+    } else {
+        log::info!("Error creating KVM object");
+        false
     }
-    let cap_user_mem = kvm.check_extension(UserMemory);
-    if !cap_user_mem {
-        log_then_return!("KVM_CAP_USER_MEMORY not supported");
-    }
-    Ok(())
 }
 
 //TODO:(#1029) Once CAPI is complete this does not need to be public
@@ -63,11 +68,8 @@ impl KVMDriver {
         entrypoint: u64,
         rsp: u64,
     ) -> Result<Self> {
-        match is_hypervisor_present() {
-            Ok(_) => (),
-            Err(e) => {
-                log_then_return!(e);
-            }
+        if !is_hypervisor_present() {
+            log_then_return!("KVM is not present");
         };
         let kvm = Kvm::new()?;
 
@@ -375,7 +377,7 @@ pub(crate) mod test_cfg {
             "KVM_SHOULD_BE_PRESENT is {}",
             TEST_CONFIG.kvm_should_be_present
         );
-        let is_present = super::is_hypervisor_present().is_ok();
+        let is_present = super::is_hypervisor_present();
         if (is_present && !TEST_CONFIG.kvm_should_be_present)
             || (!is_present && TEST_CONFIG.kvm_should_be_present)
         {

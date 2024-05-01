@@ -74,14 +74,8 @@ impl HypervWindowsDriver {
         entry_point: u64,
         rsp: u64,
     ) -> Result<Self> {
-        match whp::is_hypervisor_present() {
-            Ok(true) => (),
-            Ok(false) => {
-                log_then_return!(NoHypervisorFound());
-            }
-            Err(e) => {
-                log_then_return!(e);
-            }
+        if !whp::is_hypervisor_present() {
+            log_then_return!(NoHypervisorFound());
         }
 
         // create and setup hypervisor partition

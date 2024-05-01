@@ -11,10 +11,51 @@ use crate::{
     UninitializedSandbox,
 };
 use crate::{log_then_return, Result};
+use lazy_static::lazy_static;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use std::{sync::MutexGuard, time::Duration};
 use tracing::{instrument, Span};
+
+lazy_static! {
+    /// The hypervisor available for the current platform, and is
+    /// lazily initialized the first time it is accessed
+    static ref AVAILABLE_HYPERVISOR: HypervisorType = {
+        #[cfg(target_os = "linux")]
+        {
+            if crate::hypervisor::hyperv_linux::is_hypervisor_present() {
+                HypervisorType::HyperVLinux
+            } else if crate::hypervisor::kvm::is_hypervisor_present() {
+                HypervisorType::Kvm
+            } else {
+                HypervisorType::None
+            }
+        }
+        #[cfg(target_os = "windows")]
+        {
+            if crate::hypervisor::windows_hypervisor_platform::is_hypervisor_present() {
+                HypervisorType::HyperV
+            } else {
+                HypervisorType::None
+            }
+        }
+    };
+
+}
+
+/// The hypervisor types available for the current platform
+enum HypervisorType {
+    None,
+
+    #[cfg(target_os = "linux")]
+    Kvm,
+
+    #[cfg(target_os = "linux")]
+    HyperVLinux,
+
+    #[cfg(target_os = "windows")]
+    HyperV,
+}
 
 /// A container with convenience methods attached for an
 /// `Option<Box<dyn Hypervisor>>`
@@ -100,14 +141,17 @@ impl<'a> UninitializedSandbox<'a> {
         assert!(entrypoint_ptr > pml4_ptr);
         assert!(rsp_ptr > entrypoint_ptr);
 
-        #[cfg(target_os = "linux")]
-        {
-            use crate::hypervisor::hypervisor_mem::HypervisorAddrs;
-            use crate::hypervisor::{hyperv_linux, hyperv_linux::HypervLinuxDriver};
-            use crate::hypervisor::{kvm, kvm::KVMDriver};
-            use hyperlight_common::mem::PAGE_SHIFT;
+        match *AVAILABLE_HYPERVISOR {
+            HypervisorType::None => {
+                log_then_return!(NoHypervisorFound());
+            }
 
-            if hyperv_linux::is_hypervisor_present().is_ok() {
+            #[cfg(target_os = "linux")]
+            HypervisorType::HyperVLinux => {
+                use crate::hypervisor::hyperv_linux::HypervLinuxDriver;
+                use crate::hypervisor::hypervisor_mem::HypervisorAddrs;
+                use hyperlight_common::mem::PAGE_SHIFT;
+
                 let guest_pfn = u64::try_from(SandboxMemoryLayout::BASE_ADDRESS >> PAGE_SHIFT)?;
                 let host_addr = u64::try_from(mgr.shared_mem.base_addr())?;
                 let addrs = HypervisorAddrs {
@@ -119,7 +163,12 @@ impl<'a> UninitializedSandbox<'a> {
                 };
                 let hv = HypervLinuxDriver::new(&addrs, rsp_ptr, pml4_ptr)?;
                 Ok(Box::new(hv))
-            } else if kvm::is_hypervisor_present().is_ok() {
+            }
+
+            #[cfg(target_os = "linux")]
+            HypervisorType::Kvm => {
+                use crate::hypervisor::kvm::KVMDriver;
+
                 let host_addr = u64::try_from(mgr.shared_mem.base_addr())?;
                 let hv = KVMDriver::new(
                     host_addr,
@@ -130,18 +179,12 @@ impl<'a> UninitializedSandbox<'a> {
                     rsp_ptr.absolute()?,
                 )?;
                 Ok(Box::new(hv))
-            } else {
-                log_then_return!(
-                    "Linux platform detected, but neither KVM nor Linux HyperV detected"
-                );
             }
-        }
-        #[cfg(target_os = "windows")]
-        {
-            use crate::hypervisor::hyperv_windows::HypervWindowsDriver;
-            use crate::hypervisor::windows_hypervisor_platform;
 
-            if windows_hypervisor_platform::is_hypervisor_present().unwrap_or(false) {
+            #[cfg(target_os = "windows")]
+            HypervisorType::HyperV => {
+                use crate::hypervisor::hyperv_windows::HypervWindowsDriver;
+
                 let guest_base_addr = u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?;
                 let hv = HypervWindowsDriver::new(
                     mgr.shared_mem.raw_mem_size(), // we use raw_* here because windows driver requires 64K aligned addresses,
@@ -153,8 +196,6 @@ impl<'a> UninitializedSandbox<'a> {
                     rsp_ptr.absolute()?,
                 )?;
                 Ok(Box::new(hv))
-            } else {
-                log_then_return!(NoHypervisorFound());
             }
         }
     }

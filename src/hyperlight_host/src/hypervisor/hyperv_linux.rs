@@ -4,10 +4,7 @@ use super::{
     CR4_PAE, EFER_LMA, EFER_LME,
 };
 
-use crate::{
-    error::HyperlightError::MSHVError, hypervisor::hypervisor_mem::HypervisorAddrs,
-    mem::ptr::GuestPtr, new_error,
-};
+use crate::{hypervisor::hypervisor_mem::HypervisorAddrs, mem::ptr::GuestPtr, new_error};
 use crate::{hypervisor::HyperlightExit, mem::ptr::RawPtr};
 use crate::{log_then_return, Result};
 use hyperlight_common::mem::{PAGE_SHIFT, PAGE_SIZE};
@@ -32,13 +29,15 @@ use tracing::{instrument, Span};
 
 /// Determine whether the HyperV for Linux hypervisor API is present
 /// and functional.
-#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+#[instrument(skip_all, parent = Span::current(), level= "Trace")]
 //TODO:(#1029) Once CAPI is complete this does not need to be public
-pub fn is_hypervisor_present() -> Result<()> {
-    let mshv_fd = Mshv::open_with_cloexec(true);
-    match mshv_fd {
-        Ok(_fd) => Ok(()),
-        Err(e) => Err(MSHVError(e)),
+pub fn is_hypervisor_present() -> bool {
+    match Mshv::open_with_cloexec(true) {
+        Ok(_) => true,
+        Err(e) => {
+            log::info!("Error creating MSHV object: {:?}", e);
+            false
+        }
     }
 }
 
@@ -79,13 +78,10 @@ impl HypervLinuxDriver {
     /// `apply_registers` method to do that, or more likely call
     /// `initialise` to do it for you.
     //TODO:(#1029) Once CAPI is complete this does not need to be public
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn new(addrs: &HypervisorAddrs, rsp_ptr: GuestPtr, pml4_ptr: GuestPtr) -> Result<Self> {
-        match is_hypervisor_present() {
-            Ok(()) => (),
-            Err(e) => {
-                log_then_return!(e);
-            }
+        if !is_hypervisor_present() {
+            log_then_return!("Hyper-V is not present on this system");
         }
         let mshv = Mshv::new()?;
         let pr = Default::default();
@@ -490,7 +486,7 @@ pub(crate) mod test_cfg {
             "HYPERV_SHOULD_BE_PRESENT is {}",
             TEST_CONFIG.hyperv_should_be_present
         );
-        let is_present = super::is_hypervisor_present().is_ok();
+        let is_present = super::is_hypervisor_present();
         if (is_present && !TEST_CONFIG.hyperv_should_be_present)
             || (!is_present && TEST_CONFIG.hyperv_should_be_present)
         {
@@ -562,7 +558,7 @@ mod tests {
 
     #[test]
     fn is_hypervisor_present() {
-        let result = super::is_hypervisor_present().is_ok();
+        let result = super::is_hypervisor_present();
         assert_eq!(result, TEST_CONFIG.hyperv_should_be_present);
     }
 
