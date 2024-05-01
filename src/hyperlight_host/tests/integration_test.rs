@@ -1,22 +1,16 @@
 use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
 use hyperlight_common::mem::PAGE_SIZE;
 use hyperlight_host::func::{ParameterValue, ReturnType, ReturnValue};
+use hyperlight_host::sandbox::SandboxConfiguration;
 use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
 use hyperlight_host::sandbox_state::transition::Noop;
-use hyperlight_host::{GuestBinary, HyperlightError, Result};
+use hyperlight_host::{GuestBinary, HyperlightError};
 use hyperlight_host::{SingleUseSandbox, UninitializedSandbox};
 use hyperlight_testing::{c_simple_guest_as_string, simple_guest_as_string};
 use strum::IntoEnumIterator;
 
-fn new_uninit<'a>() -> Result<UninitializedSandbox<'a>> {
-    let path = simple_guest_as_string().unwrap();
-    UninitializedSandbox::new(
-        GuestBinary::FilePath(path),
-        None,
-        None, //Some(hyperlight_host::SandboxRunOptions::RunInProcess(true)),
-        None,
-    )
-}
+pub mod common; // pub to disable dead_code warning
+use crate::common::{new_uninit, new_uninit_rust};
 
 #[test]
 fn print_four_args_c_guest() {
@@ -46,7 +40,7 @@ fn guest_abort() {
     let error_code: u8 = 13; // this is arbitrary
     let res = sbox1
         .call_guest_function_by_name(
-            "test_abort",
+            "GuestAbortWithCode",
             ReturnType::Void,
             Some(vec![ParameterValue::Int(error_code as i32)]),
         )
@@ -60,9 +54,10 @@ fn guest_abort() {
 #[test]
 fn guest_abort_with_context1() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+
     let res = sbox1
         .call_guest_function_by_name(
-            "abort_with_code_and_message",
+            "GuestAbortWithMessage",
             ReturnType::Void,
             Some(vec![
                 ParameterValue::Int(25),
@@ -114,7 +109,7 @@ fn guest_abort_with_context2() {
 
     let res = sbox1
         .call_guest_function_by_name(
-            "abort_with_code_and_message",
+            "GuestAbortWithMessage",
             ReturnType::Void,
             Some(vec![
                 ParameterValue::Int(60),
@@ -156,7 +151,8 @@ fn guest_abort_c_guest() {
 
 #[test]
 fn guest_panic() {
-    let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+    // this test is rust-specific
+    let sbox1: SingleUseSandbox = new_uninit_rust().unwrap().evolve(Noop::default()).unwrap();
 
     let res = sbox1
         .call_guest_function_by_name(
@@ -169,19 +165,53 @@ fn guest_panic() {
         .unwrap_err();
     println!("{:?}", res);
     assert!(
-        matches!(res, HyperlightError::GuestAborted(code, context) if code == 0 && context.contains("\nError... error..."))
+        matches!(res, HyperlightError::GuestAborted(code, context) if code == ErrorCode::UnknownError as u8 && context.contains("\nError... error..."))
     )
+}
+
+#[test]
+fn guest_hlmalloc() {
+    // this test is rust-only
+    let sbox1: SingleUseSandbox = new_uninit_rust().unwrap().evolve(Noop::default()).unwrap();
+
+    let size_to_allocate = 2000;
+    let res = sbox1
+        .call_guest_function_by_name(
+            "TestHlMalloc", // uses hlmalloc
+            ReturnType::Int,
+            Some(vec![ParameterValue::Int(size_to_allocate)]),
+        )
+        .unwrap();
+    assert!(matches!(res, ReturnValue::Int(_)));
+}
+
+#[test]
+fn guest_malloc() {
+    let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+
+    let size_to_allocate = 2000;
+
+    let res = sbox1
+        .call_guest_function_by_name(
+            "CallMalloc", // uses the rust allocator to allocate a vector on heap
+            ReturnType::Int,
+            Some(vec![ParameterValue::Int(size_to_allocate)]),
+        )
+        .unwrap();
+
+    assert!(matches!(res, ReturnValue::Int(returned_size) if returned_size == size_to_allocate));
 }
 
 // checks that malloc failures are captured correctly
 #[test]
-fn guest_malloc_abort() {
-    let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+fn guest_hlmalloc_abort() {
+    let sbox1: SingleUseSandbox = new_uninit_rust().unwrap().evolve(Noop::default()).unwrap();
 
     let size = 20000000; // some big number that should fail when allocated
+
     let res = sbox1
         .call_guest_function_by_name(
-            "test_rust_malloc",
+            "TestHlMalloc",
             ReturnType::Int,
             Some(vec![ParameterValue::Int(size)]),
         )
@@ -190,6 +220,34 @@ fn guest_malloc_abort() {
     assert!(
         matches!(res, HyperlightError::GuestAborted(code, _) if code == ErrorCode::MallocFailed as u8)
     );
+
+    // allocate a vector (on heap) that is bigger than the heap
+    let heap_size = 0x3000;
+    let size_to_allocate = 0x10000;
+    assert!(size_to_allocate > heap_size);
+
+    let mut cfg = SandboxConfiguration::default();
+    cfg.set_heap_size(heap_size);
+    let uninit = UninitializedSandbox::new(
+        GuestBinary::FilePath(simple_guest_as_string().unwrap()),
+        Some(cfg),
+        None,
+        None,
+    )
+    .unwrap();
+    let sbox2: SingleUseSandbox = uninit.evolve(Noop::default()).unwrap();
+
+    let res = sbox2.call_guest_function_by_name(
+        "CallMalloc", // uses the rust allocator to allocate a vector on heap
+        ReturnType::Int,
+        Some(vec![ParameterValue::Int(size_to_allocate as i32)]),
+    );
+    println!("{:?}", res);
+    assert!(matches!(
+        res.unwrap_err(),
+        // OOM memory errors in rust allocator are panics. Our panic handler returns ErrorCode::UnknownError on panic
+        HyperlightError::GuestAborted(code, msg) if code == ErrorCode::UnknownError as u8 && msg.contains("memory allocation of 65536 bytes failed")
+    ));
 }
 
 // checks that alloca works
@@ -230,7 +288,7 @@ fn dynamic_stack_allocate_overflow() {
 // checks alloca fails with overflow when stack pointer overflows
 #[test]
 fn dynamic_stack_allocate_pointer_overflow() {
-    let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+    let sbox1: SingleUseSandbox = new_uninit_rust().unwrap().evolve(Noop::default()).unwrap();
     let bytes = 10 * 1024 * 1024; // 10Mb
 
     let res = sbox1
@@ -306,6 +364,7 @@ fn recursive_stack_allocate() {
 // is properly set up and cannot be written to
 #[test]
 fn guard_page_check() {
+    // this test is rust-guest only
     let offsets_from_page_guard_start: Vec<i64> = vec![
         -1024,
         -1,
@@ -321,7 +380,8 @@ fn guard_page_check() {
 
     for offset in offsets_from_page_guard_start {
         // we have to create a sandbox each iteration because can't reuse after MMIO error in release mode
-        let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+
+        let sbox1: SingleUseSandbox = new_uninit_rust().unwrap().evolve(Noop::default()).unwrap();
         let result = sbox1.call_guest_function_by_name(
             "test_write_raw_ptr",
             ReturnType::String,
@@ -341,7 +401,9 @@ fn guard_page_check() {
 
 #[test]
 fn guard_page_check_2() {
-    let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+    // this test is rust-guest only
+    let sbox1: SingleUseSandbox = new_uninit_rust().unwrap().evolve(Noop::default()).unwrap();
+
     let result = sbox1
         .call_guest_function_by_name("InfiniteRecursion", ReturnType::Void, Some(vec![]))
         .unwrap_err();
@@ -360,8 +422,9 @@ fn execute_on_stack() {
         }
     }
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
+
     let result = sbox1
-        .call_guest_function_by_name("execute_on_stack", ReturnType::String, Some(vec![]))
+        .call_guest_function_by_name("ExecuteOnStack", ReturnType::String, Some(vec![]))
         .unwrap_err();
     assert!(matches!(
         result,

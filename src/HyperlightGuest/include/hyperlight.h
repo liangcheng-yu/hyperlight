@@ -22,6 +22,7 @@
 #define ns(x) FLATBUFFERS_WRAP_NAMESPACE(Hyperlight_Generated, x) 
 
 #define GUEST_ERROR          15
+#define GUEST_FUNCTION_NOT_FOUND 4
 
 #ifdef USING_RUST_GUEST
 

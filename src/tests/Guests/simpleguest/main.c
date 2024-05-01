@@ -229,9 +229,22 @@ uint8_t* printUsingPrintf(const char* msg)
     return GetFlatBufferResultFromVoid();
 }
 
+uint8_t* guestAbortWithCode(uint32_t code)
+{
+    abort_with_code(code);
+    return GetFlatBufferResultFromVoid();
+}
+
 uint8_t* guestAbortWithMessage(uint32_t code, const char* message)
 {
     abort_with_code_and_message(code, message);
+    return GetFlatBufferResultFromVoid();
+}
+
+uint8_t* executeOnStack()
+{
+    const uint8_t hlt = 0xF4;
+    ((void (*)()) & hlt)();
     return GetFlatBufferResultFromVoid();
 }
 
@@ -262,7 +275,7 @@ uint8_t *GuestDispatchFunction(ns(FunctionCall_table_t) functionCall)
         || host_res != 100)
     {
         // the function call got overwritten
-        setError(GUEST_ERROR, "Unexpected function call, did it get overwritten?");
+        setError(GUEST_FUNCTION_NOT_FOUND, "FunctionDoesntExist");
         return GetFlatBufferResultFromInt(-1);
     }
 
@@ -291,7 +304,10 @@ GENERATE_FUNCTION(echo, 1, hlstring);
 GENERATE_FUNCTION(getSizePrefixedBuffer, 2, hlvecbytes, hlint);
 GENERATE_FUNCTION(spin, 0);
 GENERATE_FUNCTION(printUsingPrintf, 1, hlstring);
+GENERATE_FUNCTION(guestAbortWithCode, 1, hlint);
 GENERATE_FUNCTION(guestAbortWithMessage, 2, hlint, hlstring);
+GENERATE_FUNCTION(executeOnStack, 0);
+
 
 void HyperlightMain()
 {
@@ -317,5 +333,7 @@ void HyperlightMain()
     RegisterFunction(FUNCTIONDETAILS("GetSizePrefixedBuffer", getSizePrefixedBuffer));
     RegisterFunction(FUNCTIONDETAILS("Spin", spin));
     RegisterFunction(FUNCTIONDETAILS("PrintUsingPrintf", printUsingPrintf));
+    RegisterFunction(FUNCTIONDETAILS("GuestAbortWithCode", guestAbortWithCode));
     RegisterFunction(FUNCTIONDETAILS("GuestAbortWithMessage", guestAbortWithMessage));
+    RegisterFunction(FUNCTIONDETAILS("ExecuteOnStack", executeOnStack));
 }

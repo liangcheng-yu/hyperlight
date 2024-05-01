@@ -5,6 +5,7 @@ use alloc::{string::ToString, vec::Vec};
 use buddy_system_allocator::LockedHeap;
 use core::hint::unreachable_unchecked;
 use core::ptr::copy_nonoverlapping;
+use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
 use hyperlight_common::flatbuffer_wrappers::guest_function_details::GuestFunctionDetails;
 use hyperlight_common::mem::HyperlightPEB;
 extern crate alloc;
@@ -57,7 +58,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
             (*peb_ptr).guestPanicContextData.guestPanicContextDataSize as usize,
         );
     }
-    outb(OutBAction::Abort as u16, 0x0 as u8);
+    outb(OutBAction::Abort as u16, ErrorCode::UnknownError as u8);
     unsafe { unreachable_unchecked() }
 }
 

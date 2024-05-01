@@ -48,6 +48,11 @@ move-rust-guests target=default-target:
 
 build-and-move-rust-guests: (build-rust-guests "debug") (move-rust-guests "debug") (build-rust-guests "release") (move-rust-guests "release")
 
+# short aliases rg "rust guests", cg "c guests" for less typing
+rg: build-and-move-rust-guests
+cg: build-c-guests
+guests: rg cg
+
 build-dotnet:
     cd src/Hyperlight && dotnet build 
     cd src/examples/NativeHost && dotnet build 
@@ -74,7 +79,14 @@ clean-rust:
 
 # Specify the test name of the ignored tests that we want to run
 test-rust target=default-target:
-    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} 
+    # integration tests, tested with both c guest and rust guest
+    {{set-env-command}}GUEST="c" && cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --test '*'
+    {{set-env-command}}GUEST="rust" && cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --test '*'
+    
+    # unit tests
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --lib
+    
+    # ignored tests
     cargo test --profile={{ if target == "debug" { "dev" } else { target } }} test_trace -p hyperlight_host -- --ignored 
     cargo test --profile={{ if target == "debug" { "dev" } else { target } }} test_drop  -p hyperlight_host -- --ignored 
     cargo test --profile={{ if target == "debug" { "dev" } else { target } }} hypervisor::metrics::tests::test_gather_metrics -p hyperlight_host -- --ignored 
@@ -83,7 +95,7 @@ test-rust target=default-target:
     cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --test integration_test log_message -- --ignored
 
 test-dotnet-hl target=default-target:
-    cd src/tests/Hyperlight.Tests && dotnet test -c {{ target }}
+    cd src/tests/Hyperlight.Tests && dotnet test -c {{ target }} -l "console;verbosity=normal"
 
 test-dotnet-nativehost target=default-target:
     cd src/examples/NativeHost && dotnet run -c {{ target }} -- -nowait 

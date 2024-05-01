@@ -413,4 +413,173 @@ mod tests {
             cfg.guest_panic_context_buffer_size
         );
     }
+
+    #[test]
+    fn min_sizes() {
+        let mut cfg = SandboxConfiguration::new(
+            SandboxConfiguration::MIN_INPUT_SIZE - 1,
+            SandboxConfiguration::MIN_OUTPUT_SIZE - 1,
+            SandboxConfiguration::MIN_HOST_FUNCTION_DEFINITION_SIZE - 1,
+            SandboxConfiguration::MIN_HOST_EXCEPTION_SIZE - 1,
+            SandboxConfiguration::MIN_GUEST_ERROR_BUFFER_SIZE - 1,
+            None,
+            None,
+            Some(Duration::from_millis(
+                SandboxConfiguration::MIN_MAX_EXECUTION_TIME as u64,
+            )),
+            Some(Duration::from_millis(
+                SandboxConfiguration::MIN_MAX_WAIT_FOR_CANCELLATION as u64 - 1,
+            )),
+            SandboxConfiguration::MIN_GUEST_PANIC_CONTEXT_BUFFER_SIZE - 1,
+        );
+        assert_eq!(SandboxConfiguration::MIN_INPUT_SIZE, cfg.input_data_size);
+        assert_eq!(SandboxConfiguration::MIN_OUTPUT_SIZE, cfg.output_data_size);
+        assert_eq!(
+            SandboxConfiguration::MIN_HOST_FUNCTION_DEFINITION_SIZE,
+            cfg.host_function_definition_size
+        );
+        assert_eq!(
+            SandboxConfiguration::MIN_HOST_EXCEPTION_SIZE,
+            cfg.host_exception_size
+        );
+        assert_eq!(
+            SandboxConfiguration::MIN_GUEST_ERROR_BUFFER_SIZE,
+            cfg.guest_error_buffer_size
+        );
+        assert_eq!(0, cfg.stack_size_override);
+        assert_eq!(0, cfg.heap_size_override);
+        assert_eq!(
+            SandboxConfiguration::MIN_MAX_EXECUTION_TIME,
+            cfg.max_execution_time
+        );
+        assert_eq!(
+            SandboxConfiguration::MIN_MAX_WAIT_FOR_CANCELLATION,
+            cfg.max_wait_for_cancellation
+        );
+        assert_eq!(
+            SandboxConfiguration::MIN_GUEST_PANIC_CONTEXT_BUFFER_SIZE,
+            cfg.guest_panic_context_buffer_size
+        );
+
+        cfg.set_input_data_size(SandboxConfiguration::MIN_INPUT_SIZE - 1);
+        cfg.set_output_data_size(SandboxConfiguration::MIN_OUTPUT_SIZE - 1);
+        cfg.set_host_function_definition_size(
+            SandboxConfiguration::MIN_HOST_FUNCTION_DEFINITION_SIZE - 1,
+        );
+        cfg.set_host_exception_size(SandboxConfiguration::MIN_HOST_EXCEPTION_SIZE - 1);
+        cfg.set_guest_error_buffer_size(SandboxConfiguration::MIN_GUEST_ERROR_BUFFER_SIZE - 1);
+        cfg.set_max_execution_time(Duration::from_millis(
+            SandboxConfiguration::MIN_MAX_EXECUTION_TIME as u64,
+        ));
+        cfg.set_max_execution_cancel_wait_time(Duration::from_millis(
+            SandboxConfiguration::MIN_MAX_WAIT_FOR_CANCELLATION as u64 - 1,
+        ));
+        cfg.set_guest_panic_context_buffer_size(
+            SandboxConfiguration::MIN_GUEST_PANIC_CONTEXT_BUFFER_SIZE - 1,
+        );
+
+        assert_eq!(SandboxConfiguration::MIN_INPUT_SIZE, cfg.input_data_size);
+        assert_eq!(SandboxConfiguration::MIN_OUTPUT_SIZE, cfg.output_data_size);
+        assert_eq!(
+            SandboxConfiguration::MIN_HOST_FUNCTION_DEFINITION_SIZE,
+            cfg.host_function_definition_size
+        );
+        assert_eq!(
+            SandboxConfiguration::MIN_HOST_EXCEPTION_SIZE,
+            cfg.host_exception_size
+        );
+        assert_eq!(
+            SandboxConfiguration::MIN_GUEST_ERROR_BUFFER_SIZE,
+            cfg.guest_error_buffer_size
+        );
+        assert_eq!(
+            SandboxConfiguration::MIN_MAX_EXECUTION_TIME,
+            cfg.max_execution_time
+        );
+        assert_eq!(
+            SandboxConfiguration::MIN_MAX_WAIT_FOR_CANCELLATION,
+            cfg.max_wait_for_cancellation
+        );
+        assert_eq!(
+            SandboxConfiguration::MIN_GUEST_PANIC_CONTEXT_BUFFER_SIZE,
+            cfg.guest_panic_context_buffer_size
+        );
+    }
+
+    mod proptests {
+        use super::SandboxConfiguration;
+        use proptest::prelude::*;
+
+        proptest! {
+            #[test]
+            fn error_buffer_size(size in SandboxConfiguration::MIN_GUEST_ERROR_BUFFER_SIZE..=SandboxConfiguration::MIN_GUEST_ERROR_BUFFER_SIZE * 10) {
+                let mut cfg = SandboxConfiguration::default();
+                cfg.set_guest_error_buffer_size(size);
+                prop_assert_eq!(size, cfg.get_guest_error_buffer_size());
+            }
+
+            #[test]
+            fn host_function_definition_size(size in SandboxConfiguration::MIN_HOST_FUNCTION_DEFINITION_SIZE..=SandboxConfiguration::MIN_HOST_FUNCTION_DEFINITION_SIZE * 10) {
+                let mut cfg = SandboxConfiguration::default();
+                cfg.set_host_function_definition_size(size);
+                prop_assert_eq!(size, cfg.get_host_function_definition_size());
+            }
+
+            #[test]
+            fn host_exception_size(size in SandboxConfiguration::MIN_HOST_EXCEPTION_SIZE..=SandboxConfiguration::MIN_HOST_EXCEPTION_SIZE * 10) {
+                let mut cfg = SandboxConfiguration::default();
+                cfg.set_host_exception_size(size);
+                prop_assert_eq!(size, cfg.get_host_exception_size());
+            }
+
+            #[test]
+            fn input_data_size(size in SandboxConfiguration::MIN_INPUT_SIZE..=SandboxConfiguration::MIN_INPUT_SIZE * 10) {
+                let mut cfg = SandboxConfiguration::default();
+                cfg.set_input_data_size(size);
+                prop_assert_eq!(size, cfg.get_input_data_size());
+            }
+
+            #[test]
+            fn output_data_size(size in SandboxConfiguration::MIN_OUTPUT_SIZE..=SandboxConfiguration::MIN_OUTPUT_SIZE * 10) {
+                let mut cfg = SandboxConfiguration::default();
+                cfg.set_output_data_size(size);
+                prop_assert_eq!(size, cfg.get_output_data_size());
+            }
+
+            #[test]
+            fn guest_panic_context_buffer_size(size in SandboxConfiguration::MIN_GUEST_PANIC_CONTEXT_BUFFER_SIZE..=SandboxConfiguration::MIN_GUEST_PANIC_CONTEXT_BUFFER_SIZE * 10) {
+                let mut cfg = SandboxConfiguration::default();
+                cfg.set_guest_panic_context_buffer_size(size);
+                prop_assert_eq!(size, cfg.get_guest_panic_context_buffer_size());
+            }
+
+            #[test]
+            fn max_execution_time(time in SandboxConfiguration::MIN_MAX_EXECUTION_TIME..=SandboxConfiguration::MIN_MAX_EXECUTION_TIME * 10) {
+                let mut cfg = SandboxConfiguration::default();
+                cfg.set_max_execution_time(std::time::Duration::from_millis(time.into()));
+                prop_assert_eq!(time, cfg.get_max_execution_time());
+            }
+
+            #[test]
+            fn max_wait_for_cancellation(time in SandboxConfiguration::MIN_MAX_WAIT_FOR_CANCELLATION..=SandboxConfiguration::MIN_MAX_WAIT_FOR_CANCELLATION * 10) {
+                let mut cfg = SandboxConfiguration::default();
+                cfg.set_max_execution_cancel_wait_time(std::time::Duration::from_millis(time.into()));
+                prop_assert_eq!(time, cfg.get_max_wait_for_cancellation());
+            }
+
+            #[test]
+            fn stack_size_override(size in 0x1000..=0x10000u64) {
+                let mut cfg = SandboxConfiguration::default();
+                cfg.set_stack_size(size);
+                prop_assert_eq!(size, cfg.stack_size_override);
+            }
+
+            #[test]
+            fn heap_size_override(size in 0x1000..=0x10000u64) {
+                let mut cfg = SandboxConfiguration::default();
+                cfg.set_heap_size(size);
+                prop_assert_eq!(size, cfg.heap_size_override);
+            }
+        }
+    }
 }

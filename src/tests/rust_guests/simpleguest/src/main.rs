@@ -404,19 +404,11 @@ fn small_var(_: &FunctionCall) -> Result<Vec<u8>> {
     Ok(get_flatbuffer_result_from_int(1024))
 }
 
-// TODO: This function could cause a stack overflow, update it once we have stack guards in place.
 fn call_malloc(function_call: &FunctionCall) -> Result<Vec<u8>> {
     if let ParameterValue::Int(size) = function_call.parameters.clone().unwrap()[0].clone() {
-        let alloc_length = if size < DEFAULT_GUEST_STACK_SIZE {
-            // ^^^ arbitrary check to avoid stack overflow
-            // because we don't have stack guards in place yet
-            size
-        } else {
-            size.min(MAX_BUFFER_SIZE as i32)
-        };
-        let mut allocated_buffer = Vec::with_capacity(alloc_length as usize);
-        allocated_buffer.resize(alloc_length as usize, 0);
-
+        // will panic if OOM, and we need blackbox to avoid optimizing away this test
+        let buffer = Vec::<u8>::with_capacity(size as usize);
+        black_box(buffer);
         Ok(get_flatbuffer_result_from_int(size))
     } else {
         Err(HyperlightGuestError::new(
@@ -526,7 +518,7 @@ fn test_write_raw_ptr(function_call: &FunctionCall) -> Result<Vec<u8>> {
             }
         };
         unsafe {
-            print_output(format!("writing to {:#x}\n", addr).as_str()).unwrap();
+            // print_output(format!("writing to {:#x}\n", addr).as_str()).unwrap();
             write_volatile(addr as *mut u8, 0u8);
         }
         return Ok(get_flatbuffer_result_from_string("success"));
@@ -854,7 +846,7 @@ pub extern "C" fn hyperlight_main() {
     register_function(spin_def);
 
     let abort_def = GuestFunctionDefinition::new(
-        "test_abort".to_string(),
+        "GuestAbortWithCode".to_string(),
         Vec::from(&[ParameterType::Int]),
         ReturnType::Void,
         test_abort as i64,
@@ -862,7 +854,7 @@ pub extern "C" fn hyperlight_main() {
     register_function(abort_def);
 
     let abort_with_code_message_def = GuestFunctionDefinition::new(
-        "abort_with_code_and_message".to_string(),
+        "GuestAbortWithMessage".to_string(),
         Vec::from(&[ParameterType::Int, ParameterType::String]),
         ReturnType::Void,
         test_abort_with_code_and_message as i64,
@@ -878,7 +870,7 @@ pub extern "C" fn hyperlight_main() {
     register_function(guest_panic_def);
 
     let rust_malloc_def = GuestFunctionDefinition::new(
-        "test_rust_malloc".to_string(),
+        "TestHlMalloc".to_string(),
         Vec::from(&[ParameterType::Int]),
         ReturnType::Int,
         test_rust_malloc as i64,
@@ -910,7 +902,7 @@ pub extern "C" fn hyperlight_main() {
     register_function(test_write_raw_ptr_def);
 
     let execute_on_stack_def = GuestFunctionDefinition::new(
-        "execute_on_stack".to_string(),
+        "ExecuteOnStack".to_string(),
         Vec::new(),
         ReturnType::String,
         execute_on_stack as i64,
