@@ -6,7 +6,7 @@ name: Valgrind tests (Linux only)
 on:
   workflow_call:
     secrets:
-      AZURE_CLIENT_ID:
+      ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID:
         required: true
       AZURE_TENANT_ID:
         required: true
