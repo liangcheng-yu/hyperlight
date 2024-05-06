@@ -11,6 +11,10 @@ on:
         required: true
       AZURE_SUBSCRIPTION_ID:
         required: true
+    inputs:
+      environment: 
+        required: false
+        type: string
 
 
 permissions:
@@ -23,6 +27,7 @@ env:
 jobs:
   # this job has no dependencies
   build-hyperlight-capi:
+    environment: ${{ inputs.environment }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
@@ -51,12 +56,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: deislabs/hyperlight-workflow-setup@v1.1.0
+      - uses: deislabs/hyperlight-workflow-setup@v1.2.0
         with:
           rust-toolchain: "1.74.0"
           azure-client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID }}
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }} 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

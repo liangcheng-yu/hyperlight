@@ -5,20 +5,25 @@ name: Publish crates to intenral cargo registry
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   publish-hyperlight-packages:
+    environment: release
     runs-on: ubuntu-latest
+
     if: ${{ contains(github.ref, 'refs/heads/release/') }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: deislabs/hyperlight-workflow-setup@v1.1.0
+      - uses: deislabs/hyperlight-workflow-setup@v1.2.0
         with:
           rust-toolchain: "1.74.0"
           azure-client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RW_AZURE_CLIENT_ID }}
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }} 
 
       - name: Set up cargo workspaces version
         run: |
