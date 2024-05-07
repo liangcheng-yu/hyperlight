@@ -306,9 +306,65 @@ namespace Hyperlight.Tests
         public class LoggingTests
         {
             public Func<string, string, int, int>? LogMessage;
-        }        
+        }
 
+        [FactSkipIfNotWindowsAndNoHypervisor]
+        public void Test_Passing_Byte_Array()
+        {
 
+            var options = GetSandboxRunOptions();
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
+            foreach (var option in options)
+            {
+                var correlationId = Guid.NewGuid().ToString("N");
+                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
+                {
+                    var functions = new BinaryArrayTests();
+                    sandbox.BindGuestFunction("SetByteArrayToZero", functions);
+                    byte[] bytes = new byte[10];
+                    RandomNumberGenerator.Create().GetBytes(bytes);
+                    var ex = Record.Exception(() =>
+                    {
+                        functions.SetByteArrayToZero!(bytes, 10);
+                    });
+                    Assert.Null(ex);
+                }
+
+                correlationId = Guid.NewGuid().ToString("N");
+                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
+                {
+                    var functions = new BinaryArrayTests();
+                    sandbox.BindGuestFunction("SetByteArrayToZeroNoLength", functions);
+                    byte[] bytes = new byte[10];
+                    RandomNumberGenerator.Create().GetBytes(bytes);
+                    var ex = Record.Exception(() =>
+                    {
+                        _ = functions.SetByteArrayToZeroNoLength!(bytes);
+                    });
+                    Assert.NotNull(ex);
+                    Assert.IsType<System.ArgumentException>(ex);
+                    Assert.Equal($"Array length must be specified CorrelationId: {correlationId} Source: SandboxMemoryManager", ex.Message);
+                }
+            }
+        }
+
+        [FactSkipIfNotWindowsAndNoHypervisor]
+        public void Test_Heap_Size()
+        {
+            var options = GetSandboxRunOptions();
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
+            // Heap size is set on the assembly metadata and linker arguments using the build property GUESTHEAPSIZE
+            // this is set in \src\tests\Directory.Build.props
+            // the value used can be changed by running msbuild with /p:GUESTHEAPSIZE=VALUE
+            var heapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
+
+            using (var sandbox = new Sandbox(guestBinaryPath, options[0]))
+            {
+                CheckSize(heapSize, sandbox, "GetHeapSizeAddress");
+            }
+        }
 
         public int GetAssemblyMetadataAttribute(string name)
         {
@@ -734,7 +790,34 @@ namespace Hyperlight.Tests
             }
         }
 
+        [FactSkipIfNotWindowsAndNoHypervisor]
+        public void Test_Stack_Size()
+        {
+            using var ctx = new Wrapper.Context("sample_corr_id");
+            var options = GetSandboxRunOptions();
+            if (options.Length == 0)
+            {
+                return;
+            }
 
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
+            // Stack size is set on the assembly metadata and linker arguments using the build property GUESTSTACKSIZE
+            // this is set in \src\tests\Directory.Build.props
+            // the value used can be changed by running msbuild with /p:GUESTSTACKSIZE=VALUE
+            var stackSize = GetAssemblyMetadataAttribute("GUESTSTACKSIZE");
+
+            using (var sandbox = new Sandbox(guestBinaryPath, options[0]))
+            {
+                var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance;
+                var fieldInfo = sandbox.GetType().GetField("sandboxMemoryManager", bindingFlags);
+                Assert.NotNull(fieldInfo);
+                var sandboxMemoryManager = fieldInfo!.GetValue(sandbox);
+                Assert.NotNull(sandboxMemoryManager);
+                var layoutPropertyInfo = sandboxMemoryManager!.GetType().GetProperty("sandboxMemoryLayout", bindingFlags);
+                Assert.NotNull(fieldInfo);
+            }
+        }
 
         [FactSkipIfNotWindows]
         public void Test_Memory_Size_From_GuestBinary()
@@ -862,6 +945,102 @@ namespace Hyperlight.Tests
             }
         }
 
+        [FactSkipIfHypervisorNotPresent]
+        public void Test_Stack_Overflow()
+        {
+            // These are commented out because there currently exists no easy way to get back into dotnet code from an
+            // outb abort. Therefore these tests are replicated in rust hyperlight_host integration tests.
+            // TODO We should re-enable these tests once we have a way to get the exit code from the outb handler.
+            // see issue https://github.com/deislabs/hyperlight/issues/1184.
+
+            // var guestBinaryFileName = "simpleguest.exe";
+            // var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
+            // var options = GetSandboxRunInHyperVisorOptions();
+            // var size = GetAssemblyMetadataAttribute("GUESTSTACKSIZE") / 2;
+
+            // // StackOverflow(int) function allocates a 16384 sized array and recursively calls itself int times
+
+            // var shouldNotOverflow = (GetAssemblyMetadataAttribute("GUESTSTACKSIZE") / 16384) - 2;
+            // var shouldOverflow = (GetAssemblyMetadataAttribute("GUESTSTACKSIZE") / 16384) + 1;
+
+            // foreach (var option in options)
+            // {
+            //     var correlationId = Guid.NewGuid().ToString("N");
+            //     using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
+            //     {
+            //         var functions = new StackOverflowTests();
+            //         sandbox.BindGuestFunction("StackAllocate", functions);
+            //         var ex = Record.Exception(() =>
+            //         {
+            //             int arg = 0;
+            //             functions.StackAllocate!(arg);
+            //         });
+            //         Assert.NotNull(ex);
+            //         Assert.IsType<System.StackOverflowException>(ex);
+            //         Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+
+            //     }
+            //     correlationId = Guid.NewGuid().ToString("N");
+            //     using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
+            //     {
+            //         var functions = new StackOverflowTests();
+            //         sandbox.BindGuestFunction("StackAllocate", functions);
+            //         var result = functions.StackAllocate!(size);
+            //         Assert.Equal(size, result);
+            //     }
+            //     correlationId = Guid.NewGuid().ToString("N");
+            //     using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
+            //     {
+            //         var functions = new StackOverflowTests();
+            //         sandbox.BindGuestFunction("StackOverflow", functions);
+            //         var ex = Record.Exception(() =>
+            //         {
+            //             var result = functions.StackOverflow!(shouldOverflow);
+            //         });
+            //         Assert.NotNull(ex);
+            //         Assert.IsType<System.StackOverflowException>(ex);
+            //         Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+            //     }
+            //     correlationId = Guid.NewGuid().ToString("N");
+            //     using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
+            //     {
+            //         var memorySize = GetMemorySize(sandbox);
+            //         var iterations = (int)(memorySize / 16384) * 2;
+            //         var functions = new StackOverflowTests();
+            //         sandbox.BindGuestFunction("StackOverflow", functions);
+            //         var ex = Record.Exception(() =>
+            //         {
+            //             var result = functions.StackOverflow!(iterations);
+            //         });
+            //         Assert.NotNull(ex);
+            //         Assert.IsType<System.StackOverflowException>(ex);
+            //         Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+            //     }
+
+            //     correlationId = Guid.NewGuid().ToString("N");
+            //     using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
+            //     {
+            //         var functions = new StackOverflowTests();
+            //         sandbox.BindGuestFunction("LargeVar", functions);
+            //         var ex = Record.Exception(() =>
+            //         {
+            //             var result = functions.LargeVar!();
+            //         });
+            //         Assert.NotNull(ex);
+            //         Assert.IsType<System.StackOverflowException>(ex);
+            //         Assert.Equal($"Guest Error CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+            //     }
+
+            //     correlationId = Guid.NewGuid().ToString("N");
+            //     using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
+            //     {
+            //         var functions = new StackOverflowTests();
+            //         sandbox.BindGuestFunction("SmallVar", functions);
+            //         var result = functions.SmallVar!();
+            //         Assert.Equal(1024, result);
+            //     }
+            // }
+        }
 
         [FactSkipIfHypervisorNotPresent]
         public void Test_Memory_Size_InHypervisor()
@@ -880,6 +1059,27 @@ namespace Hyperlight.Tests
                     Assert.Equal(expectedSize, size);
                 }
             }
+        }
+
+        [FactSkipIfNotWindows]
+        public void Test_Maximum_Memory_Size()
+        {
+            var correlationId = Guid.NewGuid().ToString("N");
+            using var ctx = new Wrapper.Context(correlationId);
+            var option = SandboxRunOptions.RunInProcess;
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
+            var sandboxConfiguration = new SandboxConfiguration()
+                .WithInputDataSize(1073741824);
+            var ex = Record.Exception(() =>
+            {
+                using var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, sandboxConfiguration);
+
+            });
+            Assert.NotNull(ex);
+            Assert.IsType<HyperlightException>(ex);
+            string expectedPattern = $"Memory requested [0-9]+ exceeds maximum size allowed 1072627712 CorrelationId: {correlationId} Source: NativeHandleWrapperErrorExtensions";
+            Assert.Matches(expectedPattern, ex.Message);
         }
 
         private ulong GetExpectedMemorySize(SandboxConfiguration sandboxConfiguration, string guestBinaryPath, SandboxRunOptions option)
@@ -927,6 +1127,395 @@ namespace Hyperlight.Tests
         private static ulong GetMemorySize(Sandbox sandbox)
         {
             return sandbox.memSize;
+        }
+
+        [Fact]
+        public void Test_Guest_Error_Message_Size()
+        {
+            var options = GetSandboxRunOptions();
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                var size = GetErrorMessageSize();
+                var bld = new SandboxBuilder()
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithRunOptions(option)
+                    .WithConfig(
+                        new SandboxConfiguration()
+                            .WithGuestErrorBufferSize((ulong)size)
+                    );
+                using (var sandbox = bld.Build())
+                {
+                    CheckSize((int)size, sandbox, "GetGuestErrorBufferSizeAddress");
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_Function_Definitions_Size()
+        {
+            var options = GetSandboxRunOptions();
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                var size = GetFunctionDefinitionSize();
+                var bld = new SandboxBuilder()
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithRunOptions(option)
+                    .WithConfig(
+                        new SandboxConfiguration()
+                            .WithHostFunctionDefinitionSize((ulong)size)
+                    );
+                using (var sandbox = bld.Build())
+                {
+                    CheckSize((int)size, sandbox, "GetFunctionDefinitionSizeAddress");
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_InputData_Size()
+        {
+            var options = GetSandboxRunOptions();
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                var size = GetInputDataSize();
+                var bld = new SandboxBuilder()
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithRunOptions(option)
+                    .WithConfig(
+                        new SandboxConfiguration()
+                            .WithInputDataSize((ulong)size)
+                    );
+                using (var sandbox = bld.Build())
+                {
+                    CheckSize((int)size, sandbox, "GetInputDataSizeAddress");
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_OutputData_Size()
+        {
+            var options = GetSandboxRunOptions();
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                var size = GetOutputDataSize();
+                var bld = new SandboxBuilder()
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithRunOptions(option)
+                    .WithConfig(
+                        new SandboxConfiguration()
+                            .WithOutputDataSize((ulong)size)
+                    );
+                using (var sandbox = bld.Build())
+                {
+                    CheckSize((int)size, sandbox, "GetOutputDataSizeAddress");
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_Config_Minimum_Sizes()
+        {
+            ulong minInputSize = 0x2000;
+            ulong minOutputSize = 0x2000;
+            ulong minHostFunctionDefinitionSize = 0x400;
+            ulong minHostExceptionSize = 0x4000;
+            ulong minGuestErrorBufferSize = 0x80;
+            ushort defaultMaxExecutionTime = 1000;
+            ushort defaultMaxWaitForCancellation = 100;
+            var sandboxConfiguration = new SandboxConfiguration(0, 0, 0, 0, 0, 0, 0);
+            Assert.Equal(minInputSize, sandboxConfiguration.InputDataSize);
+            Assert.Equal(minOutputSize, sandboxConfiguration.OutputDataSize);
+            Assert.Equal(minHostFunctionDefinitionSize, sandboxConfiguration.HostFunctionDefinitionSize);
+            Assert.Equal(minHostExceptionSize, sandboxConfiguration.HostExceptionSize);
+            Assert.Equal(minGuestErrorBufferSize, sandboxConfiguration.GuestErrorBufferSize);
+            Assert.Equal(defaultMaxExecutionTime, sandboxConfiguration.MaxExecutionTime);
+            Assert.Equal(defaultMaxWaitForCancellation, sandboxConfiguration.MaxWaitForCancellation);
+        }
+
+        [Fact]
+        public void Test_Host_Exceptions_Size()
+        {
+            var options = GetSandboxRunOptions();
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                var size = GetHostExceptionSize();
+                var bld = new SandboxBuilder()
+                .WithGuestBinaryPath(guestBinaryPath)
+                .WithRunOptions(option)
+                .WithConfig(
+                    new SandboxConfiguration()
+                        .WithHostExceptionSize((ulong)size)
+                );
+                using (var sandbox = bld.Build())
+                {
+                    CheckSize((int)size, sandbox, "GetHostExceptionSizeAddress");
+                }
+            }
+        }
+
+        private static void CheckSize(int size, Sandbox sandbox, string methodName)
+        {
+            var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public;
+            var fieldInfo = sandbox.GetType().GetField("sandboxMemoryManager", bindingFlags);
+            Assert.NotNull(fieldInfo);
+            var sandboxMemoryManager = fieldInfo!.GetValue(sandbox);
+            Assert.NotNull(sandboxMemoryManager);
+            Assert.NotNull(fieldInfo);
+            var propInfo = sandboxMemoryManager!.GetType().GetProperty("SourceAddress", bindingFlags);
+            Assert.NotNull(propInfo);
+            var sourceAddress = propInfo!.GetValue(sandboxMemoryManager);
+            Assert.NotNull(sourceAddress);
+        }
+
+        [Fact]
+        public void Test_Invalid_Guest_Function_Causes_Exception()
+        {
+            var options = GetSandboxRunOptions();
+            var guestBinaryFileName = "callbackguest.exe";
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                var correlationId = Guid.NewGuid().ToString("N");
+                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
+                {
+                    var functions = new GuestFunctionErrors();
+                    sandbox.BindGuestFunction("FunctionDoesntExist", functions);
+                    var ex = Record.Exception(() =>
+                    {
+                        string arg = string.Empty;
+                        functions.FunctionDoesntExist!(arg);
+                    });
+                    Assert.NotNull(ex);
+                    Assert.IsType<HyperlightException>(ex);
+                    Assert.Equal($"GuestFunctionNotFound:FunctionDoesntExist CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_Multiple_Guest_Function_Parameters()
+        {
+            using var ctx = new Wrapper.Context("sample_corr_id");
+            var options = GetSandboxRunOptions();
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
+
+            List<(string Method, object[] args, int returnValue, string expectedOutput)> testData = new()
+            {
+                (
+                    "PrintTwoArgs",
+                    new object[] { "Test2", 1 },
+                    27,
+                    "Message: arg1:Test2 arg2:1."
+                ),
+                (
+                    "PrintThreeArgs",
+                    new object[] { "Test3", 2, 3 },
+                    34,
+                    "Message: arg1:Test3 arg2:2 arg3:3."
+                ),
+                (
+                    "PrintFourArgs",
+                    new object[] { "Test4", 3, 4, "Tested" },
+                    46,
+                    "Message: arg1:Test4 arg2:3 arg3:4 arg4:Tested."
+                ),
+                (
+                    "PrintFiveArgs",
+                    new object[] { "Test5", 5, 6, "Tested", "Test5" },
+                    57,
+                    "Message: arg1:Test5 arg2:5 arg3:6 arg4:Tested arg5:Test5."
+                ),
+                (
+                    "PrintSixArgs",
+                    new object[] { "Test6", 7, 8, "Tested", "Test6", false },
+                    68,
+                    "Message: arg1:Test6 arg2:7 arg3:8 arg4:Tested arg5:Test6 arg6:false."
+                ),
+                (
+                    "PrintSevenArgs",
+                    new object[] { "Test7", 8, 9, "Tested", "Test7", false, true },
+                    78,
+                    "Message: arg1:Test7 arg2:8 arg3:9 arg4:Tested arg5:Test7 arg6:false arg7:true."
+                ),
+                (
+                    "PrintEightArgs",
+                    new object[] { "Test8", 10, 11, "Tested", "Test8", false, true, "Test8" },
+                    91,
+                    "Message: arg1:Test8 arg2:10 arg3:11 arg4:Tested arg5:Test8 arg6:false arg7:true arg8:Test8."
+                ),
+                (
+                    "PrintNineArgs",
+                    new object[] { "Test9", 12, 13, "Tested", "Test9", true, false, "Test9", 14 },
+                    99,
+                    "Message: arg1:Test9 arg2:12 arg3:13 arg4:Tested arg5:Test9 arg6:true arg7:false arg8:Test9 arg9:14."
+                ),
+                (
+                    "PrintTenArgs",
+                    new object[] { "Test10", 15, 16, "Tested", "Test10", true, false, "Test10", 17, 18 },
+                    111,
+                    "Message: arg1:Test10 arg2:15 arg3:16 arg4:Tested arg5:Test10 arg6:true arg7:false arg8:Test10 arg9:17 arg10:18."
+                )
+            };
+
+            foreach (var (method, args, returnValue, expectedOutput) in testData)
+            {
+                foreach (var option in options)
+                {
+                    int notused = 0;
+                    var testoutput = new StringWriter();
+                    var sboxBuilder = new SandboxBuilder()
+                        .WithConfig(GetSandboxConfiguration())
+                        .WithGuestBinaryPath(guestBinaryPath)
+                        .WithRunOptions(option)
+                        .WithWriter(testoutput);
+                    using (var sandbox = sboxBuilder.Build())
+                    {
+                        var functions = new MultipleGuestFunctionParameters();
+                        sandbox.BindGuestFunction(method, functions);
+                        InvokeMethod(functions, method, returnValue, expectedOutput, args, testoutput, ref notused);
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_Invalid_Type_Of_Guest_Function_Parameter_Causes_Exception()
+        {
+            var options = GetSandboxRunOptions();
+            var guestBinaryFileName = "callbackguest.exe";
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                var correlationId = Guid.NewGuid().ToString("N");
+                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
+                {
+                    var functions = new GuestFunctionErrors();
+                    sandbox.BindGuestFunction("GuestMethod3", functions);
+                    var ex = Record.Exception(() =>
+                    {
+                        functions.GuestMethod3!(1);
+                    });
+                    Assert.NotNull(ex);
+                    Assert.IsType<HyperlightException>(ex);
+                    Assert.Equal($"GuestFunctionParameterTypeMismatch:Function GuestMethod3 parameter 0. CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_Invalid_Number_Of_Guest_Function_Parameters_Causes_Exception()
+        {
+            var options = GetSandboxRunOptions();
+            var guestBinaryFileName = "callbackguest.exe";
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
+
+            foreach (var option in options)
+            {
+                var correlationId = Guid.NewGuid().ToString("N");
+                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, correlationId, null, GetSandboxConfiguration()))
+                {
+                    var functions = new GuestFunctionErrors();
+                    sandbox.BindGuestFunction("GuestMethod2", functions);
+                    var ex = Record.Exception(() =>
+                    {
+                        functions.GuestMethod2!();
+                    });
+                    Assert.NotNull(ex);
+                    Assert.IsType<HyperlightException>(ex);
+                    Assert.Equal($"GuestFunctionIncorrecNoOfParameters:Called function GuestMethod2 with 0 parameters but it takes 1. CorrelationId: {correlationId} Source: Sandbox", ex.Message);
+                }
+            }
+        }
+
+        [Fact()]
+        public void Test_Guest_Malloc()
+        {
+            using var ctx = new Wrapper.Context("sample_corr_id");
+            var options = GetSandboxRunOptions();
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
+            var heapSize = GetAssemblyMetadataAttribute("GUESTHEAPSIZE");
+            // dlmalloc minimum allocation is 64K
+            // simpleguest.exe will do a memory allocation prior to CallMalloc being called;
+            // however it will only use a small amount 
+            // Therefore an alloction of half the heapsize should always succeed if the heap is at least 128K
+            // And heapsize + 64K should always fail.
+            Assert.True(heapSize >= 131072);
+            foreach (var option in options)
+            {
+                var logFunctions = new LoggingTests();
+                var mockLogger = new Mock<ILogger>();
+                mockLogger.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
+                var correlationId = Guid.NewGuid().ToString("N");
+                var builder = new SandboxBuilder()
+                    .WithCorrelationId(correlationId)
+                    .WithConfig(GetSandboxConfiguration())
+                    .WithRunOptions(option)
+                    .WithGuestBinaryPath(guestBinaryPath)
+                    .WithErrorMessageLogger(mockLogger.Object);
+                using (var sandbox = builder.Build())
+                {
+                    // var functions = new MallocTests();
+                    // sandbox.BindGuestFunction("CallMalloc", functions);
+                    // testOutput.WriteLine($"Testing CallMalloc with GuestHeapSize:{heapSize} MallocSize:{mallocSize} option: {option}");
+                    // var ex = Record.Exception(() =>
+                    // {
+                    //     functions.CallMalloc!(mallocSize);
+                    // });
+                    //Assert.NotNull(ex);
+                    //Assert.IsType<HyperlightException>(ex);
+                    //Assert.StartsWith(
+                    //    "Guest Aborted",
+                    //    ex.Message
+                    //);
+                    // When running in process, if rust guest is OOM, it will panic and cause a crash of the host process.
+                }
+            }
+            foreach (var option in options)
+            {
+                var mallocSize = heapSize / 2;
+                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, null, null, GetSandboxConfiguration()))
+                {
+                    var functions = new MallocTests();
+
+                    testOutput.WriteLine($"Testing CallMalloc with GuestHeapSize:{heapSize} MallocSize:{mallocSize} option: {option}");
+                    sandbox.BindGuestFunction("CallMalloc", functions);
+                    var result = functions.CallMalloc!(mallocSize);
+                    Assert.Equal<int>(mallocSize, result);
+                }
+            }
+            foreach (var option in options)
+            {
+                var mallocSize = heapSize / 2;
+                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, null, null, GetSandboxConfiguration()))
+                {
+                    var functions = new MallocTests();
+
+                    testOutput.WriteLine($"Testing MallocAndFree with GuestHeapSize:{heapSize} MallocSize:{mallocSize} option: {option}");
+                    sandbox.BindGuestFunction("MallocAndFree", functions);
+                    var result = functions.MallocAndFree!(mallocSize);
+                    Assert.Equal<int>(mallocSize, result);
+                }
+            }
         }
 
         public static string GetPathForGuest(string guestBinaryFileName)
@@ -997,6 +1586,79 @@ namespace Hyperlight.Tests
                 return new SandboxRunOptions[] { SandboxRunOptions.None, SandboxRunOptions.RecycleAfterRun, SandboxRunOptions.None | SandboxRunOptions.RecycleAfterRun };
             }
             return new SandboxRunOptions[] { };
+        }
+
+        [Fact]
+        public void Test_Bind_And_Expose_Methods()
+        {
+            var options = GetSandboxRunOptions();
+            var guestBinaryFileName = "simpleguest.exe";
+            var guestBinaryPath = GetPathForGuest(guestBinaryFileName);
+            Assert.True(File.Exists(guestBinaryPath), $"Cannot find file {guestBinaryPath} to load into hyperlight");
+
+            List<(Type type, List<string> exposedMethods, List<string> boundDelegates, List<string> exposedStaticMethods)> testData = new()
+            {
+                (typeof(NoExposedMembers), new(), new(), new()),
+                (typeof(ExposedMembers), new() { "GetOne", "MethodWithArgs", "HostMethod1" }, new() { "GuestMethod1", "PrintOutput" }, new() { "GetTwo", "StaticMethodWithArgs" }),
+                (typeof(ExposeStaticMethodsUsingAttribute), new(), new(), new() { "StaticGetInt", "HostMethod1", "StaticGetNothing"}),
+                (typeof(ExposeInstanceMethodsUsingAttribute), new() { "HostMethod", "HostMethod1" }, new() { "GuestMethod" }, new()),
+                (typeof(DontExposeSomeMembersUsingAttribute), new() { "GetOne", "MethodWithArgs" }, new(), new() { "GetTwo", "StaticMethodWithArgs" }),
+            };
+            foreach (var option in options)
+            {
+                foreach (var (type, exposedMethods, boundDelegates, exposedStaticMethods) in testData)
+                {
+                    foreach (var target in new object[] { type, GetInstance(type) })
+                    {
+                        using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, null, null, GetSandboxConfiguration()))
+                        {
+                            if (target is Type)
+                            {
+                                sandbox.ExposeHostMethods((Type)target!);
+                            }
+                            else
+                            {
+                                sandbox.ExposeAndBindMembers(target);
+                            }
+                            Assert.NotNull(sandbox);
+                            List<string> methodNames = target is Type ? exposedStaticMethods : exposedMethods.Concat(exposedStaticMethods).ToList();
+                            CheckExposedMethods(sandbox, methodNames, target);
+                            if (target is not Type)
+                            {
+                                CheckBoundDelegates(target!, boundDelegates);
+                            }
+                        }
+                    }
+                }
+
+                var delegateNames = new List<string> { "GuestMethod", "GuestMethod1" };
+                var hostMethods = new List<string> { "HostMethod", "HostMethod1" };
+                using (var sandbox = new Sandbox(guestBinaryPath, option, null, null, null, null, GetSandboxConfiguration()))
+                {
+                    var instance = new CallbackTestMembers();
+                    foreach (var delegateName in delegateNames)
+                    {
+                        sandbox.BindGuestFunction(delegateName, instance);
+                    }
+                    foreach (var hostMethod in hostMethods)
+                    {
+                        sandbox.ExposeHostMethod(hostMethod, instance);
+                    }
+                    CheckBoundDelegates(instance!, delegateNames);
+                    CheckExposedMethods(sandbox, hostMethods, instance);
+                }
+            }
+        }
+
+        private void CheckBoundDelegates(object target, List<string> delegateNames)
+        {
+            foreach (var d in delegateNames!)
+            {
+                var fieldInfo = target.GetType().GetField(d, BindingFlags.Public | BindingFlags.Instance);
+                Assert.NotNull(fieldInfo);
+                Assert.True(typeof(Delegate).IsAssignableFrom(fieldInfo!.FieldType));
+                Assert.NotNull(fieldInfo.GetValue(target));
+            }
         }
 
         private void CheckExposedMethods(Sandbox sandbox, List<string> methodNames, object target)
