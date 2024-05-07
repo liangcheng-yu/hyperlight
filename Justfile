@@ -78,11 +78,7 @@ clean-rust:
 # there may be tests that we really want to ignore so we cant just use --ignored and we have to
 
 # Specify the test name of the ignored tests that we want to run
-test-rust target=default-target:
-    # integration tests, tested with both c guest and rust guest
-    {{set-env-command}}GUEST="c" && cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --test '*'
-    {{set-env-command}}GUEST="rust" && cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --test '*'
-    
+test-rust target=default-target: (test-rust-int "rust" target) (test-rust-int "c" target )
     # unit tests
     cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --lib
     
@@ -93,6 +89,11 @@ test-rust target=default-target:
     cargo test --profile={{ if target == "debug" { "dev" } else { target } }} sandbox::metrics::tests::test_gather_metrics -p hyperlight_host -- --ignored 
     cargo test --profile={{ if target == "debug" { "dev" } else { target } }} test_metrics -p hyperlight_host -- --ignored 
     cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --test integration_test log_message -- --ignored
+
+# rust integration tests. guest can either be "rust" or "c"
+test-rust-int guest target=default-target:
+    # integration tests
+    {{if os() == "windows" { "$env:" } else { "" } }}GUEST="{{guest}}"{{if os() == "windows" { ";" } else { "" } }} cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --test '*'
 
 test-dotnet-hl target=default-target:
     cd src/tests/Hyperlight.Tests && dotnet test -c {{ target }} -l "console;verbosity=normal"
