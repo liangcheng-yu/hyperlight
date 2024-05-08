@@ -139,7 +139,7 @@ fn get_metrics() {
                     for pair in pair.iter() {
                         println!("Label: {:?} Name: {:?}", pair.get_name(), pair.get_value());
                     }
-                    println!("Value: {:?}", metric.get_counter().get_value());
+                    println!("Value: {:?}", metric.get_gauge().get_value());
                 });
             }
             prometheus::proto::MetricType::UNTYPED => {
