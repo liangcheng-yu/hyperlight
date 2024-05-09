@@ -37,7 +37,7 @@ jobs:
           subscription-id: ${{ secrets.AZ_IMAGE_BUILDER_SUB_ID }}
 
       - name: Setup `packer`
-        uses: hashicorp/setup-packer@v3.0.0
+        uses: hashicorp/setup-packer@v3.1.0
         id: setup
         with:
           version: ${{ env.PRODUCT_VERSION }}
