@@ -27,8 +27,8 @@ use hyperlight_guest::{entrypoint::abort_with_code, entrypoint::abort_with_code_
 use hyperlight_guest::{
     error::{HyperlightGuestError, Result},
     flatbuffer_utils::{
-        get_flatbuffer_result_from_int, get_flatbuffer_result_from_size_prefixed_buffer,
-        get_flatbuffer_result_from_string, get_flatbuffer_result_from_void,
+        get_flatbuffer_result_from_int, get_flatbuffer_result_from_string,
+        get_flatbuffer_result_from_vec, get_flatbuffer_result_from_void,
     },
     guest_functions::register_function,
     host_function_call::{call_host_function, get_host_value_return_as_int},
@@ -59,20 +59,13 @@ fn simple_print_output(function_call: &FunctionCall) -> Result<Vec<u8>> {
 }
 
 fn set_byte_array_to_zero(function_call: &FunctionCall) -> Result<Vec<u8>> {
-    if let (ParameterValue::VecBytes(vec), ParameterValue::Int(length)) = (
+    if let (ParameterValue::VecBytes(mut vec), ParameterValue::Int(_length)) = (
+        // length parameter is used in c guest
         function_call.parameters.clone().unwrap()[0].clone(),
         function_call.parameters.clone().unwrap()[1].clone(),
     ) {
-        unsafe {
-            let mut ptr = vec.as_ptr() as *mut u8;
-            for _ in 0..length {
-                if !ptr.is_null() {
-                    *ptr = 0;
-                    ptr = ptr.add(1);
-                }
-            }
-        }
-        Ok(get_flatbuffer_result_from_void())
+        vec.fill(0);
+        Ok(get_flatbuffer_result_from_vec(&vec))
     } else {
         Err(HyperlightGuestError::new(
             ErrorCode::GuestFunctionParameterTypeMismatch,
@@ -452,16 +445,12 @@ fn echo(function_call: &FunctionCall) -> Result<Vec<u8>> {
 fn get_size_prefixed_buffer(function_call: &FunctionCall) -> Result<Vec<u8>> {
     // This assumes that the first parameter is a buffer and the second is the length.
     // You may need to adjust this based on how your FunctionCall and ParameterValues are structured.
-    if let (ParameterValue::VecBytes(data), ParameterValue::Int(length)) = (
+    if let (ParameterValue::VecBytes(data), ParameterValue::Int(_length)) = (
+        // length parameter is used in c guest
         function_call.parameters.clone().unwrap()[0].clone(),
         function_call.parameters.clone().unwrap()[1].clone(),
     ) {
-        unsafe {
-            Ok(get_flatbuffer_result_from_size_prefixed_buffer(
-                data.as_ptr(),
-                length,
-            ))
-        }
+        Ok(get_flatbuffer_result_from_vec(&data))
     } else {
         Err(HyperlightGuestError::new(
             ErrorCode::GuestFunctionParameterTypeMismatch,
@@ -820,7 +809,7 @@ pub extern "C" fn hyperlight_main() {
     let set_byte_array_to_zero_def = GuestFunctionDefinition::new(
         "SetByteArrayToZero".to_string(),
         Vec::from(&[ParameterType::VecBytes, ParameterType::Int]),
-        ReturnType::Int,
+        ReturnType::VecBytes,
         set_byte_array_to_zero as i64,
     );
     register_function(set_byte_array_to_zero_def);

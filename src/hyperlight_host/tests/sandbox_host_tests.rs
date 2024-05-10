@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use hyperlight_host::{
-    func::{ParameterValue, ReturnType},
+    func::{ParameterValue, ReturnType, ReturnValue},
     sandbox::SandboxConfiguration,
     GuestBinary, HyperlightError, UninitializedSandbox,
 };
@@ -20,13 +20,20 @@ fn pass_byte_array() {
         let bytes = vec![1u8; LEN];
         let res = ctx.call(
             "SetByteArrayToZero",
-            ReturnType::Int,
+            ReturnType::VecBytes,
             Some(vec![
                 ParameterValue::VecBytes(bytes.clone()),
                 ParameterValue::Int(LEN.try_into().unwrap()),
             ]),
         );
-        assert!(res.is_ok());
+
+        match res.unwrap() {
+            ReturnValue::VecBytes(res_bytes) => {
+                assert_eq!(res_bytes.len(), LEN);
+                assert!(res_bytes.iter().all(|&b| b == 0));
+            }
+            _ => panic!("Expected VecBytes"),
+        }
 
         let res = ctx.call(
             "SetByteArrayToZeroNoLength",

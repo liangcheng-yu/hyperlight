@@ -2,7 +2,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use anyhow::{anyhow, bail, Error, Result};
+use anyhow::{anyhow, Error, Result};
 
 #[cfg(feature = "tracing")]
 use tracing::{instrument, Span};
@@ -95,21 +95,6 @@ impl TryFrom<&GuestLogData> for Vec<u8> {
         );
         builder.finish_size_prefixed(guest_log_data_fb, None);
         let res = builder.finished_data().to_vec();
-
-        // This vector may be converted to a raw pointer and returned via the C API and the C API uses the size prefix to determine the capacity and length of the buffer in order to free the memory  , therefore:
-        // 1. the capacity of the vector should be the same as the length
-        // 2. the capacity of the vector should be the same as the size of the buffer (frm the size prefix) + 4 bytes (the size of the size prefix field is not included in the size)
-
-        let length = unsafe { flatbuffers::read_scalar::<i32>(&res[..4]) };
-
-        if res.capacity() != res.len() || res.capacity() != length as usize + 4 {
-            bail!(
-                "The capacity of the vector ({}) is not the same as the length ({}) or the size ({}) of the buffer", 
-                res.capacity(),
-                length,
-                res.len()
-            )
-        }
 
         Ok(res)
     }

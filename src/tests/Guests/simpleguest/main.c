@@ -13,7 +13,7 @@ uint8_t* simpleprintOutput(const char *message)
 uint8_t* setByteArrayToZero(const uint8_t* arrayPtr, int length)
 {
     memset(arrayPtr, 0, length );
-    return GetFlatBufferResultFromVoid();
+    return GetFlatBufferResultFromSizePrefixedBuffer(arrayPtr, length);
 }
 
 uint8_t* printTwoArgs(const char* arg1, int arg2)

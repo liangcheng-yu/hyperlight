@@ -1,5 +1,3 @@
-use core::slice::from_raw_parts;
-
 use alloc::vec::Vec;
 use flatbuffers::{FlatBufferBuilder, UnionWIPOffset, WIPOffset};
 
@@ -48,23 +46,15 @@ pub fn get_flatbuffer_result_from_string(value: &str) -> Vec<u8> {
     get_flatbuffer_result(&mut builder, rt, rv)
 }
 
-/// # Safety
-/// `value` could be a null pointer and we are dereferencing it.
-pub unsafe fn get_flatbuffer_result_from_size_prefixed_buffer(
-    value: *const u8,
-    length: i32,
-) -> Vec<u8> {
+pub fn get_flatbuffer_result_from_vec(data: &[u8]) -> Vec<u8> {
     let mut builder = FlatBufferBuilder::new();
 
-    let vec = unsafe { from_raw_parts(value, length as usize) };
-
-    // Create a vector in the FlatBuffer using the data and length provided.
-    let vec_offset = builder.create_vector(vec);
+    let vec_offset = builder.create_vector(data);
 
     let hlsizeprefixedbuffer = Fbhlsizeprefixedbuffer::create(
         &mut builder,
         &FbhlsizeprefixedbufferArgs {
-            size_: length,
+            size_: data.len() as i32,
             value: Some(vec_offset),
         },
     );

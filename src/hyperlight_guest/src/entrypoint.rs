@@ -15,7 +15,6 @@ use log::LevelFilter;
 use core::{
     arch::asm,
     ffi::{c_char, c_void},
-    hint::unreachable_unchecked,
     ptr::copy_nonoverlapping,
 };
 
@@ -38,7 +37,7 @@ pub extern "C" fn abort() -> ! {
 #[no_mangle]
 pub extern "C" fn abort_with_code(code: i32) -> ! {
     outb(OutBAction::Abort as u16, code as u8);
-    unsafe { unreachable_unchecked() }
+    unreachable!()
 }
 
 #[no_mangle]
@@ -52,7 +51,7 @@ pub extern "C" fn abort_with_code_and_message(code: i32, message_ptr: *const c_c
         );
     }
     outb(OutBAction::Abort as u16, code as u8);
-    unsafe { unreachable_unchecked() }
+    unreachable!()
 }
 
 extern "C" {

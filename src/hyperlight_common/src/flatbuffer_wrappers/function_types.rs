@@ -477,15 +477,6 @@ impl TryFrom<&ReturnValue> for Vec<u8> {
             }
         };
 
-        // This vector may be converted to a raw pointer and returned via the C API and the C API uses the size prefix to determine the capacity and length of the buffer in order to free the memory  , therefore:
-        // 1. the capacity of the vector should be the same as the length
-        // 2. the capacity of the vector should be the same as the size of the buffer (from the size prefix) + 4 bytes (the size of the size prefix field is not included in the size)
-
-        let length = unsafe { flatbuffers::read_scalar::<i32>(&result[..4]) };
-        if result.capacity() != result.len() || result.capacity() != length as usize + 4 {
-            bail!("Invalid vector capacity")
-        }
-
         Ok(result)
     }
 }
