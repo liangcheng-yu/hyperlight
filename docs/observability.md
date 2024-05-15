@@ -26,8 +26,6 @@ set_metrics_registry(&REGISTRY);
 
 The following metrics are provided and are enabled by default:
 
-* `hyperlight_current_number_of_multi_use_sandboxes` - a gauge that tracks the number of multi-use sandboxes that are currently active.
-* `hyperlight_current_number_of_single_use_sandboxes` - a gauge that tracks the number of single-use sandboxes that are currently active.
 * `hyperlight_guest_error_count` - a vector of counters that tracks the number of guest errors by code and message.
 * `hyperlight_number_of_cancelled_guest_execution` - a counter that tracks the number of guest executions that have been cancelled because the execution time execeeded the time allowed.
 
