@@ -154,24 +154,26 @@ impl SandboxMemoryManager {
         // specify __attribute__((ms_abi)) on the start method
         let rsp = mem_size + SandboxMemoryLayout::BASE_ADDRESS as u64 - 0x28;
 
-        // Create pagetable
+        // Create PDL4 table with only 1 PML4E
         self.shared_mem.write_u64(
             Offset::try_from(SandboxMemoryLayout::PML4_OFFSET)?,
             PDE64_PRESENT | PDE64_RW | PDE64_USER | SandboxMemoryLayout::PDPT_GUEST_ADDRESS as u64,
         )?;
+        // Create PDPT with only 1 PDPTE
         self.shared_mem.write_u64(
             Offset::try_from(SandboxMemoryLayout::PDPT_OFFSET)?,
             PDE64_PRESENT | PDE64_RW | PDE64_USER | SandboxMemoryLayout::PD_GUEST_ADDRESS as u64,
         )?;
 
-        // do not map first 2 megs
+        // Create 1 PD with 512 PDEs
         for i in 0..512 {
             let offset = Offset::try_from(SandboxMemoryLayout::PD_OFFSET + (i * 8))?;
-            // map each VA to physical memory 2 megs lower
+            // PS flag makes the page size 2MB
             let val_to_write: u64 =
                 (i << 21) as u64 + (PDE64_PRESENT | PDE64_RW | PDE64_USER | PDE64_PS);
             self.shared_mem.write_u64(offset, val_to_write)?;
         }
+        // Note we don't have any Page Tables, for more details see docs/paging.md
         Ok(rsp)
     }
 

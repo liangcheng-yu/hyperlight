@@ -1078,7 +1078,7 @@ namespace Hyperlight.Tests
             });
             Assert.NotNull(ex);
             Assert.IsType<HyperlightException>(ex);
-            string expectedPattern = $"Memory requested [0-9]+ exceeds maximum size allowed 1072627712 CorrelationId: {correlationId} Source: NativeHandleWrapperErrorExtensions";
+            string expectedPattern = $"Memory requested [0-9]+ exceeds maximum size allowed 1071644672 CorrelationId: {correlationId} Source: NativeHandleWrapperErrorExtensions";
             Assert.Matches(expectedPattern, ex.Message);
         }
 

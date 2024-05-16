@@ -143,7 +143,9 @@ impl SandboxMemoryLayout {
     /// The offset into the sandbox's memory where code starts.
     pub(super) const CODE_OFFSET: usize = Self::PAGE_TABLE_SIZE;
     /// The maximum amount of memory a single sandbox will be allowed.
-    const MAX_MEMORY_SIZE: usize = 0x3FEF0000;
+    /// The addressable virtual memory with current paging setup is virtual address 0x0 - 0x40000000 (excl.),
+    /// However, the memory up to Self::BASE_ADDRESS is not used.
+    const MAX_MEMORY_SIZE: usize = 0x40000000 - Self::BASE_ADDRESS;
 
     /// The base address of the sandbox's memory.
     //TODO:(#1029) Once we have a complete C API, we can restrict visibility to crate level.
@@ -470,11 +472,6 @@ impl SandboxMemoryLayout {
             0 => total_memory,
             _ => (multiples + 1) * Self::FOUR_K,
         };
-
-        // For our page table, we only mapped virtual memory up to 0x3FFFFFFF and map each 2 meg
-        // virtual chunk to physical addresses 2 megabytes below the virtual address.  Since we
-        // map virtual up to 0x3FFFFFFF, the max physical address we handle is 0x3FDFFFFF (or
-        // 0x3FEF0000 physical total memory)
 
         if size > Self::MAX_MEMORY_SIZE {
             Err(MemoryRequestTooBig(size, Self::MAX_MEMORY_SIZE))
