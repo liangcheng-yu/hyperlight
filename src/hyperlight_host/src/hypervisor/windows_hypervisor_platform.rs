@@ -1,7 +1,7 @@
 use super::hyperv_windows::WhvRegisterNameWrapper;
+use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
 use crate::Result;
 use core::ffi::c_void;
-use hyperlight_common::mem::{PAGE_SIZE, PAGE_SIZE_USIZE};
 use std::collections::HashMap;
 use tracing::{instrument, Span};
 use windows::Win32::Foundation::HANDLE;
@@ -68,47 +68,29 @@ impl VMPartition {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn map_gpa_range(
         &mut self,
+        regions: &[MemoryRegion],
         process_handle: &HANDLE,
-        source_address: *const c_void,
-        guest_address: u64,
-        stack_guard_offset: u64,
-        size: usize,
     ) -> Result<()> {
-        unsafe {
-            // everything up to but not including guard page
+        regions.iter().try_for_each(|region| unsafe {
             WHvMapGpaRange2(
                 self.0,
                 *process_handle,
-                source_address,
-                guest_address,
-                stack_guard_offset,
-                WHvMapGpaRangeFlagRead | WHvMapGpaRangeFlagWrite | WHvMapGpaRangeFlagExecute,
-            )?;
-
-            // guard page
-            WHvMapGpaRange2(
-                self.0,
-                *process_handle,
-                (source_address as *const u8).add(usize::try_from(stack_guard_offset)?)
-                    as *const c_void,
-                guest_address + stack_guard_offset,
-                PAGE_SIZE,
-                WHvMapGpaRangeFlagRead,
-            )?;
-
-            // everything after guard page
-            WHvMapGpaRange2(
-                self.0,
-                *process_handle,
-                (source_address as *const u8)
-                    .add(usize::try_from(stack_guard_offset)? + PAGE_SIZE_USIZE)
-                    as *const c_void,
-                guest_address + stack_guard_offset + PAGE_SIZE,
-                u64::try_from(size)? - PAGE_SIZE - stack_guard_offset,
-                WHvMapGpaRangeFlagRead | WHvMapGpaRangeFlagWrite,
-            )?;
-        }
-
+                region.host_region.start as *const c_void,
+                region.guest_region.start as u64,
+                (region.guest_region.end - region.guest_region.start) as u64,
+                region
+                    .flags
+                    .iter()
+                    .map(|flag| match flag {
+                        MemoryRegionFlags::NONE => WHvMapGpaRangeFlagNone,
+                        MemoryRegionFlags::READ => WHvMapGpaRangeFlagRead,
+                        MemoryRegionFlags::WRITE => WHvMapGpaRangeFlagWrite,
+                        MemoryRegionFlags::EXECUTE => WHvMapGpaRangeFlagExecute,
+                        _ => panic!("Invalid flag"),
+                    })
+                    .fold(WHvMapGpaRangeFlagNone, |acc, flag| acc | flag), // collect using bitwise OR,
+            )
+        })?;
         Ok(())
     }
 }

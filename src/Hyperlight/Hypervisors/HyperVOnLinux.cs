@@ -16,11 +16,10 @@ namespace Hyperlight.Hypervisors
 
         internal HyperVOnLinux(
             Context ctxWrapper,
+            Handle mgr_hdl,
             IntPtr sourceAddress,
             ulong pml4_addr,
-            ulong size,
             ulong entryPoint,
-            ulong guardPageOffset,
             ulong rsp,
             Action<ushort, byte> outb,
             Action handleMemoryAccess
@@ -32,15 +31,10 @@ namespace Hyperlight.Hypervisors
             handleMemoryAccess
         )
         {
-            var addrs = new HypervisorAddrs(
-                entryPoint,
-                (ulong)sourceAddress.ToInt64() + OS.GetPageSize(), // offset by a page since sourceAddress points to the start of the page
-                guardPageOffset,
-                size - 2 * OS.GetPageSize() // the size includes the 2 guard pages, which don't want
-            );
             var rawHdl = hyperv_linux_create_driver(
                 ctxWrapper.ctx,
-                addrs,
+                mgr_hdl.handle,
+                entryPoint,
                 rsp,
                 pml4_addr
             );
@@ -144,7 +138,8 @@ namespace Hyperlight.Hypervisors
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
         private static extern NativeHandle hyperv_linux_create_driver(
             NativeContext ctx,
-            HypervisorAddrs addrs,
+            NativeHandle mgr_hdl,
+            ulong entrypoint,
             ulong rsp,
             ulong pml4
         );

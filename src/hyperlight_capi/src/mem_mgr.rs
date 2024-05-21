@@ -13,7 +13,7 @@ use hyperlight_common::mem::PAGE_SIZE;
 use hyperlight_host::mem::mgr::SandboxMemoryManager;
 use hyperlight_host::{log_then_return, new_error, Result};
 
-pub(super) fn get_mem_mgr(ctx: &Context, hdl: Handle) -> Result<&SandboxMemoryManager> {
+pub(crate) fn get_mem_mgr(ctx: &Context, hdl: Handle) -> Result<&SandboxMemoryManager> {
     Context::get(hdl, &ctx.mem_mgrs, |h| matches!(h, Hdl::MemMgr(_)))
 }
 

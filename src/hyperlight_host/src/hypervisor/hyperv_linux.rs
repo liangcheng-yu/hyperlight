@@ -4,10 +4,15 @@ use super::{
     CR4_PAE, EFER_LMA, EFER_LME,
 };
 
-use crate::{hypervisor::hypervisor_mem::HypervisorAddrs, mem::ptr::GuestPtr, new_error};
 use crate::{hypervisor::HyperlightExit, mem::ptr::RawPtr};
 use crate::{log_then_return, Result};
-use hyperlight_common::mem::{PAGE_SHIFT, PAGE_SIZE};
+use crate::{
+    mem::{
+        memory_region::{MemoryRegion, MemoryRegionFlags},
+        ptr::GuestPtr,
+    },
+    new_error,
+};
 use log::error;
 use mshv_bindings::{
     hv_message, hv_message_type, hv_message_type_HVMSG_GPA_INTERCEPT,
@@ -20,7 +25,7 @@ use mshv_bindings::{
     hv_register_name_HV_X64_REGISTER_RBX, hv_register_name_HV_X64_REGISTER_RCX,
     hv_register_name_HV_X64_REGISTER_RDX, hv_register_name_HV_X64_REGISTER_RFLAGS,
     hv_register_name_HV_X64_REGISTER_RIP, hv_register_name_HV_X64_REGISTER_RSP, hv_register_value,
-    hv_u128, mshv_user_mem_region, HV_MAP_GPA_EXECUTABLE, HV_MAP_GPA_READABLE, HV_MAP_GPA_WRITABLE,
+    hv_u128, mshv_user_mem_region,
 };
 use mshv_ioctls::{Mshv, VcpuFd, VmFd};
 use std::any::Any;
@@ -50,7 +55,7 @@ pub struct HypervLinuxDriver {
     _mshv: Mshv,
     vm_fd: VmFd,
     vcpu_fd: VcpuFd,
-    mem_regions: Vec<mshv_user_mem_region>,
+    mem_regions: Vec<MemoryRegion>,
     // note: we should use a HashSet here rather than this
     // HashMap, but to do that, hv_register_assoc needs to
     // implement Eq and PartialEq
@@ -79,7 +84,12 @@ impl HypervLinuxDriver {
     /// `initialise` to do it for you.
     //TODO:(#1029) Once CAPI is complete this does not need to be public
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub fn new(addrs: &HypervisorAddrs, rsp_ptr: GuestPtr, pml4_ptr: GuestPtr) -> Result<Self> {
+    pub fn new(
+        mem_regions: Vec<MemoryRegion>,
+        entrypoint_ptr: GuestPtr,
+        rsp_ptr: GuestPtr,
+        pml4_ptr: GuestPtr,
+    ) -> Result<Self> {
         if !is_hypervisor_present() {
             log_then_return!("Hyper-V is not present on this system");
         }
@@ -87,37 +97,15 @@ impl HypervLinuxDriver {
         let pr = Default::default();
         let vm_fd = mshv.create_vm_with_config(&pr)?;
         let mut vcpu_fd = vm_fd.create_vcpu(0)?;
-        let mem_regions = vec![
-            // everything up to but not including guard page
-            mshv_user_mem_region {
-                size: addrs.guard_page_offset,
-                guest_pfn: addrs.guest_pfn,
-                userspace_addr: addrs.host_addr,
-                flags: HV_MAP_GPA_READABLE | HV_MAP_GPA_WRITABLE | HV_MAP_GPA_EXECUTABLE,
-            },
-            // guard page
-            mshv_user_mem_region {
-                size: PAGE_SIZE,
-                guest_pfn: addrs.guest_pfn + (addrs.guard_page_offset >> PAGE_SHIFT),
-                userspace_addr: addrs.host_addr + addrs.guard_page_offset,
-                flags: HV_MAP_GPA_READABLE,
-            },
-            // everything after guard_page
-            mshv_user_mem_region {
-                size: addrs.mem_size - addrs.guard_page_offset - PAGE_SIZE,
-                guest_pfn: addrs.guest_pfn + (addrs.guard_page_offset >> PAGE_SHIFT) + 1,
-                userspace_addr: addrs.host_addr + addrs.guard_page_offset + PAGE_SIZE,
-                flags: HV_MAP_GPA_READABLE | HV_MAP_GPA_WRITABLE,
-            },
-        ];
 
-        for region in &mem_regions {
-            vm_fd.map_user_memory(*region)?;
-        }
+        mem_regions.iter().try_for_each(|region| {
+            let mshv_region = region.to_owned().into();
+            vm_fd.map_user_memory(mshv_region)
+        })?;
 
         let registers = {
             let mut hm = HashMap::new();
-            Self::add_registers(&mut vcpu_fd, &mut hm, addrs, rsp_ptr, pml4_ptr)?;
+            Self::add_registers(&mut vcpu_fd, &mut hm, entrypoint_ptr, rsp_ptr, pml4_ptr)?;
             hm
         };
         Ok(Self {
@@ -140,7 +128,7 @@ impl HypervLinuxDriver {
     fn add_registers(
         vcpu: &mut VcpuFd,
         registers: &mut RegistersHashMap,
-        addrs: &HypervisorAddrs,
+        entrypoint_ptr: GuestPtr,
         rsp_ptr: GuestPtr,
         pml4_ptr: GuestPtr,
     ) -> Result<()> {
@@ -176,7 +164,7 @@ impl HypervLinuxDriver {
         registers.insert(
             hv_register_name_HV_X64_REGISTER_RIP,
             hv_register_value {
-                reg64: addrs.entrypoint,
+                reg64: entrypoint_ptr.absolute()?,
             },
         );
 
@@ -387,12 +375,16 @@ impl Hypervisor for HypervLinuxDriver {
                 }
                 INVALID_GPA_ACCESS_MESSAGE => {
                     let mimo_message = m.to_memory_info()?;
-                    let addr = mimo_message.guest_physical_address;
-                    if mimo_message.header.intercept_access_type == 0x2 {
-                        // 0x2 is execute.
-                        HyperlightExit::ExecutionAccessViolation(addr)
-                    } else {
-                        HyperlightExit::GuardPageViolation(addr)
+                    let gpa = mimo_message.guest_physical_address;
+                    let access_info = MemoryRegionFlags::try_from(mimo_message)?;
+
+                    match self.get_memory_access_violation(
+                        gpa as usize,
+                        &self.mem_regions,
+                        access_info,
+                    ) {
+                        Some(access_info_violation) => access_info_violation,
+                        None => HyperlightExit::Mmio(gpa),
                     }
                 }
                 other => {
@@ -459,11 +451,10 @@ impl Drop for HypervLinuxDriver {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn drop(&mut self) {
         for region in &self.mem_regions {
-            match self.vm_fd.unmap_user_memory(*region) {
+            let mshv_region: mshv_user_mem_region = region.to_owned().into();
+            match self.vm_fd.unmap_user_memory(mshv_region) {
                 Ok(_) => (),
-                Err(e) => {
-                    error!("Failed to unmap user memory in HyperVOnLinux ({:?})", e)
-                }
+                Err(e) => error!("Failed to unmap user memory in HyperVOnLinux ({:?})", e),
             }
         }
     }
@@ -524,6 +515,7 @@ pub(crate) mod test_cfg {
 mod tests {
     use super::test_cfg::{SHOULD_RUN_TEST, TEST_CONFIG};
     use super::*;
+    use crate::mem::memory_region::MemoryRegionVecBuilder;
     use crate::mem::ptr_offset::Offset;
     use crate::{mem::shared_mem::SharedMemory, should_run_hyperv_linux_test};
 
@@ -567,9 +559,14 @@ mod tests {
         should_run_hyperv_linux_test!();
         const MEM_SIZE: usize = 0x3000;
         let gm = shared_mem_with_code(CODE.as_slice(), MEM_SIZE, Offset::zero()).unwrap();
-        let addrs = HypervisorAddrs::for_shared_mem(&gm, MEM_SIZE as u64, 0, 0, 0x1000).unwrap();
         let rsp_ptr = GuestPtr::try_from(Offset::from(0)).unwrap();
         let pml4_ptr = GuestPtr::try_from(Offset::from(0)).unwrap();
-        super::HypervLinuxDriver::new(&addrs, rsp_ptr, pml4_ptr).unwrap();
+        let entrypoint_ptr = GuestPtr::try_from(Offset::from(0)).unwrap();
+        let mut regions = MemoryRegionVecBuilder::new(0, gm.base_addr());
+        regions.push_page_aligned(
+            MEM_SIZE,
+            MemoryRegionFlags::READ | MemoryRegionFlags::WRITE | MemoryRegionFlags::EXECUTE,
+        );
+        super::HypervLinuxDriver::new(regions.build(), entrypoint_ptr, rsp_ptr, pml4_ptr).unwrap();
     }
 }

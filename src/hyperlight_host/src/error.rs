@@ -19,7 +19,7 @@ use hyperlight_common::{
     },
 };
 
-use crate::mem::ptr::RawPtr;
+use crate::mem::{memory_region::MemoryRegionFlags, ptr::RawPtr};
 #[cfg(target_os = "windows")]
 use crossbeam_channel::{RecvError, SendError};
 use flatbuffers::InvalidFlatbuffer;
@@ -91,9 +91,9 @@ pub enum HyperlightError {
     #[error("Field Name {0} not found in decoded GuestLogData")]
     FieldIsMissingInGuestLogData(String),
 
-    /// Guard Page Violation
-    #[error("Guard Page Violation at address {0:#x}")]
-    GuardPageViolation(u64),
+    /// Memory Access Violation at the given address. The access type and memory region flags are provided.
+    #[error("Memory Access Violation at address {0:#x} of type {1}, but memory is marked as {2}")]
+    MemoryAccessViolation(u64, MemoryRegionFlags, MemoryRegionFlags),
 
     ///Cannot run from guest binary unless the binary is a file
     #[error("Cannot run from guest binary when guest binary is a buffer")]

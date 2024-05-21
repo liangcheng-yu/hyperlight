@@ -122,6 +122,7 @@ impl<'a> UninitializedSandbox<'a> {
         mgr: &mut SandboxMemoryManager,
     ) -> Result<Box<dyn Hypervisor>> {
         let mem_size = u64::try_from(mgr.shared_mem.mem_size())?;
+        let regions = mgr.layout.get_memory_regions(&mgr.shared_mem);
         let rsp_ptr = {
             let rsp_u64 = mgr.set_up_hypervisor_partition(mem_size)?;
             let rsp_raw = RawPtr::from(rsp_u64);
@@ -136,7 +137,6 @@ impl<'a> UninitializedSandbox<'a> {
             let entrypoint_total_offset = mgr.load_addr.clone() + mgr.entrypoint_offset;
             GuestPtr::try_from(entrypoint_total_offset)
         }?;
-        let guard_page_offset = u64::from(mgr.layout.get_guard_page_offset());
         assert!(base_ptr == pml4_ptr);
         assert!(entrypoint_ptr > pml4_ptr);
         assert!(rsp_ptr > entrypoint_ptr);
@@ -149,19 +149,8 @@ impl<'a> UninitializedSandbox<'a> {
             #[cfg(target_os = "linux")]
             HypervisorType::HyperVLinux => {
                 use crate::hypervisor::hyperv_linux::HypervLinuxDriver;
-                use crate::hypervisor::hypervisor_mem::HypervisorAddrs;
-                use hyperlight_common::mem::PAGE_SHIFT;
 
-                let guest_pfn = u64::try_from(SandboxMemoryLayout::BASE_ADDRESS >> PAGE_SHIFT)?;
-                let host_addr = u64::try_from(mgr.shared_mem.base_addr())?;
-                let addrs = HypervisorAddrs {
-                    entrypoint: entrypoint_ptr.absolute()?,
-                    guest_pfn,
-                    host_addr,
-                    guard_page_offset,
-                    mem_size,
-                };
-                let hv = HypervLinuxDriver::new(&addrs, rsp_ptr, pml4_ptr)?;
+                let hv = HypervLinuxDriver::new(regions, entrypoint_ptr, rsp_ptr, pml4_ptr)?;
                 Ok(Box::new(hv))
             }
 
@@ -169,12 +158,9 @@ impl<'a> UninitializedSandbox<'a> {
             HypervisorType::Kvm => {
                 use crate::hypervisor::kvm::KVMDriver;
 
-                let host_addr = u64::try_from(mgr.shared_mem.base_addr())?;
                 let hv = KVMDriver::new(
-                    host_addr,
+                    regions,
                     pml4_ptr.absolute()?,
-                    guard_page_offset,
-                    mem_size,
                     entrypoint_ptr.absolute()?,
                     rsp_ptr.absolute()?,
                 )?;
@@ -185,12 +171,10 @@ impl<'a> UninitializedSandbox<'a> {
             HypervisorType::HyperV => {
                 use crate::hypervisor::hyperv_windows::HypervWindowsDriver;
 
-                let guest_base_addr = u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?;
                 let hv = HypervWindowsDriver::new(
+                    regions,
                     mgr.shared_mem.raw_mem_size(), // we use raw_* here because windows driver requires 64K aligned addresses,
                     mgr.shared_mem.raw_ptr(), // and instead convert it to base_addr where needed in the driver itself
-                    guest_base_addr,
-                    guard_page_offset,
                     pml4_ptr.absolute()?,
                     entrypoint_ptr.absolute()?,
                     rsp_ptr.absolute()?,

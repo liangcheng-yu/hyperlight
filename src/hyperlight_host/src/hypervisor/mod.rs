@@ -1,6 +1,8 @@
 #[cfg(target_os = "linux")]
 use crate::error::HyperlightError::HostFailedToCancelGuestExecutionSendingSignals;
 use crate::hypervisor::metrics::HypervisorMetric::NumberOfCancelledGuestExecutions;
+use crate::mem::memory_region::MemoryRegion;
+use crate::mem::memory_region::MemoryRegionFlags;
 use crate::new_error;
 use crate::HyperlightError;
 use crate::Result;
@@ -30,9 +32,6 @@ pub mod hyperv_linux;
 #[cfg(target_os = "windows")]
 /// Hyperv-on-windows functionality
 pub(crate) mod hyperv_windows;
-#[cfg(target_os = "linux")]
-/// Hypervisor-generic memory utilities
-pub mod hypervisor_mem;
 #[cfg(target_os = "linux")]
 /// Functionality to manipulate KVM-based virtual machines
 pub mod kvm;
@@ -88,10 +87,8 @@ pub enum HyperlightExit {
     IoOut(u16, Vec<u8>, u64, u64),
     /// The vCPU has attempted to read or write from an unmapped address
     Mmio(u64),
-    /// The vCPU tried to write to the guard page
-    GuardPageViolation(u64),
-    /// The vCPU tried to execute code on the stack
-    ExecutionAccessViolation(u64),
+    /// The vCPU tried to access memory but was missing the required permissions
+    AccessViolation(u64, MemoryRegionFlags, MemoryRegionFlags),
     /// The vCPU execution has been cancelled
     Cancelled(),
     /// The vCPU has exited for a reason that is not handled by Hyperlight
@@ -535,6 +532,31 @@ pub trait Hypervisor: Debug + Sync + Send {
     fn get_max_log_level(&self) -> u32 {
         log::max_level() as u32
     }
+
+    /// Returns a Some(HyperlightExit::AccessViolation(..)) if the given gpa doesn't have
+    /// access its corresponding region. Returns None otherwise, or if the region is not found.
+    fn get_memory_access_violation(
+        &self,
+        gpa: usize,
+        mem_regions: &[MemoryRegion],
+        access_info: MemoryRegionFlags,
+    ) -> Option<HyperlightExit> {
+        // find the region containing the given gpa
+        let region = mem_regions
+            .iter()
+            .find(|region| region.guest_region.contains(&gpa));
+
+        if let Some(region) = region {
+            if !region.flags.contains(access_info) {
+                return Some(HyperlightExit::AccessViolation(
+                    gpa as u64,
+                    access_info,
+                    region.flags,
+                ));
+            }
+        }
+        None
+    }
 }
 
 #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
@@ -638,11 +660,12 @@ impl VirtualCPU {
                         .call()?;
                     log_then_return!("MMIO access address {:#x}", addr);
                 }
-                HyperlightExit::GuardPageViolation(addr) => {
-                    log_then_return!(HyperlightError::GuardPageViolation(addr));
-                }
-                HyperlightExit::ExecutionAccessViolation(addr) => {
-                    log_then_return!(HyperlightError::ExecutionAccessViolation(addr));
+                HyperlightExit::AccessViolation(addr, tried, region_permisson) => {
+                    log_then_return!(HyperlightError::MemoryAccessViolation(
+                        addr,
+                        tried,
+                        region_permisson
+                    ));
                 }
                 HyperlightExit::Cancelled() => {
                     // Shutdown is returned when the host has cancelled execution

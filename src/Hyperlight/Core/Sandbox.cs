@@ -411,11 +411,10 @@ namespace Hyperlight
                 {
                     hyperVisor = new HyperVOnLinux(
                         this.context,
+                        sandboxMemoryManager.Handle,
                         sandboxMemoryManager.SourceAddress,
                         pml4Addr,
-                        memSize,
                         entryPoint,
-                        sandboxMemoryManager.GuardPageOffset,
                         rsp,
                         HandleOutb,
                         HandleMMIOExit
@@ -425,11 +424,10 @@ namespace Hyperlight
                 {
                     hyperVisor = new KVM(
                         this.context,
+                        sandboxMemoryManager.Handle,
                         sandboxMemoryManager.SourceAddress,
                         pml4Addr,
-                        memSize,
                         entryPoint,
-                        sandboxMemoryManager.GuardPageOffset,
                         rsp,
                         HandleOutb,
                         HandleMMIOExit

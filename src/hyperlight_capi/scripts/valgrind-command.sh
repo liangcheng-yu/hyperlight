@@ -16,6 +16,7 @@ valgrind ${GEN_SUPPRESSIONS} ${LOG_FILE} \
 --leak-check=full \
 --error-exitcode=1 \
 --track-origins=yes \
+--sim-hints=lax-ioctls \
 -s \
 --suppressions=./valgrind_suppressions/minimal.supp \
 --suppressions=./valgrind_suppressions/hyperv_linux.supp \

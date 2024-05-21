@@ -1,6 +1,7 @@
 use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
 use hyperlight_common::mem::PAGE_SIZE;
 use hyperlight_host::func::{ParameterValue, ReturnType, ReturnValue};
+use hyperlight_host::mem::memory_region::MemoryRegionFlags;
 use hyperlight_host::sandbox::SandboxConfiguration;
 use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
 use hyperlight_host::sandbox_state::transition::Noop;
@@ -391,7 +392,7 @@ fn guard_page_check() {
             // should have failed
             assert!(matches!(
                 result.unwrap_err(),
-                HyperlightError::GuardPageViolation(_)
+                HyperlightError::MemoryAccessViolation(..)
             ));
         } else {
             assert!(result.is_ok(), "offset {} should pass", offset)
@@ -407,7 +408,7 @@ fn guard_page_check_2() {
     let result = sbox1
         .call_guest_function_by_name("InfiniteRecursion", ReturnType::Void, Some(vec![]))
         .unwrap_err();
-    assert!(matches!(result, HyperlightError::GuardPageViolation(_)));
+    assert!(matches!(result, HyperlightError::MemoryAccessViolation(..)));
 }
 
 #[test]
@@ -428,7 +429,7 @@ fn execute_on_stack() {
         .unwrap_err();
     assert!(matches!(
         result,
-        HyperlightError::ExecutionAccessViolation(_)
+        HyperlightError::MemoryAccessViolation(_, MemoryRegionFlags::EXECUTE, _)
     ));
 }
 

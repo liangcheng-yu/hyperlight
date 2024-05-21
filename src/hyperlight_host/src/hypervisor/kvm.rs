@@ -3,14 +3,17 @@ use super::{
     HyperlightExit, Hypervisor, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR,
     CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
 };
-use crate::mem::layout::SandboxMemoryLayout;
-use crate::mem::ptr::{GuestPtr, RawPtr};
+use crate::mem::memory_region::MemoryRegion;
+use crate::mem::{
+    memory_region::MemoryRegionFlags,
+    ptr::{GuestPtr, RawPtr},
+};
 use crate::Result;
 use crate::{log_then_return, new_error};
-use hyperlight_common::mem::PAGE_SIZE;
+
 use kvm_bindings::{kvm_segment, kvm_userspace_memory_region, KVM_MEM_READONLY};
 use kvm_ioctls::{Cap::UserMemory, Kvm, VcpuExit, VcpuFd, VmFd};
-use std::{any::Any, convert::TryFrom, ops::Range, time::Duration};
+use std::{any::Any, convert::TryFrom, time::Duration};
 use tracing::{instrument, Span};
 
 /// Return `true` if the KVM API is available, version 12, and has UserMemory capability, or `false` otherwise
@@ -48,7 +51,7 @@ pub struct KVMDriver {
     vcpu_fd: VcpuFd,
     entrypoint: u64,
     rsp: GuestPtr,
-    guard_page_region: Range<u64>,
+    mem_regions: Vec<MemoryRegion>,
 }
 
 impl KVMDriver {
@@ -61,10 +64,8 @@ impl KVMDriver {
     //TODO:(#1029) Once CAPI is complete this does not need to be public
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn new(
-        host_addr: u64,
+        mem_regions: Vec<MemoryRegion>,
         pml4_addr: u64,
-        guard_page_offset: u64,
-        mem_size: u64,
         entrypoint: u64,
         rsp: u64,
     ) -> Result<Self> {
@@ -75,43 +76,19 @@ impl KVMDriver {
 
         let vm_fd = kvm.create_vm_with_type(0)?;
 
-        // region up to guard page
-        let first = kvm_userspace_memory_region {
-            slot: 0,
-            // the starting address of memory in the guest
-            guest_phys_addr: u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?,
-            // the total size of guest memory
-            memory_size: guard_page_offset,
-            // the address of the start of memory on the host
-            userspace_addr: host_addr,
-            flags: 0,
-        };
-        unsafe { vm_fd.set_user_memory_region(first) }?;
-
-        // guard page
-        let guard = kvm_userspace_memory_region {
-            slot: 1,
-            flags: KVM_MEM_READONLY,
-            guest_phys_addr: u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)? + guard_page_offset,
-            userspace_addr: host_addr + guard_page_offset,
-            memory_size: PAGE_SIZE,
-        };
-        unsafe { vm_fd.set_user_memory_region(guard) }?;
-
-        // everything after guard page
-        let rest = kvm_userspace_memory_region {
-            slot: 2,
-            // the starting address of memory in the guest
-            guest_phys_addr: u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?
-                + guard_page_offset
-                + PAGE_SIZE,
-            // the total size of guest memory
-            memory_size: mem_size - guard_page_offset - PAGE_SIZE,
-            // the address of the start of memory on the host
-            userspace_addr: host_addr + guard_page_offset + PAGE_SIZE,
-            flags: 0,
-        };
-        unsafe { vm_fd.set_user_memory_region(rest) }?;
+        mem_regions.iter().enumerate().try_for_each(|(i, region)| {
+            let kvm_region = kvm_userspace_memory_region {
+                slot: i as u32,
+                guest_phys_addr: region.guest_region.start as u64,
+                memory_size: (region.guest_region.end - region.guest_region.start) as u64,
+                userspace_addr: region.host_region.start as u64,
+                flags: match region.flags {
+                    MemoryRegionFlags::READ => KVM_MEM_READONLY,
+                    _ => 0, // normal, RWX
+                },
+            };
+            unsafe { vm_fd.set_user_memory_region(kvm_region) }
+        })?;
 
         let mut vcpu_fd = vm_fd.create_vcpu(0)?;
         Self::set_sregs(&mut vcpu_fd, pml4_addr)?;
@@ -123,8 +100,7 @@ impl KVMDriver {
             vcpu_fd,
             entrypoint,
             rsp: rsp_gp,
-            guard_page_region: SandboxMemoryLayout::BASE_ADDRESS as u64 + guard_page_offset
-                ..SandboxMemoryLayout::BASE_ADDRESS as u64 + guard_page_offset + PAGE_SIZE,
+            mem_regions,
         })
     }
 
@@ -293,7 +269,8 @@ impl Hypervisor for KVMDriver {
 
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn run(&mut self) -> Result<HyperlightExit> {
-        let result = match self.vcpu_fd.run() {
+        let exit_reason = self.vcpu_fd.run();
+        let result = match exit_reason {
             Ok(VcpuExit::Hlt) => HyperlightExit::Halt(),
             Ok(VcpuExit::IoOut(port, data)) => {
                 let regs = self.vcpu_fd.get_regs()?;
@@ -304,12 +281,26 @@ impl Hypervisor for KVMDriver {
 
                 HyperlightExit::IoOut(port, data.to_vec(), rip, instruction_length)
             }
-            Ok(VcpuExit::MmioRead(addr, _)) => HyperlightExit::Mmio(addr),
+            Ok(VcpuExit::MmioRead(addr, _)) => {
+                let gpa = addr as usize;
+                match self.get_memory_access_violation(
+                    gpa,
+                    &self.mem_regions,
+                    MemoryRegionFlags::READ,
+                ) {
+                    Some(access_violation_exit) => access_violation_exit,
+                    None => HyperlightExit::Mmio(addr),
+                }
+            }
             Ok(VcpuExit::MmioWrite(addr, _)) => {
-                if self.guard_page_region.contains(&addr) {
-                    HyperlightExit::GuardPageViolation(addr)
-                } else {
-                    HyperlightExit::Mmio(addr)
+                let gpa = addr as usize;
+                match self.get_memory_access_violation(
+                    gpa,
+                    &self.mem_regions,
+                    MemoryRegionFlags::WRITE,
+                ) {
+                    Some(access_violation_exit) => access_violation_exit,
+                    None => HyperlightExit::Mmio(addr),
                 }
             }
             Err(e) => match e.errno() {
@@ -445,7 +436,6 @@ mod tests {
             outb_handler,
             mem_access_handler,
             |mgr, rsp_ptr, pml4_ptr| {
-                let host_addr = u64::try_from(mgr.shared_mem.base_addr())?;
                 let rsp = rsp_ptr.absolute()?;
                 let entrypoint = {
                     let load_addr = mgr.load_addr.clone();
@@ -456,10 +446,8 @@ mod tests {
                 }?;
 
                 let driver = KVMDriver::new(
-                    host_addr,
+                    mgr.layout.get_memory_regions(&mgr.shared_mem),
                     pml4_ptr.absolute().unwrap(),
-                    mgr.layout.get_guard_page_offset().into(),
-                    u64::try_from(mgr.shared_mem.mem_size()).unwrap(),
                     entrypoint.absolute().unwrap(),
                     rsp,
                 )?;

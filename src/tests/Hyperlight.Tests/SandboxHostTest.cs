@@ -1102,26 +1102,27 @@ namespace Hyperlight.Tests
                 var codePayload = File.ReadAllBytes(guestBinaryPath);
                 codeSize = (ulong)codePayload.Length;
             }
-            totalSize = (ulong)(codeSize
-                                + stackSize
-                                + heapSize
-                                + pageTableSize
+            totalSize = (ulong)(pageTableSize
+                                + codeSize
+                                + round_up(headerSize)
                                 + sandboxConfiguration.HostFunctionDefinitionSize
+                                + round_up(sandboxConfiguration.HostExceptionSize
+                                + sandboxConfiguration.GuestErrorBufferSize
                                 + sandboxConfiguration.InputDataSize
                                 + sandboxConfiguration.OutputDataSize
-                                + sandboxConfiguration.HostExceptionSize
-                                + sandboxConfiguration.GuestErrorBufferSize
                                 + sandboxConfiguration.GuestPanicBufferSize
+                                + heapSize)
                                 + PAGE_SIZE // stack guard page
-                                + headerSize
+                                + round_up(stackSize)
                                 + 2 * PAGE_SIZE); // surrounding guard pages
 
-            var rem = totalSize % PAGE_SIZE;
-            if (rem != 0)
-            {
-                totalSize += PAGE_SIZE - rem;
-            }
+
             return totalSize;
+        }
+
+        private ulong round_up(ulong size)
+        {
+            return (size + 4096ul - 1) & ~(4096ul - 1);
         }
 
         private static ulong GetMemorySize(Sandbox sandbox)
@@ -1230,7 +1231,7 @@ namespace Hyperlight.Tests
         {
             ulong minInputSize = 0x2000;
             ulong minOutputSize = 0x2000;
-            ulong minHostFunctionDefinitionSize = 0x400;
+            ulong minHostFunctionDefinitionSize = 0x1000;
             ulong minHostExceptionSize = 0x4000;
             ulong minGuestErrorBufferSize = 0x80;
             ushort defaultMaxExecutionTime = 1000;
@@ -1543,8 +1544,6 @@ namespace Hyperlight.Tests
 
             // Construct the path based on the configuration
             var basePath = AppDomain.CurrentDomain.BaseDirectory;
-            Console.WriteLine($"Base path: {basePath}");
-            //var relativePath = Path.Combine("..", "..", "..", "..", "rust_guests", "bin", configuration);
             var relativePath = Path.Combine("guests", guestType);
             var fullPath = Path.GetFullPath(Path.Combine(basePath, relativePath));
 
@@ -2534,7 +2533,7 @@ namespace Hyperlight.Tests
 
         private ulong GetFunctionDefinitionSize()
         {
-            var min = 1024;
+            var min = 4096;
             var max = 8192;
             var random = new Random();
             return (ulong)random.NextInt64(min, max + 1);

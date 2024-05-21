@@ -18,11 +18,10 @@ internal sealed class KVM : Hypervisor, IDisposable
 
     internal KVM(
         Context ctx,
+        Handle mgr_hdl,
         IntPtr sourceAddr,
         ulong pml4Addr,
-        ulong memSize,
         ulong entryPoint,
-        ulong guardPageOffset,
         ulong rsp,
         Action<ushort, byte> outb,
         Action handleMemoryAccess
@@ -42,10 +41,8 @@ internal sealed class KVM : Hypervisor, IDisposable
 
         var rawHdl = kvm_create_driver(
             ctx.ctx,
-            (ulong)sourceAddr.ToInt64() + OS.GetPageSize(),
+            mgr_hdl.handle,
             pml4Addr,
-            guardPageOffset,
-            memSize - 2 * OS.GetPageSize(),
             entryPoint,
             rsp
         );
@@ -132,10 +129,8 @@ internal sealed class KVM : Hypervisor, IDisposable
     [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
     private static extern NativeHandle kvm_create_driver(
         NativeContext ctx,
-        ulong sourceAddr,
+        NativeHandle mgr_hdl,
         ulong pml4Addr,
-        ulong guardPageOffset,
-        ulong memSize,
         ulong entryPoint,
         ulong rsp
     );

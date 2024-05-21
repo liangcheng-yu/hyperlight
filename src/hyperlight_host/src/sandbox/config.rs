@@ -66,9 +66,11 @@ impl SandboxConfiguration {
     /// The minimum size of output data
     pub const MIN_OUTPUT_SIZE: usize = 0x2000;
     /// The default size of host function definitions
+    /// Host function definitions has its own page in memory, in order to be READ-ONLY
+    /// from a guest's perspective.
     pub const DEFAULT_HOST_FUNCTION_DEFINITION_SIZE: usize = 0x1000;
     /// The minimum size of host function definitions
-    pub const MIN_HOST_FUNCTION_DEFINITION_SIZE: usize = 0x400;
+    pub const MIN_HOST_FUNCTION_DEFINITION_SIZE: usize = 0x1000;
     /// The default size for host exceptions
     pub const DEFAULT_HOST_EXCEPTION_SIZE: usize = 0x4000;
     /// The minimum size for host exceptions

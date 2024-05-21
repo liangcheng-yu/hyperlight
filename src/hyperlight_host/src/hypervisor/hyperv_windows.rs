@@ -6,8 +6,8 @@ use super::{
 };
 use super::{surrogate_process::SurrogateProcess, surrogate_process_manager::*};
 use super::{windows_hypervisor_platform as whp, HyperlightExit};
-use crate::mem::layout::SandboxMemoryLayout;
-use crate::mem::ptr::GuestPtr;
+use crate::mem::memory_region::MemoryRegion;
+use crate::mem::{memory_region::MemoryRegionFlags, ptr::GuestPtr};
 use crate::Result;
 use crate::{
     log_then_return,
@@ -18,19 +18,19 @@ use crate::{
     HyperlightError::{NoHypervisorFound, WindowsErrorHResult},
 };
 use core::ffi::c_void;
-use hyperlight_common::mem::{PAGE_SIZE, PAGE_SIZE_USIZE};
+use hyperlight_common::mem::PAGE_SIZE_USIZE;
+use std::any::Any;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::string::String;
 use std::time::Duration;
-use std::{any::Any, ops::Range};
 use tracing::{instrument, Span};
 use windows::Win32::System::Hypervisor::{
     WHvX64RegisterCr0, WHvX64RegisterCr3, WHvX64RegisterCr4, WHvX64RegisterCs, WHvX64RegisterEfer,
     WHvX64RegisterR8, WHvX64RegisterR9, WHvX64RegisterRcx, WHvX64RegisterRdx, WHvX64RegisterRflags,
-    WHvX64RegisterRip, WHvX64RegisterRsp, WHV_PARTITION_HANDLE, WHV_REGISTER_NAME,
-    WHV_REGISTER_VALUE, WHV_RUN_VP_EXIT_CONTEXT, WHV_RUN_VP_EXIT_REASON, WHV_UINT128,
-    WHV_UINT128_0,
+    WHvX64RegisterRip, WHvX64RegisterRsp, WHV_MEMORY_ACCESS_TYPE, WHV_PARTITION_HANDLE,
+    WHV_REGISTER_NAME, WHV_REGISTER_VALUE, WHV_RUN_VP_EXIT_CONTEXT, WHV_RUN_VP_EXIT_REASON,
+    WHV_UINT128, WHV_UINT128_0,
 };
 /// Wrapper around WHV_REGISTER_NAME so we can impl
 /// Hash on the struct.
@@ -52,7 +52,7 @@ pub(crate) struct HypervWindowsDriver {
     source_address: PtrCVoidMut, // this points into the first guard page
     registers: HashMap<WhvRegisterNameWrapper, WHV_REGISTER_VALUE>,
     orig_rsp: GuestPtr,
-    guard_page_region: Range<u64>,
+    mem_regions: Vec<MemoryRegion>,
 }
 
 impl std::fmt::Debug for HypervWindowsDriver {
@@ -66,10 +66,9 @@ impl std::fmt::Debug for HypervWindowsDriver {
 impl HypervWindowsDriver {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn new(
+        mem_regions: Vec<MemoryRegion>,
         raw_size: usize,
         raw_source_address: *mut c_void,
-        sandbox_base_address: u64,
-        guard_page_offset: u64,
         pml4_address: u64,
         entry_point: u64,
         rsp: u64,
@@ -88,17 +87,7 @@ impl HypervWindowsDriver {
             mgr.get_surrogate_process(raw_size, raw_source_address)
         }?;
 
-        // raw_source_address is SharedMem::raw_ptr(), which means it points to
-        // the guard page. We need to map the memory starting after the guard page
-        let starting_source_address = unsafe { raw_source_address.add(PAGE_SIZE_USIZE) };
-
-        partition.map_gpa_range(
-            &surrogate_process.process_handle,
-            starting_source_address,
-            sandbox_base_address,
-            guard_page_offset,
-            raw_size,
-        )?;
+        partition.map_gpa_range(&mem_regions, &surrogate_process.process_handle)?;
 
         let proc = VMProcessor::new(partition)?;
 
@@ -178,8 +167,7 @@ impl HypervWindowsDriver {
             source_address: PtrCVoidMut::from(raw_source_address),
             registers,
             orig_rsp: GuestPtr::try_from(RawPtr::from(rsp))?,
-            guard_page_region: SandboxMemoryLayout::BASE_ADDRESS as u64 + guard_page_offset
-                ..SandboxMemoryLayout::BASE_ADDRESS as u64 + guard_page_offset + PAGE_SIZE,
+            mem_regions,
         })
     }
 
@@ -411,14 +399,17 @@ impl Hypervisor for HypervWindowsDriver {
             // WHvRunVpExitReasonMemoryAccess
             WHV_RUN_VP_EXIT_REASON(1i32) => {
                 let gpa = unsafe { exit_context.Anonymous.MemoryAccess.Gpa };
-                let access_info =
-                    unsafe { exit_context.Anonymous.MemoryAccess.AccessInfo.AsUINT32 };
-                if access_info == 0x2 {
-                    HyperlightExit::ExecutionAccessViolation(gpa)
-                } else if (self.guard_page_region).contains(&gpa) {
-                    HyperlightExit::GuardPageViolation(gpa)
-                } else {
-                    HyperlightExit::Mmio(gpa)
+                let access_info = unsafe {
+                    WHV_MEMORY_ACCESS_TYPE(
+                        exit_context.Anonymous.MemoryAccess.AccessInfo.AsUINT32 as i32,
+                    )
+                };
+                let access_info = MemoryRegionFlags::try_from(access_info)?;
+
+                match self.get_memory_access_violation(gpa as usize, &self.mem_regions, access_info)
+                {
+                    Some(access_info) => access_info,
+                    None => HyperlightExit::Mmio(gpa),
                 }
             }
             //  WHvRunVpExitReasonCanceled
@@ -485,10 +476,9 @@ pub mod tests {
                     GuestPtr::try_from(total_offset)
                 }?;
                 let driver = HypervWindowsDriver::new(
+                    mgr.layout.get_memory_regions(&mgr.shared_mem),
                     mgr.shared_mem.raw_mem_size(),
                     host_addr,
-                    u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?,
-                    mgr.layout.get_guard_page_offset().into(),
                     pml4_ptr.absolute()?,
                     entrypoint.absolute().unwrap(),
                     rsp,

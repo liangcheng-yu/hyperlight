@@ -4,10 +4,10 @@ use super::hdl::Hdl;
 use super::mem_access_handler::get_mem_access_handler_func;
 use super::mem_access_handler::MemAccessHandlerWrapper;
 use super::outb_handler::get_outb_handler_func;
+use crate::mem_mgr::get_mem_mgr;
 use crate::validate_context;
 use crate::{c_func::CFunc, outb_handler::OutBHandlerWrapper};
 use hyperlight_host::hypervisor::hyperv_linux::{is_hypervisor_present, HypervLinuxDriver};
-use hyperlight_host::hypervisor::hypervisor_mem::HypervisorAddrs;
 use hyperlight_host::hypervisor::Hypervisor;
 use hyperlight_host::mem::ptr::{GuestPtr, RawPtr};
 use hyperlight_host::Result;
@@ -60,16 +60,24 @@ pub extern "C" fn is_hyperv_linux_present() -> bool {
 #[no_mangle]
 pub unsafe extern "C" fn hyperv_linux_create_driver(
     ctx: *mut Context,
-    addrs: HypervisorAddrs,
+    mgr_hdl: Handle,
+    entrypoint: u64,
     rsp: u64,
     pml4: u64,
 ) -> Handle {
     CFunc::new("hyperv_linux_create_driver", ctx)
         .and_then_mut(|ctx, _| {
+            let entrypoint_ptr = GuestPtr::try_from(RawPtr::from(entrypoint))?;
             let rsp_ptr = GuestPtr::try_from(RawPtr::from(rsp))?;
             let pml4_ptr = GuestPtr::try_from(RawPtr::from(pml4))?;
 
-            let driver = HypervLinuxDriver::new(&addrs, rsp_ptr, pml4_ptr)?;
+            let mgr = get_mem_mgr(ctx, mgr_hdl)?;
+            let driver = HypervLinuxDriver::new(
+                mgr.layout.get_memory_regions(&mgr.shared_mem),
+                entrypoint_ptr,
+                rsp_ptr,
+                pml4_ptr,
+            )?;
             Ok(Context::register(
                 driver,
                 &mut ctx.hyperv_linux_drivers,

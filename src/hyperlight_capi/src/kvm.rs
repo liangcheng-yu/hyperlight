@@ -3,6 +3,7 @@ use super::handle::Handle;
 use super::hdl::Hdl;
 use super::hyperv_linux::get_handler_funcs;
 use crate::c_func::CFunc;
+use crate::mem_mgr::get_mem_mgr;
 use hyperlight_host::{
     hypervisor::{
         kvm::{self, KVMDriver},
@@ -50,20 +51,17 @@ pub extern "C" fn is_kvm_present() -> bool {
 #[no_mangle]
 pub unsafe extern "C" fn kvm_create_driver(
     ctx: *mut Context,
-    source_addr: u64,
+    mgr_hdl: Handle,
     pml4_addr: u64,
-    guard_page_offset: u64,
-    mem_size: u64,
     entrypoint: u64,
     rsp: u64,
 ) -> Handle {
     CFunc::new("kvm_create_driver", ctx)
         .and_then_mut(|ctx, _| {
+            let mgr = get_mem_mgr(ctx, mgr_hdl)?;
             let driver = KVMDriver::new(
-                source_addr,
+                mgr.layout.get_memory_regions(&mgr.shared_mem),
                 pml4_addr,
-                guard_page_offset,
-                mem_size,
                 entrypoint,
                 rsp,
             )?;

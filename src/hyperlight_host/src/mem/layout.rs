@@ -1,3 +1,4 @@
+use super::memory_region::{MemoryRegion, MemoryRegionFlags, MemoryRegionVecBuilder};
 #[cfg(test)]
 use super::ptr::HostPtr;
 use super::shared_mem::SharedMemory;
@@ -119,7 +120,6 @@ pub struct SandboxMemoryLayout {
     // other
     pub(crate) peb_address: usize,
     code_size: usize,
-    extra_heap_needed: usize, // for alignment so guard page starts at 4K
 }
 impl SandboxMemoryLayout {
     /// Four Kilobytes (16^3 bytes) - used to round the total amount of memory
@@ -188,10 +188,12 @@ impl SandboxMemoryLayout {
         // The following offsets are the actual values that relate to memory layout,
         // which are written to PEB struct
         let peb_address = usize::try_from(Self::BASE_ADDRESS + peb_offset)?;
-        let host_function_definitions_buffer_offset =
-            peb_stack_data_offset + size_of::<GuestStackData>();
-        let host_exception_buffer_offset =
-            host_function_definitions_buffer_offset + cfg.get_host_function_definition_size();
+        let host_function_definitions_buffer_offset = (peb_stack_data_offset
+            + size_of::<GuestStackData>())
+        .round_up_to(Self::FOUR_K.try_into()?); // make sure host function definitions buffer starts at 4K boundary
+        let host_exception_buffer_offset = (host_function_definitions_buffer_offset
+            + cfg.get_host_function_definition_size())
+        .round_up_to(Self::FOUR_K.try_into()?); // make sure host exception buffer starts at 4K boundary
         let guest_error_buffer_offset =
             host_exception_buffer_offset + cfg.get_host_exception_size();
         let input_data_buffer_offset =
@@ -203,17 +205,13 @@ impl SandboxMemoryLayout {
             guest_panic_context_buffer_offset + cfg.get_guest_panic_context_buffer_size();
         let guard_page_offset =
             (guest_heap_buffer_offset + heap_size).round_up_to(Self::FOUR_K.try_into()?); // make sure guard page starts at 4K boundary
-                                                                                          // which might result in a slightly larger heap
         let guest_stack_buffer_offset = guard_page_offset + Self::FOUR_K;
-
-        let extra_heap_needed = (u64::from(
-            (guest_heap_buffer_offset + heap_size).round_up_to(Self::FOUR_K.try_into()?),
-        ) - u64::from(guest_heap_buffer_offset + heap_size))
-        .try_into()?;
+        // round up stack size to page size. This is needed for MemoryRegion
+        let stack_size_rounded = (stack_size + Self::FOUR_K - 1) & !(Self::FOUR_K - 1);
 
         Ok(Self {
             peb_offset,
-            stack_size,
+            stack_size: stack_size_rounded,
             heap_size,
             peb_security_cookie_seed_offset,
             peb_guest_dispatch_function_ptr_offset,
@@ -237,7 +235,6 @@ impl SandboxMemoryLayout {
             guest_stack_buffer_offset,
             peb_address,
             guest_panic_context_buffer_offset,
-            extra_heap_needed,
             guard_page_offset,
         })
     }
@@ -292,7 +289,7 @@ impl SandboxMemoryLayout {
         self.peb_stack_data_offset
     }
 
-    #[cfg(test)]
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn get_stack_size(&self) -> usize {
         self.stack_size
     }
@@ -439,24 +436,7 @@ impl SandboxMemoryLayout {
     /// layout.
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_unaligned_memory_size(&self) -> usize {
-        // in order, starting from bottom
-        Self::PAGE_TABLE_SIZE
-            + self.code_size
-            + size_of::<HyperlightPEB>()
-            + self
-                .sandbox_memory_config
-                .get_host_function_definition_size()
-            + self.sandbox_memory_config.get_host_exception_size()
-            + self.sandbox_memory_config.get_guest_error_buffer_size()
-            + self.sandbox_memory_config.get_input_data_size()
-            + self.sandbox_memory_config.get_output_data_size()
-            + self
-                .sandbox_memory_config
-                .get_guest_panic_context_buffer_size()
-            + self.heap_size
-            + self.extra_heap_needed
-            + PAGE_SIZE_USIZE
-            + self.stack_size
+        usize::try_from(self.get_top_of_stack_offset()).unwrap() + self.get_stack_size()
     }
 
     /// Get the total size of guest memory in `self`'s memory
@@ -478,6 +458,80 @@ impl SandboxMemoryLayout {
         } else {
             Ok(size)
         }
+    }
+
+    /// Returns the memory regions associated with this memory layout,
+    /// suitable for passing to a hypervisor for mapping into memory
+    pub fn get_memory_regions(&self, shared_mem: &SharedMemory) -> Vec<MemoryRegion> {
+        let mut builder = MemoryRegionVecBuilder::new(Self::BASE_ADDRESS, shared_mem.base_addr());
+        // PML4, PDPT, PD
+        let code_offset = builder.push_page_aligned(
+            Self::PAGE_TABLE_SIZE,
+            MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
+        );
+        assert_eq!(code_offset, Self::CODE_OFFSET);
+
+        // code
+        let peb_offset = builder.push_page_aligned(
+            self.code_size,
+            MemoryRegionFlags::READ | MemoryRegionFlags::WRITE | MemoryRegionFlags::EXECUTE,
+        );
+        assert_eq!(
+            peb_offset,
+            TryInto::<usize>::try_into(self.peb_offset).unwrap()
+        );
+
+        // PEB
+        let host_functions_definitions_offset = builder.push_page_aligned(
+            size_of::<HyperlightPEB>(),
+            MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
+        );
+        assert_eq!(
+            host_functions_definitions_offset,
+            TryInto::<usize>::try_into(self.host_function_definitions_buffer_offset).unwrap()
+        );
+
+        // host function definitions
+        let host_exception_offset = builder.push_page_aligned(
+            self.sandbox_memory_config
+                .get_host_function_definition_size(),
+            MemoryRegionFlags::READ,
+        );
+        assert_eq!(
+            host_exception_offset,
+            TryInto::<usize>::try_into(self.host_exception_buffer_offset).unwrap()
+        );
+
+        // host exception, guest error, guest input data, guest output, guest panic context, guest heap
+        let guard_page_offset = builder.push_page_aligned(
+            self.sandbox_memory_config.get_host_exception_size()
+                + self.sandbox_memory_config.get_guest_error_buffer_size()
+                + self.sandbox_memory_config.get_input_data_size()
+                + self.sandbox_memory_config.get_output_data_size()
+                + self
+                    .sandbox_memory_config
+                    .get_guest_panic_context_buffer_size()
+                + self.heap_size,
+            MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
+        );
+        assert_eq!(
+            guard_page_offset,
+            TryInto::<usize>::try_into(self.guard_page_offset).unwrap()
+        );
+
+        // guard page
+        let stack_offset = builder.push_page_aligned(PAGE_SIZE_USIZE, MemoryRegionFlags::READ);
+        assert!(
+            stack_offset == TryInto::<usize>::try_into(self.guest_stack_buffer_offset).unwrap()
+        );
+
+        // stack
+        let final_offset = builder.push_page_aligned(
+            self.get_stack_size(),
+            MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
+        );
+        assert_eq!(final_offset, self.get_unaligned_memory_size());
+        builder.build()
     }
 
     /// Write the finished memory layout to `shared_mem` and return

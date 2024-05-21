@@ -6,6 +6,8 @@ pub mod layout;
 /// `LoadLibrary` call
 #[cfg(target_os = "windows")]
 pub(super) mod loaded_lib;
+/// memory regions to be mapped inside a vm
+pub mod memory_region;
 /// Functionality taht wraps a `SandboxMemoryLayout` and a
 /// `SandboxMemoryConfig` to mutate a sandbox's memory as necessary.
 pub mod mgr;
