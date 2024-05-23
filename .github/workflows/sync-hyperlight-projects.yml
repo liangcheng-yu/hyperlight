@@ -6,11 +6,6 @@ on:
     - cron: "0 14 * * *" # Every day at 14:00 UTC / 6:00 PST
   workflow_dispatch:
 
-permissions:
-  contents: read
-  issues: write
-  repository-projects: write
-
 jobs:
   build:
     name: hyperlight-project-board-sync
@@ -20,6 +15,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: sync Hyperlight project - deislabs org
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.SYNC_PROJECTS_PAT }}
         run: |
           ./dev/sync-project-board.sh
