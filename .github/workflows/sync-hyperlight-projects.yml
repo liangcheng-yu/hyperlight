@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: hyperlight-project-board-sync
+
+on:
+  schedule:
+    - cron: "0 14 * * *" # Every day at 14:00 UTC / 6:00 PST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  repository-projects: write
+
+jobs:
+  build:
+    name: hyperlight-project-board-sync
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: sync Hyperlight project - deislabs org
+        run: |
+          ./dev/sync-project-board.sh
