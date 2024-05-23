@@ -19,5 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: sync Hyperlight project - deislabs org
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./dev/sync-project-board.sh
