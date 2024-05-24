@@ -115,7 +115,6 @@ impl SandboxMemoryManager {
     }
 
     /// Get `SharedMemory` in `self` as a mutable reference
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn get_shared_mem_mut(&mut self) -> &mut SharedMemory {
         &mut self.shared_mem
     }
@@ -156,18 +155,18 @@ impl SandboxMemoryManager {
 
         // Create PDL4 table with only 1 PML4E
         self.shared_mem.write_u64(
-            Offset::try_from(SandboxMemoryLayout::PML4_OFFSET)?,
+            SandboxMemoryLayout::PML4_OFFSET,
             PDE64_PRESENT | PDE64_RW | PDE64_USER | SandboxMemoryLayout::PDPT_GUEST_ADDRESS as u64,
         )?;
         // Create PDPT with only 1 PDPTE
         self.shared_mem.write_u64(
-            Offset::try_from(SandboxMemoryLayout::PDPT_OFFSET)?,
+            SandboxMemoryLayout::PDPT_OFFSET,
             PDE64_PRESENT | PDE64_RW | PDE64_USER | SandboxMemoryLayout::PD_GUEST_ADDRESS as u64,
         )?;
 
         // Create 1 PD with 512 PDEs
         for i in 0..512 {
-            let offset = Offset::try_from(SandboxMemoryLayout::PD_OFFSET + (i * 8))?;
+            let offset = SandboxMemoryLayout::PD_OFFSET + (i * 8);
             // PS flag makes the page size 2MB
             let val_to_write: u64 =
                 (i << 21) as u64 + (PDE64_PRESENT | PDE64_RW | PDE64_USER | PDE64_PS);
@@ -212,8 +211,8 @@ impl SandboxMemoryManager {
     pub fn get_peb_address(&self, start_addr: u64) -> Result<u64> {
         match self.run_from_process_memory {
             true => {
-                let updated_offset = self.layout.get_in_process_peb_offset() + start_addr;
-                Ok(u64::from(updated_offset))
+                let updated_offset = self.layout.get_in_process_peb_offset() as u64 + start_addr;
+                Ok(updated_offset)
             }
             false => u64::try_from(self.layout.peb_address).map_err(|_| {
                 new_error!(
@@ -536,7 +535,7 @@ impl SandboxMemoryManager {
             // Apply relocations to the PE file (if necessary), then copy
             // the PE file into shared memory
             PEInfo::apply_relocation_patches(pe_info.get_payload_mut(), relocation_patches)?;
-            let code_offset = Offset::try_from(SandboxMemoryLayout::CODE_OFFSET)?;
+            let code_offset = SandboxMemoryLayout::CODE_OFFSET;
             shared_mem.copy_from_slice(pe_info.get_payload(), code_offset)
         }?;
 

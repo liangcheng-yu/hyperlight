@@ -2,12 +2,12 @@ use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::{int::register_u64, validate_context, validate_context_or_panic};
-use hyperlight_host::mem::{ptr_offset::Offset, shared_mem::SharedMemory};
+use hyperlight_host::mem::shared_mem::SharedMemory;
 use hyperlight_host::{new_error, Result};
 
 mod impls {
     use crate::{byte_array::get_byte_array, context::Context, handle::Handle};
-    use hyperlight_host::mem::{ptr_offset::Offset, shared_mem::SharedMemory};
+    use hyperlight_host::mem::shared_mem::SharedMemory;
     use hyperlight_host::{log_then_return, Result};
     use std::cell::RefCell;
 
@@ -86,7 +86,7 @@ mod impls {
         ctx: &mut Context,
         shared_mem_hdl: Handle,
         byte_array_hdl: Handle,
-        shared_mem_offset: Offset,
+        shared_mem_offset: usize,
         arr_start: usize,
         arr_length: usize,
     ) -> Result<()> {
@@ -305,16 +305,11 @@ pub unsafe extern "C" fn shared_memory_copy_from_byte_array(
 ) -> Handle {
     validate_context!(ctx);
 
-    let offset_val = match Offset::try_from(offset) {
-        Ok(offs) => offs,
-        Err(e) => return (*ctx).register_err(e),
-    };
-
     match impls::copy_byte_array(
         &mut *ctx,
         shared_mem_hdl,
         byte_array_hdl,
-        offset_val,
+        offset,
         arr_start,
         arr_length,
     ) {
@@ -328,7 +323,7 @@ mod tests {
     use super::impls::copy_byte_array;
     use super::register_shared_mem;
     use crate::{context::Context, handle::Handle, hdl::Hdl};
-    use hyperlight_host::{mem::ptr_offset::Offset, mem::shared_mem::SharedMemory, Result};
+    use hyperlight_host::{mem::shared_mem::SharedMemory, Result};
 
     struct TestData {
         // Context used to create all handles herein
@@ -376,7 +371,7 @@ mod tests {
             test_data.ctx.as_mut(),
             test_data.shared_mem_hdl,
             test_data.byte_arr_hdl,
-            Offset::zero(),
+            0,
             0,
             test_data.barr_len,
         )
@@ -390,7 +385,7 @@ mod tests {
             test_data.ctx.as_mut(),
             test_data.shared_mem_hdl,
             test_data.byte_arr_hdl,
-            Offset::zero(),
+            0,
             0,
             test_data.barr_len,
         )
@@ -399,7 +394,7 @@ mod tests {
             test_data.ctx.as_mut(),
             test_data.shared_mem_hdl,
             test_data.byte_arr_hdl,
-            Offset::zero(),
+            0,
             0,
             test_data.barr_len,
         )
@@ -414,7 +409,7 @@ mod tests {
             test_data.ctx.as_mut(),
             test_data.shared_mem_hdl,
             test_data.byte_arr_hdl,
-            Offset::try_from(test_data.shared_mem_size - test_data.barr_len - 1).unwrap(),
+            test_data.shared_mem_size - test_data.barr_len - 1,
             0,
             test_data.barr_len,
         )
@@ -430,7 +425,7 @@ mod tests {
             test_data.ctx.as_mut(),
             test_data.shared_mem_hdl,
             test_data.byte_arr_hdl,
-            Offset::try_from(test_data.shared_mem_size).unwrap(),
+            test_data.shared_mem_size,
             0,
             1,
         );
@@ -446,7 +441,7 @@ mod tests {
             test_data.ctx.as_mut(),
             test_data.shared_mem_hdl,
             test_data.byte_arr_hdl,
-            Offset::zero(),
+            0,
             0,
             test_data.barr_len * 10,
         );

@@ -516,7 +516,6 @@ mod tests {
     use super::test_cfg::{SHOULD_RUN_TEST, TEST_CONFIG};
     use super::*;
     use crate::mem::memory_region::MemoryRegionVecBuilder;
-    use crate::mem::ptr_offset::Offset;
     use crate::{mem::shared_mem::SharedMemory, should_run_hyperv_linux_test};
 
     #[rustfmt::skip]
@@ -533,13 +532,12 @@ mod tests {
     fn shared_mem_with_code(
         code: &[u8],
         mem_size: usize,
-        load_offset: Offset,
+        load_offset: usize,
     ) -> Result<Box<SharedMemory>> {
-        let load_offset_usize = usize::try_from(load_offset)?;
-        if load_offset_usize > mem_size {
+        if load_offset > mem_size {
             log_then_return!(
                 "code load offset ({}) > memory size ({})",
-                u64::from(load_offset),
+                load_offset,
                 mem_size
             );
         }
@@ -558,10 +556,10 @@ mod tests {
     fn create_driver() {
         should_run_hyperv_linux_test!();
         const MEM_SIZE: usize = 0x3000;
-        let gm = shared_mem_with_code(CODE.as_slice(), MEM_SIZE, Offset::zero()).unwrap();
-        let rsp_ptr = GuestPtr::try_from(Offset::from(0)).unwrap();
-        let pml4_ptr = GuestPtr::try_from(Offset::from(0)).unwrap();
-        let entrypoint_ptr = GuestPtr::try_from(Offset::from(0)).unwrap();
+        let gm = shared_mem_with_code(CODE.as_slice(), MEM_SIZE, 0).unwrap();
+        let rsp_ptr = GuestPtr::try_from(0).unwrap();
+        let pml4_ptr = GuestPtr::try_from(0).unwrap();
+        let entrypoint_ptr = GuestPtr::try_from(0).unwrap();
         let mut regions = MemoryRegionVecBuilder::new(0, gm.base_addr());
         regions.push_page_aligned(
             MEM_SIZE,

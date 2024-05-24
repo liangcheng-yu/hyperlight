@@ -74,13 +74,13 @@ impl TryFrom<(RawPtr, &SharedMemory)> for HostPtr {
     }
 }
 
-impl TryFrom<(Offset, &SharedMemory)> for HostPtr {
+impl TryFrom<(usize, &SharedMemory)> for HostPtr {
     type Error = HyperlightError;
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    fn try_from(tup: (Offset, &SharedMemory)) -> Result<Self> {
+    fn try_from(tup: (usize, &SharedMemory)) -> Result<Self> {
         Ok(Self {
             addr_space: HostAddressSpace::new(tup.1)?,
-            offset: tup.0,
+            offset: Offset::try_from(tup.0 as u64)?,
         })
     }
 }

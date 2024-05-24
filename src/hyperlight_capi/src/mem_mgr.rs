@@ -458,7 +458,7 @@ pub unsafe extern "C" fn mem_mgr_get_guard_page_offset(
     validate_context!(ctx);
     let mgr = get_mgr!(ctx, mgr_hdl);
     let val_usize = mgr.layout.get_guard_page_offset();
-    let val = u64::from(val_usize);
+    let val = val_usize as u64;
     register_u64(&mut *ctx, val)
 }
 

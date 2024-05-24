@@ -137,6 +137,7 @@ impl<'a> UninitializedSandbox<'a> {
             let entrypoint_total_offset = mgr.load_addr.clone() + mgr.entrypoint_offset;
             GuestPtr::try_from(entrypoint_total_offset)
         }?;
+
         assert!(base_ptr == pml4_ptr);
         assert!(entrypoint_ptr > pml4_ptr);
         assert!(rsp_ptr > entrypoint_ptr);

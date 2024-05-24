@@ -359,11 +359,11 @@ mod tests {
 
                     // We cannot get the parent span using the `current_span()` method as by the time we get to this point that span has been exited so there is no current span
                     // We need to make sure that the span that we created is in the spans map instead
-                    // We expect to have created 71 spans at this point. We are only interested in the first one that was created when calling outb_log.
+                    // We expect to have created 40 spans at this point. We are only interested in the first one that was created when calling outb_log.
 
                     assert!(
-                        spans.len() == 80,
-                        "expected 80 spans, found {}",
+                        spans.len() == 40,
+                        "expected 40 spans, found {}",
                         spans.len()
                     );
 

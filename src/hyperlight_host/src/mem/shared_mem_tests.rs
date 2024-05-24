@@ -1,7 +1,7 @@
 #![cfg(test)]
 use hyperlight_common::mem::PAGE_SIZE_USIZE;
 
-use super::{ptr_offset::Offset, shared_mem::SharedMemory};
+use super::shared_mem::SharedMemory;
 use crate::log_then_return;
 use crate::new_error;
 use crate::Result;
@@ -13,10 +13,10 @@ use std::mem::size_of;
 
 /// A function that knows how to read data of type `T` from a
 /// `SharedMemory` at a specified offset
-type ReaderFn<T> = dyn Fn(&SharedMemory, Offset) -> Result<T>;
+type ReaderFn<T> = dyn Fn(&SharedMemory, usize) -> Result<T>;
 /// A function that knows how to write data of type `T` from a
 /// `SharedMemory` at a specified offset.
-type WriterFn<T> = dyn Fn(&mut SharedMemory, Offset, T) -> Result<()>;
+type WriterFn<T> = dyn Fn(&mut SharedMemory, usize, T) -> Result<()>;
 
 /// Run the standard suite of tests for a specified type `U` to write to
 /// a `SharedMemory` and a specified type `T` to read back out of
@@ -50,7 +50,7 @@ where
         (writer)(&mut sm, offset, val)
     };
 
-    let test_write_read = |mem_size, offset: Offset, initial_val: U| {
+    let test_write_read = |mem_size, offset: usize, initial_val: U| {
         let mut sm = SharedMemory::new(mem_size)?;
         writer(&mut sm, offset, initial_val.clone())?;
         let ret_val = reader(&sm, offset)?;
@@ -63,7 +63,7 @@ where
             log_then_return!(
                 "(mem_size: {}, offset: {}, val: {:?}), actual returned val = {:?}",
                 mem_size,
-                u64::from(offset),
+                offset,
                 initial_val,
                 ret_val,
             );
@@ -71,39 +71,19 @@ where
     };
 
     // write the value to the start of memory, then read it back
-    test_write_read(mem_size, Offset::zero(), initial_val.clone())?;
+    test_write_read(mem_size, 0, initial_val.clone())?;
     // write the value to the end of memory then read it back
-    test_write_read(
-        mem_size,
-        Offset::try_from(mem_size - size_of::<T>())?,
-        initial_val.clone(),
-    )?;
+    test_write_read(mem_size, mem_size - size_of::<T>(), initial_val.clone())?;
     // write the value to the middle of memory, then read it back
-    test_write_read(
-        mem_size,
-        Offset::try_from(mem_size / 2)?,
-        initial_val.clone(),
-    )?;
+    test_write_read(mem_size, mem_size / 2, initial_val.clone())?;
     // read a value from the memory at an invalid offset.
-    swap_res(test_write_read(
-        mem_size,
-        Offset::try_from(mem_size * 2)?,
-        initial_val.clone(),
-    ))?;
+    swap_res(test_write_read(mem_size, mem_size * 2, initial_val.clone()))?;
     // write the value to the memory at an invalid offset.
-    swap_res(test_write(
-        mem_size,
-        Offset::try_from(mem_size * 2)?,
-        initial_val.clone(),
-    ))?;
+    swap_res(test_write(mem_size, mem_size * 2, initial_val.clone()))?;
     // read a value from the memory beyond the end of the memory.
-    swap_res(test_read(mem_size, Offset::try_from(mem_size)?))?;
+    swap_res(test_read(mem_size, mem_size))?;
     // write the value to the memory beyond the end of the memory.
-    swap_res(test_write(
-        mem_size,
-        Offset::try_from(mem_size)?,
-        initial_val,
-    ))?;
+    swap_res(test_write(mem_size, mem_size, initial_val))?;
     Ok(())
 }
 
