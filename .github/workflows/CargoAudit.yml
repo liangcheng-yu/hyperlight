@@ -1,0 +1,18 @@
+name: Audit cargo dependencies for security vulnerabilities
+on:
+  schedule:
+    - cron: "0 8 * * 1" # run at 8am every Monday
+  workflow_dispatch: # allow manual triggering
+
+permissions:
+    issues: write # Creates issues for any vulnerabilities found
+    contents: read 
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: rustsec/audit-check@v1.4.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
