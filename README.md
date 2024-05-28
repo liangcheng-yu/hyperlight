@@ -217,8 +217,7 @@ To do do this please ensure the following:
 
 1. You have access to the [AzureContainerUpstream Hyperlight_packages Cargo feed]('https://dev.azure.com/AzureContainerUpstream/hyperlight/_artifacts/feed/hyperlight_packages_test')
 
-    - Contact project maintainers if you need access.
-    - To grant access add users to the [**Hyperlight Cargo Reader** team](https://dev.azure.com/AzureContainerUpstream/hyperlight/_settings/teams)
+    - To gain access please join the navigate to [IDWeb](http://aka.ms/idweb) and join the **Hyperlight-Cargo-Readers** security group.
 
 1. You have the 'az cli' installed and are logged in to AzureDevops
 

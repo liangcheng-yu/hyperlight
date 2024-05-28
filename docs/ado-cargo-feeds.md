@@ -11,7 +11,7 @@ Currently, we have two feeds set up in AzureDevOps:
 
 ## Feed Access
 
-Access to the Hyperlight cargo feeds is currently confirgured manually. To gain access to the feeds, please contact the Hyperlight team.
+To gain access please join the navigate to [IDWeb](http://aka.ms/idweb) and join the **Hyperlight-Cargo-Readers**  security group.
 
 ## Cargo Login
 
