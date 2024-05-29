@@ -45,15 +45,15 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">
     <GenerateManifest>false</GenerateManifest>
-    <OutDir>$(SolutionDir)src\tests\Guests\$(ProjectName)\$(Platform)\$(Configuration.toLower())\</OutDir>
+    <OutDir>$(ProjectDir)\$(Platform)\$(Configuration.toLower())\</OutDir>
     <IncludePath>$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\internal;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\generic;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\x86_64;$(ProjectDir)..\..\..\HyperlightGuest\third_party\printf;$(ProjectDir)..\..\..\HyperlightGuest\third_party\musl;$(ProjectDir)..\..\..\HyperlightGuest\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\flatcc\include;$(ProjectDir)..\..\..\HyperlightGuest\include\flatbuffers\generated</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">
     <GenerateManifest>false</GenerateManifest>
-    <OutDir>$(SolutionDir)src\tests\Guests\$(ProjectName)\$(Platform)\$(Configuration.toLower())\</OutDir>
+    <OutDir>$(ProjectDir)\$(Platform)\$(Configuration.toLower())\</OutDir>
     <IncludePath>$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\internal;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\generic;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\x86_64;$(ProjectDir)..\..\..\HyperlightGuest\third_party\printf;$(ProjectDir)..\..\..\HyperlightGuest\third_party\musl;$(ProjectDir)..\..\..\HyperlightGuest\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\flatcc\include;$(ProjectDir)..\..\..\HyperlightGuest\include\flatbuffers\generated</IncludePath>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='release|x64'">
+  <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">
     <ExternalIncludePath />
     <ReferencePath />
     <LibraryPath />
@@ -61,7 +61,7 @@
     <SourcePath />
     <ExcludePath />
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='debug|x64'">
+  <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">
     <ExternalIncludePath />
     <ReferencePath />
     <LibraryPath />
@@ -80,9 +80,9 @@
       <EntryPointSymbol>entryPoint</EntryPointSymbol>
       <SubSystem>Native</SubSystem>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
-      <AdditionalLibraryDirectories>$(SolutionDir)$(Platform)\$(Configuration.toLower())\</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\HyperlightGuest\$(Platform)\$(Configuration.toLower())\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalOptions>/ignore:4108 %(AdditionalOptions)</AdditionalOptions>
-      <LinkErrorReporting Condition="'$(Configuration)|$(Platform)'=='release|x64'">NoErrorReport</LinkErrorReporting>
+      <LinkErrorReporting Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">NoErrorReport</LinkErrorReporting>
     </Link>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -94,11 +94,11 @@
       <Optimization>MaxSpeed</Optimization>
       <IntrinsicFunctions>
       </IntrinsicFunctions>
-      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='release|x64'">MultiThreaded</RuntimeLibrary>
-      <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='release|x64'">stdc17</LanguageStandard_C>
-      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='release|x64'">true</ShowIncludes>
-      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='release|x64'">hidden=;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <SDLCheck Condition="'$(Configuration)|$(Platform)'=='release|x64'">true</SDLCheck>
+      <RuntimeLibrary Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">MultiThreaded</RuntimeLibrary>
+      <LanguageStandard_C Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">stdc17</LanguageStandard_C>
+      <ShowIncludes Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">true</ShowIncludes>
+      <PreprocessorDefinitions Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">hidden=;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">true</SDLCheck>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">
@@ -115,7 +115,7 @@
       <SubSystem>Native</SubSystem>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <LinkErrorReporting>NoErrorReport</LinkErrorReporting>
-      <AdditionalLibraryDirectories>$(SolutionDir)$(Platform)\$(Configuration.toLower())\</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\HyperlightGuest\$(Platform)\$(Configuration.toLower())\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalOptions>/ignore:4108 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <ClCompile>
@@ -126,11 +126,11 @@
       <Optimization>Disabled</Optimization>
       <BufferSecurityCheck>true</BufferSecurityCheck>
       <IntrinsicFunctions>false</IntrinsicFunctions>
-      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='debug|x64'">MultiThreaded</RuntimeLibrary>
-      <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='debug|x64'">stdc17</LanguageStandard_C>
-      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='debug|x64'">true</ShowIncludes>
-      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='debug|x64'">hidden=;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <SDLCheck Condition="'$(Configuration)|$(Platform)'=='debug|x64'">true</SDLCheck>
+      <RuntimeLibrary Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">MultiThreaded</RuntimeLibrary>
+      <LanguageStandard_C Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">stdc17</LanguageStandard_C>
+      <ShowIncludes Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">true</ShowIncludes>
+      <PreprocessorDefinitions Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">hidden=;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">true</SDLCheck>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>

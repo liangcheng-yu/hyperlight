@@ -43,14 +43,14 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">
     <GenerateManifest>false</GenerateManifest>
-    <OutDir>$(SolutionDir)src\tests\Guests\$(ProjectName)\$(Platform)\$(Configuration.toLower())\</OutDir>
+    <OutDir>$(ProjectDir)\$(Platform)\$(Configuration.toLower())\</OutDir>
     <IncludePath>$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\internal;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\generic;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\x86_64;$(ProjectDir)..\..\..\HyperlightGuest\third_party\printf;$(ProjectDir)..\..\..\HyperlightGuest\third_party\musl;$(ProjectDir)..\..\..\HyperlightGuest\include\flatbuffers\generated;$(ProjectDir)..\..\..\HyperlightGuest\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\flatcc\include</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">
-    <OutDir>$(SolutionDir)src\tests\Guests\$(ProjectName)\$(Platform)\$(Configuration.toLower())\</OutDir>
+    <OutDir>$(ProjectDir)\$(Platform)\$(Configuration.toLower())\</OutDir>
     <IncludePath>$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\src\internal;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\generic;$(ProjectDir)..\..\..\HyperlightGuest\third_party\libc\musl\arch\x86_64;$(ProjectDir)..\..\..\HyperlightGuest\third_party\printf;$(ProjectDir)..\..\..\HyperlightGuest\third_party\musl;$(ProjectDir)..\..\..\HyperlightGuest\include\flatbuffers\generated;$(ProjectDir)..\..\..\HyperlightGuest\include;$(ProjectDir)..\..\..\HyperlightGuest\third_party\flatcc\include</IncludePath>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='debug|x64'">
+  <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">
     <ExternalIncludePath />
     <ReferencePath />
     <LibraryPath />
@@ -58,7 +58,7 @@
     <SourcePath />
     <ExcludePath />
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='release|x64'">
+  <PropertyGroup Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">
     <ExternalIncludePath />
     <ReferencePath />
     <LibraryPath />
@@ -84,9 +84,9 @@
       <WarningLevel>Level3</WarningLevel>
       <IntrinsicFunctions>
       </IntrinsicFunctions>
-      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='release|x64'">hidden=;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='release|x64'">stdc17</LanguageStandard_C>
-      <SDLCheck Condition="'$(Configuration)|$(Platform)'=='release|x64'">true</SDLCheck>
+      <PreprocessorDefinitions Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">hidden=;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard_C Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">stdc17</LanguageStandard_C>
+      <SDLCheck Condition="'$(Configuration.toLower())|$(Platform)'=='release|x64'">true</SDLCheck>
     </ClCompile>
     <Link>
       <AdditionalDependencies>HyperlightGuest.lib</AdditionalDependencies>
@@ -95,7 +95,7 @@
       <EntryPointSymbol>entryPoint</EntryPointSymbol>
       <SectionAlignment>512</SectionAlignment>
       <SubSystem>Native</SubSystem>
-      <AdditionalLibraryDirectories>$(SolutionDir)$(Platform)\$(Configuration.toLower())\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\HyperlightGuest\$(Platform)\$(Configuration.toLower())\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <AdditionalOptions>/ignore:4108 %(AdditionalOptions)</AdditionalOptions>
     </Link>
@@ -108,9 +108,9 @@
       <debugInformationFormat>ProgramDatabase</debugInformationFormat>
       <UseFullPaths />
       <IntrinsicFunctions>false</IntrinsicFunctions>
-      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='debug|x64'">hidden=;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='debug|x64'">stdc17</LanguageStandard_C>
-      <SDLCheck Condition="'$(Configuration)|$(Platform)'=='debug|x64'">true</SDLCheck>
+      <PreprocessorDefinitions Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">hidden=;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard_C Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">stdc17</LanguageStandard_C>
+      <SDLCheck Condition="'$(Configuration.toLower())|$(Platform)'=='debug|x64'">true</SDLCheck>
     </ClCompile>
     <Link>
       <AdditionalDependencies>HyperlightGuest.lib</AdditionalDependencies>
@@ -120,7 +120,7 @@
       <GenerateMapFile>false</GenerateMapFile>
       <SectionAlignment>512</SectionAlignment>
       <SubSystem>Native</SubSystem>
-      <AdditionalLibraryDirectories>$(SolutionDir)$(Platform)\$(Configuration.toLower())\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\HyperlightGuest\$(Platform)\$(Configuration.toLower())\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <AdditionalOptions>/ignore:4108 %(AdditionalOptions)</AdditionalOptions>
     </Link>
