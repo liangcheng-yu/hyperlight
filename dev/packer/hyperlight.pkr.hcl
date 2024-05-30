@@ -19,6 +19,12 @@ variable vm_size {
   default = "Standard_D4as_v5"
 }
 
+variable image_name {
+  type = string
+  description = "The name of Azure image to use when pushing outputs to Azure. Default: hyperlight-ci"
+  default = "hyperlight-ci"
+}
+
 locals {
   current_time = timestamp()
   major = formatdate("YYYY", local.current_time)
@@ -36,14 +42,14 @@ source "azure-arm" "hyperlight_dev" {
   image_offer                       = "cbl-mariner"
   image_sku                         = "cbl-mariner-2-gen2"
   location                          = var.location
-  managed_image_name                = "hyperlight-dev"
+  managed_image_name                = var.image_name
   managed_image_resource_group_name = "dev-images"
   os_type                           = "Linux"
   vm_size                           = var.vm_size
   shared_image_gallery_destination {
     resource_group = "dev-images"
     gallery_name = "hyperlight"
-    image_name = "hyperlight-dev"
+    image_name = var.image_name
     image_version = "${local.major}.${local.minor}.${local.patch}"
     replication_regions = [var.location]
   }

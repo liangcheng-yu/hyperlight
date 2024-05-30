@@ -3,6 +3,11 @@
 name: Build Hyperlight development image
 
 on:
+  pull_request:
+    branches: [ dev ]
+    paths:
+      - '.github/workflows/ImageBuilder.yml'
+      - 'dev/packer/**'
   workflow_dispatch:
     inputs:
         machine_size:
@@ -53,7 +58,14 @@ jobs:
         id: validate
         run: "packer validate ./dev/packer/hyperlight.pkr.hcl"
 
+      - name: Run `packer build` (ci)
+        if: ${{ github.event_name == 'pull_request' }}
+        id: build-ci
+        # force here is used to overwrite the managed image that gets created in the build process
+        run: "packer build -var 'vm_size=Standard_D4as_v5' -var 'location=westus3'  -force -color=false ./dev/packer/hyperlight.pkr.hcl"
+
       - name: Run `packer build`
+        if: ${{ github.event_name != 'pull_request' }}
         id: build
         # force here is used to overwrite the managed image that gets created in the build process
-        run: "packer build -var 'vm_size=${{ github.event.inputs.machine_size }}' -var 'location=${{ github.event.inputs.location }}' -force -color=false ./dev/packer/hyperlight.pkr.hcl"
+        run: "packer build -var 'vm_size=${{ github.event.inputs.machine_size }}' -var 'location=${{ github.event.inputs.location }}' -var 'image_name=hyperlight_dev' -force -color=false ./dev/packer/hyperlight.pkr.hcl"
