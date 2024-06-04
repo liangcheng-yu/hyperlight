@@ -91,6 +91,20 @@ impl<'a> FunctionCallResult<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
+    pub fn return_value_as_hluint(&self) -> Option<hluint<'a>> {
+        if self.return_value_type() == ReturnValue::hluint {
+            let u = self.return_value();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { hluint::init_from_table(u) })
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
     pub fn return_value_as_hllong(&self) -> Option<hllong<'a>> {
         if self.return_value_type() == ReturnValue::hllong {
             let u = self.return_value();
@@ -98,6 +112,20 @@ impl<'a> FunctionCallResult<'a> {
             // Created from a valid Table for this object
             // Which contains a valid union in this slot
             Some(unsafe { hllong::init_from_table(u) })
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn return_value_as_hlulong(&self) -> Option<hlulong<'a>> {
+        if self.return_value_type() == ReturnValue::hlulong {
+            let u = self.return_value();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { hlulong::init_from_table(u) })
         } else {
             None
         }
@@ -180,9 +208,19 @@ impl flatbuffers::Verifiable for FunctionCallResult<'_> {
                             "ReturnValue::hlint",
                             pos,
                         ),
+                    ReturnValue::hluint => v
+                        .verify_union_variant::<flatbuffers::ForwardsUOffset<hluint>>(
+                            "ReturnValue::hluint",
+                            pos,
+                        ),
                     ReturnValue::hllong => v
                         .verify_union_variant::<flatbuffers::ForwardsUOffset<hllong>>(
                             "ReturnValue::hllong",
+                            pos,
+                        ),
+                    ReturnValue::hlulong => v
+                        .verify_union_variant::<flatbuffers::ForwardsUOffset<hlulong>>(
+                            "ReturnValue::hlulong",
                             pos,
                         ),
                     ReturnValue::hlstring => v
@@ -283,8 +321,28 @@ impl core::fmt::Debug for FunctionCallResult<'_> {
                     )
                 }
             }
+            ReturnValue::hluint => {
+                if let Some(x) = self.return_value_as_hluint() {
+                    ds.field("return_value", &x)
+                } else {
+                    ds.field(
+                        "return_value",
+                        &"InvalidFlatbuffer: Union discriminant does not match value.",
+                    )
+                }
+            }
             ReturnValue::hllong => {
                 if let Some(x) = self.return_value_as_hllong() {
+                    ds.field("return_value", &x)
+                } else {
+                    ds.field(
+                        "return_value",
+                        &"InvalidFlatbuffer: Union discriminant does not match value.",
+                    )
+                }
+            }
+            ReturnValue::hlulong => {
+                if let Some(x) = self.return_value_as_hlulong() {
                     ds.field("return_value", &x)
                 } else {
                     ds.field(

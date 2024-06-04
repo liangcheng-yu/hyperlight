@@ -85,6 +85,7 @@ public class GuestFunctionDetailsT
   }
 }
 
+
 static public class GuestFunctionDetailsVerify
 {
   static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)

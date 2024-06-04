@@ -159,7 +159,9 @@ ns(ParameterType_enum_t) __##function##_pKind[] = {ns(ParameterType_##union0_mem
 #define FUNCTIONDETAILS(name, function)  CreateFunctionDefinition(name, &__call_##function, __##function##_pcount, __##function##_pKind)
 typedef enum {
     hlint,
+    hluint,
     hllong,
+    hlulong,
     hlstring,
     hlbool,
     hlvecbytes
@@ -170,7 +172,9 @@ typedef struct
     union
     {
         int32_t hlint;
+        uint32_t hluint;
         int64_t hllong;
+        uint64_t hlulong;
         const char* hlstring;
         bool hlbool;
         const uint8_t* hlvecbytes;

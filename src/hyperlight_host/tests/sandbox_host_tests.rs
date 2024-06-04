@@ -151,11 +151,11 @@ fn multiple_parameters() {
                 ParameterValue::String("5".to_string()),
                 ParameterValue::Bool(true),
                 ParameterValue::Bool(false),
-                ParameterValue::String("8".to_string()),
+                ParameterValue::UInt(8),
             ],
             format!(
                 "Message: arg1:{} arg2:{} arg3:{} arg4:{} arg5:{} arg6:{} arg7:{} arg8:{}.",
-                "1", 2, 3, "4", "5", true, false, "8"
+                "1", 2, 3, "4", "5", true, false, 8
             ),
         ),
         (
@@ -168,12 +168,12 @@ fn multiple_parameters() {
                 ParameterValue::String("5".to_string()),
                 ParameterValue::Bool(true),
                 ParameterValue::Bool(false),
-                ParameterValue::String("8".to_string()),
-                ParameterValue::Long(9),
+                ParameterValue::UInt(8),
+                ParameterValue::ULong(9),
             ],
             format!(
                 "Message: arg1:{} arg2:{} arg3:{} arg4:{} arg5:{} arg6:{} arg7:{} arg8:{} arg9:{}.",
-                "1", 2, 3, "4", "5", true, false, "8", 9
+                "1", 2, 3, "4", "5", true, false, 8, 9
             ),
         ),
         (
@@ -186,13 +186,13 @@ fn multiple_parameters() {
                 ParameterValue::String("5".to_string()),
                 ParameterValue::Bool(true),
                 ParameterValue::Bool(false),
-                ParameterValue::String("8".to_string()),
-                ParameterValue::Long(9),
+                ParameterValue::UInt(8),
+                ParameterValue::ULong(9),
                 ParameterValue::Int(10),
             ],
             format!(
                 "Message: arg1:{} arg2:{} arg3:{} arg4:{} arg5:{} arg6:{} arg7:{} arg8:{} arg9:{} arg10:{}.",
-                "1", 2, 3, "4", "5", true, false, "8", 9, "10"
+                "1", 2, 3, "4", "5", true, false, 8, 9, 10
             ),
         ),
     ];

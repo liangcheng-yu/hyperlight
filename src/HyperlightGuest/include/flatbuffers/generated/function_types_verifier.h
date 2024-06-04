@@ -10,7 +10,9 @@
 #include "flatcc/flatcc_prologue.h"
 
 static int Hyperlight_Generated_hlint_verify_table(flatcc_table_verifier_descriptor_t *td);
+static int Hyperlight_Generated_hluint_verify_table(flatcc_table_verifier_descriptor_t *td);
 static int Hyperlight_Generated_hllong_verify_table(flatcc_table_verifier_descriptor_t *td);
+static int Hyperlight_Generated_hlulong_verify_table(flatcc_table_verifier_descriptor_t *td);
 static int Hyperlight_Generated_hlstring_verify_table(flatcc_table_verifier_descriptor_t *td);
 static int Hyperlight_Generated_hlbool_verify_table(flatcc_table_verifier_descriptor_t *td);
 static int Hyperlight_Generated_hlvecbytes_verify_table(flatcc_table_verifier_descriptor_t *td);
@@ -21,10 +23,12 @@ static int Hyperlight_Generated_ParameterValue_union_verifier(flatcc_union_verif
 {
     switch (ud->type) {
     case 1: return flatcc_verify_union_table(ud, Hyperlight_Generated_hlint_verify_table); /* hlint */
-    case 2: return flatcc_verify_union_table(ud, Hyperlight_Generated_hllong_verify_table); /* hllong */
-    case 3: return flatcc_verify_union_table(ud, Hyperlight_Generated_hlstring_verify_table); /* hlstring */
-    case 4: return flatcc_verify_union_table(ud, Hyperlight_Generated_hlbool_verify_table); /* hlbool */
-    case 5: return flatcc_verify_union_table(ud, Hyperlight_Generated_hlvecbytes_verify_table); /* hlvecbytes */
+    case 2: return flatcc_verify_union_table(ud, Hyperlight_Generated_hluint_verify_table); /* hluint */
+    case 3: return flatcc_verify_union_table(ud, Hyperlight_Generated_hllong_verify_table); /* hllong */
+    case 4: return flatcc_verify_union_table(ud, Hyperlight_Generated_hlulong_verify_table); /* hlulong */
+    case 5: return flatcc_verify_union_table(ud, Hyperlight_Generated_hlstring_verify_table); /* hlstring */
+    case 6: return flatcc_verify_union_table(ud, Hyperlight_Generated_hlbool_verify_table); /* hlbool */
+    case 7: return flatcc_verify_union_table(ud, Hyperlight_Generated_hlvecbytes_verify_table); /* hlvecbytes */
     default: return flatcc_verify_ok;
     }
 }
@@ -33,11 +37,13 @@ static int Hyperlight_Generated_ReturnValue_union_verifier(flatcc_union_verifier
 {
     switch (ud->type) {
     case 1: return flatcc_verify_union_table(ud, Hyperlight_Generated_hlint_verify_table); /* hlint */
-    case 2: return flatcc_verify_union_table(ud, Hyperlight_Generated_hllong_verify_table); /* hllong */
-    case 3: return flatcc_verify_union_table(ud, Hyperlight_Generated_hlstring_verify_table); /* hlstring */
-    case 4: return flatcc_verify_union_table(ud, Hyperlight_Generated_hlbool_verify_table); /* hlbool */
-    case 5: return flatcc_verify_union_table(ud, Hyperlight_Generated_hlvoid_verify_table); /* hlvoid */
-    case 6: return flatcc_verify_union_table(ud, Hyperlight_Generated_hlsizeprefixedbuffer_verify_table); /* hlsizeprefixedbuffer */
+    case 2: return flatcc_verify_union_table(ud, Hyperlight_Generated_hluint_verify_table); /* hluint */
+    case 3: return flatcc_verify_union_table(ud, Hyperlight_Generated_hllong_verify_table); /* hllong */
+    case 4: return flatcc_verify_union_table(ud, Hyperlight_Generated_hlulong_verify_table); /* hlulong */
+    case 5: return flatcc_verify_union_table(ud, Hyperlight_Generated_hlstring_verify_table); /* hlstring */
+    case 6: return flatcc_verify_union_table(ud, Hyperlight_Generated_hlbool_verify_table); /* hlbool */
+    case 7: return flatcc_verify_union_table(ud, Hyperlight_Generated_hlvoid_verify_table); /* hlvoid */
+    case 8: return flatcc_verify_union_table(ud, Hyperlight_Generated_hlsizeprefixedbuffer_verify_table); /* hlsizeprefixedbuffer */
     default: return flatcc_verify_ok;
     }
 }
@@ -54,9 +60,19 @@ static inline int Hyperlight_Generated_hlint_verify_as_root(const void *buf, siz
     return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_hlint_identifier, &Hyperlight_Generated_hlint_verify_table);
 }
 
+static inline int Hyperlight_Generated_hlint_verify_as_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_hlint_identifier, &Hyperlight_Generated_hlint_verify_table);
+}
+
 static inline int Hyperlight_Generated_hlint_verify_as_typed_root(const void *buf, size_t bufsiz)
 {
     return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_hlint_type_identifier, &Hyperlight_Generated_hlint_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlint_verify_as_typed_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_hlint_type_identifier, &Hyperlight_Generated_hlint_verify_table);
 }
 
 static inline int Hyperlight_Generated_hlint_verify_as_root_with_identifier(const void *buf, size_t bufsiz, const char *fid)
@@ -64,9 +80,66 @@ static inline int Hyperlight_Generated_hlint_verify_as_root_with_identifier(cons
     return flatcc_verify_table_as_root(buf, bufsiz, fid, &Hyperlight_Generated_hlint_verify_table);
 }
 
+static inline int Hyperlight_Generated_hlint_verify_as_root_with_identifier_and_size(const void *buf, size_t bufsiz, const char *fid)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, fid, &Hyperlight_Generated_hlint_verify_table);
+}
+
 static inline int Hyperlight_Generated_hlint_verify_as_root_with_type_hash(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
 {
     return flatcc_verify_table_as_typed_root(buf, bufsiz, thash, &Hyperlight_Generated_hlint_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlint_verify_as_root_with_type_hash_and_size(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
+{
+    return flatcc_verify_table_as_typed_root_with_size(buf, bufsiz, thash, &Hyperlight_Generated_hlint_verify_table);
+}
+
+static int Hyperlight_Generated_hluint_verify_table(flatcc_table_verifier_descriptor_t *td)
+{
+    int ret;
+    if ((ret = flatcc_verify_field(td, 0, 4, 4) /* value */)) return ret;
+    return flatcc_verify_ok;
+}
+
+static inline int Hyperlight_Generated_hluint_verify_as_root(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_hluint_identifier, &Hyperlight_Generated_hluint_verify_table);
+}
+
+static inline int Hyperlight_Generated_hluint_verify_as_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_hluint_identifier, &Hyperlight_Generated_hluint_verify_table);
+}
+
+static inline int Hyperlight_Generated_hluint_verify_as_typed_root(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_hluint_type_identifier, &Hyperlight_Generated_hluint_verify_table);
+}
+
+static inline int Hyperlight_Generated_hluint_verify_as_typed_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_hluint_type_identifier, &Hyperlight_Generated_hluint_verify_table);
+}
+
+static inline int Hyperlight_Generated_hluint_verify_as_root_with_identifier(const void *buf, size_t bufsiz, const char *fid)
+{
+    return flatcc_verify_table_as_root(buf, bufsiz, fid, &Hyperlight_Generated_hluint_verify_table);
+}
+
+static inline int Hyperlight_Generated_hluint_verify_as_root_with_identifier_and_size(const void *buf, size_t bufsiz, const char *fid)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, fid, &Hyperlight_Generated_hluint_verify_table);
+}
+
+static inline int Hyperlight_Generated_hluint_verify_as_root_with_type_hash(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
+{
+    return flatcc_verify_table_as_typed_root(buf, bufsiz, thash, &Hyperlight_Generated_hluint_verify_table);
+}
+
+static inline int Hyperlight_Generated_hluint_verify_as_root_with_type_hash_and_size(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
+{
+    return flatcc_verify_table_as_typed_root_with_size(buf, bufsiz, thash, &Hyperlight_Generated_hluint_verify_table);
 }
 
 static int Hyperlight_Generated_hllong_verify_table(flatcc_table_verifier_descriptor_t *td)
@@ -81,9 +154,19 @@ static inline int Hyperlight_Generated_hllong_verify_as_root(const void *buf, si
     return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_hllong_identifier, &Hyperlight_Generated_hllong_verify_table);
 }
 
+static inline int Hyperlight_Generated_hllong_verify_as_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_hllong_identifier, &Hyperlight_Generated_hllong_verify_table);
+}
+
 static inline int Hyperlight_Generated_hllong_verify_as_typed_root(const void *buf, size_t bufsiz)
 {
     return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_hllong_type_identifier, &Hyperlight_Generated_hllong_verify_table);
+}
+
+static inline int Hyperlight_Generated_hllong_verify_as_typed_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_hllong_type_identifier, &Hyperlight_Generated_hllong_verify_table);
 }
 
 static inline int Hyperlight_Generated_hllong_verify_as_root_with_identifier(const void *buf, size_t bufsiz, const char *fid)
@@ -91,9 +174,66 @@ static inline int Hyperlight_Generated_hllong_verify_as_root_with_identifier(con
     return flatcc_verify_table_as_root(buf, bufsiz, fid, &Hyperlight_Generated_hllong_verify_table);
 }
 
+static inline int Hyperlight_Generated_hllong_verify_as_root_with_identifier_and_size(const void *buf, size_t bufsiz, const char *fid)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, fid, &Hyperlight_Generated_hllong_verify_table);
+}
+
 static inline int Hyperlight_Generated_hllong_verify_as_root_with_type_hash(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
 {
     return flatcc_verify_table_as_typed_root(buf, bufsiz, thash, &Hyperlight_Generated_hllong_verify_table);
+}
+
+static inline int Hyperlight_Generated_hllong_verify_as_root_with_type_hash_and_size(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
+{
+    return flatcc_verify_table_as_typed_root_with_size(buf, bufsiz, thash, &Hyperlight_Generated_hllong_verify_table);
+}
+
+static int Hyperlight_Generated_hlulong_verify_table(flatcc_table_verifier_descriptor_t *td)
+{
+    int ret;
+    if ((ret = flatcc_verify_field(td, 0, 8, 8) /* value */)) return ret;
+    return flatcc_verify_ok;
+}
+
+static inline int Hyperlight_Generated_hlulong_verify_as_root(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_hlulong_identifier, &Hyperlight_Generated_hlulong_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlulong_verify_as_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_hlulong_identifier, &Hyperlight_Generated_hlulong_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlulong_verify_as_typed_root(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_hlulong_type_identifier, &Hyperlight_Generated_hlulong_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlulong_verify_as_typed_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_hlulong_type_identifier, &Hyperlight_Generated_hlulong_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlulong_verify_as_root_with_identifier(const void *buf, size_t bufsiz, const char *fid)
+{
+    return flatcc_verify_table_as_root(buf, bufsiz, fid, &Hyperlight_Generated_hlulong_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlulong_verify_as_root_with_identifier_and_size(const void *buf, size_t bufsiz, const char *fid)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, fid, &Hyperlight_Generated_hlulong_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlulong_verify_as_root_with_type_hash(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
+{
+    return flatcc_verify_table_as_typed_root(buf, bufsiz, thash, &Hyperlight_Generated_hlulong_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlulong_verify_as_root_with_type_hash_and_size(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
+{
+    return flatcc_verify_table_as_typed_root_with_size(buf, bufsiz, thash, &Hyperlight_Generated_hlulong_verify_table);
 }
 
 static int Hyperlight_Generated_hlstring_verify_table(flatcc_table_verifier_descriptor_t *td)
@@ -108,9 +248,19 @@ static inline int Hyperlight_Generated_hlstring_verify_as_root(const void *buf, 
     return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_hlstring_identifier, &Hyperlight_Generated_hlstring_verify_table);
 }
 
+static inline int Hyperlight_Generated_hlstring_verify_as_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_hlstring_identifier, &Hyperlight_Generated_hlstring_verify_table);
+}
+
 static inline int Hyperlight_Generated_hlstring_verify_as_typed_root(const void *buf, size_t bufsiz)
 {
     return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_hlstring_type_identifier, &Hyperlight_Generated_hlstring_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlstring_verify_as_typed_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_hlstring_type_identifier, &Hyperlight_Generated_hlstring_verify_table);
 }
 
 static inline int Hyperlight_Generated_hlstring_verify_as_root_with_identifier(const void *buf, size_t bufsiz, const char *fid)
@@ -118,9 +268,19 @@ static inline int Hyperlight_Generated_hlstring_verify_as_root_with_identifier(c
     return flatcc_verify_table_as_root(buf, bufsiz, fid, &Hyperlight_Generated_hlstring_verify_table);
 }
 
+static inline int Hyperlight_Generated_hlstring_verify_as_root_with_identifier_and_size(const void *buf, size_t bufsiz, const char *fid)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, fid, &Hyperlight_Generated_hlstring_verify_table);
+}
+
 static inline int Hyperlight_Generated_hlstring_verify_as_root_with_type_hash(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
 {
     return flatcc_verify_table_as_typed_root(buf, bufsiz, thash, &Hyperlight_Generated_hlstring_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlstring_verify_as_root_with_type_hash_and_size(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
+{
+    return flatcc_verify_table_as_typed_root_with_size(buf, bufsiz, thash, &Hyperlight_Generated_hlstring_verify_table);
 }
 
 static int Hyperlight_Generated_hlbool_verify_table(flatcc_table_verifier_descriptor_t *td)
@@ -135,9 +295,19 @@ static inline int Hyperlight_Generated_hlbool_verify_as_root(const void *buf, si
     return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_hlbool_identifier, &Hyperlight_Generated_hlbool_verify_table);
 }
 
+static inline int Hyperlight_Generated_hlbool_verify_as_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_hlbool_identifier, &Hyperlight_Generated_hlbool_verify_table);
+}
+
 static inline int Hyperlight_Generated_hlbool_verify_as_typed_root(const void *buf, size_t bufsiz)
 {
     return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_hlbool_type_identifier, &Hyperlight_Generated_hlbool_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlbool_verify_as_typed_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_hlbool_type_identifier, &Hyperlight_Generated_hlbool_verify_table);
 }
 
 static inline int Hyperlight_Generated_hlbool_verify_as_root_with_identifier(const void *buf, size_t bufsiz, const char *fid)
@@ -145,9 +315,19 @@ static inline int Hyperlight_Generated_hlbool_verify_as_root_with_identifier(con
     return flatcc_verify_table_as_root(buf, bufsiz, fid, &Hyperlight_Generated_hlbool_verify_table);
 }
 
+static inline int Hyperlight_Generated_hlbool_verify_as_root_with_identifier_and_size(const void *buf, size_t bufsiz, const char *fid)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, fid, &Hyperlight_Generated_hlbool_verify_table);
+}
+
 static inline int Hyperlight_Generated_hlbool_verify_as_root_with_type_hash(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
 {
     return flatcc_verify_table_as_typed_root(buf, bufsiz, thash, &Hyperlight_Generated_hlbool_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlbool_verify_as_root_with_type_hash_and_size(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
+{
+    return flatcc_verify_table_as_typed_root_with_size(buf, bufsiz, thash, &Hyperlight_Generated_hlbool_verify_table);
 }
 
 static int Hyperlight_Generated_hlvecbytes_verify_table(flatcc_table_verifier_descriptor_t *td)
@@ -162,9 +342,19 @@ static inline int Hyperlight_Generated_hlvecbytes_verify_as_root(const void *buf
     return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_hlvecbytes_identifier, &Hyperlight_Generated_hlvecbytes_verify_table);
 }
 
+static inline int Hyperlight_Generated_hlvecbytes_verify_as_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_hlvecbytes_identifier, &Hyperlight_Generated_hlvecbytes_verify_table);
+}
+
 static inline int Hyperlight_Generated_hlvecbytes_verify_as_typed_root(const void *buf, size_t bufsiz)
 {
     return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_hlvecbytes_type_identifier, &Hyperlight_Generated_hlvecbytes_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlvecbytes_verify_as_typed_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_hlvecbytes_type_identifier, &Hyperlight_Generated_hlvecbytes_verify_table);
 }
 
 static inline int Hyperlight_Generated_hlvecbytes_verify_as_root_with_identifier(const void *buf, size_t bufsiz, const char *fid)
@@ -172,9 +362,19 @@ static inline int Hyperlight_Generated_hlvecbytes_verify_as_root_with_identifier
     return flatcc_verify_table_as_root(buf, bufsiz, fid, &Hyperlight_Generated_hlvecbytes_verify_table);
 }
 
+static inline int Hyperlight_Generated_hlvecbytes_verify_as_root_with_identifier_and_size(const void *buf, size_t bufsiz, const char *fid)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, fid, &Hyperlight_Generated_hlvecbytes_verify_table);
+}
+
 static inline int Hyperlight_Generated_hlvecbytes_verify_as_root_with_type_hash(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
 {
     return flatcc_verify_table_as_typed_root(buf, bufsiz, thash, &Hyperlight_Generated_hlvecbytes_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlvecbytes_verify_as_root_with_type_hash_and_size(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
+{
+    return flatcc_verify_table_as_typed_root_with_size(buf, bufsiz, thash, &Hyperlight_Generated_hlvecbytes_verify_table);
 }
 
 static int Hyperlight_Generated_hlsizeprefixedbuffer_verify_table(flatcc_table_verifier_descriptor_t *td)
@@ -190,9 +390,19 @@ static inline int Hyperlight_Generated_hlsizeprefixedbuffer_verify_as_root(const
     return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_hlsizeprefixedbuffer_identifier, &Hyperlight_Generated_hlsizeprefixedbuffer_verify_table);
 }
 
+static inline int Hyperlight_Generated_hlsizeprefixedbuffer_verify_as_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_hlsizeprefixedbuffer_identifier, &Hyperlight_Generated_hlsizeprefixedbuffer_verify_table);
+}
+
 static inline int Hyperlight_Generated_hlsizeprefixedbuffer_verify_as_typed_root(const void *buf, size_t bufsiz)
 {
     return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_hlsizeprefixedbuffer_type_identifier, &Hyperlight_Generated_hlsizeprefixedbuffer_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlsizeprefixedbuffer_verify_as_typed_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_hlsizeprefixedbuffer_type_identifier, &Hyperlight_Generated_hlsizeprefixedbuffer_verify_table);
 }
 
 static inline int Hyperlight_Generated_hlsizeprefixedbuffer_verify_as_root_with_identifier(const void *buf, size_t bufsiz, const char *fid)
@@ -200,9 +410,19 @@ static inline int Hyperlight_Generated_hlsizeprefixedbuffer_verify_as_root_with_
     return flatcc_verify_table_as_root(buf, bufsiz, fid, &Hyperlight_Generated_hlsizeprefixedbuffer_verify_table);
 }
 
+static inline int Hyperlight_Generated_hlsizeprefixedbuffer_verify_as_root_with_identifier_and_size(const void *buf, size_t bufsiz, const char *fid)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, fid, &Hyperlight_Generated_hlsizeprefixedbuffer_verify_table);
+}
+
 static inline int Hyperlight_Generated_hlsizeprefixedbuffer_verify_as_root_with_type_hash(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
 {
     return flatcc_verify_table_as_typed_root(buf, bufsiz, thash, &Hyperlight_Generated_hlsizeprefixedbuffer_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlsizeprefixedbuffer_verify_as_root_with_type_hash_and_size(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
+{
+    return flatcc_verify_table_as_typed_root_with_size(buf, bufsiz, thash, &Hyperlight_Generated_hlsizeprefixedbuffer_verify_table);
 }
 
 static int Hyperlight_Generated_hlvoid_verify_table(flatcc_table_verifier_descriptor_t *td)
@@ -215,9 +435,19 @@ static inline int Hyperlight_Generated_hlvoid_verify_as_root(const void *buf, si
     return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_hlvoid_identifier, &Hyperlight_Generated_hlvoid_verify_table);
 }
 
+static inline int Hyperlight_Generated_hlvoid_verify_as_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_hlvoid_identifier, &Hyperlight_Generated_hlvoid_verify_table);
+}
+
 static inline int Hyperlight_Generated_hlvoid_verify_as_typed_root(const void *buf, size_t bufsiz)
 {
     return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_hlvoid_type_identifier, &Hyperlight_Generated_hlvoid_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlvoid_verify_as_typed_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_hlvoid_type_identifier, &Hyperlight_Generated_hlvoid_verify_table);
 }
 
 static inline int Hyperlight_Generated_hlvoid_verify_as_root_with_identifier(const void *buf, size_t bufsiz, const char *fid)
@@ -225,9 +455,19 @@ static inline int Hyperlight_Generated_hlvoid_verify_as_root_with_identifier(con
     return flatcc_verify_table_as_root(buf, bufsiz, fid, &Hyperlight_Generated_hlvoid_verify_table);
 }
 
+static inline int Hyperlight_Generated_hlvoid_verify_as_root_with_identifier_and_size(const void *buf, size_t bufsiz, const char *fid)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, fid, &Hyperlight_Generated_hlvoid_verify_table);
+}
+
 static inline int Hyperlight_Generated_hlvoid_verify_as_root_with_type_hash(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
 {
     return flatcc_verify_table_as_typed_root(buf, bufsiz, thash, &Hyperlight_Generated_hlvoid_verify_table);
+}
+
+static inline int Hyperlight_Generated_hlvoid_verify_as_root_with_type_hash_and_size(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
+{
+    return flatcc_verify_table_as_typed_root_with_size(buf, bufsiz, thash, &Hyperlight_Generated_hlvoid_verify_table);
 }
 
 #include "flatcc/flatcc_epilogue.h"

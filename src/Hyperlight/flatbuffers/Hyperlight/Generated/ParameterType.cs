@@ -8,10 +8,12 @@ namespace Hyperlight.Generated
 public enum ParameterType : byte
 {
   hlint = 0,
-  hllong = 1,
-  hlstring = 2,
-  hlbool = 3,
-  hlvecbytes = 4,
+  hluint = 1,
+  hllong = 2,
+  hlulong = 3,
+  hlstring = 4,
+  hlbool = 5,
+  hlvecbytes = 6,
 };
 
 

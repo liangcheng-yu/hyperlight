@@ -9,11 +9,13 @@ public enum ReturnValue : byte
 {
   NONE = 0,
   hlint = 1,
-  hllong = 2,
-  hlstring = 3,
-  hlbool = 4,
-  hlvoid = 5,
-  hlsizeprefixedbuffer = 6,
+  hluint = 2,
+  hllong = 3,
+  hlulong = 4,
+  hlstring = 5,
+  hlbool = 6,
+  hlvoid = 7,
+  hlsizeprefixedbuffer = 8,
 };
 
 public class ReturnValueUnion {
@@ -28,8 +30,12 @@ public class ReturnValueUnion {
   public T As<T>() where T : class { return this.Value as T; }
   public Hyperlight.Generated.hlintT Ashlint() { return this.As<Hyperlight.Generated.hlintT>(); }
   public static ReturnValueUnion Fromhlint(Hyperlight.Generated.hlintT _hlint) { return new ReturnValueUnion{ Type = ReturnValue.hlint, Value = _hlint }; }
+  public Hyperlight.Generated.hluintT Ashluint() { return this.As<Hyperlight.Generated.hluintT>(); }
+  public static ReturnValueUnion Fromhluint(Hyperlight.Generated.hluintT _hluint) { return new ReturnValueUnion{ Type = ReturnValue.hluint, Value = _hluint }; }
   public Hyperlight.Generated.hllongT Ashllong() { return this.As<Hyperlight.Generated.hllongT>(); }
   public static ReturnValueUnion Fromhllong(Hyperlight.Generated.hllongT _hllong) { return new ReturnValueUnion{ Type = ReturnValue.hllong, Value = _hllong }; }
+  public Hyperlight.Generated.hlulongT Ashlulong() { return this.As<Hyperlight.Generated.hlulongT>(); }
+  public static ReturnValueUnion Fromhlulong(Hyperlight.Generated.hlulongT _hlulong) { return new ReturnValueUnion{ Type = ReturnValue.hlulong, Value = _hlulong }; }
   public Hyperlight.Generated.hlstringT Ashlstring() { return this.As<Hyperlight.Generated.hlstringT>(); }
   public static ReturnValueUnion Fromhlstring(Hyperlight.Generated.hlstringT _hlstring) { return new ReturnValueUnion{ Type = ReturnValue.hlstring, Value = _hlstring }; }
   public Hyperlight.Generated.hlboolT Ashlbool() { return this.As<Hyperlight.Generated.hlboolT>(); }
@@ -43,7 +49,9 @@ public class ReturnValueUnion {
     switch (_o.Type) {
       default: return 0;
       case ReturnValue.hlint: return Hyperlight.Generated.hlint.Pack(builder, _o.Ashlint()).Value;
+      case ReturnValue.hluint: return Hyperlight.Generated.hluint.Pack(builder, _o.Ashluint()).Value;
       case ReturnValue.hllong: return Hyperlight.Generated.hllong.Pack(builder, _o.Ashllong()).Value;
+      case ReturnValue.hlulong: return Hyperlight.Generated.hlulong.Pack(builder, _o.Ashlulong()).Value;
       case ReturnValue.hlstring: return Hyperlight.Generated.hlstring.Pack(builder, _o.Ashlstring()).Value;
       case ReturnValue.hlbool: return Hyperlight.Generated.hlbool.Pack(builder, _o.Ashlbool()).Value;
       case ReturnValue.hlvoid: return Hyperlight.Generated.hlvoid.Pack(builder, _o.Ashlvoid()).Value;
@@ -64,8 +72,14 @@ static public class ReturnValueVerify
       case ReturnValue.hlint:
         result = Hyperlight.Generated.hlintVerify.Verify(verifier, tablePos);
         break;
+      case ReturnValue.hluint:
+        result = Hyperlight.Generated.hluintVerify.Verify(verifier, tablePos);
+        break;
       case ReturnValue.hllong:
         result = Hyperlight.Generated.hllongVerify.Verify(verifier, tablePos);
+        break;
+      case ReturnValue.hlulong:
+        result = Hyperlight.Generated.hlulongVerify.Verify(verifier, tablePos);
         break;
       case ReturnValue.hlstring:
         result = Hyperlight.Generated.hlstringVerify.Verify(verifier, tablePos);

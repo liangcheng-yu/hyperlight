@@ -18,16 +18,18 @@ pub const ENUM_MIN_RETURN_VALUE: u8 = 0;
     since = "2.0.0",
     note = "Use associated constants instead. This will no longer be generated in 2021."
 )]
-pub const ENUM_MAX_RETURN_VALUE: u8 = 6;
+pub const ENUM_MAX_RETURN_VALUE: u8 = 8;
 #[deprecated(
     since = "2.0.0",
     note = "Use associated constants instead. This will no longer be generated in 2021."
 )]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RETURN_VALUE: [ReturnValue; 7] = [
+pub const ENUM_VALUES_RETURN_VALUE: [ReturnValue; 9] = [
     ReturnValue::NONE,
     ReturnValue::hlint,
+    ReturnValue::hluint,
     ReturnValue::hllong,
+    ReturnValue::hlulong,
     ReturnValue::hlstring,
     ReturnValue::hlbool,
     ReturnValue::hlvoid,
@@ -41,18 +43,22 @@ pub struct ReturnValue(pub u8);
 impl ReturnValue {
     pub const NONE: Self = Self(0);
     pub const hlint: Self = Self(1);
-    pub const hllong: Self = Self(2);
-    pub const hlstring: Self = Self(3);
-    pub const hlbool: Self = Self(4);
-    pub const hlvoid: Self = Self(5);
-    pub const hlsizeprefixedbuffer: Self = Self(6);
+    pub const hluint: Self = Self(2);
+    pub const hllong: Self = Self(3);
+    pub const hlulong: Self = Self(4);
+    pub const hlstring: Self = Self(5);
+    pub const hlbool: Self = Self(6);
+    pub const hlvoid: Self = Self(7);
+    pub const hlsizeprefixedbuffer: Self = Self(8);
 
     pub const ENUM_MIN: u8 = 0;
-    pub const ENUM_MAX: u8 = 6;
+    pub const ENUM_MAX: u8 = 8;
     pub const ENUM_VALUES: &'static [Self] = &[
         Self::NONE,
         Self::hlint,
+        Self::hluint,
         Self::hllong,
+        Self::hlulong,
         Self::hlstring,
         Self::hlbool,
         Self::hlvoid,
@@ -63,7 +69,9 @@ impl ReturnValue {
         match self {
             Self::NONE => Some("NONE"),
             Self::hlint => Some("hlint"),
+            Self::hluint => Some("hluint"),
             Self::hllong => Some("hllong"),
+            Self::hlulong => Some("hlulong"),
             Self::hlstring => Some("hlstring"),
             Self::hlbool => Some("hlbool"),
             Self::hlvoid => Some("hlvoid"),

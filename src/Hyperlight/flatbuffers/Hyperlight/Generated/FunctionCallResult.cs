@@ -23,7 +23,9 @@ public struct FunctionCallResult : IFlatbufferObject
   public Hyperlight.Generated.ReturnValue ReturnValueType { get { int o = __p.__offset(4); return o != 0 ? (Hyperlight.Generated.ReturnValue)__p.bb.Get(o + __p.bb_pos) : Hyperlight.Generated.ReturnValue.NONE; } }
   public TTable? ReturnValue<TTable>() where TTable : struct, IFlatbufferObject { int o = __p.__offset(6); return o != 0 ? (TTable?)__p.__union<TTable>(o + __p.bb_pos) : null; }
   public Hyperlight.Generated.hlint ReturnValueAshlint() { return ReturnValue<Hyperlight.Generated.hlint>().Value; }
+  public Hyperlight.Generated.hluint ReturnValueAshluint() { return ReturnValue<Hyperlight.Generated.hluint>().Value; }
   public Hyperlight.Generated.hllong ReturnValueAshllong() { return ReturnValue<Hyperlight.Generated.hllong>().Value; }
+  public Hyperlight.Generated.hlulong ReturnValueAshlulong() { return ReturnValue<Hyperlight.Generated.hlulong>().Value; }
   public Hyperlight.Generated.hlstring ReturnValueAshlstring() { return ReturnValue<Hyperlight.Generated.hlstring>().Value; }
   public Hyperlight.Generated.hlbool ReturnValueAshlbool() { return ReturnValue<Hyperlight.Generated.hlbool>().Value; }
   public Hyperlight.Generated.hlvoid ReturnValueAshlvoid() { return ReturnValue<Hyperlight.Generated.hlvoid>().Value; }
@@ -61,8 +63,14 @@ public struct FunctionCallResult : IFlatbufferObject
       case Hyperlight.Generated.ReturnValue.hlint:
         _o.ReturnValue.Value = this.ReturnValue<Hyperlight.Generated.hlint>().HasValue ? this.ReturnValue<Hyperlight.Generated.hlint>().Value.UnPack() : null;
         break;
+      case Hyperlight.Generated.ReturnValue.hluint:
+        _o.ReturnValue.Value = this.ReturnValue<Hyperlight.Generated.hluint>().HasValue ? this.ReturnValue<Hyperlight.Generated.hluint>().Value.UnPack() : null;
+        break;
       case Hyperlight.Generated.ReturnValue.hllong:
         _o.ReturnValue.Value = this.ReturnValue<Hyperlight.Generated.hllong>().HasValue ? this.ReturnValue<Hyperlight.Generated.hllong>().Value.UnPack() : null;
+        break;
+      case Hyperlight.Generated.ReturnValue.hlulong:
+        _o.ReturnValue.Value = this.ReturnValue<Hyperlight.Generated.hlulong>().HasValue ? this.ReturnValue<Hyperlight.Generated.hlulong>().Value.UnPack() : null;
         break;
       case Hyperlight.Generated.ReturnValue.hlstring:
         _o.ReturnValue.Value = this.ReturnValue<Hyperlight.Generated.hlstring>().HasValue ? this.ReturnValue<Hyperlight.Generated.hlstring>().Value.UnPack() : null;

@@ -357,11 +357,29 @@ void ValidateHostFunctionCall(flatcc_builder_t *HostFunctionCallBuilder, int32_t
             ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
             break; 
         }
+        case ns(ParameterType_hluint):
+        {
+            uint32_t value = va_arg(ap, uint32_t);
+            ns(hluint_ref_t) val = ns(hluint_create(HostFunctionCallBuilder, value));
+            ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hluint(val));
+            ns(Parameter_ref_t) param = ns(Parameter_create(HostFunctionCallBuilder, pValue));
+            ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
+            break; 
+        }
         case ns(ParameterType_hllong):
         {
             int64_t value= va_arg(ap, int64_t);
             ns(hllong_ref_t) val = ns(hllong_create(HostFunctionCallBuilder, value));
             ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hllong(val));
+            ns(Parameter_ref_t) param = ns(Parameter_create(HostFunctionCallBuilder, pValue));
+            ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
+            break;         
+        }
+        case ns(ParameterType_hlulong):
+        {
+            uint64_t value= va_arg(ap, uint64_t);
+            ns(hlulong_ref_t) val = ns(hlulong_create(HostFunctionCallBuilder, value));
+            ns(ParameterValue_union_ref_t) pValue = ns(ParameterValue_as_hlulong(val));
             ns(Parameter_ref_t) param = ns(Parameter_create(HostFunctionCallBuilder, pValue));
             ns(FunctionCall_vec_push(HostFunctionCallBuilder, param));
             break;         
@@ -520,7 +538,7 @@ void native_symbol_thunk(char *functionName,int32_t numArgs, ...)
     va_end(ap);
 }
 
-// Calls a Host Function that returns an int
+// Calls a Host Function that returns a uint
 unsigned int native_symbol_thunk_returning_uint(char *functionName, int32_t numArgs, ...)
 {
 
@@ -640,10 +658,20 @@ void GetFunctionCallParameters(ns(FunctionCall_table_t) functionCall, Parameter 
             ns(hlint_table_t) hlintTable = ns(Parameter_value(parameter));
             parameterValues[i].value.hlint = ns(hlint_value(hlintTable));
             break;
+        case ns(ParameterValue_hluint):
+            parameterValues[i].kind = hluint;
+            ns(hluint_table_t) hluintTable = ns(Parameter_value(parameter));
+            parameterValues[i].value.hluint = ns(hluint_value(hluintTable));
+            break;
         case ns(ParameterValue_hllong):
             parameterValues[i].kind = hllong;
             ns(hllong_table_t) hllongTable = ns(Parameter_value(parameter));
             parameterValues[i].value.hllong = ns(hllong_value(hllongTable));
+            break;
+        case ns(ParameterValue_hlulong):
+            parameterValues[i].kind = hlulong;
+            ns(hlulong_table_t) hlulongTable = ns(Parameter_value(parameter));
+            parameterValues[i].value.hlulong = ns(hlulong_value(hlulongTable));
             break;
         case ns(ParameterValue_hlstring):
             parameterValues[i].kind = hlstring;
@@ -794,8 +822,14 @@ uint8_t *CallGuestFunction(ns(FunctionCall_table_t) functionCall)
         case ns(ParameterValue_hlint):
             parameterKind[i] = ns(ParameterType_hlint);
             break;
+        case ns(ParameterValue_hluint):
+            parameterKind[i] = ns(ParameterType_hluint);
+            break;
         case ns(ParameterValue_hllong):
             parameterKind[i] = ns(ParameterType_hllong);
+            break;
+        case ns(ParameterValue_hlulong):
+            parameterKind[i] = ns(ParameterType_hlulong);
             break;
         case ns(ParameterValue_hlstring):
             parameterKind[i] = ns(ParameterType_hlstring);

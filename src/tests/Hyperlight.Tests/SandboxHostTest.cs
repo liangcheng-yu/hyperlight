@@ -281,9 +281,9 @@ namespace Hyperlight.Tests
             public Func<string, int, long, string, string, int>? PrintFiveArgs;
             public Func<string, int, long, string, string, bool, int>? PrintSixArgs;
             public Func<string, int, long, string, string, bool, bool, int>? PrintSevenArgs;
-            public Func<string, int, long, string, string, bool, bool, string, int>? PrintEightArgs;
-            public Func<string, int, long, string, string, bool, bool, string, long, int>? PrintNineArgs;
-            public Func<string, int, long, string, string, bool, bool, string, long, int, int>? PrintTenArgs;
+            public Func<string, int, long, string, string, bool, bool, uint, int>? PrintEightArgs;
+            public Func<string, int, long, string, string, bool, bool, uint, ulong, int>? PrintNineArgs;
+            public Func<string, int, long, string, string, bool, bool, uint, ulong, int, int>? PrintTenArgs;
         }
 
         public class MallocTests
@@ -1358,21 +1358,21 @@ namespace Hyperlight.Tests
                 ),
                 (
                     "PrintEightArgs",
-                    new object[] { "Test8", 10, 11, "Tested", "Test8", false, true, "Test8" },
-                    91,
-                    "Message: arg1:Test8 arg2:10 arg3:11 arg4:Tested arg5:Test8 arg6:false arg7:true arg8:Test8."
+                    new object[] { "Test8", 10, 11, "Tested", "Test8", false, true, (uint)12 },
+                    88,
+                    "Message: arg1:Test8 arg2:10 arg3:11 arg4:Tested arg5:Test8 arg6:false arg7:true arg8:12."
                 ),
                 (
                     "PrintNineArgs",
-                    new object[] { "Test9", 12, 13, "Tested", "Test9", true, false, "Test9", 14 },
-                    99,
-                    "Message: arg1:Test9 arg2:12 arg3:13 arg4:Tested arg5:Test9 arg6:true arg7:false arg8:Test9 arg9:14."
+                    new object[] { "Test9", 12, 13, "Tested", "Test9", true, false, (uint)14, (ulong)15 },
+                    96,
+                    "Message: arg1:Test9 arg2:12 arg3:13 arg4:Tested arg5:Test9 arg6:true arg7:false arg8:14 arg9:15."
                 ),
                 (
                     "PrintTenArgs",
-                    new object[] { "Test10", 15, 16, "Tested", "Test10", true, false, "Test10", 17, 18 },
-                    111,
-                    "Message: arg1:Test10 arg2:15 arg3:16 arg4:Tested arg5:Test10 arg6:true arg7:false arg8:Test10 arg9:17 arg10:18."
+                    new object[] { "Test10", 15, 16, "Tested", "Test10", true, false, (uint)17, (ulong)18, 19 },
+                    107,
+                    "Message: arg1:Test10 arg2:15 arg3:16 arg4:Tested arg5:Test10 arg6:true arg7:false arg8:17 arg9:18 arg10:19."
                 )
             };
 
@@ -1788,10 +1788,10 @@ namespace Hyperlight.Tests
             }
         }
 
-        private void InvokeMethod(object target, string delgateName, int returnValue, string expectedOutput, object[]? args, StringWriter output, ref int numberOfCalls)
+        private void InvokeMethod(object target, string delegateName, int returnValue, string expectedOutput, object[]? args, StringWriter output, ref int numberOfCalls)
         {
             numberOfCalls++;
-            var del = GetDelegate(target, delgateName);
+            var del = GetDelegate(target, delegateName);
             var result = del.DynamicInvoke(args);
             Assert.NotNull(result);
             Assert.Equal(returnValue, (int)result!);

@@ -88,6 +88,20 @@ impl<'a> Parameter<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
+    pub fn value_as_hluint(&self) -> Option<hluint<'a>> {
+        if self.value_type() == ParameterValue::hluint {
+            let u = self.value();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { hluint::init_from_table(u) })
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
     pub fn value_as_hllong(&self) -> Option<hllong<'a>> {
         if self.value_type() == ParameterValue::hllong {
             let u = self.value();
@@ -95,6 +109,20 @@ impl<'a> Parameter<'a> {
             // Created from a valid Table for this object
             // Which contains a valid union in this slot
             Some(unsafe { hllong::init_from_table(u) })
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn value_as_hlulong(&self) -> Option<hlulong<'a>> {
+        if self.value_type() == ParameterValue::hlulong {
+            let u = self.value();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { hlulong::init_from_table(u) })
         } else {
             None
         }
@@ -163,9 +191,19 @@ impl flatbuffers::Verifiable for Parameter<'_> {
                             "ParameterValue::hlint",
                             pos,
                         ),
+                    ParameterValue::hluint => v
+                        .verify_union_variant::<flatbuffers::ForwardsUOffset<hluint>>(
+                            "ParameterValue::hluint",
+                            pos,
+                        ),
                     ParameterValue::hllong => v
                         .verify_union_variant::<flatbuffers::ForwardsUOffset<hllong>>(
                             "ParameterValue::hllong",
+                            pos,
+                        ),
+                    ParameterValue::hlulong => v
+                        .verify_union_variant::<flatbuffers::ForwardsUOffset<hlulong>>(
+                            "ParameterValue::hlulong",
                             pos,
                         ),
                     ParameterValue::hlstring => v
@@ -253,8 +291,28 @@ impl core::fmt::Debug for Parameter<'_> {
                     )
                 }
             }
+            ParameterValue::hluint => {
+                if let Some(x) = self.value_as_hluint() {
+                    ds.field("value", &x)
+                } else {
+                    ds.field(
+                        "value",
+                        &"InvalidFlatbuffer: Union discriminant does not match value.",
+                    )
+                }
+            }
             ParameterValue::hllong => {
                 if let Some(x) = self.value_as_hllong() {
+                    ds.field("value", &x)
+                } else {
+                    ds.field(
+                        "value",
+                        &"InvalidFlatbuffer: Union discriminant does not match value.",
+                    )
+                }
+            }
+            ParameterValue::hlulong => {
+                if let Some(x) = self.value_as_hlulong() {
                     ds.field("value", &x)
                 } else {
                     ds.field(

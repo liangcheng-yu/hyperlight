@@ -8,11 +8,13 @@ namespace Hyperlight.Generated
 public enum ReturnType : byte
 {
   hlint = 0,
-  hllong = 1,
-  hlstring = 2,
-  hlbool = 3,
-  hlvoid = 4,
-  hlsizeprefixedbuffer = 5,
+  hluint = 1,
+  hllong = 2,
+  hlulong = 3,
+  hlstring = 4,
+  hlbool = 5,
+  hlvoid = 6,
+  hlsizeprefixedbuffer = 7,
 };
 
 

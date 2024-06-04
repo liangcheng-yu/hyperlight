@@ -7,6 +7,21 @@ namespace Hyperlight.Wrapper
 {
     public static class NativeHandleWrapperUIntExtensions
     {
+        public static bool IsUInt32(this Handle hdl)
+        {
+            HyperlightException.ThrowIfNull(hdl, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+            return handle_is_uint_32(hdl.ctx.ctx, hdl.handle);
+        }
+        public static ulong GetUInt32(this Handle hdl)
+        {
+            HyperlightException.ThrowIfNull(hdl, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+            if (!hdl.IsUInt32())
+            {
+                HyperlightException.LogAndThrowException("Handle is not a uint64", MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+            }
+            return handle_get_uint_32(hdl.ctx.ctx, hdl.handle);
+        }
+
         public static bool IsUInt64(this Handle hdl)
         {
             HyperlightException.ThrowIfNull(hdl, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
@@ -25,6 +40,14 @@ namespace Hyperlight.Wrapper
 #pragma warning disable CA1707 // Remove the underscores from member name
 #pragma warning disable CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory
 
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        [return: MarshalAs(UnmanagedType.U1)]
+        private static extern bool handle_is_uint_32(NativeContext ctx, NativeHandle hdl);
+
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern uint handle_get_uint_32(NativeContext ctx, NativeHandle hdl);
 
         [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
         [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]

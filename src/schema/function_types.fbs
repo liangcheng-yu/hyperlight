@@ -9,10 +9,22 @@ table hlint {
     value:int;
 }
 
+// hluint is a 32 bit unsigned integer
+
+table hluint {
+    value:uint;
+}
+
 // hllong is a 64 bit signed integer
 
 table hllong {
     value:long;
+}
+
+// hlulong is a 64 bit unsigned integer
+
+table hlulong {
+    value:ulong;
 }
 
 // hlstring is a UTF8 encoded string 
@@ -49,7 +61,9 @@ table hlvoid {
 
 union ParameterValue {
     hlint,
+    hluint,
     hllong,
+    hlulong,
     hlstring,
     hlbool,
     hlvecbytes,
@@ -59,7 +73,9 @@ union ParameterValue {
 
 enum ParameterType : ubyte {
     hlint,
+    hluint,
     hllong,
+    hlulong,
     hlstring,
     hlbool,
     hlvecbytes,
@@ -67,7 +83,9 @@ enum ParameterType : ubyte {
 
 enum ReturnType : ubyte {
     hlint,
+    hluint,
     hllong,
+    hlulong,
     hlstring,
     hlbool,
     hlvoid,
@@ -76,7 +94,9 @@ enum ReturnType : ubyte {
 
 union ReturnValue {
     hlint,
+    hluint,
     hllong,
+    hlulong,
     hlstring,
     hlbool,
     hlvoid,

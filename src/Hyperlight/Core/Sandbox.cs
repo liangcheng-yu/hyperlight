@@ -800,35 +800,49 @@ namespace Hyperlight
                     case ParameterValue.hlint:
                         if (!typeof(int).IsAssignableFrom(parameters[i].ParameterType))
                         {
-                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compataible with hlint", GetType().Name);
+                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compatible with hlint", GetType().Name);
                         }
                         args[i] = parameterValue.Value.ValueAshlint().Value;
+                        break;
+                    case ParameterValue.hluint:
+                        if (!typeof(uint).IsAssignableFrom(parameters[i].ParameterType))
+                        {
+                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compatible with hluint", GetType().Name);
+                        }
+                        args[i] = parameterValue.Value.ValueAshluint().Value;
                         break;
                     case ParameterValue.hlstring:
                         if (!typeof(string).IsAssignableFrom(parameters[i].ParameterType))
                         {
-                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compataible with hlstring", GetType().Name);
+                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compatible with hlstring", GetType().Name);
                         }
                         args[i] = parameterValue.Value.ValueAshlstring().Value;
                         break;
                     case ParameterValue.hllong:
                         if (!typeof(long).IsAssignableFrom(parameters[i].ParameterType))
                         {
-                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compataible with hllong", GetType().Name);
+                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compatible with hllong", GetType().Name);
                         }
                         args[i] = parameterValue.Value.ValueAshllong().Value;
+                        break;
+                    case ParameterValue.hlulong:
+                        if (!typeof(ulong).IsAssignableFrom(parameters[i].ParameterType))
+                        {
+                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compatible with hlulong", GetType().Name);
+                        }
+                        args[i] = parameterValue.Value.ValueAshlulong().Value;
                         break;
                     case ParameterValue.hlbool:
                         if (!typeof(bool).IsAssignableFrom(parameters[i].ParameterType))
                         {
-                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compataible with hlbool", GetType().Name);
+                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compatible with hlbool", GetType().Name);
                         }
                         args[i] = parameterValue.Value.ValueAshlbool().Value;
                         break;
                     case ParameterValue.hlvecbytes:
                         if (!typeof(byte[]).IsAssignableFrom(parameters[i].ParameterType))
                         {
-                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compataible with hlvecbytes", GetType().Name);
+                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compatible with hlvecbytes", GetType().Name);
                         }
                         nextArgIsLength = true;
                         args[i] = parameterValue.Value.ValueAshlvecbytes().ByteBuffer.ToFullArray();

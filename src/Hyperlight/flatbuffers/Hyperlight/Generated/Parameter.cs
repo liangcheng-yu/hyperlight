@@ -22,7 +22,9 @@ public struct Parameter : IFlatbufferObject
   public Hyperlight.Generated.ParameterValue ValueType { get { int o = __p.__offset(4); return o != 0 ? (Hyperlight.Generated.ParameterValue)__p.bb.Get(o + __p.bb_pos) : Hyperlight.Generated.ParameterValue.NONE; } }
   public TTable? Value<TTable>() where TTable : struct, IFlatbufferObject { int o = __p.__offset(6); return o != 0 ? (TTable?)__p.__union<TTable>(o + __p.bb_pos) : null; }
   public Hyperlight.Generated.hlint ValueAshlint() { return Value<Hyperlight.Generated.hlint>().Value; }
+  public Hyperlight.Generated.hluint ValueAshluint() { return Value<Hyperlight.Generated.hluint>().Value; }
   public Hyperlight.Generated.hllong ValueAshllong() { return Value<Hyperlight.Generated.hllong>().Value; }
+  public Hyperlight.Generated.hlulong ValueAshlulong() { return Value<Hyperlight.Generated.hlulong>().Value; }
   public Hyperlight.Generated.hlstring ValueAshlstring() { return Value<Hyperlight.Generated.hlstring>().Value; }
   public Hyperlight.Generated.hlbool ValueAshlbool() { return Value<Hyperlight.Generated.hlbool>().Value; }
   public Hyperlight.Generated.hlvecbytes ValueAshlvecbytes() { return Value<Hyperlight.Generated.hlvecbytes>().Value; }
@@ -57,8 +59,14 @@ public struct Parameter : IFlatbufferObject
       case Hyperlight.Generated.ParameterValue.hlint:
         _o.Value.Value = this.Value<Hyperlight.Generated.hlint>().HasValue ? this.Value<Hyperlight.Generated.hlint>().Value.UnPack() : null;
         break;
+      case Hyperlight.Generated.ParameterValue.hluint:
+        _o.Value.Value = this.Value<Hyperlight.Generated.hluint>().HasValue ? this.Value<Hyperlight.Generated.hluint>().Value.UnPack() : null;
+        break;
       case Hyperlight.Generated.ParameterValue.hllong:
         _o.Value.Value = this.Value<Hyperlight.Generated.hllong>().HasValue ? this.Value<Hyperlight.Generated.hllong>().Value.UnPack() : null;
+        break;
+      case Hyperlight.Generated.ParameterValue.hlulong:
+        _o.Value.Value = this.Value<Hyperlight.Generated.hlulong>().HasValue ? this.Value<Hyperlight.Generated.hlulong>().Value.UnPack() : null;
         break;
       case Hyperlight.Generated.ParameterValue.hlstring:
         _o.Value.Value = this.Value<Hyperlight.Generated.hlstring>().HasValue ? this.Value<Hyperlight.Generated.hlstring>().Value.UnPack() : null;

@@ -26,9 +26,19 @@ static inline int Hyperlight_Generated_GuestFunctionDetails_verify_as_root(const
     return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_GuestFunctionDetails_identifier, &Hyperlight_Generated_GuestFunctionDetails_verify_table);
 }
 
+static inline int Hyperlight_Generated_GuestFunctionDetails_verify_as_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_GuestFunctionDetails_identifier, &Hyperlight_Generated_GuestFunctionDetails_verify_table);
+}
+
 static inline int Hyperlight_Generated_GuestFunctionDetails_verify_as_typed_root(const void *buf, size_t bufsiz)
 {
     return flatcc_verify_table_as_root(buf, bufsiz, Hyperlight_Generated_GuestFunctionDetails_type_identifier, &Hyperlight_Generated_GuestFunctionDetails_verify_table);
+}
+
+static inline int Hyperlight_Generated_GuestFunctionDetails_verify_as_typed_root_with_size(const void *buf, size_t bufsiz)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, Hyperlight_Generated_GuestFunctionDetails_type_identifier, &Hyperlight_Generated_GuestFunctionDetails_verify_table);
 }
 
 static inline int Hyperlight_Generated_GuestFunctionDetails_verify_as_root_with_identifier(const void *buf, size_t bufsiz, const char *fid)
@@ -36,9 +46,19 @@ static inline int Hyperlight_Generated_GuestFunctionDetails_verify_as_root_with_
     return flatcc_verify_table_as_root(buf, bufsiz, fid, &Hyperlight_Generated_GuestFunctionDetails_verify_table);
 }
 
+static inline int Hyperlight_Generated_GuestFunctionDetails_verify_as_root_with_identifier_and_size(const void *buf, size_t bufsiz, const char *fid)
+{
+    return flatcc_verify_table_as_root_with_size(buf, bufsiz, fid, &Hyperlight_Generated_GuestFunctionDetails_verify_table);
+}
+
 static inline int Hyperlight_Generated_GuestFunctionDetails_verify_as_root_with_type_hash(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
 {
     return flatcc_verify_table_as_typed_root(buf, bufsiz, thash, &Hyperlight_Generated_GuestFunctionDetails_verify_table);
+}
+
+static inline int Hyperlight_Generated_GuestFunctionDetails_verify_as_root_with_type_hash_and_size(const void *buf, size_t bufsiz, flatbuffers_thash_t thash)
+{
+    return flatcc_verify_table_as_typed_root_with_size(buf, bufsiz, thash, &Hyperlight_Generated_GuestFunctionDetails_verify_table);
 }
 
 #include "flatcc/flatcc_epilogue.h"

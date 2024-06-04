@@ -18,11 +18,6 @@ pub(crate) fn register_i32(ctx: &mut Context, val: i32) -> Handle {
     Context::register(val, &mut ctx.int32s, Hdl::Int32)
 }
 
-/// Add `val` to `ctx` and return a new `Handle` referencing it
-pub(crate) fn register_u64(ctx: &mut Context, val: u64) -> Handle {
-    Context::register(val, &mut ctx.uint64s, Hdl::UInt64)
-}
-
 /// Create a new `Handle` that contains the given `val`
 ///
 /// Generally, this function should not be called directly.

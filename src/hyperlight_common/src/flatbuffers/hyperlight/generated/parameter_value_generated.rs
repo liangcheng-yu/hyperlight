@@ -18,16 +18,18 @@ pub const ENUM_MIN_PARAMETER_VALUE: u8 = 0;
     since = "2.0.0",
     note = "Use associated constants instead. This will no longer be generated in 2021."
 )]
-pub const ENUM_MAX_PARAMETER_VALUE: u8 = 5;
+pub const ENUM_MAX_PARAMETER_VALUE: u8 = 7;
 #[deprecated(
     since = "2.0.0",
     note = "Use associated constants instead. This will no longer be generated in 2021."
 )]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_PARAMETER_VALUE: [ParameterValue; 6] = [
+pub const ENUM_VALUES_PARAMETER_VALUE: [ParameterValue; 8] = [
     ParameterValue::NONE,
     ParameterValue::hlint,
+    ParameterValue::hluint,
     ParameterValue::hllong,
+    ParameterValue::hlulong,
     ParameterValue::hlstring,
     ParameterValue::hlbool,
     ParameterValue::hlvecbytes,
@@ -40,17 +42,21 @@ pub struct ParameterValue(pub u8);
 impl ParameterValue {
     pub const NONE: Self = Self(0);
     pub const hlint: Self = Self(1);
-    pub const hllong: Self = Self(2);
-    pub const hlstring: Self = Self(3);
-    pub const hlbool: Self = Self(4);
-    pub const hlvecbytes: Self = Self(5);
+    pub const hluint: Self = Self(2);
+    pub const hllong: Self = Self(3);
+    pub const hlulong: Self = Self(4);
+    pub const hlstring: Self = Self(5);
+    pub const hlbool: Self = Self(6);
+    pub const hlvecbytes: Self = Self(7);
 
     pub const ENUM_MIN: u8 = 0;
-    pub const ENUM_MAX: u8 = 5;
+    pub const ENUM_MAX: u8 = 7;
     pub const ENUM_VALUES: &'static [Self] = &[
         Self::NONE,
         Self::hlint,
+        Self::hluint,
         Self::hllong,
+        Self::hlulong,
         Self::hlstring,
         Self::hlbool,
         Self::hlvecbytes,
@@ -60,7 +66,9 @@ impl ParameterValue {
         match self {
             Self::NONE => Some("NONE"),
             Self::hlint => Some("hlint"),
+            Self::hluint => Some("hluint"),
             Self::hllong => Some("hllong"),
+            Self::hlulong => Some("hlulong"),
             Self::hlstring => Some("hlstring"),
             Self::hlbool => Some("hlbool"),
             Self::hlvecbytes => Some("hlvecbytes"),

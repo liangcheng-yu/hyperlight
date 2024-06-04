@@ -2,6 +2,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
+
 use anyhow::{bail, Error, Result};
 use flatbuffers::WIPOffset;
 #[cfg(feature = "tracing")]
@@ -10,8 +11,9 @@ use tracing::{instrument, Span};
 use super::function_types::{ParameterValue, ReturnType};
 
 use crate::flatbuffers::hyperlight::generated::{
-    hlbool, hlboolArgs, hlint, hlintArgs, hllong, hllongArgs, hlstring, hlstringArgs, hlvecbytes,
-    hlvecbytesArgs, size_prefixed_root_as_function_call, FunctionCall as FbFunctionCall,
+    hlbool, hlboolArgs, hlint, hlintArgs, hllong, hllongArgs, hlstring, hlstringArgs, hluint,
+    hluintArgs, hlulong, hlulongArgs, hlvecbytes, hlvecbytesArgs,
+    size_prefixed_root_as_function_call, FunctionCall as FbFunctionCall,
     FunctionCallArgs as FbFunctionCallArgs, FunctionCallType as FbFunctionCallType, Parameter,
     ParameterArgs, ParameterValue as FbParameterValue,
 };
@@ -148,6 +150,17 @@ impl TryFrom<FunctionCall> for Vec<u8> {
                             );
                             parameters.push(parameter);
                         }
+                        ParameterValue::UInt(ui) => {
+                            let hluint = hluint::create(&mut builder, &hluintArgs { value: *ui });
+                            let parameter = Parameter::create(
+                                &mut builder,
+                                &ParameterArgs {
+                                    value_type: FbParameterValue::hluint,
+                                    value: Some(hluint.as_union_value()),
+                                },
+                            );
+                            parameters.push(parameter);
+                        }
                         ParameterValue::Long(l) => {
                             let hllong = hllong::create(&mut builder, &hllongArgs { value: *l });
                             let parameter = Parameter::create(
@@ -155,6 +168,18 @@ impl TryFrom<FunctionCall> for Vec<u8> {
                                 &ParameterArgs {
                                     value_type: FbParameterValue::hllong,
                                     value: Some(hllong.as_union_value()),
+                                },
+                            );
+                            parameters.push(parameter);
+                        }
+                        ParameterValue::ULong(ul) => {
+                            let hlulong =
+                                hlulong::create(&mut builder, &hlulongArgs { value: *ul });
+                            let parameter = Parameter::create(
+                                &mut builder,
+                                &ParameterArgs {
+                                    value_type: FbParameterValue::hlulong,
+                                    value: Some(hlulong.as_union_value()),
                                 },
                             );
                             parameters.push(parameter);
@@ -243,18 +268,20 @@ mod tests {
     fn read_from_flatbuffer() -> Result<()> {
         let test_data = get_guest_function_call_test_data();
         let function_call = FunctionCall::try_from(test_data.as_slice())?;
-        assert_eq!(function_call.function_name, "PrintSevenArgs");
+        assert_eq!(function_call.function_name, "PrintNineArgs");
         assert!(function_call.parameters.is_some());
         let parameters = function_call.parameters.unwrap();
-        assert_eq!(parameters.len(), 7);
+        assert_eq!(parameters.len(), 9);
         let expected_parameters = vec![
-            ParameterValue::String(String::from("Test7")),
+            ParameterValue::String(String::from("Test9")),
             ParameterValue::Int(8),
             ParameterValue::Long(9),
             ParameterValue::String(String::from("Tested")),
-            ParameterValue::String(String::from("Test7")),
+            ParameterValue::String(String::from("Test9")),
             ParameterValue::Bool(false),
             ParameterValue::Bool(true),
+            ParameterValue::UInt(10),
+            ParameterValue::ULong(11),
         ];
         assert!(expected_parameters == parameters);
         assert_eq!(function_call.function_call_type, FunctionCallType::Guest);
@@ -277,21 +304,24 @@ mod tests {
     #[test]
     fn write_to_flatbuffer() -> Result<()> {
         let guest_parameters = Some(vec![
-            ParameterValue::String(String::from("Test7")),
+            ParameterValue::String(String::from("Test9")),
             ParameterValue::Int(8),
             ParameterValue::Long(9),
             ParameterValue::String(String::from("Tested")),
-            ParameterValue::String(String::from("Test7")),
+            ParameterValue::String(String::from("Test9")),
             ParameterValue::Bool(false),
             ParameterValue::Bool(true),
+            ParameterValue::UInt(10),
+            ParameterValue::ULong(11),
         ]);
         let guest_function_call = FunctionCall {
-            function_name: "PrintSevenArgs".to_string(),
+            function_name: "PrintNineArgs".to_string(),
             parameters: guest_parameters,
             function_call_type: FunctionCallType::Guest,
             expected_return_type: ReturnType::Int,
         };
         let guest_function_call_buffer: Vec<u8> = guest_function_call.try_into()?;
+
         assert_eq!(
             guest_function_call_buffer,
             get_guest_function_call_test_data()

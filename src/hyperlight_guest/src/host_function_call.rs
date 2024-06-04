@@ -34,6 +34,51 @@ pub fn get_host_value_return_as_int() -> Result<i32> {
     }
 }
 
+pub fn get_host_value_return_as_uint() -> Result<u32> {
+    let return_value = try_pop_shared_input_data_into::<ReturnValue>()
+        .expect("Unable to deserialize return value from host");
+
+    // check that return value is an int and return
+    if let ReturnValue::UInt(ui) = return_value {
+        Ok(ui)
+    } else {
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestError,
+            "Host return value was not a uint as expected".to_string(),
+        ))
+    }
+}
+
+pub fn get_host_value_return_as_long() -> Result<i64> {
+    let return_value = try_pop_shared_input_data_into::<ReturnValue>()
+        .expect("Unable to deserialize return value from host");
+
+    // check that return value is an int and return
+    if let ReturnValue::Long(l) = return_value {
+        Ok(l)
+    } else {
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestError,
+            "Host return value was not a long as expected".to_string(),
+        ))
+    }
+}
+
+pub fn get_host_value_return_as_ulong() -> Result<u64> {
+    let return_value = try_pop_shared_input_data_into::<ReturnValue>()
+        .expect("Unable to deserialize return value from host");
+
+    // check that return value is an int and return
+    if let ReturnValue::ULong(ul) = return_value {
+        Ok(ul)
+    } else {
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestError,
+            "Host return value was not a ulong as expected".to_string(),
+        ))
+    }
+}
+
 // TODO: Make this generic, return a Result<T, ErrorCode>
 
 pub fn get_host_value_return_as_vecbytes() -> Result<Vec<u8>> {

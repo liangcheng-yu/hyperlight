@@ -106,6 +106,30 @@ pub unsafe extern "C" fn function_call_result_new_i64(ctx: *mut Context, val: i6
     register_function_call_result(&mut *ctx, ReturnValue::Long(val))
 }
 
+/// Create a new `FunctionCallResult` from the given `u32`, then
+/// return a new `Handle` referencing it in `ctx`.
+///
+/// # Safety
+///
+/// `ctx` must be a valid pointer to a `Context` created with `context_new`,
+/// owned by you, and not yet freed with `context_free`
+#[no_mangle]
+pub unsafe extern "C" fn function_call_result_new_u32(ctx: *mut Context, val: u32) -> Handle {
+    register_function_call_result(&mut *ctx, ReturnValue::UInt(val))
+}
+
+/// Create a new `ReturnValue` from the given `u64`, then
+/// return a new `Handle` referencing it in `ctx`.
+///
+/// # Safety
+///
+/// `ctx` must be a valid pointer to a `Context` created with `context_new`,
+/// owned by you, and not yet freed with `context_free`
+#[no_mangle]
+pub unsafe extern "C" fn function_call_result_new_u64(ctx: *mut Context, val: u64) -> Handle {
+    register_function_call_result(&mut *ctx, ReturnValue::ULong(val))
+}
+
 /// Create a new `ReturnValue` from the given `bool`, then
 /// return a new `Handle` referencing it in `ctx`.
 ///

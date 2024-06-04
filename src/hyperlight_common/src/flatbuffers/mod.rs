@@ -13,8 +13,12 @@ pub mod hyperlight {
         pub use self::return_value_generated::*;
         mod hlint_generated;
         pub use self::hlint_generated::*;
+        mod hluint_generated;
+        pub use self::hluint_generated::*;
         mod hllong_generated;
         pub use self::hllong_generated::*;
+        mod hlulong_generated;
+        pub use self::hlulong_generated::*;
         mod hlstring_generated;
         pub use self::hlstring_generated::*;
         mod hlbool_generated;

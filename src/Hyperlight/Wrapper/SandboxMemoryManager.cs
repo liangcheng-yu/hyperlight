@@ -381,7 +381,6 @@ namespace Hyperlight.Wrapper
 
         internal void WriteGuestFunctionCallDetails(string functionName, object[] args, RuntimeTypeHandle returnType)
         {
-
             var builder = new FlatBufferBuilder(1024);
             var funcName = builder.CreateString(functionName);
             var nextArgShouldBeArrayLength = false;
@@ -416,11 +415,23 @@ namespace Hyperlight.Wrapper
                         var pValue = hlint.Createhlint(builder, val);
                         parameters[i] = Parameter.CreateParameter(builder, ParameterValue.hlint, pValue.Value);
                     }
+                    else if (args[i].GetType() == typeof(uint))
+                    {
+                        var val = (uint)args[i];
+                        var pValue = hluint.Createhluint(builder, val);
+                        parameters[i] = Parameter.CreateParameter(builder, ParameterValue.hluint, pValue.Value);
+                    }
                     else if (args[i].GetType() == typeof(long))
                     {
                         var val = (long)args[i];
                         var pValue = hllong.Createhllong(builder, val);
                         parameters[i] = Parameter.CreateParameter(builder, ParameterValue.hllong, pValue.Value);
+                    }
+                    else if (args[i].GetType() == typeof(ulong))
+                    {
+                        var val = (ulong)args[i];
+                        var pValue = hlulong.Createhlulong(builder, val);
+                        parameters[i] = Parameter.CreateParameter(builder, ParameterValue.hlulong, pValue.Value);
                     }
                     else if (args[i].GetType() == typeof(string))
                     {
@@ -466,9 +477,17 @@ namespace Hyperlight.Wrapper
             {
                 expectedReturnType = ReturnType.hlint;
             }
+            else if (typeofReturnValue.IsAssignableFrom(typeof(UInt32)))
+            {
+                expectedReturnType = ReturnType.hluint;
+            }
             else if (typeofReturnValue.IsAssignableFrom(typeof(Int64)))
             {
                 expectedReturnType = ReturnType.hllong;
+            }
+            else if (typeofReturnValue.IsAssignableFrom(typeof(UInt64)))
+            {
+                expectedReturnType = ReturnType.hlulong;
             }
             else if (typeofReturnValue.IsAssignableFrom(typeof(String)))
             {
@@ -529,13 +548,21 @@ namespace Hyperlight.Wrapper
 
                 var returnType = ReturnType.hlint;
                 // TODO: Add support for additional return types
-                if (methodInfo.ReturnType == typeof(int) || methodInfo.ReturnType == typeof(uint))
+                if (methodInfo.ReturnType == typeof(int))
                 {
                     returnType = ReturnType.hlint;
+                }
+                else if (methodInfo.ReturnType == typeof(uint))
+                {
+                    returnType = ReturnType.hluint;
                 }
                 else if (methodInfo.ReturnType == typeof(long) || methodInfo.ReturnType == typeof(IntPtr))
                 {
                     returnType = ReturnType.hllong;
+                }
+                else if (methodInfo.ReturnType == typeof(ulong))
+                {
+                    returnType = ReturnType.hlulong;
                 }
                 else if (methodInfo.ReturnType == typeof(void))
                 {
@@ -561,11 +588,20 @@ namespace Hyperlight.Wrapper
                             case "Int32":
                                 parameterType = ParameterType.hlint;
                                 break;
+                            case "UInt32":
+                                parameterType = ParameterType.hluint;
+                                break;
+                            case "Int64":
+                                parameterType = ParameterType.hllong;
+                                break;
+                            case "UInt64":
+                                parameterType = ParameterType.hlulong;
+                                break;
                             case "String":
                                 parameterType = ParameterType.hlstring;
                                 break;
                             default:
-                                HyperlightException.LogAndThrowException<ArgumentException>($"Only int and string parameters are supported: Name {hostFunction.Key} Parameter Type {parameterInfo.ParameterType.Name} ", GetType().Name);
+                                HyperlightException.LogAndThrowException<ArgumentException>($"Only int32, int64, uint32, uint64 and string parameters are supported: Name {hostFunction.Key} Parameter Type {parameterInfo.ParameterType.Name} ", GetType().Name);
                                 break;
                         }
                         parameterTypes[p] = parameterType!.Value;

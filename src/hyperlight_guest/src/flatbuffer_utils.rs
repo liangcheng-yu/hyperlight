@@ -2,11 +2,13 @@ use alloc::vec::Vec;
 use flatbuffers::{FlatBufferBuilder, UnionWIPOffset, WIPOffset};
 
 use hyperlight_common::flatbuffers::hyperlight::generated::{
-    hlint as Fbhlint, hlintArgs as FbhlintArgs, hlsizeprefixedbuffer as Fbhlsizeprefixedbuffer,
+    hlint as Fbhlint, hlintArgs as FbhlintArgs, hllong as Fbhllong, hllongArgs as FbhllongArgs,
+    hlsizeprefixedbuffer as Fbhlsizeprefixedbuffer,
     hlsizeprefixedbufferArgs as FbhlsizeprefixedbufferArgs, hlstring as Fbhlstring,
-    hlstringArgs as FbhlstringArgs, hlvoid as Fbhlvoid, hlvoidArgs as FbhlvoidArgs,
-    FunctionCallResult as FbFunctionCallResult, FunctionCallResultArgs as FbFunctionCallResultArgs,
-    ReturnValue as FbReturnValue,
+    hlstringArgs as FbhlstringArgs, hluint as Fbhluint, hluintArgs as FbhluintArgs,
+    hlulong as Fbhlulong, hlulongArgs as FbhlulongArgs, hlvoid as Fbhlvoid,
+    hlvoidArgs as FbhlvoidArgs, FunctionCallResult as FbFunctionCallResult,
+    FunctionCallResultArgs as FbFunctionCallResultArgs, ReturnValue as FbReturnValue,
 };
 
 pub fn get_flatbuffer_result_from_int(value: i32) -> Vec<u8> {
@@ -15,6 +17,36 @@ pub fn get_flatbuffer_result_from_int(value: i32) -> Vec<u8> {
 
     let rt = FbReturnValue::hlint;
     let rv: Option<WIPOffset<UnionWIPOffset>> = Some(hlint.as_union_value());
+
+    get_flatbuffer_result(&mut builder, rt, rv)
+}
+
+pub fn get_flatbuffer_result_from_uint(value: u32) -> Vec<u8> {
+    let mut builder = FlatBufferBuilder::new();
+    let hluint = Fbhluint::create(&mut builder, &FbhluintArgs { value });
+
+    let rt = FbReturnValue::hluint;
+    let rv: Option<WIPOffset<UnionWIPOffset>> = Some(hluint.as_union_value());
+
+    get_flatbuffer_result(&mut builder, rt, rv)
+}
+
+pub fn get_flatbuffer_result_from_long(value: i64) -> Vec<u8> {
+    let mut builder = FlatBufferBuilder::new();
+    let hllong = Fbhllong::create(&mut builder, &FbhllongArgs { value });
+
+    let rt = FbReturnValue::hllong;
+    let rv: Option<WIPOffset<UnionWIPOffset>> = Some(hllong.as_union_value());
+
+    get_flatbuffer_result(&mut builder, rt, rv)
+}
+
+pub fn get_flatbuffer_result_from_ulong(value: u64) -> Vec<u8> {
+    let mut builder = FlatBufferBuilder::new();
+    let hlulong = Fbhlulong::create(&mut builder, &FbhlulongArgs { value });
+
+    let rt = FbReturnValue::hlulong;
+    let rv: Option<WIPOffset<UnionWIPOffset>> = Some(hlulong.as_union_value());
 
     get_flatbuffer_result(&mut builder, rt, rv)
 }

@@ -36,10 +36,20 @@ typedef flatbuffers_ref_t Hyperlight_Generated_hlint_ref_t;
 static Hyperlight_Generated_hlint_ref_t Hyperlight_Generated_hlint_clone(flatbuffers_builder_t *B, Hyperlight_Generated_hlint_table_t t);
 __flatbuffers_build_table(flatbuffers_, Hyperlight_Generated_hlint, 1)
 
+static const flatbuffers_voffset_t __Hyperlight_Generated_hluint_required[] = { 0 };
+typedef flatbuffers_ref_t Hyperlight_Generated_hluint_ref_t;
+static Hyperlight_Generated_hluint_ref_t Hyperlight_Generated_hluint_clone(flatbuffers_builder_t *B, Hyperlight_Generated_hluint_table_t t);
+__flatbuffers_build_table(flatbuffers_, Hyperlight_Generated_hluint, 1)
+
 static const flatbuffers_voffset_t __Hyperlight_Generated_hllong_required[] = { 0 };
 typedef flatbuffers_ref_t Hyperlight_Generated_hllong_ref_t;
 static Hyperlight_Generated_hllong_ref_t Hyperlight_Generated_hllong_clone(flatbuffers_builder_t *B, Hyperlight_Generated_hllong_table_t t);
 __flatbuffers_build_table(flatbuffers_, Hyperlight_Generated_hllong, 1)
+
+static const flatbuffers_voffset_t __Hyperlight_Generated_hlulong_required[] = { 0 };
+typedef flatbuffers_ref_t Hyperlight_Generated_hlulong_ref_t;
+static Hyperlight_Generated_hlulong_ref_t Hyperlight_Generated_hlulong_clone(flatbuffers_builder_t *B, Hyperlight_Generated_hlulong_table_t t);
+__flatbuffers_build_table(flatbuffers_, Hyperlight_Generated_hlulong, 1)
 
 static const flatbuffers_voffset_t __Hyperlight_Generated_hlstring_required[] = { 0 };
 typedef flatbuffers_ref_t Hyperlight_Generated_hlstring_ref_t;
@@ -71,10 +81,20 @@ __flatbuffers_build_table(flatbuffers_, Hyperlight_Generated_hlvoid, 0)
 static inline Hyperlight_Generated_hlint_ref_t Hyperlight_Generated_hlint_create(flatbuffers_builder_t *B __Hyperlight_Generated_hlint_formal_args);
 __flatbuffers_build_table_prolog(flatbuffers_, Hyperlight_Generated_hlint, Hyperlight_Generated_hlint_file_identifier, Hyperlight_Generated_hlint_type_identifier)
 
+#define __Hyperlight_Generated_hluint_formal_args , uint32_t v0
+#define __Hyperlight_Generated_hluint_call_args , v0
+static inline Hyperlight_Generated_hluint_ref_t Hyperlight_Generated_hluint_create(flatbuffers_builder_t *B __Hyperlight_Generated_hluint_formal_args);
+__flatbuffers_build_table_prolog(flatbuffers_, Hyperlight_Generated_hluint, Hyperlight_Generated_hluint_file_identifier, Hyperlight_Generated_hluint_type_identifier)
+
 #define __Hyperlight_Generated_hllong_formal_args , int64_t v0
 #define __Hyperlight_Generated_hllong_call_args , v0
 static inline Hyperlight_Generated_hllong_ref_t Hyperlight_Generated_hllong_create(flatbuffers_builder_t *B __Hyperlight_Generated_hllong_formal_args);
 __flatbuffers_build_table_prolog(flatbuffers_, Hyperlight_Generated_hllong, Hyperlight_Generated_hllong_file_identifier, Hyperlight_Generated_hllong_type_identifier)
+
+#define __Hyperlight_Generated_hlulong_formal_args , uint64_t v0
+#define __Hyperlight_Generated_hlulong_call_args , v0
+static inline Hyperlight_Generated_hlulong_ref_t Hyperlight_Generated_hlulong_create(flatbuffers_builder_t *B __Hyperlight_Generated_hlulong_formal_args);
+__flatbuffers_build_table_prolog(flatbuffers_, Hyperlight_Generated_hlulong, Hyperlight_Generated_hlulong_file_identifier, Hyperlight_Generated_hlulong_type_identifier)
 
 #define __Hyperlight_Generated_hlstring_formal_args , flatbuffers_string_ref_t v0
 #define __Hyperlight_Generated_hlstring_call_args , v0
@@ -105,8 +125,12 @@ static inline Hyperlight_Generated_ParameterValue_union_ref_t Hyperlight_Generat
 { Hyperlight_Generated_ParameterValue_union_ref_t uref; uref.type = Hyperlight_Generated_ParameterValue_NONE; uref.value = 0; return uref; }
 static inline Hyperlight_Generated_ParameterValue_union_ref_t Hyperlight_Generated_ParameterValue_as_hlint(Hyperlight_Generated_hlint_ref_t ref)
 { Hyperlight_Generated_ParameterValue_union_ref_t uref; uref.type = Hyperlight_Generated_ParameterValue_hlint; uref.value = ref; return uref; }
+static inline Hyperlight_Generated_ParameterValue_union_ref_t Hyperlight_Generated_ParameterValue_as_hluint(Hyperlight_Generated_hluint_ref_t ref)
+{ Hyperlight_Generated_ParameterValue_union_ref_t uref; uref.type = Hyperlight_Generated_ParameterValue_hluint; uref.value = ref; return uref; }
 static inline Hyperlight_Generated_ParameterValue_union_ref_t Hyperlight_Generated_ParameterValue_as_hllong(Hyperlight_Generated_hllong_ref_t ref)
 { Hyperlight_Generated_ParameterValue_union_ref_t uref; uref.type = Hyperlight_Generated_ParameterValue_hllong; uref.value = ref; return uref; }
+static inline Hyperlight_Generated_ParameterValue_union_ref_t Hyperlight_Generated_ParameterValue_as_hlulong(Hyperlight_Generated_hlulong_ref_t ref)
+{ Hyperlight_Generated_ParameterValue_union_ref_t uref; uref.type = Hyperlight_Generated_ParameterValue_hlulong; uref.value = ref; return uref; }
 static inline Hyperlight_Generated_ParameterValue_union_ref_t Hyperlight_Generated_ParameterValue_as_hlstring(Hyperlight_Generated_hlstring_ref_t ref)
 { Hyperlight_Generated_ParameterValue_union_ref_t uref; uref.type = Hyperlight_Generated_ParameterValue_hlstring; uref.value = ref; return uref; }
 static inline Hyperlight_Generated_ParameterValue_union_ref_t Hyperlight_Generated_ParameterValue_as_hlbool(Hyperlight_Generated_hlbool_ref_t ref)
@@ -119,10 +143,12 @@ static Hyperlight_Generated_ParameterValue_union_ref_t Hyperlight_Generated_Para
 {
     switch (u.type) {
     case 1: return Hyperlight_Generated_ParameterValue_as_hlint(Hyperlight_Generated_hlint_clone(B, (Hyperlight_Generated_hlint_table_t)u.value));
-    case 2: return Hyperlight_Generated_ParameterValue_as_hllong(Hyperlight_Generated_hllong_clone(B, (Hyperlight_Generated_hllong_table_t)u.value));
-    case 3: return Hyperlight_Generated_ParameterValue_as_hlstring(Hyperlight_Generated_hlstring_clone(B, (Hyperlight_Generated_hlstring_table_t)u.value));
-    case 4: return Hyperlight_Generated_ParameterValue_as_hlbool(Hyperlight_Generated_hlbool_clone(B, (Hyperlight_Generated_hlbool_table_t)u.value));
-    case 5: return Hyperlight_Generated_ParameterValue_as_hlvecbytes(Hyperlight_Generated_hlvecbytes_clone(B, (Hyperlight_Generated_hlvecbytes_table_t)u.value));
+    case 2: return Hyperlight_Generated_ParameterValue_as_hluint(Hyperlight_Generated_hluint_clone(B, (Hyperlight_Generated_hluint_table_t)u.value));
+    case 3: return Hyperlight_Generated_ParameterValue_as_hllong(Hyperlight_Generated_hllong_clone(B, (Hyperlight_Generated_hllong_table_t)u.value));
+    case 4: return Hyperlight_Generated_ParameterValue_as_hlulong(Hyperlight_Generated_hlulong_clone(B, (Hyperlight_Generated_hlulong_table_t)u.value));
+    case 5: return Hyperlight_Generated_ParameterValue_as_hlstring(Hyperlight_Generated_hlstring_clone(B, (Hyperlight_Generated_hlstring_table_t)u.value));
+    case 6: return Hyperlight_Generated_ParameterValue_as_hlbool(Hyperlight_Generated_hlbool_clone(B, (Hyperlight_Generated_hlbool_table_t)u.value));
+    case 7: return Hyperlight_Generated_ParameterValue_as_hlvecbytes(Hyperlight_Generated_hlvecbytes_clone(B, (Hyperlight_Generated_hlvecbytes_table_t)u.value));
     default: return Hyperlight_Generated_ParameterValue_as_NONE();
     }
 }
@@ -131,8 +157,12 @@ static inline Hyperlight_Generated_ReturnValue_union_ref_t Hyperlight_Generated_
 { Hyperlight_Generated_ReturnValue_union_ref_t uref; uref.type = Hyperlight_Generated_ReturnValue_NONE; uref.value = 0; return uref; }
 static inline Hyperlight_Generated_ReturnValue_union_ref_t Hyperlight_Generated_ReturnValue_as_hlint(Hyperlight_Generated_hlint_ref_t ref)
 { Hyperlight_Generated_ReturnValue_union_ref_t uref; uref.type = Hyperlight_Generated_ReturnValue_hlint; uref.value = ref; return uref; }
+static inline Hyperlight_Generated_ReturnValue_union_ref_t Hyperlight_Generated_ReturnValue_as_hluint(Hyperlight_Generated_hluint_ref_t ref)
+{ Hyperlight_Generated_ReturnValue_union_ref_t uref; uref.type = Hyperlight_Generated_ReturnValue_hluint; uref.value = ref; return uref; }
 static inline Hyperlight_Generated_ReturnValue_union_ref_t Hyperlight_Generated_ReturnValue_as_hllong(Hyperlight_Generated_hllong_ref_t ref)
 { Hyperlight_Generated_ReturnValue_union_ref_t uref; uref.type = Hyperlight_Generated_ReturnValue_hllong; uref.value = ref; return uref; }
+static inline Hyperlight_Generated_ReturnValue_union_ref_t Hyperlight_Generated_ReturnValue_as_hlulong(Hyperlight_Generated_hlulong_ref_t ref)
+{ Hyperlight_Generated_ReturnValue_union_ref_t uref; uref.type = Hyperlight_Generated_ReturnValue_hlulong; uref.value = ref; return uref; }
 static inline Hyperlight_Generated_ReturnValue_union_ref_t Hyperlight_Generated_ReturnValue_as_hlstring(Hyperlight_Generated_hlstring_ref_t ref)
 { Hyperlight_Generated_ReturnValue_union_ref_t uref; uref.type = Hyperlight_Generated_ReturnValue_hlstring; uref.value = ref; return uref; }
 static inline Hyperlight_Generated_ReturnValue_union_ref_t Hyperlight_Generated_ReturnValue_as_hlbool(Hyperlight_Generated_hlbool_ref_t ref)
@@ -147,11 +177,13 @@ static Hyperlight_Generated_ReturnValue_union_ref_t Hyperlight_Generated_ReturnV
 {
     switch (u.type) {
     case 1: return Hyperlight_Generated_ReturnValue_as_hlint(Hyperlight_Generated_hlint_clone(B, (Hyperlight_Generated_hlint_table_t)u.value));
-    case 2: return Hyperlight_Generated_ReturnValue_as_hllong(Hyperlight_Generated_hllong_clone(B, (Hyperlight_Generated_hllong_table_t)u.value));
-    case 3: return Hyperlight_Generated_ReturnValue_as_hlstring(Hyperlight_Generated_hlstring_clone(B, (Hyperlight_Generated_hlstring_table_t)u.value));
-    case 4: return Hyperlight_Generated_ReturnValue_as_hlbool(Hyperlight_Generated_hlbool_clone(B, (Hyperlight_Generated_hlbool_table_t)u.value));
-    case 5: return Hyperlight_Generated_ReturnValue_as_hlvoid(Hyperlight_Generated_hlvoid_clone(B, (Hyperlight_Generated_hlvoid_table_t)u.value));
-    case 6: return Hyperlight_Generated_ReturnValue_as_hlsizeprefixedbuffer(Hyperlight_Generated_hlsizeprefixedbuffer_clone(B, (Hyperlight_Generated_hlsizeprefixedbuffer_table_t)u.value));
+    case 2: return Hyperlight_Generated_ReturnValue_as_hluint(Hyperlight_Generated_hluint_clone(B, (Hyperlight_Generated_hluint_table_t)u.value));
+    case 3: return Hyperlight_Generated_ReturnValue_as_hllong(Hyperlight_Generated_hllong_clone(B, (Hyperlight_Generated_hllong_table_t)u.value));
+    case 4: return Hyperlight_Generated_ReturnValue_as_hlulong(Hyperlight_Generated_hlulong_clone(B, (Hyperlight_Generated_hlulong_table_t)u.value));
+    case 5: return Hyperlight_Generated_ReturnValue_as_hlstring(Hyperlight_Generated_hlstring_clone(B, (Hyperlight_Generated_hlstring_table_t)u.value));
+    case 6: return Hyperlight_Generated_ReturnValue_as_hlbool(Hyperlight_Generated_hlbool_clone(B, (Hyperlight_Generated_hlbool_table_t)u.value));
+    case 7: return Hyperlight_Generated_ReturnValue_as_hlvoid(Hyperlight_Generated_hlvoid_clone(B, (Hyperlight_Generated_hlvoid_table_t)u.value));
+    case 8: return Hyperlight_Generated_ReturnValue_as_hlsizeprefixedbuffer(Hyperlight_Generated_hlsizeprefixedbuffer_clone(B, (Hyperlight_Generated_hlsizeprefixedbuffer_table_t)u.value));
     default: return Hyperlight_Generated_ReturnValue_as_NONE();
     }
 }
@@ -177,6 +209,27 @@ static Hyperlight_Generated_hlint_ref_t Hyperlight_Generated_hlint_clone(flatbuf
     __flatbuffers_memoize_end(B, t, Hyperlight_Generated_hlint_end(B));
 }
 
+__flatbuffers_build_scalar_field(0, flatbuffers_, Hyperlight_Generated_hluint_value, flatbuffers_uint32, uint32_t, 4, 4, UINT32_C(0), Hyperlight_Generated_hluint)
+
+static inline Hyperlight_Generated_hluint_ref_t Hyperlight_Generated_hluint_create(flatbuffers_builder_t *B __Hyperlight_Generated_hluint_formal_args)
+{
+    if (Hyperlight_Generated_hluint_start(B)
+        || Hyperlight_Generated_hluint_value_add(B, v0)) {
+        return 0;
+    }
+    return Hyperlight_Generated_hluint_end(B);
+}
+
+static Hyperlight_Generated_hluint_ref_t Hyperlight_Generated_hluint_clone(flatbuffers_builder_t *B, Hyperlight_Generated_hluint_table_t t)
+{
+    __flatbuffers_memoize_begin(B, t);
+    if (Hyperlight_Generated_hluint_start(B)
+        || Hyperlight_Generated_hluint_value_pick(B, t)) {
+        return 0;
+    }
+    __flatbuffers_memoize_end(B, t, Hyperlight_Generated_hluint_end(B));
+}
+
 __flatbuffers_build_scalar_field(0, flatbuffers_, Hyperlight_Generated_hllong_value, flatbuffers_int64, int64_t, 8, 8, INT64_C(0), Hyperlight_Generated_hllong)
 
 static inline Hyperlight_Generated_hllong_ref_t Hyperlight_Generated_hllong_create(flatbuffers_builder_t *B __Hyperlight_Generated_hllong_formal_args)
@@ -196,6 +249,27 @@ static Hyperlight_Generated_hllong_ref_t Hyperlight_Generated_hllong_clone(flatb
         return 0;
     }
     __flatbuffers_memoize_end(B, t, Hyperlight_Generated_hllong_end(B));
+}
+
+__flatbuffers_build_scalar_field(0, flatbuffers_, Hyperlight_Generated_hlulong_value, flatbuffers_uint64, uint64_t, 8, 8, UINT64_C(0), Hyperlight_Generated_hlulong)
+
+static inline Hyperlight_Generated_hlulong_ref_t Hyperlight_Generated_hlulong_create(flatbuffers_builder_t *B __Hyperlight_Generated_hlulong_formal_args)
+{
+    if (Hyperlight_Generated_hlulong_start(B)
+        || Hyperlight_Generated_hlulong_value_add(B, v0)) {
+        return 0;
+    }
+    return Hyperlight_Generated_hlulong_end(B);
+}
+
+static Hyperlight_Generated_hlulong_ref_t Hyperlight_Generated_hlulong_clone(flatbuffers_builder_t *B, Hyperlight_Generated_hlulong_table_t t)
+{
+    __flatbuffers_memoize_begin(B, t);
+    if (Hyperlight_Generated_hlulong_start(B)
+        || Hyperlight_Generated_hlulong_value_pick(B, t)) {
+        return 0;
+    }
+    __flatbuffers_memoize_end(B, t, Hyperlight_Generated_hlulong_end(B));
 }
 
 __flatbuffers_build_string_field(0, flatbuffers_, Hyperlight_Generated_hlstring_value, Hyperlight_Generated_hlstring)

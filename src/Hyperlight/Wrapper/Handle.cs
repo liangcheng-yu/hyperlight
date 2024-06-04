@@ -140,6 +140,50 @@ namespace Hyperlight.Wrapper
             return new Handle(ctx, rawHdl);
         }
 
+        /// <summary>
+        /// Create a new NativeHandle in ctx with the given
+        /// value val, then return a new Handle that wraps that 
+        /// NativeHandle
+        /// </summary>
+        /// <param name="ctx">
+        /// the context in which to store the value
+        /// </param>
+        /// <param name="val">
+        /// the value for which a handle should be created
+        /// </param>
+        /// <returns>
+        /// a Handle that wraps the NativeHandle that references
+        /// the value
+        /// </returns>
+        public static Handle NewUInt32(Context ctx, uint val)
+        {
+            HyperlightException.ThrowIfNull(ctx, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+            var rawHdl = uint_32_new(ctx.ctx, val);
+            return new Handle(ctx, rawHdl);
+        }
+
+        /// <summary>
+        /// Create a new NativeHandle in ctx with the given
+        /// value val, then return a new Handle that wraps that 
+        /// NativeHandle
+        /// </summary>
+        /// <param name="ctx">
+        /// the context in which to store the value
+        /// </param>
+        /// <param name="val">
+        /// the value for which a handle should be created
+        /// </param>
+        /// <returns>
+        /// a Handle that wraps the NativeHandle that references
+        /// the value
+        /// </returns>
+        public static Handle NewUInt64(Context ctx, ulong val)
+        {
+            HyperlightException.ThrowIfNull(ctx, MethodBase.GetCurrentMethod()!.DeclaringType!.Name);
+            var rawHdl = uint_64_new(ctx.ctx, val);
+            return new Handle(ctx, rawHdl);
+        }
+
         public void Dispose()
         {
             Dispose(disposing: true);
@@ -235,6 +279,20 @@ namespace Hyperlight.Wrapper
         private static extern NativeHandle int_64_new(
             NativeContext ctx,
             long val
+        );
+
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle uint_32_new(
+            NativeContext ctx,
+            uint val
+        );
+
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern NativeHandle uint_64_new(
+            NativeContext ctx,
+            ulong val
         );
 
 #pragma warning restore CA5393 // Use of unsafe DllImportSearchPath value AssemblyDirectory

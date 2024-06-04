@@ -83,6 +83,28 @@ impl SupportedReturnType<i32> for i32 {
     }
 }
 
+impl SupportedReturnType<u32> for u32 {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn get_hyperlight_type() -> ReturnType {
+        ReturnType::UInt
+    }
+
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn get_hyperlight_value(&self) -> ReturnValue {
+        ReturnValue::UInt(*self)
+    }
+
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    fn get_inner(a: ReturnValue) -> Result<u32> {
+        match a {
+            ReturnValue::UInt(u) => Ok(u),
+            other => {
+                log_then_return!(ReturnValueConversionFailure(other.clone(), "u32"));
+            }
+        }
+    }
+}
+
 impl SupportedReturnType<i64> for i64 {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hyperlight_type() -> ReturnType {
@@ -97,9 +119,31 @@ impl SupportedReturnType<i64> for i64 {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn get_inner(a: ReturnValue) -> Result<i64> {
         match a {
-            ReturnValue::Long(i) => Ok(i),
+            ReturnValue::Long(l) => Ok(l),
             other => {
                 log_then_return!(ReturnValueConversionFailure(other.clone(), "i64"));
+            }
+        }
+    }
+}
+
+impl SupportedReturnType<u64> for u64 {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn get_hyperlight_type() -> ReturnType {
+        ReturnType::ULong
+    }
+
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn get_hyperlight_value(&self) -> ReturnValue {
+        ReturnValue::ULong(*self)
+    }
+
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    fn get_inner(a: ReturnValue) -> Result<u64> {
+        match a {
+            ReturnValue::ULong(ul) => Ok(ul),
+            other => {
+                log_then_return!(ReturnValueConversionFailure(other.clone(), "u64"));
             }
         }
     }

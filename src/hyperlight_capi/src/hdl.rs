@@ -38,6 +38,8 @@ pub(crate) enum Hdl {
     UInt64(Key),
     /// A reference to an `i32`
     Int32(Key),
+    /// A reference to a `u32`
+    UInt32(Key),
     #[cfg(target_os = "linux")]
     /// A reference to a HyperV-on-linux hypervisor driver
     HypervLinuxDriver(Key),
@@ -77,6 +79,7 @@ impl Hdl {
     const SHARED_MEMORY_SNAPSHOT_TYPE_ID: TypeID = 123;
     const MEM_MGR_TYPE_ID: TypeID = 124;
     const UINT_64_TYPE_ID: TypeID = 125;
+    const UINT_32_TYPE_ID: TypeID = 132;
     const BOOLEAN_TYPE_ID: TypeID = 126;
     const GUEST_ERROR_TYPE_ID: TypeID = 127;
     const HOST_FUNCTION_CALL_TYPE_ID: TypeID = 128;
@@ -104,6 +107,7 @@ impl Hdl {
             Hdl::Int64(_) => Self::INT_64_TYPE_ID,
             Hdl::UInt64(_) => Self::UINT_64_TYPE_ID,
             Hdl::Int32(_) => Self::INT_32_TYPE_ID,
+            Hdl::UInt32(_) => Self::UINT_32_TYPE_ID,
             #[cfg(target_os = "linux")]
             Hdl::HypervLinuxDriver(_) => Self::HYPER_V_LINUX_DRIVER_TYPE_ID,
             #[cfg(target_os = "linux")]
@@ -137,6 +141,7 @@ impl Hdl {
             Hdl::Int64(key) => *key,
             Hdl::UInt64(key) => *key,
             Hdl::Int32(key) => *key,
+            Hdl::UInt32(key) => *key,
             #[cfg(target_os = "linux")]
             Hdl::HypervLinuxDriver(key) => *key,
             #[cfg(target_os = "linux")]
@@ -168,6 +173,7 @@ impl std::fmt::Display for Hdl {
             Hdl::Int64(key) => write!(f, "Int64({})", key),
             Hdl::UInt64(key) => write!(f, "UInt64({})", key),
             Hdl::Int32(key) => write!(f, "Int32({})", key),
+            Hdl::UInt32(key) => write!(f, "UInt32({})", key),
             #[cfg(target_os = "linux")]
             Hdl::HypervLinuxDriver(key) => write!(f, "HypervLinuxDriver({})", key),
             #[cfg(target_os = "linux")]
@@ -204,6 +210,7 @@ impl std::convert::TryFrom<Handle> for Hdl {
             Self::INT_64_TYPE_ID => Ok(Hdl::Int64(key)),
             Self::UINT_64_TYPE_ID => Ok(Hdl::UInt64(key)),
             Self::INT_32_TYPE_ID => Ok(Hdl::Int32(key)),
+            Self::UINT_32_TYPE_ID => Ok(Hdl::UInt32(key)),
             #[cfg(target_os = "linux")]
             Self::HYPER_V_LINUX_DRIVER_TYPE_ID => Ok(Hdl::HypervLinuxDriver(key)),
             #[cfg(target_os = "linux")]

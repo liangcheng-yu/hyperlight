@@ -1,7 +1,7 @@
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
-use crate::{int::register_u64, validate_context, validate_context_or_panic};
+use crate::{uint::register_u64, validate_context, validate_context_or_panic};
 use hyperlight_host::mem::shared_mem::SharedMemory;
 use hyperlight_host::{new_error, Result};
 

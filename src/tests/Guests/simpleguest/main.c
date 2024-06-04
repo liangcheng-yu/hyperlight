@@ -18,7 +18,7 @@ uint8_t* setByteArrayToZero(const uint8_t* arrayPtr, int length)
 
 uint8_t* printTwoArgs(const char* arg1, int arg2)
 {
-    size_t length = (size_t)strlen(arg1)  + 35;
+    size_t length = (size_t)strlen(arg1)  + 33;
     char* message = malloc(length);
     if (NULL == message)
     {
@@ -32,7 +32,7 @@ uint8_t* printTwoArgs(const char* arg1, int arg2)
 
 uint8_t* printThreeArgs(const char* arg1, int arg2, int64_t arg3)
 {
-    size_t length = (size_t)strlen(arg1) + 61;
+    size_t length = (size_t)strlen(arg1) + 59;
     char* message = malloc(length);
     if (NULL == message)
     {
@@ -46,7 +46,7 @@ uint8_t* printThreeArgs(const char* arg1, int arg2, int64_t arg3)
 
 uint8_t* printFourArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4)
 {
-    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + 67;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + 65;
     char* message = malloc(length);
     if (NULL == message)
     {
@@ -60,7 +60,7 @@ uint8_t* printFourArgs(const char* arg1, int arg2, int64_t arg3, const char* arg
 
 uint8_t* printFiveArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5)
 {
-    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + 67;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + 71;
     char* message = malloc(length);
     if (NULL == message)
     {
@@ -105,43 +105,43 @@ uint8_t* printSevenArgs(const char* arg1, int arg2, int64_t arg3, const char* ar
     return result;
 }
 
-uint8_t* printEightArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, const char* arg8)
+uint8_t* printEightArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, uint32_t arg8)
 {
-    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + (size_t)strlen(arg8) + 96;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + 106;
     char* message = malloc(length);
     if (NULL == message)
     {
         setError(GUEST_ERROR, "Malloc Failed");
     }
-    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%s.", arg1, arg2, arg3, arg4, arg5, arg6 ? "true" : "false", arg7 ? "true" : "false", arg8);
+    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%d.", arg1, arg2, arg3, arg4, arg5, arg6 ? "true" : "false", arg7 ? "true" : "false", arg8);
     uint8_t* result = printOutputAsGuestFunction(message);
     free(message);
     return result;
 }
 
-uint8_t* printNineArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, const char* arg8, int64_t arg9)
+uint8_t* printNineArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, uint32_t arg8, uint64_t arg9)
 {
-    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + (size_t)strlen(arg8) + 122;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + 122;
     char* message = malloc(length);
     if (NULL == message)
     {
         setError(GUEST_ERROR, "Malloc Failed");
     }
-    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%s arg9:%d.", arg1, arg2, arg3, arg4, arg5, arg6 ? "true" : "false", arg7 ? "true" : "false", arg8, arg9);
+    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%d arg9:%d.", arg1, arg2, arg3, arg4, arg5, arg6 ? "true" : "false", arg7 ? "true" : "false", arg8, arg9);
     uint8_t* result = printOutputAsGuestFunction(message);
     free(message);
     return result;
 }
 
-uint8_t* printTenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, const char* arg8, int64_t arg9, int arg10)
+uint8_t* printTenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, uint32_t arg8, uint64_t arg9, int arg10)
 {
-    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + (size_t)strlen(arg8) + 139;
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + 139;
     char* message = malloc(length);
     if (NULL == message)
     {
         setError(GUEST_ERROR, "Malloc Failed");
     }
-    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%s arg9:%d arg10:%d.", arg1, arg2, arg3, arg4, arg5, arg6 ? "true" : "false", arg7 ? "true" : "false", arg8, arg9, arg10);
+    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%d arg9:%d arg10:%d.", arg1, arg2, arg3, arg4, arg5, arg6 ? "true" : "false", arg7 ? "true" : "false", arg8, arg9, arg10);
     uint8_t* result = printOutputAsGuestFunction(message);
     free(message);
     return result;
@@ -314,9 +314,9 @@ GENERATE_FUNCTION(printFourArgs, 4, hlstring, hlint, hllong, hlstring);
 GENERATE_FUNCTION(printFiveArgs, 5, hlstring, hlint, hllong, hlstring, hlstring);
 GENERATE_FUNCTION(printSixArgs, 6, hlstring, hlint, hllong, hlstring, hlstring, hlbool);
 GENERATE_FUNCTION(printSevenArgs, 7, hlstring, hlint, hllong, hlstring, hlstring, hlbool, hlbool);
-GENERATE_FUNCTION(printEightArgs, 8, hlstring, hlint, hllong, hlstring, hlstring, hlbool, hlbool, hlstring);
-GENERATE_FUNCTION(printNineArgs, 9, hlstring, hlint, hllong, hlstring, hlstring, hlbool, hlbool, hlstring, hllong);
-GENERATE_FUNCTION(printTenArgs, 10, hlstring, hlint, hllong, hlstring, hlstring, hlbool, hlbool, hlstring, hllong, hlint);
+GENERATE_FUNCTION(printEightArgs, 8, hlstring, hlint, hllong, hlstring, hlstring, hlbool, hlbool, hluint);
+GENERATE_FUNCTION(printNineArgs, 9, hlstring, hlint, hllong, hlstring, hlstring, hlbool, hlbool, hluint, hlulong);
+GENERATE_FUNCTION(printTenArgs, 10, hlstring, hlint, hllong, hlstring, hlstring, hlbool, hlbool, hluint, hlulong, hlint);
 GENERATE_FUNCTION(setByteArrayToZero, 2, hlvecbytes, hlint);
 GENERATE_FUNCTION(echo, 1, hlstring);
 GENERATE_FUNCTION(getSizePrefixedBuffer, 2, hlvecbytes, hlint);

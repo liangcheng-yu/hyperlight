@@ -5,7 +5,7 @@ use crate::{
     function_call_result::get_function_call_result, int::register_i32,
 };
 use crate::{
-    int::register_u64,
+    uint::register_u64,
     validate_context,
     {arrays::borrowed_slice::borrow_ptr_as_slice, shared_mem::register_shared_mem},
 };

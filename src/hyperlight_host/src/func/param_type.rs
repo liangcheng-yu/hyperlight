@@ -9,7 +9,7 @@ use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterType, Para
 /// valid Hyperlight parameter type.
 ///
 /// For each parameter type Hyperlight supports in host functions, we
-/// provide an implementation for `SupporterParameterType<SupportedType>`
+/// provide an implementation for `SupportedParameterType<SupportedType>`
 pub trait SupportedParameterType<T> {
     /// Get the underlying Hyperlight parameter type representing this
     /// `SupportedParameterType`
@@ -66,6 +66,28 @@ impl SupportedParameterType<i32> for i32 {
     }
 }
 
+impl SupportedParameterType<u32> for u32 {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn get_hyperlight_type() -> ParameterType {
+        ParameterType::UInt
+    }
+
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn get_hyperlight_value(&self) -> ParameterValue {
+        ParameterValue::UInt(*self)
+    }
+
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    fn get_inner(a: ParameterValue) -> Result<u32> {
+        match a {
+            ParameterValue::UInt(ui) => Ok(ui),
+            other => {
+                log_then_return!(ParameterValueConversionFailure(other.clone(), "u32"));
+            }
+        }
+    }
+}
+
 impl SupportedParameterType<i64> for i64 {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hyperlight_type() -> ParameterType {
@@ -80,9 +102,31 @@ impl SupportedParameterType<i64> for i64 {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn get_inner(a: ParameterValue) -> Result<i64> {
         match a {
-            ParameterValue::Long(i) => Ok(i),
+            ParameterValue::Long(l) => Ok(l),
             other => {
                 log_then_return!(ParameterValueConversionFailure(other.clone(), "i64"));
+            }
+        }
+    }
+}
+
+impl SupportedParameterType<u64> for u64 {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn get_hyperlight_type() -> ParameterType {
+        ParameterType::ULong
+    }
+
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn get_hyperlight_value(&self) -> ParameterValue {
+        ParameterValue::ULong(*self)
+    }
+
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    fn get_inner(a: ParameterValue) -> Result<u64> {
+        match a {
+            ParameterValue::ULong(ul) => Ok(ul),
+            other => {
+                log_then_return!(ParameterValueConversionFailure(other.clone(), "u64"));
             }
         }
     }

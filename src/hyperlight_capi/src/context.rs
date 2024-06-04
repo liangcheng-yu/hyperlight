@@ -91,6 +91,8 @@ pub struct Context {
     pub(crate) uint64s: HashMap<Key, u64>,
     /// All the `i32`s stored in this context
     pub(crate) int32s: HashMap<Key, i32>,
+    /// All the `u32`s stored in this context
+    pub(crate) uint32s: HashMap<Key, u32>,
     #[cfg(target_os = "linux")]
     /// The HyperV Linux VM drivers stored in this context
     pub(crate) hyperv_linux_drivers: HashMap<Key, HypervLinuxDriver>,
@@ -215,6 +217,7 @@ impl Context {
                     Hdl::Int64(key) => self.int64s.remove(&key).is_some(),
                     Hdl::UInt64(key) => self.uint64s.remove(&key).is_some(),
                     Hdl::Int32(key) => self.int32s.remove(&key).is_some(),
+                    Hdl::UInt32(key) => self.uint32s.remove(&key).is_some(),
                     #[cfg(target_os = "linux")]
                     Hdl::HypervLinuxDriver(key) => self.hyperv_linux_drivers.remove(&key).is_some(),
                     #[cfg(target_os = "linux")]

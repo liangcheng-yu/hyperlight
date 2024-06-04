@@ -40,15 +40,20 @@ namespace Hyperlight.Wrapper
                 function_call_result_new_i32,
                 ConvertTo<int>(obj)
             ))
-            .Add(typeof(uint), (obj) => From<int>(
+            .Add(typeof(uint), (obj) => From<uint>(
                 ctx,
-                function_call_result_new_i32,
-                ConvertTo<int>(obj)
+                function_call_result_new_u32,
+                ConvertTo<uint>(obj)
             ))
             .Add(typeof(long), (obj) => From<long>(
                 ctx,
                 function_call_result_new_i64,
                  ConvertTo<long>(obj)
+            ))
+            .Add(typeof(ulong), (obj) => From<ulong>(
+                ctx,
+                function_call_result_new_u64,
+                 ConvertTo<ulong>(obj)
             ))
             .Add(typeof(IntPtr), (obj) => From<long>(
                 ctx,
@@ -148,6 +153,20 @@ namespace Hyperlight.Wrapper
         private static extern unsafe NativeHandle function_call_result_new_i64(
             NativeContext ctx,
             long val
+        );
+
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern unsafe NativeHandle function_call_result_new_u32(
+            NativeContext ctx,
+            uint val
+        );
+
+        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
+        private static extern unsafe NativeHandle function_call_result_new_u64(
+            NativeContext ctx,
+            ulong val
         );
 
         [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
