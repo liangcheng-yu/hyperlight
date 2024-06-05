@@ -20,12 +20,12 @@ impl MemMgrWrapper {
     }
 
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(super) fn get_mgr(&self) -> &SandboxMemoryManager {
+    pub(crate) fn unwrap_mgr(&self) -> &SandboxMemoryManager {
         &self.0
     }
 
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(super) fn get_mgr_mut(&mut self) -> &mut SandboxMemoryManager {
+    pub(crate) fn unwrap_mgr_mut(&mut self) -> &mut SandboxMemoryManager {
         &mut self.0
     }
 
@@ -41,12 +41,13 @@ impl MemMgrWrapper {
     /// there was some other error.
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn check_stack_guard(&self) -> Result<bool> {
-        self.get_mgr().check_stack_guard(*self.get_stack_cookie())
+        self.unwrap_mgr()
+            .check_stack_guard(*self.get_stack_cookie())
     }
 
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn write_memory_layout(&mut self, run_from_process_memory: bool) -> Result<()> {
-        let mgr = self.get_mgr_mut();
+        let mgr = self.unwrap_mgr_mut();
         let layout = mgr.layout;
         let shared_mem = mgr.get_shared_mem_mut();
         let mem_size = shared_mem.mem_size();
@@ -62,13 +63,13 @@ impl MemMgrWrapper {
 impl AsMut<SandboxMemoryManager> for MemMgrWrapper {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn as_mut(&mut self) -> &mut SandboxMemoryManager {
-        self.get_mgr_mut()
+        self.unwrap_mgr_mut()
     }
 }
 
 impl AsRef<SandboxMemoryManager> for MemMgrWrapper {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn as_ref(&self) -> &SandboxMemoryManager {
-        self.get_mgr()
+        self.unwrap_mgr()
     }
 }

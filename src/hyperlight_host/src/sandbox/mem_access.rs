@@ -19,9 +19,7 @@ pub(super) fn handle_mem_access_impl(wrapper: &MemMgrWrapper) -> Result<()> {
 }
 
 #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-pub(super) fn mem_access_handler_wrapper<'a>(
-    wrapper: MemMgrWrapper,
-) -> MemAccessHandlerWrapper<'a> {
+pub(super) fn mem_access_handler_wrapper(wrapper: MemMgrWrapper) -> MemAccessHandlerWrapper {
     let mem_access_func: MemAccessHandlerFunction =
         Box::new(move || handle_mem_access_impl(&wrapper));
     let mem_access_hdl = MemAccessHandler::from(mem_access_func);

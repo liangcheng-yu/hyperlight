@@ -13,7 +13,6 @@ use hyperlight_host::{
     Result,
 };
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 fn get_driver_mut(ctx: &mut Context, handle: Handle) -> Result<&mut KVMDriver> {
     Context::get_mut(handle, &mut ctx.kvm_drivers, |b| {
@@ -97,7 +96,7 @@ pub unsafe extern "C" fn kvm_set_rsp(
         .ok_or_err_hdl()
 }
 
-/// Initialise the vCPU, call the equivalent of `execute_until_halt`,
+/// Initialise the vCPU, call the equivalent of `VirtualCPU::run`,
 /// and return the result.
 ///
 /// Return an empty `Handle` on success, or a `Handle` that references a
@@ -130,9 +129,6 @@ pub unsafe extern "C" fn kvm_initialise(
                     page_size,
                     Arc::new(Mutex::new(outb_func)),
                     Arc::new(Mutex::new(mem_access_func)),
-                    // These are set to the defaults in SandboxConfiguration, once we migrate the C# Sandbox to use the Rust Sandbox this API should be deleted so defaulting these for now should be fine
-                    Duration::from_millis(1000),
-                    Duration::from_millis(10),
                 )
                 .map(|_| Handle::new_empty())
         })
@@ -167,9 +163,6 @@ pub unsafe extern "C" fn kvm_dispatch_call_from_host(
                     dispatch_func_addr.into(),
                     Arc::new(Mutex::new(outb_func)),
                     Arc::new(Mutex::new(mem_access_func)),
-                    // These are set to the defaults in SandboxConfiguration, once we migrate the C# Sandbox to use the Rust Sandbox this API should be deleted so defaulting these for now should be fine
-                    Duration::from_millis(1000),
-                    Duration::from_millis(10),
                 )
                 .map(|_| Handle::new_empty())
         })

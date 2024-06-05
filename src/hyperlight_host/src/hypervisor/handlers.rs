@@ -17,27 +17,27 @@ pub trait OutBHandlerCaller: Sync + Send {
 /// Note: This needs to be wrapped in a Mutex to be able to grab a mutable
 /// reference to the underlying data (i.e., handle_outb in `Sandbox` takes
 /// a &mut self).
-pub type OutBHandlerWrapper<'a> = Arc<Mutex<dyn OutBHandlerCaller + 'a>>;
+pub type OutBHandlerWrapper = Arc<Mutex<dyn OutBHandlerCaller>>;
 
-pub(crate) type OutBHandlerFunction<'a> = Box<dyn FnMut(u16, u64) -> Result<()> + 'a + Send>;
+pub(crate) type OutBHandlerFunction = Box<dyn FnMut(u16, u64) -> Result<()> + Send>;
 
 /// A `OutBHandler` implementation using a `OutBHandlerFunction`
 ///
 /// Note: This handler must live no longer than the `Sandbox` to which it belongs
-pub(crate) struct OutBHandler<'a>(Arc<Mutex<OutBHandlerFunction<'a>>>);
+pub(crate) struct OutBHandler(Arc<Mutex<OutBHandlerFunction>>);
 
-impl<'a> From<OutBHandlerFunction<'a>> for OutBHandler<'a> {
+impl From<OutBHandlerFunction> for OutBHandler {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn from(func: OutBHandlerFunction<'a>) -> Self {
+    fn from(func: OutBHandlerFunction) -> Self {
         Self(Arc::new(Mutex::new(func)))
     }
 }
 
-impl<'a> OutBHandlerCaller for OutBHandler<'a> {
+impl OutBHandlerCaller for OutBHandler {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn call(&mut self, port: u16, payload: u64) -> Result<()> {
         let mut func = self.0.lock()?;
-        (func)(port, payload)
+        func(port, payload)
     }
 }
 
@@ -55,30 +55,30 @@ pub trait MemAccessHandlerCaller: Send {
 /// Note: This needs to be wrapped in a Mutex to be able to grab a mutable
 /// reference to the underlying data (i.e., handle_mmio_exit in `Sandbox` takes
 /// a &mut self).
-pub type MemAccessHandlerWrapper<'a> = Arc<Mutex<dyn MemAccessHandlerCaller + 'a>>;
+pub type MemAccessHandlerWrapper = Arc<Mutex<dyn MemAccessHandlerCaller>>;
 
-pub(crate) type MemAccessHandlerFunction<'a> = Box<dyn FnMut() -> Result<()> + 'a + Send>;
+pub(crate) type MemAccessHandlerFunction = Box<dyn FnMut() -> Result<()> + Send>;
 
 /// A `MemAccessHandler` implementation using `MemAccessHandlerFunction`.
 ///
-/// Note: This handler must live for as long as the its Sandbox or for
+/// Note: This handler must live for as long as its Sandbox or for
 /// static in the case of its C API usage.
-pub(crate) struct MemAccessHandler<'a>(Arc<Mutex<MemAccessHandlerFunction<'a>>>);
+pub(crate) struct MemAccessHandler(Arc<Mutex<MemAccessHandlerFunction>>);
 
-impl<'a> From<MemAccessHandlerFunction<'a>> for MemAccessHandler<'a> {
+impl From<MemAccessHandlerFunction> for MemAccessHandler {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn from(func: MemAccessHandlerFunction<'a>) -> Self {
+    fn from(func: MemAccessHandlerFunction) -> Self {
         Self(Arc::new(Mutex::new(func)))
     }
 }
 
-impl<'a> MemAccessHandlerCaller for MemAccessHandler<'a> {
+impl MemAccessHandlerCaller for MemAccessHandler {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn call(&mut self) -> Result<()> {
         let mut func = self
             .0
             .lock()
             .map_err(|_| new_error!("could not lock mem access function"))?;
-        (func)()
+        func()
     }
 }

@@ -1,19 +1,22 @@
 use super::{leaked_outb::LeakedOutBWrapper, WrapperGetter};
 use super::{HypervisorWrapper, MemMgrWrapper, UninitializedSandbox};
 use crate::func::call_ctx::SingleUseGuestCallContext;
+use crate::hypervisor::hypervisor_handler::kill_hypervisor_handler_thread;
 use crate::sandbox_state::sandbox::Sandbox;
 use crate::Result;
 use hyperlight_common::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
 };
 use std::marker::PhantomData;
+use std::thread::JoinHandle;
 use tracing::{instrument, Span};
 
 /// A sandbox implementation that supports calling no more than 1 guest
 /// function
 pub struct SingleUseSandbox<'a> {
     pub(super) mem_mgr: MemMgrWrapper,
-    pub(super) hv: HypervisorWrapper<'a>,
+    pub(super) hv: HypervisorWrapper,
+    pub(super) join_handle: Option<JoinHandle<Result<()>>>,
     /// This field is a "marker type" to ensure `SingleUseSandbox` is not
     /// `Send` and thus, instances thereof cannot be sent to a different
     /// thread. This feature is important because the owner of a single-use
@@ -32,6 +35,25 @@ pub struct SingleUseSandbox<'a> {
     _leaked_outb: Option<LeakedOutBWrapper<'a>>,
 }
 
+// We need to implement drop to join the
+// threads, because, otherwise, we will
+// be leaking a thread with every
+// sandbox that is dropped. This was initially
+// caught by our benchmarks that created a ton of
+// sandboxes and caused the system to run out of
+// resources. Now, this is covered by the test:
+// `create_1000_sandboxes`.
+impl Drop for SingleUseSandbox<'_> {
+    fn drop(&mut self) {
+        match kill_hypervisor_handler_thread(self) {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("[LEAKED THREAD] Failed to kill hypervisor handler thread when dropping SingleUseSandbox: {:?}", e);
+            }
+        }
+    }
+}
+
 impl<'a> SingleUseSandbox<'a> {
     /// Move an `UninitializedSandbox` into a new `SingleUseSandbox` instance.
     ///
@@ -44,15 +66,17 @@ impl<'a> SingleUseSandbox<'a> {
     /// function not publicly exposed. Finally, although it looks like it should be
     /// in a `From` implementation, it is purposely not, because external
     /// users would then see it and be able to use it.
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     pub(super) fn from_uninit(
-        val: UninitializedSandbox<'a>,
+        val: UninitializedSandbox,
+        join_handle: Option<JoinHandle<Result<()>>>,
         leaked_outb: Option<LeakedOutBWrapper<'a>>,
     ) -> SingleUseSandbox<'a> {
         Self {
             mem_mgr: val.mgr,
             hv: val.hv,
             make_unsend: PhantomData,
+            join_handle,
             _leaked_outb: leaked_outb,
         }
     }
@@ -146,7 +170,7 @@ impl<'a> SingleUseSandbox<'a> {
     /// Convenience for the following:
     ///
     /// `self.new_call_context().call(name, ret, args)`
-    #[instrument(err(Debug), skip(self,args), parent = Span::current())]
+    #[instrument(err(Debug), skip(self, args), parent = Span::current())]
     pub fn call_guest_function_by_name(
         self,
         name: &str,
@@ -157,29 +181,39 @@ impl<'a> SingleUseSandbox<'a> {
     }
 }
 
-impl<'a> WrapperGetter<'a> for SingleUseSandbox<'a> {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn get_mgr(&self) -> &MemMgrWrapper {
+impl<'a> WrapperGetter for SingleUseSandbox<'a> {
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
+    fn get_mgr_wrapper(&self) -> &MemMgrWrapper {
         &self.mem_mgr
     }
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn get_mgr_mut(&mut self) -> &mut MemMgrWrapper {
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
+    fn get_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper {
         &mut self.mem_mgr
     }
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn get_hv(&self) -> &HypervisorWrapper<'a> {
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
+    fn get_hv(&self) -> &HypervisorWrapper {
         &self.hv
     }
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn get_hv_mut(&mut self) -> &mut HypervisorWrapper<'a> {
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
+    fn get_hv_mut(&mut self) -> &mut HypervisorWrapper {
         &mut self.hv
     }
 }
 
 impl<'a> Sandbox for SingleUseSandbox<'a> {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn check_stack_guard(&self) -> Result<bool> {
         self.mem_mgr.check_stack_guard()
+    }
+
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
+    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper {
+        &mut self.hv
+    }
+
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
+    fn get_hypervisor_handler_thread_mut(&mut self) -> &mut Option<JoinHandle<Result<()>>> {
+        &mut self.join_handle
     }
 }
 

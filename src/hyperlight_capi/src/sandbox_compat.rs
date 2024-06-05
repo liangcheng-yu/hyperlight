@@ -10,7 +10,7 @@ use hyperlight_host::UninitializedSandbox;
 /// to allow our `Sandbox` wrapper type to store both an uninitailized
 /// or initialized sandbox at the same time.
 pub(crate) enum SandboxImpls {
-    Uninit(Box<hyperlight_host::sandbox::uninitialized::UninitializedSandbox<'static>>),
+    Uninit(Box<hyperlight_host::sandbox::uninitialized::UninitializedSandbox>),
     InitMultiUse(Box<hyperlight_host::MultiUseSandbox<'static>>),
     InitSingleUse(Box<hyperlight_host::SingleUseSandbox<'static>>),
 }
@@ -28,7 +28,7 @@ pub(crate) struct Sandbox {
 impl Sandbox {
     pub(super) fn from_uninit(
         should_recycle: bool,
-        u_sbox: hyperlight_host::sandbox::uninitialized::UninitializedSandbox<'static>,
+        u_sbox: hyperlight_host::sandbox::uninitialized::UninitializedSandbox,
         callback_writer_func: Option<Box<dyn Fn(String) -> Result<i32>>>,
     ) -> Self {
         Self {
@@ -64,7 +64,7 @@ impl Sandbox {
     /// On any error, the sandbox will be removed from `ctx`
     pub(super) fn evolve<CbFn>(ctx: &mut Context, hdl: Handle, cb_fn: CbFn) -> Result<()>
     where
-        CbFn: FnOnce(bool, Box<UninitializedSandbox<'static>>) -> Result<SandboxImpls>,
+        CbFn: FnOnce(bool, Box<UninitializedSandbox>) -> Result<SandboxImpls>,
     {
         let mut sbox = ctx
             .sandboxes
@@ -91,7 +91,7 @@ impl Sandbox {
     /// Consume `self`, check if it holds a `sandbox::UninitializedSandbox`,
     /// and return an immutable reference to it if so.
     /// Otherwise, return an `Err`
-    pub(crate) fn to_uninit(&self) -> Result<&UninitializedSandbox<'static>> {
+    pub(crate) fn to_uninit(&self) -> Result<&UninitializedSandbox> {
         match &self.inner {
             SandboxImpls::Uninit(sbox) => Ok(sbox),
             _ => {
@@ -104,7 +104,7 @@ impl Sandbox {
     /// Consume `self`, check if it holds a `sandbox::UninitializedSandbox`,
     /// and return an immutable reference to it if so.
     /// Otherwise, return an `Err`
-    pub(crate) fn to_uninit_mut(&mut self) -> Result<&mut UninitializedSandbox<'static>> {
+    pub(crate) fn to_uninit_mut(&mut self) -> Result<&mut UninitializedSandbox> {
         match &mut self.inner {
             SandboxImpls::Uninit(sbox) => Ok(sbox),
             _ => {

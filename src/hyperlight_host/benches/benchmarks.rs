@@ -61,6 +61,7 @@ fn sandbox_benchmark(c: &mut Criterion) {
     group.bench_function("create_sandbox_and_call_context_and_drop", |b| {
         b.iter(|| create_sandbox().new_call_context());
     });
+
     group.finish();
 }
 

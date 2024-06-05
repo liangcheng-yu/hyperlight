@@ -1,12 +1,17 @@
 use super::guest_err::check_for_guest_error;
 #[cfg(feature = "function_call_metrics")]
 use crate::histogram_vec_time_micros;
+use crate::hypervisor::hypervisor_handler::{
+    terminate_hypervisor_handler_execution_and_reinitialise, DispatchArgs, HandlerMsg, VCPUAction,
+};
 use crate::mem::ptr::RawPtr;
 #[cfg(feature = "function_call_metrics")]
 use crate::sandbox::metrics::SandboxMetric::GuestFunctionCallDurationMicroseconds;
 use crate::sandbox::WrapperGetter;
 use crate::{HyperlightError, Result};
 use cfg_if::cfg_if;
+
+use crate::HyperlightError::HostFailedToCancelGuestExecution;
 use hyperlight_common::flatbuffer_wrappers::{
     function_call::{FunctionCall, FunctionCallType},
     function_types::{ParameterValue, ReturnType, ReturnValue},
@@ -20,17 +25,18 @@ use tracing::{instrument, Span};
     parent = Span::current(),
     level = "Trace"
 )]
-pub(crate) fn call_function_on_guest<'a, HvMemMgrT: WrapperGetter<'a>>(
+pub(crate) fn call_function_on_guest<HvMemMgrT: WrapperGetter>(
     wrapper_getter: &mut HvMemMgrT,
     function_name: &str,
     return_type: ReturnType,
     args: Option<Vec<ParameterValue>>,
 ) -> Result<ReturnValue> {
+    let mut timedout = false;
     let (is_in_process, p_dispatch) = {
         // only borrow immutably from hv_mem_mgr_getter inside this
         // scope so we can later borrow mutably from it to get the
         // hypervisor
-        let mem_mgr = wrapper_getter.get_mgr().as_ref();
+        let mem_mgr = wrapper_getter.get_mgr_wrapper().as_ref();
         (
             mem_mgr.is_in_process(),
             mem_mgr.get_pointer_to_dispatch_function()?,
@@ -51,7 +57,7 @@ pub(crate) fn call_function_on_guest<'a, HvMemMgrT: WrapperGetter<'a>>(
     {
         // once again, only borrow mutably from hv_mem_mgr_getter
         // from inside this scope so we can borrow mutably later
-        let mem_mgr = wrapper_getter.get_mgr_mut();
+        let mem_mgr = wrapper_getter.get_mgr_wrapper_mut();
         mem_mgr.as_mut().write_guest_function_call(&buffer)?;
     }
 
@@ -75,43 +81,102 @@ pub(crate) fn call_function_on_guest<'a, HvMemMgrT: WrapperGetter<'a>>(
             }
         }
     } else {
-        // this is the mutable borrow for which we had to do scope gynmastics
+        // this is the mutable borrow for which we had to do scope gymnastics
         // above
         {
-            let hv_wrapper = wrapper_getter.get_hv_mut();
-            let mut hv = hv_wrapper.get_hypervisor()?;
-            cfg_if! {
-                if #[cfg(feature = "function_call_metrics")] {
-                    histogram_vec_time_micros!(
-                        &GuestFunctionCallDurationMicroseconds,
-                        &[function_name],
-                        hv.dispatch_call_from_host(
-                            RawPtr::from(p_dispatch),
-                            hv_wrapper.outb_hdl.clone(),
-                            hv_wrapper.mem_access_hdl.clone(),
-                            hv_wrapper.max_execution_time,
-                            hv_wrapper.max_wait_for_cancellation,
-                        )
-                    )
+            let (outb_hdl, mem_access_hdl, max_execution_time) = {
+                let hv_wrapper = wrapper_getter.get_hv_mut();
+                (
+                    hv_wrapper.outb_hdl.clone(),
+                    hv_wrapper.mem_access_hdl.clone(),
+                    hv_wrapper.max_execution_time,
+                )
+            };
+
+            #[cfg(target_os = "linux")]
+            let max_wait_for_cancellation = {
+                let hv_wrapper = wrapper_getter.get_hv_mut();
+                hv_wrapper.max_wait_for_cancellation
+            };
+
+            let (to_handler_tx, from_handler_rx, termination_status) = {
+                let hv_lock = wrapper_getter.get_hv_mut().get_hypervisor_lock()?;
+                (
+                    hv_lock.get_to_handler_tx(),
+                    hv_lock.get_from_handler_rx(),
+                    hv_lock.get_termination_status(),
+                )
+            };
+
+            #[cfg(target_os = "linux")]
+            let (run_cancelled, thread_id) = {
+                let hv_lock = wrapper_getter.get_hv_mut().get_hypervisor_lock()?;
+                (hv_lock.get_run_cancelled(), hv_lock.get_thread_id())
+            };
+
+            to_handler_tx
+                .send(VCPUAction::DispatchCallFromHost(DispatchArgs::new(
+                    function_name.to_string(),
+                    RawPtr::from(p_dispatch),
+                    outb_hdl.clone(),
+                    mem_access_hdl.clone(),
+                )))
+                .map_err(|_| HyperlightError::HypervisorHandlerCommunicationFailure())?;
+
+            match from_handler_rx.recv_timeout(max_execution_time) {
+                Ok(msg) => {
+                    timedout = true;
+                    if let HandlerMsg::Error(e) = msg {
+                        return Err(e);
+                    }
                 }
-                else {
-                    hv.dispatch_call_from_host(
-                        RawPtr::from(p_dispatch),
-                        hv_wrapper.outb_hdl.clone(),
-                        hv_wrapper.mem_access_hdl.clone(),
-                        hv_wrapper.max_execution_time,
-                        hv_wrapper.max_wait_for_cancellation,
-                    )
+                Err(_) => {
+                    timedout = true;
+                    match terminate_hypervisor_handler_execution_and_reinitialise(
+                        wrapper_getter,
+                        (to_handler_tx.clone(), from_handler_rx.clone()),
+                        max_execution_time,
+                        termination_status,
+                        outb_hdl,
+                        mem_access_hdl,
+                        #[cfg(target_os = "linux")]
+                            thread_id,
+                        #[cfg(target_os = "linux")]
+                            run_cancelled,
+                        #[cfg(target_os = "linux")]
+                            max_wait_for_cancellation,
+                    )? {
+                        HyperlightError::HypervisorHandlerExecutionCancelAttemptOnFinishedExecution() => {}
+                        // ^^^ do nothing, we just want to actually get the Flatbuffer return value
+                        // from shared memory in this case
+                        e => return Err(e),
+                    }
                 }
             }
-        }?;
+        }
     }
 
-    let mem_mgr = wrapper_getter.get_mgr_mut();
+    let mem_mgr = wrapper_getter.get_mgr_wrapper_mut();
     mem_mgr.check_stack_guard()?; // <- wrapper around mem_mgr `check_for_stack_guard`
     check_for_guest_error(mem_mgr)?;
 
-    mem_mgr.as_mut().get_guest_function_call_result()
+    mem_mgr
+        .as_mut()
+        .get_guest_function_call_result()
+        .map_err(|e| {
+            if timedout {
+                // if we timed-out, but still got here
+                // that means we had actually gotten stuck
+                // on the execution of a host function, and;
+                // hence, couldn't cancel guest execution.
+                // This particular check is needed now, because
+                // unlike w/ the previous scoped thread usage,
+                // we can't check if the thread completed or not.
+                HostFailedToCancelGuestExecution()
+            } else {
+                e
+            }
+        })
 }
 
 #[cfg(test)]
@@ -242,7 +307,7 @@ mod tests {
     }
 
     #[track_caller]
-    fn test_call_guest_function_by_name(u_sbox: UninitializedSandbox<'_>) {
+    fn test_call_guest_function_by_name(u_sbox: UninitializedSandbox) {
         let mu_sbox: MultiUseSandbox<'_> = u_sbox.evolve(MutatingCallback::from(init)).unwrap();
 
         let msg = "Hello, World!!\n".to_string();
@@ -310,7 +375,7 @@ mod tests {
         // This test relies upon a Hypervisor being present so for now
         // we will skip it if there isnt one.
         if !is_hypervisor_present() {
-            println!("Skipping test_call_guest_function_by_name because no hypervisor is present");
+            println!("Skipping terminate_vcpu_after_1000ms because no hypervisor is present");
             return Ok(());
         }
         let usbox = UninitializedSandbox::new(
@@ -392,7 +457,10 @@ mod tests {
             HyperlightError::HostFailedToCancelGuestExecution() => {}
             #[cfg(target_os = "linux")]
             HyperlightError::HostFailedToCancelGuestExecutionSendingSignals(_) => {}
-            e => panic!("Unexpected Error got {:?}", e),
+            e => panic!(
+                "Expected HyperlightError::ExecutionCanceledByHost() but got {:?}",
+                e
+            ),
         }
     }
 }

@@ -1,11 +1,11 @@
+use crate::logging::log_message;
 use alloc::format;
 use log::{LevelFilter, Metadata, Record};
-
-use crate::logging::log_message;
 
 pub(crate) struct GuestLogger {
     max_level: LevelFilter,
 }
+
 impl GuestLogger {
     pub(crate) fn set_max_level(max_level: LevelFilter) {
         unsafe {
@@ -38,3 +38,8 @@ impl log::Log for GuestLogger {
 pub(crate) static mut LOGGER: GuestLogger = GuestLogger {
     max_level: LevelFilter::Off,
 };
+
+pub(crate) fn set_max_level(level: LevelFilter) {
+    GuestLogger::set_max_level(level);
+    log::set_max_level(level);
+}

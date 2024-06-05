@@ -69,7 +69,7 @@ extern "C" fn call_outb(ptr: *mut Arc<Mutex<dyn OutBHandlerCaller>>, port: u16, 
 /// in https://github.com/deislabs/hyperlight/issues/533.
 pub(super) struct LeakedOutBWrapper<'a> {
     #[cfg(target_os = "windows")]
-    hdl_ptr: Arc<Mutex<CustomPtrDrop<'a, OutBHandlerWrapper<'a>>>>,
+    hdl_ptr: Arc<Mutex<CustomPtrDrop<'a, OutBHandlerWrapper>>>,
     /// This `PhantomData` will never be used, since it's impossible to
     /// actually create a `LeakedOutBWrapper` on Linux. It is only in place
     /// to prevent clippy from complaining that the lifetime parameter
@@ -81,10 +81,7 @@ pub(super) struct LeakedOutBWrapper<'a> {
 #[cfg(target_os = "windows")]
 impl<'a> LeakedOutBWrapper<'a> {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(super) fn new(
-        mgr: &mut SandboxMemoryManager,
-        wrapper: OutBHandlerWrapper<'a>,
-    ) -> Result<Self> {
+    pub(super) fn new(mgr: &mut SandboxMemoryManager, wrapper: OutBHandlerWrapper) -> Result<Self> {
         let hdl_box = Box::new(wrapper.clone());
         let hdl_ptr = Box::into_raw(hdl_box);
         let cd = CustomPtrDrop::new(

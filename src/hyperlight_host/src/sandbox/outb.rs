@@ -94,7 +94,7 @@ pub(super) fn outb_log(mgr: &mut SandboxMemoryManager) -> Result<()> {
 #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 fn handle_outb_impl(
     mem_mgr: &mut MemMgrWrapper,
-    host_funcs: Arc<Mutex<HostFuncsWrapper<'_>>>,
+    host_funcs: Arc<Mutex<HostFuncsWrapper>>,
     port: u16,
     byte: u64,
 ) -> Result<()> {
@@ -137,11 +137,11 @@ fn handle_outb_impl(
 ///
 /// TODO: pass at least the `host_funcs_wrapper` param by reference.
 #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-pub(super) fn outb_handler_wrapper<'a>(
+pub(super) fn outb_handler_wrapper(
     mut mem_mgr_wrapper: MemMgrWrapper,
-    host_funcs_wrapper: Arc<Mutex<HostFuncsWrapper<'a>>>,
-) -> OutBHandlerWrapper<'a> {
-    let outb_func: OutBHandlerFunction<'a> = Box::new(move |port, payload| {
+    host_funcs_wrapper: Arc<Mutex<HostFuncsWrapper>>,
+) -> OutBHandlerWrapper {
+    let outb_func: OutBHandlerFunction = Box::new(move |port, payload| {
         handle_outb_impl(
             &mut mem_mgr_wrapper,
             host_funcs_wrapper.clone(),
@@ -149,7 +149,7 @@ pub(super) fn outb_handler_wrapper<'a>(
             payload,
         )
     });
-    let outb_hdl = OutBHandler::<'a>::from(outb_func);
+    let outb_hdl = OutBHandler::from(outb_func);
     Arc::new(Mutex::new(outb_hdl))
 }
 

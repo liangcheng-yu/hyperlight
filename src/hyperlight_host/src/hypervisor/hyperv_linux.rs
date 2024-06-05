@@ -1,18 +1,15 @@
 use super::{
     handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
-    Hypervisor, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT,
-    CR4_PAE, EFER_LMA, EFER_LME,
+    Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR,
+    CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
 };
 
+use crate::hypervisor::hypervisor_handler::{HandlerMsg, ToFromRxTx, VCPUAction};
+use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
 use crate::{hypervisor::HyperlightExit, mem::ptr::RawPtr};
-use crate::{log_then_return, Result};
-use crate::{
-    mem::{
-        memory_region::{MemoryRegion, MemoryRegionFlags},
-        ptr::GuestPtr,
-    },
-    new_error,
-};
+use crate::{log_then_return, mem::ptr::GuestPtr, new_error, Result};
+use crossbeam::atomic::AtomicCell;
+use crossbeam_channel::{Receiver, Sender};
 use log::error;
 use mshv_bindings::{
     hv_message, hv_message_type, hv_message_type_HVMSG_GPA_INTERCEPT,
@@ -29,12 +26,13 @@ use mshv_bindings::{
 };
 use mshv_ioctls::{Mshv, VcpuFd, VmFd};
 use std::any::Any;
-use std::{collections::HashMap, time::Duration};
+use std::collections::HashMap;
+use std::sync::Arc;
 use tracing::{instrument, Span};
 
 /// Determine whether the HyperV for Linux hypervisor API is present
 /// and functional.
-#[instrument(skip_all, parent = Span::current(), level= "Trace")]
+#[instrument(skip_all, parent = Span::current(), level = "Trace")]
 //TODO:(#1029) Once CAPI is complete this does not need to be public
 pub fn is_hypervisor_present() -> bool {
     match Mshv::open_with_cloexec(true) {
@@ -63,6 +61,12 @@ pub struct HypervLinuxDriver {
     // instead and use the registers's name -- a u32 -- as the key
     registers: RegistersHashMap,
     orig_rsp: GuestPtr,
+    vcpu_action_transmitter: Option<crossbeam_channel::Sender<VCPUAction>>,
+    handler_message_receiver: Option<crossbeam_channel::Receiver<HandlerMsg>>,
+    handler_message_transmitter: Option<crossbeam_channel::Sender<HandlerMsg>>,
+    thread_id: Option<u64>,
+    cancel_run_requested: Arc<AtomicCell<bool>>,
+    run_cancelled: Arc<AtomicCell<bool>>,
 }
 
 impl std::fmt::Debug for HypervLinuxDriver {
@@ -83,7 +87,7 @@ impl HypervLinuxDriver {
     /// `apply_registers` method to do that, or more likely call
     /// `initialise` to do it for you.
     //TODO:(#1029) Once CAPI is complete this does not need to be public
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     pub fn new(
         mem_regions: Vec<MemoryRegion>,
         entrypoint_ptr: GuestPtr,
@@ -115,6 +119,12 @@ impl HypervLinuxDriver {
             mem_regions,
             registers,
             orig_rsp: rsp_ptr,
+            vcpu_action_transmitter: None,
+            handler_message_receiver: None,
+            handler_message_transmitter: None,
+            thread_id: None,
+            cancel_run_requested: Arc::new(AtomicCell::new(false)),
+            run_cancelled: Arc::new(AtomicCell::new(false)),
         })
     }
 
@@ -124,7 +134,7 @@ impl HypervLinuxDriver {
     /// If you want to manually apply registers to the stored vCPU, call
     /// `apply_registers`. `initialise` and `dispatch_call_from_host` will
     /// also do so automatically.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn add_registers(
         vcpu: &mut VcpuFd,
         registers: &mut RegistersHashMap,
@@ -221,7 +231,7 @@ impl HypervLinuxDriver {
     /// Call `add_registers` prior to this function to add to the internal
     /// register list.
     //TODO:(#1029) Once CAPI is complete this does not need to be public
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     pub fn apply_registers(&self) -> Result<()> {
         let mut regs_vec: Vec<hv_register_assoc> = Vec::new();
         for (k, v) in &self.registers {
@@ -240,7 +250,7 @@ impl HypervLinuxDriver {
     ///
     /// This function will not apply any other pending changes on
     /// the internal register list.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn update_rip(&mut self, val: RawPtr) -> Result<()> {
         self.update_register_u64(hv_register_name_HV_X64_REGISTER_RIP, val.into())
     }
@@ -252,7 +262,7 @@ impl HypervLinuxDriver {
     /// This function will apply only the value of the given register on the
     /// internally stored virtual CPU, but no others in the pending list.
     //TODO:(#1029) Once CAPI is complete this does not need to be public
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     pub fn update_register_u64(&mut self, name: hv_register_name, val: u64) -> Result<()> {
         self.registers
             .insert(name, hv_register_value { reg64: val });
@@ -264,7 +274,7 @@ impl HypervLinuxDriver {
         Ok(self.vcpu_fd.set_reg(&[reg])?)
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn get_rsp(&self) -> Result<u64> {
         let mut rsp_reg = hv_register_assoc {
             name: hv_register_name_HV_X64_REGISTER_RSP,
@@ -275,13 +285,67 @@ impl HypervLinuxDriver {
     }
 }
 
+impl ToFromRxTx for HypervLinuxDriver {
+    fn get_to_handler_tx(&self) -> Sender<VCPUAction> {
+        self.vcpu_action_transmitter.clone().unwrap()
+    }
+    fn set_to_handler_tx(&mut self, tx: Sender<VCPUAction>) {
+        self.vcpu_action_transmitter = Some(tx);
+    }
+    fn drop_to_handler_tx(&mut self) {
+        self.vcpu_action_transmitter = None;
+    }
+
+    fn get_from_handler_rx(&self) -> Receiver<HandlerMsg> {
+        self.handler_message_receiver.clone().unwrap()
+    }
+    fn set_from_handler_rx(&mut self, rx: Receiver<HandlerMsg>) {
+        self.handler_message_receiver = Some(rx);
+    }
+
+    fn get_from_handler_tx(&self) -> Sender<HandlerMsg> {
+        self.handler_message_transmitter.clone().unwrap()
+    }
+    fn set_from_handler_tx(&mut self, tx: Sender<HandlerMsg>) {
+        self.handler_message_transmitter = Some(tx);
+    }
+}
+
 impl Hypervisor for HypervLinuxDriver {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn as_mut_hypervisor(&mut self) -> &mut dyn Hypervisor {
         self as &mut dyn Hypervisor
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    fn set_thread_id(&mut self, thread_id: u64) {
+        log::debug!("Setting thread id to {}", thread_id);
+        self.thread_id = Some(thread_id);
+    }
+
+    fn set_termination_status(&mut self, value: bool) {
+        log::debug!("Setting termination status to {}", value);
+        self.cancel_run_requested.store(value);
+    }
+
+    fn get_termination_status(&self) -> Arc<AtomicCell<bool>> {
+        self.cancel_run_requested.clone()
+    }
+
+    fn get_run_cancelled(&self) -> Arc<AtomicCell<bool>> {
+        self.run_cancelled.clone()
+    }
+
+    fn set_run_cancelled(&self, value: bool) {
+        log::debug!("Setting run cancelled to {}", value);
+        self.run_cancelled.store(value);
+    }
+
+    fn get_thread_id(&self) -> u64 {
+        self.thread_id
+            .expect("Hypervisor hasn't been initialized yet, missing thread ID")
+    }
+
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn initialise(
         &mut self,
         peb_addr: RawPtr,
@@ -289,8 +353,6 @@ impl Hypervisor for HypervLinuxDriver {
         page_size: u32,
         outb_hdl: OutBHandlerWrapper,
         mem_access_hdl: MemAccessHandlerWrapper,
-        max_execution_time: Duration,
-        max_wait_for_cancellation: Duration,
     ) -> Result<()> {
         self.registers.insert(
             hv_register_name_HV_X64_REGISTER_RCX,
@@ -313,18 +375,13 @@ impl Hypervisor for HypervLinuxDriver {
             },
         );
         self.apply_registers()?;
-        self.execute_until_halt(
-            outb_hdl,
-            mem_access_hdl,
-            max_execution_time,
-            max_wait_for_cancellation,
-        )?;
+        VirtualCPU::run(self.as_mut_hypervisor(), outb_hdl, mem_access_hdl)?;
         // we need to reset the stack pointer once execution is complete
         // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it
         self.reset_rsp(self.orig_rsp()?)
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn handle_io(
         &mut self,
         port: u16,
@@ -342,7 +399,7 @@ impl Hypervisor for HypervLinuxDriver {
         self.update_rip(RawPtr::from(rip + instruction_length))
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn run(&mut self) -> Result<super::HyperlightExit> {
         const HALT_MESSAGE: hv_message_type = hv_message_type_HVMSG_X64_HALT;
         const IO_PORT_INTERCEPT_MESSAGE: hv_message_type =
@@ -403,14 +460,12 @@ impl Hypervisor for HypervLinuxDriver {
         Ok(result)
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn dispatch_call_from_host(
         &mut self,
         dispatch_func_addr: RawPtr,
         outb_handle_fn: OutBHandlerWrapper,
         mem_access_fn: MemAccessHandlerWrapper,
-        max_execution_time: Duration,
-        max_wait_for_cancellation: Duration,
     ) -> Result<()> {
         self.update_rip(dispatch_func_addr)?;
         // we need to reset the stack pointer once execution is complete
@@ -420,35 +475,30 @@ impl Hypervisor for HypervLinuxDriver {
             let abs = self.get_rsp()?;
             GuestPtr::try_from(RawPtr::from(abs))
         }?;
-        self.execute_until_halt(
-            outb_handle_fn,
-            mem_access_fn,
-            max_execution_time,
-            max_wait_for_cancellation,
-        )?;
+        VirtualCPU::run(self.as_mut_hypervisor(), outb_handle_fn, mem_access_fn)?;
         // Reset the stack pointer to the value it was before the call
         self.reset_rsp(rsp)
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn reset_rsp(&mut self, rsp: GuestPtr) -> Result<()> {
         let abs = rsp.absolute()?;
         self.update_register_u64(hv_register_name_HV_X64_REGISTER_RSP, abs)
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn orig_rsp(&self) -> Result<GuestPtr> {
         Ok(self.orig_rsp)
     }
 
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn as_any(&self) -> &dyn Any {
         self
     }
 }
 
 impl Drop for HypervLinuxDriver {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn drop(&mut self) {
         for region in &self.mem_regions {
             let mshv_region: mshv_user_mem_region = region.to_owned().into();
@@ -511,6 +561,7 @@ pub(crate) mod test_cfg {
         }};
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::test_cfg::{SHOULD_RUN_TEST, TEST_CONFIG};
@@ -519,16 +570,17 @@ mod tests {
     use crate::{mem::shared_mem::SharedMemory, should_run_hyperv_linux_test};
 
     #[rustfmt::skip]
-    const CODE:[u8;12] = [
-        0xba, 0xf8, 0x03,  /* mov $0x3f8, %dx */
-        0x00, 0xd8,         /* add %bl, %al */
-        0x04, b'0',         /* add $'0', %al */
-        0xee,               /* out %al, (%dx) */
+    const CODE: [u8; 12] = [
+        0xba, 0xf8, 0x03, /* mov $0x3f8, %dx */
+        0x00, 0xd8, /* add %bl, %al */
+        0x04, b'0', /* add $'0', %al */
+        0xee, /* out %al, (%dx) */
         /* send a 0 to indicate we're done */
-        0xb0, b'\0',        /* mov $'\0', %al */
-        0xee,               /* out %al, (%dx) */
+        0xb0, b'\0', /* mov $'\0', %al */
+        0xee, /* out %al, (%dx) */
         0xf4, /* HLT */
     ];
+
     fn shared_mem_with_code(
         code: &[u8],
         mem_size: usize,

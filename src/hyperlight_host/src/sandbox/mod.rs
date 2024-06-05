@@ -76,18 +76,18 @@ pub fn is_supported_platform() -> bool {
 
 /// A `HashMap` to map function names to `HyperlightFunction`s.
 #[derive(Clone, Default)]
-pub(super) struct FunctionsMap<'a>(HashMap<String, HyperlightFunction<'a>>);
+pub(super) struct FunctionsMap(HashMap<String, HyperlightFunction>);
 
-impl<'a> FunctionsMap<'a> {
+impl FunctionsMap {
     /// Insert a new entry into the map.
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(super) fn insert(&mut self, key: String, value: HyperlightFunction<'a>) {
+    pub(super) fn insert(&mut self, key: String, value: HyperlightFunction) {
         self.0.insert(key, value);
     }
 
     /// Get the value associated with the given key, if it exists.
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(super) fn get(&self, key: &str) -> Option<&HyperlightFunction<'a>> {
+    pub(super) fn get(&self, key: &str) -> Option<&HyperlightFunction> {
         self.0.get(key)
     }
 
@@ -98,14 +98,14 @@ impl<'a> FunctionsMap<'a> {
     }
 }
 
-impl<'a> PartialEq for FunctionsMap<'a> {
+impl PartialEq for FunctionsMap {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn eq(&self, other: &Self) -> bool {
         self.len() == other.len() && self.0.keys().all(|k| other.0.contains_key(k))
     }
 }
 
-impl<'a> Eq for FunctionsMap<'a> {}
+impl Eq for FunctionsMap {}
 
 /// Determine whether a suitable hypervisor is available to run
 /// this sandbox.
@@ -126,11 +126,11 @@ pub fn is_hypervisor_present() -> bool {
     false
 }
 
-pub(crate) trait WrapperGetter<'a> {
-    fn get_mgr(&self) -> &MemMgrWrapper;
-    fn get_mgr_mut(&mut self) -> &mut MemMgrWrapper;
-    fn get_hv(&self) -> &HypervisorWrapper<'a>;
-    fn get_hv_mut(&mut self) -> &mut HypervisorWrapper<'a>;
+pub(crate) trait WrapperGetter {
+    fn get_mgr_wrapper(&self) -> &MemMgrWrapper;
+    fn get_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper;
+    fn get_hv(&self) -> &HypervisorWrapper;
+    fn get_hv_mut(&mut self) -> &mut HypervisorWrapper;
 }
 
 #[cfg(test)]

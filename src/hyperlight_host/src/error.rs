@@ -91,17 +91,13 @@ pub enum HyperlightError {
     #[error("Field Name {0} not found in decoded GuestLogData")]
     FieldIsMissingInGuestLogData(String),
 
-    /// Memory Access Violation at the given address. The access type and memory region flags are provided.
-    #[error("Memory Access Violation at address {0:#x} of type {1}, but memory is marked as {2}")]
-    MemoryAccessViolation(u64, MemoryRegionFlags, MemoryRegionFlags),
+    /// Guest aborted during outb
+    #[error("Guest aborted: {0} {1}")]
+    GuestAborted(u8, String),
 
     ///Cannot run from guest binary unless the binary is a file
     #[error("Cannot run from guest binary when guest binary is a buffer")]
     GuestBinaryShouldBeAFile(),
-
-    /// Guest aborted during outb
-    #[error("Guest aborted: {0} {1}")]
-    GuestAborted(u8, String),
 
     /// Guest call resulted in error in guest
     #[error("Guest error occurred {0:?}: {1}")]
@@ -132,6 +128,22 @@ pub enum HyperlightError {
     #[error("HostFunction {0} was not found")]
     HostFunctionNotFound(String),
 
+    /// An attempt to communicate with or from the Hypervisor Handler thread failed
+    /// (i.e., usually a failure call to `.send()` or `.recv()` on a message passing
+    /// channel)
+    #[error("Communication failure with the Hypervisor Handler thread")]
+    HypervisorHandlerCommunicationFailure(),
+
+    /// An attempt to cancel a Hypervisor Handler execution failed.
+    /// See `terminate_hypervisor_handler_execution_and_reinitialise`
+    /// for more details.
+    #[error("Hypervisor Handler execution cancel attempt on a finished execution")]
+    HypervisorHandlerExecutionCancelAttemptOnFinishedExecution(),
+
+    /// Reading Writing or Seeking data failed.
+    #[error("Reading Writing or Seeking data failed {0:?}")]
+    IOError(#[from] std::io::Error),
+
     /// Failed to convert to Integer
     #[error("Failed To Convert Size to usize")]
     IntConversionFailure(#[from] TryFromIntError),
@@ -144,22 +156,22 @@ pub enum HyperlightError {
     #[error("The function call type is invalid {0:?}")]
     InvalidFunctionCallType(FunctionCallType),
 
-    /// Reading Writing or Seeking data failed.
-    #[error("Reading Writing or Seeking data failed {0:?}")]
-    IOError(#[from] std::io::Error),
-
     /// Conversion of str to Json failed
     #[error("Conversion of str data to json failed")]
     JsonConversionFailure(#[source] serde_json::Error),
-
-    /// An attempt to get a lock from a Mutex failed.
-    #[error("Unable to lock resource")]
-    LockAttemptFailed(String),
 
     /// Error occurred in KVM Operation
     #[error("KVM Error {0:?}")]
     #[cfg(target_os = "linux")]
     KVMError(#[from] kvm_ioctls::Error),
+
+    /// An attempt to get a lock from a Mutex failed.
+    #[error("Unable to lock resource")]
+    LockAttemptFailed(String),
+
+    /// Memory Access Violation at the given address. The access type and memory region flags are provided.
+    #[error("Memory Access Violation at address {0:#x} of type {1}, but memory is marked as {2}")]
+    MemoryAccessViolation(u64, MemoryRegionFlags, MemoryRegionFlags),
 
     /// Memory Allocation Failed.
     #[error("Memory Allocation Failed with OS Error {0:?}.")]
@@ -184,11 +196,6 @@ pub enum HyperlightError {
     /// mprotect Failed.
     #[error("mprotect failed with os error {0:?}")]
     MprotectFailed(Option<i32>),
-
-    /// vmm sys Error Occurred
-    #[error("vmm sys Error {0:?}")]
-    #[cfg(target_os = "linux")]
-    VmmSysError(#[from] vmm_sys_util::errno::Error),
 
     /// mshv Error Occurred
     #[error("mshv Error {0:?}")]
@@ -283,11 +290,16 @@ pub enum HyperlightError {
     #[error("String Conversion of UTF8 data to str failed")]
     UTF8StringConversionFailure(#[from] FromUtf8Error),
 
-    /// The capacity of the vector is is incorrect
+    /// The capacity of the vector is incorrect
     #[error(
         "The capacity of the vector is incorrect. Capacity: {0}, Length: {1}, FlatBuffer Size: {2}"
     )]
-    VectorCapacityInCorrect(usize, usize, i32),
+    VectorCapacityIncorrect(usize, usize, i32),
+
+    /// vmm sys Error Occurred
+    #[error("vmm sys Error {0:?}")]
+    #[cfg(target_os = "linux")]
+    VmmSysError(#[from] vmm_sys_util::errno::Error),
 
     /// Windows Error
     #[cfg(target_os = "windows")]

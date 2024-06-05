@@ -8,7 +8,7 @@ pub mod exports;
 /// Functionality to dispatch a call from the host to the guest
 pub(crate) mod guest_dispatch;
 /// Functionality to check for errors after a guest call
-mod guest_err;
+pub(crate) mod guest_err;
 /// Definitions and functionality to enable guest-to-host function calling,
 /// also called "host functions"
 ///
@@ -39,18 +39,17 @@ use std::sync::{Arc, Mutex};
 use tracing::instrument;
 use tracing::Span;
 
-type HLFunc<'a> =
-    Arc<Mutex<Box<dyn FnMut(Vec<ParameterValue>) -> Result<ReturnValue> + 'a + Send>>>;
+type HLFunc = Arc<Mutex<Box<dyn FnMut(Vec<ParameterValue>) -> Result<ReturnValue> + Send>>>;
 
 /// Generic HyperlightFunction
 #[derive(Clone)]
-pub struct HyperlightFunction<'a>(HLFunc<'a>);
+pub struct HyperlightFunction(HLFunc);
 
-impl<'a> HyperlightFunction<'a> {
+impl HyperlightFunction {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn new<F>(f: F) -> Self
     where
-        F: FnMut(Vec<ParameterValue>) -> Result<ReturnValue> + 'a + Send,
+        F: FnMut(Vec<ParameterValue>) -> Result<ReturnValue> + Send + 'static,
     {
         Self(Arc::new(Mutex::new(Box::new(f))))
     }

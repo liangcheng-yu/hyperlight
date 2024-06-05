@@ -18,18 +18,18 @@ use tracing::{instrument, Span};
 
 #[derive(Default, Clone)]
 /// A Wrapper around details of functions exposed by the Host
-pub struct HostFuncsWrapper<'a> {
-    functions_map: FunctionsMap<'a>,
+pub struct HostFuncsWrapper {
+    functions_map: FunctionsMap,
     function_details: HostFunctionDetails,
 }
 
-impl<'a> HostFuncsWrapper<'a> {
+impl HostFuncsWrapper {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn get_host_funcs(&self) -> &FunctionsMap<'a> {
+    fn get_host_funcs(&self) -> &FunctionsMap {
         &self.functions_map
     }
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn get_host_funcs_mut(&mut self) -> &mut FunctionsMap<'a> {
+    fn get_host_funcs_mut(&mut self) -> &mut FunctionsMap {
         &mut self.functions_map
     }
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
@@ -47,7 +47,7 @@ impl<'a> HostFuncsWrapper<'a> {
         &mut self,
         mgr: &mut SandboxMemoryManager,
         hfd: &HostFunctionDefinition,
-        func: HyperlightFunction<'a>,
+        func: HyperlightFunction,
     ) -> Result<()> {
         self.get_host_funcs_mut()
             .insert(hfd.function_name.to_string(), func);
@@ -104,7 +104,7 @@ impl<'a> HostFuncsWrapper<'a> {
 
 #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 fn call_host_func_impl(
-    host_funcs: &FunctionsMap<'_>,
+    host_funcs: &FunctionsMap,
     name: &str,
     args: Vec<ParameterValue>,
 ) -> Result<ReturnValue> {

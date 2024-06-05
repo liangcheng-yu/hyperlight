@@ -480,7 +480,7 @@ fn test_abort_with_code_and_message(function_call: &FunctionCall) -> Result<Vec<
         function_call.parameters.clone().unwrap()[0].clone(),
         function_call.parameters.clone().unwrap()[1].clone(),
     ) {
-        abort_with_code_and_message(code, message.as_ptr() as *const c_char);
+        unsafe { abort_with_code_and_message(code, message.as_ptr() as *const c_char); }
     }
     Ok(get_flatbuffer_result_from_void())
 }

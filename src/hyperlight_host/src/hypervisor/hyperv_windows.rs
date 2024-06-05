@@ -1,11 +1,12 @@
 use super::{
     handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
     windows_hypervisor_platform::{VMPartition, VMProcessor},
-    Hypervisor, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT,
-    CR4_PAE, EFER_LMA, EFER_LME,
+    Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR,
+    CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
 };
 use super::{surrogate_process::SurrogateProcess, surrogate_process_manager::*};
 use super::{windows_hypervisor_platform as whp, HyperlightExit};
+use crate::hypervisor::hypervisor_handler::{HandlerMsg, ToFromRxTx, VCPUAction};
 use crate::mem::memory_region::MemoryRegion;
 use crate::mem::{memory_region::MemoryRegionFlags, ptr::GuestPtr};
 use crate::Result;
@@ -18,12 +19,14 @@ use crate::{
     HyperlightError::{NoHypervisorFound, WindowsErrorHResult},
 };
 use core::ffi::c_void;
+use crossbeam::atomic::AtomicCell;
+use crossbeam_channel::{Receiver, Sender};
 use hyperlight_common::mem::PAGE_SIZE_USIZE;
 use std::any::Any;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::string::String;
-use std::time::Duration;
+use std::sync::Arc;
 use tracing::{instrument, Span};
 use windows::Win32::System::Hypervisor::{
     WHvX64RegisterCr0, WHvX64RegisterCr3, WHvX64RegisterCr4, WHvX64RegisterCs, WHvX64RegisterEfer,
@@ -32,13 +35,14 @@ use windows::Win32::System::Hypervisor::{
     WHV_REGISTER_NAME, WHV_REGISTER_VALUE, WHV_RUN_VP_EXIT_CONTEXT, WHV_RUN_VP_EXIT_REASON,
     WHV_UINT128, WHV_UINT128_0,
 };
+
 /// Wrapper around WHV_REGISTER_NAME so we can impl
 /// Hash on the struct.
 #[derive(PartialEq, Eq)]
 pub(super) struct WhvRegisterNameWrapper(pub WHV_REGISTER_NAME);
 
 impl Hash for WhvRegisterNameWrapper {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0 .0.hash(state);
     }
@@ -53,6 +57,10 @@ pub(crate) struct HypervWindowsDriver {
     registers: HashMap<WhvRegisterNameWrapper, WHV_REGISTER_VALUE>,
     orig_rsp: GuestPtr,
     mem_regions: Vec<MemoryRegion>,
+    vcpu_action_transmitter: Option<crossbeam_channel::Sender<VCPUAction>>,
+    handler_message_receiver: Option<crossbeam_channel::Receiver<HandlerMsg>>,
+    handler_message_transmitter: Option<crossbeam_channel::Sender<HandlerMsg>>,
+    cancel_run_requested: Arc<AtomicCell<bool>>,
 }
 
 impl std::fmt::Debug for HypervWindowsDriver {
@@ -64,7 +72,7 @@ impl std::fmt::Debug for HypervWindowsDriver {
 }
 
 impl HypervWindowsDriver {
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     pub(crate) fn new(
         mem_regions: Vec<MemoryRegion>,
         raw_size: usize,
@@ -168,11 +176,15 @@ impl HypervWindowsDriver {
             registers,
             orig_rsp: GuestPtr::try_from(RawPtr::from(rsp))?,
             mem_regions,
+            vcpu_action_transmitter: None,
+            handler_message_receiver: None,
+            handler_message_transmitter: None,
+            cancel_run_requested: Arc::new(AtomicCell::new(false)),
         })
     }
 
     #[inline]
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn get_exit_details(&self, exit_reason: WHV_RUN_VP_EXIT_REASON) -> Result<String> {
         // get registers
         let register_names = self.registers.keys().map(|x| x.0).collect();
@@ -194,19 +206,45 @@ impl HypervWindowsDriver {
         Ok(error)
     }
 
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     pub(super) fn get_partition_hdl(&self) -> WHV_PARTITION_HANDLE {
         self.processor.get_partition_hdl()
     }
 }
 
+impl ToFromRxTx for HypervWindowsDriver {
+    fn get_to_handler_tx(&self) -> Sender<VCPUAction> {
+        self.vcpu_action_transmitter.clone().unwrap()
+    }
+    fn set_to_handler_tx(&mut self, tx: Sender<VCPUAction>) {
+        self.vcpu_action_transmitter = Some(tx);
+    }
+    fn drop_to_handler_tx(&mut self) {
+        self.vcpu_action_transmitter = None;
+    }
+
+    fn get_from_handler_rx(&self) -> Receiver<HandlerMsg> {
+        self.handler_message_receiver.clone().unwrap()
+    }
+    fn set_from_handler_rx(&mut self, rx: Receiver<HandlerMsg>) {
+        self.handler_message_receiver = Some(rx);
+    }
+
+    fn get_from_handler_tx(&self) -> Sender<HandlerMsg> {
+        self.handler_message_transmitter.clone().unwrap()
+    }
+    fn set_from_handler_tx(&mut self, tx: Sender<HandlerMsg>) {
+        self.handler_message_transmitter = Some(tx);
+    }
+}
+
 impl Hypervisor for HypervWindowsDriver {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn as_mut_hypervisor(&mut self) -> &mut dyn Hypervisor {
         self as &mut dyn Hypervisor
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn initialise(
         &mut self,
         peb_address: RawPtr,
@@ -214,8 +252,6 @@ impl Hypervisor for HypervWindowsDriver {
         page_size: u32,
         outb_hdl: OutBHandlerWrapper,
         mem_access_hdl: MemAccessHandlerWrapper,
-        max_execution_time: Duration,
-        max_wait_for_cancellation: Duration,
     ) -> Result<()> {
         self.registers.insert(
             WhvRegisterNameWrapper(WHvX64RegisterRcx),
@@ -238,65 +274,24 @@ impl Hypervisor for HypervWindowsDriver {
             },
         );
         self.processor.set_registers(&self.registers)?;
-        self.execute_until_halt(
-            outb_hdl,
-            mem_access_hdl,
-            max_execution_time,
-            max_wait_for_cancellation,
-        )?;
+
+        VirtualCPU::run(self.as_mut_hypervisor(), outb_hdl, mem_access_hdl)?;
+
         // we need to reset the stack pointer once execution is complete
         // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it
         self.reset_rsp(self.orig_rsp)
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    fn dispatch_call_from_host(
-        &mut self,
-        dispatch_func_addr: RawPtr,
-        outb_hdl: OutBHandlerWrapper,
-        mem_access_hdl: MemAccessHandlerWrapper,
-        max_execution_time: Duration,
-        max_wait_for_cancellation: Duration,
-    ) -> Result<()> {
-        let registers = HashMap::from([(
-            WhvRegisterNameWrapper(WHvX64RegisterRip),
-            WHV_REGISTER_VALUE {
-                Reg64: dispatch_func_addr.into(),
-            },
-        )]);
-        self.processor.set_registers(&registers)?;
-        // we need to reset the stack pointer once execution is complete
-        // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it
-        // so here we get the current RSP value so we can reset it later
-        let rsp = self.processor.get_registers(&vec![WHvX64RegisterRsp])?;
-        self.execute_until_halt(
-            outb_hdl,
-            mem_access_hdl,
-            max_execution_time,
-            max_wait_for_cancellation,
-        )?;
-        // While there is a function to set the RSP we are not using it because we would end up having to get the value out of the hashmap and then convert it to a u64 only for it to be immediately stored back in a hashmap
-        self.processor.set_registers(&rsp)
+    fn set_termination_status(&mut self, value: bool) {
+        log::debug!("Setting termination status to {}", value);
+        self.cancel_run_requested.store(value);
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    fn reset_rsp(&mut self, rsp: GuestPtr) -> Result<()> {
-        let registers = HashMap::from([(
-            WhvRegisterNameWrapper(WHvX64RegisterRsp),
-            WHV_REGISTER_VALUE {
-                Reg64: rsp.absolute()?,
-            },
-        )]);
-        self.processor.set_registers(&registers)?;
-        Ok(())
+    fn get_termination_status(&self) -> Arc<AtomicCell<bool>> {
+        self.cancel_run_requested.clone()
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    fn orig_rsp(&self) -> Result<GuestPtr> {
-        Ok(self.orig_rsp)
-    }
-
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn handle_io(
         &mut self,
         port: u16,
@@ -310,6 +305,7 @@ impl Hypervisor for HypervWindowsDriver {
             .lock()
             .map_err(|e| new_error!("error locking {}", e))?
             .call(port, u64::from_le_bytes(payload))?;
+
         let registers = HashMap::from([(
             WhvRegisterNameWrapper(WHvX64RegisterRip),
             WHV_REGISTER_VALUE {
@@ -319,7 +315,7 @@ impl Hypervisor for HypervWindowsDriver {
         self.processor.set_registers(&registers)
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn run(&mut self) -> Result<super::HyperlightExit> {
         let bytes_written: Option<*mut usize> = None;
         let bytes_read: Option<*mut usize> = None;
@@ -425,7 +421,49 @@ impl Hypervisor for HypervWindowsDriver {
         Ok(result)
     }
 
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
+    fn dispatch_call_from_host(
+        &mut self,
+        dispatch_func_addr: RawPtr,
+        outb_hdl: OutBHandlerWrapper,
+        mem_access_hdl: MemAccessHandlerWrapper,
+    ) -> Result<()> {
+        let registers = HashMap::from([(
+            WhvRegisterNameWrapper(WHvX64RegisterRip),
+            WHV_REGISTER_VALUE {
+                Reg64: dispatch_func_addr.into(),
+            },
+        )]);
+        self.processor.set_registers(&registers)?;
+        // we need to reset the stack pointer once execution is complete
+        // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it
+        // so here we get the current RSP value so we can reset it later
+        let rsp = self.processor.get_registers(&vec![WHvX64RegisterRsp])?;
+
+        VirtualCPU::run(self.as_mut_hypervisor(), outb_hdl, mem_access_hdl)?;
+
+        // While there is a function to set the RSP we are not using it because we would end up having to get the value out of the hashmap and then convert it to a u64 only for it to be immediately stored back in a hashmap
+        self.processor.set_registers(&rsp)
+    }
+
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
+    fn reset_rsp(&mut self, rsp: GuestPtr) -> Result<()> {
+        let registers = HashMap::from([(
+            WhvRegisterNameWrapper(WHvX64RegisterRsp),
+            WHV_REGISTER_VALUE {
+                Reg64: rsp.absolute()?,
+            },
+        )]);
+        self.processor.set_registers(&registers)?;
+        Ok(())
+    }
+
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
+    fn orig_rsp(&self) -> Result<GuestPtr> {
+        Ok(self.orig_rsp)
+    }
+
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -447,6 +485,7 @@ pub mod tests {
     use super::HypervWindowsDriver;
 
     extern "C" fn outb_fn(_port: u16, _payload: u64) {}
+
     extern "C" fn mem_access_fn() {}
 
     #[test]

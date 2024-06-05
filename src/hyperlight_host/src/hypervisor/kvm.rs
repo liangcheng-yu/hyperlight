@@ -1,8 +1,9 @@
 use super::{
     handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
-    HyperlightExit, Hypervisor, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR,
-    CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
+    HyperlightExit, Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP,
+    CR4_OSFXSR, CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
 };
+use crate::hypervisor::hypervisor_handler::{HandlerMsg, ToFromRxTx, VCPUAction};
 use crate::mem::memory_region::MemoryRegion;
 use crate::mem::{
     memory_region::MemoryRegionFlags,
@@ -10,15 +11,18 @@ use crate::mem::{
 };
 use crate::Result;
 use crate::{log_then_return, new_error};
+use crossbeam_channel::{Receiver, Sender};
 
+use crossbeam::atomic::AtomicCell;
 use kvm_bindings::{kvm_segment, kvm_userspace_memory_region, KVM_MEM_READONLY};
 use kvm_ioctls::{Cap::UserMemory, Kvm, VcpuExit, VcpuFd, VmFd};
-use std::{any::Any, convert::TryFrom, time::Duration};
+use std::sync::Arc;
+use std::{any::Any, convert::TryFrom};
 use tracing::{instrument, Span};
 
 /// Return `true` if the KVM API is available, version 12, and has UserMemory capability, or `false` otherwise
 // TODO: Once CAPI is complete this does not need to be public
-#[instrument(skip_all, parent = Span::current(), level= "Trace")]
+#[instrument(skip_all, parent = Span::current(), level = "Trace")]
 pub fn is_hypervisor_present() -> bool {
     if let Ok(kvm) = Kvm::new() {
         let api_version = kvm.get_api_version();
@@ -52,6 +56,12 @@ pub struct KVMDriver {
     entrypoint: u64,
     rsp: GuestPtr,
     mem_regions: Vec<MemoryRegion>,
+    vcpu_action_transmitter: Option<crossbeam_channel::Sender<VCPUAction>>,
+    handler_message_receiver: Option<crossbeam_channel::Receiver<HandlerMsg>>,
+    handler_message_transmitter: Option<crossbeam_channel::Sender<HandlerMsg>>,
+    thread_id: Option<u64>,
+    cancel_run_requested: Arc<AtomicCell<bool>>,
+    run_cancelled: Arc<AtomicCell<bool>>,
 }
 
 impl KVMDriver {
@@ -62,7 +72,7 @@ impl KVMDriver {
     /// TODO: when rust rewrite is complete, change `rsp` and `pml4_addr`
     /// params to be of type `GuestPtr`.
     //TODO:(#1029) Once CAPI is complete this does not need to be public
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     pub fn new(
         mem_regions: Vec<MemoryRegion>,
         pml4_addr: u64,
@@ -101,10 +111,16 @@ impl KVMDriver {
             entrypoint,
             rsp: rsp_gp,
             mem_regions,
+            vcpu_action_transmitter: None,
+            handler_message_receiver: None,
+            handler_message_transmitter: None,
+            thread_id: None,
+            cancel_run_requested: Arc::new(AtomicCell::new(false)),
+            run_cancelled: Arc::new(AtomicCell::new(false)),
         })
     }
 
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn set_sreg_segment(seg: &mut kvm_segment, type_: u8, selector: u16) {
         seg.base = 0;
         seg.limit = 0xffffffff;
@@ -118,7 +134,7 @@ impl KVMDriver {
         seg.g = 1;
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn set_sregs(vcpu_fd: &mut VcpuFd, pml4_addr: u64) -> Result<()> {
         // set up x86 memory segmentation registers.
         // these are primarily used in Hyperlight for purposes of
@@ -186,20 +202,72 @@ impl KVMDriver {
     }
 }
 
+impl ToFromRxTx for KVMDriver {
+    fn get_to_handler_tx(&self) -> Sender<VCPUAction> {
+        self.vcpu_action_transmitter.clone().unwrap()
+    }
+    fn set_to_handler_tx(&mut self, tx: Sender<VCPUAction>) {
+        self.vcpu_action_transmitter = Some(tx);
+    }
+    fn drop_to_handler_tx(&mut self) {
+        self.vcpu_action_transmitter = None;
+    }
+
+    fn get_from_handler_rx(&self) -> Receiver<HandlerMsg> {
+        self.handler_message_receiver.clone().unwrap()
+    }
+    fn set_from_handler_rx(&mut self, rx: Receiver<HandlerMsg>) {
+        self.handler_message_receiver = Some(rx);
+    }
+
+    fn get_from_handler_tx(&self) -> Sender<HandlerMsg> {
+        self.handler_message_transmitter.clone().unwrap()
+    }
+    fn set_from_handler_tx(&mut self, tx: Sender<HandlerMsg>) {
+        self.handler_message_transmitter = Some(tx);
+    }
+}
+
 impl Hypervisor for KVMDriver {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn as_mut_hypervisor(&mut self) -> &mut dyn Hypervisor {
         self as &mut dyn Hypervisor
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    fn set_thread_id(&mut self, thread_id: u64) {
+        log::debug!("Setting thread id to {}", thread_id);
+        self.thread_id = Some(thread_id);
+    }
+
+    fn get_thread_id(&self) -> u64 {
+        self.thread_id
+            .expect("Hypervisor hasn't been initialized yet, missing thread ID")
+    }
+
+    fn set_termination_status(&mut self, value: bool) {
+        log::debug!("Setting termination status to {}", value);
+        self.cancel_run_requested.store(value);
+    }
+
+    fn get_termination_status(&self) -> Arc<AtomicCell<bool>> {
+        self.cancel_run_requested.clone()
+    }
+
+    fn get_run_cancelled(&self) -> Arc<AtomicCell<bool>> {
+        self.run_cancelled.clone()
+    }
+
+    fn set_run_cancelled(&self, value: bool) {
+        log::debug!("Setting run cancelled to {}", value);
+        self.run_cancelled.store(value);
+    }
+
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn dispatch_call_from_host(
         &mut self,
         dispatch_func_addr: RawPtr,
         outb_handle_fn: OutBHandlerWrapper,
         mem_access_fn: MemAccessHandlerWrapper,
-        max_execution_time: Duration,
-        max_wait_for_cancellation: Duration,
     ) -> Result<()> {
         let mut regs = self.vcpu_fd.get_regs()?;
         // Move rip to the DispatchFunction pointer
@@ -209,12 +277,7 @@ impl Hypervisor for KVMDriver {
         // so here we get the current RSP value so we can reset it later
         let rsp = regs.rsp;
         self.vcpu_fd.set_regs(&regs)?;
-        self.execute_until_halt(
-            outb_handle_fn,
-            mem_access_fn,
-            max_execution_time,
-            max_wait_for_cancellation,
-        )?;
+        VirtualCPU::run(self.as_mut_hypervisor(), outb_handle_fn, mem_access_fn)?;
         // Reset the stack pointer to the value it was before the call
         let rsp_gp = GuestPtr::try_from(RawPtr::from(rsp))?;
         self.reset_rsp(rsp_gp)
@@ -224,7 +287,7 @@ impl Hypervisor for KVMDriver {
     ///
     /// TODO: when Rust rewrite is complete, change `peb_addr` to be
     /// of type `GuestPtr`
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn initialise(
         &mut self,
         peb_addr: RawPtr,
@@ -232,8 +295,6 @@ impl Hypervisor for KVMDriver {
         page_size: u32,
         outb_hdl: OutBHandlerWrapper,
         mem_access_hdl: MemAccessHandlerWrapper,
-        max_execution_time: Duration,
-        max_wait_for_cancellation: Duration,
     ) -> Result<()> {
         let mut regs = self.vcpu_fd.get_regs()?;
         regs.rip = self.entrypoint;
@@ -244,30 +305,25 @@ impl Hypervisor for KVMDriver {
         regs.rcx = peb_addr.into();
         regs.rflags = 0x2;
         self.vcpu_fd.set_regs(&regs)?;
-        self.execute_until_halt(
-            outb_hdl.clone(),
-            mem_access_hdl.clone(),
-            max_execution_time,
-            max_wait_for_cancellation,
-        )?;
+        VirtualCPU::run(self.as_mut_hypervisor(), outb_hdl, mem_access_hdl)?;
         // we need to reset the stack pointer once execution is complete
         // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it
         self.reset_rsp(self.rsp)
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn reset_rsp(&mut self, rsp: GuestPtr) -> Result<()> {
         let mut regs = self.vcpu_fd.get_regs()?;
         regs.rsp = rsp.absolute()?;
         Ok(self.vcpu_fd.set_regs(&regs)?)
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn orig_rsp(&self) -> Result<GuestPtr> {
         Ok(self.rsp)
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn run(&mut self) -> Result<HyperlightExit> {
         let exit_reason = self.vcpu_fd.run();
         let result = match exit_reason {
@@ -316,7 +372,7 @@ impl Hypervisor for KVMDriver {
         Ok(result)
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn handle_io(
         &mut self,
         port: u16,
@@ -327,9 +383,9 @@ impl Hypervisor for KVMDriver {
     ) -> Result<()> {
         let mut regs = self.vcpu_fd.get_regs()?;
 
-        // the payload param for the outb_handle_fn is the the first byte
-        // of the data array, casted to a u64. thus, we need to make sure
-        // the data array has at least one u8, then convert that to a u64
+        // The payload param for the outb_handle_fn is the first byte
+        // of the data array cast to an u64. Thus, we need to make sure
+        // the data array has at least one u8, then convert that to an u64
         if data.is_empty() {
             log_then_return!("no data was given in IO interrupt");
         } else {
@@ -345,7 +401,7 @@ impl Hypervisor for KVMDriver {
         Ok(())
     }
 
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -379,6 +435,7 @@ pub(crate) mod test_cfg {
         }
         is_present
     }
+
     fn kvm_should_be_present_default() -> bool {
         false
     }

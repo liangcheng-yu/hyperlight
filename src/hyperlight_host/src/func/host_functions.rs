@@ -12,16 +12,16 @@ use super::{HyperlightFunction, SupportedParameterType, SupportedReturnType};
 /// A host function that takes no arguments and returns an `Result` of type `R` (which must implement `SupportedReturnType`).
 pub trait HostFunction0<'a, R: SupportedReturnType<R>> {
     /// Register the host function with the sandbox.
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()>;
 }
 
 impl<'a, T, R> HostFunction0<'a, R> for Arc<Mutex<T>>
 where
-    T: FnMut() -> Result<R> + 'a + Send,
+    T: FnMut() -> Result<R> + Send + 'static,
     R: SupportedReturnType<R>,
 {
     #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |_: Vec<ParameterValue>| {
             let result = cloned.lock()?()?;
@@ -42,17 +42,17 @@ where
 pub trait HostFunction1<'a, P1: SupportedParameterType<P1> + Clone + 'a, R: SupportedReturnType<R>>
 {
     /// Registers `self` with the given `UninitializedSandbox` under the given name `name`.
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, R> HostFunction1<'a, P1, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1) -> Result<R> + 'a + Send,
+    T: FnMut(P1) -> Result<R> + Send + 'static,
     P1: SupportedParameterType<P1> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
     #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()> {
         let cloned = Arc::clone(self);
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 1 {
@@ -85,18 +85,18 @@ pub trait HostFunction2<
 >
 {
     /// Registers `self` with the given `UninitializedSandbox` under the given name `name`.
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, R> HostFunction2<'a, P1, P2, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2) -> Result<R> + 'a + Send,
+    T: FnMut(P1, P2) -> Result<R> + Send + 'static,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
     #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 2 {
@@ -131,19 +131,19 @@ pub trait HostFunction3<
 >
 {
     /// Registers `self` with the given `UninitializedSandbox` under the given name `name`.
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, R> HostFunction3<'a, P1, P2, P3, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3) -> Result<R> + 'a + Send,
+    T: FnMut(P1, P2, P3) -> Result<R> + Send + 'static,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
     R: SupportedReturnType<R>,
 {
     #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 3 {
@@ -184,12 +184,12 @@ pub trait HostFunction4<
 >
 {
     /// Registers `self` with the given `UninitializedSandbox` under the given name `name`.
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, R> HostFunction4<'a, P1, P2, P3, P4, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4) -> Result<R> + 'a + Send,
+    T: FnMut(P1, P2, P3, P4) -> Result<R> + Send + 'static,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -197,7 +197,7 @@ where
     R: SupportedReturnType<R>,
 {
     #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 4 {
@@ -241,12 +241,12 @@ pub trait HostFunction5<
 >
 {
     /// Registers `self` with the given `UninitializedSandbox` under the given name `name`.
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, R> HostFunction5<'a, P1, P2, P3, P4, P5, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4, P5) -> Result<R> + 'a + Send,
+    T: FnMut(P1, P2, P3, P4, P5) -> Result<R> + Send + 'static,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -255,7 +255,7 @@ where
     R: SupportedReturnType<R>,
 {
     #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 5 {
@@ -302,13 +302,13 @@ pub trait HostFunction6<
 >
 {
     /// Registers `self` with the given `UninitializedSandbox` under the given name `name`.
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, P6, R> HostFunction6<'a, P1, P2, P3, P4, P5, P6, R>
     for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4, P5, P6) -> Result<R> + 'a + Send,
+    T: FnMut(P1, P2, P3, P4, P5, P6) -> Result<R> + Send + 'static,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -318,7 +318,7 @@ where
     R: SupportedReturnType<R>,
 {
     #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 6 {
@@ -368,13 +368,13 @@ pub trait HostFunction7<
 >
 {
     /// Registers `self` with the given `UninitializedSandbox` under the given name `name`.
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, P6, P7, R> HostFunction7<'a, P1, P2, P3, P4, P5, P6, P7, R>
     for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4, P5, P6, P7) -> Result<R> + 'a + Send,
+    T: FnMut(P1, P2, P3, P4, P5, P6, P7) -> Result<R> + Send + 'static,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -385,7 +385,7 @@ where
     R: SupportedReturnType<R>,
 {
     #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 7 {
@@ -438,13 +438,13 @@ pub trait HostFunction8<
 >
 {
     /// Registers `self` with the given `UninitializedSandbox` under the given name `name`.
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, R> HostFunction8<'a, P1, P2, P3, P4, P5, P6, P7, P8, R>
     for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8) -> Result<R> + 'a + Send,
+    T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8) -> Result<R> + Send + 'static,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -456,7 +456,7 @@ where
     R: SupportedReturnType<R>,
 {
     #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 8 {
@@ -512,13 +512,13 @@ pub trait HostFunction9<
 >
 {
     /// Registers `self` with the given `UninitializedSandbox` under the given name `name`.
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, P9, R>
     HostFunction9<'a, P1, P2, P3, P4, P5, P6, P7, P8, P9, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9) -> Result<R> + 'a + Send,
+    T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9) -> Result<R> + Send + 'static,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -531,7 +531,7 @@ where
     R: SupportedReturnType<R>,
 {
     #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 9 {
@@ -590,13 +590,13 @@ pub trait HostFunction10<
 >
 {
     /// Registers `self` with the given `UninitializedSandbox` under the given name `name`.
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()>;
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()>;
 }
 
 impl<'a, T, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, R>
     HostFunction10<'a, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, R> for Arc<Mutex<T>>
 where
-    T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10) -> Result<R> + 'a + Send,
+    T: FnMut(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10) -> Result<R> + Send + 'static,
     P1: SupportedParameterType<P1> + Clone + 'a,
     P2: SupportedParameterType<P2> + Clone + 'a,
     P3: SupportedParameterType<P3> + Clone + 'a,
@@ -610,7 +610,7 @@ where
     R: SupportedReturnType<R>,
 {
     #[instrument(err(Debug), skip(self, sandbox), parent = Span::current(), level= "Trace")]
-    fn register(&self, sandbox: &mut UninitializedSandbox<'a>, name: &str) -> Result<()> {
+    fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |args: Vec<ParameterValue>| {
             if args.len() != 10 {

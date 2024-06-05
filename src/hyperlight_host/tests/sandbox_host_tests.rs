@@ -60,9 +60,11 @@ fn invalid_guest_function_name() {
 #[test]
 #[serial]
 fn multiple_parameters() {
-    let mut msgs = Vec::new();
-    let writer = |msg| {
-        msgs.push(msg);
+    let messages = Arc::new(Mutex::new(Vec::new()));
+    let messages_clone = messages.clone();
+    let writer = move |msg| {
+        let mut lock = messages_clone.lock().unwrap();
+        lock.push(msg);
         Ok(0)
     };
 
@@ -203,7 +205,10 @@ fn multiple_parameters() {
             assert!(res.is_ok());
         }
     }
-    msgs.into_iter()
+
+    let lock = messages.lock().unwrap();
+    lock.clone()
+        .into_iter()
         .zip(test_cases)
         .for_each(|(printed_msg, expected)| assert!(printed_msg == expected.2));
 }

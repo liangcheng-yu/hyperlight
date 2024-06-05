@@ -8,13 +8,12 @@ use crate::mem_mgr::get_mem_mgr;
 use crate::validate_context;
 use crate::{c_func::CFunc, outb_handler::OutBHandlerWrapper};
 use hyperlight_host::hypervisor::hyperv_linux::{is_hypervisor_present, HypervLinuxDriver};
-use hyperlight_host::hypervisor::Hypervisor;
+use hyperlight_host::hypervisor::{Hypervisor, VirtualCPU};
 use hyperlight_host::mem::ptr::{GuestPtr, RawPtr};
 use hyperlight_host::Result;
 use mshv_bindings::hv_register_name_HV_X64_REGISTER_RSP;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::time::Duration;
 
 fn get_driver_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut HypervLinuxDriver> {
     Context::get_mut(hdl, &mut ctx.hyperv_linux_drivers, |h| {
@@ -94,7 +93,7 @@ pub unsafe extern "C" fn hyperv_linux_create_driver(
 /// Some functions will do this for you, and thus if you use one of those
 /// you won't need to call this. See the below list for details.
 ///
-/// - `hyperv_linux_execute_until_halt`: does not call this function for you.
+/// - `hyperv_linux_run_vcpu`: does not call this function for you.
 /// Call this function prior to calling that one.
 /// - `hyperv_linux_initialise`: calls this function for you. Calling it again
 /// is a no-op.
@@ -160,7 +159,7 @@ pub(crate) fn get_handler_funcs(
     Ok((outb_func, mem_access_func))
 }
 
-/// Initialise the vCPU, call the equivalent of `execute_until_halt`,
+/// Initialise the vCPU, call the equivalent of `VirtualCPU::run`,
 /// and return the result.
 ///
 /// Return an empty `Handle` on success, or a `Handle` that references a
@@ -198,9 +197,6 @@ pub unsafe extern "C" fn hyperv_linux_initialise(
         page_size,
         Arc::new(Mutex::new(outb_func)),
         Arc::new(Mutex::new(mem_access_func)),
-        // These are set to the defaults in SandboxConfiguration, once we migrate the C# Sandbox to use the Rust Sandbox this API should be deleted so defaulting these for now should be fine
-        Duration::from_millis(1000),
-        Duration::from_millis(10),
     );
     match init_res {
         Ok(_) => Handle::new_empty(),
@@ -222,7 +218,7 @@ pub unsafe extern "C" fn hyperv_linux_initialise(
 /// - Not yet freed with `context_free
 /// - Not modified, except by calling functions in the Hyperlight C API
 #[no_mangle]
-pub unsafe extern "C" fn hyperv_linux_execute_until_halt(
+pub unsafe extern "C" fn hyperv_linux_run_vcpu(
     ctx: *mut Context,
     driver_hdl: Handle,
     outb_func_hdl: Handle,
@@ -238,12 +234,10 @@ pub unsafe extern "C" fn hyperv_linux_execute_until_halt(
             Ok(tup) => tup,
             Err(e) => return (*ctx).register_err(e),
         };
-    match (*driver).execute_until_halt(
+    match VirtualCPU::run(
+        (*driver).as_mut_hypervisor(),
         Arc::new(Mutex::new(outb_func)),
         Arc::new(Mutex::new(mem_access_func)),
-        // These are set to the defaults in SandboxConfiguration, once we migrate the C# Sandbox to use the Rust Sandbox this API should be deleted so defaulting these for now should be fine
-        Duration::from_millis(1000),
-        Duration::from_millis(10),
     ) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),
@@ -282,9 +276,6 @@ pub unsafe extern "C" fn hyperv_linux_dispatch_call_from_host(
         dispatch_func_addr.into(),
         Arc::new(Mutex::new(outb_func)),
         Arc::new(Mutex::new(mem_access_func)),
-        // These are set to the defaults in SandboxConfiguration, once we migrate the C# Sandbox to use the Rust Sandbox this API should be deleted so defaulting these for now should be fine
-        Duration::from_millis(1000),
-        Duration::from_millis(10),
     ) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),

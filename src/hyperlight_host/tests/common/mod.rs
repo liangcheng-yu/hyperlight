@@ -10,7 +10,7 @@ use hyperlight_testing::simple_guest_as_string;
 /// Returns a rust/c simpleguest depending on environment variable GUEST.
 /// Uses rust guest by default. Run test with envirnoment variable GUEST="c" to use the c version
 /// If a test is only applicable to rust, use `new_uninit_rust`` instead
-pub fn new_uninit<'a>() -> Result<UninitializedSandbox<'a>> {
+pub fn new_uninit() -> Result<UninitializedSandbox> {
     UninitializedSandbox::new(
         GuestBinary::FilePath(get_c_or_rust_guest_path()),
         None,
@@ -20,7 +20,7 @@ pub fn new_uninit<'a>() -> Result<UninitializedSandbox<'a>> {
 }
 
 /// Use this instead of the `new_uninit` if you want your test to only run with the rust guest, not the c guest
-pub fn new_uninit_rust<'a>() -> Result<UninitializedSandbox<'a>> {
+pub fn new_uninit_rust() -> Result<UninitializedSandbox> {
     UninitializedSandbox::new(
         GuestBinary::FilePath(simple_guest_as_string().unwrap()),
         None,
@@ -31,7 +31,7 @@ pub fn new_uninit_rust<'a>() -> Result<UninitializedSandbox<'a>> {
 
 #[cfg(target_os = "windows")]
 pub fn get_sandboxes<'a>(
-    writer: Option<&dyn HostFunction1<'a, String, i32>>, // An optional writer to make sure correct info is passed to the host printer
+    writer: Option<&dyn HostFunction1<String, i32>>, // An optional writer to make sure correct info is passed to the host printer
 ) -> [MultiUseSandbox<'a>; 3] {
     let path = get_c_or_rust_guest_path();
     [
@@ -66,7 +66,7 @@ pub fn get_sandboxes<'a>(
 // On linux, we cannot use in-memory
 #[cfg(not(target_os = "windows"))]
 pub fn get_sandboxes<'a>(
-    writer: Option<&dyn HostFunction1<'a, String, i32>>, // An optional writer to make sure correct info is passed to the host printer
+    writer: Option<&'a dyn HostFunction1<'a, String, i32>>, // An optional writer to make sure correct info is passed to the host printer
 ) -> [MultiUseSandbox<'a>; 1] {
     let path = get_c_or_rust_guest_path();
 

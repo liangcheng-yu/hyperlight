@@ -40,7 +40,7 @@
    fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
    fun:hyperv_linux_create_driver_simple
-   fun:test_hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -55,9 +55,9 @@
    ioctl(generic)
    fun:ioctl
    fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
-   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*execute_until_halt*
-   fun:hyperv_linux_execute_until_halt
-   fun:test_hyperv_linux_execute_until_halt
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*run_vcpu*
+   fun:hyperv_linux_run_vcpu
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -93,7 +93,7 @@
    fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
    fun:hyperv_linux_create_driver_simple
-   fun:test_hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -110,7 +110,7 @@
    fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
    fun:hyperv_linux_create_driver_simple
-   fun:test_hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -195,7 +195,7 @@
    fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
    fun:hyperv_linux_create_driver_simple
-   fun:test_hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -212,7 +212,7 @@
    fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
    fun:hyperv_linux_create_driver_simple
-   fun:test_hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -246,7 +246,7 @@
    fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
    fun:hyperv_linux_create_driver_simple
-   fun:test_hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -262,7 +262,7 @@
    fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*apply_registers*
    fun:hyperv_linux_apply_registers
-   fun:test_hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -277,9 +277,9 @@
    ioctl(generic)
    fun:ioctl
    fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
-   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*execute_until_halt*
-   fun:hyperv_linux_execute_until_halt
-   fun:test_hyperv_linux_execute_until_halt
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*run_vcpu*
+   fun:hyperv_linux_run_vcpu
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -294,9 +294,9 @@
    ioctl(generic)
    fun:ioctl
    fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
-   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*execute_until_halt*
-   fun:hyperv_linux_execute_until_halt
-   fun:test_hyperv_linux_execute_until_halt
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*run_vcpu*
+   fun:hyperv_linux_run_vcpu
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -314,9 +314,9 @@
    fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*update_rip*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*handle_io_port_intercept*
-   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver18execute_until_halt*
-   fun:hyperv_linux_execute_until_halt
-   fun:test_hyperv_linux_execute_until_halt
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver18run_vcpu*
+   fun:hyperv_linux_run_vcpu
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -331,9 +331,9 @@
    fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*update_rip*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*handle_io_port_intercept*
-   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver18execute_until_halt*
-   fun:hyperv_linux_execute_until_halt
-   fun:test_hyperv_linux_execute_until_halt
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver18run_vcpu*
+   fun:hyperv_linux_run_vcpu
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -348,9 +348,9 @@
    fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*update_rip*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*handle_io_port_intercept*
-   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver18execute_until_halt*
-   fun:hyperv_linux_execute_until_halt
-   fun:test_hyperv_linux_execute_until_halt
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver18run_vcpu*
+   fun:hyperv_linux_run_vcpu
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -365,9 +365,9 @@
    fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*update_rip*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*handle_io_port_intercept*
-   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver18execute_until_halt*
-   fun:hyperv_linux_execute_until_halt
-   fun:test_hyperv_linux_execute_until_halt
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver18run_vcpu*
+   fun:hyperv_linux_run_vcpu
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -383,9 +383,9 @@
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*update_register*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*update_rip*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*handle_io_port_intercept*
-   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver18execute_until_halt*
-   fun:hyperv_linux_execute_until_halt
-   fun:test_hyperv_linux_execute_until_halt
+   fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver18run_vcpu*
+   fun:hyperv_linux_run_vcpu
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -432,7 +432,7 @@
    fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
    fun:hyperv_linux_create_driver_simple
-   fun:test_hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -466,7 +466,7 @@
    fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
    fun:hyperv_linux_create_driver_simple
-   fun:test_hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -484,7 +484,7 @@
    fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
    fun:hyperv_linux_create_driver_simple
-   fun:test_hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -501,7 +501,7 @@
    fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
    fun:hyperv_linux_create_driver_simple
-   fun:test_hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -586,7 +586,7 @@
    fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
    fun:hyperv_linux_create_driver_simple
-   fun:test_hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -620,7 +620,7 @@
    fun:*mshv_ioctls*ioctls*vm*VmFd*map_user_memory*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*new*
    fun:hyperv_linux_create_driver_simple
-   fun:test_hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -636,7 +636,7 @@
    fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*get_reg*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*add_basic_registers*
    fun:hyperv_linux_create_driver_simple
-   fun:test_hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test
@@ -653,7 +653,7 @@
    fun:*mshv_ioctls*ioctls*vcpu*VcpuFd*set_reg*
    fun:*hyperlight_host*hypervisor*hyperv_linux*HypervLinuxDriver*apply_registers*
    fun:hyperv_linux_apply_registers
-   fun:test_hyperv_linux_execute_until_halt
+   fun:test_hyperv_linux_run_vcpu
    fun:munit_test_runner_exec
    fun:munit_test_runner_run_test_with_params
    fun:munit_test_runner_run_test

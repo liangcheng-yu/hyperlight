@@ -214,7 +214,7 @@ mod tests {
     use std::sync::mpsc::sync_channel;
     use std::thread::{self, JoinHandle};
 
-    fn new_uninit<'a>() -> Result<UninitializedSandbox<'a>> {
+    fn new_uninit() -> Result<UninitializedSandbox> {
         let path = simple_guest_as_string().map_err(|e| {
             HyperlightError::Error(format!("failed to get simple guest path ({e:?})"))
         })?;

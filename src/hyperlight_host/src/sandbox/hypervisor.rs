@@ -1,4 +1,5 @@
 use crate::error::HyperlightError::NoHypervisorFound;
+use crate::HyperlightError::LockAttemptFailed;
 use crate::{
     hypervisor::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
     hypervisor::Hypervisor,
@@ -14,6 +15,8 @@ use crate::{log_then_return, Result};
 use lazy_static::lazy_static;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Instant;
 use std::{sync::MutexGuard, time::Duration};
 use tracing::{instrument, Span};
 
@@ -60,22 +63,23 @@ enum HypervisorType {
 /// A container with convenience methods attached for an
 /// `Option<Box<dyn Hypervisor>>`
 #[derive(Clone)]
-pub(crate) struct HypervisorWrapper<'a> {
+pub(crate) struct HypervisorWrapper {
     hv_opt: Option<Arc<Mutex<Box<dyn Hypervisor>>>>,
-    pub(crate) outb_hdl: OutBHandlerWrapper<'a>,
-    pub(crate) mem_access_hdl: MemAccessHandlerWrapper<'a>,
+    pub(crate) outb_hdl: OutBHandlerWrapper,
+    pub(crate) mem_access_hdl: MemAccessHandlerWrapper,
     pub(crate) max_execution_time: Duration,
+    #[cfg(target_os = "linux")]
     pub(crate) max_wait_for_cancellation: Duration,
 }
 
-impl<'a> HypervisorWrapper<'a> {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+impl HypervisorWrapper {
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     pub(super) fn new(
         hv_opt_box: Option<Box<dyn Hypervisor>>,
-        outb_hdl: OutBHandlerWrapper<'a>,
-        mem_access_hdl: MemAccessHandlerWrapper<'a>,
+        outb_hdl: OutBHandlerWrapper,
+        mem_access_hdl: MemAccessHandlerWrapper,
         max_execution_time: Duration,
-        max_wait_for_cancellation: Duration,
+        #[cfg(target_os = "linux")] max_wait_for_cancellation: Duration,
     ) -> Self {
         Self {
             hv_opt: hv_opt_box.map(|hv| {
@@ -85,6 +89,7 @@ impl<'a> HypervisorWrapper<'a> {
             outb_hdl,
             mem_access_hdl,
             max_execution_time,
+            #[cfg(target_os = "linux")]
             max_wait_for_cancellation,
         }
     }
@@ -100,24 +105,70 @@ impl<'a> HypervisorWrapper<'a> {
     /// will be released and the read/write guarantees will no longer be
     /// valid (the compiler won't let you do any operations on it, though,
     /// so you don't have to worry much about this consequence).
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub(crate) fn get_hypervisor(&self) -> Result<MutexGuard<Box<dyn Hypervisor>>> {
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
+    pub(crate) fn get_hypervisor_lock(&self) -> Result<MutexGuard<Box<dyn Hypervisor>>> {
         match self.hv_opt.as_ref() {
             None => {
                 log_then_return!(NoHypervisorFound());
             }
             Some(h_arc_mut) => {
                 let h_ref_mutex = Arc::as_ref(h_arc_mut);
+
                 Ok(h_ref_mutex.lock()?)
             }
         }
     }
+
+    /// Try to get the lock for `max_execution_time` duration
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
+    pub(crate) fn try_get_hypervisor_lock_for_max_execution_time(
+        &self,
+    ) -> Result<MutexGuard<Box<dyn Hypervisor>>> {
+        let timeout = self.max_execution_time;
+        let start = Instant::now();
+
+        match self.hv_opt.as_ref() {
+            None => {
+                log_then_return!(NoHypervisorFound());
+            }
+            Some(h_arc_mut) => {
+                let h_ref_mutex = Arc::as_ref(h_arc_mut);
+
+                loop {
+                    match h_ref_mutex.try_lock() {
+                        Ok(guard) => return Ok(guard),
+                        Err(_) if start.elapsed() >= timeout => {
+                            log_then_return!(LockAttemptFailed(
+                                "Failed to acquire lock in time".to_string()
+                            ));
+                        }
+                        Err(_) => {
+                            // Sleep for a short duration to avoid busy-waiting
+                            thread::sleep(Duration::from_millis(10));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// if an internal `Hypervisor` exists, return Arc<Mutex<Box<dyn Hypervisor>>>
+    /// containing it.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
+    pub(crate) fn get_hypervisor_arc(&self) -> Result<Arc<Mutex<Box<dyn Hypervisor>>>> {
+        match self.hv_opt.as_ref() {
+            None => {
+                log_then_return!(NoHypervisorFound());
+            }
+            Some(h_arc_mut) => Ok(h_arc_mut.clone()),
+        }
+    }
 }
 
-impl<'a> UninitializedSandbox<'a> {
+impl UninitializedSandbox {
     /// Set up the appropriate hypervisor for the platform
     ///
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     pub(super) fn set_up_hypervisor_partition(
         mgr: &mut SandboxMemoryManager,
     ) -> Result<Box<dyn Hypervisor>> {
@@ -186,7 +237,7 @@ impl<'a> UninitializedSandbox<'a> {
     }
 }
 
-impl<'a> Debug for HypervisorWrapper<'a> {
+impl Debug for HypervisorWrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("HypervisorWrapper")
             .field("has_hypervisor", &self.hv_opt.is_some())

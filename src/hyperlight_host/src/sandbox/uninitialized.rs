@@ -34,51 +34,51 @@ use tracing::{instrument, Span};
 /// call  `evolve` to transform your
 /// `UninitializedSandbox` into an initialized `Sandbox`.
 #[derive(Clone)]
-pub struct UninitializedSandbox<'a> {
+pub struct UninitializedSandbox {
     /// Registered host functions
-    pub(crate) host_funcs: Arc<Mutex<HostFuncsWrapper<'a>>>,
+    pub(crate) host_funcs: Arc<Mutex<HostFuncsWrapper>>,
     /// The memory manager for the sandbox.
     pub(crate) mgr: MemMgrWrapper,
-    pub(super) hv: HypervisorWrapper<'a>,
+    pub(super) hv: HypervisorWrapper,
     pub(crate) run_from_process_memory: bool,
-    /// Whether or not we're running in the context of C# code.
+    /// Whether we're running in the context of C# code.
     ///
     /// This is a hack.
     pub(crate) is_csharp: bool,
 }
 
-impl<'a> WrapperGetter<'a> for UninitializedSandbox<'a> {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn get_mgr(&self) -> &MemMgrWrapper {
+impl WrapperGetter for UninitializedSandbox {
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
+    fn get_mgr_wrapper(&self) -> &MemMgrWrapper {
         &self.mgr
     }
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn get_mgr_mut(&mut self) -> &mut MemMgrWrapper {
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
+    fn get_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper {
         &mut self.mgr
     }
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn get_hv(&self) -> &HypervisorWrapper<'a> {
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
+    fn get_hv(&self) -> &HypervisorWrapper {
         &self.hv
     }
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn get_hv_mut(&mut self) -> &mut HypervisorWrapper<'a> {
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
+    fn get_hv_mut(&mut self) -> &mut HypervisorWrapper {
         &mut self.hv
     }
 }
 
-impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for UninitializedSandbox<'a> {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn get_uninitialized_sandbox(&self) -> &crate::sandbox::UninitializedSandbox<'a> {
+impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for UninitializedSandbox {
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
+    fn get_uninitialized_sandbox(&self) -> &crate::sandbox::UninitializedSandbox {
         self
     }
 
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn get_uninitialized_sandbox_mut(&mut self) -> &mut crate::sandbox::UninitializedSandbox<'a> {
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
+    fn get_uninitialized_sandbox_mut(&mut self) -> &mut crate::sandbox::UninitializedSandbox {
         self
     }
 }
 
-impl<'a> std::fmt::Debug for UninitializedSandbox<'a> {
+impl std::fmt::Debug for UninitializedSandbox {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("UninitializedSandbox")
             .field("stack_guard", &self.mgr.get_stack_cookie())
@@ -86,34 +86,39 @@ impl<'a> std::fmt::Debug for UninitializedSandbox<'a> {
     }
 }
 
-impl<'a> crate::sandbox_state::sandbox::Sandbox for UninitializedSandbox<'a> {
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+impl crate::sandbox_state::sandbox::Sandbox for UninitializedSandbox {
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn check_stack_guard(&self) -> Result<bool> {
         self.mgr.check_stack_guard()
+    }
+
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
+    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper {
+        &mut self.hv
     }
 }
 
 impl<'a, F>
     EvolvableSandbox<
-        UninitializedSandbox<'a>,
+        UninitializedSandbox,
         SingleUseSandbox<'a>,
-        MutatingCallback<'a, UninitializedSandbox<'a>, F>,
-    > for UninitializedSandbox<'a>
+        MutatingCallback<'a, UninitializedSandbox, F>,
+    > for UninitializedSandbox
 where
-    F: FnOnce(&mut UninitializedSandbox<'a>) -> Result<()> + 'a,
+    F: FnOnce(&mut UninitializedSandbox) -> Result<()> + 'a,
 {
     /// Evolve `self` into a `SingleUseSandbox`, executing a caller-provided
     /// callback during the transition process.
     ///
     /// If you need to do this transition without a callback, use the
     /// `EvolvableSandbox` implementation that takes a `Noop`.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn evolve(
         self,
-        tsn: MutatingCallback<'a, UninitializedSandbox<'a>, F>,
+        tsn: MutatingCallback<'a, UninitializedSandbox, F>,
     ) -> Result<SingleUseSandbox<'a>> {
         let cb_box = {
-            let cb = move |u_sbox: &mut UninitializedSandbox<'a>| tsn.call(u_sbox);
+            let cb = move |u_sbox: &mut UninitializedSandbox| tsn.call(u_sbox);
             Box::new(cb)
         };
         let i_sbox = evolve_impl_single_use(self, Some(cb_box))?;
@@ -123,25 +128,25 @@ where
 
 impl<'a, F>
     EvolvableSandbox<
-        UninitializedSandbox<'a>,
+        UninitializedSandbox,
         MultiUseSandbox<'a>,
-        MutatingCallback<'a, UninitializedSandbox<'a>, F>,
-    > for UninitializedSandbox<'a>
+        MutatingCallback<'a, UninitializedSandbox, F>,
+    > for UninitializedSandbox
 where
-    F: FnOnce(&mut UninitializedSandbox<'a>) -> Result<()> + 'a,
+    F: FnOnce(&mut UninitializedSandbox) -> Result<()> + 'a,
 {
     /// Evolve `self` into a `Sandbox`, executing a caller-provided
     /// callback during the transition process.
     ///
     /// If you need to do this transition without a callback, use the
     /// `EvolvableSandbox` implementation that takes a `Noop`.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn evolve(
         self,
-        tsn: MutatingCallback<'a, UninitializedSandbox<'a>, F>,
+        tsn: MutatingCallback<'a, UninitializedSandbox, F>,
     ) -> Result<MultiUseSandbox<'a>> {
         let cb_box = {
-            let cb = move |u_sbox: &mut UninitializedSandbox<'a>| tsn.call(u_sbox);
+            let cb = move |u_sbox: &mut UninitializedSandbox| tsn.call(u_sbox);
             Box::new(cb)
         };
 
@@ -152,20 +157,20 @@ where
 
 impl<'a>
     EvolvableSandbox<
-        UninitializedSandbox<'a>,
+        UninitializedSandbox,
         SingleUseSandbox<'a>,
-        Noop<UninitializedSandbox<'a>, SingleUseSandbox<'a>>,
-    > for UninitializedSandbox<'a>
+        Noop<UninitializedSandbox, SingleUseSandbox<'a>>,
+    > for UninitializedSandbox
 {
     /// Evolve `self` to a `SingleUseSandbox` without any additional metadata.
     ///
     /// If you want to pass a callback to this state transition so you can
     /// run your own code during the transition, use the `EvolvableSandbox`
     /// implementation that accepts a `MutatingCallback`
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn evolve(
         self,
-        _: Noop<UninitializedSandbox<'a>, SingleUseSandbox<'a>>,
+        _: Noop<UninitializedSandbox, SingleUseSandbox<'a>>,
     ) -> Result<SingleUseSandbox<'a>> {
         // TODO: the following if statement is to stop evolve_impl being called
         // when we run in proc (it ends up calling the entrypoint in the guest
@@ -175,7 +180,7 @@ impl<'a>
         // Once we fix up the Hypervisor C API this should be removed and
         // replaced with the code commented out on line 106
         let i_sbox = if self.is_csharp {
-            Ok(SingleUseSandbox::from_uninit(self, None))
+            Ok(SingleUseSandbox::from_uninit(self, None, None))
         } else {
             evolve_impl_single_use(self, None)
         }?;
@@ -185,20 +190,20 @@ impl<'a>
 
 impl<'a>
     EvolvableSandbox<
-        UninitializedSandbox<'a>,
+        UninitializedSandbox,
         MultiUseSandbox<'a>,
-        Noop<UninitializedSandbox<'a>, MultiUseSandbox<'a>>,
-    > for UninitializedSandbox<'a>
+        Noop<UninitializedSandbox, MultiUseSandbox<'a>>,
+    > for UninitializedSandbox
 {
     /// Evolve `self` to a `MultiUseSandbox` without any additional metadata.
     ///
     /// If you want to pass a callback to this state transition so you can
     /// run your own code during the transition, use the `EvolvableSandbox`
     /// implementation that accepts a `MutatingCallback`
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn evolve(
         self,
-        _: Noop<UninitializedSandbox<'a>, MultiUseSandbox<'a>>,
+        _: Noop<UninitializedSandbox, MultiUseSandbox<'a>>,
     ) -> Result<MultiUseSandbox<'a>> {
         // TODO: the following if statement is to stop evovle_impl being called
         // when we run in proc (it ends up calling the entrypoint in the guest
@@ -209,7 +214,7 @@ impl<'a>
         // Once we fix up the Hypervisor C API this should be removed and
         // replaced with the code commented out on line 106
         let i_sbox = if self.is_csharp {
-            Ok(MultiUseSandbox::from_uninit(self, None))
+            Ok(MultiUseSandbox::from_uninit(self, None, None))
         } else {
             evolve_impl_multi_use(self, None)
         }?;
@@ -226,7 +231,7 @@ pub enum GuestBinary {
     FilePath(String),
 }
 
-impl<'a> UninitializedSandbox<'a> {
+impl<'a> UninitializedSandbox {
     /// Create a new sandbox configured to run the binary at path
     /// `bin_path`.
     ///
@@ -235,9 +240,9 @@ impl<'a> UninitializedSandbox<'a> {
     /// The name attribute is used to name the tracing span.
     /// The err attribute is used to emit an error should the Result be an error, it uses the std::`fmt::Debug trait` to print the error.
     #[instrument(
-        err(Debug),
-        skip(guest_binary, host_print_writer),
-        parent = Span::current()
+    err(Debug),
+    skip(guest_binary, host_print_writer),
+    parent = Span::current()
     )]
     pub fn new(
         guest_binary: GuestBinary,
@@ -293,6 +298,7 @@ impl<'a> UninitializedSandbox<'a> {
                 outb_wrapper,
                 mem_access_wrapper,
                 Duration::from_millis(sandbox_cfg.get_max_execution_time() as u64),
+                #[cfg(target_os = "linux")]
                 Duration::from_millis(sandbox_cfg.get_max_wait_for_cancellation() as u64),
             )
         };
@@ -329,15 +335,15 @@ impl<'a> UninitializedSandbox<'a> {
     /// TODO: remove this after the C API function `sandbox_get_memory_mgr`
     /// is removed.
     pub fn get_mem_mgr_ref(&self) -> &SandboxMemoryManager {
-        self.get_mgr().as_ref()
+        self.get_mgr_wrapper().as_ref()
     }
 
     /// Get a mutable reference to the internally-stored
     /// `SandboxMemoryManager`
     #[cfg(target_os = "windows")]
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     pub(crate) fn get_mem_mgr_mut(&mut self) -> &mut SandboxMemoryManager {
-        self.get_mgr_mut().as_mut()
+        self.get_mgr_wrapper_mut().as_mut()
     }
 
     /// Set the internal flag to indicate this `UninitializedSandbox`
@@ -351,7 +357,7 @@ impl<'a> UninitializedSandbox<'a> {
         self.is_csharp = true
     }
 
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     pub(crate) fn from_multi_use(sbox: MultiUseSandbox<'a>) -> Self {
         Self {
             host_funcs: sbox.host_funcs.clone(),
@@ -364,10 +370,10 @@ impl<'a> UninitializedSandbox<'a> {
     /// Clone the internally-stored `Arc` holding the `HostFuncsWrapper`
     /// managed by `self`, then return it.
     // TODO: This function should not be public it is only used publically in the tests for the C API
-    pub fn get_host_funcs(&self) -> Arc<Mutex<HostFuncsWrapper<'a>>> {
+    pub fn get_host_funcs(&self) -> Arc<Mutex<HostFuncsWrapper>> {
         self.host_funcs.clone()
     }
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn create_stack_guard() -> [u8; STACK_COOKIE_LEN] {
         rand::random::<[u8; STACK_COOKIE_LEN]>()
     }
@@ -388,7 +394,7 @@ impl<'a> UninitializedSandbox<'a> {
     ///
     /// Additionally, `page_size` must correspond to the operating system's
     /// chosen size of a virtual memory page.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     //TODO:(#1029) Once CAPI is complete this should be pub(super)
     pub unsafe fn call_entry_point(
         &self,
@@ -402,7 +408,7 @@ impl<'a> UninitializedSandbox<'a> {
         type EntryPoint = extern "C" fn(i64, u64, u32, u32) -> i32;
         let entry_point: EntryPoint = {
             let addr = {
-                let mgr = self.get_mgr().as_ref();
+                let mgr = self.get_mgr_wrapper().as_ref();
                 let offset = mgr.entrypoint_offset;
                 mgr.load_addr.clone().add(offset)
             };
@@ -426,7 +432,7 @@ impl<'a> UninitializedSandbox<'a> {
     /// passed as `true` and we're not running on windows, this function will
     /// return an `Err`. Otherwise, if `run_from_guest_binary` is passed
     /// as `false`, this function calls `SandboxMemoryManager::load_guest_binary_into_memory`.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     pub(super) fn load_guest_binary(
         cfg: SandboxConfiguration,
         guest_binary: &GuestBinary,
@@ -555,10 +561,12 @@ mod tests {
         // Test with  init callback function
         // TODO: replace this with a test that registers and calls functions once we have that functionality
 
-        let mut received_msg = String::new();
+        let received_msg = Arc::new(Mutex::new(String::new()));
+        let received_msg_clone = received_msg.clone();
 
-        let writer = |msg| {
-            received_msg = msg;
+        let writer = move |msg| {
+            let mut received_msg = received_msg_clone.lock().unwrap();
+            *received_msg = msg;
             Ok(0)
         };
 
@@ -591,7 +599,7 @@ mod tests {
 
         drop(sandbox);
 
-        assert_eq!(&received_msg, "test");
+        assert_eq!(received_msg.lock().unwrap().as_str(), "test");
 
         // Test with a valid guest binary buffer
 
@@ -647,7 +655,7 @@ mod tests {
         let sbox =
             UninitializedSandbox::new(GuestBinary::FilePath(simple_guest_path), None, None, None)
                 .unwrap();
-        let res = sbox.get_mgr().check_stack_guard();
+        let res = sbox.get_mgr_wrapper().check_stack_guard();
         assert!(
             res.is_ok(),
             "UninitializedSandbox::check_stack_guard returned an error"
@@ -787,10 +795,12 @@ mod tests {
         // after the Sandbox instance has been dropped
         // this example is fairly contrived but we should still support such an approach.
 
-        let mut received_msg = String::new();
+        let received_msg = Arc::new(Mutex::new(String::new()));
+        let received_msg_clone = received_msg.clone();
 
-        let writer = |msg| {
-            received_msg = msg;
+        let writer = move |msg| {
+            let mut received_msg = received_msg_clone.lock().unwrap();
+            *received_msg = msg;
             Ok(0)
         };
 
@@ -812,7 +822,7 @@ mod tests {
 
         drop(sandbox);
 
-        assert_eq!(&received_msg, "test");
+        assert_eq!(received_msg.lock().unwrap().as_str(), "test");
 
         // There may be cases where a mutable reference to the captured variable is not required to be used outside the closue
         // e.g. if the function is writing to a file or a socket etc.
@@ -824,10 +834,15 @@ mod tests {
         // The problem is that captured_file still needs static lifetime so even though we can access the data through the second file handle
         // this still does not work as the captured_file is dropped at the end of the function
 
-        let mut captured_file = NamedTempFile::new().unwrap();
-        let mut file = captured_file.reopen().unwrap();
+        let captured_file = Arc::new(Mutex::new(NamedTempFile::new().unwrap()));
+        let capture_file_clone = captured_file.clone();
 
-        let writer = |msg: String| -> Result<i32> {
+        let capture_file_lock = captured_file.lock().unwrap();
+        let mut file = capture_file_lock.reopen().unwrap();
+        drop(capture_file_lock);
+
+        let writer = move |msg: String| -> Result<i32> {
+            let mut captured_file = capture_file_clone.lock().unwrap();
             captured_file.write_all(msg.as_bytes()).unwrap();
             Ok(0)
         };
@@ -880,7 +895,7 @@ mod tests {
 
         // create a closure over the struct method
 
-        let writer_closure = |s| test_host_print.write(s);
+        let writer_closure = move |s| test_host_print.write(s);
 
         let writer_method = Arc::new(Mutex::new(writer_closure));
 
@@ -1076,10 +1091,10 @@ mod tests {
                 let event_values_map = event_values.as_object().unwrap();
 
                 #[cfg(target_os = "windows")]
-                let expected_error =
+                    let expected_error =
                     "IOError(Os { code: 2, kind: NotFound, message: \"The system cannot find the file specified.\" }";
                 #[cfg(not(target_os = "windows"))]
-                let expected_error = "IOError(Os { code: 2, kind: NotFound, message: \"No such file or directory\" }";
+                    let expected_error = "IOError(Os { code: 2, kind: NotFound, message: \"No such file or directory\" }";
 
                 let err_vals_res = try_to_strings([
                     (metadata_values_map, "level"),
