@@ -1,18 +1,43 @@
 name: Audit cargo dependencies for security vulnerabilities
 on:
   schedule:
-    - cron: "0 8 * * 1" # run at 8am every Monday
+    - cron: "0 9 * * 1" # run at 9am every Monday
   workflow_dispatch: # allow manual triggering
 
 permissions:
     issues: write # Creates issues for any vulnerabilities found
     contents: read 
+    id-token: write
+    checks: write # Needs to create check
 
 jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
+      # TODO:
+      # We are not using the common workflow here because it installs a lot of tools we don't need
+      # once https://github.com/deislabs/hyperlight-workflow-setup/issues/7 is resolved we can update this
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.74.0"
+          
+      - uses: extractions/setup-just@v2
+        with:
+          just-version: "1.27"
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Cargo login
+        run: just cargo-login
+                 
       - uses: rustsec/audit-check@v1.4.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
