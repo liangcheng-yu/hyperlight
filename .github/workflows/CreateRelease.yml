@@ -38,7 +38,7 @@ jobs:
         shell: bash
 
 
-      - uses: deislabs/hyperlight-workflow-setup@v1.2.0
+      - uses: deislabs/hyperlight-workflow-setup@v1.3.0
         with:
           rust-toolchain: "1.74.0"
           azure-client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID }}
@@ -61,7 +61,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: deislabs/hyperlight-workflow-setup@v1.2.0
+      - uses: deislabs/hyperlight-workflow-setup@v1.3.0
         with:
           rust-toolchain: "1.74.0"
           azure-client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID }}
@@ -131,7 +131,7 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - uses: deislabs/hyperlight-workflow-setup@v1.2.0
+      - uses: deislabs/hyperlight-workflow-setup@v1.3.0
         with:
           rust-toolchain: "1.74.0"
           azure-client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID }}
