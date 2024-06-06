@@ -46,11 +46,15 @@ pub struct MultiUseSandbox<'a> {
 // `create_1000_sandboxes`.
 impl Drop for MultiUseSandbox<'_> {
     fn drop(&mut self) {
-        match kill_hypervisor_handler_thread(self) {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("[LEAKED THREAD] Failed to kill hypervisor handler thread when dropping MultiUseSandbox: {:?}", e);
+        if self.join_handle.is_some() {
+            match kill_hypervisor_handler_thread(self) {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!("[LEAKED THREAD] Failed to kill hypervisor handler thread when dropping MultiUseSandbox: {:?}", e);
+                }
             }
+        } else {
+            log::debug!("[LEAKED THREAD] Running from C API configured Sandbox, no Hypervisor Handler thread to kill.");
         }
     }
 }
