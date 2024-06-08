@@ -60,7 +60,7 @@ Here is the quickest way to try out Hyperlight:
 2. Extract the archive to a location on your computer
 3. Run the NativeHost.exe or NativeHost in the extracted directory.
 
-Note: You can also run the linux version using WSL2 on Windows. At present their is no version available for macOS.
+Note: You can also run the linux version using WSL2 on Windows. At present there is no version available for macOS.
 
 To use KVM on Linux, ensure you have it installed. If you don't, follow instructions [here](https://help.ubuntu.com/community/KVM/Installation).
 
@@ -87,13 +87,13 @@ Currently the complete solution including tests and examples will only build on 
 1. [pwsh](https://github.com/PowerShell/PowerShell)
 1. [dotnet](https://learn.microsoft.com/en-us/dotnet/core/install/windows)
 1. [Set up the Hyperlight Cargo Feed](#hyperlight-cargo-feed)
-1. [Set Up simpleguest.exe and callguest.exe](#simpleguestexe-and-callguestexe)
+1. [Set Up simpleguest.exe and callbackguest.exe](#simpleguestexe-dummyguestexe-callbackguestexe)
 
  Create powershell function to use developer shell as shell:
 
  1. Edit `$PROFILE`
  1. Add the following to the profile, this assumes that you have installed clang via Visual Studio and are happy to add the developer shell to your default pwsh profile.
- 
+
  Note: You may not have the `$PROFILE` file created yet and you may have to create a new file and then update it.
 
 Gather the vs instance id for your dev environment by running `vswhere.exe -legacy -prerelease -format json` and look for the instance id of your VS installation. (vswhere.exe can be downloaded from [here](https://github.com/microsoft/vswhere/releases))
@@ -101,7 +101,7 @@ Gather the vs instance id for your dev environment by running `vswhere.exe -lega
 Replace the <instance_id> appropriately and copy it to the script file pointed by the $PROFILE.
  ```PowerShell
 Import-Module "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
-Enter-VsDevShell <instance_id> -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64" 
+Enter-VsDevShell <instance_id> -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64"
  ```
 #### Visual Studio 2022
 
@@ -115,7 +115,7 @@ Run additional tests, open a command prompt and run the following commands:
 
 ``` console
 just init
-just build-tests-capi
+just build-capi
 just test-rust
 just test-capi
 just test-dotnet-hl
@@ -133,7 +133,7 @@ Test by running:
 
 ``` console
 just init
-just build-tests-capi
+just build-capi
 just test-rust
 just test-capi
 just test-dotnet
@@ -192,7 +192,7 @@ cd hyperlight
 ```
 
 1. [Set up the Hyperlight Cargo Feed](#hyperlight-cargo-feed)
-1. [Set Up simpleguest.exe and callguest.exe](<#simpleguest.exe dummyguest.exe, callbackguest.exe>)
+1. [Set Up simpleguest.exe and callbackguest.exe](<#simpleguest.exe-dummyguest.exe-callbackguest.exe>)
 
 ```
 # Hyperlight uses submodules to pull in some dependencies such as munit
@@ -242,11 +242,11 @@ See [publishing-to-cargo.md](./docs/publishing-to-cargo.md) for more information
 
 ## simpleguest.exe, dummyguest.exe, callbackguest.exe
 
-To run the dotnet tests and examples you will need the dummyguest.exe, simpleguest.exe and callbackguest.exe applications. Run 
+To run the dotnet tests and examples you will need the dummyguest.exe, simpleguest.exe, and callbackguest.exe applications. Run
 ```bash
 just build-and-move-rust-guests
 ```
-to build dummyguest.exe, simpleguest.exe, and callbackguest.exe. 
+to build dummyguest.exe, simpleguest.exe, and callbackguest.exe.
 
 Then run this script:
 

@@ -42,16 +42,8 @@
       <Link>guests\c\simpleguest.exe</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\..\tests\Guests\simpleguest\x64\$(Configuration.toLower())\simpleguest.pdb">
-      <Link>guests\c\simpleguest.pdb</Link>
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="..\..\tests\Guests\callbackguest\x64\$(Configuration.toLower())\callbackguest.exe">
       <Link>guests\c\callbackguest.exe</Link>
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\..\tests\Guests\callbackguest\x64\$(Configuration.toLower())\callbackguest.pdb">
-      <Link>guests\c\callbackguest.pdb</Link>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
