@@ -70,4 +70,4 @@ jobs:
         if: ${{ github.event_name != 'pull_request' }}
         id: build
         # force here is used to overwrite the managed image that gets created in the build process
-        run: "packer build -var 'vm_size=${{ github.event.inputs.machine_size || 'Standard_D4as_v5' }}' -var 'location=${{ github.event.inputs.location || 'westus3' }}' -var 'image_name=hyperlight_dev' -force -color=false ./dev/packer/hyperlight.pkr.hcl"
+        run: "packer build -var 'vm_size=${{ github.event.inputs.machine_size || 'Standard_D4as_v5' }}' -var 'location=${{ github.event.inputs.location || 'westus3' }}' -var 'image_name=hyperlight-dev' -force -color=false ./dev/packer/hyperlight.pkr.hcl"
