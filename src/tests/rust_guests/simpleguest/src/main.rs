@@ -13,6 +13,8 @@ use core::hint::black_box;
 use core::{ffi::c_char, ptr::write_volatile};
 
 use alloc::{format, string::ToString, vec::Vec};
+use hyperlight_common::flatbuffer_wrappers::function_call::FunctionCallType;
+use hyperlight_common::flatbuffer_wrappers::guest_log_level::LogLevel;
 use hyperlight_common::flatbuffer_wrappers::{
     function_call::FunctionCall,
     function_types::{ParameterType, ParameterValue, ReturnType},
@@ -22,7 +24,6 @@ use hyperlight_common::flatbuffer_wrappers::{
 use hyperlight_common::mem::PAGE_SIZE;
 use hyperlight_guest::alloca::_alloca;
 use hyperlight_guest::memory::hlmalloc;
-use hyperlight_guest::MIN_STACK_ADDRESS;
 use hyperlight_guest::{entrypoint::abort_with_code, entrypoint::abort_with_code_and_message};
 use hyperlight_guest::{
     error::{HyperlightGuestError, Result},
@@ -33,6 +34,7 @@ use hyperlight_guest::{
     guest_functions::register_function,
     host_function_call::{call_host_function, get_host_value_return_as_int},
 };
+use hyperlight_guest::{logging, MIN_STACK_ADDRESS};
 use log::{debug, error, info, trace, warn};
 
 extern crate hyperlight_guest;
@@ -480,7 +482,9 @@ fn test_abort_with_code_and_message(function_call: &FunctionCall) -> Result<Vec<
         function_call.parameters.clone().unwrap()[0].clone(),
         function_call.parameters.clone().unwrap()[1].clone(),
     ) {
-        unsafe { abort_with_code_and_message(code, message.as_ptr() as *const c_char); }
+        unsafe {
+            abort_with_code_and_message(code, message.as_ptr() as *const c_char);
+        }
     }
     Ok(get_flatbuffer_result_from_void())
 }
@@ -915,8 +919,43 @@ pub extern "C" fn hyperlight_main() {
 
 #[no_mangle]
 pub fn guest_dispatch_function(function_call: &FunctionCall) -> Result<Vec<u8>> {
-    Err(HyperlightGuestError::new(
-        ErrorCode::GuestFunctionNotFound,
-        function_call.function_name.clone(),
-    ))
+    // This test checks the stack behavior of the input/output buffer
+    // by calling the host before serializing the function call.
+    // If the stack is not working correctly, the input or output buffer will be
+    // overwritten before the function call is serialized, and we will not be able
+    // to verify that the function call name is "ThisIsNotARealFunctionButTheNameIsImportant"
+
+    let message = "Hi this is a log message that will overwrite the shared buffer if the stack is not working correctly";
+
+    logging::log_message(
+        LogLevel::Information,
+        &message,
+        "source",
+        "caller",
+        "file",
+        1,
+    );
+
+    call_host_function(
+        "HostPrint",
+        Some(Vec::from(&[ParameterValue::String(message.to_string())])),
+        ReturnType::Int,
+    )?;
+    let result = get_host_value_return_as_int()?;
+    let function_name = function_call.function_name.clone();
+    let param_len = function_call.parameters.clone().unwrap_or_default().len();
+    let call_type = function_call.function_call_type().clone();
+
+    if function_name != "ThisIsNotARealFunctionButTheNameIsImportant"
+        || param_len != 0
+        || call_type != FunctionCallType::Guest
+        || result != 100
+    {
+        return Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionNotFound,
+            function_name,
+        ));
+    }
+
+    Ok(get_flatbuffer_result_from_int(99))
 }

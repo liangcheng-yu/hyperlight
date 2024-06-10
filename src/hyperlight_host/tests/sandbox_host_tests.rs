@@ -272,3 +272,18 @@ fn max_memory_sandbox() {
         HyperlightError::MemoryRequestTooBig(..)
     ));
 }
+
+#[test]
+#[serial]
+fn iostack_is_working() {
+    for mut sandbox in get_sandboxes(None).into_iter() {
+        let res = sandbox.call_guest_function_by_name(
+            "ThisIsNotARealFunctionButTheNameIsImportant",
+            ReturnType::Int,
+            None,
+        );
+        println!("{:?}", res);
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), ReturnValue::Int(99));
+    }
+}
