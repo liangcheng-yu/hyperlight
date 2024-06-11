@@ -340,7 +340,7 @@ jobs:
             ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib `
             src/HyperlightGuest/include/hyperlight.h `
             src/HyperlightGuest/third_party/printf/printf.h `
-            hyperlight_capi.h ` 
+            hyperlight_capi.h `
             libhyperlight_capi.so `
             libhyperlight_capi.d `
             hyperlight_capi.dll `
