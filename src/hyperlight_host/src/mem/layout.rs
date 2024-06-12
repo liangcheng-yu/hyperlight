@@ -166,6 +166,8 @@ impl SandboxMemoryLayout {
         stack_size: usize,
         heap_size: usize,
     ) -> Result<Self> {
+        let code_size = round_up_to(code_size, Self::FOUR_K);
+
         // The following offsets are to the fields of the PEB struct itself!
         let peb_offset = Self::PAGE_TABLE_SIZE + code_size;
         let peb_security_cookie_seed_offset = Self::PAGE_TABLE_SIZE + code_size;
