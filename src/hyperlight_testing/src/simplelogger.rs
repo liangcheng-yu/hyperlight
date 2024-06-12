@@ -52,6 +52,8 @@ impl SimpleLogger {
 
     pub fn test_log_records<F: Fn(&Vec<LogCall>)>(&self, f: F) {
         unsafe {
+            // this logger is only used for testing so unsafe is fine here
+            #[allow(static_mut_refs)]
             f(&LOGCALLS);
         };
         self.clear_log_calls();

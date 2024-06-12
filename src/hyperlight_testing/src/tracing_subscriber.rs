@@ -17,10 +17,10 @@ thread_local!(
     static SPAN_METADATA: RefCell<HashMap<u64, &'static Metadata<'static>>> =
         RefCell::new(HashMap::new());
     static SPANS: RefCell<HashMap<u64, Value>> = RefCell::new(HashMap::new());
-    static EVENTS: RefCell<Vec<Value>> = RefCell::new(Vec::new());
-    static LEVEL_FILTER: RefCell<LevelFilter> = RefCell::new(LevelFilter::OFF);
-    static NEXT_ID: RefCell<u64> = RefCell::new(1);
-    static SPAN_STACK: RefCell<Vec<Id>> = RefCell::new(Vec::new());
+    static EVENTS: RefCell<Vec<Value>> = const { RefCell::new(Vec::new()) };
+    static LEVEL_FILTER: RefCell<LevelFilter> = const { RefCell::new(LevelFilter::OFF) };
+    static NEXT_ID: RefCell<u64> = const { RefCell::new(1) };
+    static SPAN_STACK: RefCell<Vec<Id>> = const { RefCell::new(Vec::new()) };
 );
 
 impl TracingSubscriber {

@@ -47,7 +47,7 @@ jobs:
 
       - uses: deislabs/hyperlight-workflow-setup@v1.3.0
         with:
-          rust-toolchain: "1.74.0"
+          rust-toolchain: "1.78.0"
           azure-client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID }}
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         env:

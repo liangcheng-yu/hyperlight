@@ -2,21 +2,22 @@ use crate::logging::log_message;
 use alloc::format;
 use log::{LevelFilter, Metadata, Record};
 
-pub(crate) struct GuestLogger {
-    max_level: LevelFilter,
-}
+// this is private on purpose so that `log` can only be called though the `log!` macros.
+struct GuestLogger {}
 
-impl GuestLogger {
-    pub(crate) fn set_max_level(max_level: LevelFilter) {
-        unsafe {
-            LOGGER.max_level = max_level;
-        }
-    }
+pub(crate) fn init_logger(level: LevelFilter) {
+    // if this `expect` fails we have no way to recover anyway, so we actually prefer a panic here
+    // below temporary guest logger is promoted to static by the compiler.
+    log::set_logger(&GuestLogger {}).expect("unable to setup guest logger");
+    log::set_max_level(level);
 }
 
 impl log::Log for GuestLogger {
-    fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= self.max_level
+    // The various macros like `info!` and `error!` will call the global log::max_level()
+    // before calling our `log`. This means that we should log every message we get, because
+    // we won't even see the ones that are above the set max level.
+    fn enabled(&self, _: &Metadata) -> bool {
+        true
     }
 
     fn log(&self, record: &Record) {
@@ -33,13 +34,4 @@ impl log::Log for GuestLogger {
     }
 
     fn flush(&self) {}
-}
-
-pub(crate) static mut LOGGER: GuestLogger = GuestLogger {
-    max_level: LevelFilter::Off,
-};
-
-pub(crate) fn set_max_level(level: LevelFilter) {
-    GuestLogger::set_max_level(level);
-    log::set_max_level(level);
 }

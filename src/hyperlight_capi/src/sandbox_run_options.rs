@@ -116,7 +116,7 @@ mod tests {
     /// `hyperlight_host::SandboxRunOptions`
     #[test]
     fn test_convert() {
-        let cases = vec![
+        let cases = [
             // 0 => RunInHypervisor
             (
                 SandboxRunOptions::empty(),

@@ -225,7 +225,7 @@ mod tests {
     /// functions sequentially.
     #[test]
     fn singleusesandbox_single_call() {
-        let calls = vec![
+        let calls = [
             (
                 "StackAllocate",
                 ReturnType::Int,
@@ -250,7 +250,7 @@ mod tests {
 
     #[test]
     fn singleusesandbox_multi_call() {
-        let calls = vec![
+        let calls = [
             (
                 "StackAllocate",
                 ReturnType::Int,

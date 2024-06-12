@@ -33,7 +33,7 @@ pub unsafe extern "C" fn handle_get_boolean(ctx: *const Context, hdl: Handle) ->
 }
 
 fn get_boolean(ctx: &Context, hdl: Handle) -> Result<bool> {
-    Context::get(hdl, &ctx.booleans, |hdl| matches!(hdl, Hdl::Boolean(_))).map(|b| *b)
+    Context::get(hdl, &ctx.booleans, |hdl| matches!(hdl, Hdl::Boolean(_))).copied()
 }
 
 /// Store `val` in `ctx` and return a new `Handle` referencing it

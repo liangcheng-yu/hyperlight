@@ -223,7 +223,7 @@ To do do this please ensure the following:
 
     - (https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
 
-1. You have the rust toolchain v1.74.0 (or later) installed
+1. You have the rust toolchain v1.78.0 (or later) installed
 
 To connect to the cargo feeds run the following commands from the root of the repo:
 

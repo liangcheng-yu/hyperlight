@@ -5,6 +5,9 @@ use crate::{GUEST_FUNCTIONS, GUEST_FUNCTIONS_BUILDER};
 
 pub fn register_function(function_definition: GuestFunctionDefinition) {
     unsafe {
+        // This is currently safe, because we are single threaded, but we
+        // should find a better way to do this, see issue #808
+        #[allow(static_mut_refs)]
         let gfd = &mut GUEST_FUNCTIONS_BUILDER;
         gfd.push(function_definition);
     }
@@ -12,6 +15,9 @@ pub fn register_function(function_definition: GuestFunctionDefinition) {
 
 pub fn finalise_function_table() {
     unsafe {
+        // This is currently safe, because we are single threaded, but we
+        // should find a better way to do this, see issue #808
+        #[allow(static_mut_refs)]
         let gfd = &mut GUEST_FUNCTIONS_BUILDER;
         gfd.sort_by_function_name();
 

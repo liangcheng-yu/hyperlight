@@ -152,28 +152,19 @@ mod tests {
         let len = init_vec.len();
         let ptr = init_vec.as_mut_ptr();
 
-        // do 100 borrows, write to each, then make sure the original init_vec
-        // was modified.
-        //
-        // don't start this range at 0 or the first iteration will effectively
-        // be a no-op. also, the values in each element of init_vec will grow
-        // exponentially in this test, so don't set the upper bound of
-        // this range too high or you'll run into overflows.
         (1..11).collect::<Vec<u64>>().iter().for_each(|idx| {
             let res = unsafe {
                 borrow_ptr_as_slice_mut(ptr, len, |slc| {
                     // update each element of the array via slc
-                    init_vec
-                        .iter()
-                        .enumerate()
-                        .for_each(|(init_vec_idx, init_vec_elt)| {
-                            let target_val: u64 = (init_vec_elt + 1) * idx;
-                            // sanity check to ensure we're setting the vector's
-                            // value to something new.
-                            assert_ne!(*init_vec_elt, target_val);
-                            slc[init_vec_idx] = target_val;
-                            assert_eq!(init_vec[init_vec_idx], target_val);
-                        });
+                    slc.iter_mut().for_each(|slc_elt| {
+                        let target_val: u64 = (*slc_elt + 1) * idx;
+                        // sanity check to ensure we're setting the vector's
+                        // value to something new.
+                        assert_ne!(*slc_elt, target_val);
+                        *slc_elt = target_val;
+                        assert_eq!(*slc_elt, target_val);
+                    });
+
                     Ok(())
                     // when slc is dropped, it should not free underlying
                     // memory and thus there should be no double-free

@@ -187,7 +187,11 @@ impl HypervWindowsDriver {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn get_exit_details(&self, exit_reason: WHV_RUN_VP_EXIT_REASON) -> Result<String> {
         // get registers
-        let register_names = self.registers.keys().map(|x| x.0).collect();
+        let register_names = self
+            .registers
+            .keys()
+            .map(|x| x.0)
+            .collect::<Vec<windows::Win32::System::Hypervisor::WHV_REGISTER_NAME>>();
         let registers = self.processor.get_registers(&register_names)?;
 
         let mut error = String::new();
@@ -438,7 +442,7 @@ impl Hypervisor for HypervWindowsDriver {
         // we need to reset the stack pointer once execution is complete
         // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it
         // so here we get the current RSP value so we can reset it later
-        let rsp = self.processor.get_registers(&vec![WHvX64RegisterRsp])?;
+        let rsp = self.processor.get_registers(&[WHvX64RegisterRsp])?;
 
         VirtualCPU::run(self.as_mut_hypervisor(), outb_hdl, mem_access_hdl)?;
 

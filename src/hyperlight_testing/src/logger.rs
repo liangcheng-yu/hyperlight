@@ -19,8 +19,8 @@ pub struct LogCall {
 }
 
 thread_local!(
-    static LOGCALLS: RefCell<Vec<LogCall>> = RefCell::new(Vec::<LogCall>::new());
-    static LOGGER_MAX_LEVEL: RefCell<LevelFilter> = RefCell::new(LevelFilter::Off);
+    static LOGCALLS: RefCell<Vec<LogCall>> = const { RefCell::new(Vec::<LogCall>::new()) };
+    static LOGGER_MAX_LEVEL: RefCell<LevelFilter> = const { RefCell::new(LevelFilter::Off) };
 );
 
 pub struct Logger {}

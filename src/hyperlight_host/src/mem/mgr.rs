@@ -422,8 +422,8 @@ impl SandboxMemoryManager {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn write_outb_error(
         &mut self,
-        guest_error_msg: &Vec<u8>,
-        host_exception_data: &Vec<u8>,
+        guest_error_msg: &[u8],
+        host_exception_data: &[u8],
     ) -> Result<()> {
         let message = String::from_utf8(guest_error_msg.to_owned())?;
         let ge = GuestError::new(ErrorCode::OutbError, message);
@@ -774,7 +774,7 @@ where
 
     {
         // write the code pointer to shared memory
-        let load_addr_u64: u64 = load_addr.clone().try_into()?;
+        let load_addr_u64: u64 = load_addr.clone().into();
         shared_mem.write_u64(offset, load_addr_u64)?;
     }
     Ok((layout, shared_mem, load_addr, entrypoint_offset))

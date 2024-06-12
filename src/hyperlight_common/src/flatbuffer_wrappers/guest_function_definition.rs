@@ -47,7 +47,7 @@ impl GuestFunctionDefinition {
     /// Verify equal parameter types
     pub fn verify_equal_parameter_types(
         &self,
-        parameter_types: &Vec<ParameterType>,
+        parameter_types: &[ParameterType],
     ) -> Result<(), Error> {
         if self.parameter_types.len() != parameter_types.len() {
             return Err(anyhow!(

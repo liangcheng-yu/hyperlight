@@ -120,7 +120,7 @@ impl VMProcessor {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn get_registers(
         &self,
-        register_names: &Vec<WHV_REGISTER_NAME>,
+        register_names: &[WHV_REGISTER_NAME],
     ) -> Result<HashMap<WhvRegisterNameWrapper, WHV_REGISTER_VALUE>> {
         let partition_handle = self.get_partition_hdl();
         let register_count = register_names.len();

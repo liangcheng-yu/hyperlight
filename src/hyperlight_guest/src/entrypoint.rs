@@ -10,7 +10,7 @@ use crate::{
 
 use hyperlight_common::mem::HyperlightPEB;
 
-use crate::guest_logger::{set_max_level, LOGGER};
+use crate::guest_logger::init_logger;
 use core::{
     arch::asm,
     ffi::{c_char, c_void},
@@ -92,7 +92,6 @@ pub extern "C" fn entrypoint(peb_address: i64, seed: i64, ops: i32, log_level_fi
             srand(srand_seed);
 
             // set up the logger
-            let _ = log::set_logger(&LOGGER);
             let log_level = match log_level_filter {
                 0 => LevelFilter::Off,
                 1 => LevelFilter::Error,
@@ -102,7 +101,7 @@ pub extern "C" fn entrypoint(peb_address: i64, seed: i64, ops: i32, log_level_fi
                 5 => LevelFilter::Trace,
                 _ => LevelFilter::Error,
             };
-            set_max_level(log_level);
+            init_logger(log_level);
 
             let heap_start = (*peb_ptr).guestheapData.guestHeapBuffer as usize;
             let heap_size = (*peb_ptr).guestheapData.guestHeapSize as usize;
@@ -122,14 +121,14 @@ pub extern "C" fn entrypoint(peb_address: i64, seed: i64, ops: i32, log_level_fi
             OS_PAGE_SIZE = ops as u32;
 
             let outb_ptr: fn(u16, u8) = core::mem::transmute((*peb_ptr).pOutb);
-            OUTB_PTR = Some(outb_ptr as fn(u16, u8));
+            OUTB_PTR = Some(outb_ptr);
 
             OUTB_PTR_WITH_CONTEXT = if (*peb_ptr).pOutbContext.is_null() {
                 None
             } else {
                 let outb_ptr_with_context: fn(*mut c_void, u16, u8) =
                     core::mem::transmute((*peb_ptr).pOutb);
-                Some(outb_ptr_with_context as fn(*mut c_void, u16, u8))
+                Some(outb_ptr_with_context)
             };
 
             (*peb_ptr).guest_function_dispatch_ptr = dispatch_function as usize as u64;

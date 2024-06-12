@@ -17,7 +17,6 @@ pub(crate) struct CustomPtrDrop<'a, EltT> {
     drop: Box<dyn Fn(*mut EltT) + 'a + Send>,
 }
 
-#[cfg(target_os = "windows")]
 impl<'a, EltT> CustomPtrDrop<'a, EltT> {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn new(elt: *mut EltT, drop_fn: Box<dyn Fn(*mut EltT) + Send>) -> Self {
@@ -45,13 +44,11 @@ impl<'a, EltT> Drop for CustomPtrDrop<'a, EltT> {
         drop_fn(self.t.0)
     }
 }
-
 struct SendablePtr<T>(*mut T);
 
 unsafe impl<T> Send for SendablePtr<T> {}
 
 #[cfg(test)]
-#[cfg(target_os = "windows")]
 mod tests {
     #[cfg(target_os = "windows")]
     use super::CustomPtrDrop;

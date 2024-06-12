@@ -1,4 +1,5 @@
 /// Reusable structure to hold data and provide a `Drop` implementation
+#[cfg(target_os = "windows")]
 pub(crate) mod custom_drop;
 /// Functionality to establish a sandbox's memory layout.
 pub mod layout;
@@ -29,6 +30,3 @@ pub mod shared_mem_snapshot;
 /// Utilities for writing shared memory tests
 #[cfg(test)]
 pub(crate) mod shared_mem_tests;
-/// An extension trait for adding types like `Offset`s to
-/// types like pointers
-pub(super) mod try_add_ext;

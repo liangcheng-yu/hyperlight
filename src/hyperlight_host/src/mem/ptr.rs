@@ -80,7 +80,7 @@ impl TryFrom<(usize, &SharedMemory)> for HostPtr {
     fn try_from(tup: (usize, &SharedMemory)) -> Result<Self> {
         Ok(Self {
             addr_space: HostAddressSpace::new(tup.1)?,
-            offset: Offset::try_from(tup.0 as u64)?,
+            offset: Offset::from(tup.0 as u64),
         })
     }
 }
