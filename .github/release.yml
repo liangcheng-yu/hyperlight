@@ -25,6 +25,12 @@ changelog:
     - title: 👒 Dependencies
       labels:
         - dependencies
+    - title: 📚 Documentation
+      labels:
+        - documentation
+    - title: 🔬 Testing
+      labels:
+        - testing
     - title: 📝 Other Changes
       labels:
         - "*"
