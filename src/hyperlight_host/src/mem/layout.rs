@@ -725,15 +725,41 @@ mod tests {
         assert_eq!(hca_in_proc, hca_in_vm);
     }
 
+    // helper func for testing
+    fn get_expected_memory_size(layout: &SandboxMemoryLayout) -> usize {
+        let cfg = layout.sandbox_memory_config;
+        let mut expected_size = 0;
+        // in order of layout
+        expected_size += 3 * PAGE_SIZE_USIZE; // 3 page structs
+        expected_size += layout.code_size;
+
+        expected_size += round_up_to(size_of::<HyperlightPEB>(), PAGE_SIZE_USIZE);
+
+        expected_size += round_up_to(cfg.get_host_function_definition_size(), PAGE_SIZE_USIZE);
+
+        expected_size += round_up_to(
+            cfg.get_host_exception_size()
+                + cfg.get_guest_error_buffer_size()
+                + cfg.get_input_data_size()
+                + cfg.get_output_data_size()
+                + cfg.get_guest_panic_context_buffer_size()
+                + layout.heap_size,
+            PAGE_SIZE_USIZE,
+        );
+
+        expected_size += PAGE_SIZE_USIZE; // guard page
+
+        expected_size += round_up_to(layout.stack_size, PAGE_SIZE_USIZE);
+        expected_size
+    }
+
     #[test]
     fn test_get_memory_size() {
-        // Note: this test assumes that the stack is the element in the guest memory layout in order to determine the total size
-        // of the memory layout.
         let sbox_cfg = SandboxConfiguration::default();
         let sbox_mem_layout = SandboxMemoryLayout::new(sbox_cfg, 4096, 2048, 4096).unwrap();
-        let mem_size = sbox_mem_layout.get_unaligned_memory_size() as u64;
-        let end_of_memory = u64::try_from(sbox_mem_layout.get_top_of_stack_offset()).unwrap()
-            + sbox_mem_layout.get_stack_size() as u64;
-        assert_eq!(mem_size, end_of_memory);
+        assert_eq!(
+            sbox_mem_layout.get_memory_size().unwrap(),
+            get_expected_memory_size(&sbox_mem_layout)
+        );
     }
 }
