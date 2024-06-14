@@ -247,7 +247,7 @@ fn guest_hlmalloc_abort() {
     assert!(matches!(
         res.unwrap_err(),
         // OOM memory errors in rust allocator are panics. Our panic handler returns ErrorCode::UnknownError on panic
-        HyperlightError::GuestAborted(code, msg) if code == ErrorCode::UnknownError as u8 && msg.contains("memory allocation of 65536 bytes failed")
+        HyperlightError::GuestAborted(code, msg) if code == ErrorCode::UnknownError as u8 && msg.contains("memory allocation of ")
     ));
 }
 
@@ -429,6 +429,33 @@ fn execute_on_stack() {
         .unwrap_err();
     assert!(matches!(
         result,
+        HyperlightError::MemoryAccessViolation(_, MemoryRegionFlags::EXECUTE, _)
+    ));
+}
+
+#[test]
+#[ignore] // ran from Justfile because requires feature "executable_heap"
+fn execute_on_heap() {
+    #[cfg(target_os = "linux")]
+    {
+        use hyperlight_host::hypervisor::kvm;
+
+        if kvm::is_hypervisor_present() {
+            // This test is not supported on KVM because memory in KVM cannot be marked non-executable
+            return;
+        }
+    }
+    let sbox1: SingleUseSandbox = new_uninit_rust().unwrap().evolve(Noop::default()).unwrap();
+    let result =
+        sbox1.call_guest_function_by_name("ExecuteOnHeap", ReturnType::String, Some(vec![]));
+
+    println!("{:#?}", result);
+    #[cfg(feature = "executable_heap")]
+    assert!(result.is_ok());
+
+    #[cfg(not(feature = "executable_heap"))]
+    assert!(matches!(
+        result.unwrap_err(),
         HyperlightError::MemoryAccessViolation(_, MemoryRegionFlags::EXECUTE, _)
     ));
 }

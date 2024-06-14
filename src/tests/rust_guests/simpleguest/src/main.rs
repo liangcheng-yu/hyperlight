@@ -12,6 +12,7 @@ extern crate alloc;
 use core::hint::black_box;
 use core::{ffi::c_char, ptr::write_volatile};
 
+use alloc::boxed::Box;
 use alloc::{format, string::ToString, vec::Vec};
 use hyperlight_common::flatbuffer_wrappers::function_call::FunctionCallType;
 use hyperlight_common::flatbuffer_wrappers::guest_log_level::LogLevel;
@@ -522,10 +523,21 @@ fn test_write_raw_ptr(function_call: &FunctionCall) -> Result<Vec<u8>> {
 fn execute_on_stack(_function_call: &FunctionCall) -> Result<Vec<u8>> {
     unsafe {
         let mut noop: u8 = 0x90;
-        let noop_fn: fn() = core::mem::transmute(&mut noop as *mut u8);
-        core::ptr::write_volatile(&mut noop as *mut u8, noop);
-        noop_fn();
+        let stack_fn: fn() = core::mem::transmute(&mut noop as *mut u8);
+        stack_fn();
     };
+    Ok(get_flatbuffer_result_from_string("fail"))
+}
+
+fn execute_on_heap(_function_call: &FunctionCall) -> Result<Vec<u8>> {
+    unsafe {
+        // NO-OP followed by RET
+        let heap_memory = Box::new([0x90u8, 0xC3]);
+        let heap_fn: fn() = core::mem::transmute(Box::into_raw(heap_memory));
+        heap_fn();
+        black_box(heap_fn); // avoid optimization when running in release mode
+    }
+    // will only reach this point if heap is executable
     Ok(get_flatbuffer_result_from_string("fail"))
 }
 
@@ -901,6 +913,15 @@ pub extern "C" fn hyperlight_main() {
         execute_on_stack as i64,
     );
     register_function(execute_on_stack_def);
+
+    let execute_on_heap_def = GuestFunctionDefinition::new(
+        "ExecuteOnHeap".to_string(),
+        Vec::new(),
+        ReturnType::String,
+        execute_on_heap as i64,
+    );
+    register_function(execute_on_heap_def);
+
     let add_to_static_def = GuestFunctionDefinition::new(
         "AddToStatic".to_string(),
         Vec::from(&[ParameterType::Int]),

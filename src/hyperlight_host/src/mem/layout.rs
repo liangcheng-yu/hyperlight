@@ -166,10 +166,8 @@ impl SandboxMemoryLayout {
         stack_size: usize,
         heap_size: usize,
     ) -> Result<Self> {
-        let code_size = round_up_to(code_size, Self::FOUR_K);
-
         // The following offsets are to the fields of the PEB struct itself!
-        let peb_offset = Self::PAGE_TABLE_SIZE + code_size;
+        let peb_offset = Self::PAGE_TABLE_SIZE + round_up_to(code_size, Self::FOUR_K);
         let peb_security_cookie_seed_offset = Self::PAGE_TABLE_SIZE + code_size;
         let peb_guest_dispatch_function_ptr_offset =
             peb_security_cookie_seed_offset + size_of::<u64>(); // security_cookie_seed is a u64
@@ -206,8 +204,11 @@ impl SandboxMemoryLayout {
         let output_data_buffer_offset = input_data_buffer_offset + cfg.get_input_data_size();
         let guest_panic_context_buffer_offset =
             output_data_buffer_offset + cfg.get_output_data_size();
-        let guest_heap_buffer_offset =
-            guest_panic_context_buffer_offset + cfg.get_guest_panic_context_buffer_size();
+        // make sure heap buffer starts at 4K boundary
+        let guest_heap_buffer_offset = round_up_to(
+            guest_panic_context_buffer_offset + cfg.get_guest_panic_context_buffer_size(),
+            Self::FOUR_K,
+        );
         // make sure guard page starts at 4K boundary
         let guard_page_offset = round_up_to(guest_heap_buffer_offset + heap_size, Self::FOUR_K);
         let guest_stack_buffer_offset = guard_page_offset + Self::FOUR_K;
@@ -506,18 +507,34 @@ impl SandboxMemoryLayout {
             TryInto::<usize>::try_into(self.host_exception_buffer_offset).unwrap()
         );
 
-        // host exception, guest error, guest input data, guest output, guest panic context, guest heap
-        let guard_page_offset = builder.push_page_aligned(
+        // host exception, guest error, guest input data, guest output, guest panic context
+        let heap_offset = builder.push_page_aligned(
             self.sandbox_memory_config.get_host_exception_size()
                 + self.sandbox_memory_config.get_guest_error_buffer_size()
                 + self.sandbox_memory_config.get_input_data_size()
                 + self.sandbox_memory_config.get_output_data_size()
                 + self
                     .sandbox_memory_config
-                    .get_guest_panic_context_buffer_size()
-                + self.heap_size,
+                    .get_guest_panic_context_buffer_size(),
             MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
         );
+        assert_eq!(
+            heap_offset,
+            TryInto::<usize>::try_into(self.guest_heap_buffer_offset).unwrap()
+        );
+
+        // heap
+        #[cfg(feature = "executable_heap")]
+        let guard_page_offset = builder.push_page_aligned(
+            self.heap_size,
+            MemoryRegionFlags::READ | MemoryRegionFlags::WRITE | MemoryRegionFlags::EXECUTE,
+        );
+        #[cfg(not(feature = "executable_heap"))]
+        let guard_page_offset = builder.push_page_aligned(
+            self.heap_size,
+            MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
+        );
+
         assert_eq!(
             guard_page_offset,
             TryInto::<usize>::try_into(self.guard_page_offset).unwrap()
@@ -525,8 +542,9 @@ impl SandboxMemoryLayout {
 
         // guard page
         let stack_offset = builder.push_page_aligned(PAGE_SIZE_USIZE, MemoryRegionFlags::READ);
-        assert!(
-            stack_offset == TryInto::<usize>::try_into(self.guest_stack_buffer_offset).unwrap()
+        assert_eq!(
+            stack_offset,
+            TryInto::<usize>::try_into(self.guest_stack_buffer_offset).unwrap()
         );
 
         // stack

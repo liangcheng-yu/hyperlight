@@ -93,6 +93,11 @@ test-rust target=default-target: (test-rust-int "rust" target) (test-rust-int "c
 # rust integration tests. guest can either be "rust" or "c"
 test-rust-int guest target=default-target:
     # integration tests
+
+    # run execute_on_heap test with feature "executable_heap" on and off
+    {{if os() == "windows" { "$env:" } else { "" } }}GUEST="{{guest}}"{{if os() == "windows" { ";" } else { "" } }} cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --test integration_test execute_on_heap --features executable_heap -- --ignored
+    {{if os() == "windows" { "$env:" } else { "" } }}GUEST="{{guest}}"{{if os() == "windows" { ";" } else { "" } }} cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --test integration_test execute_on_heap -- --ignored
+    # run the rest of the integration tests
     {{if os() == "windows" { "$env:" } else { "" } }}GUEST="{{guest}}"{{if os() == "windows" { ";" } else { "" } }} cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --test '*'
 
 test-dotnet-hl target=default-target:

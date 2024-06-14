@@ -104,7 +104,8 @@ proc-maps = "0.3.1"
 anyhow = { version = "1.0.75" }
 
 [features]
-function_call_metrics =[]
+function_call_metrics = []
+executable_heap = []
 
 [[bench]]
 name = "benchmarks"
