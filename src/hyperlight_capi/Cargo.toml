@@ -36,7 +36,7 @@ mshv-bindings = { workspace = true }
 
 [build-dependencies]
 anyhow = { version = "1.0.72" }
-cbindgen = { version = "0.26.0" }
+cbindgen = { version = "0.26.0", default-features = false}
 
 [dev-dependencies]
 hyperlight_host = { path = "../hyperlight_host" }
