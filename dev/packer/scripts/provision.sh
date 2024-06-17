@@ -4,15 +4,17 @@ set -o pipefail
 
 dnf install -y 'dnf-command(config-manager)'
 dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
-dnf install -y vim kernel-mshv git lldb binutils glibc-devel kernel-headers nano gh grubby ca-certificates mshv-bootloader-lx mshv hvloader azure-cli dotnet-sdk-6.0
+dnf install -y vim kernel-mshv kernel-mshv-devel git lldb binutils glibc-devel kernel-headers nano gh grubby ca-certificates mshv-bootloader-lx mshv hvloader azure-cli dotnet-sdk-6.0
 dnf remove -y llvm
 dnf install -y clang16 clang16-tools-extra lld16
+dnf install -y mariner-repos-debug
+dnf install -y glibc-debuginfo
 update-ca-trust
 groupadd mshv
 
 cat <<EOF >> /etc/udev/rules.d/10-hyperlight.rules
   # hyperlight related rule to change the /dev/mshv group to be "mshv"
-  SUBSYSTEM=="misc", KERNEL=="mshv", RUN+="/bin/chown root:mshv /dev/mshv", RUN+="/bin/chmod 0660 /dev/mshv"
+  SUBSYSTEM=="misc", KERNEL=="mshv", RUN+="/bin/chown root:mshv /dev/mshv", RUN+="/bin/chmod 0666 /dev/mshv"
 EOF
 
 boot_uuid=$(sudo grep -o -m 1 '[0-9a-f]\{8\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{12\}' /boot/efi/boot/grub2/grub.cfg)
