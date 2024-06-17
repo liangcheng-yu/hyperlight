@@ -5,14 +5,11 @@ use super::shared_mem::SharedMemory;
 use crate::error::HyperlightError::{GuestOffsetIsInvalid, MemoryRequestTooBig};
 use crate::sandbox::SandboxConfiguration;
 use crate::Result;
-use hyperlight_common::mem::{
-    GuestErrorData, GuestHeapData, GuestPanicContextData, GuestStackData, HostException,
-    HostFunctionDefinitions, HyperlightPEB, InputData, OutputData, PAGE_SIZE_USIZE,
-};
+use hyperlight_common::mem::{GuestStackData, HyperlightPEB, PAGE_SIZE_USIZE};
 use paste::paste;
 use rand::rngs::OsRng;
 use rand::RngCore;
-use std::mem::size_of;
+use std::mem::{offset_of, size_of};
 use tracing::{instrument, Span};
 
 // +-------------------------------------------+
@@ -168,21 +165,21 @@ impl SandboxMemoryLayout {
     ) -> Result<Self> {
         // The following offsets are to the fields of the PEB struct itself!
         let peb_offset = Self::PAGE_TABLE_SIZE + round_up_to(code_size, Self::FOUR_K);
-        let peb_security_cookie_seed_offset = Self::PAGE_TABLE_SIZE + code_size;
+        let peb_security_cookie_seed_offset =
+            peb_offset + offset_of!(HyperlightPEB, security_cookie_seed);
         let peb_guest_dispatch_function_ptr_offset =
-            peb_security_cookie_seed_offset + size_of::<u64>(); // security_cookie_seed is a u64
+            peb_offset + offset_of!(HyperlightPEB, guest_function_dispatch_ptr);
         let peb_host_function_definitions_offset =
-            peb_guest_dispatch_function_ptr_offset + size_of::<u64>(); // dispatch_function_ptr is a u64
-        let peb_host_exception_offset =
-            peb_host_function_definitions_offset + size_of::<HostFunctionDefinitions>();
-        let peb_guest_error_offset = peb_host_exception_offset + size_of::<HostException>();
-        let peb_code_and_outb_pointer_offset = peb_guest_error_offset + size_of::<GuestErrorData>();
-        let peb_input_data_offset = peb_code_and_outb_pointer_offset + 3 * size_of::<u64>(); // 3 ptrs
-        let peb_output_data_offset = peb_input_data_offset + size_of::<InputData>();
-        let peb_guest_panic_context_offset = peb_output_data_offset + size_of::<OutputData>();
-        let peb_heap_data_offset =
-            peb_guest_panic_context_offset + size_of::<GuestPanicContextData>();
-        let peb_stack_data_offset = peb_heap_data_offset + size_of::<GuestHeapData>();
+            peb_offset + offset_of!(HyperlightPEB, hostFunctionDefinitions);
+        let peb_host_exception_offset = peb_offset + offset_of!(HyperlightPEB, hostException);
+        let peb_guest_error_offset = peb_offset + offset_of!(HyperlightPEB, guestErrorData);
+        let peb_code_and_outb_pointer_offset = peb_offset + offset_of!(HyperlightPEB, pCode);
+        let peb_input_data_offset = peb_offset + offset_of!(HyperlightPEB, inputdata);
+        let peb_output_data_offset = peb_offset + offset_of!(HyperlightPEB, outputdata);
+        let peb_guest_panic_context_offset =
+            peb_offset + offset_of!(HyperlightPEB, guestPanicContextData);
+        let peb_heap_data_offset = peb_offset + offset_of!(HyperlightPEB, guestheapData);
+        let peb_stack_data_offset = peb_offset + offset_of!(HyperlightPEB, gueststackData);
 
         // The following offsets are the actual values that relate to memory layout,
         // which are written to PEB struct
