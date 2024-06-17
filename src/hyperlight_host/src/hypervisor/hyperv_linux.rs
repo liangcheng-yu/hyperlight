@@ -36,7 +36,12 @@ use tracing::{instrument, Span};
 //TODO:(#1029) Once CAPI is complete this does not need to be public
 pub fn is_hypervisor_present() -> bool {
     match Mshv::open_with_cloexec(true) {
-        Ok(_) => true,
+        Ok(fd) => {
+            unsafe {
+                libc::close(fd);
+            } // must explicitly close fd to avoid a leak
+            true
+        }
         Err(e) => {
             log::info!("Error creating MSHV object: {:?}", e);
             false
