@@ -18,7 +18,7 @@ crate-type = ["cdylib"]
 bench = false # see https://bheisler.github.io/criterion.rs/book/faq.html#cargo-bench-gives-unrecognized-option-errors-for-valid-command-line-options
 
 [dependencies]
-hyperlight_host = { path = "../hyperlight_host", version = "0.7.3", registry = "hyperlight_packages" }
+hyperlight_host = { path = "../hyperlight_host", version = "0.7.3", registry = "hyperlight_packages", features = ["executable_heap"] }
 hyperlight_common = { path = "../hyperlight_common", version = "0.7.3", registry = "hyperlight_packages" }
 tracing-subscriber = { version = "0.3.17", features = ["json"] }
 anyhow = { version = "1.0.72" }
