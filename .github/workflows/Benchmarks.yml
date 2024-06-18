@@ -36,7 +36,7 @@ jobs:
             os: [self-hosted, Linux, X64, "1ES.Pool=HL-Ubuntu-20.04-KVM"]
             hypervisor: kvm
           - build: linux-hyperv-release
-            os: [self-hosted, Linux, X64, "1ES.Pool=HL-CBLMariner-mshv"]
+            os: [self-hosted, Linux, X64, "1ES.Pool=HL-mshv-dev"]
             hypervisor: hyperv
 
     runs-on: ${{ matrix.os }}

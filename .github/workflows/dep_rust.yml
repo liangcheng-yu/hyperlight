@@ -46,7 +46,7 @@ jobs:
             hypervisor: kvm
             config: debug
           - build: linux-hyperv-debug
-            os: [self-hosted, Linux, X64, "1ES.Pool=HL-CBLMariner-mshv"]
+            os: [self-hosted, Linux, X64, "1ES.Pool=HL-mshv-dev"]
             hypervisor: hyperv
             config: debug
           - build: windows-2022-release
@@ -58,7 +58,7 @@ jobs:
             hypervisor: kvm
             config: release
           - build: linux-hyperv-release
-            os: [self-hosted, Linux, X64, "1ES.Pool=HL-CBLMariner-mshv"]
+            os: [self-hosted, Linux, X64, "1ES.Pool=HL-mshv-dev"]
             hypervisor: hyperv
             config: release
 

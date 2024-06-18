@@ -188,12 +188,12 @@ jobs:
             platform: x64
             hypervisor: kvm
           - build: linux-hyperv-debug
-            os: [self-hosted, Linux, X64, "1ES.Pool=HL-CBLMariner-mshv"]
+            os: [self-hosted, Linux, X64, "1ES.Pool=HL-mshv-dev"]
             config: debug
             platform: x64
             hypervisor: hyperv
           - build: linux-hyperv-release
-            os: [self-hosted, Linux, X64, "1ES.Pool=HL-CBLMariner-mshv"]
+            os: [self-hosted, Linux, X64, "1ES.Pool=HL-mshv-dev"]
             config: release
             platform: x64
             hypervisor: hyperv
