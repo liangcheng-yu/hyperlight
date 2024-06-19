@@ -46,7 +46,7 @@ pub struct SingleUseSandbox<'a> {
 impl Drop for SingleUseSandbox<'_> {
     fn drop(&mut self) {
         if self.join_handle.is_some() {
-            match kill_hypervisor_handler_thread(self) {
+            match kill_hypervisor_handler_thread(self, None) {
                 Ok(_) => {}
                 Err(e) => {
                     log::error!("[LEAKED THREAD] Failed to kill hypervisor handler thread when dropping MultiUseSandbox: {:?}", e);

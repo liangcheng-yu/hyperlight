@@ -346,7 +346,10 @@ pub(crate) fn start_hypervisor_handler(
 /// - Before attempting a join, this function checks if execution isn't already finished.
 /// Note: This function call takes ownership of the `JoinHandle`.
 #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-pub(crate) fn try_join_hypervisor_handler_thread<T>(sbox: &mut T) -> Result<()>
+pub(crate) fn try_join_hypervisor_handler_thread<T>(
+    sbox: &mut T,
+    join_handle: Option<JoinHandle<Result<()>>>,
+) -> Result<()>
 where
     T: Sandbox,
 {
@@ -354,29 +357,35 @@ where
     let timeout = hv_wrapper.max_execution_time;
     let start = std::time::Instant::now();
 
-    loop {
-        if start.elapsed() >= timeout {
-            log_then_return!(HyperlightError::Error(
-                "Failed to join Hypervisor handler thread".to_string()
-            ));
-        }
+    let jhandle = if join_handle.is_some() {
+        join_handle
+    } else {
+        sbox.get_hypervisor_handler_thread_mut().take()
+    };
 
-        if let Some(handle) = sbox.get_hypervisor_handler_thread_mut().take() {
-            if !handle.is_finished() {
-                match handle.join() {
-                    Ok(Ok(())) => return Ok(()),
-                    Ok(Err(e)) => {
-                        log_then_return!(e);
-                    }
-                    Err(e) => {
-                        log_then_return!(new_error!("{:?}", e));
-                    }
+    if start.elapsed() >= timeout {
+        log_then_return!(HyperlightError::Error(
+            "Failed to join Hypervisor handler thread".to_string()
+        ));
+    }
+
+    if let Some(handle) = jhandle {
+        if !handle.is_finished() {
+            match handle.join() {
+                Ok(Ok(())) => return Ok(()),
+                Ok(Err(e)) => {
+                    log_then_return!(e);
+                }
+                Err(e) => {
+                    log_then_return!(new_error!("{:?}", e));
                 }
             }
         }
-
-        thread::sleep(Duration::from_millis(10));
     }
+
+    thread::sleep(Duration::from_millis(10));
+
+    Ok(())
 }
 
 /// Tries to kill the Hypervisor Handler Thread.
@@ -390,7 +399,10 @@ where
 /// we only try to acquire the lock for `max_execution_time` duration. If we can't acquire the lock in that
 /// time, we will be leaking a thread.
 #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-pub(crate) fn kill_hypervisor_handler_thread<T>(sbox: &mut T) -> Result<()>
+pub(crate) fn kill_hypervisor_handler_thread<T>(
+    sbox: &mut T,
+    join_handle: Option<JoinHandle<Result<()>>>,
+) -> Result<()>
 where
     T: Sandbox,
 {
@@ -401,7 +413,7 @@ where
         hv_lock.drop_to_handler_tx();
     }
 
-    try_join_hypervisor_handler_thread(sbox)
+    try_join_hypervisor_handler_thread(sbox, join_handle)
 }
 
 /// Terminate the execution of the hypervisor handler

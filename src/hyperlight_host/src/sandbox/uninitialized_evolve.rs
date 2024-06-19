@@ -1,13 +1,13 @@
 use super::{leaked_outb::LeakedOutBWrapper, WrapperGetter};
-use crate::hypervisor::hypervisor_handler::InitArgs;
 use crate::hypervisor::hypervisor_handler::VCPUAction;
+use crate::hypervisor::hypervisor_handler::{kill_hypervisor_handler_thread, InitArgs};
 use crate::hypervisor::hypervisor_handler::{start_hypervisor_handler, HandlerMsg};
 #[cfg(target_os = "linux")]
 use crate::log_then_return;
 use crate::HyperlightError::HypervisorHandlerCommunicationFailure;
 use crate::{
     func::exports::get_os_page_size, hypervisor::handlers::MemAccessHandlerWrapper,
-    mem::ptr::RawPtr, new_error, MultiUseSandbox,
+    mem::ptr::RawPtr, MultiUseSandbox,
 };
 use crate::{
     hypervisor::handlers::OutBHandlerWrapper, sandbox_state::sandbox::Sandbox, SingleUseSandbox,
@@ -56,11 +56,9 @@ where
         Some(leaked_outb)
     } else {
         let orig_rsp = u_sbox.get_hv().get_hypervisor_lock()?.orig_rsp()?;
-        join_handle = Some(hv_init(
-            &u_sbox,
-            u_sbox.hv.outb_hdl.clone(),
-            u_sbox.hv.mem_access_hdl.clone(),
-        )?);
+        let outb_hdl = u_sbox.hv.outb_hdl.clone();
+        let mem_access_hdl = u_sbox.hv.mem_access_hdl.clone();
+        join_handle = Some(hv_init(&mut u_sbox, outb_hdl, mem_access_hdl)?);
 
         {
             let mgr = u_sbox.mgr.as_ref();
@@ -195,7 +193,7 @@ fn evolve_in_proc<'a>(
 
 #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
 fn hv_init(
-    u_sbox: &UninitializedSandbox,
+    u_sbox: &mut UninitializedSandbox,
     outb_hdl: OutBHandlerWrapper,
     mem_access_hdl: MemAccessHandlerWrapper,
 ) -> Result<JoinHandle<Result<()>>> {
@@ -245,10 +243,10 @@ fn hv_init(
         .recv()
         .map_err(|_| HypervisorHandlerCommunicationFailure())?
     {
-        join_handle
-            .join()
-            .map_err(|_| new_error!("failed to join hypervisor handler thread"))??;
-
+        drop(to_handler_tx);
+        // ^^^ need to drop the transmitter to avoid the handler
+        // from waiting for a message that will never come :(
+        kill_hypervisor_handler_thread(u_sbox, Some(join_handle))?;
         return Err(e);
     }
 
