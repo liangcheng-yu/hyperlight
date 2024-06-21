@@ -1,9 +1,8 @@
 use crate::mem::pe::base_relocations;
 use crate::{log_then_return, Result};
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use goblin::pe::section_table::SectionTable;
 use goblin::pe::{optional_header::OptionalHeader, PE};
-use std::io::Cursor;
+use std::io::{Cursor, Write};
 use std::{fs::File, io::Read};
 use tracing::instrument;
 use tracing::{info, Span};
@@ -161,7 +160,7 @@ impl PEInfo {
             }
 
             cur.set_position(patch.offset as u64);
-            cur.write_u64::<LittleEndian>(patch.relocated_virtual_address)
+            cur.write_all(&patch.relocated_virtual_address.to_le_bytes())
                 .expect("failed to write patch to pe file contents");
             applied += 1;
         }
@@ -205,16 +204,9 @@ impl PEInfo {
                     // Read the virtual address stored in reloc_offset as a 64bit value
                     let mut cur = Cursor::new(payload);
                     cur.set_position(offset);
-                    let original_address = match cur.read_u64::<LittleEndian>() {
-                        Ok(val) => val,
-                        Err(e) => {
-                            log_then_return!(
-                                "error reading a 64bit value from the PE file at offset {}: {}",
-                                offset,
-                                e
-                            );
-                        }
-                    };
+                    let mut bytes = [0; 8];
+                    cur.read_exact(&mut bytes)?;
+                    let original_address = u64::from_le_bytes(bytes);
 
                     // Add the address diff to the original address
                     // Note that we are using wrapping when calculating the diff and then again when applying it to the original address

@@ -12,14 +12,10 @@ bench = false # see https://bheisler.github.io/criterion.rs/book/faq.html#cargo-
 
 [dependencies]
 goblin = { version = "0.8" }
-byteorder = { version = "1.4.3" }
 rand = { version = "0.8.5" }
 cfg-if = { version = "1.0.0" }
 libc = { version = "0.2.148" }
-hex-literal = "0.4.1"
 paste = "1.0"
-scroll = { version = "0.11", default_features = false }
-readonly = { version = "0.2" }
 flatbuffers = "23.5.26"
 page_size = "0.6.0"
 termcolor = "1.2.0"
@@ -34,7 +30,6 @@ tracing = { version = "0.1.37", features = ["log"] }
 tracing-log = "0.2.0"
 tracing-core = "0.1.31"
 uuid = { version = "1.4.1", features = ["v4"] }
-tracing-subscriber = { version = "0.3.17", features = ["json"] }
 hyperlight_common = { path = "../hyperlight_common", version = "0.7.4", registry = "hyperlight_packages" }
 rust-embed = { version = "8.3.0", features = ["debug-embed", "include-exclude", "interpolate-folder-path"] }
 sha256 = "1.4.0"
@@ -73,7 +68,6 @@ vmm-sys-util = "0.12.1"
 envy = { version = "0.4.2" }
 serde = "1.0"
 proptest = "1.2.0"
-hex-literal = "0.4.1"
 tempfile = "3.8.0"
 crossbeam-queue = "0.3.8"
 tracing-serde = "0.1.3"

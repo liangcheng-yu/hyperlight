@@ -1,6 +1,5 @@
 use crate::Result;
 use goblin::{error, pe::section_table::SectionTable};
-use scroll::Pread;
 use tracing::{instrument, Span};
 
 // Below here is a base relocation implementation that we could submit to upstream goblin
@@ -40,10 +39,13 @@ impl<'a> BaseRelocations<'a> {
         offset: usize,
         number: usize,
     ) -> Result<BaseRelocations<'a>> {
-        let relocations = bytes
-            .pread_with(offset, number * BASE_RELOCATION_SIZE)
-            .map_err(|e| {
-                error::Error::Malformed(format!("Failed to parse base relocations: {}", e))
+        let relocations = &bytes
+            .get(offset..offset + number * BASE_RELOCATION_SIZE)
+            .ok_or_else(|| {
+                error::Error::Malformed(format!(
+                    "Failed to read base relocations at offset {}",
+                    offset
+                ))
             })?;
         Ok(BaseRelocations {
             offset: 0,
