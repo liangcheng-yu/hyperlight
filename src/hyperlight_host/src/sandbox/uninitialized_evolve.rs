@@ -1,10 +1,10 @@
 use super::{leaked_outb::LeakedOutBWrapper, WrapperGetter};
-use crate::hypervisor::hypervisor_handler::VCPUAction;
+use crate::hypervisor::hypervisor_handler::start_hypervisor_handler;
+use crate::hypervisor::hypervisor_handler::{execute_vcpu_action, VCPUAction};
 use crate::hypervisor::hypervisor_handler::{kill_hypervisor_handler_thread, InitArgs};
-use crate::hypervisor::hypervisor_handler::{start_hypervisor_handler, HandlerMsg};
 #[cfg(target_os = "linux")]
 use crate::log_then_return;
-use crate::HyperlightError::HypervisorHandlerCommunicationFailure;
+use crate::Result;
 use crate::{
     func::exports::get_os_page_size, hypervisor::handlers::MemAccessHandlerWrapper,
     mem::ptr::RawPtr, MultiUseSandbox,
@@ -13,9 +13,7 @@ use crate::{
     hypervisor::handlers::OutBHandlerWrapper, sandbox_state::sandbox::Sandbox, SingleUseSandbox,
     UninitializedSandbox,
 };
-use crate::{HyperlightError, Result};
 use rand::Rng;
-use std::thread::JoinHandle;
 use tracing::{instrument, Span};
 
 pub(super) type CBFunc<'a> = Box<dyn FnOnce(&mut UninitializedSandbox) -> Result<()> + 'a>;
@@ -38,18 +36,13 @@ fn evolve_impl<'a, TransformFunc, ResSandbox: Sandbox>(
     transform: TransformFunc,
 ) -> Result<ResSandbox>
 where
-    TransformFunc: Fn(
-        UninitializedSandbox,
-        Option<JoinHandle<Result<()>>>,
-        Option<LeakedOutBWrapper<'a>>,
-    ) -> Result<ResSandbox>,
+    TransformFunc: Fn(UninitializedSandbox, Option<LeakedOutBWrapper<'a>>) -> Result<ResSandbox>,
 {
     let outb_wrapper = {
         let hv = u_sbox.get_hv();
         hv.outb_hdl.clone()
     };
     let run_from_proc_mem = u_sbox.run_from_process_memory;
-    let mut join_handle = None;
 
     let leaked_outb = if run_from_proc_mem {
         let leaked_outb = evolve_in_proc(&mut u_sbox, outb_wrapper)?;
@@ -58,7 +51,7 @@ where
         let orig_rsp = u_sbox.get_hv().get_hypervisor_lock()?.orig_rsp()?;
         let outb_hdl = u_sbox.hv.outb_hdl.clone();
         let mem_access_hdl = u_sbox.hv.mem_access_hdl.clone();
-        join_handle = Some(hv_init(&mut u_sbox, outb_hdl, mem_access_hdl)?);
+        hv_init(&mut u_sbox, outb_hdl, mem_access_hdl)?;
 
         {
             let mgr = u_sbox.mgr.as_ref();
@@ -80,7 +73,7 @@ where
         cb(&mut u_sbox)?;
     }
 
-    transform(u_sbox, join_handle, leaked_outb)
+    transform(u_sbox, leaked_outb)
 }
 
 #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
@@ -88,11 +81,11 @@ pub(super) fn evolve_impl_multi_use(
     u_sbox: UninitializedSandbox,
     cb_opt: Option<CBFunc>,
 ) -> Result<MultiUseSandbox> {
-    evolve_impl(u_sbox, cb_opt, |mut u, join_handle, leaked_outb| {
+    evolve_impl(u_sbox, cb_opt, |mut u, leaked_outb| {
         {
             u.get_mgr_wrapper_mut().as_mut().push_state()?;
         }
-        Ok(MultiUseSandbox::from_uninit(u, join_handle, leaked_outb))
+        Ok(MultiUseSandbox::from_uninit(u, leaked_outb))
     })
 }
 
@@ -101,11 +94,11 @@ pub(super) fn evolve_impl_single_use(
     u_sbox: UninitializedSandbox,
     cb_opt: Option<CBFunc>,
 ) -> Result<SingleUseSandbox> {
-    evolve_impl(u_sbox, cb_opt, |u, join_handle, leaked_outb| {
+    evolve_impl(u_sbox, cb_opt, |u, leaked_outb| {
         // Its intentional not to snapshot state here. This is because
         // single use sandboxes are not reusable and so there is no need
         // to snapshot state as they cannot be devolved back to an uninitialized sandbox.
-        Ok(SingleUseSandbox::from_uninit(u, join_handle, leaked_outb))
+        Ok(SingleUseSandbox::from_uninit(u, leaked_outb))
     })
 }
 
@@ -196,7 +189,7 @@ fn hv_init(
     u_sbox: &mut UninitializedSandbox,
     outb_hdl: OutBHandlerWrapper,
     mem_access_hdl: MemAccessHandlerWrapper,
-) -> Result<JoinHandle<Result<()>>> {
+) -> Result<()> {
     let mem_mgr = u_sbox.get_mgr_wrapper().unwrap_mgr();
     let seed = {
         let mut rng = rand::thread_rng();
@@ -210,47 +203,23 @@ fn hv_init(
     let outb_hdl = outb_hdl.clone();
     let mem_access_hdl = mem_access_hdl.clone();
 
-    let hv_arc = u_sbox.get_hv().get_hypervisor_arc()?;
-    let (to_handler_tx, to_handler_rx, from_handler_tx, from_handler_rx) = {
-        let mut hv_lock = hv_arc.lock().expect("failed to lock hypervisor");
-        let (from_handler_tx, to_handler_rx) = hv_lock.setup_handler_channels();
+    start_hypervisor_handler(u_sbox.get_hv().get_hypervisor_arc()?)?;
 
-        let to_handler_tx = hv_lock.get_to_handler_tx();
-        let from_handler_rx = hv_lock.get_from_handler_rx();
-
-        (
-            to_handler_tx,
-            to_handler_rx,
-            from_handler_tx,
-            from_handler_rx,
-        )
-    };
-    let join_handle = start_hypervisor_handler(hv_arc, (from_handler_tx, to_handler_rx))?;
-
-    // send message to initialise hypervisor
-    to_handler_tx
-        .send(VCPUAction::Initialise(InitArgs::new(
+    execute_vcpu_action(
+        u_sbox.get_hv(),
+        VCPUAction::Initialise(InitArgs::new(
             peb_addr,
             seed,
             page_size,
             outb_hdl,
             mem_access_hdl,
-        )))
-        .map_err(|_| HyperlightError::HypervisorHandlerCommunicationFailure())?;
-
-    // wait for hypervisor to finish initialising
-    if let HandlerMsg::Error(e) = from_handler_rx
-        .recv()
-        .map_err(|_| HypervisorHandlerCommunicationFailure())?
-    {
-        drop(to_handler_tx);
-        // ^^^ need to drop the transmitter to avoid the handler
-        // from waiting for a message that will never come :(
-        kill_hypervisor_handler_thread(u_sbox, Some(join_handle))?;
-        return Err(e);
-    }
-
-    Ok(join_handle)
+        )),
+        None,
+    )
+    .map_err(|exec_e| match kill_hypervisor_handler_thread(u_sbox) {
+        Ok(_) => exec_e,
+        Err(kill_e) => kill_e,
+    })
 }
 
 #[cfg(test)]

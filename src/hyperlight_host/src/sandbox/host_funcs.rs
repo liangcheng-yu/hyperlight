@@ -1,12 +1,7 @@
-#[cfg(feature = "function_call_metrics")]
-use super::metrics::SandboxMetric::HostFunctionCallsDurationMicroseconds;
 use super::FunctionsMap;
-#[cfg(feature = "function_call_metrics")]
-use crate::histogram_vec_time_micros;
 use crate::HyperlightError::HostFunctionNotFound;
 use crate::{func::HyperlightFunction, mem::mgr::SandboxMemoryManager};
 use crate::{new_error, Result};
-use cfg_if::cfg_if;
 use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnValue};
 use hyperlight_common::flatbuffer_wrappers::host_function_definition::HostFunctionDefinition;
 use hyperlight_common::flatbuffer_wrappers::host_function_details::HostFunctionDetails;
@@ -24,25 +19,25 @@ pub struct HostFuncsWrapper {
 }
 
 impl HostFuncsWrapper {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn get_host_funcs(&self) -> &FunctionsMap {
         &self.functions_map
     }
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn get_host_funcs_mut(&mut self) -> &mut FunctionsMap {
         &mut self.functions_map
     }
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn get_host_func_details(&self) -> &HostFunctionDetails {
         &self.function_details
     }
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn get_host_func_details_mut(&mut self) -> &mut HostFunctionDetails {
         &mut self.function_details
     }
 
     /// Register a host function with the sandbox.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     pub(crate) fn register_host_function(
         &mut self,
         mgr: &mut SandboxMemoryManager,
@@ -75,7 +70,7 @@ impl HostFuncsWrapper {
     /// Return `Ok` if the function was found and was of the right signature,
     /// and `Err` otherwise.
     //TODO:(#1029) Once CAPI is complete this should be pub(super)
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     pub fn host_print(&mut self, msg: String) -> Result<i32> {
         let res = call_host_func_impl(
             self.get_host_funcs(),
@@ -92,7 +87,7 @@ impl HostFuncsWrapper {
     /// Return `Err` if no such function exists,
     /// its parameter list doesn't match `args`, or there was another error
     /// getting, configuring or calling the function.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     pub(super) fn call_host_function(
         &self,
         name: &str,
@@ -102,7 +97,7 @@ impl HostFuncsWrapper {
     }
 }
 
-#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+#[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
 fn call_host_func_impl(
     host_funcs: &FunctionsMap,
     name: &str,
@@ -111,22 +106,25 @@ fn call_host_func_impl(
     let func = host_funcs
         .get(name)
         .ok_or_else(|| HostFunctionNotFound(name.to_string()))?;
-    cfg_if! {
-        if #[cfg(feature = "function_call_metrics")] {
-            histogram_vec_time_micros!(
-                &HostFunctionCallsDurationMicroseconds,
-                &[name],
-                func.call(args)
-            )
-        }
-        else {
-            func.call(args)
-        }
+
+    #[cfg(feature = "function_call_metrics")]
+    {
+        let start = std::time::Instant::now();
+        let result = func.call(args);
+        crate::histogram_vec_observe!(
+            &crate::sandbox::metrics::SandboxMetric::HostFunctionCallsDurationMicroseconds,
+            &[name],
+            start.elapsed().as_micros() as f64
+        );
+        result
     }
+
+    #[cfg(not(feature = "function_call_metrics"))]
+    func.call(args)
 }
 
 /// The default writer function is to write to stdout with green text.
-#[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+#[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
 pub(super) fn default_writer_func(s: String) -> Result<i32> {
     match stdout().is_terminal() {
         false => {

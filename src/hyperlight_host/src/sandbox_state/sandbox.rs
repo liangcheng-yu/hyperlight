@@ -1,7 +1,6 @@
 use super::transition::TransitionMetadata;
 use crate::sandbox::hypervisor::HypervisorWrapper;
 use crate::Result;
-use std::thread::JoinHandle;
 use std::{fmt::Debug, panic};
 use tracing::{instrument, Span};
 
@@ -40,14 +39,6 @@ pub trait Sandbox: Sized + Debug {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper {
         panic!("get_hypervisor_wrapper_mut not implemented for this type");
-    }
-
-    /// Every `Sandbox` `impl`ementor (i.e., `SingleUseSandbox`, and `MultiUseSandbox` has a
-    /// `JoinHandle` field, due to its associated Hypervisor Handler Thread. This method
-    /// allows you to get a reference to that field.
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn get_hypervisor_handler_thread_mut(&mut self) -> &mut Option<JoinHandle<Result<()>>> {
-        panic!("get_hypervisor_handler_thread_mut not implemented for this type");
     }
 }
 

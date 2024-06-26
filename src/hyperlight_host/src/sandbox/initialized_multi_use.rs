@@ -14,7 +14,6 @@ use hyperlight_common::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
 };
 use std::sync::{Arc, Mutex};
-use std::thread::JoinHandle;
 use tracing::{instrument, Span};
 
 /// A sandbox that supports being used Multiple times.
@@ -30,7 +29,6 @@ pub struct MultiUseSandbox<'a> {
     pub(crate) mem_mgr: MemMgrWrapper,
     pub(super) run_from_process_memory: bool,
     pub(super) hv: HypervisorWrapper,
-    pub(super) join_handle: Option<JoinHandle<Result<()>>>,
     /// See the documentation for `SingleUseSandbox::_leaked_out_b` for
     /// details on the purpose of this field.
     _leaked_outb: Arc<Option<LeakedOutBWrapper<'a>>>,
@@ -46,15 +44,11 @@ pub struct MultiUseSandbox<'a> {
 // `create_1000_sandboxes`.
 impl Drop for MultiUseSandbox<'_> {
     fn drop(&mut self) {
-        if self.join_handle.is_some() {
-            match kill_hypervisor_handler_thread(self, None) {
-                Ok(_) => {}
-                Err(e) => {
-                    log::error!("[LEAKED THREAD] Failed to kill hypervisor handler thread when dropping MultiUseSandbox: {:?}", e);
-                }
+        match kill_hypervisor_handler_thread(self) {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("[LEAKED THREAD] Failed to kill hypervisor handler thread when dropping MultiUseSandbox: {:?}", e);
             }
-        } else {
-            log::debug!("[LEAKED THREAD] Running from C API configured Sandbox, no Hypervisor Handler thread to kill.");
         }
     }
 }
@@ -68,7 +62,6 @@ impl<'a> MultiUseSandbox<'a> {
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     pub(super) fn from_uninit(
         val: UninitializedSandbox,
-        join_handle: Option<JoinHandle<Result<()>>>,
         leaked_outb: Option<LeakedOutBWrapper<'a>>,
     ) -> MultiUseSandbox<'a> {
         Self {
@@ -76,7 +69,6 @@ impl<'a> MultiUseSandbox<'a> {
             mem_mgr: val.mgr,
             run_from_process_memory: val.run_from_process_memory,
             hv: val.hv,
-            join_handle,
             _leaked_outb: Arc::new(leaked_outb),
         }
     }
@@ -207,11 +199,6 @@ impl<'a> Sandbox for MultiUseSandbox<'a> {
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper {
         &mut self.hv
-    }
-
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    fn get_hypervisor_handler_thread_mut(&mut self) -> &mut Option<JoinHandle<Result<()>>> {
-        &mut self.join_handle
     }
 }
 

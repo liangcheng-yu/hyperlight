@@ -2,7 +2,8 @@ use super::guest_err::check_for_guest_error;
 #[cfg(feature = "function_call_metrics")]
 use crate::histogram_vec_time_micros;
 use crate::hypervisor::hypervisor_handler::{
-    terminate_hypervisor_handler_execution_and_reinitialise, DispatchArgs, HandlerMsg, VCPUAction,
+    execute_vcpu_action, terminate_hypervisor_handler_execution_and_reinitialise, DispatchArgs,
+    VCPUAction,
 };
 use crate::mem::ptr::RawPtr;
 #[cfg(feature = "function_call_metrics")]
@@ -99,14 +100,10 @@ pub(crate) fn call_function_on_guest<HvMemMgrT: WrapperGetter>(
                 hv_wrapper.max_wait_for_cancellation
             };
 
-            let (to_handler_tx, from_handler_rx, termination_status) = {
-                let hv_lock = wrapper_getter.get_hv_mut().get_hypervisor_lock()?;
-                (
-                    hv_lock.get_to_handler_tx(),
-                    hv_lock.get_from_handler_rx(),
-                    hv_lock.get_termination_status(),
-                )
-            };
+            let termination_status = wrapper_getter
+                .get_hv_mut()
+                .get_hypervisor_lock()?
+                .get_termination_status();
 
             #[cfg(target_os = "linux")]
             let (run_cancelled, thread_id) = {
@@ -114,44 +111,41 @@ pub(crate) fn call_function_on_guest<HvMemMgrT: WrapperGetter>(
                 (hv_lock.get_run_cancelled(), hv_lock.get_thread_id())
             };
 
-            to_handler_tx
-                .send(VCPUAction::DispatchCallFromHost(DispatchArgs::new(
+            match execute_vcpu_action(
+                wrapper_getter.get_hv(),
+                VCPUAction::DispatchCallFromHost(DispatchArgs::new(
                     function_name.to_string(),
                     RawPtr::from(p_dispatch),
                     outb_hdl.clone(),
                     mem_access_hdl.clone(),
-                )))
-                .map_err(|_| HyperlightError::HypervisorHandlerCommunicationFailure())?;
-
-            match from_handler_rx.recv_timeout(max_execution_time) {
-                Ok(msg) => {
-                    timedout = true;
-                    if let HandlerMsg::Error(e) = msg {
-                        return Err(e);
+                )),
+                Some(max_execution_time),
+            ) {
+                Ok(()) => {}
+                Err(e) => match e {
+                    HyperlightError::HypervisorHandlerMessageReceiveTimedout() => {
+                        timedout = true;
+                        match terminate_hypervisor_handler_execution_and_reinitialise(
+                            wrapper_getter,
+                            max_execution_time,
+                            termination_status,
+                            outb_hdl,
+                            mem_access_hdl,
+                            #[cfg(target_os = "linux")]
+                                thread_id,
+                            #[cfg(target_os = "linux")]
+                                run_cancelled,
+                            #[cfg(target_os = "linux")]
+                                max_wait_for_cancellation,
+                        )? {
+                            HyperlightError::HypervisorHandlerExecutionCancelAttemptOnFinishedExecution() => {}
+                            // ^^^ do nothing, we just want to actually get the Flatbuffer return value
+                            // from shared memory in this case
+                            e => return Err(e),
+                        }
                     }
-                }
-                Err(_) => {
-                    timedout = true;
-                    match terminate_hypervisor_handler_execution_and_reinitialise(
-                        wrapper_getter,
-                        (to_handler_tx.clone(), from_handler_rx.clone()),
-                        max_execution_time,
-                        termination_status,
-                        outb_hdl,
-                        mem_access_hdl,
-                        #[cfg(target_os = "linux")]
-                            thread_id,
-                        #[cfg(target_os = "linux")]
-                            run_cancelled,
-                        #[cfg(target_os = "linux")]
-                            max_wait_for_cancellation,
-                    )? {
-                        HyperlightError::HypervisorHandlerExecutionCancelAttemptOnFinishedExecution() => {}
-                        // ^^^ do nothing, we just want to actually get the Flatbuffer return value
-                        // from shared memory in this case
-                        e => return Err(e),
-                    }
-                }
+                    e => return Err(e),
+                },
             }
         }
     }

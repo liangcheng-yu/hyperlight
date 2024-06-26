@@ -4,19 +4,21 @@ use crate::histogram_vec_observe;
 use crate::hypervisor::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper};
 #[cfg(target_os = "windows")]
 use crate::hypervisor::hyperv_windows::HypervWindowsDriver;
-use crate::hypervisor::Hypervisor;
+use crate::hypervisor::{terminate_execution, Hypervisor};
 use crate::mem::ptr::RawPtr;
+use crate::sandbox::hypervisor::HypervisorWrapper;
 #[cfg(feature = "function_call_metrics")]
 use crate::sandbox::metrics::SandboxMetric::GuestFunctionCallDurationMicroseconds;
-use crate::sandbox::WrapperGetter;
+use crate::sandbox::{SandboxConfiguration, WrapperGetter};
 use crate::sandbox_state::sandbox::Sandbox;
+use crate::HyperlightError::HypervisorHandlerExecutionCancelAttemptOnFinishedExecution;
 use crate::{log_then_return, new_error, HyperlightError, Result};
 use crossbeam::atomic::AtomicCell;
 use crossbeam_channel::{Receiver, Sender};
 #[cfg(target_os = "linux")]
 use libc::{c_void, pthread_self, siginfo_t};
 use rand::Rng;
-use std::thread::JoinHandle;
+use std::sync::MutexGuard;
 use std::time::Duration;
 use std::{
     sync::{Arc, Mutex},
@@ -29,8 +31,8 @@ use vmm_sys_util::signal::{register_signal_handler, SIGRTMIN};
 #[cfg(target_os = "windows")]
 use windows::Win32::System::Hypervisor::WHV_PARTITION_HANDLE;
 
-/// Trait to indicate that a type contains to/from Hypervisor handler receivers/transmitters.
-pub trait ToFromRxTx {
+/// Trait to indicate that a type contains to/from receivers/transmitters for `VCPUAction`s, and `HandlerMsg`s.
+pub trait HasCommunicationChannels {
     /// Get the transmitter for vCPU actions to the handler
     fn get_to_handler_tx(&self) -> Sender<VCPUAction>;
     /// Set the transmitter to send messages to the handler
@@ -48,6 +50,18 @@ pub trait ToFromRxTx {
     fn get_from_handler_tx(&self) -> Sender<HandlerMsg>;
     /// Set the transmitter for messages from the handler
     fn set_from_handler_tx(&mut self, tx: Sender<HandlerMsg>);
+
+    /// Get the receiver for vCPU actions from the handler
+    fn get_to_handler_rx(&self) -> Receiver<VCPUAction>;
+
+    /// Set the receiver for vCPU actions from the handler
+    fn set_to_handler_rx(&mut self, rx: Receiver<VCPUAction>);
+}
+
+/// Trait to indicate that a type contains a `HypervisorState` variable we can get.
+pub trait HasHypervisorState {
+    /// Get the current state of the Hypervisor.
+    fn get_state_lock(&self) -> Result<MutexGuard<HypervisorState>>;
 }
 
 /// `VCPUActions` enumerates the
@@ -60,6 +74,17 @@ pub enum VCPUAction {
     DispatchCallFromHost(DispatchArgs),
 }
 
+// Debug impl for VCPUAction:
+// - just prints the enum variant type name.
+impl std::fmt::Debug for VCPUAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VCPUAction::Initialise(_) => write!(f, "Initialise"),
+            VCPUAction::DispatchCallFromHost(_) => write!(f, "DispatchCallFromHost"),
+        }
+    }
+}
+
 /// `HandlerMsg` is structure used by the Hypervisor
 /// handler to indicate that the Hypervisor Handler has
 /// finished performing an action (i.e., `DispatchCallFromHost`, or
@@ -67,6 +92,18 @@ pub enum VCPUAction {
 pub enum HandlerMsg {
     FinishedVCPUAction,
     Error(HyperlightError),
+}
+
+/// `HypervisorState` is an enum that represents the possible states
+/// of a Hypervisor.
+/// - `Running`: This means that an operation is currently ongoing. That
+/// can be either initialising the vCPU or executing a function call.
+/// - `NotRunning`: This means that the vCPU isn't currently executing.
+#[derive(Clone, Default, Debug)]
+pub enum HypervisorState {
+    Running,
+    #[default]
+    NotRunning,
 }
 
 /// Arguments to initialise the vCPU
@@ -142,11 +179,19 @@ thread_local! {
 /// required action, and you may encounter unexpected unset
 /// pointers or other issues.
 #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-pub(crate) fn start_hypervisor_handler(
-    hv: Arc<Mutex<Box<dyn Hypervisor>>>,
-    (from_handler_tx, to_handler_rx): (Sender<HandlerMsg>, Receiver<VCPUAction>),
-) -> crate::Result<JoinHandle<Result<()>>> {
+pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> crate::Result<()> {
     let hv_clone = hv.clone();
+    hv.lock()?.setup_hypervisor_handler_communication_channels();
+
+    let from_handler_tx = {
+        let hv_lock = hv.lock().unwrap();
+        hv_lock.get_from_handler_tx()
+    };
+
+    let to_handler_rx = {
+        let hv_lock = hv.lock().unwrap();
+        hv_lock.get_to_handler_rx()
+    };
 
     // Other than running initialization and code execution, the handler thread also handles
     // cancellation. When we need to cancel the execution there are 2 possible cases
@@ -232,6 +277,12 @@ pub(crate) fn start_hypervisor_handler(
                     VCPUAction::Initialise(args) => {
                         let mut hv_lock = hv_clone.lock().unwrap();
 
+                        {
+                            let mut state = hv_lock.get_state_lock()?;
+                            *state = HypervisorState::Running;
+                            // ^^^ do this in its own scope to liberate the lock after altering the state
+                        }
+
                         // Reset termination status from a possible previous execution
                         hv_lock.set_termination_status(false);
                         #[cfg(target_os = "linux")]
@@ -259,13 +310,18 @@ pub(crate) fn start_hypervisor_handler(
                             }
                         }
 
-                        match hv_lock.initialise(
+                        let res = hv_lock.initialise(
                             args.peb_addr,
                             args.seed,
                             args.page_size,
                             args.outb_handle_fn,
                             args.mem_access_fn,
-                        ) {
+                        );
+
+                        let mut state = hv_lock.get_state_lock()?;
+                        *state = HypervisorState::NotRunning;
+
+                        match res {
                             Ok(_) => {
                                 from_handler_tx
                                     .send(HandlerMsg::FinishedVCPUAction)
@@ -282,6 +338,11 @@ pub(crate) fn start_hypervisor_handler(
                     }
                     VCPUAction::DispatchCallFromHost(args) => {
                         let mut hv_lock = hv_clone.lock().unwrap();
+
+                        {
+                            let mut state = hv_lock.get_state_lock()?;
+                            *state = HypervisorState::Running;
+                        }
 
                         // Reset termination status from a possible previous execution
                         hv_lock.set_termination_status(false);
@@ -317,6 +378,11 @@ pub(crate) fn start_hypervisor_handler(
                             )
                         };
 
+                        {
+                            let mut state = hv_lock.get_state_lock()?;
+                            *state = HypervisorState::NotRunning;
+                        }
+
                         match res {
                             Ok(_) => {
                                 from_handler_tx
@@ -339,17 +405,20 @@ pub(crate) fn start_hypervisor_handler(
         })
     };
 
-    Ok(join_handle)
+    {
+        // set the join handle in the Hypervisor
+        let mut hv_lock = hv.lock().unwrap();
+        hv_lock.set_handler_join_handle(join_handle);
+    }
+
+    Ok(())
 }
 
 /// Try `join` on `HypervisorHandler` thread for `max_execution_time` duration.
 /// - Before attempting a join, this function checks if execution isn't already finished.
 /// Note: This function call takes ownership of the `JoinHandle`.
 #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-pub(crate) fn try_join_hypervisor_handler_thread<T>(
-    sbox: &mut T,
-    join_handle: Option<JoinHandle<Result<()>>>,
-) -> Result<()>
+pub(crate) fn try_join_hypervisor_handler_thread<T>(sbox: &mut T) -> Result<()>
 where
     T: Sandbox,
 {
@@ -357,19 +426,18 @@ where
     let timeout = hv_wrapper.max_execution_time;
     let start = std::time::Instant::now();
 
-    let jhandle = if join_handle.is_some() {
-        join_handle
-    } else {
-        sbox.get_hypervisor_handler_thread_mut().take()
-    };
-
     if start.elapsed() >= timeout {
         log_then_return!(HyperlightError::Error(
             "Failed to join Hypervisor handler thread".to_string()
         ));
     }
 
-    if let Some(handle) = jhandle {
+    if let Some(handle) = hv_wrapper
+        .try_get_hypervisor_lock_for_max_execution_time()
+        .unwrap()
+        .get_mut_handler_join_handle()
+        .take()
+    {
         if !handle.is_finished() {
             match handle.join() {
                 Ok(Ok(())) => return Ok(()),
@@ -382,8 +450,6 @@ where
             }
         }
     }
-
-    thread::sleep(Duration::from_millis(10));
 
     Ok(())
 }
@@ -399,10 +465,7 @@ where
 /// we only try to acquire the lock for `max_execution_time` duration. If we can't acquire the lock in that
 /// time, we will be leaking a thread.
 #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-pub(crate) fn kill_hypervisor_handler_thread<T>(
-    sbox: &mut T,
-    join_handle: Option<JoinHandle<Result<()>>>,
-) -> Result<()>
+pub(crate) fn kill_hypervisor_handler_thread<T>(sbox: &mut T) -> Result<()>
 where
     T: Sandbox,
 {
@@ -413,7 +476,7 @@ where
         hv_lock.drop_to_handler_tx();
     }
 
-    try_join_hypervisor_handler_thread(sbox, join_handle)
+    try_join_hypervisor_handler_thread(sbox)
 }
 
 /// Terminate the execution of the hypervisor handler
@@ -437,7 +500,6 @@ where
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn terminate_hypervisor_handler_execution_and_reinitialise<HvMemMgrT: WrapperGetter>(
     wrapper_getter: &mut HvMemMgrT,
-    (to_handler_tx, from_handler_rx): (Sender<VCPUAction>, Receiver<HandlerMsg>),
     max_execution_time: Duration,
     termination_status: Arc<AtomicCell<bool>>,
     outb_hdl: OutBHandlerWrapper,
@@ -446,98 +508,162 @@ pub(crate) fn terminate_hypervisor_handler_execution_and_reinitialise<HvMemMgrT:
     #[cfg(target_os = "linux")] run_cancelled: Arc<AtomicCell<bool>>,
     #[cfg(target_os = "linux")] max_wait_for_cancellation: Duration,
 ) -> Result<HyperlightError> {
-    let mem_mgr = wrapper_getter.get_mgr_wrapper_mut().unwrap_mgr_mut();
-
-    // we allow this unused mut because it is only used on Linux
-    #[allow(unused_mut)]
-    let mut host_failed_to_cancel_guest_execution_sending_signals = 0;
-
-    match crate::hypervisor::terminate_execution(
-        max_execution_time,
-        termination_status,
-        #[cfg(target_os = "linux")]
-        run_cancelled,
-        #[cfg(target_os = "linux")]
-        thread_id,
-        #[cfg(target_os = "linux")]
-        max_wait_for_cancellation,
-    ) {
-        Ok(_) => {}
-        Err(e) => {
-            match e {
-                #[cfg(target_os = "linux")]
-                HyperlightError::HostFailedToCancelGuestExecutionSendingSignals(val) => {
-                    host_failed_to_cancel_guest_execution_sending_signals = val;
-                }
-                // ^^^ If we get here, this means that execution finished
-                // while we tried to `terminate_execution`. We know this is
-                // the case because, if we had successfully terminated execution,
-                // the handler thread would have given us a `ExecutionCanceledByHost`.
-                _ => return Err(e),
-            }
-        }
-    };
-
-    mem_mgr.restore_state_from_last_snapshot()?;
-
-    // Receive again to get `ExecutionCanceledByHost` (or other)
-    // error from handler thread
-    let res = match from_handler_rx.recv_timeout(Duration::from_millis(1000)) {
-        Ok(msg) => match msg {
-            HandlerMsg::Error(e) => e,
-            _ => new_error!("Unexpected response message from hypervisor handler"),
-        },
-        Err(_) => {
-            // If we get here, this means that execution finished
-            // while we tried to `terminate_execution`. We know this is
-            // the case because, if we had successfully terminated execution,
-            // the handler thread would have given us a `ExecutionCanceledByHost`.
-
-            if host_failed_to_cancel_guest_execution_sending_signals != 0 {
-                #[cfg(target_os = "linux")]
-                {
-                    HyperlightError::HostFailedToCancelGuestExecutionSendingSignals(
-                        host_failed_to_cancel_guest_execution_sending_signals,
-                    )
-                }
-                #[cfg(target_os = "windows")]
-                {
-                    new_error!("Failed to cancel guest execution")
-                    // This is unreachable
-                }
-            } else {
-                HyperlightError::HypervisorHandlerExecutionCancelAttemptOnFinishedExecution()
-            }
-        }
-    };
-
     let seed = {
         let mut rng = rand::thread_rng();
         rng.gen::<u64>()
     };
 
     let peb_addr = {
+        let mem_mgr = wrapper_getter.get_mgr_wrapper_mut().unwrap_mgr_mut();
         let peb_u64 = u64::try_from(mem_mgr.layout.peb_address)?;
         RawPtr::from(peb_u64)
     };
     let page_size = u32::try_from(get_os_page_size())?;
 
-    to_handler_tx
-        .send(VCPUAction::Initialise(InitArgs::new(
+    // we allow this unused mut because it is only used on Linux
+    #[allow(unused_mut, unused_variables)]
+    let mut host_failed_to_cancel_guest_execution_sending_signals = 0;
+    {
+        match wrapper_getter.get_hv().try_get_hypervisor_lock() {
+            Ok(_) => {
+                log::info!("Execution finished while trying to cancel it");
+                return Ok(HypervisorHandlerExecutionCancelAttemptOnFinishedExecution());
+            }
+            Err(e) => {
+                log::info!(
+                    "Failed to acquire Hypervisor lock: vCPU is spinning ({:?})",
+                    e
+                );
+
+                terminate_execution(
+                    max_execution_time,
+                    termination_status,
+                    #[cfg(target_os = "linux")]
+                    run_cancelled,
+                    #[cfg(target_os = "linux")]
+                    thread_id,
+                    #[cfg(target_os = "linux")]
+                    max_wait_for_cancellation,
+                )?;
+            }
+        }
+    }
+
+    {
+        // Ensure HypervisorState update
+        match wrapper_getter
+            .get_hv()
+            .try_get_hypervisor_lock_for_max_execution_time()
+        {
+            Ok(hv_lock) => {
+                let mut state = hv_lock.get_state_lock()?;
+                *state = HypervisorState::NotRunning;
+            }
+            Err(_) => {
+                // If we still fail to acquire the hv_lock, this means that
+                // we had actually timed-out on a host function call as the
+                // `WHvCancelRunVirtualProcessor` didn't unlock.
+
+                return Err(HyperlightError::HostFailedToCancelGuestExecution());
+            }
+        }
+    }
+
+    // Receive `ExecutionCancelledByHost` or other
+    let res = match try_receive_handler_msg(wrapper_getter.get_hv(), max_execution_time) {
+        Ok(_) => Ok(new_error!(
+            "Expected ExecutionCanceledByHost, but received FinishedVCPUAction"
+        )),
+        Err(e) => match e {
+            HyperlightError::ExecutionCanceledByHost() => {
+                Ok(HyperlightError::ExecutionCanceledByHost())
+            }
+            _ => Ok(new_error!(
+                "Expected ExecutionCanceledByHost, but received: {:?}",
+                e
+            )),
+        },
+    };
+
+    // We cancelled execution, so we restore the state to what it was prior to the bad state
+    // that caused the timeout.
+    {
+        let mem_mgr = wrapper_getter.get_mgr_wrapper_mut().unwrap_mgr_mut();
+        mem_mgr.restore_state_from_last_snapshot()?;
+    }
+
+    // Re-initialise the vCPU.
+    // This is 100% needed because, otherwise, all it takes to cause a DoS is for a
+    // function to timeout as the vCPU will be in a bad state without re-init.
+    execute_vcpu_action(
+        wrapper_getter.get_hv(),
+        VCPUAction::Initialise(InitArgs::new(
             peb_addr,
             seed,
             page_size,
             outb_hdl,
             mem_access_hdl,
-        )))
+        )),
+        None,
+    )?;
+
+    res
+}
+
+/// Send a message to the Hypervisor Handler and wait for a response.
+///
+/// This function should be used for most interactions with the Hypervisor
+/// Handler.
+///
+/// If no `max_wait_time` is provided, the DEFAULT_MAX_EXECUTION_TIME
+/// (1000ms) is used.
+pub(crate) fn execute_vcpu_action(
+    hv_wrapper: &HypervisorWrapper,
+    vcpu_action: VCPUAction,
+    max_wait_time: Option<Duration>,
+) -> Result<()> {
+    let to_handler_tx = {
+        let hv_lock = hv_wrapper.get_hypervisor_lock()?;
+        hv_lock.get_to_handler_tx()
+    };
+
+    to_handler_tx
+        .send(vcpu_action)
         .map_err(|_| HyperlightError::HypervisorHandlerCommunicationFailure())?;
 
-    // wait for hypervisor to finish re-initialising
-    from_handler_rx
-        .recv()
-        .map_err(|_| HyperlightError::HypervisorHandlerCommunicationFailure())?;
+    match max_wait_time {
+        Some(wait) => try_receive_handler_msg(hv_wrapper, wait),
+        None => try_receive_handler_msg(
+            hv_wrapper,
+            Duration::from_millis(SandboxConfiguration::DEFAULT_MAX_EXECUTION_TIME as u64),
+        ),
+    }
+}
 
-    Ok(res)
+/// Try to receive a `HandlerMsg` from the Hypervisor Handler Thread.
+///
+/// Usually, you should use `execute_vcpu_action` to send and instantly
+/// try to receive a message.
+///
+/// This function is only useful when we time out, handle a timeout,
+/// and still have to receive after sorting that out without sending
+/// an extra message.
+pub(crate) fn try_receive_handler_msg(
+    hv_wrapper: &HypervisorWrapper,
+    wait: Duration,
+) -> Result<()> {
+    let from_handler_rx = {
+        let hv_lock = hv_wrapper.get_hypervisor_lock()?;
+        hv_lock.get_from_handler_rx()
+    };
+
+    match from_handler_rx.recv_timeout(wait) {
+        Ok(msg) => match msg {
+            HandlerMsg::Error(e) => Err(e),
+            HandlerMsg::FinishedVCPUAction => Ok(()),
+        },
+        Err(_) => Err(HyperlightError::HypervisorHandlerMessageReceiveTimedout()),
+    }
 }
 
 #[cfg(test)]
@@ -557,7 +683,7 @@ mod tests {
     use crate::hypervisor::hypervisor_handler::terminate_hypervisor_handler_execution_and_reinitialise;
     use crate::HyperlightError::HypervisorHandlerExecutionCancelAttemptOnFinishedExecution;
 
-    use crate::sandbox::WrapperGetter;
+    use crate::sandbox::{SandboxConfiguration, WrapperGetter};
     use crate::Result;
 
     fn create_multi_use_sandbox() -> MultiUseSandbox<'static> {
@@ -613,20 +739,22 @@ mod tests {
     #[test]
     fn terminate_execution_of_an_already_finished_function_then_call_another_function() -> Result<()>
     {
-        let call_echo = |sandbox: &mut MultiUseSandbox| {
+        let call_print_output = |sandbox: &mut MultiUseSandbox| {
+            let msg = "Hello, World!\n".to_string();
             let res = sandbox.call_guest_function_by_name(
-                "Echo",
-                ReturnType::String,
-                Some(vec![ParameterValue::String("a".to_string())]),
+                "PrintOutput",
+                ReturnType::Int,
+                Some(vec![ParameterValue::String(msg.clone())]),
             );
+
             assert!(res.is_ok());
         };
 
         let mut sandbox = create_multi_use_sandbox();
-        call_echo(&mut sandbox);
+        call_print_output(&mut sandbox);
 
-        // this simulates what would happen if a function call timed-out,
-        // but was being cancelled
+        // this simulates what would happen if a function actually successfully
+        // finished while we attempted to terminate execution
         {
             let (outb_hdl, mem_access_hdl) = {
                 let hv_wrapper = sandbox.get_hv_mut();
@@ -634,11 +762,6 @@ mod tests {
                     hv_wrapper.outb_hdl.clone(),
                     hv_wrapper.mem_access_hdl.clone(),
                 )
-            };
-
-            let (to_handler_tx, from_handler_rx) = {
-                let hv_lock = sandbox.get_hv_mut().get_hypervisor_lock()?;
-                (hv_lock.get_to_handler_tx(), hv_lock.get_from_handler_rx())
             };
 
             #[cfg(target_os = "linux")]
@@ -649,8 +772,7 @@ mod tests {
 
             match terminate_hypervisor_handler_execution_and_reinitialise(
                 &mut sandbox,
-                (to_handler_tx.clone(), from_handler_rx.clone()),
-                Duration::from_millis(1000),
+                Duration::from_millis(SandboxConfiguration::DEFAULT_MAX_EXECUTION_TIME as u64),
                 Arc::new(AtomicCell::new(true)),
                 outb_hdl,
                 mem_access_hdl,
@@ -668,7 +790,8 @@ mod tests {
             }
         }
 
-        call_echo(&mut sandbox);
+        call_print_output(&mut sandbox);
+        call_print_output(&mut sandbox);
 
         Ok(())
     }

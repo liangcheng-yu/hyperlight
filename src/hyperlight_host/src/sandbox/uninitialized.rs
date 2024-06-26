@@ -180,7 +180,7 @@ impl<'a>
         // Once we fix up the Hypervisor C API this should be removed and
         // replaced with the code commented out on line 106
         let i_sbox = if self.is_csharp {
-            Ok(SingleUseSandbox::from_uninit(self, None, None))
+            Ok(SingleUseSandbox::from_uninit(self, None))
         } else {
             evolve_impl_single_use(self, None)
         }?;
@@ -214,7 +214,7 @@ impl<'a>
         // Once we fix up the Hypervisor C API this should be removed and
         // replaced with the code commented out on line 106
         let i_sbox = if self.is_csharp {
-            Ok(MultiUseSandbox::from_uninit(self, None, None))
+            Ok(MultiUseSandbox::from_uninit(self, None))
         } else {
             evolve_impl_multi_use(self, None)
         }?;

@@ -4,7 +4,9 @@ use super::{
     CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
 };
 
-use crate::hypervisor::hypervisor_handler::{HandlerMsg, ToFromRxTx, VCPUAction};
+use crate::hypervisor::hypervisor_handler::{
+    HandlerMsg, HasCommunicationChannels, HasHypervisorState, HypervisorState, VCPUAction,
+};
 use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
 use crate::{hypervisor::HyperlightExit, mem::ptr::RawPtr};
 use crate::{log_then_return, mem::ptr::GuestPtr, new_error, Result};
@@ -27,7 +29,7 @@ use mshv_bindings::{
 use mshv_ioctls::{Mshv, VcpuFd, VmFd};
 use std::any::Any;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard};
 use tracing::{instrument, Span};
 
 /// Determine whether the HyperV for Linux hypervisor API is present
@@ -66,12 +68,18 @@ pub struct HypervLinuxDriver {
     // instead and use the registers's name -- a u32 -- as the key
     registers: RegistersHashMap,
     orig_rsp: GuestPtr,
+    entrypoint: GuestPtr,
     vcpu_action_transmitter: Option<crossbeam_channel::Sender<VCPUAction>>,
+    vcpu_action_receiver: Option<crossbeam_channel::Receiver<VCPUAction>>,
     handler_message_receiver: Option<crossbeam_channel::Receiver<HandlerMsg>>,
     handler_message_transmitter: Option<crossbeam_channel::Sender<HandlerMsg>>,
     thread_id: Option<u64>,
     cancel_run_requested: Arc<AtomicCell<bool>>,
     run_cancelled: Arc<AtomicCell<bool>>,
+    join_handle: Option<std::thread::JoinHandle<Result<()>>>,
+    // ^^^ a Hypervisor's operations are executed on a Hypervisor Handler thread (i.e.,
+    // separate from the main host thread). This is a handle to the Hypervisor Handler thread.
+    state: Arc<Mutex<HypervisorState>>,
 }
 
 impl std::fmt::Debug for HypervLinuxDriver {
@@ -124,12 +132,16 @@ impl HypervLinuxDriver {
             mem_regions,
             registers,
             orig_rsp: rsp_ptr,
+            entrypoint: entrypoint_ptr,
             vcpu_action_transmitter: None,
+            vcpu_action_receiver: None,
             handler_message_receiver: None,
             handler_message_transmitter: None,
             thread_id: None,
             cancel_run_requested: Arc::new(AtomicCell::new(false)),
             run_cancelled: Arc::new(AtomicCell::new(false)),
+            join_handle: None,
+            state: Arc::new(Mutex::new(HypervisorState::default())),
         })
     }
 
@@ -290,7 +302,7 @@ impl HypervLinuxDriver {
     }
 }
 
-impl ToFromRxTx for HypervLinuxDriver {
+impl HasCommunicationChannels for HypervLinuxDriver {
     fn get_to_handler_tx(&self) -> Sender<VCPUAction> {
         self.vcpu_action_transmitter.clone().unwrap()
     }
@@ -314,9 +326,32 @@ impl ToFromRxTx for HypervLinuxDriver {
     fn set_from_handler_tx(&mut self, tx: Sender<HandlerMsg>) {
         self.handler_message_transmitter = Some(tx);
     }
+
+    fn set_to_handler_rx(&mut self, rx: Receiver<VCPUAction>) {
+        self.vcpu_action_receiver = Some(rx);
+    }
+    fn get_to_handler_rx(&self) -> Receiver<VCPUAction> {
+        self.vcpu_action_receiver.clone().unwrap()
+    }
+}
+
+impl HasHypervisorState for HypervLinuxDriver {
+    fn get_state_lock(&self) -> Result<MutexGuard<HypervisorState>> {
+        let state_mutex = Arc::as_ref(&self.state);
+
+        Ok(state_mutex.lock()?)
+    }
 }
 
 impl Hypervisor for HypervLinuxDriver {
+    fn get_mut_handler_join_handle(&mut self) -> &mut Option<std::thread::JoinHandle<Result<()>>> {
+        &mut self.join_handle
+    }
+
+    fn set_handler_join_handle(&mut self, handle: std::thread::JoinHandle<Result<()>>) {
+        self.join_handle = Some(handle);
+    }
+
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn as_mut_hypervisor(&mut self) -> &mut dyn Hypervisor {
         self as &mut dyn Hypervisor
@@ -380,6 +415,11 @@ impl Hypervisor for HypervLinuxDriver {
             },
         );
         self.apply_registers()?;
+
+        self.update_rip(RawPtr::from(self.entrypoint.absolute()?))?;
+        // ^^^ we need to update the rip to the entrypoint as we do in HypervLinuxDriver::new
+        // because, if we don't, on re-entry, this will be set to the dispatch function.
+
         VirtualCPU::run(self.as_mut_hypervisor(), outb_hdl, mem_access_hdl)?;
         // we need to reset the stack pointer once execution is complete
         // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it

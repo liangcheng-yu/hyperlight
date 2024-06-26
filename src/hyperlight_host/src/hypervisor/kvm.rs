@@ -3,7 +3,9 @@ use super::{
     HyperlightExit, Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP,
     CR4_OSFXSR, CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
 };
-use crate::hypervisor::hypervisor_handler::{HandlerMsg, ToFromRxTx, VCPUAction};
+use crate::hypervisor::hypervisor_handler::{
+    HandlerMsg, HasCommunicationChannels, HasHypervisorState, HypervisorState, VCPUAction,
+};
 use crate::mem::memory_region::MemoryRegion;
 use crate::mem::{
     memory_region::MemoryRegionFlags,
@@ -16,7 +18,7 @@ use crossbeam_channel::{Receiver, Sender};
 use crossbeam::atomic::AtomicCell;
 use kvm_bindings::{kvm_segment, kvm_userspace_memory_region, KVM_MEM_READONLY};
 use kvm_ioctls::{Cap::UserMemory, Kvm, VcpuExit, VcpuFd, VmFd};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::{any::Any, convert::TryFrom};
 use tracing::{instrument, Span};
 
@@ -57,11 +59,16 @@ pub struct KVMDriver {
     rsp: GuestPtr,
     mem_regions: Vec<MemoryRegion>,
     vcpu_action_transmitter: Option<crossbeam_channel::Sender<VCPUAction>>,
+    vcpu_action_receiver: Option<crossbeam_channel::Receiver<VCPUAction>>,
     handler_message_receiver: Option<crossbeam_channel::Receiver<HandlerMsg>>,
     handler_message_transmitter: Option<crossbeam_channel::Sender<HandlerMsg>>,
     thread_id: Option<u64>,
     cancel_run_requested: Arc<AtomicCell<bool>>,
     run_cancelled: Arc<AtomicCell<bool>>,
+    join_handle: Option<std::thread::JoinHandle<Result<()>>>,
+    // ^^^ a Hypervisor's operations are executed on a Hypervisor Handler thread (i.e.,
+    // separate from the main host thread). This is a handle to the Hypervisor Handler thread.
+    state: Arc<Mutex<HypervisorState>>,
 }
 
 impl KVMDriver {
@@ -112,11 +119,14 @@ impl KVMDriver {
             rsp: rsp_gp,
             mem_regions,
             vcpu_action_transmitter: None,
+            vcpu_action_receiver: None,
             handler_message_receiver: None,
             handler_message_transmitter: None,
             thread_id: None,
             cancel_run_requested: Arc::new(AtomicCell::new(false)),
             run_cancelled: Arc::new(AtomicCell::new(false)),
+            join_handle: None,
+            state: Arc::new(Mutex::new(HypervisorState::default())),
         })
     }
 
@@ -202,7 +212,7 @@ impl KVMDriver {
     }
 }
 
-impl ToFromRxTx for KVMDriver {
+impl HasCommunicationChannels for KVMDriver {
     fn get_to_handler_tx(&self) -> Sender<VCPUAction> {
         self.vcpu_action_transmitter.clone().unwrap()
     }
@@ -226,12 +236,35 @@ impl ToFromRxTx for KVMDriver {
     fn set_from_handler_tx(&mut self, tx: Sender<HandlerMsg>) {
         self.handler_message_transmitter = Some(tx);
     }
+
+    fn set_to_handler_rx(&mut self, rx: Receiver<VCPUAction>) {
+        self.vcpu_action_receiver = Some(rx);
+    }
+    fn get_to_handler_rx(&self) -> Receiver<VCPUAction> {
+        self.vcpu_action_receiver.clone().unwrap()
+    }
+}
+
+impl HasHypervisorState for KVMDriver {
+    fn get_state_lock(&self) -> Result<MutexGuard<HypervisorState>> {
+        let state_mutex = Arc::as_ref(&self.state);
+
+        Ok(state_mutex.lock()?)
+    }
 }
 
 impl Hypervisor for KVMDriver {
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn as_mut_hypervisor(&mut self) -> &mut dyn Hypervisor {
         self as &mut dyn Hypervisor
+    }
+
+    fn get_mut_handler_join_handle(&mut self) -> &mut Option<std::thread::JoinHandle<Result<()>>> {
+        &mut self.join_handle
+    }
+
+    fn set_handler_join_handle(&mut self, handle: std::thread::JoinHandle<Result<()>>) {
+        self.join_handle = Some(handle);
     }
 
     fn set_thread_id(&mut self, thread_id: u64) {

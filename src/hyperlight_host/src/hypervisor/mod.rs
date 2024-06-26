@@ -1,6 +1,8 @@
 #[cfg(target_os = "linux")]
 use crate::error::HyperlightError::HostFailedToCancelGuestExecutionSendingSignals;
-use crate::hypervisor::hypervisor_handler::HandlerMsg;
+use crate::hypervisor::hypervisor_handler::HasHypervisorState;
+#[cfg(target_os = "windows")]
+use crate::hypervisor::hypervisor_handler::PARTITION_HANDLE;
 use crate::hypervisor::metrics::HypervisorMetric::NumberOfCancelledGuestExecutions;
 use crate::mem::memory_region::MemoryRegion;
 use crate::mem::memory_region::MemoryRegionFlags;
@@ -9,8 +11,6 @@ use crate::HyperlightError;
 use crate::Result;
 use crate::{error::HyperlightError::ExecutionCanceledByHost, mem::ptr::GuestPtr};
 use crate::{int_counter_inc, log_then_return};
-use crossbeam_channel::Receiver;
-use crossbeam_channel::Sender;
 #[cfg(target_os = "linux")]
 use libc::{pthread_kill, ESRCH};
 use log::error;
@@ -21,9 +21,6 @@ use tracing::{instrument, Span};
 use vmm_sys_util::signal::SIGRTMIN;
 #[cfg(target_os = "windows")]
 use windows::Win32::System::Hypervisor::WHvCancelRunVirtualProcessor;
-
-#[cfg(target_os = "windows")]
-use crate::hypervisor::hypervisor_handler::PARTITION_HANDLE;
 
 /// Handlers for Hypervisor custom logic
 pub mod handlers;
@@ -55,7 +52,7 @@ mod wrappers;
 use self::handlers::{
     MemAccessHandlerCaller, MemAccessHandlerWrapper, OutBHandlerCaller, OutBHandlerWrapper,
 };
-use crate::hypervisor::hypervisor_handler::{ToFromRxTx, VCPUAction};
+use crate::hypervisor::hypervisor_handler::HasCommunicationChannels;
 use crate::mem::ptr::RawPtr;
 use crossbeam::atomic::AtomicCell;
 use std::{
@@ -98,21 +95,27 @@ pub enum HyperlightExit {
 }
 
 /// A common set of hypervisor functionality
-pub trait Hypervisor: Debug + Sync + Send + ToFromRxTx {
+pub trait Hypervisor: Debug + Sync + Send + HasCommunicationChannels + HasHypervisorState {
     /// get a mutable trait object from self
     fn as_mut_hypervisor(&mut self) -> &mut dyn Hypervisor;
 
     /// Set up To/From channels for the Hypervisor handler
-    fn setup_handler_channels(&mut self) -> (Sender<HandlerMsg>, Receiver<VCPUAction>) {
+    fn setup_hypervisor_handler_communication_channels(&mut self) {
         let (to_handler_tx, to_handler_rx) = crossbeam_channel::unbounded();
         let (from_handler_tx, from_handler_rx) = crossbeam_channel::unbounded();
 
         self.set_to_handler_tx(to_handler_tx.clone());
-        self.set_from_handler_rx(from_handler_rx);
-        self.set_from_handler_tx(from_handler_tx.clone());
 
-        (from_handler_tx, to_handler_rx)
+        self.set_to_handler_rx(to_handler_rx.clone());
+        self.set_from_handler_rx(from_handler_rx.clone());
+        self.set_from_handler_tx(from_handler_tx.clone());
     }
+
+    /// Set the JoinHandle for the Hypervisor handler
+    fn set_handler_join_handle(&mut self, handle: std::thread::JoinHandle<Result<()>>);
+
+    /// Get the JoinHandle for the Hypervisor handler
+    fn get_mut_handler_join_handle(&mut self) -> &mut Option<std::thread::JoinHandle<Result<()>>>;
 
     /// Set the thread ID the Hypervisor is running on
     #[cfg(target_os = "linux")]
@@ -355,17 +358,16 @@ impl VirtualCPU {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use crate::hypervisor::hypervisor_handler::start_hypervisor_handler;
-    use crate::hypervisor::hypervisor_handler::InitArgs;
-    use crate::hypervisor::VCPUAction;
+    use crate::hypervisor::hypervisor_handler::{execute_vcpu_action, start_hypervisor_handler};
+    use crate::hypervisor::hypervisor_handler::{InitArgs, VCPUAction};
     use hyperlight_testing::dummy_guest_as_string;
-    use std::sync::Arc;
-    use std::sync::Mutex;
 
     use super::{
         handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
         Hypervisor,
     };
+    use crate::sandbox::hypervisor::HypervisorWrapper;
+    use crate::sandbox::SandboxConfiguration;
     use crate::{
         mem::{
             layout::SandboxMemoryLayout,
@@ -375,10 +377,10 @@ pub(crate) mod tests {
         },
         new_error,
         sandbox::{uninitialized::GuestBinary, UninitializedSandbox},
-        HyperlightError,
     };
     use crate::{sandbox::WrapperGetter, Result};
     use std::path::Path;
+    use std::time::Duration;
 
     pub(crate) fn test_initialise<NewFn>(
         outb_hdl: OutBHandlerWrapper,
@@ -413,7 +415,16 @@ pub(crate) mod tests {
             let offset = Offset::from(offset_u64);
             GuestPtr::try_from(offset)
         }?;
-        let hv = Arc::new(Mutex::new(new_fn(mem_mgr, rsp_ptr, pml4_ptr)?));
+
+        let hv = new_fn(mem_mgr, rsp_ptr, pml4_ptr)?;
+        let hv_wrapper = HypervisorWrapper::new(
+            Some(hv),
+            outb_hdl.clone(),
+            mem_access_hdl.clone(),
+            Duration::from_millis(SandboxConfiguration::DEFAULT_MAX_EXECUTION_TIME as u64),
+            #[cfg(target_os = "linux")]
+            Duration::from_millis(SandboxConfiguration::DEFAULT_MAX_WAIT_FOR_CANCELLATION as u64),
+        );
 
         // call initialise on the hypervisor implementation with specific values
         // for PEB (process environment block) address, seed and page size.
@@ -428,28 +439,18 @@ pub(crate) mod tests {
         // whether we can configure the shared memory region, load a binary
         // into it, and run the CPU to completion (e.g., a HLT interrupt)
 
-        let (to_handler_tx, to_handler_rx) = {
-            let mut hv_lock = hv.lock().expect("failed to lock hypervisor");
-            let to_handler_rx = hv_lock.setup_handler_channels();
-            let to_handler_tx = hv_lock.get_to_handler_tx();
+        start_hypervisor_handler(hv_wrapper.get_hypervisor_arc()?.clone())?;
 
-            (to_handler_tx, to_handler_rx)
-        };
-
-        // start hypervisor handler
-        start_hypervisor_handler(hv.clone(), to_handler_rx.clone())?;
-
-        // send message to initialise hypervisor
-        to_handler_tx
-            .send(VCPUAction::Initialise(InitArgs::new(
+        execute_vcpu_action(
+            &hv_wrapper,
+            VCPUAction::Initialise(InitArgs::new(
                 RawPtr::from(0x230000),
                 1234567890,
                 4096,
                 outb_hdl,
                 mem_access_hdl,
-            )))
-            .map_err(|_| HyperlightError::HypervisorHandlerCommunicationFailure())?;
-
-        Ok(())
+            )),
+            None,
+        )
     }
 }

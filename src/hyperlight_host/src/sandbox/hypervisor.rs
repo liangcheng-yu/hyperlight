@@ -74,7 +74,7 @@ pub(crate) struct HypervisorWrapper {
 
 impl HypervisorWrapper {
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    pub(super) fn new(
+    pub(crate) fn new(
         hv_opt_box: Option<Box<dyn Hypervisor>>,
         outb_hdl: OutBHandlerWrapper,
         mem_access_hdl: MemAccessHandlerWrapper,
@@ -105,7 +105,6 @@ impl HypervisorWrapper {
     /// will be released and the read/write guarantees will no longer be
     /// valid (the compiler won't let you do any operations on it, though,
     /// so you don't have to worry much about this consequence).
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     pub(crate) fn get_hypervisor_lock(&self) -> Result<MutexGuard<Box<dyn Hypervisor>>> {
         match self.hv_opt.as_ref() {
             None => {
@@ -114,13 +113,29 @@ impl HypervisorWrapper {
             Some(h_arc_mut) => {
                 let h_ref_mutex = Arc::as_ref(h_arc_mut);
 
-                Ok(h_ref_mutex.lock()?)
+                Ok(h_ref_mutex
+                    .lock()
+                    .map_err(|_| LockAttemptFailed("get_hypervisor_lock failed".to_string()))?)
+            }
+        }
+    }
+
+    pub(crate) fn try_get_hypervisor_lock(&self) -> Result<MutexGuard<Box<dyn Hypervisor>>> {
+        match self.hv_opt.as_ref() {
+            None => {
+                log_then_return!(NoHypervisorFound());
+            }
+            Some(h_arc_mut) => {
+                let h_ref_mutex = Arc::as_ref(h_arc_mut);
+
+                Ok(h_ref_mutex
+                    .try_lock()
+                    .map_err(|_| LockAttemptFailed("get_hypervisor_lock failed".to_string()))?)
             }
         }
     }
 
     /// Try to get the lock for `max_execution_time` duration
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     pub(crate) fn try_get_hypervisor_lock_for_max_execution_time(
         &self,
     ) -> Result<MutexGuard<Box<dyn Hypervisor>>> {
@@ -139,7 +154,7 @@ impl HypervisorWrapper {
                         Ok(guard) => return Ok(guard),
                         Err(_) if start.elapsed() >= timeout => {
                             log_then_return!(LockAttemptFailed(
-                                "Failed to acquire lock in time".to_string()
+                                "try_get_hypervisor_lock_for_max_execution_time failed".to_string()
                             ));
                         }
                         Err(_) => {

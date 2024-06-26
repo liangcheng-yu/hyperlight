@@ -6,7 +6,9 @@ use super::{
 };
 use super::{surrogate_process::SurrogateProcess, surrogate_process_manager::*};
 use super::{windows_hypervisor_platform as whp, HyperlightExit};
-use crate::hypervisor::hypervisor_handler::{HandlerMsg, ToFromRxTx, VCPUAction};
+use crate::hypervisor::hypervisor_handler::{
+    HandlerMsg, HasCommunicationChannels, HasHypervisorState, HypervisorState, VCPUAction,
+};
 use crate::mem::memory_region::MemoryRegion;
 use crate::mem::{memory_region::MemoryRegionFlags, ptr::GuestPtr};
 use crate::Result;
@@ -26,7 +28,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::string::String;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard};
 use tracing::{instrument, Span};
 use windows::Win32::System::Hypervisor::{
     WHvX64RegisterCr0, WHvX64RegisterCr3, WHvX64RegisterCr4, WHvX64RegisterCs, WHvX64RegisterEfer,
@@ -58,9 +60,14 @@ pub(crate) struct HypervWindowsDriver {
     orig_rsp: GuestPtr,
     mem_regions: Vec<MemoryRegion>,
     vcpu_action_transmitter: Option<crossbeam_channel::Sender<VCPUAction>>,
+    vcpu_action_receiver: Option<crossbeam_channel::Receiver<VCPUAction>>,
     handler_message_receiver: Option<crossbeam_channel::Receiver<HandlerMsg>>,
     handler_message_transmitter: Option<crossbeam_channel::Sender<HandlerMsg>>,
     cancel_run_requested: Arc<AtomicCell<bool>>,
+    join_handle: Option<std::thread::JoinHandle<Result<()>>>,
+    // ^^^ a Hypervisor's operations are executed on a Hypervisor Handler thread (i.e.,
+    // separate from the main host thread). This is a handle to the Hypervisor Handler thread.
+    state: Arc<Mutex<HypervisorState>>,
 }
 
 impl std::fmt::Debug for HypervWindowsDriver {
@@ -177,9 +184,12 @@ impl HypervWindowsDriver {
             orig_rsp: GuestPtr::try_from(RawPtr::from(rsp))?,
             mem_regions,
             vcpu_action_transmitter: None,
+            vcpu_action_receiver: None,
             handler_message_receiver: None,
             handler_message_transmitter: None,
             cancel_run_requested: Arc::new(AtomicCell::new(false)),
+            join_handle: None,
+            state: Arc::new(Mutex::new(HypervisorState::default())),
         })
     }
 
@@ -216,7 +226,15 @@ impl HypervWindowsDriver {
     }
 }
 
-impl ToFromRxTx for HypervWindowsDriver {
+impl HasHypervisorState for HypervWindowsDriver {
+    fn get_state_lock(&self) -> Result<MutexGuard<HypervisorState>> {
+        let state_mutex = Arc::as_ref(&self.state);
+
+        Ok(state_mutex.lock()?)
+    }
+}
+
+impl HasCommunicationChannels for HypervWindowsDriver {
     fn get_to_handler_tx(&self) -> Sender<VCPUAction> {
         self.vcpu_action_transmitter.clone().unwrap()
     }
@@ -239,6 +257,13 @@ impl ToFromRxTx for HypervWindowsDriver {
     }
     fn set_from_handler_tx(&mut self, tx: Sender<HandlerMsg>) {
         self.handler_message_transmitter = Some(tx);
+    }
+
+    fn get_to_handler_rx(&self) -> Receiver<VCPUAction> {
+        self.vcpu_action_receiver.clone().unwrap()
+    }
+    fn set_to_handler_rx(&mut self, rx: Receiver<VCPUAction>) {
+        self.vcpu_action_receiver = Some(rx);
     }
 }
 
@@ -293,6 +318,14 @@ impl Hypervisor for HypervWindowsDriver {
 
     fn get_termination_status(&self) -> Arc<AtomicCell<bool>> {
         self.cancel_run_requested.clone()
+    }
+
+    fn get_mut_handler_join_handle(&mut self) -> &mut Option<std::thread::JoinHandle<Result<()>>> {
+        &mut self.join_handle
+    }
+
+    fn set_handler_join_handle(&mut self, handle: std::thread::JoinHandle<Result<()>>) {
+        self.join_handle = Some(handle);
     }
 
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]

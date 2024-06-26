@@ -28,6 +28,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(target_os = "windows")]
 use windows::Win32::Foundation::HANDLE;
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub(crate) struct HyperlightHostError {
     pub(crate) message: String,
@@ -139,6 +140,10 @@ pub enum HyperlightError {
     /// for more details.
     #[error("Hypervisor Handler execution cancel attempt on a finished execution")]
     HypervisorHandlerExecutionCancelAttemptOnFinishedExecution(),
+
+    /// A Receive for a Hypervisor Handler Message Timedout
+    #[error("Hypervisor Handler Message Receive Timedout")]
+    HypervisorHandlerMessageReceiveTimedout(),
 
     /// Reading Writing or Seeking data failed.
     #[error("Reading Writing or Seeking data failed {0:?}")]

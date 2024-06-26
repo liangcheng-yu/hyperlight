@@ -8,7 +8,6 @@ use hyperlight_common::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
 };
 use std::marker::PhantomData;
-use std::thread::JoinHandle;
 use tracing::{instrument, Span};
 
 /// A sandbox implementation that supports calling no more than 1 guest
@@ -16,7 +15,6 @@ use tracing::{instrument, Span};
 pub struct SingleUseSandbox<'a> {
     pub(super) mem_mgr: MemMgrWrapper,
     pub(super) hv: HypervisorWrapper,
-    pub(super) join_handle: Option<JoinHandle<Result<()>>>,
     /// This field is a "marker type" to ensure `SingleUseSandbox` is not
     /// `Send` and thus, instances thereof cannot be sent to a different
     /// thread. This feature is important because the owner of a single-use
@@ -45,15 +43,11 @@ pub struct SingleUseSandbox<'a> {
 // `create_1000_sandboxes`.
 impl Drop for SingleUseSandbox<'_> {
     fn drop(&mut self) {
-        if self.join_handle.is_some() {
-            match kill_hypervisor_handler_thread(self, None) {
-                Ok(_) => {}
-                Err(e) => {
-                    log::error!("[LEAKED THREAD] Failed to kill hypervisor handler thread when dropping MultiUseSandbox: {:?}", e);
-                }
+        match kill_hypervisor_handler_thread(self) {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("[LEAKED THREAD] Failed to kill hypervisor handler thread when dropping MultiUseSandbox: {:?}", e);
             }
-        } else {
-            log::debug!("[LEAKED THREAD] Running from C API configured Sandbox, no Hypervisor Handler thread to kill.");
         }
     }
 }
@@ -73,14 +67,12 @@ impl<'a> SingleUseSandbox<'a> {
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     pub(super) fn from_uninit(
         val: UninitializedSandbox,
-        join_handle: Option<JoinHandle<Result<()>>>,
         leaked_outb: Option<LeakedOutBWrapper<'a>>,
     ) -> SingleUseSandbox<'a> {
         Self {
             mem_mgr: val.mgr,
             hv: val.hv,
             make_unsend: PhantomData,
-            join_handle,
             _leaked_outb: leaked_outb,
         }
     }
@@ -213,11 +205,6 @@ impl<'a> Sandbox for SingleUseSandbox<'a> {
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper {
         &mut self.hv
-    }
-
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    fn get_hypervisor_handler_thread_mut(&mut self) -> &mut Option<JoinHandle<Result<()>>> {
-        &mut self.join_handle
     }
 }
 
