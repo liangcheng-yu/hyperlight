@@ -1,3 +1,4 @@
+use crate::error::HyperlightError::ExecutionCanceledByHost;
 #[cfg(target_os = "linux")]
 use crate::error::HyperlightError::HostFailedToCancelGuestExecutionSendingSignals;
 use crate::hypervisor::hypervisor_handler::HasHypervisorState;
@@ -9,7 +10,6 @@ use crate::mem::memory_region::MemoryRegionFlags;
 use crate::new_error;
 use crate::HyperlightError;
 use crate::Result;
-use crate::{error::HyperlightError::ExecutionCanceledByHost, mem::ptr::GuestPtr};
 use crate::{int_counter_inc, log_then_return};
 #[cfg(target_os = "linux")]
 use libc::{pthread_kill, ESRCH};
@@ -96,8 +96,69 @@ pub enum HyperlightExit {
 
 /// A common set of hypervisor functionality
 pub trait Hypervisor: Debug + Sync + Send + HasCommunicationChannels + HasHypervisorState {
-    /// get a mutable trait object from self
-    fn as_mut_hypervisor(&mut self) -> &mut dyn Hypervisor;
+    /// Initialise the internally stored vCPU with the given PEB address and
+    /// random number seed, then run it until a HLT instruction.
+    #[allow(clippy::too_many_arguments)]
+    fn initialise(
+        &mut self,
+        peb_addr: RawPtr,
+        seed: u64,
+        page_size: u32,
+        outb_handle_fn: OutBHandlerWrapper,
+        mem_access_fn: MemAccessHandlerWrapper,
+    ) -> Result<()>;
+
+    /// Dispatch a call from the host to the guest using the given pointer
+    /// to the dispatch function _in the guest's address space_.
+    ///
+    /// Do this by setting the instruction pointer to `dispatch_func_addr`
+    /// and then running the execution loop until a halt instruction.
+    ///
+    /// Returns `Ok` if the call succeeded, and an `Err` if it failed
+    fn dispatch_call_from_host(
+        &mut self,
+        dispatch_func_addr: RawPtr,
+        outb_handle_fn: OutBHandlerWrapper,
+        mem_access_fn: MemAccessHandlerWrapper,
+    ) -> Result<()>;
+
+    /// Handle an IO exit from the internally stored vCPU.
+    fn handle_io(
+        &mut self,
+        port: u16,
+        data: Vec<u8>,
+        rip: u64,
+        instruction_length: u64,
+        outb_handle_fn: OutBHandlerWrapper,
+    ) -> Result<()>;
+
+    /// Run the vCPU
+    fn run(&mut self) -> Result<HyperlightExit>;
+
+    /// Returns a Some(HyperlightExit::AccessViolation(..)) if the given gpa doesn't have
+    /// access its corresponding region. Returns None otherwise, or if the region is not found.
+    fn get_memory_access_violation(
+        &self,
+        gpa: usize,
+        mem_regions: &[MemoryRegion],
+        access_info: MemoryRegionFlags,
+    ) -> Option<HyperlightExit> {
+        // find the region containing the given gpa
+        let region = mem_regions
+            .iter()
+            .find(|region| region.guest_region.contains(&gpa));
+
+        if let Some(region) = region {
+            if !region.flags.contains(access_info) {
+                return Some(HyperlightExit::AccessViolation(
+                    gpa as u64,
+                    access_info,
+                    region.flags,
+                ));
+            }
+        }
+        None
+    }
 
     /// Set up To/From channels for the Hypervisor handler
     fn setup_hypervisor_handler_communication_channels(&mut self) {
@@ -110,6 +171,21 @@ pub trait Hypervisor: Debug + Sync + Send + HasCommunicationChannels + HasHyperv
         self.set_from_handler_rx(from_handler_rx.clone());
         self.set_from_handler_tx(from_handler_tx.clone());
     }
+
+    /// Get the logging level to pass to the guest entrypoint
+    fn get_max_log_level(&self) -> u32 {
+        log::max_level() as u32
+    }
+
+    /// Allow the hypervisor to be downcast
+    fn as_any(&self) -> &dyn Any;
+
+    /// get a mutable trait object from self
+    fn as_mut_hypervisor(&mut self) -> &mut dyn Hypervisor;
+
+    ///
+    /// ###### THREADING ######
+    ///
 
     /// Set the JoinHandle for the Hypervisor handler
     fn set_handler_join_handle(&mut self, handle: std::thread::JoinHandle<Result<()>>);
@@ -146,85 +222,6 @@ pub trait Hypervisor: Debug + Sync + Send + HasCommunicationChannels + HasHyperv
     /// Set cancellation confirmation
     #[cfg(target_os = "linux")]
     fn set_run_cancelled(&self, value: bool);
-
-    /// Initialise the internally stored vCPU with the given PEB address and
-    /// random number seed, then run it until a HLT instruction.
-    #[allow(clippy::too_many_arguments)]
-    fn initialise(
-        &mut self,
-        peb_addr: RawPtr,
-        seed: u64,
-        page_size: u32,
-        outb_handle_fn: OutBHandlerWrapper,
-        mem_access_fn: MemAccessHandlerWrapper,
-    ) -> Result<()>;
-
-    /// Handle an IO exit from the internally stored vCPU.
-    fn handle_io(
-        &mut self,
-        port: u16,
-        data: Vec<u8>,
-        rip: u64,
-        instruction_length: u64,
-        outb_handle_fn: OutBHandlerWrapper,
-    ) -> Result<()>;
-
-    /// Run the vCPU
-    fn run(&mut self) -> Result<HyperlightExit>;
-
-    /// Dispatch a call from the host to the guest using the given pointer
-    /// to the dispatch function _in the guest's address space_.
-    ///
-    /// Do this by setting the instruction pointer to `dispatch_func_addr`
-    /// and then running the execution loop until a halt instruction.
-    ///
-    /// Returns `Ok` if the call succeeded, and an `Err` if it failed
-    fn dispatch_call_from_host(
-        &mut self,
-        dispatch_func_addr: RawPtr,
-        outb_handle_fn: OutBHandlerWrapper,
-        mem_access_fn: MemAccessHandlerWrapper,
-    ) -> Result<()>;
-
-    /// Reset the stack pointer on the internal virtual CPU
-    fn reset_rsp(&mut self, rsp: GuestPtr) -> Result<()>;
-
-    /// Get the value of the stack pointer (RSP register) when this
-    /// `Hypervisor` was first created
-    fn orig_rsp(&self) -> Result<GuestPtr>;
-
-    /// Allow the hypervisor to be downcast
-    fn as_any(&self) -> &dyn Any;
-
-    /// Get the logging level to pass to the guest entrypoint
-    fn get_max_log_level(&self) -> u32 {
-        log::max_level() as u32
-    }
-
-    /// Returns a Some(HyperlightExit::AccessViolation(..)) if the given gpa doesn't have
-    /// access its corresponding region. Returns None otherwise, or if the region is not found.
-    fn get_memory_access_violation(
-        &self,
-        gpa: usize,
-        mem_regions: &[MemoryRegion],
-        access_info: MemoryRegionFlags,
-    ) -> Option<HyperlightExit> {
-        // find the region containing the given gpa
-        let region = mem_regions
-            .iter()
-            .find(|region| region.guest_region.contains(&gpa));
-
-        if let Some(region) = region {
-            if !region.flags.contains(access_info) {
-                return Some(HyperlightExit::AccessViolation(
-                    gpa as u64,
-                    access_info,
-                    region.flags,
-                ));
-            }
-        }
-        None
-    }
 }
 
 #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]

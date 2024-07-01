@@ -48,7 +48,6 @@ where
         let leaked_outb = evolve_in_proc(&mut u_sbox, outb_wrapper)?;
         Some(leaked_outb)
     } else {
-        let orig_rsp = u_sbox.get_hv().get_hypervisor_lock()?.orig_rsp()?;
         let outb_hdl = u_sbox.hv.outb_hdl.clone();
         let mem_access_hdl = u_sbox.hv.mem_access_hdl.clone();
         hv_init(&mut u_sbox, outb_hdl, mem_access_hdl)?;
@@ -58,15 +57,6 @@ where
             assert_ne!(mgr.get_pointer_to_dispatch_function()?, 0);
         }
 
-        // TODO: this if check makes no sense , first getting a hypervisor when running in process is not going to work
-        // secondly, this branch of the if statement on line 45 means this could never be true
-        // so we should probably remove this if statement and just call the function
-        if u_sbox.run_from_process_memory {
-            u_sbox
-                .get_hv_mut()
-                .get_hypervisor_lock()?
-                .reset_rsp(orig_rsp)?;
-        }
         None
     };
     if let Some(cb) = cb_opt {

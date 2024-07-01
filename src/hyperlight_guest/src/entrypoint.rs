@@ -65,7 +65,7 @@ extern "C" {
 static INIT: Once = Once::new();
 
 #[no_mangle]
-pub extern "C" fn entrypoint(peb_address: i64, seed: i64, ops: i32, log_level_filter: i32) -> i32 {
+pub extern "C" fn entrypoint(peb_address: u64, seed: u64, ops: u64, log_level_filter: u64) -> i32 {
     if peb_address == 0 {
         // TODO this should call abort with a code
         return -1;

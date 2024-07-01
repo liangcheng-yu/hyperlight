@@ -16,19 +16,14 @@ use log::error;
 use mshv_bindings::{
     hv_message, hv_message_type, hv_message_type_HVMSG_GPA_INTERCEPT,
     hv_message_type_HVMSG_UNMAPPED_GPA, hv_message_type_HVMSG_X64_HALT,
-    hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT, hv_register_assoc, hv_register_name,
+    hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT, hv_register_assoc,
     hv_register_name_HV_X64_REGISTER_CR0, hv_register_name_HV_X64_REGISTER_CR3,
     hv_register_name_HV_X64_REGISTER_CR4, hv_register_name_HV_X64_REGISTER_CS,
-    hv_register_name_HV_X64_REGISTER_EFER, hv_register_name_HV_X64_REGISTER_R8,
-    hv_register_name_HV_X64_REGISTER_R9, hv_register_name_HV_X64_REGISTER_RAX,
-    hv_register_name_HV_X64_REGISTER_RBX, hv_register_name_HV_X64_REGISTER_RCX,
-    hv_register_name_HV_X64_REGISTER_RDX, hv_register_name_HV_X64_REGISTER_RFLAGS,
-    hv_register_name_HV_X64_REGISTER_RIP, hv_register_name_HV_X64_REGISTER_RSP, hv_register_value,
-    hv_u128, mshv_user_mem_region,
+    hv_register_name_HV_X64_REGISTER_EFER, hv_register_name_HV_X64_REGISTER_RIP, hv_register_value,
+    hv_u128, mshv_user_mem_region, FloatingPointUnit, StandardRegisters,
 };
 use mshv_ioctls::{Mshv, VcpuFd, VmFd};
 use std::any::Any;
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 use tracing::{instrument, Span};
 
@@ -51,24 +46,17 @@ pub fn is_hypervisor_present() -> bool {
     }
 }
 
-type RegistersHashMap = HashMap<hv_register_name, hv_register_value>;
-
 /// A Hypervisor driver for HyperV-on-Linux. This hypervisor is often
-/// called the Microsoft Hypervisor Platform (MSHV)
+/// called the Microsoft Hypervisor (MSHV)
 //TODO:(#1029) Once CAPI is complete this does not need to be public
+#[derive(Debug)]
 pub struct HypervLinuxDriver {
     _mshv: Mshv,
     vm_fd: VmFd,
     vcpu_fd: VcpuFd,
+    entrypoint: u64,
     mem_regions: Vec<MemoryRegion>,
-    // note: we should use a HashSet here rather than this
-    // HashMap, but to do that, hv_register_assoc needs to
-    // implement Eq and PartialEq
-    // since it implements neither, we have to use a HashMap
-    // instead and use the registers's name -- a u32 -- as the key
-    registers: RegistersHashMap,
     orig_rsp: GuestPtr,
-    entrypoint: GuestPtr,
     vcpu_action_transmitter: Option<crossbeam_channel::Sender<VCPUAction>>,
     vcpu_action_receiver: Option<crossbeam_channel::Receiver<VCPUAction>>,
     handler_message_receiver: Option<crossbeam_channel::Receiver<HandlerMsg>>,
@@ -80,14 +68,6 @@ pub struct HypervLinuxDriver {
     // ^^^ a Hypervisor's operations are executed on a Hypervisor Handler thread (i.e.,
     // separate from the main host thread). This is a handle to the Hypervisor Handler thread.
     state: Arc<Mutex<HypervisorState>>,
-}
-
-impl std::fmt::Debug for HypervLinuxDriver {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HypervLinuxDriver")
-            .field("mem_region", &self.mem_regions)
-            .finish()
-    }
 }
 
 impl HypervLinuxDriver {
@@ -120,19 +100,15 @@ impl HypervLinuxDriver {
             vm_fd.map_user_memory(mshv_region)
         })?;
 
-        let registers = {
-            let mut hm = HashMap::new();
-            Self::add_registers(&mut vcpu_fd, &mut hm, entrypoint_ptr, rsp_ptr, pml4_ptr)?;
-            hm
-        };
+        Self::setup_initial_sregs(&mut vcpu_fd, pml4_ptr.absolute()?)?;
+
         Ok(Self {
             _mshv: mshv,
             vm_fd,
             vcpu_fd,
             mem_regions,
-            registers,
+            entrypoint: entrypoint_ptr.absolute()?,
             orig_rsp: rsp_ptr,
-            entrypoint: entrypoint_ptr,
             vcpu_action_transmitter: None,
             vcpu_action_receiver: None,
             handler_message_receiver: None,
@@ -145,246 +121,51 @@ impl HypervLinuxDriver {
         })
     }
 
-    /// Add all register values to the pending list of registers, but do not
-    /// apply them.
-    ///
-    /// If you want to manually apply registers to the stored vCPU, call
-    /// `apply_registers`. `initialise` and `dispatch_call_from_host` will
-    /// also do so automatically.
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    fn add_registers(
-        vcpu: &mut VcpuFd,
-        registers: &mut RegistersHashMap,
-        entrypoint_ptr: GuestPtr,
-        rsp_ptr: GuestPtr,
-        pml4_ptr: GuestPtr,
-    ) -> Result<()> {
-        // set CS register. adapted from:
-        // https://github.com/rust-vmm/mshv/blob/ed66a5ad37b107c972701f93c91e8c7adfe6256a/mshv-ioctls/src/ioctls/vcpu.rs#L1165-L1169
-        {
-            // get CS Register
-            let mut cs_reg = hv_register_assoc {
-                name: hv_register_name_HV_X64_REGISTER_CS,
+    fn setup_initial_sregs(vcpu: &mut VcpuFd, pml4_addr: u64) -> Result<()> {
+        vcpu.set_reg(&[
+            hv_register_assoc {
+                name: hv_register_name_HV_X64_REGISTER_CR3,
+                value: hv_register_value { reg64: pml4_addr },
                 ..Default::default()
-            };
-            vcpu.get_reg(std::slice::from_mut(&mut cs_reg))?;
-            cs_reg.value.segment.base = 0;
-            cs_reg.value.segment.selector = 0;
-            registers.insert(hv_register_name_HV_X64_REGISTER_CS, cs_reg.value);
-        }
-
-        registers.insert(
-            hv_register_name_HV_X64_REGISTER_RAX,
-            hv_register_value { reg64: 2 },
-        );
-
-        registers.insert(
-            hv_register_name_HV_X64_REGISTER_RBX,
-            hv_register_value { reg64: 2 },
-        );
-
-        registers.insert(
-            hv_register_name_HV_X64_REGISTER_RFLAGS,
-            hv_register_value { reg64: 0x2 },
-        );
-
-        registers.insert(
-            hv_register_name_HV_X64_REGISTER_RIP,
-            hv_register_value {
-                reg64: entrypoint_ptr.absolute()?,
             },
-        );
-
-        registers.insert(
-            hv_register_name_HV_X64_REGISTER_RSP,
-            hv_register_value {
-                reg64: rsp_ptr.absolute()?,
-            },
-        );
-
-        registers.insert(
-            hv_register_name_HV_X64_REGISTER_CR3,
-            hv_register_value {
-                reg64: pml4_ptr.absolute()?,
-            },
-        );
-
-        registers.insert(
-            hv_register_name_HV_X64_REGISTER_CR4,
-            hv_register_value {
-                reg64: CR4_PAE | CR4_OSFXSR | CR4_OSXMMEXCPT,
-            },
-        );
-
-        registers.insert(
-            hv_register_name_HV_X64_REGISTER_CR0,
-            hv_register_value {
-                reg64: CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG,
-            },
-        );
-
-        registers.insert(
-            hv_register_name_HV_X64_REGISTER_EFER,
-            hv_register_value {
-                reg64: EFER_LME | EFER_LMA,
-            },
-        );
-
-        registers.insert(
-            hv_register_name_HV_X64_REGISTER_CS,
-            hv_register_value {
-                reg128: hv_u128 {
-                    low_part: 0,
-                    high_part: 0xa09b0008ffffffff,
+            hv_register_assoc {
+                name: hv_register_name_HV_X64_REGISTER_CR4,
+                value: hv_register_value {
+                    reg64: CR4_PAE | CR4_OSFXSR | CR4_OSXMMEXCPT,
                 },
-            },
-        );
-        Ok(())
-    }
-
-    /// Apply the internally stored register list on the internally
-    /// stored virtual CPU.
-    ///
-    /// Call `add_registers` prior to this function to add to the internal
-    /// register list.
-    //TODO:(#1029) Once CAPI is complete this does not need to be public
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    pub fn apply_registers(&self) -> Result<()> {
-        let mut regs_vec: Vec<hv_register_assoc> = Vec::new();
-        for (k, v) in &self.registers {
-            regs_vec.push(hv_register_assoc {
-                name: *k,
-                value: *v,
                 ..Default::default()
-            });
-        }
-
-        Ok(self.vcpu_fd.set_reg(regs_vec.as_slice())?)
-    }
-
-    /// Update the rip register in the internally stored list of registers
-    /// as well as directly on the vCPU.
-    ///
-    /// This function will not apply any other pending changes on
-    /// the internal register list.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    fn update_rip(&mut self, val: RawPtr) -> Result<()> {
-        self.update_register_u64(hv_register_name_HV_X64_REGISTER_RIP, val.into())
-    }
-
-    /// Update the value of a specific register in the internally stored
-    /// virtual CPU, and store this register update in the pending list
-    /// of registers
-    ///
-    /// This function will apply only the value of the given register on the
-    /// internally stored virtual CPU, but no others in the pending list.
-    //TODO:(#1029) Once CAPI is complete this does not need to be public
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    pub fn update_register_u64(&mut self, name: hv_register_name, val: u64) -> Result<()> {
-        self.registers
-            .insert(name, hv_register_value { reg64: val });
-        let reg = hv_register_assoc {
-            name,
-            value: hv_register_value { reg64: val },
-            ..Default::default()
-        };
-        Ok(self.vcpu_fd.set_reg(&[reg])?)
-    }
-
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    fn get_rsp(&self) -> Result<u64> {
-        let mut rsp_reg = hv_register_assoc {
-            name: hv_register_name_HV_X64_REGISTER_RSP,
-            ..Default::default()
-        };
-        self.vcpu_fd.get_reg(std::slice::from_mut(&mut rsp_reg))?;
-        Ok(unsafe { rsp_reg.value.reg64 })
-    }
-}
-
-impl HasCommunicationChannels for HypervLinuxDriver {
-    fn get_to_handler_tx(&self) -> Sender<VCPUAction> {
-        self.vcpu_action_transmitter.clone().unwrap()
-    }
-    fn set_to_handler_tx(&mut self, tx: Sender<VCPUAction>) {
-        self.vcpu_action_transmitter = Some(tx);
-    }
-    fn drop_to_handler_tx(&mut self) {
-        self.vcpu_action_transmitter = None;
-    }
-
-    fn get_from_handler_rx(&self) -> Receiver<HandlerMsg> {
-        self.handler_message_receiver.clone().unwrap()
-    }
-    fn set_from_handler_rx(&mut self, rx: Receiver<HandlerMsg>) {
-        self.handler_message_receiver = Some(rx);
-    }
-
-    fn get_from_handler_tx(&self) -> Sender<HandlerMsg> {
-        self.handler_message_transmitter.clone().unwrap()
-    }
-    fn set_from_handler_tx(&mut self, tx: Sender<HandlerMsg>) {
-        self.handler_message_transmitter = Some(tx);
-    }
-
-    fn set_to_handler_rx(&mut self, rx: Receiver<VCPUAction>) {
-        self.vcpu_action_receiver = Some(rx);
-    }
-    fn get_to_handler_rx(&self) -> Receiver<VCPUAction> {
-        self.vcpu_action_receiver.clone().unwrap()
-    }
-}
-
-impl HasHypervisorState for HypervLinuxDriver {
-    fn get_state_lock(&self) -> Result<MutexGuard<HypervisorState>> {
-        let state_mutex = Arc::as_ref(&self.state);
-
-        Ok(state_mutex.lock()?)
+            },
+            hv_register_assoc {
+                name: hv_register_name_HV_X64_REGISTER_CR0,
+                value: hv_register_value {
+                    reg64: CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG,
+                },
+                ..Default::default()
+            },
+            hv_register_assoc {
+                name: hv_register_name_HV_X64_REGISTER_EFER,
+                value: hv_register_value {
+                    reg64: EFER_LME | EFER_LMA,
+                },
+                ..Default::default()
+            },
+            hv_register_assoc {
+                name: hv_register_name_HV_X64_REGISTER_CS,
+                value: hv_register_value {
+                    reg128: hv_u128 {
+                        low_part: 0,
+                        high_part: 0xa09b0008ffffffff,
+                    },
+                },
+                ..Default::default()
+            },
+        ])?;
+        Ok(())
     }
 }
 
 impl Hypervisor for HypervLinuxDriver {
-    fn get_mut_handler_join_handle(&mut self) -> &mut Option<std::thread::JoinHandle<Result<()>>> {
-        &mut self.join_handle
-    }
-
-    fn set_handler_join_handle(&mut self, handle: std::thread::JoinHandle<Result<()>>) {
-        self.join_handle = Some(handle);
-    }
-
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    fn as_mut_hypervisor(&mut self) -> &mut dyn Hypervisor {
-        self as &mut dyn Hypervisor
-    }
-
-    fn set_thread_id(&mut self, thread_id: u64) {
-        log::debug!("Setting thread id to {}", thread_id);
-        self.thread_id = Some(thread_id);
-    }
-
-    fn set_termination_status(&mut self, value: bool) {
-        log::debug!("Setting termination status to {}", value);
-        self.cancel_run_requested.store(value);
-    }
-
-    fn get_termination_status(&self) -> Arc<AtomicCell<bool>> {
-        self.cancel_run_requested.clone()
-    }
-
-    fn get_run_cancelled(&self) -> Arc<AtomicCell<bool>> {
-        self.run_cancelled.clone()
-    }
-
-    fn set_run_cancelled(&self, value: bool) {
-        log::debug!("Setting run cancelled to {}", value);
-        self.run_cancelled.store(value);
-    }
-
-    fn get_thread_id(&self) -> u64 {
-        self.thread_id
-            .expect("Hypervisor hasn't been initialized yet, missing thread ID")
-    }
-
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn initialise(
         &mut self,
@@ -394,36 +175,58 @@ impl Hypervisor for HypervLinuxDriver {
         outb_hdl: OutBHandlerWrapper,
         mem_access_hdl: MemAccessHandlerWrapper,
     ) -> Result<()> {
-        self.registers.insert(
-            hv_register_name_HV_X64_REGISTER_RCX,
-            hv_register_value {
-                reg64: peb_addr.into(),
-            },
-        );
-        self.registers.insert(
-            hv_register_name_HV_X64_REGISTER_RDX,
-            hv_register_value { reg64: seed },
-        );
-        self.registers.insert(
-            hv_register_name_HV_X64_REGISTER_R8,
-            hv_register_value { reg32: page_size },
-        );
-        self.registers.insert(
-            hv_register_name_HV_X64_REGISTER_R9,
-            hv_register_value {
-                reg32: self.get_max_log_level(),
-            },
-        );
-        self.apply_registers()?;
+        let regs = StandardRegisters {
+            rip: self.entrypoint,
+            rsp: self.orig_rsp.absolute()?,
 
-        self.update_rip(RawPtr::from(self.entrypoint.absolute()?))?;
-        // ^^^ we need to update the rip to the entrypoint as we do in HypervLinuxDriver::new
-        // because, if we don't, on re-entry, this will be set to the dispatch function.
+            // function args
+            rcx: peb_addr.into(),
+            rdx: seed,
+            r8: page_size.into(),
+            r9: self.get_max_log_level().into(),
+
+            ..Default::default()
+        };
+        self.vcpu_fd.set_regs(&regs)?;
 
         VirtualCPU::run(self.as_mut_hypervisor(), outb_hdl, mem_access_hdl)?;
-        // we need to reset the stack pointer once execution is complete
-        // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it
-        self.reset_rsp(self.orig_rsp()?)
+
+        // reset RSP to what it was before initialise
+        self.vcpu_fd.set_regs(&StandardRegisters {
+            rsp: self.orig_rsp.absolute()?,
+            ..Default::default()
+        })?;
+        Ok(())
+    }
+
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
+    fn dispatch_call_from_host(
+        &mut self,
+        dispatch_func_addr: RawPtr,
+        outb_handle_fn: OutBHandlerWrapper,
+        mem_access_fn: MemAccessHandlerWrapper,
+    ) -> Result<()> {
+        // Reset general purpose registers except RSP, then set RIP
+        let rsp_before = self.vcpu_fd.get_regs()?.rsp;
+        let regs = StandardRegisters {
+            rip: dispatch_func_addr.into(),
+            rsp: rsp_before,
+            ..Default::default()
+        };
+        self.vcpu_fd.set_regs(&regs)?;
+
+        // reset fpu state
+        self.vcpu_fd.set_fpu(&FloatingPointUnit::default())?;
+
+        // run
+        VirtualCPU::run(self.as_mut_hypervisor(), outb_handle_fn, mem_access_fn)?;
+
+        // reset RSP to what it was before function call
+        self.vcpu_fd.set_regs(&StandardRegisters {
+            rsp: rsp_before,
+            ..Default::default()
+        })?;
+        Ok(())
     }
 
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
@@ -441,7 +244,15 @@ impl Hypervisor for HypervLinuxDriver {
             .map_err(|e| new_error!("Error Locking {}", e))?
             .call(port, u64::from_le_bytes(payload))?;
 
-        self.update_rip(RawPtr::from(rip + instruction_length))
+        // update rip
+        self.vcpu_fd.set_reg(&[hv_register_assoc {
+            name: hv_register_name_HV_X64_REGISTER_RIP,
+            value: hv_register_value {
+                reg64: rip + instruction_length,
+            },
+            ..Default::default()
+        }])?;
+        Ok(())
     }
 
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
@@ -505,40 +316,91 @@ impl Hypervisor for HypervLinuxDriver {
         Ok(result)
     }
 
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    fn dispatch_call_from_host(
-        &mut self,
-        dispatch_func_addr: RawPtr,
-        outb_handle_fn: OutBHandlerWrapper,
-        mem_access_fn: MemAccessHandlerWrapper,
-    ) -> Result<()> {
-        self.update_rip(dispatch_func_addr)?;
-        // we need to reset the stack pointer once execution is complete
-        // the caller is responsible for this in windows x86_64 calling convention and since we are "calling" here we need to reset it
-        // so here we get the current RSP value so we can reset it later
-        let rsp = {
-            let abs = self.get_rsp()?;
-            GuestPtr::try_from(RawPtr::from(abs))
-        }?;
-        VirtualCPU::run(self.as_mut_hypervisor(), outb_handle_fn, mem_access_fn)?;
-        // Reset the stack pointer to the value it was before the call
-        self.reset_rsp(rsp)
-    }
-
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    fn reset_rsp(&mut self, rsp: GuestPtr) -> Result<()> {
-        let abs = rsp.absolute()?;
-        self.update_register_u64(hv_register_name_HV_X64_REGISTER_RSP, abs)
-    }
-
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    fn orig_rsp(&self) -> Result<GuestPtr> {
-        Ok(self.orig_rsp)
-    }
-
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
+    fn as_mut_hypervisor(&mut self) -> &mut dyn Hypervisor {
+        self as &mut dyn Hypervisor
+    }
+
+    fn set_handler_join_handle(&mut self, handle: std::thread::JoinHandle<Result<()>>) {
+        self.join_handle = Some(handle);
+    }
+
+    fn get_mut_handler_join_handle(&mut self) -> &mut Option<std::thread::JoinHandle<Result<()>>> {
+        &mut self.join_handle
+    }
+
+    fn set_thread_id(&mut self, thread_id: u64) {
+        log::debug!("Setting thread id to {}", thread_id);
+        self.thread_id = Some(thread_id);
+    }
+
+    fn get_thread_id(&self) -> u64 {
+        self.thread_id
+            .expect("Hypervisor hasn't been initialized yet, missing thread ID")
+    }
+
+    fn set_termination_status(&mut self, value: bool) {
+        log::debug!("Setting termination status to {}", value);
+        self.cancel_run_requested.store(value);
+    }
+
+    fn get_termination_status(&self) -> Arc<AtomicCell<bool>> {
+        self.cancel_run_requested.clone()
+    }
+
+    fn get_run_cancelled(&self) -> Arc<AtomicCell<bool>> {
+        self.run_cancelled.clone()
+    }
+
+    fn set_run_cancelled(&self, value: bool) {
+        log::debug!("Setting run cancelled to {}", value);
+        self.run_cancelled.store(value);
+    }
+}
+
+impl HasCommunicationChannels for HypervLinuxDriver {
+    fn get_to_handler_tx(&self) -> Sender<VCPUAction> {
+        self.vcpu_action_transmitter.clone().unwrap()
+    }
+    fn set_to_handler_tx(&mut self, tx: Sender<VCPUAction>) {
+        self.vcpu_action_transmitter = Some(tx);
+    }
+    fn drop_to_handler_tx(&mut self) {
+        self.vcpu_action_transmitter = None;
+    }
+
+    fn get_from_handler_rx(&self) -> Receiver<HandlerMsg> {
+        self.handler_message_receiver.clone().unwrap()
+    }
+    fn set_from_handler_rx(&mut self, rx: Receiver<HandlerMsg>) {
+        self.handler_message_receiver = Some(rx);
+    }
+
+    fn get_from_handler_tx(&self) -> Sender<HandlerMsg> {
+        self.handler_message_transmitter.clone().unwrap()
+    }
+    fn set_from_handler_tx(&mut self, tx: Sender<HandlerMsg>) {
+        self.handler_message_transmitter = Some(tx);
+    }
+
+    fn set_to_handler_rx(&mut self, rx: Receiver<VCPUAction>) {
+        self.vcpu_action_receiver = Some(rx);
+    }
+    fn get_to_handler_rx(&self) -> Receiver<VCPUAction> {
+        self.vcpu_action_receiver.clone().unwrap()
+    }
+}
+
+impl HasHypervisorState for HypervLinuxDriver {
+    fn get_state_lock(&self) -> Result<MutexGuard<HypervisorState>> {
+        let state_mutex = Arc::as_ref(&self.state);
+
+        Ok(state_mutex.lock()?)
     }
 }
 

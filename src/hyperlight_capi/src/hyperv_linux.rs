@@ -11,7 +11,6 @@ use hyperlight_host::hypervisor::hyperv_linux::{is_hypervisor_present, HypervLin
 use hyperlight_host::hypervisor::{Hypervisor, VirtualCPU};
 use hyperlight_host::mem::ptr::{GuestPtr, RawPtr};
 use hyperlight_host::Result;
-use mshv_bindings::hv_register_name_HV_X64_REGISTER_RSP;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -21,6 +20,7 @@ fn get_driver_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut HypervLinuxDriv
     })
 }
 
+#[allow(dead_code)] // most certainly will be useful in the future
 fn get_driver(ctx: &Context, hdl: Handle) -> Result<&HypervLinuxDriver> {
     Context::get(hdl, &ctx.hyperv_linux_drivers, |h| {
         matches!(h, Hdl::HypervLinuxDriver(_))
@@ -84,68 +84,6 @@ pub unsafe extern "C" fn hyperv_linux_create_driver(
             ))
         })
         .ok_or_err_hdl()
-}
-
-/// Apply all drivers to the vCPU stored within the HypervLinuxDriver
-/// referenced by `driver_hdl` that were previously added but not already
-/// set.
-///
-/// Some functions will do this for you, and thus if you use one of those
-/// you won't need to call this. See the below list for details.
-///
-/// - `hyperv_linux_run_vcpu`: does not call this function for you.
-/// Call this function prior to calling that one.
-/// - `hyperv_linux_initialise`: calls this function for you. Calling it again
-/// is a no-op.
-/// - `hyperv_linux_dispatch_call_from_host`: calls this function for you.
-/// Calling it again is a no-op.
-///
-/// # Safety
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn hyperv_linux_apply_registers(
-    ctx_ptr: *mut Context,
-    driver_hdl: Handle,
-) -> Handle {
-    validate_context!(ctx_ptr);
-
-    let res = {
-        let ctx = &*ctx_ptr;
-        get_driver(ctx, driver_hdl).and_then(|driver| driver.apply_registers())
-    };
-    match res {
-        Ok(_) => Handle::new_empty(),
-        Err(e) => (*ctx_ptr).register_err(e),
-    }
-}
-
-/// Set, but do not apply, the stack pointer register.
-///
-/// # Safety
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn hyperv_linux_set_rsp(
-    ctx_ptr: *mut Context,
-    driver_hdl: Handle,
-    rsp_val: u64,
-) -> Handle {
-    validate_context!(ctx_ptr);
-    let driver = match get_driver_mut(&mut *ctx_ptr, driver_hdl) {
-        Ok(d) => d,
-        Err(e) => return (*ctx_ptr).register_err(e),
-    };
-    match driver.update_register_u64(hv_register_name_HV_X64_REGISTER_RSP, rsp_val) {
-        Ok(_) => Handle::new_empty(),
-        Err(e) => (*ctx_ptr).register_err(e),
-    }
 }
 
 pub(crate) fn get_handler_funcs(

@@ -36,3 +36,58 @@ impl From<&PSTRWrapper> for PSTR {
         PSTR::from_raw(raw as *mut u8)
     }
 }
+
+// only used on windows. mshv and kvm already has this implemented
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
+pub(super) struct WHvGeneralRegisters {
+    pub rax: u64,
+    pub rbx: u64,
+    pub rcx: u64,
+    pub rdx: u64,
+    pub rsi: u64,
+    pub rdi: u64,
+    pub rsp: u64,
+    pub rbp: u64,
+    pub r8: u64,
+    pub r9: u64,
+    pub r10: u64,
+    pub r11: u64,
+    pub r12: u64,
+    pub r13: u64,
+    pub r14: u64,
+    pub r15: u64,
+    pub rip: u64,
+    pub rflags: u64,
+}
+
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
+pub(super) struct WHvFPURegisters {
+    pub xmm0: u128,
+    pub xmm1: u128,
+    pub xmm2: u128,
+    pub xmm3: u128,
+    pub xmm4: u128,
+    pub xmm5: u128,
+    pub xmm6: u128,
+    pub xmm7: u128,
+    pub xmm8: u128,
+    pub xmm9: u128,
+    pub xmm10: u128,
+    pub xmm11: u128,
+    pub xmm12: u128,
+    pub xmm13: u128,
+    pub xmm14: u128,
+    pub xmm15: u128,
+
+    pub mmx0: u64,
+    pub mmx1: u64,
+    pub mmx2: u64,
+    pub mmx3: u64,
+    pub mmx4: u64,
+    pub mmx5: u64,
+    pub mmx6: u64,
+    pub mmx7: u64,
+
+    pub fp_control_status: u128,
+    pub xmm_control_status: u128,
+}

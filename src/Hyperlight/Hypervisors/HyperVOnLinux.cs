@@ -67,23 +67,7 @@ namespace Hyperlight.Hypervisors
 
         internal override void ResetRSP(ulong rsp)
         {
-            var rawHdl = hyperv_linux_set_rsp(
-                this.ctxWrapper.ctx,
-                this.driverHdlWrapper.handle,
-                rsp
-            );
-            // marking 'false' here to indicate the handle wrapper should
-            // not automatically throw if the raw handle is an error,
-            // so we can throw our custom HyperVOnLinuxException
-            // here
-            using var hdl = new Handle(this.ctxWrapper, rawHdl, false);
-            if (hdl.IsError())
-            {
-                HyperlightException.LogAndThrowException<HyperVOnLinuxException>(
-                    $"Failed setting RSP Error: {hdl.GetErrorMessage()}",
-                    GetType().Name
-                );
-            }
+            // the driver resets it internally every time a guest function is dispatched
         }
 
         internal override void Initialise(IntPtr pebAddress, ulong seed, uint pageSize)
@@ -164,14 +148,6 @@ namespace Hyperlight.Hypervisors
             ulong peb_addr,
             ulong seed,
             uint page_size
-        );
-
-        [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-        private static extern NativeHandle hyperv_linux_set_rsp(
-            NativeContext ctx,
-            NativeHandle driverHdl,
-            ulong rspVal
         );
 
 #pragma warning restore CA5393

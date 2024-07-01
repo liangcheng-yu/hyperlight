@@ -161,13 +161,7 @@ impl<'a> MultiUseSandbox<'a> {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     pub(crate) fn restore_state(&mut self) -> Result<()> {
         let mem_mgr = self.mem_mgr.unwrap_mgr_mut();
-        mem_mgr.restore_state_from_last_snapshot()?;
-        if !self.run_from_process_memory {
-            let orig_rsp = self.hv.get_hypervisor_lock()?.orig_rsp()?;
-            self.hv.get_hypervisor_lock()?.reset_rsp(orig_rsp)?;
-        }
-
-        Ok(())
+        mem_mgr.restore_state_from_last_snapshot()
     }
 }
 
@@ -232,13 +226,8 @@ impl<'a>
         self,
         _tsn: Noop<MultiUseSandbox<'a>, UninitializedSandbox>,
     ) -> Result<UninitializedSandbox> {
-        let run_from_proc = self.run_from_process_memory;
         let mut ret = UninitializedSandbox::from_multi_use(self);
         ret.mgr.as_mut().pop_and_restore_state_from_snapshot()?;
-        if run_from_proc {
-            let orig_rsp = ret.hv.get_hypervisor_lock()?.orig_rsp()?;
-            ret.hv.get_hypervisor_lock()?.reset_rsp(orig_rsp)?;
-        }
         Ok(ret)
     }
 }

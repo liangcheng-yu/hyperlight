@@ -9,7 +9,6 @@ use hyperlight_host::{
         kvm::{self, KVMDriver},
         Hypervisor,
     },
-    mem::ptr::{GuestPtr, RawPtr},
     Result,
 };
 use std::sync::{Arc, Mutex};
@@ -69,29 +68,6 @@ pub unsafe extern "C" fn kvm_create_driver(
                 &mut ctx.kvm_drivers,
                 Hdl::KVMDriver,
             ))
-        })
-        .ok_or_err_hdl()
-}
-
-/// Set the stack pointer register.
-///
-/// # Safety
-/// You must call this function with a `Context*` that has been:
-///
-/// - Created with `context_new`
-/// - Not yet freed with `context_free`
-/// - Not modified, except by calling functions in the Hyperlight C API
-#[no_mangle]
-pub unsafe extern "C" fn kvm_set_rsp(
-    ctx: *mut Context,
-    driver_hdl: Handle,
-    rsp_val: u64,
-) -> Handle {
-    CFunc::new("kvm_set_rsp", ctx)
-        .and_then_mut(|ctx, _| {
-            let driver = get_driver_mut(ctx, driver_hdl)?;
-            let rsp = GuestPtr::try_from(RawPtr::from(rsp_val))?;
-            driver.reset_rsp(rsp).map(|_| Handle::new_empty())
         })
         .ok_or_err_hdl()
 }

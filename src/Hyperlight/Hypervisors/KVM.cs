@@ -72,12 +72,7 @@ internal sealed class KVM : Hypervisor, IDisposable
 
     internal override void ResetRSP(ulong rsp)
     {
-        var rawHdl = kvm_set_rsp(
-            this.ctxWrapper.ctx,
-            this.driverHdlWrapper.handle,
-            rsp
-        );
-        using var hdlWrapper = new Handle(this.ctxWrapper, rawHdl, true);
+        // the driver resets it internally every time a guest function is dispatched
     }
 
     internal override void Initialise(IntPtr pebAddress, ulong seed, uint pageSize)
@@ -155,14 +150,6 @@ internal sealed class KVM : Hypervisor, IDisposable
         ulong peb_addr,
         ulong seed,
         uint pageSize
-    );
-
-    [DllImport("hyperlight_capi", SetLastError = false, ExactSpelling = true)]
-    [DefaultDllImportSearchPaths(DllImportSearchPath.AssemblyDirectory)]
-    private static extern NativeHandle kvm_set_rsp(
-        NativeContext ctx,
-        NativeHandle driverHdl,
-        ulong rspVal
     );
 
 #pragma warning restore CA5393
