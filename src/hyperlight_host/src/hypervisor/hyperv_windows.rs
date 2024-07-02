@@ -328,7 +328,8 @@ impl Hypervisor for HypervWindowsDriver {
                 let gpa = unsafe { exit_context.Anonymous.MemoryAccess.Gpa };
                 let access_info = unsafe {
                     WHV_MEMORY_ACCESS_TYPE(
-                        exit_context.Anonymous.MemoryAccess.AccessInfo.AsUINT32 as i32,
+                        // 2 first bits are the access type, see https://learn.microsoft.com/en-us/virtualization/api/hypervisor-platform/funcs/memoryaccess#syntax
+                        (exit_context.Anonymous.MemoryAccess.AccessInfo.AsUINT32 & 0b11) as i32,
                     )
                 };
                 let access_info = MemoryRegionFlags::try_from(access_info)?;

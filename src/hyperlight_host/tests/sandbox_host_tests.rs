@@ -5,6 +5,7 @@ use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
 use hyperlight_host::sandbox_state::transition::Noop;
 use hyperlight_host::{
     func::{ParameterValue, ReturnType, ReturnValue},
+    new_error,
     sandbox::SandboxConfiguration,
     GuestBinary, HyperlightError, MultiUseSandbox, Result, UninitializedSandbox,
 };
@@ -446,4 +447,31 @@ fn callback_test_parallel() {
     for handle in handles {
         handle.join().unwrap();
     }
+}
+
+#[test]
+#[cfg_attr(target_os = "windows", serial)] // using LoadLibrary requires serial tests
+fn host_function_error() -> Result<()> {
+    // TODO: Remove the `.take(1)`, which makes this test only run in hypervisor.
+    // This test does not work when running in process. This is because when running in-process,
+    // when a host function returns an error, an infinite loop is created.
+    for mut sandbox in get_callbackguest_uninit_sandboxes(None).into_iter().take(1) {
+        // create host function
+        let host_func1 = Arc::new(Mutex::new(|_msg: String| -> Result<String> {
+            Err(new_error!("Host function error!"))
+        }));
+        host_func1.register(&mut sandbox, "HostMethod1").unwrap();
+
+        // call guest function that calls host function
+        let mut init_sandbox: MultiUseSandbox = sandbox.evolve(Noop::default())?;
+        let msg = "Hello world";
+        let res = init_sandbox.call_guest_function_by_name(
+            "GuestMethod1",
+            ReturnType::Int,
+            Some(vec![ParameterValue::String(msg.to_string())]),
+        );
+        println!("res {:?}", res);
+        assert!(matches!(res, Err(HyperlightError::Error(msg)) if msg == "Host function error!"));
+    }
+    Ok(())
 }

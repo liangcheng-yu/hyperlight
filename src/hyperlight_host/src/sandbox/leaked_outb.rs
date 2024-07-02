@@ -29,6 +29,7 @@ extern "C" fn call_outb(ptr: *mut Arc<Mutex<dyn OutBHandlerCaller>>, port: u16, 
         .lock()
         .expect("Error Locking")
         .call(port, data);
+    // TODO, handle the case correctly when res is an error
     assert!(res.is_ok());
     // Leak the box so that it is not dropped when the function returns
     // the box will be dropped when the sandbox is dropped
