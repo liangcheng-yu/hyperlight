@@ -18,7 +18,6 @@ use crossbeam_channel::{Receiver, Sender};
 #[cfg(target_os = "linux")]
 use libc::{c_void, pthread_self, siginfo_t};
 use rand::Rng;
-use std::sync::MutexGuard;
 use std::time::Duration;
 use std::{
     sync::{Arc, Mutex},
@@ -58,12 +57,6 @@ pub trait HasCommunicationChannels {
     fn set_to_handler_rx(&mut self, rx: Receiver<VCPUAction>);
 }
 
-/// Trait to indicate that a type contains a `HypervisorState` variable we can get.
-pub trait HasHypervisorState {
-    /// Get the current state of the Hypervisor.
-    fn get_state_lock(&self) -> Result<MutexGuard<HypervisorState>>;
-}
-
 /// `VCPUActions` enumerates the
 /// possible actions that a Hypervisor
 /// handler can execute.
@@ -92,18 +85,6 @@ impl std::fmt::Debug for VCPUAction {
 pub enum HandlerMsg {
     FinishedVCPUAction,
     Error(HyperlightError),
-}
-
-/// `HypervisorState` is an enum that represents the possible states
-/// of a Hypervisor.
-/// - `Running`: This means that an operation is currently ongoing. That
-/// can be either initialising the vCPU or executing a function call.
-/// - `NotRunning`: This means that the vCPU isn't currently executing.
-#[derive(Clone, Default, Debug)]
-pub enum HypervisorState {
-    Running,
-    #[default]
-    NotRunning,
 }
 
 /// Arguments to initialise the vCPU
@@ -277,12 +258,6 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
                     VCPUAction::Initialise(args) => {
                         let mut hv_lock = hv_clone.lock().unwrap();
 
-                        {
-                            let mut state = hv_lock.get_state_lock()?;
-                            *state = HypervisorState::Running;
-                            // ^^^ do this in its own scope to liberate the lock after altering the state
-                        }
-
                         // Reset termination status from a possible previous execution
                         hv_lock.set_termination_status(false);
                         #[cfg(target_os = "linux")]
@@ -318,9 +293,6 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
                             args.mem_access_fn,
                         );
 
-                        let mut state = hv_lock.get_state_lock()?;
-                        *state = HypervisorState::NotRunning;
-
                         match res {
                             Ok(_) => {
                                 from_handler_tx
@@ -338,11 +310,6 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
                     }
                     VCPUAction::DispatchCallFromHost(args) => {
                         let mut hv_lock = hv_clone.lock().unwrap();
-
-                        {
-                            let mut state = hv_lock.get_state_lock()?;
-                            *state = HypervisorState::Running;
-                        }
 
                         // Reset termination status from a possible previous execution
                         hv_lock.set_termination_status(false);
@@ -377,11 +344,6 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
                                 args.mem_access_fn,
                             )
                         };
-
-                        {
-                            let mut state = hv_lock.get_state_lock()?;
-                            *state = HypervisorState::NotRunning;
-                        }
 
                         match res {
                             Ok(_) => {
@@ -550,15 +512,12 @@ pub(crate) fn terminate_hypervisor_handler_execution_and_reinitialise<HvMemMgrT:
     }
 
     {
-        // Ensure HypervisorState update
+        // check the lock to make sure it is free
         match wrapper_getter
             .get_hv()
             .try_get_hypervisor_lock_for_max_execution_time()
         {
-            Ok(hv_lock) => {
-                let mut state = hv_lock.get_state_lock()?;
-                *state = HypervisorState::NotRunning;
-            }
+            Ok(_) => {}
             Err(_) => {
                 // If we still fail to acquire the hv_lock, this means that
                 // we had actually timed-out on a host function call as the
@@ -623,7 +582,7 @@ pub(crate) fn execute_vcpu_action(
     max_wait_time: Option<Duration>,
 ) -> Result<()> {
     let to_handler_tx = {
-        let hv_lock = hv_wrapper.get_hypervisor_lock()?;
+        let hv_lock = hv_wrapper.try_get_hypervisor_lock_for_max_execution_time()?;
         hv_lock.get_to_handler_tx()
     };
 
@@ -653,7 +612,7 @@ pub(crate) fn try_receive_handler_msg(
     wait: Duration,
 ) -> Result<()> {
     let from_handler_rx = {
-        let hv_lock = hv_wrapper.get_hypervisor_lock()?;
+        let hv_lock = hv_wrapper.try_get_hypervisor_lock_for_max_execution_time()?;
         hv_lock.get_from_handler_rx()
     };
 
@@ -766,7 +725,9 @@ mod tests {
 
             #[cfg(target_os = "linux")]
             let thread_id = {
-                let hv_lock = sandbox.get_hv_mut().get_hypervisor_lock()?;
+                let hv_lock = sandbox
+                    .get_hv_mut()
+                    .try_get_hypervisor_lock_for_max_execution_time()?;
                 hv_lock.get_thread_id()
             };
 

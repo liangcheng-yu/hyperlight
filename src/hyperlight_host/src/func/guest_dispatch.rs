@@ -102,12 +102,14 @@ pub(crate) fn call_function_on_guest<HvMemMgrT: WrapperGetter>(
 
             let termination_status = wrapper_getter
                 .get_hv_mut()
-                .get_hypervisor_lock()?
+                .try_get_hypervisor_lock_for_max_execution_time()?
                 .get_termination_status();
 
             #[cfg(target_os = "linux")]
             let (run_cancelled, thread_id) = {
-                let hv_lock = wrapper_getter.get_hv_mut().get_hypervisor_lock()?;
+                let hv_lock = wrapper_getter
+                    .get_hv_mut()
+                    .try_get_hypervisor_lock_for_max_execution_time()?;
                 (hv_lock.get_run_cancelled(), hv_lock.get_thread_id())
             };
 

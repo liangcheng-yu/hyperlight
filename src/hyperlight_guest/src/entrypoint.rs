@@ -75,7 +75,7 @@ pub extern "C" fn entrypoint(peb_address: u64, seed: u64, ops: u64, log_level_fi
         unsafe {
             P_PEB = Some(peb_address as *mut HyperlightPEB);
             let peb_ptr = P_PEB.unwrap();
-            __security_cookie = peb_address as u64 ^ seed as u64;
+            __security_cookie = peb_address ^ seed;
 
             if (*peb_ptr).pOutb.is_null() {
                 RUNNING_IN_HYPERLIGHT = true;

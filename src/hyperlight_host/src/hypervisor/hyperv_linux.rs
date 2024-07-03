@@ -4,9 +4,7 @@ use super::{
     CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
 };
 
-use crate::hypervisor::hypervisor_handler::{
-    HandlerMsg, HasCommunicationChannels, HasHypervisorState, HypervisorState, VCPUAction,
-};
+use crate::hypervisor::hypervisor_handler::{HandlerMsg, HasCommunicationChannels, VCPUAction};
 use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
 use crate::{hypervisor::HyperlightExit, mem::ptr::RawPtr};
 use crate::{log_then_return, mem::ptr::GuestPtr, new_error, Result};
@@ -24,7 +22,7 @@ use mshv_bindings::{
 };
 use mshv_ioctls::{Mshv, VcpuFd, VmFd};
 use std::any::Any;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::Arc;
 use tracing::{instrument, Span};
 
 /// Determine whether the HyperV for Linux hypervisor API is present
@@ -67,7 +65,6 @@ pub struct HypervLinuxDriver {
     join_handle: Option<std::thread::JoinHandle<Result<()>>>,
     // ^^^ a Hypervisor's operations are executed on a Hypervisor Handler thread (i.e.,
     // separate from the main host thread). This is a handle to the Hypervisor Handler thread.
-    state: Arc<Mutex<HypervisorState>>,
 }
 
 impl HypervLinuxDriver {
@@ -117,7 +114,6 @@ impl HypervLinuxDriver {
             cancel_run_requested: Arc::new(AtomicCell::new(false)),
             run_cancelled: Arc::new(AtomicCell::new(false)),
             join_handle: None,
-            state: Arc::new(Mutex::new(HypervisorState::default())),
         })
     }
 
@@ -393,14 +389,6 @@ impl HasCommunicationChannels for HypervLinuxDriver {
     }
     fn get_to_handler_rx(&self) -> Receiver<VCPUAction> {
         self.vcpu_action_receiver.clone().unwrap()
-    }
-}
-
-impl HasHypervisorState for HypervLinuxDriver {
-    fn get_state_lock(&self) -> Result<MutexGuard<HypervisorState>> {
-        let state_mutex = Arc::as_ref(&self.state);
-
-        Ok(state_mutex.lock()?)
     }
 }
 

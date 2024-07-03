@@ -6,9 +6,7 @@ use super::{
 };
 use super::{surrogate_process::SurrogateProcess, surrogate_process_manager::*};
 use super::{windows_hypervisor_platform as whp, HyperlightExit};
-use crate::hypervisor::hypervisor_handler::{
-    HandlerMsg, HasCommunicationChannels, HasHypervisorState, HypervisorState, VCPUAction,
-};
+use crate::hypervisor::hypervisor_handler::{HandlerMsg, HasCommunicationChannels, VCPUAction};
 use crate::hypervisor::wrappers::{WHvFPURegisters, WHvGeneralRegisters};
 use crate::mem::memory_region::MemoryRegion;
 use crate::mem::{memory_region::MemoryRegionFlags, ptr::GuestPtr};
@@ -27,7 +25,7 @@ use crossbeam_channel::{Receiver, Sender};
 use hyperlight_common::mem::PAGE_SIZE_USIZE;
 use std::any::Any;
 use std::string::String;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::Arc;
 use tracing::{instrument, Span};
 use windows::Win32::System::Hypervisor::{
     WHvX64RegisterCr0, WHvX64RegisterCr3, WHvX64RegisterCr4, WHvX64RegisterCs, WHvX64RegisterEfer,
@@ -53,7 +51,6 @@ pub(crate) struct HypervWindowsDriver {
     join_handle: Option<std::thread::JoinHandle<Result<()>>>,
     // ^^^ a Hypervisor's operations are executed on a Hypervisor Handler thread (i.e.,
     // separate from the main host thread). This is a handle to the Hypervisor Handler thread.
-    state: Arc<Mutex<HypervisorState>>,
 }
 
 impl HypervWindowsDriver {
@@ -102,7 +99,6 @@ impl HypervWindowsDriver {
             handler_message_transmitter: None,
             cancel_run_requested: Arc::new(AtomicCell::new(false)),
             join_handle: None,
-            state: Arc::new(Mutex::new(HypervisorState::default())),
         })
     }
 
@@ -378,14 +374,6 @@ impl Hypervisor for HypervWindowsDriver {
 
     fn get_termination_status(&self) -> Arc<AtomicCell<bool>> {
         self.cancel_run_requested.clone()
-    }
-}
-
-impl HasHypervisorState for HypervWindowsDriver {
-    fn get_state_lock(&self) -> Result<MutexGuard<HypervisorState>> {
-        let state_mutex = Arc::as_ref(&self.state);
-
-        Ok(state_mutex.lock()?)
     }
 }
 

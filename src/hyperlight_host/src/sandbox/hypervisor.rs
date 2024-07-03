@@ -94,32 +94,6 @@ impl HypervisorWrapper {
         }
     }
 
-    /// if an internal `Hypervisor` exists, lock it and return a `MutexGuard`
-    /// containing it.
-    ///
-    /// This `MutexGuard` represents exclusive read/write ownership of
-    /// the underlying `Hypervisor`, so if this method returns an `Ok`,
-    /// the value inside that `Ok` can be written or read.
-    ///
-    /// When the returned `MutexGuard` goes out of scope, the underlying lock
-    /// will be released and the read/write guarantees will no longer be
-    /// valid (the compiler won't let you do any operations on it, though,
-    /// so you don't have to worry much about this consequence).
-    pub(crate) fn get_hypervisor_lock(&self) -> Result<MutexGuard<Box<dyn Hypervisor>>> {
-        match self.hv_opt.as_ref() {
-            None => {
-                log_then_return!(NoHypervisorFound());
-            }
-            Some(h_arc_mut) => {
-                let h_ref_mutex = Arc::as_ref(h_arc_mut);
-
-                Ok(h_ref_mutex
-                    .lock()
-                    .map_err(|_| LockAttemptFailed("get_hypervisor_lock failed".to_string()))?)
-            }
-        }
-    }
-
     pub(crate) fn try_get_hypervisor_lock(&self) -> Result<MutexGuard<Box<dyn Hypervisor>>> {
         match self.hv_opt.as_ref() {
             None => {

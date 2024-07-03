@@ -1,7 +1,6 @@
 use crate::error::HyperlightError::ExecutionCanceledByHost;
 #[cfg(target_os = "linux")]
 use crate::error::HyperlightError::HostFailedToCancelGuestExecutionSendingSignals;
-use crate::hypervisor::hypervisor_handler::HasHypervisorState;
 #[cfg(target_os = "windows")]
 use crate::hypervisor::hypervisor_handler::PARTITION_HANDLE;
 use crate::hypervisor::metrics::HypervisorMetric::NumberOfCancelledGuestExecutions;
@@ -95,7 +94,7 @@ pub enum HyperlightExit {
 }
 
 /// A common set of hypervisor functionality
-pub trait Hypervisor: Debug + Sync + Send + HasCommunicationChannels + HasHypervisorState {
+pub trait Hypervisor: Debug + Sync + Send + HasCommunicationChannels {
     /// Initialise the internally stored vCPU with the given PEB address and
     /// random number seed, then run it until a HLT instruction.
     #[allow(clippy::too_many_arguments)]
