@@ -7,7 +7,7 @@ use super::{
 use super::{surrogate_process::SurrogateProcess, surrogate_process_manager::*};
 use super::{windows_hypervisor_platform as whp, HyperlightExit};
 use crate::hypervisor::hypervisor_handler::{HandlerMsg, HasCommunicationChannels, VCPUAction};
-use crate::hypervisor::wrappers::{WHvFPURegisters, WHvGeneralRegisters};
+use crate::hypervisor::wrappers::WHvGeneralRegisters;
 use crate::mem::memory_region::MemoryRegion;
 use crate::mem::{memory_region::MemoryRegionFlags, ptr::GuestPtr};
 use crate::Result;
@@ -209,7 +209,10 @@ impl Hypervisor for HypervWindowsDriver {
         self.processor.set_general_purpose_registers(&regs)?;
 
         // reset fpu state
-        self.processor.set_fpu(&WHvFPURegisters::default())?;
+        // self.processor.set_fpu(&WHvFPURegisters::default())?;
+        // ^^^ setting this on Windows causes the guest to exit w/ an MMIO 0x130
+        // when running HL-Js and HL-Wasm. For now, we are just commenting this out,
+        // but we are tracking the issue here: https://github.com/deislabs/hyperlight/issues/1443
 
         VirtualCPU::run(self.as_mut_hypervisor(), outb_hdl, mem_access_hdl)?;
 
