@@ -210,7 +210,7 @@ impl Hypervisor for HypervWindowsDriver {
 
         // reset fpu state
         // self.processor.set_fpu(&WHvFPURegisters::default())?;
-        // ^^^ setting this on Windows causes the guest to exit w/ an MMIO 0x130
+        // ^^^ setting this causes the guest to exit w/ an MMIO 0x130
         // when running HL-Js and HL-Wasm. For now, we are just commenting this out,
         // but we are tracking the issue here: https://github.com/deislabs/hyperlight/issues/1443
 

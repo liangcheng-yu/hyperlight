@@ -14,7 +14,7 @@ use crate::{log_then_return, new_error};
 use crossbeam_channel::{Receiver, Sender};
 
 use crossbeam::atomic::AtomicCell;
-use kvm_bindings::{kvm_fpu, kvm_regs, kvm_userspace_memory_region, KVM_MEM_READONLY};
+use kvm_bindings::{kvm_regs, kvm_userspace_memory_region, KVM_MEM_READONLY};
 use kvm_ioctls::{Cap::UserMemory, Kvm, VcpuExit, VcpuFd, VmFd};
 use std::sync::Arc;
 use std::{any::Any, convert::TryFrom};
@@ -192,7 +192,10 @@ impl Hypervisor for KVMDriver {
         self.vcpu_fd.set_regs(&regs)?;
 
         // reset fpu state
-        self.vcpu_fd.set_fpu(&kvm_fpu::default())?;
+        // self.vcpu_fd.set_fpu(&kvm_fpu::default())?;
+        // ^^^ setting this causes the guest to exit w/ an MMIO 0x130
+        // when running HL-Js and HL-Wasm. For now, we are just commenting this out,
+        // but we are tracking the issue here: https://github.com/deislabs/hyperlight/issues/1443
 
         // run
         VirtualCPU::run(self.as_mut_hypervisor(), outb_handle_fn, mem_access_fn)?;
