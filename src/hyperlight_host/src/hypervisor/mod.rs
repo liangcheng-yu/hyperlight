@@ -21,6 +21,8 @@ use vmm_sys_util::signal::SIGRTMIN;
 #[cfg(target_os = "windows")]
 use windows::Win32::System::Hypervisor::WHvCancelRunVirtualProcessor;
 
+/// Util for handling x87 fpu state
+pub mod fpu;
 /// Handlers for Hypervisor custom logic
 pub mod handlers;
 /// HyperV-on-linux functionality

@@ -1,11 +1,14 @@
 use super::{
+    fpu::{FP_TAG_WORD_DEFAULT, MXCSR_DEFAULT},
     handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
     windows_hypervisor_platform::{VMPartition, VMProcessor},
+    wrappers::WHvFPURegisters,
     Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR,
     CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
 };
 use super::{surrogate_process::SurrogateProcess, surrogate_process_manager::*};
 use super::{windows_hypervisor_platform as whp, HyperlightExit};
+use crate::hypervisor::fpu::FP_CONTROL_WORD_DEFAULT;
 use crate::hypervisor::hypervisor_handler::{HandlerMsg, HasCommunicationChannels, VCPUAction};
 use crate::hypervisor::wrappers::WHvGeneralRegisters;
 use crate::mem::memory_region::MemoryRegion;
@@ -209,10 +212,12 @@ impl Hypervisor for HypervWindowsDriver {
         self.processor.set_general_purpose_registers(&regs)?;
 
         // reset fpu state
-        // self.processor.set_fpu(&WHvFPURegisters::default())?;
-        // ^^^ setting this causes the guest to exit w/ an MMIO 0x130
-        // when running HL-Js and HL-Wasm. For now, we are just commenting this out,
-        // but we are tracking the issue here: https://github.com/deislabs/hyperlight/issues/1443
+        self.processor.set_fpu(&WHvFPURegisters {
+            fp_control_word: FP_CONTROL_WORD_DEFAULT,
+            fp_tag_word: FP_TAG_WORD_DEFAULT,
+            mxcsr: MXCSR_DEFAULT,
+            ..Default::default() // zero out the rest
+        })?;
 
         VirtualCPU::run(self.as_mut_hypervisor(), outb_hdl, mem_access_hdl)?;
 

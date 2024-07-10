@@ -326,21 +326,18 @@ impl VMProcessor {
             WHV_REGISTER_VALUE { Reg64: regs.mmx7 },
             WHV_REGISTER_VALUE {
                 FpControlStatus: WHV_X64_FP_CONTROL_STATUS_REGISTER {
-                    AsUINT128: WHV_UINT128 {
-                        Anonymous: WHV_UINT128_0 {
-                            Low64: regs.fp_control_status as u64,
-                            High64: (regs.fp_control_status >> 64) as u64,
-                        },
+                    Anonymous: WHV_X64_FP_CONTROL_STATUS_REGISTER_0 {
+                        FpControl: regs.fp_control_word,
+                        FpTag: regs.fp_tag_word,
+                        ..Default::default()
                     },
                 },
             },
             WHV_REGISTER_VALUE {
                 XmmControlStatus: WHV_X64_XMM_CONTROL_STATUS_REGISTER {
-                    AsUINT128: WHV_UINT128 {
-                        Anonymous: WHV_UINT128_0 {
-                            Low64: regs.xmm_control_status as u64,
-                            High64: (regs.xmm_control_status >> 64) as u64,
-                        },
+                    Anonymous: WHV_X64_XMM_CONTROL_STATUS_REGISTER_0 {
+                        XmmStatusControl: regs.mxcsr,
+                        ..Default::default()
                     },
                 },
             },

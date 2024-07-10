@@ -1,4 +1,5 @@
 use super::{
+    fpu::{FP_CONTROL_WORD_DEFAULT, FP_TAG_WORD_DEFAULT, MXCSR_DEFAULT},
     handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
     Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR,
     CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
@@ -18,7 +19,7 @@ use mshv_bindings::{
     hv_register_name_HV_X64_REGISTER_CR0, hv_register_name_HV_X64_REGISTER_CR3,
     hv_register_name_HV_X64_REGISTER_CR4, hv_register_name_HV_X64_REGISTER_CS,
     hv_register_name_HV_X64_REGISTER_EFER, hv_register_name_HV_X64_REGISTER_RIP, hv_register_value,
-    hv_u128, mshv_user_mem_region, StandardRegisters,
+    hv_u128, mshv_user_mem_region, FloatingPointUnit, StandardRegisters,
 };
 use mshv_ioctls::{Mshv, VcpuFd, VmFd};
 use std::any::Any;
@@ -212,10 +213,13 @@ impl Hypervisor for HypervLinuxDriver {
         self.vcpu_fd.set_regs(&regs)?;
 
         // reset fpu state
-        // self.vcpu_fd.set_fpu(&FloatingPointUnit::default())?;
-        // ^^^ setting this causes the guest to exit w/ an MMIO 0x130
-        // when running HL-Js and HL-Wasm. For now, we are just commenting this out,
-        // but we are tracking the issue here: https://github.com/deislabs/hyperlight/issues/1443
+        let fpu = FloatingPointUnit {
+            fcw: FP_CONTROL_WORD_DEFAULT,
+            ftwx: FP_TAG_WORD_DEFAULT,
+            mxcsr: MXCSR_DEFAULT,
+            ..Default::default() // zero out the rest
+        };
+        self.vcpu_fd.set_fpu(&fpu)?;
 
         // run
         VirtualCPU::run(self.as_mut_hypervisor(), outb_handle_fn, mem_access_fn)?;

@@ -88,6 +88,8 @@ pub(super) struct WHvFPURegisters {
     pub mmx6: u64,
     pub mmx7: u64,
 
-    pub fp_control_status: u128,
-    pub xmm_control_status: u128,
+    pub fp_control_word: u16,
+    pub fp_tag_word: u8,
+
+    pub mxcsr: u32,
 }
