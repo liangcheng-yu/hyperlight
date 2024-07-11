@@ -18,6 +18,7 @@ use crossbeam_channel::{Receiver, Sender};
 #[cfg(target_os = "linux")]
 use libc::{c_void, pthread_self, siginfo_t};
 use rand::Rng;
+use std::thread::sleep;
 use std::time::Duration;
 use std::{
     sync::{Arc, Mutex},
@@ -385,35 +386,36 @@ where
     T: Sandbox,
 {
     let hv_wrapper = sbox.get_hypervisor_wrapper_mut();
-    let timeout = hv_wrapper.max_execution_time;
-    let start = std::time::Instant::now();
-
-    if start.elapsed() >= timeout {
-        log_then_return!(HyperlightError::Error(
-            "Failed to join Hypervisor handler thread".to_string()
-        ));
-    }
-
     if let Some(handle) = hv_wrapper
         .try_get_hypervisor_lock()
         .unwrap()
         .get_mut_handler_join_handle()
         .take()
     {
-        if !handle.is_finished() {
-            match handle.join() {
-                Ok(Ok(())) => return Ok(()),
-                Ok(Err(e)) => {
-                    log_then_return!(e);
-                }
-                Err(e) => {
-                    log_then_return!(new_error!("{:?}", e));
+        // check if thread is handle.is_finished for `max_execution_time`
+        // note: dropping the transmitter in `kill_hypervisor_handler_thread`
+        // should have caused the thread to finish, in here, we are just syncing.
+        let now = std::time::Instant::now();
+        let timeout = hv_wrapper.max_execution_time;
+        while now.elapsed() < timeout {
+            if handle.is_finished() {
+                match handle.join() {
+                    Ok(Ok(())) => return Ok(()),
+                    Ok(Err(e)) => {
+                        log_then_return!(e);
+                    }
+                    Err(e) => {
+                        log_then_return!(new_error!("{:?}", e));
+                    }
                 }
             }
+            sleep(Duration::from_millis(1)); // sleep to not busy wait
         }
     }
 
-    Ok(())
+    return Err(HyperlightError::Error(
+        "Failed to finish Hypervisor handler thread".to_string(),
+    ));
 }
 
 /// Tries to kill the Hypervisor Handler Thread.

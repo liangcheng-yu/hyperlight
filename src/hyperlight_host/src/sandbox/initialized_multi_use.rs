@@ -47,7 +47,7 @@ impl Drop for MultiUseSandbox<'_> {
         match kill_hypervisor_handler_thread(self) {
             Ok(_) => {}
             Err(e) => {
-                log::error!("[LEAKED THREAD] Failed to kill hypervisor handler thread when dropping MultiUseSandbox: {:?}", e);
+                log::error!("[POTENTIAL THREAD LEAK] Potentially failed to kill hypervisor handler thread when dropping MultiUseSandbox: {:?}", e);
             }
         }
     }
