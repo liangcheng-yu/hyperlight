@@ -7,7 +7,6 @@ use hyperlight_host::{
 };
 use hyperlight_testing::simple_guest_as_string;
 use std::sync::{Arc, Mutex};
-use std::thread::{spawn, JoinHandle};
 
 fn fn_writer(_msg: String) -> Result<i32> {
     Ok(0)
@@ -22,12 +21,10 @@ fn main() -> Result<()> {
     let hyperlight_guest_path =
         simple_guest_as_string().expect("Cannot find the guest binary at the expected location.");
 
-    let mut join_handles: Vec<JoinHandle<Result<()>>> = vec![];
-
     for _ in 0..20 {
         let path = hyperlight_guest_path.clone();
         let writer_func = Arc::new(Mutex::new(fn_writer));
-        let handle = spawn(move || -> Result<()> {
+        let res: Result<()> = {
             // Create a new sandbox.
             let usandbox = UninitializedSandbox::new(
                 GuestBinary::FilePath(path),
@@ -49,7 +46,7 @@ fn main() -> Result<()> {
                     ReturnType::String,
                     Some(vec![ParameterValue::String("a".to_string())]),
                 );
-                assert!(result.is_ok());
+                result.unwrap();
             }
 
             // Define a message to send to the guest.
@@ -63,12 +60,12 @@ fn main() -> Result<()> {
                     ReturnType::Int,
                     Some(vec![ParameterValue::String(msg.clone())]),
                 );
-                assert!(result.is_ok());
+                result.unwrap();
             }
             Ok(())
-        });
+        };
 
-        join_handles.push(handle);
+        res.unwrap()
     }
 
     // Create a new sandbox.
@@ -93,13 +90,7 @@ fn main() -> Result<()> {
         let result = ctx.call("Spin", ReturnType::Void, None);
         assert!(result.is_err());
         let result = ctx.finish();
-        assert!(result.is_ok());
         multiuse_sandbox = result.unwrap();
-    }
-
-    for join_handle in join_handles {
-        let result = join_handle.join();
-        assert!(result.is_ok());
     }
 
     Ok(())

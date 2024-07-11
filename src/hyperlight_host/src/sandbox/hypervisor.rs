@@ -94,25 +94,8 @@ impl HypervisorWrapper {
         }
     }
 
-    pub(crate) fn try_get_hypervisor_lock(&self) -> Result<MutexGuard<Box<dyn Hypervisor>>> {
-        match self.hv_opt.as_ref() {
-            None => {
-                log_then_return!(NoHypervisorFound());
-            }
-            Some(h_arc_mut) => {
-                let h_ref_mutex = Arc::as_ref(h_arc_mut);
-
-                Ok(h_ref_mutex
-                    .try_lock()
-                    .map_err(|_| LockAttemptFailed("get_hypervisor_lock failed".to_string()))?)
-            }
-        }
-    }
-
     /// Try to get the lock for `max_execution_time` duration
-    pub(crate) fn try_get_hypervisor_lock_for_max_execution_time(
-        &self,
-    ) -> Result<MutexGuard<Box<dyn Hypervisor>>> {
+    pub(crate) fn try_get_hypervisor_lock(&self) -> Result<MutexGuard<Box<dyn Hypervisor>>> {
         let timeout = self.max_execution_time;
         let start = Instant::now();
 
@@ -128,7 +111,7 @@ impl HypervisorWrapper {
                         Ok(guard) => return Ok(guard),
                         Err(_) if start.elapsed() >= timeout => {
                             log_then_return!(LockAttemptFailed(
-                                "try_get_hypervisor_lock_for_max_execution_time failed".to_string()
+                                "try_get_hypervisor_lock failed".to_string()
                             ));
                         }
                         Err(_) => {

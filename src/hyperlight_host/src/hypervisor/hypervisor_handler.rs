@@ -395,7 +395,7 @@ where
     }
 
     if let Some(handle) = hv_wrapper
-        .try_get_hypervisor_lock_for_max_execution_time()
+        .try_get_hypervisor_lock()
         .unwrap()
         .get_mut_handler_join_handle()
         .take()
@@ -434,7 +434,7 @@ where
     {
         let mut hv_lock = sbox
             .get_hypervisor_wrapper_mut()
-            .try_get_hypervisor_lock_for_max_execution_time()?;
+            .try_get_hypervisor_lock()?;
         hv_lock.drop_to_handler_tx();
     }
 
@@ -513,10 +513,7 @@ pub(crate) fn terminate_hypervisor_handler_execution_and_reinitialise<HvMemMgrT:
 
     {
         // check the lock to make sure it is free
-        match wrapper_getter
-            .get_hv()
-            .try_get_hypervisor_lock_for_max_execution_time()
-        {
+        match wrapper_getter.get_hv().try_get_hypervisor_lock() {
             Ok(_) => {}
             Err(_) => {
                 // If we still fail to acquire the hv_lock, this means that
@@ -529,7 +526,14 @@ pub(crate) fn terminate_hypervisor_handler_execution_and_reinitialise<HvMemMgrT:
     }
 
     // Receive `ExecutionCancelledByHost` or other
-    let res = match try_receive_handler_msg(wrapper_getter.get_hv(), max_execution_time) {
+    let res = match try_receive_handler_msg(
+        wrapper_getter
+            .get_hv()
+            .try_get_hypervisor_lock()
+            .unwrap()
+            .get_from_handler_rx(),
+        max_execution_time,
+    ) {
         Ok(_) => Ok(new_error!(
             "Expected ExecutionCanceledByHost, but received FinishedVCPUAction"
         )),
@@ -581,9 +585,9 @@ pub(crate) fn execute_vcpu_action(
     vcpu_action: VCPUAction,
     max_wait_time: Option<Duration>,
 ) -> Result<()> {
-    let to_handler_tx = {
-        let hv_lock = hv_wrapper.try_get_hypervisor_lock_for_max_execution_time()?;
-        hv_lock.get_to_handler_tx()
+    let (to_handler_tx, from_handler_rx) = {
+        let hv_lock = hv_wrapper.try_get_hypervisor_lock()?;
+        (hv_lock.get_to_handler_tx(), hv_lock.get_from_handler_rx())
     };
 
     to_handler_tx
@@ -591,9 +595,9 @@ pub(crate) fn execute_vcpu_action(
         .map_err(|_| HyperlightError::HypervisorHandlerCommunicationFailure())?;
 
     match max_wait_time {
-        Some(wait) => try_receive_handler_msg(hv_wrapper, wait),
+        Some(wait) => try_receive_handler_msg(from_handler_rx, wait),
         None => try_receive_handler_msg(
-            hv_wrapper,
+            from_handler_rx,
             Duration::from_millis(SandboxConfiguration::DEFAULT_MAX_EXECUTION_TIME as u64),
         ),
     }
@@ -608,14 +612,9 @@ pub(crate) fn execute_vcpu_action(
 /// and still have to receive after sorting that out without sending
 /// an extra message.
 pub(crate) fn try_receive_handler_msg(
-    hv_wrapper: &HypervisorWrapper,
+    from_handler_rx: Receiver<HandlerMsg>,
     wait: Duration,
 ) -> Result<()> {
-    let from_handler_rx = {
-        let hv_lock = hv_wrapper.try_get_hypervisor_lock_for_max_execution_time()?;
-        hv_lock.get_from_handler_rx()
-    };
-
     match from_handler_rx.recv_timeout(wait) {
         Ok(msg) => match msg {
             HandlerMsg::Error(e) => Err(e),
@@ -725,9 +724,7 @@ mod tests {
 
             #[cfg(target_os = "linux")]
             let thread_id = {
-                let hv_lock = sandbox
-                    .get_hv_mut()
-                    .try_get_hypervisor_lock_for_max_execution_time()?;
+                let hv_lock = sandbox.get_hv_mut().try_get_hypervisor_lock()?;
                 hv_lock.get_thread_id()
             };
 
