@@ -350,12 +350,12 @@ jobs:
             benchmarks_Linux_kvm.tar.gz
         env:
             GH_TOKEN: ${{ github.token }}
-      - name: Create release (latest)
-        # Only create a latest release if we are on the dev branch
+      - name: Create release (dev)
+        # Only create a dev release if we are on the dev branch
         if: ${{ github.ref=='refs/heads/dev' }}
         run:  |    
-            gh release delete latest -y --cleanup-tag  || $true
-            gh release create latest -t "Latest Development Build From Dev Branch"  -p `
+            gh release delete dev -y --cleanup-tag  || $true
+            gh release create dev -t "Latest Development Build From Dev Branch" --latest=false -p `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe `
