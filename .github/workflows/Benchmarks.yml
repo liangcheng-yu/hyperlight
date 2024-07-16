@@ -78,7 +78,7 @@ jobs:
         run: git fetch --tags origin
 
       - name: Download benchmarks from most recent release
-        run: just bench-download ${{ runner.os }} ${{ matrix.hypervisor }}
+        run: just bench-download ${{ runner.os }} ${{ matrix.hypervisor }} # skip tag parameter to compare to latest stable release
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

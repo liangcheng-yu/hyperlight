@@ -8,11 +8,6 @@ set-trace-env-vars := if os() == "windows" { "$env:RUST_LOG='none,hyperlight_hos
 set-env-command := if os() == "windows" { "$env:" } else { "export " }
 bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
 
-# Note: most recent github release that is not "latest".
-# Backticks don't work correctly on windows so we use powershell
-# command substitution $() instead
-
-latest-release := if os() == "windows" { "$(git tag -l --sort=v:refname | select -last 2 | select -first 1)" } else { `git tag -l --sort=v:refname | tail -n 2 | head -n 1` }
 default-target := "debug"
 simpleguest_source := "src/tests/rust_guests/simpleguest/target/x86_64-pc-windows-msvc"
 dummyguest_source := "src/tests/rust_guests/dummyguest/target/x86_64-pc-windows-msvc"
@@ -187,7 +182,9 @@ run-rust-examples-linux target=default-target: (build-rust target) (run-rust-exa
 # BENCHMARKING
 
 # Warning: can overwrite previous local benchmarks, so run this before running benchmarks
-bench-download os hypervisor tag=latest-release:
+# Downloads the benchmarks result from the given release tag.
+# If tag is not given, defaults to latest release
+bench-download os hypervisor tag="":
     gh release download {{ tag }} -D ./target/ -p benchmarks_{{ os }}_{{ hypervisor }}.tar.gz
     mkdir -p target/criterion {{ if os() == "windows" { "-Force" } else { "" } }}
     tar -zxvf target/benchmarks_{{ os }}_{{ hypervisor }}.tar.gz -C target/criterion/ --strip-components=1

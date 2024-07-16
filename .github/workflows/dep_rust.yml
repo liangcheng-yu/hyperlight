@@ -136,7 +136,7 @@ jobs:
         run: sudo apt install gh -y
 
       - name: Download benchmarks from "latest"
-        run: just bench-download ${{ runner.os }} ${{ matrix.hypervisor }} latest
+        run: just bench-download ${{ runner.os }} ${{ matrix.hypervisor }} dev # compare to pre-release "dev"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
