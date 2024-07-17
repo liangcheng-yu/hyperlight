@@ -1,5 +1,6 @@
 use std::any::Any;
 use std::convert::TryFrom;
+use std::fmt::Debug;
 use std::sync::Arc;
 
 use crossbeam::atomic::AtomicCell;
@@ -12,8 +13,8 @@ use tracing::{instrument, Span};
 use super::fpu::{FP_CONTROL_WORD_DEFAULT, FP_TAG_WORD_DEFAULT, MXCSR_DEFAULT};
 use super::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper};
 use super::{
-    HyperlightExit, Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP,
-    CR4_OSFXSR, CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
+    HyperlightExit, Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG,
+    CR4_OSFXSR, CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME, EFER_NX, EFER_SCE,
 };
 use crate::hypervisor::hypervisor_handler::{HandlerMsg, HasCommunicationChannels, VCPUAction};
 use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
@@ -45,7 +46,6 @@ pub fn is_hypervisor_present() -> bool {
 
 /// A Hypervisor driver for KVM on Linux
 //TODO:(#1029) Once CAPI is complete this does not need to be public
-#[derive(Debug)]
 pub struct KVMDriver {
     _kvm: Kvm,
     _vm_fd: VmFd,
@@ -129,11 +129,38 @@ impl KVMDriver {
         let mut sregs = vcpu_fd.get_sregs()?; // TODO start with default and set explicitly what we need
         sregs.cr3 = pml4_addr;
         sregs.cr4 = CR4_PAE | CR4_OSFXSR | CR4_OSXMMEXCPT;
-        sregs.cr0 = CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG;
-        sregs.efer = EFER_LME | EFER_LMA;
+        sregs.cr0 = CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_AM | CR0_PG;
+        sregs.efer = EFER_LME | EFER_LMA | EFER_SCE | EFER_NX;
         sregs.cs.l = 1; // required for 64-bit mode
         vcpu_fd.set_sregs(&sregs)?;
         Ok(())
+    }
+}
+
+impl Debug for KVMDriver {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut f = f.debug_struct("KVM Driver");
+        // Output each memory region
+
+        for region in &self.mem_regions {
+            f.field("Memory Region", &region);
+        }
+        let regs = self.vcpu_fd.get_regs();
+        // check that regs is OK and then set field in debug struct
+
+        if let Ok(regs) = regs {
+            f.field("Registers", &regs);
+        }
+
+        let sregs = self.vcpu_fd.get_sregs();
+
+        // check that sregs is OK and then set field in debug struct
+
+        if let Ok(sregs) = sregs {
+            f.field("Special Registers", &sregs);
+        }
+
+        f.finish()
     }
 }
 
@@ -245,8 +272,17 @@ impl Hypervisor for KVMDriver {
     fn run(&mut self) -> Result<HyperlightExit> {
         let exit_reason = self.vcpu_fd.run();
         let result = match exit_reason {
-            Ok(VcpuExit::Hlt) => HyperlightExit::Halt(),
+            Ok(VcpuExit::Hlt) => {
+                #[cfg(all(debug_assertions, feature = "print_debug"))]
+                println!("KVM - Halt Details : {:#?}", &self);
+                HyperlightExit::Halt()
+            }
             Ok(VcpuExit::IoOut(port, data)) => {
+                #[cfg(all(debug_assertions, feature = "print_debug"))]
+                println!(
+                    "KVM IO Details : \nPort : {}\nData : {:?}\n{:#?}",
+                    port, data, &self
+                );
                 let regs = self.vcpu_fd.get_regs()?;
                 let rip = regs.rip;
                 //TODO: 1 may be a hack, but it works for now, need to figure out
@@ -256,6 +292,8 @@ impl Hypervisor for KVMDriver {
                 HyperlightExit::IoOut(port, data.to_vec(), rip, instruction_length)
             }
             Ok(VcpuExit::MmioRead(addr, _)) => {
+                #[cfg(all(debug_assertions, feature = "print_debug"))]
+                println!("KVM MMIO Read -Details: Address: {} \n {:#?}", addr, &self);
                 let gpa = addr as usize;
                 match self.get_memory_access_violation(
                     gpa,
@@ -267,6 +305,8 @@ impl Hypervisor for KVMDriver {
                 }
             }
             Ok(VcpuExit::MmioWrite(addr, _)) => {
+                #[cfg(all(debug_assertions, feature = "print_debug"))]
+                println!("KVM MMIO Write -Details: Address: {} \n {:#?}", addr, &self);
                 let gpa = addr as usize;
                 match self.get_memory_access_violation(
                     gpa,
@@ -282,10 +322,16 @@ impl Hypervisor for KVMDriver {
                 libc::EINTR => HyperlightExit::Cancelled(),
                 libc::EAGAIN => HyperlightExit::Retry(),
                 _ => {
+                    #[cfg(all(debug_assertions, feature = "print_debug"))]
+                    println!("KVM Error -Details: Address: {} \n {:#?}", e, &self);
                     log_then_return!("Error running VCPU {:?}", e);
                 }
             },
-            Ok(other) => HyperlightExit::Unknown(format!("Unexpected KVM Exit {:?}", other)),
+            Ok(other) => {
+                #[cfg(all(debug_assertions, feature = "print_debug"))]
+                println!("KVM Other Exit: Exit: {:#?} \n {:#?}", other, &self);
+                HyperlightExit::Unknown(format!("Unexpected KVM Exit {:?}", other))
+            }
         };
         Ok(result)
     }

@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::mem::{offset_of, size_of};
 
 use hyperlight_common::mem::{GuestStackData, HyperlightPEB, PAGE_SIZE_USIZE};
@@ -6,6 +7,9 @@ use rand::rngs::OsRng;
 use rand::RngCore;
 use tracing::{instrument, Span};
 
+use super::memory_region::MemoryRegionType::{
+    Code, GuardPage, HeGeIdOdPc, Heap, HostFunctionDefinitions, PageTables, Peb, Stack,
+};
 use super::memory_region::{MemoryRegion, MemoryRegionFlags, MemoryRegionVecBuilder};
 #[cfg(test)]
 use super::ptr::HostPtr;
@@ -79,7 +83,7 @@ use crate::Result;
 /// panic that occurred.
 /// the length of this field is returned by the `guest_panic_context_size()` fn of this struct.
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 //TODO:(#1029) Once we have a complete C API, we can restrict visibility to crate level.
 pub struct SandboxMemoryLayout {
     pub(super) sandbox_memory_config: SandboxConfiguration,
@@ -119,6 +123,103 @@ pub struct SandboxMemoryLayout {
     pub(crate) peb_address: usize,
     code_size: usize,
 }
+
+impl Debug for SandboxMemoryLayout {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SandboxMemoryLayout")
+            .field(
+                "Total Memory Size",
+                &format_args!("{:#x}", self.get_memory_size().unwrap_or(0)),
+            )
+            .field("Stack Size", &format_args!("{:#x}", self.stack_size))
+            .field("Heap Size", &format_args!("{:#x}", self.heap_size))
+            .field("PEB Address", &format_args!("{:#x}", self.peb_address))
+            .field("PEB Offset", &format_args!("{:#x}", self.peb_offset))
+            .field("Code Size", &format_args!("{:#x}", self.code_size))
+            .field(
+                "Security Cookie Seed Offset",
+                &format_args!("{:#x}", self.peb_security_cookie_seed_offset),
+            )
+            .field(
+                "Guest Dispatch Function Pointer Offset",
+                &format_args!("{:#x}", self.peb_guest_dispatch_function_ptr_offset),
+            )
+            .field(
+                "Host Function Definitions Offset",
+                &format_args!("{:#x}", self.peb_host_function_definitions_offset),
+            )
+            .field(
+                "Host Exception Offset",
+                &format_args!("{:#x}", self.peb_host_exception_offset),
+            )
+            .field(
+                "Guest Error Offset",
+                &format_args!("{:#x}", self.peb_guest_error_offset),
+            )
+            .field(
+                "Code and OutB Pointer Offset",
+                &format_args!("{:#x}", self.peb_code_and_outb_pointer_offset),
+            )
+            .field(
+                "Input Data Offset",
+                &format_args!("{:#x}", self.peb_input_data_offset),
+            )
+            .field(
+                "Output Data Offset",
+                &format_args!("{:#x}", self.peb_output_data_offset),
+            )
+            .field(
+                "Guest Panic Context Offset",
+                &format_args!("{:#x}", self.peb_guest_panic_context_offset),
+            )
+            .field(
+                "Guest Heap Offset",
+                &format_args!("{:#x}", self.peb_heap_data_offset),
+            )
+            .field(
+                "Guest Stack Offset",
+                &format_args!("{:#x}", self.peb_stack_data_offset),
+            )
+            .field(
+                "Host Function Definitions Buffer Offset",
+                &format_args!("{:#x}", self.host_function_definitions_buffer_offset),
+            )
+            .field(
+                "Host Exception Buffer Offset",
+                &format_args!("{:#x}", self.host_exception_buffer_offset),
+            )
+            .field(
+                "Guest Error Buffer Offset",
+                &format_args!("{:#x}", self.guest_error_buffer_offset),
+            )
+            .field(
+                "Input Data Buffer Offset",
+                &format_args!("{:#x}", self.input_data_buffer_offset),
+            )
+            .field(
+                "Output Data Buffer Offset",
+                &format_args!("{:#x}", self.output_data_buffer_offset),
+            )
+            .field(
+                "Guest Panic Context Buffer Offset",
+                &format_args!("{:#x}", self.guest_panic_context_buffer_offset),
+            )
+            .field(
+                "Guest Heap Buffer Offset",
+                &format_args!("{:#x}", self.guest_heap_buffer_offset),
+            )
+            .field(
+                "Guard Page Offset",
+                &format_args!("{:#x}", self.guard_page_offset),
+            )
+            .field(
+                "Guest Stack Buffer Offset",
+                &format_args!("{:#x}", self.guest_stack_buffer_offset),
+            )
+            .finish()
+    }
+}
+
 impl SandboxMemoryLayout {
     /// Four Kilobytes (16^3 bytes) - used to round the total amount of memory
     /// used to the nearest 4K
@@ -472,6 +573,7 @@ impl SandboxMemoryLayout {
         let code_offset = builder.push_page_aligned(
             Self::PAGE_TABLE_SIZE,
             MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
+            PageTables,
         );
         assert_eq!(code_offset, Self::CODE_OFFSET);
 
@@ -479,6 +581,7 @@ impl SandboxMemoryLayout {
         let peb_offset = builder.push_page_aligned(
             self.code_size,
             MemoryRegionFlags::READ | MemoryRegionFlags::WRITE | MemoryRegionFlags::EXECUTE,
+            Code,
         );
         assert_eq!(
             peb_offset,
@@ -489,6 +592,7 @@ impl SandboxMemoryLayout {
         let host_functions_definitions_offset = builder.push_page_aligned(
             size_of::<HyperlightPEB>(),
             MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
+            Peb,
         );
         assert_eq!(
             host_functions_definitions_offset,
@@ -500,6 +604,7 @@ impl SandboxMemoryLayout {
             self.sandbox_memory_config
                 .get_host_function_definition_size(),
             MemoryRegionFlags::READ,
+            HostFunctionDefinitions,
         );
         assert_eq!(
             host_exception_offset,
@@ -516,6 +621,7 @@ impl SandboxMemoryLayout {
                     .sandbox_memory_config
                     .get_guest_panic_context_buffer_size(),
             MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
+            HeGeIdOdPc,
         );
         assert_eq!(
             heap_offset,
@@ -527,11 +633,13 @@ impl SandboxMemoryLayout {
         let guard_page_offset = builder.push_page_aligned(
             self.heap_size,
             MemoryRegionFlags::READ | MemoryRegionFlags::WRITE | MemoryRegionFlags::EXECUTE,
+            Heap,
         );
         #[cfg(not(feature = "executable_heap"))]
         let guard_page_offset = builder.push_page_aligned(
             self.heap_size,
             MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
+            Heap,
         );
 
         assert_eq!(
@@ -540,7 +648,8 @@ impl SandboxMemoryLayout {
         );
 
         // guard page
-        let stack_offset = builder.push_page_aligned(PAGE_SIZE_USIZE, MemoryRegionFlags::READ);
+        let stack_offset =
+            builder.push_page_aligned(PAGE_SIZE_USIZE, MemoryRegionFlags::READ, GuardPage);
         assert_eq!(
             stack_offset,
             TryInto::<usize>::try_into(self.guest_stack_buffer_offset).unwrap()
@@ -550,6 +659,7 @@ impl SandboxMemoryLayout {
         let final_offset = builder.push_page_aligned(
             self.get_stack_size(),
             MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
+            Stack,
         );
         assert_eq!(final_offset, self.get_unaligned_memory_size());
         builder.build()

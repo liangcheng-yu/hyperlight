@@ -90,6 +90,19 @@ impl TryFrom<hv_x64_memory_intercept_message> for MemoryRegionFlags {
     }
 }
 
+// only used for debugging
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub(crate) enum MemoryRegionType {
+    PageTables,
+    Code,
+    Peb,
+    HostFunctionDefinitions,
+    HeGeIdOdPc,
+    Heap,
+    GuardPage,
+    Stack,
+}
+
 /// represents a single memory region inside the guest. All memory within a region has
 /// the same memory permissions
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -100,6 +113,8 @@ pub struct MemoryRegion {
     pub host_region: Range<usize>,
     /// memory access flags for the given region
     pub flags: MemoryRegionFlags,
+    /// the type of memory region
+    region_type: MemoryRegionType,
 }
 
 pub(crate) struct MemoryRegionVecBuilder {
@@ -117,7 +132,12 @@ impl MemoryRegionVecBuilder {
         }
     }
 
-    fn push(&mut self, size: usize, flags: MemoryRegionFlags) -> usize {
+    fn push(
+        &mut self,
+        size: usize,
+        flags: MemoryRegionFlags,
+        region_type: MemoryRegionType,
+    ) -> usize {
         if self.regions.is_empty() {
             let guest_end = self.guest_base_phys_addr + size;
             let host_end = self.host_base_virt_addr + size;
@@ -125,6 +145,7 @@ impl MemoryRegionVecBuilder {
                 guest_region: self.guest_base_phys_addr..guest_end,
                 host_region: self.host_base_virt_addr..host_end,
                 flags,
+                region_type,
             });
             return guest_end - self.guest_base_phys_addr;
         }
@@ -134,6 +155,7 @@ impl MemoryRegionVecBuilder {
             guest_region: last_region.guest_region.end..last_region.guest_region.end + size,
             host_region: last_region.host_region.end..last_region.host_region.end + size,
             flags,
+            region_type,
         };
         let ret = new_region.guest_region.end;
         self.regions.push(new_region);
@@ -144,9 +166,14 @@ impl MemoryRegionVecBuilder {
     /// Returns the current size of the all memory regions in the builder after adding the given region.
     /// # Note:
     /// Memory regions pushed MUST match the guest's memory layout, in SandboxMemoryLayout::new(..)
-    pub(crate) fn push_page_aligned(&mut self, size: usize, flags: MemoryRegionFlags) -> usize {
+    pub(crate) fn push_page_aligned(
+        &mut self,
+        size: usize,
+        flags: MemoryRegionFlags,
+        region_type: MemoryRegionType,
+    ) -> usize {
         let aligned_size = (size + PAGE_SIZE_USIZE - 1) & !(PAGE_SIZE_USIZE - 1);
-        self.push(aligned_size, flags)
+        self.push(aligned_size, flags, region_type)
     }
 
     /// Consumes the builder and returns a vec of memory regions. The regions are guaranteed to be a contiguous chunk

@@ -39,9 +39,6 @@ use crate::{log_then_return, new_error, HyperlightError, Result};
 /// * More in-depth descriptions: https://wiki.osdev.org/Paging
 const PDE64_PRESENT: u64 = 1;
 /// Read/write permissions flag for the 64-bit PDE
-const PDE64_RW: u64 = 1 << 1;
-/// The user/supervisor bit for the 64-bit PDE
-const PDE64_USER: u64 = 1 << 2;
 /// The page size for the 64-bit PDE
 const PDE64_PS: u64 = 1 << 7;
 /// The size of stack guard cookies
@@ -150,20 +147,19 @@ impl SandboxMemoryManager {
         // Create PDL4 table with only 1 PML4E
         self.shared_mem.write_u64(
             SandboxMemoryLayout::PML4_OFFSET,
-            PDE64_PRESENT | PDE64_RW | PDE64_USER | SandboxMemoryLayout::PDPT_GUEST_ADDRESS as u64,
+            PDE64_PRESENT | SandboxMemoryLayout::PDPT_GUEST_ADDRESS as u64,
         )?;
         // Create PDPT with only 1 PDPTE
         self.shared_mem.write_u64(
             SandboxMemoryLayout::PDPT_OFFSET,
-            PDE64_PRESENT | PDE64_RW | PDE64_USER | SandboxMemoryLayout::PD_GUEST_ADDRESS as u64,
+            PDE64_PRESENT | SandboxMemoryLayout::PD_GUEST_ADDRESS as u64,
         )?;
 
         // Create 1 PD with 512 PDEs
         for i in 0..512 {
             let offset = SandboxMemoryLayout::PD_OFFSET + (i * 8);
             // PS flag makes the page size 2MB
-            let val_to_write: u64 =
-                (i << 21) as u64 + (PDE64_PRESENT | PDE64_RW | PDE64_USER | PDE64_PS);
+            let val_to_write: u64 = (i << 21) as u64 + (PDE64_PRESENT | PDE64_PS);
             self.shared_mem.write_u64(offset, val_to_write)?;
         }
         // Note we don't have any Page Tables, for more details see docs/paging.md

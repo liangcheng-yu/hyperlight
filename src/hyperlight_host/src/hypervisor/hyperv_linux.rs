@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
 use crossbeam::atomic::AtomicCell;
@@ -19,8 +20,8 @@ use tracing::{instrument, Span};
 use super::fpu::{FP_CONTROL_WORD_DEFAULT, FP_TAG_WORD_DEFAULT, MXCSR_DEFAULT};
 use super::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper};
 use super::{
-    Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR,
-    CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
+    Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR4_OSFXSR,
+    CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME, EFER_NX, EFER_SCE,
 };
 use crate::hypervisor::hypervisor_handler::{HandlerMsg, HasCommunicationChannels, VCPUAction};
 use crate::hypervisor::HyperlightExit;
@@ -50,7 +51,6 @@ pub fn is_hypervisor_present() -> bool {
 /// A Hypervisor driver for HyperV-on-Linux. This hypervisor is often
 /// called the Microsoft Hypervisor (MSHV)
 //TODO:(#1029) Once CAPI is complete this does not need to be public
-#[derive(Debug)]
 pub struct HypervLinuxDriver {
     _mshv: Mshv,
     vm_fd: VmFd,
@@ -138,14 +138,14 @@ impl HypervLinuxDriver {
             hv_register_assoc {
                 name: hv_register_name_HV_X64_REGISTER_CR0,
                 value: hv_register_value {
-                    reg64: CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG,
+                    reg64: CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_AM | CR0_PG,
                 },
                 ..Default::default()
             },
             hv_register_assoc {
                 name: hv_register_name_HV_X64_REGISTER_EFER,
                 value: hv_register_value {
-                    reg64: EFER_LME | EFER_LMA,
+                    reg64: EFER_LME | EFER_LMA | EFER_SCE | EFER_NX,
                 },
                 ..Default::default()
             },
@@ -161,6 +161,33 @@ impl HypervLinuxDriver {
             },
         ])?;
         Ok(())
+    }
+}
+
+impl Debug for HypervLinuxDriver {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut f = f.debug_struct("Hyperv Linux Driver");
+
+        f.field("Entrypoint", &self.entrypoint)
+            .field("Original RSP", &self.orig_rsp);
+
+        for region in &self.mem_regions {
+            f.field("Memory Region", &region);
+        }
+
+        let regs = self.vcpu_fd.get_regs();
+
+        if let Ok(regs) = regs {
+            f.field("Registers", &regs);
+        }
+
+        let sregs = self.vcpu_fd.get_sregs();
+
+        if let Ok(sregs) = sregs {
+            f.field("Special Registers", &sregs);
+        }
+
+        f.finish()
     }
 }
 
@@ -271,13 +298,20 @@ impl Hypervisor for HypervLinuxDriver {
         let hv_message: hv_message = Default::default();
         let result = match &self.vcpu_fd.run(hv_message) {
             Ok(m) => match m.header.message_type {
-                HALT_MESSAGE => HyperlightExit::Halt(),
+                HALT_MESSAGE => {
+                    #[cfg(all(debug_assertions, feature = "print_debug"))]
+                    println!("mshv - Halt Details : {:#?}", &self);
+                    HyperlightExit::Halt()
+                }
                 IO_PORT_INTERCEPT_MESSAGE => {
                     let io_message = m.to_ioport_info()?;
                     let port_number = io_message.port_number;
                     let rip = io_message.header.rip;
                     let rax = io_message.rax;
                     let instruction_length = io_message.header.instruction_length() as u64;
+
+                    #[cfg(all(debug_assertions, feature = "print_debug"))]
+                    println!("mshv IO Details : \nPort : {}\n{:#?}", port_number, &self);
 
                     HyperlightExit::IoOut(
                         port_number,
@@ -289,13 +323,22 @@ impl Hypervisor for HypervLinuxDriver {
                 UNMAPPED_GPA_MESSAGE => {
                     let mimo_message = m.to_memory_info()?;
                     let addr = mimo_message.guest_physical_address;
+                    #[cfg(all(debug_assertions, feature = "print_debug"))]
+                    println!(
+                        "mshv MMIO unmapped GPA -Details: Address: {} \n {:#?}",
+                        addr, &self
+                    );
                     HyperlightExit::Mmio(addr)
                 }
                 INVALID_GPA_ACCESS_MESSAGE => {
                     let mimo_message = m.to_memory_info()?;
                     let gpa = mimo_message.guest_physical_address;
                     let access_info = MemoryRegionFlags::try_from(mimo_message)?;
-
+                    #[cfg(all(debug_assertions, feature = "print_debug"))]
+                    println!(
+                        "mshv MMIO invalid GPA access -Details: Address: {} \n {:#?}",
+                        gpa, &self
+                    );
                     match self.get_memory_access_violation(
                         gpa as usize,
                         &self.mem_regions,
@@ -306,6 +349,8 @@ impl Hypervisor for HypervLinuxDriver {
                     }
                 }
                 other => {
+                    #[cfg(all(debug_assertions, feature = "print_debug"))]
+                    println!("mshv Other Exit: Exit: {:#?} \n {:#?}", other, &self);
                     log_then_return!("unknown Hyper-V run message type {:?}", other);
                 }
             },
@@ -314,6 +359,8 @@ impl Hypervisor for HypervLinuxDriver {
                 libc::EINTR => HyperlightExit::Cancelled(),
                 libc::EAGAIN => HyperlightExit::Retry(),
                 _ => {
+                    #[cfg(all(debug_assertions, feature = "print_debug"))]
+                    println!("mshv Error - Details: Error: {} \n {:#?}", e, &self);
                     log_then_return!("Error running VCPU {:?}", e);
                 }
             },
@@ -521,6 +568,7 @@ mod tests {
         regions.push_page_aligned(
             MEM_SIZE,
             MemoryRegionFlags::READ | MemoryRegionFlags::WRITE | MemoryRegionFlags::EXECUTE,
+            crate::mem::memory_region::MemoryRegionType::Code,
         );
         super::HypervLinuxDriver::new(regions.build(), entrypoint_ptr, rsp_ptr, pml4_ptr).unwrap();
     }

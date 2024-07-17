@@ -22,5 +22,8 @@ namespace Hyperlight.Native
         public const ulong CR0_PG = (ulong)1 << 31;
         public const ulong EFER_LME = (ulong)1 << 8;
         public const ulong EFER_LMA = (ulong)1 << 10;
+
+        public const ulong EFER_SCE = (ulong)1;
+        public const ulong EFER_NX = (ulong)1 << 11;
     }
 }

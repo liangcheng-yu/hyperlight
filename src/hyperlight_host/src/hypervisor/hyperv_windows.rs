@@ -1,5 +1,7 @@
 use core::ffi::c_void;
 use std::any::Any;
+use std::fmt;
+use std::fmt::{Debug, Formatter};
 use std::string::String;
 use std::sync::Arc;
 
@@ -8,7 +10,10 @@ use crossbeam_channel::{Receiver, Sender};
 use hyperlight_common::mem::PAGE_SIZE_USIZE;
 use tracing::{instrument, Span};
 use windows::Win32::System::Hypervisor::{
-    WHvX64RegisterCr0, WHvX64RegisterCr3, WHvX64RegisterCr4, WHvX64RegisterCs, WHvX64RegisterEfer,
+    WHvGetVirtualProcessorRegisters, WHvX64RegisterApicBase, WHvX64RegisterCr0, WHvX64RegisterCr2,
+    WHvX64RegisterCr3, WHvX64RegisterCr4, WHvX64RegisterCr8, WHvX64RegisterCs, WHvX64RegisterDs,
+    WHvX64RegisterEfer, WHvX64RegisterEs, WHvX64RegisterFs, WHvX64RegisterGdtr, WHvX64RegisterGs,
+    WHvX64RegisterIdtr, WHvX64RegisterLdtr, WHvX64RegisterSs, WHvX64RegisterTr,
     WHV_MEMORY_ACCESS_TYPE, WHV_PARTITION_HANDLE, WHV_REGISTER_VALUE, WHV_RUN_VP_EXIT_CONTEXT,
     WHV_RUN_VP_EXIT_REASON, WHV_UINT128, WHV_UINT128_0,
 };
@@ -21,8 +26,8 @@ use super::windows_hypervisor_platform::{VMPartition, VMProcessor};
 use super::wrappers::WHvFPURegisters;
 use super::{
     windows_hypervisor_platform as whp, HyperlightExit, Hypervisor, VirtualCPU, CR0_AM, CR0_ET,
-    CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA,
-    EFER_LME,
+    CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR4_OSFXSR, CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
+    EFER_NX, EFER_SCE,
 };
 use crate::hypervisor::fpu::FP_CONTROL_WORD_DEFAULT;
 use crate::hypervisor::hypervisor_handler::{HandlerMsg, HasCommunicationChannels, VCPUAction};
@@ -34,7 +39,6 @@ use crate::HyperlightError::{NoHypervisorFound, WindowsErrorHResult};
 use crate::{log_then_return, new_error, Result};
 
 /// A Hypervisor driver for HyperV-on-Windows.
-#[derive(Debug)]
 pub(crate) struct HypervWindowsDriver {
     size: usize, // this is the size of the memory region, excluding the 2 surrounding guard pages
     processor: VMProcessor,
@@ -114,13 +118,13 @@ impl HypervWindowsDriver {
             (
                 WHvX64RegisterCr0,
                 WHV_REGISTER_VALUE {
-                    Reg64: CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG,
+                    Reg64: CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_AM | CR0_PG,
                 },
             ),
             (
                 WHvX64RegisterEfer,
                 WHV_REGISTER_VALUE {
-                    Reg64: EFER_LME | EFER_LMA,
+                    Reg64: EFER_LME | EFER_LMA | EFER_SCE | EFER_NX,
                 },
             ),
             (
@@ -152,6 +156,140 @@ impl HypervWindowsDriver {
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     pub(super) fn get_partition_hdl(&self) -> WHV_PARTITION_HANDLE {
         self.processor.get_partition_hdl()
+    }
+
+    fn get_all_special_registers(
+        partition: WHV_PARTITION_HANDLE,
+    ) -> Result<Vec<(String, WHV_REGISTER_VALUE)>> {
+        // Define all the special registers we want to retrieve
+
+        let register_names = [
+            WHvX64RegisterCr0,
+            WHvX64RegisterCr2,
+            WHvX64RegisterCr3,
+            WHvX64RegisterCr4,
+            WHvX64RegisterCr8,
+            WHvX64RegisterEfer,
+            WHvX64RegisterApicBase,
+            WHvX64RegisterCs,
+            WHvX64RegisterDs,
+            WHvX64RegisterEs,
+            WHvX64RegisterFs,
+            WHvX64RegisterGs,
+            WHvX64RegisterSs,
+            WHvX64RegisterTr,
+            WHvX64RegisterLdtr,
+            WHvX64RegisterGdtr,
+            WHvX64RegisterIdtr,
+        ];
+
+        // Create a buffer to hold the register values
+        let mut register_values: [WHV_REGISTER_VALUE; 17] = Default::default();
+
+        // Call WHvGetVirtualProcessorRegisters to get the register values
+        unsafe {
+            WHvGetVirtualProcessorRegisters(
+                partition,
+                0,
+                register_names.as_ptr(),
+                register_names.len() as u32,
+                register_values.as_mut_ptr(),
+            )?
+        };
+
+        // Create an array of tuples to hold the register names and values
+
+        let mut res: Vec<(String, WHV_REGISTER_VALUE)> = Vec::new();
+
+        for (i, reg) in register_names.iter().enumerate() {
+            #[allow(non_upper_case_globals)]
+            match *reg {
+                WHvX64RegisterCr0 => res.push(("CR0".to_string(), register_values[i])),
+                WHvX64RegisterCr2 => res.push(("CR2".to_string(), register_values[i])),
+                WHvX64RegisterCr3 => res.push(("CR3".to_string(), register_values[i])),
+                WHvX64RegisterCr4 => res.push(("CR4".to_string(), register_values[i])),
+                WHvX64RegisterCr8 => res.push(("CR8".to_string(), register_values[i])),
+                WHvX64RegisterEfer => res.push(("EFER".to_string(), register_values[i])),
+                WHvX64RegisterApicBase => res.push(("APIC_BASE".to_string(), register_values[i])),
+                WHvX64RegisterCs => res.push(("CS".to_string(), register_values[i])),
+                WHvX64RegisterDs => res.push(("DS".to_string(), register_values[i])),
+                WHvX64RegisterEs => res.push(("ES".to_string(), register_values[i])),
+                WHvX64RegisterFs => res.push(("FS".to_string(), register_values[i])),
+                WHvX64RegisterGs => res.push(("GS".to_string(), register_values[i])),
+                WHvX64RegisterSs => res.push(("SS".to_string(), register_values[i])),
+                WHvX64RegisterTr => res.push(("TR".to_string(), register_values[i])),
+                WHvX64RegisterLdtr => res.push(("LDTR".to_string(), register_values[i])),
+                WHvX64RegisterGdtr => res.push(("GDTR".to_string(), register_values[i])),
+                WHvX64RegisterIdtr => res.push(("IDTR".to_string(), register_values[i])),
+                _ => (),
+            }
+        }
+
+        Ok(res)
+    }
+}
+
+impl Debug for HypervWindowsDriver {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let mut fs = f.debug_struct("HyperV Driver");
+
+        fs.field("Size", &self.size)
+            .field("Source Address", &self.source_address)
+            .field("Entrypoint", &self.entrypoint)
+            .field("Original RSP", &self.orig_rsp);
+
+        for region in &self.mem_regions {
+            fs.field("Memory Region", &region);
+        }
+
+        // Get the registers
+
+        let regs = self.processor.get_regs();
+
+        if let Ok(regs) = regs {
+            {
+                fs.field("Registers", &regs);
+            }
+        }
+
+        // Get the special registers
+
+        let special_regs = Self::get_all_special_registers(self.get_partition_hdl());
+        if let Ok(special_regs) = special_regs {
+            for (name, value) in special_regs {
+                match name.as_str() {
+                    "CR0" | "CR2" | "CR3" | "CR4" | "CR8" | "EFER" | "APIC_BASE" => {
+                        fs.field(&name, unsafe { &value.Reg64 });
+                    }
+                    "CS" | "DS" | "ES" | "FS" | "GS" | "SS" | "TR" | "LDTR" => {
+                        fs.field(
+                            &name,
+                            &format_args!(
+                                "{{ Base: {:?}, Limit: {:?}, Selector: {:?}, Attributes: {:?} }}",
+                                unsafe { &value.Segment.Base },
+                                unsafe { &value.Segment.Limit },
+                                unsafe { &value.Segment.Selector },
+                                unsafe { &value.Segment.Anonymous.Attributes }
+                            ),
+                        );
+                    }
+                    "GDTR" | "IDTR" => {
+                        fs.field(
+                            &name,
+                            &format_args!(
+                                "{{ Base: {:?}, Limit: {:?}, Pad: {:?} }}",
+                                unsafe { &value.Table.Base },
+                                unsafe { &value.Table.Limit },
+                                unsafe { &value.Table.Pad }
+                            ),
+                        );
+                    }
+                    _ => {}
+                };
+            }
+        }
+
+        fs.finish()
     }
 }
 
@@ -309,6 +447,11 @@ impl Hypervisor for HypervWindowsDriver {
                 // see https://learn.microsoft.com/en-us/virtualization/api/hypervisor-platform/funcs/whvexitcontextdatatypes)
                 let instruction_length = exit_context.VpContext._bitfield & 0xF;
                 unsafe {
+                    #[cfg(all(debug_assertions, feature = "print_debug"))]
+                    println!(
+                        "HyperV IO Details :\n Port: {:#x} \n {:#?}",
+                        exit_context.Anonymous.IoPortAccess.PortNumber, &self
+                    );
                     HyperlightExit::IoOut(
                         exit_context.Anonymous.IoPortAccess.PortNumber,
                         exit_context
@@ -323,7 +466,11 @@ impl Hypervisor for HypervWindowsDriver {
                 }
             }
             // HvRunVpExitReasonX64Halt
-            WHV_RUN_VP_EXIT_REASON(8i32) => HyperlightExit::Halt(),
+            WHV_RUN_VP_EXIT_REASON(8i32) => {
+                #[cfg(all(debug_assertions, feature = "print_debug"))]
+                println!("HyperV Halt Details :\n {:#?}", &self);
+                HyperlightExit::Halt()
+            }
             // WHvRunVpExitReasonMemoryAccess
             WHV_RUN_VP_EXIT_REASON(1i32) => {
                 let gpa = unsafe { exit_context.Anonymous.MemoryAccess.Gpa };
@@ -334,6 +481,11 @@ impl Hypervisor for HypervWindowsDriver {
                     )
                 };
                 let access_info = MemoryRegionFlags::try_from(access_info)?;
+                #[cfg(all(debug_assertions, feature = "print_debug"))]
+                println!(
+                    "HyperV Memory Access Details :\n GPA: {:#?}\n Access Info :{:#?}\n {:#?} ",
+                    gpa, access_info, &self
+                );
 
                 match self.get_memory_access_violation(gpa as usize, &self.mem_regions, access_info)
                 {
@@ -344,11 +496,22 @@ impl Hypervisor for HypervWindowsDriver {
             //  WHvRunVpExitReasonCanceled
             //  Execution was cancelled by the host.
             //  This will happen when guest code runs for too long
-            WHV_RUN_VP_EXIT_REASON(8193i32) => HyperlightExit::Cancelled(),
-            WHV_RUN_VP_EXIT_REASON(_) => match self.get_exit_details(exit_context.ExitReason) {
-                Ok(error) => HyperlightExit::Unknown(error),
-                Err(e) => HyperlightExit::Unknown(format!("Error getting exit details: {}", e)),
-            },
+            WHV_RUN_VP_EXIT_REASON(8193i32) => {
+                #[cfg(all(debug_assertions, feature = "print_debug"))]
+                println!("HyperV Cancelled Details :\n {:#?}", &self);
+                HyperlightExit::Cancelled()
+            }
+            WHV_RUN_VP_EXIT_REASON(_) => {
+                #[cfg(all(debug_assertions, feature = "print_debug"))]
+                println!(
+                    "HyperV Unexpected Exit Details :#nReason {:#?}\n {:#?}",
+                    exit_context.ExitReason, &self
+                );
+                match self.get_exit_details(exit_context.ExitReason) {
+                    Ok(error) => HyperlightExit::Unknown(error),
+                    Err(e) => HyperlightExit::Unknown(format!("Error getting exit details: {}", e)),
+                }
+            }
         };
 
         Ok(result)

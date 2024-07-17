@@ -1,4 +1,5 @@
 use std::ffi::c_void;
+use std::fmt::Debug;
 use std::ops::Add;
 use std::option::Option;
 use std::path::Path;
@@ -76,10 +77,10 @@ impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for Uninitializ
     }
 }
 
-impl std::fmt::Debug for UninitializedSandbox {
+impl Debug for UninitializedSandbox {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("UninitializedSandbox")
-            .field("stack_guard", &self.mgr.get_stack_cookie())
+            .field("memory_layout", &self.mgr.unwrap_mgr().layout)
             .finish()
     }
 }
@@ -324,6 +325,9 @@ impl<'a> UninitializedSandbox {
                 default_writer.register(&mut sandbox, "HostPrint")?;
             }
         }
+
+        #[cfg(all(debug_assertions, feature = "print_debug"))]
+        println!("Sandbox created:  {:#?}", sandbox);
 
         Ok(sandbox)
     }

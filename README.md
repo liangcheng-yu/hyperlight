@@ -266,6 +266,24 @@ Mixed mode debugging in Visual Studio is enabled in the solution, this means tha
 
 Visual Studio Code does not currently support mixed mode debugging, to debug guest applications in Visual Studio Code you need to choose the `Debug Native Host` debugging task when starting a debug session.
 
+### Getting print output of memory configuration and virtual processor register state
+
+Setting the feature `print_debug` and running a debug build will result in some debug output being printed to the console. This output will show the memory configuration and virtual processor register state.
+
+To enable this permantly in the rust analyzer for Visual Studio Code so that this output shows when running tests using `Run Test` option add the following to your `settings.json` file:
+
+```json
+"rust-analyzer.runnables.extraArgs": [
+    "--features=print_debug"
+],
+```
+
+Alternatively this can be enabled when running a test from the command line e.g:
+
+```console
+cargo test --package hyperlight_host --test integration_test --features print_debug -- static_stack_allocate --exact --show-output
+```
+
 ## Code of Conduct
 
 This project has adopted the [Microsoft Open Source Code of
