@@ -15,7 +15,7 @@ use windows::Win32::System::Hypervisor::{
     WHvX64RegisterEfer, WHvX64RegisterEs, WHvX64RegisterFs, WHvX64RegisterGdtr, WHvX64RegisterGs,
     WHvX64RegisterIdtr, WHvX64RegisterLdtr, WHvX64RegisterSs, WHvX64RegisterTr,
     WHV_MEMORY_ACCESS_TYPE, WHV_PARTITION_HANDLE, WHV_REGISTER_VALUE, WHV_RUN_VP_EXIT_CONTEXT,
-    WHV_RUN_VP_EXIT_REASON, WHV_UINT128, WHV_UINT128_0,
+    WHV_RUN_VP_EXIT_REASON, WHV_X64_SEGMENT_REGISTER, WHV_X64_SEGMENT_REGISTER_0,
 };
 
 use super::fpu::{FP_TAG_WORD_DEFAULT, MXCSR_DEFAULT};
@@ -130,11 +130,11 @@ impl HypervWindowsDriver {
             (
                 WHvX64RegisterCs,
                 WHV_REGISTER_VALUE {
-                    Reg128: WHV_UINT128 {
-                        Anonymous: WHV_UINT128_0 {
-                            Low64: (0),
-                            High64: (0xa09b0008ffffffff),
+                    Segment: WHV_X64_SEGMENT_REGISTER {
+                        Anonymous: WHV_X64_SEGMENT_REGISTER_0 {
+                            Attributes: 0b1011 | 1 << 4 | 1 << 7 | 1 << 13, // Type (11: Execute/Read, accessed) | L (64-bit mode) | P (present) | S (code segment)
                         },
+                        ..Default::default() // zero out the rest
                     },
                 },
             ),

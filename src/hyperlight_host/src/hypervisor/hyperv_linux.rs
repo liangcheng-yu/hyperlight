@@ -9,10 +9,8 @@ use mshv_bindings::{
     hv_message, hv_message_type, hv_message_type_HVMSG_GPA_INTERCEPT,
     hv_message_type_HVMSG_UNMAPPED_GPA, hv_message_type_HVMSG_X64_HALT,
     hv_message_type_HVMSG_X64_IO_PORT_INTERCEPT, hv_register_assoc,
-    hv_register_name_HV_X64_REGISTER_CR0, hv_register_name_HV_X64_REGISTER_CR3,
-    hv_register_name_HV_X64_REGISTER_CR4, hv_register_name_HV_X64_REGISTER_CS,
-    hv_register_name_HV_X64_REGISTER_EFER, hv_register_name_HV_X64_REGISTER_RIP, hv_register_value,
-    hv_u128, mshv_user_mem_region, FloatingPointUnit, StandardRegisters,
+    hv_register_name_HV_X64_REGISTER_RIP, hv_register_value, mshv_user_mem_region,
+    FloatingPointUnit, SegmentRegister, SpecialRegisters, StandardRegisters,
 };
 use mshv_ioctls::{Mshv, VcpuFd, VmFd};
 use tracing::{instrument, Span};
@@ -122,44 +120,21 @@ impl HypervLinuxDriver {
 
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn setup_initial_sregs(vcpu: &mut VcpuFd, pml4_addr: u64) -> Result<()> {
-        vcpu.set_reg(&[
-            hv_register_assoc {
-                name: hv_register_name_HV_X64_REGISTER_CR3,
-                value: hv_register_value { reg64: pml4_addr },
+        let sregs = SpecialRegisters {
+            cr0: CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_AM | CR0_PG,
+            cr4: CR4_PAE | CR4_OSFXSR | CR4_OSXMMEXCPT,
+            cr3: pml4_addr,
+            efer: EFER_LME | EFER_LMA | EFER_SCE | EFER_NX,
+            cs: SegmentRegister {
+                type_: 11,
+                present: 1,
+                s: 1,
+                l: 1,
                 ..Default::default()
             },
-            hv_register_assoc {
-                name: hv_register_name_HV_X64_REGISTER_CR4,
-                value: hv_register_value {
-                    reg64: CR4_PAE | CR4_OSFXSR | CR4_OSXMMEXCPT,
-                },
-                ..Default::default()
-            },
-            hv_register_assoc {
-                name: hv_register_name_HV_X64_REGISTER_CR0,
-                value: hv_register_value {
-                    reg64: CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_AM | CR0_PG,
-                },
-                ..Default::default()
-            },
-            hv_register_assoc {
-                name: hv_register_name_HV_X64_REGISTER_EFER,
-                value: hv_register_value {
-                    reg64: EFER_LME | EFER_LMA | EFER_SCE | EFER_NX,
-                },
-                ..Default::default()
-            },
-            hv_register_assoc {
-                name: hv_register_name_HV_X64_REGISTER_CS,
-                value: hv_register_value {
-                    reg128: hv_u128 {
-                        low_part: 0,
-                        high_part: 0xa09b0008ffffffff,
-                    },
-                },
-                ..Default::default()
-            },
-        ])?;
+            ..Default::default()
+        };
+        vcpu.set_sregs(&sregs)?;
         Ok(())
     }
 }
