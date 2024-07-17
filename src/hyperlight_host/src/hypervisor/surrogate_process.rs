@@ -1,10 +1,9 @@
+use tracing::{instrument, Span};
+use windows::Win32::Foundation::HANDLE;
+use windows::Win32::System::Memory::{VirtualFreeEx, MEM_RELEASE};
+
 use super::surrogate_process_manager::get_surrogate_process_manager;
 use crate::mem::shared_mem::PtrCVoidMut;
-use tracing::{instrument, Span};
-use windows::Win32::{
-    Foundation::HANDLE,
-    System::Memory::{VirtualFreeEx, MEM_RELEASE},
-};
 
 /// Contains details of a surrogate process to be used by a Sandbox for providing memory to a HyperV VM on Windows.
 /// See surrogate_process_manager for details on why this is needed.

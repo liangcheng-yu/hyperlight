@@ -1,6 +1,6 @@
+use alloc::vec::Vec;
 use core::ffi::c_char;
 
-use alloc::vec::Vec;
 use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
 use lazy_static::lazy_static;
 use spin::Mutex;

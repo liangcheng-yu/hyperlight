@@ -1,14 +1,16 @@
 /*!
 This modue contains the definitions and implementations of the metrics used by the hypervisor module
 */
+use std::collections::HashMap;
+use std::sync::Once;
+
+use once_cell::sync::OnceCell;
+use strum::{EnumIter, EnumVariantNames, IntoStaticStr};
+use tracing::{instrument, Span};
+
 use crate::metrics::{
     HyperlightMetric, HyperlightMetricDefinition, HyperlightMetricEnum, HyperlightMetricType,
 };
-use once_cell::sync::OnceCell;
-use std::collections::HashMap;
-use std::sync::Once;
-use strum::{EnumIter, EnumVariantNames, IntoStaticStr};
-use tracing::{instrument, Span};
 
 // This is required to ensure that the metrics are only initialized once
 static INIT_METRICS: Once = Once::new();
@@ -61,14 +63,14 @@ impl HyperlightMetricEnum<HypervisorMetric> for HypervisorMetric {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        int_counter_get, int_counter_inc, int_counter_inc_by, int_counter_reset,
-        metrics::{get_metrics_registry, tests::HyperlightMetricEnumTest},
-    };
     use lazy_static::lazy_static;
     use prometheus::Registry;
     use strum::{IntoEnumIterator, VariantNames};
+
+    use super::*;
+    use crate::metrics::get_metrics_registry;
+    use crate::metrics::tests::HyperlightMetricEnumTest;
+    use crate::{int_counter_get, int_counter_inc, int_counter_inc_by, int_counter_reset};
     impl HyperlightMetricEnumTest<HypervisorMetric> for HypervisorMetric {
         fn get_enum_variant_names() -> &'static [&'static str] {
             HypervisorMetric::VARIANTS

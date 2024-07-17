@@ -1,4 +1,5 @@
-use core::{ffi::c_void, slice::from_raw_parts};
+use core::ffi::c_void;
+use core::slice::from_raw_parts;
 
 use hyperlight_common::flatbuffer_wrappers::guest_error::{ErrorCode, GuestError};
 

@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
-use anyhow::{anyhow, Error, Result};
 
+use anyhow::{anyhow, Error, Result};
 #[cfg(feature = "tracing")]
 use tracing::{instrument, Span};
 

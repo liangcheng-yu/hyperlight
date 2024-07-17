@@ -1,15 +1,15 @@
 extern crate hyperlight_host;
+use std::sync::{Arc, Mutex};
+use std::thread::{spawn, JoinHandle};
+
 use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
-use hyperlight_host::{
-    sandbox::uninitialized::UninitializedSandbox,
-    sandbox_state::{sandbox::EvolvableSandbox, transition::Noop},
-    set_metrics_registry, GuestBinary, MultiUseSandbox, Result,
-};
+use hyperlight_host::sandbox::uninitialized::UninitializedSandbox;
+use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
+use hyperlight_host::sandbox_state::transition::Noop;
+use hyperlight_host::{set_metrics_registry, GuestBinary, MultiUseSandbox, Result};
 use hyperlight_testing::simple_guest_as_string;
 use lazy_static::lazy_static;
 use prometheus::Registry;
-use std::sync::{Arc, Mutex};
-use std::thread::{spawn, JoinHandle};
 
 lazy_static! {
     static ref HOST_REGISTRY: Registry = Registry::new();

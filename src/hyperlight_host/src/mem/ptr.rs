@@ -1,10 +1,12 @@
+use std::ops::Add;
+
+use tracing::{instrument, Span};
+
 use super::ptr_addr_space::{AddressSpace, GuestAddressSpace, HostAddressSpace};
 use super::ptr_offset::Offset;
 use super::shared_mem::SharedMemory;
 use crate::error::HyperlightError::{self, CheckedAddOverflow, RawPointerLessThanBaseAddress};
 use crate::Result;
-use std::ops::Add;
-use tracing::{instrument, Span};
 
 /// A representation of a raw pointer inside a given address space.
 ///
@@ -262,13 +264,10 @@ impl<T: AddressSpace> TryFrom<Ptr<T>> for usize {
 mod tests {
     use hyperlight_common::mem::PAGE_SIZE_USIZE;
 
-    use crate::mem::{
-        layout::SandboxMemoryLayout,
-        ptr_addr_space::{GuestAddressSpace, HostAddressSpace},
-        shared_mem::SharedMemory,
-    };
-
     use super::{GuestPtr, HostPtr, RawPtr};
+    use crate::mem::layout::SandboxMemoryLayout;
+    use crate::mem::ptr_addr_space::{GuestAddressSpace, HostAddressSpace};
+    use crate::mem::shared_mem::SharedMemory;
     const OFFSET: u64 = 1;
 
     #[test]
@@ -347,11 +346,13 @@ mod tests {
 
 #[cfg(test)]
 mod prop_tests {
-    use super::{HostPtr, RawPtr};
-    use crate::mem::ptr_addr_space::{GuestAddressSpace, HostAddressSpace};
-    use crate::mem::{layout::SandboxMemoryLayout, shared_mem::SharedMemory};
     use hyperlight_common::mem::PAGE_SIZE_USIZE;
     use proptest::prelude::*;
+
+    use super::{HostPtr, RawPtr};
+    use crate::mem::layout::SandboxMemoryLayout;
+    use crate::mem::ptr_addr_space::{GuestAddressSpace, HostAddressSpace};
+    use crate::mem::shared_mem::SharedMemory;
     proptest! {
         #[test]
         fn test_round_trip(

@@ -1,14 +1,16 @@
 /*!
 This modue contains the definitions and implementations of the metrics used by the sandbox module
 */
+use std::collections::HashMap;
+use std::sync::Once;
+
+use once_cell::sync::OnceCell;
+use strum::{EnumIter, EnumVariantNames, IntoStaticStr};
+use tracing::{instrument, Span};
+
 use crate::metrics::{
     HyperlightMetric, HyperlightMetricDefinition, HyperlightMetricEnum, HyperlightMetricType,
 };
-use once_cell::sync::OnceCell;
-use std::collections::HashMap;
-use std::sync::Once;
-use strum::{EnumIter, EnumVariantNames, IntoStaticStr};
-use tracing::{instrument, Span};
 
 // This is required to ensure that the metrics are only initialized once
 static INIT_METRICS: Once = Once::new();
@@ -97,16 +99,18 @@ impl HyperlightMetricEnum<SandboxMetric> for SandboxMetric {
 
 #[cfg(test)]
 mod tests {
+    use lazy_static::lazy_static;
+    use prometheus::Registry;
+    use strum::{IntoEnumIterator, VariantNames};
+
     use super::*;
+    use crate::metrics::get_metrics_registry;
+    use crate::metrics::tests::HyperlightMetricEnumTest;
     use crate::{
         histogram_vec_observe, histogram_vec_sample_count, histogram_vec_sample_sum,
         int_counter_vec_get, int_counter_vec_inc, int_counter_vec_inc_by, int_counter_vec_reset,
         int_gauge_add, int_gauge_dec, int_gauge_get, int_gauge_inc, int_gauge_set, int_gauge_sub,
-        metrics::{get_metrics_registry, tests::HyperlightMetricEnumTest},
     };
-    use lazy_static::lazy_static;
-    use prometheus::Registry;
-    use strum::{IntoEnumIterator, VariantNames};
 
     impl HyperlightMetricEnumTest<SandboxMetric> for SandboxMetric {
         fn get_enum_variant_names() -> &'static [&'static str] {

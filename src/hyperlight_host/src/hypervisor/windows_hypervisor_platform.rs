@@ -1,10 +1,12 @@
-use crate::hypervisor::wrappers::{WHvFPURegisters, WHvGeneralRegisters};
-use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
-use crate::Result;
 use core::ffi::c_void;
+
 use tracing::{instrument, Span};
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::Hypervisor::*;
+
+use crate::hypervisor::wrappers::{WHvFPURegisters, WHvGeneralRegisters};
+use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
+use crate::Result;
 
 // We need to pass in a primitive array of register names/values
 // to WHvSetVirtualProcessorRegisters and rust needs to know array size

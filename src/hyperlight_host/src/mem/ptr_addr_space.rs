@@ -1,6 +1,7 @@
 use tracing::{instrument, Span};
 
-use super::{layout::SandboxMemoryLayout, shared_mem::SharedMemory};
+use super::layout::SandboxMemoryLayout;
+use super::shared_mem::SharedMemory;
 use crate::Result;
 
 /// A representation of a specific address space
@@ -51,9 +52,9 @@ impl AddressSpace for HostAddressSpace {
 mod tests {
     use hyperlight_common::mem::PAGE_SIZE_USIZE;
 
-    use crate::mem::{layout::SandboxMemoryLayout, shared_mem::SharedMemory};
-
     use super::{AddressSpace, GuestAddressSpace, HostAddressSpace};
+    use crate::mem::layout::SandboxMemoryLayout;
+    use crate::mem::shared_mem::SharedMemory;
 
     #[test]
     fn host_addr_space_base() {

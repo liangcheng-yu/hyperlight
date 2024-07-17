@@ -1,13 +1,13 @@
+use std::sync::{Arc, Mutex};
+
 use hyperlight_common::flatbuffer_wrappers::function_types::ParameterValue;
 use hyperlight_common::flatbuffer_wrappers::host_function_definition::HostFunctionDefinition;
 use tracing::{instrument, Span};
 
+use super::{HyperlightFunction, SupportedParameterType, SupportedReturnType};
 use crate::sandbox::UninitializedSandbox;
 use crate::HyperlightError::UnexpectedNoOfArguments;
 use crate::{log_then_return, Result};
-use std::sync::{Arc, Mutex};
-
-use super::{HyperlightFunction, SupportedParameterType, SupportedReturnType};
 
 /// A host function that takes no arguments and returns an `Result` of type `R` (which must implement `SupportedReturnType`).
 pub trait HostFunction0<'a, R: SupportedReturnType<R>> {

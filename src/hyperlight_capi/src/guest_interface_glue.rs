@@ -1,6 +1,9 @@
-use super::{c_func::CFunc, context::Context, handle::Handle};
-use crate::hdl::Hdl;
 use hyperlight_host::{new_error, Result};
+
+use super::c_func::CFunc;
+use super::context::Context;
+use super::handle::Handle;
+use crate::hdl::Hdl;
 /// Validates that the given type is supported by the host interface.
 ///
 /// # Safety

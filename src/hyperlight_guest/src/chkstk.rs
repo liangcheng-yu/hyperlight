@@ -1,5 +1,7 @@
-use crate::{guest_error::set_stack_allocate_error, MIN_STACK_ADDRESS, RUNNING_IN_HYPERLIGHT};
 use core::arch::global_asm;
+
+use crate::guest_error::set_stack_allocate_error;
+use crate::{MIN_STACK_ADDRESS, RUNNING_IN_HYPERLIGHT};
 
 extern "win64" {
     fn __chkstk();

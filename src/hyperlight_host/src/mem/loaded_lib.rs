@@ -1,15 +1,15 @@
-use super::ptr::RawPtr;
-use crate::error::HyperlightError;
-use crate::{log_then_return, Result};
 use std::ffi::{c_char, CString};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
 use tracing::{instrument, Span};
 use windows::core::PCSTR;
 use windows::Win32::Foundation::HMODULE;
 use windows::Win32::System::LibraryLoader::{FreeLibrary, LoadLibraryA};
+
+use super::ptr::RawPtr;
+use crate::error::HyperlightError;
+use crate::{log_then_return, Result};
 
 static IS_RUNNING_FROM_GUEST_BINARY: AtomicBool = AtomicBool::new(false);
 
@@ -120,10 +120,10 @@ fn set_guest_binary_boolean(val: bool) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::set_guest_binary_boolean;
-    use super::LoadedLib;
     use hyperlight_testing::{rust_guest_as_pathbuf, simple_guest_as_string};
     use serial_test::serial;
+
+    use super::{set_guest_binary_boolean, LoadedLib};
 
     /// universal test for all LoadedLib-related functionality. It's necessary
     /// to put everything into a single test because LoadedLib relies on global

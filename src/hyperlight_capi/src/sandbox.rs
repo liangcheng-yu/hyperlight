@@ -1,22 +1,25 @@
-use super::{bool::register_boolean, c_func::CFunc, mem_mgr::register_mem_mgr};
-use super::{context::Context, sandbox_compat::Sandbox};
-use super::{handle::Handle, sandbox_compat::SandboxImpls};
-use crate::sandbox_run_options::SandboxRunOptions;
-use crate::strings::get_string;
-use hyperlight_host::log_then_return;
-use hyperlight_host::sandbox;
-use hyperlight_host::sandbox::uninitialized::GuestBinary;
-use hyperlight_host::sandbox::SandboxConfiguration;
-use hyperlight_host::sandbox_state::transition::Noop;
-use hyperlight_host::Result;
-use hyperlight_host::{mem::ptr::RawPtr, sandbox_state::sandbox::EvolvableSandbox};
-use hyperlight_host::{
-    sandbox::is_hypervisor_present as check_hypervisor,
-    sandbox::is_supported_platform as check_platform,
-};
 use std::ffi::c_int;
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
+
+use hyperlight_host::mem::ptr::RawPtr;
+use hyperlight_host::sandbox::uninitialized::GuestBinary;
+use hyperlight_host::sandbox::{
+    is_hypervisor_present as check_hypervisor, is_supported_platform as check_platform,
+    SandboxConfiguration,
+};
+use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
+use hyperlight_host::sandbox_state::transition::Noop;
+use hyperlight_host::{log_then_return, sandbox, Result};
+
+use super::bool::register_boolean;
+use super::c_func::CFunc;
+use super::context::Context;
+use super::handle::Handle;
+use super::mem_mgr::register_mem_mgr;
+use super::sandbox_compat::{Sandbox, SandboxImpls};
+use crate::sandbox_run_options::SandboxRunOptions;
+use crate::strings::get_string;
 
 /// Create a new `Sandbox` with the given guest binary to execute
 /// and return a `Handle` reference to it.

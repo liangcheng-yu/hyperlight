@@ -1,9 +1,8 @@
-use crate::mem::{
-    layout::SandboxMemoryLayout,
-    mgr::{SandboxMemoryManager, STACK_COOKIE_LEN},
-};
-use crate::Result;
 use tracing::{instrument, Span};
+
+use crate::mem::layout::SandboxMemoryLayout;
+use crate::mem::mgr::{SandboxMemoryManager, STACK_COOKIE_LEN};
+use crate::Result;
 
 /// StackCookie
 pub type StackCookie = [u8; STACK_COOKIE_LEN];

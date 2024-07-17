@@ -1,20 +1,19 @@
-use super::{host_funcs::HostFuncsWrapper, leaked_outb::LeakedOutBWrapper, WrapperGetter};
-use super::{HypervisorWrapper, MemMgrWrapper, UninitializedSandbox};
-use crate::func::call_ctx::MultiUseGuestCallContext;
-use crate::func::guest_dispatch::call_function_on_guest;
-use crate::hypervisor::hypervisor_handler::kill_hypervisor_handler_thread;
-use crate::sandbox_state::sandbox::EvolvableSandbox;
-use crate::sandbox_state::transition::MultiUseContextCallback;
-use crate::sandbox_state::{
-    sandbox::{DevolvableSandbox, Sandbox},
-    transition::Noop,
-};
-use crate::Result;
+use std::sync::{Arc, Mutex};
+
 use hyperlight_common::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
 };
-use std::sync::{Arc, Mutex};
 use tracing::{instrument, Span};
+
+use super::host_funcs::HostFuncsWrapper;
+use super::leaked_outb::LeakedOutBWrapper;
+use super::{HypervisorWrapper, MemMgrWrapper, UninitializedSandbox, WrapperGetter};
+use crate::func::call_ctx::MultiUseGuestCallContext;
+use crate::func::guest_dispatch::call_function_on_guest;
+use crate::hypervisor::hypervisor_handler::kill_hypervisor_handler_thread;
+use crate::sandbox_state::sandbox::{DevolvableSandbox, EvolvableSandbox, Sandbox};
+use crate::sandbox_state::transition::{MultiUseContextCallback, Noop};
+use crate::Result;
 
 /// A sandbox that supports being used Multiple times.
 /// The implication of being used multiple times is two-fold:
@@ -291,17 +290,16 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::func::call_ctx::MultiUseGuestCallContext;
-    use crate::sandbox::SandboxConfiguration;
-    use crate::sandbox_state::sandbox::DevolvableSandbox;
-    use crate::sandbox_state::sandbox::EvolvableSandbox;
-    use crate::sandbox_state::transition::MultiUseContextCallback;
-    use crate::{sandbox_state::transition::Noop, GuestBinary};
-    use crate::{MultiUseSandbox, UninitializedSandbox};
     use hyperlight_common::flatbuffer_wrappers::function_types::{
         ParameterValue, ReturnType, ReturnValue,
     };
     use hyperlight_testing::simple_guest_as_string;
+
+    use crate::func::call_ctx::MultiUseGuestCallContext;
+    use crate::sandbox::SandboxConfiguration;
+    use crate::sandbox_state::sandbox::{DevolvableSandbox, EvolvableSandbox};
+    use crate::sandbox_state::transition::{MultiUseContextCallback, Noop};
+    use crate::{GuestBinary, MultiUseSandbox, UninitializedSandbox};
 
     // Tests to ensure that many (1000) function calls can be made in a call context with a small stack (1K) and heap(14K).
     // This test effectively ensures that the stack is being properly reset after each call and we are not leaking memory in the Guest.

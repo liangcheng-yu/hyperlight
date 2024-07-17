@@ -1,17 +1,20 @@
-use alloc::{string::ToString, vec::Vec};
+use alloc::string::ToString;
+use alloc::vec::Vec;
 use core::arch::global_asm;
-use hyperlight_common::flatbuffer_wrappers::{
-    function_call::{FunctionCall, FunctionCallType},
-    function_types::{ParameterValue, ReturnType, ReturnValue},
-    guest_error::ErrorCode,
-};
 
-use crate::{
-    error::HyperlightGuestError, error::Result, flatbuffer_utils::get_flatbuffer_result_from_int,
-    host_error::check_for_host_error, host_functions::validate_host_function_call,
-    shared_input_data::try_pop_shared_input_data_into, shared_output_data::push_shared_output_data,
-    OUTB_PTR, OUTB_PTR_WITH_CONTEXT, P_PEB, RUNNING_IN_HYPERLIGHT,
+use hyperlight_common::flatbuffer_wrappers::function_call::{FunctionCall, FunctionCallType};
+use hyperlight_common::flatbuffer_wrappers::function_types::{
+    ParameterValue, ReturnType, ReturnValue,
 };
+use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
+
+use crate::error::{HyperlightGuestError, Result};
+use crate::flatbuffer_utils::get_flatbuffer_result_from_int;
+use crate::host_error::check_for_host_error;
+use crate::host_functions::validate_host_function_call;
+use crate::shared_input_data::try_pop_shared_input_data_into;
+use crate::shared_output_data::push_shared_output_data;
+use crate::{OUTB_PTR, OUTB_PTR_WITH_CONTEXT, P_PEB, RUNNING_IN_HYPERLIGHT};
 
 pub enum OutBAction {
     Log = 99,

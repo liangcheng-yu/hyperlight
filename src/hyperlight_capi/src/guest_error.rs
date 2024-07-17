@@ -1,10 +1,13 @@
-use super::handle::Handle;
-use super::hdl::Hdl;
-use super::{arrays::raw_vec::RawVec, context::Context};
-use crate::validate_context_or_panic;
+use std::mem;
+
 use hyperlight_common::flatbuffer_wrappers::guest_error::GuestError;
 use hyperlight_host::{new_error, Result};
-use std::mem;
+
+use super::arrays::raw_vec::RawVec;
+use super::context::Context;
+use super::handle::Handle;
+use super::hdl::Hdl;
+use crate::validate_context_or_panic;
 
 /// Return true if the given handle `hdl` references a `GuestError` in `ctx`,
 /// and false otherwise

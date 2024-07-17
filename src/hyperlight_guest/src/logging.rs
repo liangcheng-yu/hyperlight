@@ -1,12 +1,11 @@
-use alloc::{string::ToString, vec::Vec};
-use hyperlight_common::flatbuffer_wrappers::{
-    guest_log_data::GuestLogData, guest_log_level::LogLevel,
-};
+use alloc::string::ToString;
+use alloc::vec::Vec;
 
-use crate::{
-    host_function_call::{outb, OutBAction},
-    shared_output_data::push_shared_output_data,
-};
+use hyperlight_common::flatbuffer_wrappers::guest_log_data::GuestLogData;
+use hyperlight_common::flatbuffer_wrappers::guest_log_level::LogLevel;
+
+use crate::host_function_call::{outb, OutBAction};
+use crate::shared_output_data::push_shared_output_data;
 
 fn write_log_data(
     log_level: LogLevel,

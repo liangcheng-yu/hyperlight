@@ -1,15 +1,3 @@
-use crate::error::HyperlightError::ExecutionCanceledByHost;
-#[cfg(target_os = "linux")]
-use crate::error::HyperlightError::HostFailedToCancelGuestExecutionSendingSignals;
-#[cfg(target_os = "windows")]
-use crate::hypervisor::hypervisor_handler::PARTITION_HANDLE;
-use crate::hypervisor::metrics::HypervisorMetric::NumberOfCancelledGuestExecutions;
-use crate::mem::memory_region::MemoryRegion;
-use crate::mem::memory_region::MemoryRegionFlags;
-use crate::new_error;
-use crate::HyperlightError;
-use crate::Result;
-use crate::{int_counter_inc, log_then_return};
 #[cfg(target_os = "linux")]
 use libc::{pthread_kill, ESRCH};
 use log::error;
@@ -20,6 +8,15 @@ use tracing::{instrument, Span};
 use vmm_sys_util::signal::SIGRTMIN;
 #[cfg(target_os = "windows")]
 use windows::Win32::System::Hypervisor::WHvCancelRunVirtualProcessor;
+
+use crate::error::HyperlightError::ExecutionCanceledByHost;
+#[cfg(target_os = "linux")]
+use crate::error::HyperlightError::HostFailedToCancelGuestExecutionSendingSignals;
+#[cfg(target_os = "windows")]
+use crate::hypervisor::hypervisor_handler::PARTITION_HANDLE;
+use crate::hypervisor::metrics::HypervisorMetric::NumberOfCancelledGuestExecutions;
+use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
+use crate::{int_counter_inc, log_then_return, new_error, HyperlightError, Result};
 
 /// Util for handling x87 fpu state
 pub mod fpu;
@@ -50,18 +47,18 @@ pub(crate) mod windows_hypervisor_platform;
 #[cfg(target_os = "windows")]
 mod wrappers;
 
+use std::any::Any;
+use std::fmt::Debug;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use crossbeam::atomic::AtomicCell;
+
 use self::handlers::{
     MemAccessHandlerCaller, MemAccessHandlerWrapper, OutBHandlerCaller, OutBHandlerWrapper,
 };
 use crate::hypervisor::hypervisor_handler::HasCommunicationChannels;
 use crate::mem::ptr::RawPtr;
-use crossbeam::atomic::AtomicCell;
-use std::{
-    any::Any,
-    fmt::Debug,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
 
 pub(crate) const CR4_PAE: u64 = 1 << 5;
 pub(crate) const CR4_OSFXSR: u64 = 1 << 9;
@@ -356,29 +353,24 @@ impl VirtualCPU {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use crate::hypervisor::hypervisor_handler::{execute_vcpu_action, start_hypervisor_handler};
-    use crate::hypervisor::hypervisor_handler::{InitArgs, VCPUAction};
-    use hyperlight_testing::dummy_guest_as_string;
-
-    use super::{
-        handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
-        Hypervisor,
-    };
-    use crate::sandbox::hypervisor::HypervisorWrapper;
-    use crate::sandbox::SandboxConfiguration;
-    use crate::{
-        mem::{
-            layout::SandboxMemoryLayout,
-            mgr::SandboxMemoryManager,
-            ptr::{GuestPtr, RawPtr},
-            ptr_offset::Offset,
-        },
-        new_error,
-        sandbox::{uninitialized::GuestBinary, UninitializedSandbox},
-    };
-    use crate::{sandbox::WrapperGetter, Result};
     use std::path::Path;
     use std::time::Duration;
+
+    use hyperlight_testing::dummy_guest_as_string;
+
+    use super::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper};
+    use super::Hypervisor;
+    use crate::hypervisor::hypervisor_handler::{
+        execute_vcpu_action, start_hypervisor_handler, InitArgs, VCPUAction,
+    };
+    use crate::mem::layout::SandboxMemoryLayout;
+    use crate::mem::mgr::SandboxMemoryManager;
+    use crate::mem::ptr::{GuestPtr, RawPtr};
+    use crate::mem::ptr_offset::Offset;
+    use crate::sandbox::hypervisor::HypervisorWrapper;
+    use crate::sandbox::uninitialized::GuestBinary;
+    use crate::sandbox::{SandboxConfiguration, UninitializedSandbox, WrapperGetter};
+    use crate::{new_error, Result};
 
     pub(crate) fn test_initialise<NewFn>(
         outb_hdl: OutBHandlerWrapper,

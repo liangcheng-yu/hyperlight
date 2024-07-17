@@ -1,13 +1,12 @@
-use serde_json::{json, to_string_pretty, Value};
 use std::cell::RefCell;
 use std::collections::HashMap;
+
+use serde_json::{json, to_string_pretty, Value};
 use tracing::Subscriber;
-use tracing_core::{
-    event::Event,
-    metadata::Metadata,
-    span::{Attributes, Current, Id, Record},
-    Level, LevelFilter,
-};
+use tracing_core::event::Event;
+use tracing_core::metadata::Metadata;
+use tracing_core::span::{Attributes, Current, Id, Record};
+use tracing_core::{Level, LevelFilter};
 use tracing_serde::AsSerde;
 
 #[derive(Debug, Clone)]

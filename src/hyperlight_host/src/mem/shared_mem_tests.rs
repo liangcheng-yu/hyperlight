@@ -1,15 +1,14 @@
 #![cfg(test)]
-use hyperlight_common::mem::PAGE_SIZE_USIZE;
-
-use super::shared_mem::SharedMemory;
-use crate::log_then_return;
-use crate::new_error;
-use crate::Result;
 use std::clone::Clone;
 use std::cmp::PartialEq;
 use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::mem::size_of;
+
+use hyperlight_common::mem::PAGE_SIZE_USIZE;
+
+use super::shared_mem::SharedMemory;
+use crate::{log_then_return, new_error, Result};
 
 /// A function that knows how to read data of type `T` from a
 /// `SharedMemory` at a specified offset

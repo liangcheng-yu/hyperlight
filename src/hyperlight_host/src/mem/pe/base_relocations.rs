@@ -1,6 +1,8 @@
-use crate::Result;
-use goblin::{error, pe::section_table::SectionTable};
+use goblin::error;
+use goblin::pe::section_table::SectionTable;
 use tracing::{instrument, Span};
+
+use crate::Result;
 
 // Below here is a base relocation implementation that we could submit to upstream goblin
 const BASE_RELOCATION_SIZE: usize = 2;

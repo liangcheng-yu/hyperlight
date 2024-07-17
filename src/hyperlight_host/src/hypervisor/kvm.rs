@@ -1,25 +1,24 @@
+use std::any::Any;
+use std::convert::TryFrom;
+use std::sync::Arc;
+
+use crossbeam::atomic::AtomicCell;
+use crossbeam_channel::{Receiver, Sender};
+use kvm_bindings::{kvm_fpu, kvm_regs, kvm_userspace_memory_region, KVM_MEM_READONLY};
+use kvm_ioctls::Cap::UserMemory;
+use kvm_ioctls::{Kvm, VcpuExit, VcpuFd, VmFd};
+use tracing::{instrument, Span};
+
+use super::fpu::{FP_CONTROL_WORD_DEFAULT, FP_TAG_WORD_DEFAULT, MXCSR_DEFAULT};
+use super::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper};
 use super::{
-    fpu::{FP_CONTROL_WORD_DEFAULT, FP_TAG_WORD_DEFAULT, MXCSR_DEFAULT},
-    handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
     HyperlightExit, Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP,
     CR4_OSFXSR, CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
 };
 use crate::hypervisor::hypervisor_handler::{HandlerMsg, HasCommunicationChannels, VCPUAction};
-use crate::mem::memory_region::MemoryRegion;
-use crate::mem::{
-    memory_region::MemoryRegionFlags,
-    ptr::{GuestPtr, RawPtr},
-};
-use crate::Result;
-use crate::{log_then_return, new_error};
-use crossbeam_channel::{Receiver, Sender};
-
-use crossbeam::atomic::AtomicCell;
-use kvm_bindings::{kvm_fpu, kvm_regs, kvm_userspace_memory_region, KVM_MEM_READONLY};
-use kvm_ioctls::{Cap::UserMemory, Kvm, VcpuExit, VcpuFd, VmFd};
-use std::sync::Arc;
-use std::{any::Any, convert::TryFrom};
-use tracing::{instrument, Span};
+use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
+use crate::mem::ptr::{GuestPtr, RawPtr};
+use crate::{log_then_return, new_error, Result};
 
 /// Return `true` if the KVM API is available, version 12, and has UserMemory capability, or `false` otherwise
 // TODO: Once CAPI is complete this does not need to be public
@@ -428,18 +427,12 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use super::KVMDriver;
-    use crate::Result;
-    use crate::{
-        hypervisor::{
-            handlers::{MemAccessHandler, OutBHandler},
-            tests::test_initialise,
-        },
-        mem::ptr_offset::Offset,
-    };
-    use crate::{
-        mem::{layout::SandboxMemoryLayout, ptr::GuestPtr},
-        should_run_kvm_linux_test,
-    };
+    use crate::hypervisor::handlers::{MemAccessHandler, OutBHandler};
+    use crate::hypervisor::tests::test_initialise;
+    use crate::mem::layout::SandboxMemoryLayout;
+    use crate::mem::ptr::GuestPtr;
+    use crate::mem::ptr_offset::Offset;
+    use crate::{should_run_kvm_linux_test, Result};
 
     #[test]
     fn test_init() {

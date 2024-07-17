@@ -51,11 +51,12 @@ unsafe impl<T> Send for SendablePtr<T> {}
 #[cfg(test)]
 mod tests {
     #[cfg(target_os = "windows")]
-    use super::CustomPtrDrop;
-    #[cfg(target_os = "windows")]
     use std::sync::{Arc, Mutex};
     #[cfg(target_os = "windows")]
     use std::thread;
+
+    #[cfg(target_os = "windows")]
+    use super::CustomPtrDrop;
 
     /// A test to ensure that CustomDrop cannot be cloned, must be stored
     /// inside an `Arc` to be able to be sent across threads, and must

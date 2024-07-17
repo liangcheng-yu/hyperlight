@@ -1,15 +1,21 @@
-use super::context::Context;
-use super::handle::Handle;
-use super::hdl::Hdl;
-use crate::{uint::register_u64, validate_context, validate_context_or_panic};
 use hyperlight_host::mem::shared_mem::SharedMemory;
 use hyperlight_host::{new_error, Result};
 
+use super::context::Context;
+use super::handle::Handle;
+use super::hdl::Hdl;
+use crate::uint::register_u64;
+use crate::{validate_context, validate_context_or_panic};
+
 mod impls {
-    use crate::{byte_array::get_byte_array, context::Context, handle::Handle};
+    use std::cell::RefCell;
+
     use hyperlight_host::mem::shared_mem::SharedMemory;
     use hyperlight_host::{log_then_return, Result};
-    use std::cell::RefCell;
+
+    use crate::byte_array::get_byte_array;
+    use crate::context::Context;
+    use crate::handle::Handle;
 
     /// Get the starting address of the shared memory in `ctx` referenced by `hdl`
     pub(crate) fn get_address(ctx: &Context, hdl: Handle) -> Result<usize> {
@@ -320,10 +326,14 @@ pub unsafe extern "C" fn shared_memory_copy_from_byte_array(
 
 #[cfg(test)]
 mod tests {
+    use hyperlight_host::mem::shared_mem::SharedMemory;
+    use hyperlight_host::Result;
+
     use super::impls::copy_byte_array;
     use super::register_shared_mem;
-    use crate::{context::Context, handle::Handle, hdl::Hdl};
-    use hyperlight_host::{mem::shared_mem::SharedMemory, Result};
+    use crate::context::Context;
+    use crate::handle::Handle;
+    use crate::hdl::Hdl;
 
     struct TestData {
         // Context used to create all handles herein

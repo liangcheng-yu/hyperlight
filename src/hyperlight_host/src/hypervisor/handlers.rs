@@ -1,7 +1,8 @@
+use std::sync::{Arc, Mutex};
+
 use tracing::{instrument, Span};
 
 use crate::{new_error, Result};
-use std::sync::{Arc, Mutex};
 
 /// The trait representing custom logic to handle the case when
 /// a Hypervisor's virtual CPU (vCPU) informs Hyperlight the guest

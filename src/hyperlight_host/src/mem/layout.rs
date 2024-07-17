@@ -1,3 +1,11 @@
+use std::mem::{offset_of, size_of};
+
+use hyperlight_common::mem::{GuestStackData, HyperlightPEB, PAGE_SIZE_USIZE};
+use paste::paste;
+use rand::rngs::OsRng;
+use rand::RngCore;
+use tracing::{instrument, Span};
+
 use super::memory_region::{MemoryRegion, MemoryRegionFlags, MemoryRegionVecBuilder};
 #[cfg(test)]
 use super::ptr::HostPtr;
@@ -5,12 +13,6 @@ use super::shared_mem::SharedMemory;
 use crate::error::HyperlightError::{GuestOffsetIsInvalid, MemoryRequestTooBig};
 use crate::sandbox::SandboxConfiguration;
 use crate::Result;
-use hyperlight_common::mem::{GuestStackData, HyperlightPEB, PAGE_SIZE_USIZE};
-use paste::paste;
-use rand::rngs::OsRng;
-use rand::RngCore;
-use std::mem::{offset_of, size_of};
-use tracing::{instrument, Span};
 
 // +-------------------------------------------+
 // |               Guest Stack                 |
@@ -692,9 +694,9 @@ fn round_up_to(value: usize, multiple: usize) -> usize {
 mod tests {
     use hyperlight_common::mem::PAGE_SIZE_USIZE;
 
-    use crate::mem::{ptr_offset::Offset, shared_mem::SharedMemory};
-
     use super::*;
+    use crate::mem::ptr_offset::Offset;
+    use crate::mem::shared_mem::SharedMemory;
 
     #[test]
     fn test_round_up() {

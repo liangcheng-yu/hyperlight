@@ -130,10 +130,16 @@ check:
     cargo check
 
 fmt-check:
-    cargo fmt --all -- --check
+    cargo +nightly fmt --all -- --check
+    cargo +nightly fmt --manifest-path src/tests/rust_guests/callbackguest/Cargo.toml -- --check
+    cargo +nightly fmt --manifest-path src/tests/rust_guests/simpleguest/Cargo.toml -- --check
+    cargo +nightly fmt --manifest-path src/tests/rust_guests/dummyguest/Cargo.toml -- --check
 
 fmt-apply:
-    cargo fmt --all    
+    cargo +nightly fmt --all
+    cargo +nightly fmt --manifest-path src/tests/rust_guests/callbackguest/Cargo.toml
+    cargo +nightly fmt --manifest-path src/tests/rust_guests/simpleguest/Cargo.toml
+    cargo +nightly fmt --manifest-path src/tests/rust_guests/dummyguest/Cargo.toml
 
 clippy target=default-target:
     cargo clippy --all-targets --all-features --profile={{ if target == "debug" { "dev" } else { target } }} -- -D warnings 

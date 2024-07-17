@@ -1,12 +1,13 @@
-use crate::{
-    error::HyperlightError::{Error, MetricNotFound},
-    log_then_return, new_error, Result,
-};
+use std::collections::HashMap;
+use std::sync::Once;
+
 use log::error;
 use once_cell::sync::OnceCell;
 use prometheus::{default_registry, histogram_opts, opts, HistogramOpts, Opts, Registry};
-use std::{collections::HashMap, sync::Once};
 use strum::{IntoEnumIterator, VariantNames};
+
+use crate::error::HyperlightError::{Error, MetricNotFound};
+use crate::{log_then_return, new_error, Result};
 mod int_gauge_vec;
 /// An Integer Gauge Metric for Hyperlight
 ///

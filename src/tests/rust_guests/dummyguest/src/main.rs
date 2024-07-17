@@ -1,11 +1,11 @@
 #![no_std]
 #![no_main]
 
-use core::panic::PanicInfo;
 use core::arch::asm;
+use core::panic::PanicInfo;
 
 // It looks like rust-analyzer doesn't correctly manage no_std crates,
-// and so it displays an error about a duplicate panic_handler. 
+// and so it displays an error about a duplicate panic_handler.
 // See more here: https://github.com/rust-lang/rust-analyzer/issues/4490
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {

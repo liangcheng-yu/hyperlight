@@ -1,3 +1,11 @@
+#[cfg(target_os = "linux")]
+use std::marker::PhantomData;
+#[cfg(target_os = "windows")]
+use std::{
+    os::raw::c_void,
+    sync::{Arc, Mutex},
+};
+
 #[cfg(target_os = "windows")]
 use tracing::{instrument, Span};
 
@@ -9,13 +17,6 @@ use crate::mem::custom_drop::CustomPtrDrop;
 use crate::mem::mgr::SandboxMemoryManager;
 #[cfg(target_os = "windows")]
 use crate::Result;
-#[cfg(target_os = "linux")]
-use std::marker::PhantomData;
-#[cfg(target_os = "windows")]
-use std::{
-    os::raw::c_void,
-    sync::{Arc, Mutex},
-};
 
 #[cfg(target_os = "windows")]
 /// This function allows us to call the OutBHandler from the guest when running

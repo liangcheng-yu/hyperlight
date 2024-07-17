@@ -1,10 +1,10 @@
 extern crate hyperlight_host;
-use super::{context::Context, handle::Handle, hdl::Hdl};
-use hyperlight_host::log_then_return;
-use hyperlight_host::new_error;
 use hyperlight_host::sandbox_state::sandbox::Sandbox as GenericSandbox;
-use hyperlight_host::Result;
-use hyperlight_host::UninitializedSandbox;
+use hyperlight_host::{log_then_return, new_error, Result, UninitializedSandbox};
+
+use super::context::Context;
+use super::handle::Handle;
+use super::hdl::Hdl;
 
 /// Either an initialized or uninitialized sandbox. This enum is used
 /// to allow our `Sandbox` wrapper type to store both an uninitailized

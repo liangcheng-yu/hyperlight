@@ -1,15 +1,18 @@
+use hyperlight_host::{new_error, Result};
+
+use super::arrays::raw_vec::RawVec;
+use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::strings::{to_string, RawCString};
-use super::{arrays::raw_vec::RawVec, context::Context};
 use crate::{validate_context, validate_context_or_panic};
-use hyperlight_host::new_error;
-use hyperlight_host::Result;
 mod impls {
+    use std::fs::read;
+
+    use hyperlight_host::{log_then_return, Result};
+
     use super::super::context::Context;
     use super::super::handle::Handle;
-    use hyperlight_host::{log_then_return, Result};
-    use std::fs::read;
 
     /// Returns a reference to the byte array
     pub(crate) fn get(ctx: &Context, handle: Handle) -> Result<&Vec<u8>> {
@@ -177,12 +180,13 @@ pub unsafe extern "C" fn byte_array_raw_free(ptr: *mut u8, len: usize) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use hyperlight_host::Result;
+    use hyperlight_testing::{callback_guest_as_string, simple_guest_as_string};
+
     use super::super::context::Context;
     use super::super::handle_status::{handle_get_status, HandleStatus};
     use super::super::hdl::Hdl;
     use super::impls;
-    use hyperlight_host::Result;
-    use hyperlight_testing::{callback_guest_as_string, simple_guest_as_string};
 
     #[test]
     fn byte_array_new_from_file() {

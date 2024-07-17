@@ -1,11 +1,13 @@
+use std::fs::File;
+use std::io::{Cursor, Read, Write};
+
+use goblin::pe::optional_header::OptionalHeader;
+use goblin::pe::section_table::SectionTable;
+use goblin::pe::PE;
+use tracing::{info, instrument, Span};
+
 use crate::mem::pe::base_relocations;
 use crate::{log_then_return, Result};
-use goblin::pe::section_table::SectionTable;
-use goblin::pe::{optional_header::OptionalHeader, PE};
-use std::io::{Cursor, Write};
-use std::{fs::File, io::Read};
-use tracing::instrument;
-use tracing::{info, Span};
 
 const IMAGE_REL_BASED_DIR64: u8 = 10;
 const IMAGE_REL_BASED_ABSOLUTE: u8 = 0;
@@ -246,10 +248,11 @@ pub(crate) struct RelocationPatch {
 
 #[cfg(test)]
 mod tests {
-    use crate::{new_error, Result};
     use std::fs;
 
     use hyperlight_testing::{callback_guest_as_string, simple_guest_as_string};
+
+    use crate::{new_error, Result};
 
     struct PEFileTest {
         path: String,

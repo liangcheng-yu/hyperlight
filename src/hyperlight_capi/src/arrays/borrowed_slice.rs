@@ -1,5 +1,6 @@
-use hyperlight_host::{log_then_return, Result};
 use std::panic::catch_unwind;
+
+use hyperlight_host::{log_then_return, Result};
 
 /// Borrow the memory in the range
 /// `[ ptr, ptr + (len * std::mem::size_of::<T>()) )`

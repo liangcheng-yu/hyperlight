@@ -9,32 +9,32 @@ const MAX_BUFFER_SIZE: usize = 1024;
 
 extern crate alloc;
 
-use core::hint::black_box;
-use core::{ffi::c_char, ptr::write_volatile};
-
 use alloc::boxed::Box;
-use alloc::{format, string::ToString, vec::Vec};
-use hyperlight_common::flatbuffer_wrappers::function_call::FunctionCallType;
-use hyperlight_common::flatbuffer_wrappers::guest_log_level::LogLevel;
-use hyperlight_common::flatbuffer_wrappers::{
-    function_call::FunctionCall,
-    function_types::{ParameterType, ParameterValue, ReturnType},
-    guest_error::ErrorCode,
-    guest_function_definition::GuestFunctionDefinition,
+use alloc::format;
+use alloc::string::ToString;
+use alloc::vec::Vec;
+use core::ffi::c_char;
+use core::hint::black_box;
+use core::ptr::write_volatile;
+
+use hyperlight_common::flatbuffer_wrappers::function_call::{FunctionCall, FunctionCallType};
+use hyperlight_common::flatbuffer_wrappers::function_types::{
+    ParameterType, ParameterValue, ReturnType,
 };
+use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
+use hyperlight_common::flatbuffer_wrappers::guest_function_definition::GuestFunctionDefinition;
+use hyperlight_common::flatbuffer_wrappers::guest_log_level::LogLevel;
 use hyperlight_common::mem::PAGE_SIZE;
 use hyperlight_guest::alloca::_alloca;
-use hyperlight_guest::memory::hlmalloc;
-use hyperlight_guest::{entrypoint::abort_with_code, entrypoint::abort_with_code_and_message};
-use hyperlight_guest::{
-    error::{HyperlightGuestError, Result},
-    flatbuffer_utils::{
-        get_flatbuffer_result_from_int, get_flatbuffer_result_from_string,
-        get_flatbuffer_result_from_vec, get_flatbuffer_result_from_void,
-    },
-    guest_functions::register_function,
-    host_function_call::{call_host_function, get_host_value_return_as_int},
+use hyperlight_guest::entrypoint::{abort_with_code, abort_with_code_and_message};
+use hyperlight_guest::error::{HyperlightGuestError, Result};
+use hyperlight_guest::flatbuffer_utils::{
+    get_flatbuffer_result_from_int, get_flatbuffer_result_from_string,
+    get_flatbuffer_result_from_vec, get_flatbuffer_result_from_void,
 };
+use hyperlight_guest::guest_functions::register_function;
+use hyperlight_guest::host_function_call::{call_host_function, get_host_value_return_as_int};
+use hyperlight_guest::memory::hlmalloc;
 use hyperlight_guest::{logging, MIN_STACK_ADDRESS};
 use log::{debug, error, info, trace, warn};
 

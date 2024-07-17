@@ -1,9 +1,12 @@
-use core::{any::type_name, slice::from_raw_parts_mut};
+use alloc::format;
+use alloc::string::ToString;
+use core::any::type_name;
+use core::slice::from_raw_parts_mut;
 
-use alloc::{format, string::ToString};
 use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
 
-use crate::{error::HyperlightGuestError, error::Result, P_PEB};
+use crate::error::{HyperlightGuestError, Result};
+use crate::P_PEB;
 
 // Pops the top element from the shared input data buffer and returns it as a T
 pub fn try_pop_shared_input_data_into<T>() -> Result<T>

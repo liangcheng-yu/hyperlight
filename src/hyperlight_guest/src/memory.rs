@@ -1,8 +1,8 @@
 use core::alloc::Layout;
 use core::ffi::c_void;
-use core::mem::align_of;
-use core::mem::size_of;
+use core::mem::{align_of, size_of};
 use core::ptr;
+
 use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
 
 use crate::entrypoint::abort_with_code;

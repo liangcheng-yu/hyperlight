@@ -1,24 +1,20 @@
-use crate::error::HyperlightError::NoHypervisorFound;
-use crate::HyperlightError::LockAttemptFailed;
-use crate::{
-    hypervisor::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
-    hypervisor::Hypervisor,
-    mem::{
-        layout::SandboxMemoryLayout,
-        mgr::SandboxMemoryManager,
-        ptr::{GuestPtr, RawPtr},
-        ptr_offset::Offset,
-    },
-    UninitializedSandbox,
-};
-use crate::{log_then_return, Result};
-use lazy_static::lazy_static;
 use std::fmt::Debug;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
-use std::time::Instant;
-use std::{sync::MutexGuard, time::Duration};
+use std::time::{Duration, Instant};
+
+use lazy_static::lazy_static;
 use tracing::{instrument, Span};
+
+use crate::error::HyperlightError::NoHypervisorFound;
+use crate::hypervisor::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper};
+use crate::hypervisor::Hypervisor;
+use crate::mem::layout::SandboxMemoryLayout;
+use crate::mem::mgr::SandboxMemoryManager;
+use crate::mem::ptr::{GuestPtr, RawPtr};
+use crate::mem::ptr_offset::Offset;
+use crate::HyperlightError::LockAttemptFailed;
+use crate::{log_then_return, Result, UninitializedSandbox};
 
 lazy_static! {
     /// The hypervisor available for the current platform, and is

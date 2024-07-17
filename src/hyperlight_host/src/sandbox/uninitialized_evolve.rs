@@ -1,20 +1,19 @@
-use super::{leaked_outb::LeakedOutBWrapper, WrapperGetter};
-use crate::hypervisor::hypervisor_handler::start_hypervisor_handler;
-use crate::hypervisor::hypervisor_handler::{execute_vcpu_action, VCPUAction};
-use crate::hypervisor::hypervisor_handler::{kill_hypervisor_handler_thread, InitArgs};
-#[cfg(target_os = "linux")]
-use crate::log_then_return;
-use crate::Result;
-use crate::{
-    func::exports::get_os_page_size, hypervisor::handlers::MemAccessHandlerWrapper,
-    mem::ptr::RawPtr, MultiUseSandbox,
-};
-use crate::{
-    hypervisor::handlers::OutBHandlerWrapper, sandbox_state::sandbox::Sandbox, SingleUseSandbox,
-    UninitializedSandbox,
-};
 use rand::Rng;
 use tracing::{instrument, Span};
+
+use super::leaked_outb::LeakedOutBWrapper;
+use super::WrapperGetter;
+use crate::func::exports::get_os_page_size;
+use crate::hypervisor::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper};
+use crate::hypervisor::hypervisor_handler::{
+    execute_vcpu_action, kill_hypervisor_handler_thread, start_hypervisor_handler, InitArgs,
+    VCPUAction,
+};
+#[cfg(target_os = "linux")]
+use crate::log_then_return;
+use crate::mem::ptr::RawPtr;
+use crate::sandbox_state::sandbox::Sandbox;
+use crate::{MultiUseSandbox, Result, SingleUseSandbox, UninitializedSandbox};
 
 pub(super) type CBFunc<'a> = Box<dyn FnOnce(&mut UninitializedSandbox) -> Result<()> + 'a>;
 
@@ -214,9 +213,11 @@ fn hv_init(
 
 #[cfg(test)]
 mod tests {
-    use super::evolve_impl_multi_use;
-    use crate::{sandbox::uninitialized::GuestBinary, UninitializedSandbox};
     use hyperlight_testing::{callback_guest_as_string, simple_guest_as_string};
+
+    use super::evolve_impl_multi_use;
+    use crate::sandbox::uninitialized::GuestBinary;
+    use crate::UninitializedSandbox;
 
     #[test]
     fn test_evolve() {

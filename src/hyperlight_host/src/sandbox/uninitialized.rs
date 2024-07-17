@@ -1,30 +1,28 @@
-use super::host_funcs::HostFuncsWrapper;
-use super::mem_access::mem_access_handler_wrapper;
-use super::{
-    host_funcs::default_writer_func,
-    uninitialized_evolve::{evolve_impl_multi_use, evolve_impl_single_use},
-};
-use super::{hypervisor::HypervisorWrapper, run_options::SandboxRunOptions};
-use super::{mem_mgr::MemMgrWrapper, outb::outb_handler_wrapper};
-use crate::mem::{mgr::SandboxMemoryManager, pe::pe_info::PEInfo};
-use crate::sandbox::SandboxConfiguration;
-use crate::sandbox::WrapperGetter;
-use crate::sandbox_state::transition::Noop;
-use crate::sandbox_state::{sandbox::EvolvableSandbox, transition::MutatingCallback};
-use crate::Result;
-use crate::{
-    error::HyperlightError::{CallEntryPointIsInProcOnly, GuestBinaryShouldBeAFile},
-    new_error,
-};
-use crate::{func::host_functions::HostFunction1, MultiUseSandbox};
-use crate::{log_then_return, mem::ptr::RawPtr};
-use crate::{mem::mgr::STACK_COOKIE_LEN, SingleUseSandbox};
+use std::ffi::c_void;
+use std::ops::Add;
 use std::option::Option;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use std::{ffi::c_void, ops::Add};
+
 use tracing::{instrument, Span};
+
+use super::host_funcs::{default_writer_func, HostFuncsWrapper};
+use super::hypervisor::HypervisorWrapper;
+use super::mem_access::mem_access_handler_wrapper;
+use super::mem_mgr::MemMgrWrapper;
+use super::outb::outb_handler_wrapper;
+use super::run_options::SandboxRunOptions;
+use super::uninitialized_evolve::{evolve_impl_multi_use, evolve_impl_single_use};
+use crate::error::HyperlightError::{CallEntryPointIsInProcOnly, GuestBinaryShouldBeAFile};
+use crate::func::host_functions::HostFunction1;
+use crate::mem::mgr::{SandboxMemoryManager, STACK_COOKIE_LEN};
+use crate::mem::pe::pe_info::PEInfo;
+use crate::mem::ptr::RawPtr;
+use crate::sandbox::{SandboxConfiguration, WrapperGetter};
+use crate::sandbox_state::sandbox::EvolvableSandbox;
+use crate::sandbox_state::transition::{MutatingCallback, Noop};
+use crate::{log_then_return, new_error, MultiUseSandbox, Result, SingleUseSandbox};
 
 /// A preliminary `Sandbox`, not yet ready to execute guest code.
 ///
@@ -476,40 +474,35 @@ impl<'a> UninitializedSandbox {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(target_os = "windows")]
-    use crate::SandboxRunOptions;
-    use crate::{
-        func::host_functions::{HostFunction1, HostFunction2},
-        sandbox::uninitialized::GuestBinary,
-        sandbox::SandboxConfiguration,
-        UninitializedSandbox,
-    };
-    use crate::{sandbox::WrapperGetter, Result};
-    use crate::{sandbox_state::sandbox::EvolvableSandbox, testing::log_values::test_value_as_str};
-    use crate::{sandbox_state::transition::MutatingCallback, sandbox_state::transition::Noop};
-    use crate::{testing::log_values::try_to_strings, MultiUseSandbox};
+    use std::io::{Read, Write};
+    use std::path::PathBuf;
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
+    use std::{fs, thread};
+
     use crossbeam_queue::ArrayQueue;
     use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnValue};
+    use hyperlight_testing::logger::{Logger as TestLogger, LOGGER as TEST_LOGGER};
     use hyperlight_testing::simple_guest_as_string;
-    use hyperlight_testing::{
-        logger::Logger as TestLogger, logger::LOGGER as TEST_LOGGER,
-        tracing_subscriber::TracingSubscriber as TestSubcriber,
-    };
+    use hyperlight_testing::tracing_subscriber::TracingSubscriber as TestSubcriber;
     use log::Level;
     use serde_json::{Map, Value};
     use serial_test::serial;
-    use std::path::PathBuf;
-    use std::thread;
-    use std::time::Duration;
-    use std::{
-        fs,
-        io::{Read, Write},
-        sync::{Arc, Mutex},
-    };
     use tempfile::NamedTempFile;
     use tracing::Level as tracing_level;
-    use tracing_core::{callsite::rebuild_interest_cache, Subscriber};
+    use tracing_core::callsite::rebuild_interest_cache;
+    use tracing_core::Subscriber;
     use uuid::Uuid;
+
+    use crate::func::host_functions::{HostFunction1, HostFunction2};
+    use crate::sandbox::uninitialized::GuestBinary;
+    use crate::sandbox::{SandboxConfiguration, WrapperGetter};
+    use crate::sandbox_state::sandbox::EvolvableSandbox;
+    use crate::sandbox_state::transition::{MutatingCallback, Noop};
+    use crate::testing::log_values::{test_value_as_str, try_to_strings};
+    #[cfg(target_os = "windows")]
+    use crate::SandboxRunOptions;
+    use crate::{MultiUseSandbox, Result, UninitializedSandbox};
 
     #[test]
     fn test_new_sandbox() {

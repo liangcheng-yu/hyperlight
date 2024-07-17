@@ -1,20 +1,18 @@
-use alloc::{format, string::ToString, vec::Vec};
+use alloc::format;
+use alloc::string::ToString;
+use alloc::vec::Vec;
 
-use hyperlight_common::flatbuffer_wrappers::{
-    function_call::{FunctionCall, FunctionCallType},
-    function_types::ParameterType,
-    guest_error::ErrorCode,
-    guest_function_details::GuestFunctionDetails,
-};
+use hyperlight_common::flatbuffer_wrappers::function_call::{FunctionCall, FunctionCallType};
+use hyperlight_common::flatbuffer_wrappers::function_types::ParameterType;
+use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
+use hyperlight_common::flatbuffer_wrappers::guest_function_details::GuestFunctionDetails;
 
-use crate::{
-    entrypoint::halt,
-    error::{HyperlightGuestError, Result},
-    guest_error::{reset_error, set_error},
-    shared_input_data::try_pop_shared_input_data_into,
-    shared_output_data::push_shared_output_data,
-    GUEST_FUNCTIONS,
-};
+use crate::entrypoint::halt;
+use crate::error::{HyperlightGuestError, Result};
+use crate::guest_error::{reset_error, set_error};
+use crate::shared_input_data::try_pop_shared_input_data_into;
+use crate::shared_output_data::push_shared_output_data;
+use crate::GUEST_FUNCTIONS;
 
 type GuestFunc = fn(&FunctionCall) -> Result<Vec<u8>>;
 pub(crate) fn call_guest_function(function_call: &FunctionCall) -> Result<Vec<u8>> {

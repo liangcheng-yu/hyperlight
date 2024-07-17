@@ -2,21 +2,25 @@ use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, Ret
 use rand::Rng;
 use tracing::{span, Level};
 extern crate hyperlight_host;
-use hyperlight_host::{
-    sandbox::uninitialized::UninitializedSandbox,
-    sandbox_state::{sandbox::EvolvableSandbox, transition::Noop},
-    GuestBinary, MultiUseSandbox, Result as HyperlightResult,
-};
-use hyperlight_testing::simple_guest_as_string;
-use opentelemetry::{global::shutdown_tracer_provider, KeyValue};
-use opentelemetry_otlp::{new_exporter, new_pipeline, WithExportConfig};
-use opentelemetry_sdk::{runtime::Tokio, trace, Resource};
 use std::error::Error;
 use std::io::stdin;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, spawn, JoinHandle};
+
+use hyperlight_host::sandbox::uninitialized::UninitializedSandbox;
+use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
+use hyperlight_host::sandbox_state::transition::Noop;
+use hyperlight_host::{GuestBinary, MultiUseSandbox, Result as HyperlightResult};
+use hyperlight_testing::simple_guest_as_string;
+use opentelemetry::global::shutdown_tracer_provider;
+use opentelemetry::KeyValue;
+use opentelemetry_otlp::{new_exporter, new_pipeline, WithExportConfig};
+use opentelemetry_sdk::runtime::Tokio;
+use opentelemetry_sdk::{trace, Resource};
 use tracing_opentelemetry::layer;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::EnvFilter;
 use uuid::Uuid;
 
 fn fn_writer(_msg: String) -> HyperlightResult<i32> {

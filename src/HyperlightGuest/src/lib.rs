@@ -1,7 +1,8 @@
-use rust_embed::RustEmbed;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+
+use rust_embed::RustEmbed;
 
 #[derive(RustEmbed)]
 #[folder = "."]

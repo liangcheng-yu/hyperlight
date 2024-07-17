@@ -1,8 +1,9 @@
 // This crate contains testing utilities which need to be shared across multiple
 // crates in this project.
+use std::path::PathBuf;
+
 use anyhow::{anyhow, Result};
 use hex_literal::hex;
-use std::path::PathBuf;
 
 pub const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
 pub mod logger;

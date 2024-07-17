@@ -1,7 +1,5 @@
-use alloc::{
-    string::{String, ToString},
-    vec::Vec,
-};
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 
 use anyhow::{bail, Error, Result};
 use flatbuffers::WIPOffset;
@@ -9,7 +7,6 @@ use flatbuffers::WIPOffset;
 use tracing::{instrument, Span};
 
 use super::function_types::{ParameterValue, ReturnType};
-
 use crate::flatbuffers::hyperlight::generated::{
     hlbool, hlboolArgs, hlint, hlintArgs, hllong, hllongArgs, hlstring, hlstringArgs, hluint,
     hluintArgs, hlulong, hlulongArgs, hlvecbytes, hlvecbytesArgs,
@@ -259,10 +256,12 @@ impl TryFrom<FunctionCall> for Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
+
+    use hyperlight_testing::{get_guest_function_call_test_data, get_host_function_call_test_data};
+
     use super::*;
     use crate::flatbuffer_wrappers::function_types::ReturnType;
-    use alloc::vec;
-    use hyperlight_testing::{get_guest_function_call_test_data, get_host_function_call_test_data};
 
     #[test]
     fn read_from_flatbuffer() -> Result<()> {

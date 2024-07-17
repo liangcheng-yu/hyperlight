@@ -1,3 +1,10 @@
+use cfg_if::cfg_if;
+use hyperlight_common::flatbuffer_wrappers::function_call::{FunctionCall, FunctionCallType};
+use hyperlight_common::flatbuffer_wrappers::function_types::{
+    ParameterValue, ReturnType, ReturnValue,
+};
+use tracing::{instrument, Span};
+
 use super::guest_err::check_for_guest_error;
 #[cfg(feature = "function_call_metrics")]
 use crate::histogram_vec_time_micros;
@@ -9,15 +16,8 @@ use crate::mem::ptr::RawPtr;
 #[cfg(feature = "function_call_metrics")]
 use crate::sandbox::metrics::SandboxMetric::GuestFunctionCallDurationMicroseconds;
 use crate::sandbox::WrapperGetter;
-use crate::{HyperlightError, Result};
-use cfg_if::cfg_if;
-
 use crate::HyperlightError::HostFailedToCancelGuestExecution;
-use hyperlight_common::flatbuffer_wrappers::{
-    function_call::{FunctionCall, FunctionCallType},
-    function_types::{ParameterValue, ReturnType, ReturnValue},
-};
-use tracing::{instrument, Span};
+use crate::{HyperlightError, Result};
 
 /// Call a guest function by name, using the given `wrapper_getter`.
 #[instrument(
@@ -175,22 +175,19 @@ pub(crate) fn call_function_on_guest<HvMemMgrT: WrapperGetter>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::func::{
-        call_ctx::{MultiUseGuestCallContext, SingleUseGuestCallContext},
-        host_functions::HostFunction0,
-    };
-    use crate::HyperlightError;
-    use crate::Result;
-    use crate::UninitializedSandbox;
-    use crate::{sandbox::is_hypervisor_present, SingleUseSandbox};
-    use crate::{sandbox::uninitialized::GuestBinary, sandbox_state::transition::MutatingCallback};
-    use crate::{sandbox_state::sandbox::EvolvableSandbox, MultiUseSandbox};
+    use std::sync::{Arc, Mutex};
+    use std::thread;
+
     use hyperlight_testing::{callback_guest_as_string, simple_guest_as_string};
-    use std::{
-        sync::{Arc, Mutex},
-        thread,
-    };
+
+    use super::*;
+    use crate::func::call_ctx::{MultiUseGuestCallContext, SingleUseGuestCallContext};
+    use crate::func::host_functions::HostFunction0;
+    use crate::sandbox::is_hypervisor_present;
+    use crate::sandbox::uninitialized::GuestBinary;
+    use crate::sandbox_state::sandbox::EvolvableSandbox;
+    use crate::sandbox_state::transition::MutatingCallback;
+    use crate::{HyperlightError, MultiUseSandbox, Result, SingleUseSandbox, UninitializedSandbox};
 
     // simple function
     fn test_function0(_: MultiUseGuestCallContext) -> Result<i32> {

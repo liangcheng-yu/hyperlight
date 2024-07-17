@@ -1,6 +1,7 @@
+use std::env;
+
 use anyhow::{anyhow, Result};
 use cbindgen::{Builder, Config};
-use std::env;
 
 fn main() -> Result<()> {
     let header_file_path = match env::var("GITHUB_WORKSPACE") {

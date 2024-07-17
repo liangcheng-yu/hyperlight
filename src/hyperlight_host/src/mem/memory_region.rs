@@ -1,19 +1,18 @@
-use crate::HyperlightError;
-use crate::Result;
+use std::ops::Range;
+
 use bitflags::bitflags;
 #[cfg(target_os = "linux")]
 use hyperlight_common::mem::PAGE_SHIFT;
 use hyperlight_common::mem::PAGE_SIZE_USIZE;
-use std::ops::Range;
-
-#[cfg(target_os = "windows")]
-use windows::Win32::System::Hypervisor::{self, WHV_MEMORY_ACCESS_TYPE};
-
 #[cfg(target_os = "linux")]
 use mshv_bindings::{
     hv_x64_memory_intercept_message, mshv_user_mem_region, HV_MAP_GPA_EXECUTABLE,
     HV_MAP_GPA_PERMISSIONS_NONE, HV_MAP_GPA_READABLE, HV_MAP_GPA_WRITABLE,
 };
+#[cfg(target_os = "windows")]
+use windows::Win32::System::Hypervisor::{self, WHV_MEMORY_ACCESS_TYPE};
+
+use crate::{HyperlightError, Result};
 
 bitflags! {
     /// flags representing memory permission for a memory region

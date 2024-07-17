@@ -1,5 +1,6 @@
-use crate::{new_error, Result};
 use serde_json::{Map, Value};
+
+use crate::{new_error, Result};
 
 /// Call `check_value_as_str` and panic if it returned an `Err`. Otherwise,
 /// do nothing.

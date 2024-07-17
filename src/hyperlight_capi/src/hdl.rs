@@ -1,5 +1,6 @@
-use super::handle::{Handle, Key, TypeID, EMPTY_KEY, INVALID_KEY, NULL_CONTEXT_KEY};
 use hyperlight_host::{log_then_return, HyperlightError, Result};
+
+use super::handle::{Handle, Key, TypeID, EMPTY_KEY, INVALID_KEY, NULL_CONTEXT_KEY};
 
 /// The type-safe adapter to `Handle`
 #[derive(Eq, Clone, PartialEq, Debug)]
@@ -230,9 +231,10 @@ impl std::convert::TryFrom<Handle> for Hdl {
 
 #[cfg(test)]
 mod tests {
+    use hyperlight_host::Result;
+
     use super::super::handle::{new_key, Handle};
     use super::Hdl;
-    use hyperlight_host::Result;
 
     #[test]
     fn handle_type_id() -> Result<()> {

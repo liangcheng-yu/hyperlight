@@ -1,9 +1,9 @@
+use anyhow::anyhow;
+use hyperlight_host::{new_error, Result};
+use tracing::{error, info_span, trace};
+
 use super::context::Context;
 use super::handle::Handle;
-use anyhow::anyhow;
-use hyperlight_host::new_error;
-use hyperlight_host::Result;
-use tracing::{error, info_span, trace};
 
 /// Roughly equivalent to a `Result` type with the following additional
 /// features:

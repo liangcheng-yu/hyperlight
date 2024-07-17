@@ -1,7 +1,10 @@
+use std::cmp::max;
+use std::time::Duration;
+
+use tracing::{instrument, Span};
+
 use crate::mem::pe::pe_info::PEInfo;
 use crate::option_when;
-use std::{cmp::max, time::Duration};
-use tracing::{instrument, Span};
 
 /// The complete set of configuration needed to create a Sandbox
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -337,9 +340,9 @@ impl Default for SandboxConfiguration {
 
 #[cfg(test)]
 mod tests {
-    use super::SandboxConfiguration;
     use std::time::Duration;
 
+    use super::SandboxConfiguration;
     use crate::testing::{callback_guest_pe_info, simple_guest_pe_info};
 
     #[test]
@@ -509,8 +512,9 @@ mod tests {
     }
 
     mod proptests {
-        use super::SandboxConfiguration;
         use proptest::prelude::*;
+
+        use super::SandboxConfiguration;
 
         proptest! {
             #[test]

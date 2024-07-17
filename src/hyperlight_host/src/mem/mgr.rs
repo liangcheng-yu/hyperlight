@@ -1,40 +1,34 @@
+use core::mem::size_of;
+use std::cmp::Ordering;
+use std::str::from_utf8;
+use std::sync::{Arc, Mutex};
+
+use hyperlight_common::flatbuffer_wrappers::function_call::{
+    validate_guest_function_call_buffer, validate_host_function_call_buffer, FunctionCall,
+};
+use hyperlight_common::flatbuffer_wrappers::function_types::ReturnValue;
+use hyperlight_common::flatbuffer_wrappers::guest_error::{ErrorCode, GuestError};
+use hyperlight_common::flatbuffer_wrappers::guest_log_data::GuestLogData;
+use hyperlight_common::flatbuffer_wrappers::host_function_details::HostFunctionDetails;
+use serde_json::from_str;
+use tracing::{instrument, Span};
+
+use super::layout::SandboxMemoryLayout;
 #[cfg(target_os = "windows")]
 use super::loaded_lib::LoadedLib;
-use super::{
-    layout::SandboxMemoryLayout,
-    pe::{headers::PEHeaders, pe_info::PEInfo},
-    ptr::{GuestPtr, RawPtr},
-    ptr_offset::Offset,
-    shared_mem::SharedMemory,
-    shared_mem_snapshot::SharedMemorySnapshot,
+use super::pe::headers::PEHeaders;
+use super::pe::pe_info::PEInfo;
+use super::ptr::{GuestPtr, RawPtr};
+use super::ptr_offset::Offset;
+use super::shared_mem::SharedMemory;
+use super::shared_mem_snapshot::SharedMemorySnapshot;
+use crate::error::HyperlightError::{
+    ExceptionDataLengthIncorrect, ExceptionMessageTooBig, JsonConversionFailure, NoMemorySnapshot,
+    UTF8SliceConversionFailure,
 };
-use crate::{
-    error::HyperlightError::{
-        ExceptionDataLengthIncorrect, ExceptionMessageTooBig, JsonConversionFailure,
-        NoMemorySnapshot, UTF8SliceConversionFailure,
-    },
-    log_then_return, HyperlightError,
-};
-use crate::{error::HyperlightHostError, sandbox::SandboxConfiguration};
-use crate::{new_error, Result};
-use core::mem::size_of;
-
-use hyperlight_common::flatbuffer_wrappers::{
-    function_call::{validate_guest_function_call_buffer, validate_host_function_call_buffer},
-    guest_error::ErrorCode,
-};
-
-use hyperlight_common::flatbuffer_wrappers::{
-    function_call::FunctionCall, function_types::ReturnValue, guest_error::GuestError,
-    guest_log_data::GuestLogData, host_function_details::HostFunctionDetails,
-};
-use serde_json::from_str;
-use std::{
-    cmp::Ordering,
-    str::from_utf8,
-    sync::{Arc, Mutex},
-};
-use tracing::{instrument, Span};
+use crate::error::HyperlightHostError;
+use crate::sandbox::SandboxConfiguration;
+use crate::{log_then_return, new_error, HyperlightError, Result};
 
 /// Whether or not the 64-bit page directory entry (PDE) record is
 /// present.
@@ -782,20 +776,21 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::SandboxMemoryManager;
-    use crate::{
-        error::HyperlightHostError,
-        mem::{
-            layout::SandboxMemoryLayout, mgr::I32Wrapper, pe::pe_info::PEInfo, ptr::RawPtr,
-            ptr_offset::Offset, shared_mem::SharedMemory,
-        },
-        sandbox::SandboxConfiguration,
-        testing::bytes_for_path,
-    };
     use hyperlight_testing::rust_guest_as_pathbuf;
     use serde_json::to_string;
     #[cfg(target_os = "windows")]
     use serial_test::serial;
+
+    use super::SandboxMemoryManager;
+    use crate::error::HyperlightHostError;
+    use crate::mem::layout::SandboxMemoryLayout;
+    use crate::mem::mgr::I32Wrapper;
+    use crate::mem::pe::pe_info::PEInfo;
+    use crate::mem::ptr::RawPtr;
+    use crate::mem::ptr_offset::Offset;
+    use crate::mem::shared_mem::SharedMemory;
+    use crate::sandbox::SandboxConfiguration;
+    use crate::testing::bytes_for_path;
 
     #[test]
     fn load_guest_binary_common() {
@@ -827,8 +822,9 @@ mod tests {
     #[test]
     #[serial]
     fn load_guest_binary_using_load_library() {
-        use crate::mem::mgr::SandboxMemoryManager;
         use hyperlight_testing::{rust_guest_as_pathbuf, simple_guest_as_string};
+
+        use crate::mem::mgr::SandboxMemoryManager;
 
         let cfg = SandboxConfiguration::default();
         let guest_path = rust_guest_as_pathbuf("simpleguest");

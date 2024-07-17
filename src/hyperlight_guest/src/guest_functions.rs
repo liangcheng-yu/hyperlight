@@ -1,4 +1,5 @@
 use alloc::vec::Vec;
+
 use hyperlight_common::flatbuffer_wrappers::guest_function_definition::GuestFunctionDefinition;
 
 use crate::{GUEST_FUNCTIONS, GUEST_FUNCTIONS_BUILDER};

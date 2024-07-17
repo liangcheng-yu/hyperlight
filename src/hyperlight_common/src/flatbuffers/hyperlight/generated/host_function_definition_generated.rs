@@ -2,13 +2,14 @@
 // @generated
 extern crate alloc;
 extern crate flatbuffers;
-use self::flatbuffers::{EndianScalar, Follow};
-use super::*;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::mem;
+
+use self::flatbuffers::{EndianScalar, Follow};
+use super::*;
 pub enum HostFunctionDefinitionOffset {}
 #[derive(Copy, Clone, PartialEq)]
 

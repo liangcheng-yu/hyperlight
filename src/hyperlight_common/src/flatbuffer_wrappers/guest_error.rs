@@ -1,5 +1,9 @@
 extern crate flatbuffers;
 
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+
+use anyhow::{Error, Result};
 #[cfg(feature = "tracing")]
 use tracing::{instrument, Span};
 
@@ -7,11 +11,6 @@ use crate::flatbuffers::hyperlight::generated::{
     size_prefixed_root_as_guest_error, ErrorCode as FbErrorCode, GuestError as GuestErrorFb,
     GuestErrorArgs,
 };
-use alloc::{
-    string::{String, ToString},
-    vec::Vec,
-};
-use anyhow::{Error, Result};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 /// `ErrorCode` represents an error that occurred in the Hyperlight Guest.

@@ -1,7 +1,9 @@
-use crate::{HyperlightError, Result};
 use std::ffi::CString;
+
 use tracing::{instrument, Span};
 use windows::core::PSTR;
+
+use crate::{HyperlightError, Result};
 
 /// A wrapper for `windows::core::PSTR` values that ensures memory for the
 /// underlying string is properly dropped.

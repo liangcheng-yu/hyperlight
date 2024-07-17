@@ -1,3 +1,19 @@
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::thread::sleep;
+use std::time::Duration;
+
+use crossbeam::atomic::AtomicCell;
+use crossbeam_channel::{Receiver, Sender};
+#[cfg(target_os = "linux")]
+use libc::{c_void, pthread_self, siginfo_t};
+use rand::Rng;
+use tracing::{instrument, Span};
+#[cfg(target_os = "linux")]
+use vmm_sys_util::signal::{register_signal_handler, SIGRTMIN};
+#[cfg(target_os = "windows")]
+use windows::Win32::System::Hypervisor::WHV_PARTITION_HANDLE;
+
 use crate::func::exports::get_os_page_size;
 #[cfg(feature = "function_call_metrics")]
 use crate::histogram_vec_observe;
@@ -13,23 +29,6 @@ use crate::sandbox::{SandboxConfiguration, WrapperGetter};
 use crate::sandbox_state::sandbox::Sandbox;
 use crate::HyperlightError::HypervisorHandlerExecutionCancelAttemptOnFinishedExecution;
 use crate::{log_then_return, new_error, HyperlightError, Result};
-use crossbeam::atomic::AtomicCell;
-use crossbeam_channel::{Receiver, Sender};
-#[cfg(target_os = "linux")]
-use libc::{c_void, pthread_self, siginfo_t};
-use rand::Rng;
-use std::thread::sleep;
-use std::time::Duration;
-use std::{
-    sync::{Arc, Mutex},
-    thread,
-};
-use tracing::instrument;
-use tracing::Span;
-#[cfg(target_os = "linux")]
-use vmm_sys_util::signal::{register_signal_handler, SIGRTMIN};
-#[cfg(target_os = "windows")]
-use windows::Win32::System::Hypervisor::WHV_PARTITION_HANDLE;
 
 /// Trait to indicate that a type contains to/from receivers/transmitters for `VCPUAction`s, and `HandlerMsg`s.
 pub trait HasCommunicationChannels {
@@ -628,23 +627,22 @@ pub(crate) fn try_receive_handler_msg(
 
 #[cfg(test)]
 mod tests {
-    use crossbeam::atomic::AtomicCell;
     use std::sync::Arc;
     use std::time::Duration;
 
-    use crate::sandbox_state::sandbox::EvolvableSandbox;
-    use crate::sandbox_state::transition::MutatingCallback;
-    use crate::{
-        is_hypervisor_present, GuestBinary, HyperlightError, MultiUseSandbox, UninitializedSandbox,
-    };
+    use crossbeam::atomic::AtomicCell;
     use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
     use hyperlight_testing::simple_guest_as_string;
 
     use crate::hypervisor::hypervisor_handler::terminate_hypervisor_handler_execution_and_reinitialise;
-    use crate::HyperlightError::HypervisorHandlerExecutionCancelAttemptOnFinishedExecution;
-
     use crate::sandbox::{SandboxConfiguration, WrapperGetter};
-    use crate::Result;
+    use crate::sandbox_state::sandbox::EvolvableSandbox;
+    use crate::sandbox_state::transition::MutatingCallback;
+    use crate::HyperlightError::HypervisorHandlerExecutionCancelAttemptOnFinishedExecution;
+    use crate::{
+        is_hypervisor_present, GuestBinary, HyperlightError, MultiUseSandbox, Result,
+        UninitializedSandbox,
+    };
 
     fn create_multi_use_sandbox() -> MultiUseSandbox<'static> {
         if !is_hypervisor_present() {

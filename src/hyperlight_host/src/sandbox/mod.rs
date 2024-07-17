@@ -34,6 +34,8 @@ mod uninitialized_evolve;
 /// Metric definitions for Sandbox module.
 pub(crate) mod metrics;
 
+use std::collections::HashMap;
+
 /// Re-export for `SandboxConfiguration` type
 pub use config::SandboxConfiguration;
 /// Re-export for the `MultiUseSandbox` type
@@ -42,8 +44,7 @@ pub use initialized_multi_use::MultiUseSandbox;
 pub use initialized_single_use::SingleUseSandbox;
 /// Re-export for `SandboxRunOptions` type
 pub use run_options::SandboxRunOptions;
-use tracing::instrument;
-use tracing::Span;
+use tracing::{instrument, Span};
 /// Re-export for `GuestBinary` type
 pub use uninitialized::GuestBinary;
 /// Re-export for `UninitializedSandbox` type
@@ -56,7 +57,6 @@ use crate::func::HyperlightFunction;
 use crate::hypervisor::windows_hypervisor_platform;
 #[cfg(target_os = "linux")]
 use crate::{hypervisor::hyperv_linux, hypervisor::kvm};
-use std::collections::HashMap;
 // In case its not obvious why there are separate is_supported_platform and is_hypervisor_present functions its because
 // Hyperlight is designed to be able to run on a host that doesn't have a hypervisor.
 // In that case, the sandbox will be in process, we plan on making this a dev only feature and fixing up Linux support
@@ -135,18 +135,22 @@ pub(crate) trait WrapperGetter {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+    use std::thread;
+
+    use crossbeam_queue::ArrayQueue;
+    use hyperlight_testing::simple_guest_as_string;
+
     #[cfg(target_os = "linux")]
     use super::is_hypervisor_present;
     #[cfg(target_os = "linux")]
     use crate::hypervisor::hyperv_linux::test_cfg::TEST_CONFIG as HYPERV_TEST_CONFIG;
     #[cfg(target_os = "linux")]
     use crate::hypervisor::kvm::test_cfg::TEST_CONFIG as KVM_TEST_CONFIG;
-    use crate::MultiUseSandbox;
-    use crate::{sandbox::uninitialized::GuestBinary, sandbox_state::transition::Noop};
-    use crate::{sandbox_state::sandbox::EvolvableSandbox, UninitializedSandbox};
-    use crossbeam_queue::ArrayQueue;
-    use hyperlight_testing::simple_guest_as_string;
-    use std::{sync::Arc, thread};
+    use crate::sandbox::uninitialized::GuestBinary;
+    use crate::sandbox_state::sandbox::EvolvableSandbox;
+    use crate::sandbox_state::transition::Noop;
+    use crate::{MultiUseSandbox, UninitializedSandbox};
 
     #[test]
     // TODO: add support for testing on WHP

@@ -1,7 +1,6 @@
 use anyhow::{bail, Error, Result};
 use log::Level;
 use strum_macros::EnumIter;
-
 #[cfg(feature = "tracing")]
 use tracing::{instrument, Span};
 

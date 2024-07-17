@@ -1,35 +1,33 @@
 extern crate hyperlight_host;
 
-use super::c_func::CFunc;
-use super::hdl::Hdl;
-use super::strings::register_string;
-use super::{
-    handle::{new_key, Handle, Key},
-    sandbox_compat,
-};
-use crate::mem_access_handler::MemAccessHandlerWrapper;
-use crate::outb_handler::OutBHandlerWrapper;
-use hyperlight_common::flatbuffer_wrappers::{
-    function_call::FunctionCall, function_types::ReturnValue, guest_error::GuestError,
-    guest_log_data::GuestLogData,
-};
+use std::collections::HashMap;
+use std::ffi::{c_char, CStr};
+use std::sync::Once;
+
+use hyperlight_common::flatbuffer_wrappers::function_call::FunctionCall;
+use hyperlight_common::flatbuffer_wrappers::function_types::ReturnValue;
+use hyperlight_common::flatbuffer_wrappers::guest_error::GuestError;
+use hyperlight_common::flatbuffer_wrappers::guest_log_data::GuestLogData;
 use hyperlight_host::error::HyperlightError;
 #[cfg(target_os = "linux")]
 use hyperlight_host::hypervisor::hyperv_linux::HypervLinuxDriver;
 #[cfg(target_os = "linux")]
 use hyperlight_host::hypervisor::kvm::KVMDriver;
-use hyperlight_host::log_then_return;
 use hyperlight_host::mem::mgr::SandboxMemoryManager;
 use hyperlight_host::mem::shared_mem::SharedMemory;
 use hyperlight_host::mem::shared_mem_snapshot::SharedMemorySnapshot;
-use hyperlight_host::new_error;
-use hyperlight_host::Result;
-use std::collections::HashMap;
-use std::ffi::{c_char, CStr};
-use std::sync::Once;
+use hyperlight_host::{log_then_return, new_error, Result};
 use tracing::info;
 use tracing_subscriber;
 use uuid::Uuid;
+
+use super::c_func::CFunc;
+use super::handle::{new_key, Handle, Key};
+use super::hdl::Hdl;
+use super::sandbox_compat;
+use super::strings::register_string;
+use crate::mem_access_handler::MemAccessHandlerWrapper;
+use crate::outb_handler::OutBHandlerWrapper;
 
 static INITTRACER: Once = Once::new();
 
@@ -349,14 +347,14 @@ macro_rules! validate_context_or_panic {
 
 #[cfg(test)]
 mod tests {
-    use super::Context;
-    use super::Handle;
+    use hyperlight_host::Result;
+
+    use super::{Context, Handle};
     use crate::byte_array::get_byte_array;
     use crate::handle::NULL_CONTEXT_KEY;
     use crate::hdl::Hdl;
     use crate::strings::get_string;
     use crate::{validate_context, validate_context_or_panic};
-    use hyperlight_host::Result;
 
     #[test]
     fn round_trip_string() -> Result<()> {

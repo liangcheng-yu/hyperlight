@@ -1,7 +1,10 @@
-use super::sandbox::Sandbox;
-use crate::{func::call_ctx::MultiUseGuestCallContext, Result};
 use std::marker::PhantomData;
+
 use tracing::{instrument, Span};
+
+use super::sandbox::Sandbox;
+use crate::func::call_ctx::MultiUseGuestCallContext;
+use crate::Result;
 
 /// Metadata about an evolution or devolution. Any `Sandbox` implementation
 /// that also implements `EvolvableSandbox` or `DevolvableSandbox`

@@ -1,6 +1,7 @@
 use bitflags::bitflags;
-use hyperlight_host::{log_then_return, Result};
-use hyperlight_host::{HyperlightError, SandboxRunOptions as CoreSandboxRunOptions};
+use hyperlight_host::{
+    log_then_return, HyperlightError, Result, SandboxRunOptions as CoreSandboxRunOptions,
+};
 
 bitflags! {
     #[repr(C)]
@@ -108,8 +109,9 @@ impl SandboxRunOptions {
 
 #[cfg(test)]
 mod tests {
-    use super::SandboxRunOptions;
     use hyperlight_host::SandboxRunOptions as CoreSandboxRunOptions;
+
+    use super::SandboxRunOptions;
 
     /// Test the functionality to convert from the FFI-compatible
     /// `SandboxRunOptions` bitfield to the

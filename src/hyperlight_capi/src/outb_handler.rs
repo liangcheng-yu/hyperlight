@@ -1,7 +1,9 @@
-use crate::{context::Context, handle::Handle, hdl::Hdl};
 use hyperlight_host::hypervisor::handlers::OutBHandlerCaller;
-use hyperlight_host::new_error;
-use hyperlight_host::Result;
+use hyperlight_host::{new_error, Result};
+
+use crate::context::Context;
+use crate::handle::Handle;
+use crate::hdl::Hdl;
 /// A FFI-friendly implementation of a `OutBHandler`. This type stores
 /// a standard C function pointer -- an `extern "C" fn(u16, u64)` -- and
 /// implements the `OutBHandler`'s `call` method by simply calling the

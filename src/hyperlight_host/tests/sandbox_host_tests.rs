@@ -1,23 +1,21 @@
 use std::sync::{Arc, Mutex};
 
-use hyperlight_host::func::HostFunction1;
+use hyperlight_host::func::{HostFunction1, ParameterValue, ReturnType, ReturnValue};
+use hyperlight_host::sandbox::SandboxConfiguration;
 use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
 use hyperlight_host::sandbox_state::transition::Noop;
 use hyperlight_host::{
-    func::{ParameterValue, ReturnType, ReturnValue},
-    new_error,
-    sandbox::SandboxConfiguration,
-    GuestBinary, HyperlightError, MultiUseSandbox, Result, UninitializedSandbox,
+    new_error, GuestBinary, HyperlightError, MultiUseSandbox, Result, UninitializedSandbox,
 };
 use hyperlight_testing::simple_guest_as_string;
 #[cfg(target_os = "windows")]
 use serial_test::serial; // using LoadLibrary requires serial tests
 
 pub mod common; // pub to disable dead_code warning
-use crate::common::{get_callbackguest_uninit_sandboxes, get_simpleguest_sandboxes};
-
 #[cfg(target_os = "windows")]
 use hyperlight_host::SandboxRunOptions;
+
+use crate::common::{get_callbackguest_uninit_sandboxes, get_simpleguest_sandboxes};
 
 #[test]
 #[cfg_attr(target_os = "windows", serial)] // using LoadLibrary requires serial tests

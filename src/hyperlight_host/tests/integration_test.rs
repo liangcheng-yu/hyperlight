@@ -5,8 +5,7 @@ use hyperlight_host::mem::memory_region::MemoryRegionFlags;
 use hyperlight_host::sandbox::SandboxConfiguration;
 use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
 use hyperlight_host::sandbox_state::transition::Noop;
-use hyperlight_host::{GuestBinary, HyperlightError};
-use hyperlight_host::{SingleUseSandbox, UninitializedSandbox};
+use hyperlight_host::{GuestBinary, HyperlightError, SingleUseSandbox, UninitializedSandbox};
 use hyperlight_testing::{c_simple_guest_as_string, simple_guest_as_string};
 use strum::IntoEnumIterator;
 
@@ -485,7 +484,7 @@ fn recursive_stack_allocate_overflow() {
 #[test]
 #[ignore]
 fn log_message() {
-    use hyperlight_testing::{simplelogger::SimpleLogger, simplelogger::LOGGER};
+    use hyperlight_testing::simplelogger::{SimpleLogger, LOGGER};
     SimpleLogger::initialize_test_logger();
     LOGGER.set_max_level(log::LevelFilter::Trace);
     // The hyperlight guest should derive its max log level from the level set here for the host

@@ -1,10 +1,11 @@
+use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
+use std::convert::From;
+use std::ops::{Add, Sub};
+
 use tracing::{instrument, Span};
 
 use crate::error::HyperlightError;
 use crate::Result;
-use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
-use std::convert::From;
-use std::ops::{Add, Sub};
 
 /// An offset into a given address space.
 ///
@@ -227,8 +228,9 @@ impl PartialOrd<u64> for Offset {
 
 #[cfg(test)]
 mod tests {
-    use super::Offset;
     use proptest::prelude::*;
+
+    use super::Offset;
 
     proptest! {
         #[test]

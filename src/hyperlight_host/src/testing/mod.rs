@@ -1,9 +1,10 @@
-use crate::mem::pe::pe_info::PEInfo;
-use crate::new_error;
-use crate::Result;
-use hyperlight_testing::rust_guest_as_pathbuf;
 use std::fs;
 use std::path::PathBuf;
+
+use hyperlight_testing::rust_guest_as_pathbuf;
+
+use crate::mem::pe::pe_info::PEInfo;
+use crate::{new_error, Result};
 pub(crate) mod log_values;
 
 /// Get a `PEInfo` representing `simpleguest.exe`

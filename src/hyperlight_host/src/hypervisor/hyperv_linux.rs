@@ -1,14 +1,6 @@
-use super::{
-    fpu::{FP_CONTROL_WORD_DEFAULT, FP_TAG_WORD_DEFAULT, MXCSR_DEFAULT},
-    handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
-    Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR,
-    CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
-};
+use std::any::Any;
+use std::sync::Arc;
 
-use crate::hypervisor::hypervisor_handler::{HandlerMsg, HasCommunicationChannels, VCPUAction};
-use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
-use crate::{hypervisor::HyperlightExit, mem::ptr::RawPtr};
-use crate::{log_then_return, mem::ptr::GuestPtr, new_error, Result};
 use crossbeam::atomic::AtomicCell;
 use crossbeam_channel::{Receiver, Sender};
 use log::error;
@@ -22,9 +14,19 @@ use mshv_bindings::{
     hv_u128, mshv_user_mem_region, FloatingPointUnit, StandardRegisters,
 };
 use mshv_ioctls::{Mshv, VcpuFd, VmFd};
-use std::any::Any;
-use std::sync::Arc;
 use tracing::{instrument, Span};
+
+use super::fpu::{FP_CONTROL_WORD_DEFAULT, FP_TAG_WORD_DEFAULT, MXCSR_DEFAULT};
+use super::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper};
+use super::{
+    Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR,
+    CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
+};
+use crate::hypervisor::hypervisor_handler::{HandlerMsg, HasCommunicationChannels, VCPUAction};
+use crate::hypervisor::HyperlightExit;
+use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
+use crate::mem::ptr::{GuestPtr, RawPtr};
+use crate::{log_then_return, new_error, Result};
 
 /// Determine whether the HyperV for Linux hypervisor API is present
 /// and functional.
@@ -469,7 +471,8 @@ mod tests {
     use super::test_cfg::{SHOULD_RUN_TEST, TEST_CONFIG};
     use super::*;
     use crate::mem::memory_region::MemoryRegionVecBuilder;
-    use crate::{mem::shared_mem::SharedMemory, should_run_hyperv_linux_test};
+    use crate::mem::shared_mem::SharedMemory;
+    use crate::should_run_hyperv_linux_test;
 
     #[rustfmt::skip]
     const CODE: [u8; 12] = [

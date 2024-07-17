@@ -1,13 +1,11 @@
 #![no_main]
 
-use hyperlight_host::{
-    func::{ParameterValue, ReturnType, ReturnValue},
-    sandbox::uninitialized::GuestBinary,
-    sandbox_state::{sandbox::EvolvableSandbox, transition::MutatingCallback},
-    MultiUseSandbox, Result, UninitializedSandbox,
-};
+use hyperlight_host::func::{ParameterValue, ReturnType, ReturnValue};
+use hyperlight_host::sandbox::uninitialized::GuestBinary;
+use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
+use hyperlight_host::sandbox_state::transition::MutatingCallback;
+use hyperlight_host::{MultiUseSandbox, Result, UninitializedSandbox};
 use hyperlight_testing::simple_guest_as_string;
-
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

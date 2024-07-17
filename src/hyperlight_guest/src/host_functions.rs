@@ -1,15 +1,15 @@
+use alloc::format;
+use alloc::string::ToString;
+use alloc::vec::Vec;
 use core::slice::from_raw_parts;
 
-use alloc::{format, string::ToString, vec::Vec};
-use hyperlight_common::flatbuffer_wrappers::{
-    function_call::FunctionCall, function_types::ParameterType, guest_error::ErrorCode,
-    host_function_details::HostFunctionDetails,
-};
+use hyperlight_common::flatbuffer_wrappers::function_call::FunctionCall;
+use hyperlight_common::flatbuffer_wrappers::function_types::ParameterType;
+use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
+use hyperlight_common::flatbuffer_wrappers::host_function_details::HostFunctionDetails;
 
-use crate::{
-    error::{HyperlightGuestError, Result},
-    P_PEB,
-};
+use crate::error::{HyperlightGuestError, Result};
+use crate::P_PEB;
 
 pub(crate) fn validate_host_function_call(function_call: &FunctionCall) -> Result<()> {
     // get host function details

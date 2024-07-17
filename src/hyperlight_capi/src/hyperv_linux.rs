@@ -1,18 +1,19 @@
-use super::context::Context;
-use super::handle::Handle;
-use super::hdl::Hdl;
-use super::mem_access_handler::get_mem_access_handler_func;
-use super::mem_access_handler::MemAccessHandlerWrapper;
-use super::outb_handler::get_outb_handler_func;
-use crate::mem_mgr::get_mem_mgr;
-use crate::validate_context;
-use crate::{c_func::CFunc, outb_handler::OutBHandlerWrapper};
+use std::sync::{Arc, Mutex};
+
 use hyperlight_host::hypervisor::hyperv_linux::{is_hypervisor_present, HypervLinuxDriver};
 use hyperlight_host::hypervisor::{Hypervisor, VirtualCPU};
 use hyperlight_host::mem::ptr::{GuestPtr, RawPtr};
 use hyperlight_host::Result;
-use std::sync::Arc;
-use std::sync::Mutex;
+
+use super::context::Context;
+use super::handle::Handle;
+use super::hdl::Hdl;
+use super::mem_access_handler::{get_mem_access_handler_func, MemAccessHandlerWrapper};
+use super::outb_handler::get_outb_handler_func;
+use crate::c_func::CFunc;
+use crate::mem_mgr::get_mem_mgr;
+use crate::outb_handler::OutBHandlerWrapper;
+use crate::validate_context;
 
 fn get_driver_mut(ctx: &mut Context, hdl: Handle) -> Result<&mut HypervLinuxDriver> {
     Context::get_mut(hdl, &mut ctx.hyperv_linux_drivers, |h| {

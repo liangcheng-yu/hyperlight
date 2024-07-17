@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
-use flatbuffers::{FlatBufferBuilder, UnionWIPOffset, WIPOffset};
 
+use flatbuffers::{FlatBufferBuilder, UnionWIPOffset, WIPOffset};
 use hyperlight_common::flatbuffers::hyperlight::generated::{
     hlint as Fbhlint, hlintArgs as FbhlintArgs, hllong as Fbhllong, hllongArgs as FbhllongArgs,
     hlsizeprefixedbuffer as Fbhlsizeprefixedbuffer,

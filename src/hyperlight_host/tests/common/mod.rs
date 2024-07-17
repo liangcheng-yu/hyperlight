@@ -1,12 +1,10 @@
-use hyperlight_host::MultiUseSandbox;
-use hyperlight_host::{
-    func::HostFunction1,
-    sandbox_state::{sandbox::EvolvableSandbox, transition::Noop},
-    GuestBinary, Result, UninitializedSandbox,
-};
-use hyperlight_testing::simple_guest_as_string;
+use hyperlight_host::func::HostFunction1;
+use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
+use hyperlight_host::sandbox_state::transition::Noop;
+use hyperlight_host::{GuestBinary, MultiUseSandbox, Result, UninitializedSandbox};
 use hyperlight_testing::{
     c_callback_guest_as_string, c_simple_guest_as_string, callback_guest_as_string,
+    simple_guest_as_string,
 };
 
 /// Returns a rust/c simpleguest depending on environment variable GUEST.

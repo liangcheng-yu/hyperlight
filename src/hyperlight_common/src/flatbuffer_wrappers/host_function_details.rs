@@ -1,18 +1,17 @@
 use alloc::vec::Vec;
+
 use anyhow::{Error, Result};
 use flatbuffers::WIPOffset;
-
 #[cfg(feature = "tracing")]
 use tracing::{instrument, Span};
 
+use super::host_function_definition::HostFunctionDefinition;
 use crate::flatbuffers::hyperlight::generated::{
     size_prefixed_root_as_host_function_details,
     HostFunctionDefinition as FbHostFunctionDefinition,
     HostFunctionDetails as FbHostFunctionDetails,
     HostFunctionDetailsArgs as FbHostFunctionDetailsArgs,
 };
-
-use super::host_function_definition::HostFunctionDefinition;
 
 /// `HostFunctionDetails` represents the set of functions that the host exposes to the guest.
 #[derive(Debug, Default, Clone)]

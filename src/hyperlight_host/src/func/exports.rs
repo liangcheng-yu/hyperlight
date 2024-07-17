@@ -1,8 +1,9 @@
-use crate::Result;
-use std::time::Duration;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
+
 #[cfg(target_os = "windows")]
 use windows::Win32::System::Threading::GetCurrentThreadStackLimits;
+
+use crate::Result;
 
 // TODO: this function is only required by WASM Guest, it should be moved to the Rust implementation of Hyperlight WASM
 // This can only be done once we have a Rust implementation of Hyperlight and a C API for the Rust implementation of Hyperlight WASM.

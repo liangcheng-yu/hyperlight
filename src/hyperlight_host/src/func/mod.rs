@@ -26,18 +26,17 @@ pub(crate) mod param_type;
 /// Definitions and functionality for supported return types
 pub mod ret_type;
 
+use std::sync::{Arc, Mutex};
+
 /// Re-export for `ParameterValue` enum
 pub use hyperlight_common::flatbuffer_wrappers::function_types::ParameterValue;
 /// Re-export for `ReturnType` enum
 pub use hyperlight_common::flatbuffer_wrappers::function_types::ReturnType;
 /// Re-export for `ReturnType` enum
 pub use hyperlight_common::flatbuffer_wrappers::function_types::ReturnValue;
-
 pub use param_type::SupportedParameterType;
 pub use ret_type::SupportedReturnType;
-use std::sync::{Arc, Mutex};
-use tracing::instrument;
-use tracing::Span;
+use tracing::{instrument, Span};
 
 type HLFunc = Arc<Mutex<Box<dyn FnMut(Vec<ParameterValue>) -> Result<ReturnValue> + Send>>>;
 

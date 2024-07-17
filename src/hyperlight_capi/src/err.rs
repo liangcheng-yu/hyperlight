@@ -1,10 +1,10 @@
-use crate::{validate_context, validate_context_or_panic};
+use hyperlight_host::new_error;
 
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::strings::{to_c_string, to_string, RawCString};
-use hyperlight_host::new_error;
+use crate::{validate_context, validate_context_or_panic};
 
 /// Create a new `Handle` that references an error with the given message.
 ///

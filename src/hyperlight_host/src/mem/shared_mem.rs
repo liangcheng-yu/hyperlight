@@ -1,14 +1,15 @@
-use crate::Result;
-use crate::{log_then_return, new_error};
-use hyperlight_common::mem::PAGE_SIZE_USIZE;
 use std::any::type_name;
 use std::ffi::c_void;
 use std::io::Error;
 use std::ptr::null_mut;
 use std::sync::Arc;
+
+use hyperlight_common::mem::PAGE_SIZE_USIZE;
 use tracing::{instrument, Span};
 #[cfg(target_os = "windows")]
 use windows::Win32::System::Memory::{VirtualAlloc, MEM_COMMIT, PAGE_EXECUTE_READWRITE};
+
+use crate::{log_then_return, new_error, Result};
 
 /// Makes sure that the given `offset` and `size` are within the bounds of the memory with size `mem_size`.
 macro_rules! bounds_check {
@@ -144,11 +145,12 @@ impl<'a> SharedMemory {
     #[cfg(target_os = "linux")]
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn new(min_size_bytes: usize) -> Result<Self> {
-        use crate::error::HyperlightError::{MmapFailed, MprotectFailed};
         use libc::{
             c_int, mmap, mprotect, off_t, size_t, MAP_ANONYMOUS, MAP_FAILED, MAP_NORESERVE,
             MAP_SHARED, PROT_NONE, PROT_READ, PROT_WRITE,
         };
+
+        use crate::error::HyperlightError::{MmapFailed, MprotectFailed};
 
         if min_size_bytes == 0 {
             return Err(new_error!("Cannot create shared memory with size 0"));
@@ -508,11 +510,12 @@ impl<'a> SharedMemory {
 
 #[cfg(test)]
 mod tests {
+    use hyperlight_common::mem::PAGE_SIZE_USIZE;
+    use proptest::prelude::*;
+
     use super::SharedMemory;
     use crate::mem::shared_mem_tests::read_write_test_suite;
     use crate::Result;
-    use hyperlight_common::mem::PAGE_SIZE_USIZE;
-    use proptest::prelude::*;
 
     #[test]
     fn fill() {
@@ -837,9 +840,10 @@ mod tests {
 
 #[cfg(test)]
 mod prop_tests {
-    use super::SharedMemory;
     use hyperlight_common::mem::PAGE_SIZE_USIZE;
     use proptest::prelude::*;
+
+    use super::SharedMemory;
 
     proptest! {
         /// Test the `copy_from_slice`, `copy_to_slice`, `copy_all_to_slice`,

@@ -1,15 +1,17 @@
-use super::FunctionsMap;
-use crate::HyperlightError::HostFunctionNotFound;
-use crate::{func::HyperlightFunction, mem::mgr::SandboxMemoryManager};
-use crate::{new_error, Result};
+use std::io::{stdout, Write};
+
 use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnValue};
 use hyperlight_common::flatbuffer_wrappers::host_function_definition::HostFunctionDefinition;
 use hyperlight_common::flatbuffer_wrappers::host_function_details::HostFunctionDetails;
 use is_terminal::IsTerminal;
-use std::io::stdout;
-use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use tracing::{instrument, Span};
+
+use super::FunctionsMap;
+use crate::func::HyperlightFunction;
+use crate::mem::mgr::SandboxMemoryManager;
+use crate::HyperlightError::HostFunctionNotFound;
+use crate::{new_error, Result};
 
 #[derive(Default, Clone)]
 /// A Wrapper around details of functions exposed by the Host

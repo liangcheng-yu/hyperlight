@@ -1,14 +1,17 @@
-use super::{host_funcs::HostFuncsWrapper, mem_mgr::MemMgrWrapper};
-use crate::hypervisor::handlers::{OutBHandlerFunction, OutBHandlerWrapper};
-use crate::{hypervisor::handlers::OutBHandler, mem::mgr::SandboxMemoryManager};
-use crate::{HyperlightError, Result};
+use std::sync::{Arc, Mutex};
+
 use hyperlight_common::flatbuffer_wrappers::function_types::ParameterValue;
 use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
 use hyperlight_common::flatbuffer_wrappers::guest_log_data::GuestLogData;
 use log::{Level, Record};
-use std::sync::{Arc, Mutex};
 use tracing::{instrument, Span};
 use tracing_log::format_trace;
+
+use super::host_funcs::HostFuncsWrapper;
+use super::mem_mgr::MemMgrWrapper;
+use crate::hypervisor::handlers::{OutBHandler, OutBHandlerFunction, OutBHandlerWrapper};
+use crate::mem::mgr::SandboxMemoryManager;
+use crate::{HyperlightError, Result};
 
 pub(super) enum OutBAction {
     Log,
@@ -155,17 +158,18 @@ pub(super) fn outb_handler_wrapper(
 
 #[cfg(test)]
 mod tests {
-    use super::outb_log;
-
-    use crate::mem::layout::SandboxMemoryLayout;
-    use crate::mem::mgr::SandboxMemoryManager;
-    use crate::sandbox::{outb::GuestLogData, SandboxConfiguration};
-    use crate::testing::log_values::test_value_as_str;
-    use crate::testing::simple_guest_pe_info;
     use hyperlight_common::flatbuffer_wrappers::guest_log_level::LogLevel;
-    use hyperlight_testing::{logger::Logger, logger::LOGGER};
+    use hyperlight_testing::logger::{Logger, LOGGER};
     use log::Level;
     use tracing_core::callsite::rebuild_interest_cache;
+
+    use super::outb_log;
+    use crate::mem::layout::SandboxMemoryLayout;
+    use crate::mem::mgr::SandboxMemoryManager;
+    use crate::sandbox::outb::GuestLogData;
+    use crate::sandbox::SandboxConfiguration;
+    use crate::testing::log_values::test_value_as_str;
+    use crate::testing::simple_guest_pe_info;
 
     fn new_guest_log_data(level: LogLevel) -> GuestLogData {
         GuestLogData::new(

@@ -1,19 +1,16 @@
-use alloc::{
-    string::{String, ToString},
-    vec::Vec,
-};
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+
 use anyhow::{anyhow, Error, Result};
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
-
 #[cfg(feature = "tracing")]
 use tracing::{instrument, Span};
 
+use super::function_types::{ParameterType, ReturnType};
 use crate::flatbuffers::hyperlight::generated::{
     GuestFunctionDefinition as FbGuestFunctionDefinition,
     GuestFunctionDefinitionArgs as FbGuestFunctionDefinitionArgs, ParameterType as FbParameterType,
 };
-
-use super::function_types::{ParameterType, ReturnType};
 
 /// The definition of a function exposed from the guest to the host
 #[derive(Debug, Clone, PartialEq, Eq)]

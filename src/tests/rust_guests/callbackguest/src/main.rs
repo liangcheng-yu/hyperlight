@@ -4,23 +4,26 @@
 extern crate alloc;
 extern crate hyperlight_guest;
 
-use alloc::{format, string::ToString, vec::Vec};
-use hyperlight_common::flatbuffer_wrappers::{
-    function_call::FunctionCall,
-    function_types::{ParameterType, ParameterValue, ReturnType},
-    guest_error::ErrorCode,
-    guest_function_definition::GuestFunctionDefinition,
-    guest_log_level::LogLevel,
+use alloc::format;
+use alloc::string::ToString;
+use alloc::vec::Vec;
+
+use hyperlight_common::flatbuffer_wrappers::function_call::FunctionCall;
+use hyperlight_common::flatbuffer_wrappers::function_types::{
+    ParameterType, ParameterValue, ReturnType,
 };
-use hyperlight_guest::{
-    error::{HyperlightGuestError, Result},
-    flatbuffer_utils::{get_flatbuffer_result_from_int, get_flatbuffer_result_from_void},
-    guest_functions::register_function,
-    host_function_call::{
-        call_host_function, get_host_value_return_as_int, print_output_as_guest_function,
-    },
-    logging::log_message,
+use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
+use hyperlight_common::flatbuffer_wrappers::guest_function_definition::GuestFunctionDefinition;
+use hyperlight_common::flatbuffer_wrappers::guest_log_level::LogLevel;
+use hyperlight_guest::error::{HyperlightGuestError, Result};
+use hyperlight_guest::flatbuffer_utils::{
+    get_flatbuffer_result_from_int, get_flatbuffer_result_from_void,
 };
+use hyperlight_guest::guest_functions::register_function;
+use hyperlight_guest::host_function_call::{
+    call_host_function, get_host_value_return_as_int, print_output_as_guest_function,
+};
+use hyperlight_guest::logging::log_message;
 
 fn send_message_to_host_method(
     method_name: &str,

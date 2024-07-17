@@ -1,13 +1,16 @@
 #![no_std]
 // Deps
-use crate::host_function_call::{outb, OutBAction};
-use alloc::{string::ToString, vec::Vec};
-use buddy_system_allocator::LockedHeap;
+use alloc::string::ToString;
+use alloc::vec::Vec;
 use core::hint::unreachable_unchecked;
 use core::ptr::copy_nonoverlapping;
+
+use buddy_system_allocator::LockedHeap;
 use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
 use hyperlight_common::flatbuffer_wrappers::guest_function_details::GuestFunctionDetails;
 use hyperlight_common::mem::HyperlightPEB;
+
+use crate::host_function_call::{outb, OutBAction};
 extern crate alloc;
 
 // Modules

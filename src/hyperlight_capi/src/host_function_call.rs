@@ -1,10 +1,13 @@
-use super::handle::Handle;
-use super::hdl::Hdl;
-use super::{arrays::raw_vec::RawVec, context::Context};
-use crate::validate_context_or_panic;
+use std::mem;
+
 use hyperlight_common::flatbuffer_wrappers::function_call::FunctionCall;
 use hyperlight_host::{HyperlightError, Result};
-use std::mem;
+
+use super::arrays::raw_vec::RawVec;
+use super::context::Context;
+use super::handle::Handle;
+use super::hdl::Hdl;
+use crate::validate_context_or_panic;
 
 /// Return true if the given handle `hdl` references a `FunctionCall` representing a Host Function Call in `ctx`,
 /// and false otherwise

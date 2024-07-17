@@ -2,9 +2,10 @@
 // it will only log messages from the hyperlight_guest target. It will not log messages from other targets.
 // this target is only used when handling an outb log request from the guest, so this logger will only capture those messages.
 
-use log::{set_logger, set_max_level, Level, LevelFilter, Log, Metadata, Record};
 use std::sync::Once;
 use std::thread::current;
+
+use log::{set_logger, set_max_level, Level, LevelFilter, Log, Metadata, Record};
 
 pub static LOGGER: SimpleLogger = SimpleLogger {};
 static INITLOGGER: Once = Once::new();

@@ -1,17 +1,15 @@
+use std::sync::{Arc, Mutex};
+
+use hyperlight_host::hypervisor::kvm::{self, KVMDriver};
+use hyperlight_host::hypervisor::Hypervisor;
+use hyperlight_host::Result;
+
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use super::hyperv_linux::get_handler_funcs;
 use crate::c_func::CFunc;
 use crate::mem_mgr::get_mem_mgr;
-use hyperlight_host::{
-    hypervisor::{
-        kvm::{self, KVMDriver},
-        Hypervisor,
-    },
-    Result,
-};
-use std::sync::{Arc, Mutex};
 
 fn get_driver_mut(ctx: &mut Context, handle: Handle) -> Result<&mut KVMDriver> {
     Context::get_mut(handle, &mut ctx.kvm_drivers, |b| {

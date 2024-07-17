@@ -1,17 +1,19 @@
-use super::guest_log_data::register_guest_log_data;
-use super::{byte_array::get_byte_array, context::Context, handle::Handle, hdl::Hdl};
-use crate::{
-    arrays::borrowed_slice::borrow_ptr_as_slice_mut, c_func::CFunc,
-    function_call_result::get_function_call_result, int::register_i32,
-};
-use crate::{
-    uint::register_u64,
-    validate_context,
-    {arrays::borrowed_slice::borrow_ptr_as_slice, shared_mem::register_shared_mem},
-};
 use hyperlight_common::mem::PAGE_SIZE;
 use hyperlight_host::mem::mgr::SandboxMemoryManager;
 use hyperlight_host::{log_then_return, new_error, Result};
+
+use super::byte_array::get_byte_array;
+use super::context::Context;
+use super::guest_log_data::register_guest_log_data;
+use super::handle::Handle;
+use super::hdl::Hdl;
+use crate::arrays::borrowed_slice::{borrow_ptr_as_slice, borrow_ptr_as_slice_mut};
+use crate::c_func::CFunc;
+use crate::function_call_result::get_function_call_result;
+use crate::int::register_i32;
+use crate::shared_mem::register_shared_mem;
+use crate::uint::register_u64;
+use crate::validate_context;
 
 pub(crate) fn get_mem_mgr(ctx: &Context, hdl: Handle) -> Result<&SandboxMemoryManager> {
     Context::get(hdl, &ctx.mem_mgrs, |h| matches!(h, Hdl::MemMgr(_)))

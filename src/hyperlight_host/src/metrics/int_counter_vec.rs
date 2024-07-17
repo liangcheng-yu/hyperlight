@@ -1,13 +1,12 @@
+use prometheus::core::{AtomicU64, GenericCounterVec};
+use prometheus::register_int_counter_vec_with_registry;
+use tracing::{instrument, Span};
+
 use super::{
     get_metric_opts, get_metrics_registry, GetHyperlightMetric, HyperlightMetric,
     HyperlightMetricOps,
 };
 use crate::{new_error, HyperlightError, Result};
-use prometheus::{
-    core::{AtomicU64, GenericCounterVec},
-    register_int_counter_vec_with_registry,
-};
-use tracing::{instrument, Span};
 
 /// A 64-bit counter
 #[derive(Debug)]

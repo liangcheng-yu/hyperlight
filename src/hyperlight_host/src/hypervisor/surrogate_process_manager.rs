@@ -1,15 +1,12 @@
-use super::{surrogate_process::SurrogateProcess, wrappers::PSTRWrapper};
-use crate::mem::shared_mem::PtrCVoidMut;
-use crate::HyperlightError::MemoryProtectionFailed;
-use crate::{log_then_return, new_error, Result};
 use core::ffi::c_void;
-use crossbeam_channel::{unbounded, Receiver, Sender};
-use hyperlight_common::mem::PAGE_SIZE_USIZE;
-use rust_embed::RustEmbed;
 use std::fs::File;
 use std::io::{Error, Write};
 use std::mem::size_of;
 use std::path::{Path, PathBuf};
+
+use crossbeam_channel::{unbounded, Receiver, Sender};
+use hyperlight_common::mem::PAGE_SIZE_USIZE;
+use rust_embed::RustEmbed;
 use tracing::{info, instrument, Span};
 use windows::core::PCSTR;
 use windows::s;
@@ -27,6 +24,12 @@ use windows::Win32::System::Memory::{
 use windows::Win32::System::Threading::{
     CreateProcessA, CREATE_SUSPENDED, PROCESS_INFORMATION, STARTUPINFOA,
 };
+
+use super::surrogate_process::SurrogateProcess;
+use super::wrappers::PSTRWrapper;
+use crate::mem::shared_mem::PtrCVoidMut;
+use crate::HyperlightError::MemoryProtectionFailed;
+use crate::{log_then_return, new_error, Result};
 
 // Use the rust-embed crate to embed the hyperlights_surrogate.exe
 // binary in the hyperlight_host library to make dependency management easier.
@@ -382,14 +385,12 @@ fn create_surrogate_process(surrogate_process_path: &Path, job_handle: &HANDLE) 
 }
 #[cfg(test)]
 mod tests {
-    use crate::mem::shared_mem::SharedMemory;
+    use std::ffi::CStr;
+    use std::thread;
+    use std::time::{Duration, Instant};
 
-    use super::*;
     use rand::{thread_rng, Rng};
     use serial_test::serial;
-    use std::ffi::CStr;
-    use std::time::Instant;
-    use std::{thread, time::Duration};
     use windows::Win32::Foundation::BOOL;
     use windows::Win32::System::Diagnostics::ToolHelp::{
         CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32, TH32CS_SNAPPROCESS,
@@ -398,6 +399,9 @@ mod tests {
     use windows::Win32::System::Memory::{
         VirtualAlloc, VirtualFree, MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE,
     };
+
+    use super::*;
+    use crate::mem::shared_mem::SharedMemory;
     #[test]
     #[serial]
     fn test_surrogate_process_manager() {

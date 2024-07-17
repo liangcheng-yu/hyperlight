@@ -1,11 +1,13 @@
+use std::ffi::{CStr, CString};
+use std::os::raw::c_char;
+use std::string::String;
+
+use hyperlight_host::Result;
+
 use super::context::Context;
 use super::handle::Handle;
 use super::hdl::Hdl;
 use crate::validate_context_or_panic;
-use hyperlight_host::Result;
-use std::ffi::{CStr, CString};
-use std::os::raw::c_char;
-use std::string::String;
 
 /// A type alias for a common `NUL`-terminated C-style string.
 pub type RawCString = *const c_char;

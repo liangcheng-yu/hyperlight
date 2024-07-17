@@ -1,8 +1,8 @@
-use crate::validate_context_or_panic;
+use rand::random;
 
 use super::context::Context;
 use super::hdl::Hdl;
-use rand::random;
+use crate::validate_context_or_panic;
 
 /// An opaque reference to memory within a `Context`.
 ///
@@ -179,10 +179,10 @@ pub extern "C" fn handles_equal(handle1: Handle, handle2: Handle) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::super::hdl::Hdl;
-    use super::Handle;
-    use super::{new_key, Key};
     use hyperlight_host::Result;
+
+    use super::super::hdl::Hdl;
+    use super::{new_key, Handle, Key};
 
     #[test]
     fn new_empty() -> Result<()> {

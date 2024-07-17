@@ -1,33 +1,29 @@
-use std::{
-    array::TryFromSliceError,
-    cell::BorrowError,
-    cell::BorrowMutError,
-    convert::Infallible,
-    error::Error,
-    num::TryFromIntError,
-    str::Utf8Error,
-    string::FromUtf8Error,
-    sync::{MutexGuard, PoisonError},
-    time::SystemTimeError,
-};
+use std::array::TryFromSliceError;
+use std::cell::{BorrowError, BorrowMutError};
+use std::convert::Infallible;
+use std::error::Error;
+use std::num::TryFromIntError;
+use std::str::Utf8Error;
+use std::string::FromUtf8Error;
+use std::sync::{MutexGuard, PoisonError};
+use std::time::SystemTimeError;
 
-use hyperlight_common::{
-    flatbuffer_wrappers::guest_error::ErrorCode,
-    flatbuffers::hyperlight::generated::{
-        FunctionCallType, ParameterType, ParameterValue as FBParameterValue, ReturnType,
-        ReturnValue as FBReturnValue,
-    },
-};
-
-use crate::mem::{memory_region::MemoryRegionFlags, ptr::RawPtr};
 #[cfg(target_os = "windows")]
 use crossbeam_channel::{RecvError, SendError};
 use flatbuffers::InvalidFlatbuffer;
 use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnValue};
+use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
+use hyperlight_common::flatbuffers::hyperlight::generated::{
+    FunctionCallType, ParameterType, ParameterValue as FBParameterValue, ReturnType,
+    ReturnValue as FBReturnValue,
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(target_os = "windows")]
 use windows::Win32::Foundation::HANDLE;
+
+use crate::mem::memory_region::MemoryRegionFlags;
+use crate::mem::ptr::RawPtr;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub(crate) struct HyperlightHostError {

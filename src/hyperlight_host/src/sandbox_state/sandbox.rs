@@ -1,8 +1,11 @@
+use std::fmt::Debug;
+use std::panic;
+
+use tracing::{instrument, Span};
+
 use super::transition::TransitionMetadata;
 use crate::sandbox::hypervisor::HypervisorWrapper;
 use crate::Result;
-use std::{fmt::Debug, panic};
-use tracing::{instrument, Span};
 
 /// The minimal functionality of a Hyperlight sandbox. Most of the types
 /// and operations within this crate require `Sandbox` implementations.

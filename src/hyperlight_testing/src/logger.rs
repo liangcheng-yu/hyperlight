@@ -1,8 +1,9 @@
-use log::{set_logger, set_max_level, Level, LevelFilter, Log, Metadata, Record};
-use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::sync::Once;
 use std::thread::current;
+
+use log::{set_logger, set_max_level, Level, LevelFilter, Log, Metadata, Record};
+use once_cell::sync::Lazy;
 use tracing_log::LogTracer;
 
 pub static LOGGER: Logger = Logger {};

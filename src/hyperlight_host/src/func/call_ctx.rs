@@ -1,10 +1,12 @@
-use super::guest_dispatch::call_function_on_guest;
-use crate::{MultiUseSandbox, Result, SingleUseSandbox};
+use std::marker::PhantomData;
+
 use hyperlight_common::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
 };
-use std::marker::PhantomData;
 use tracing::{instrument, Span};
+
+use super::guest_dispatch::call_function_on_guest;
+use crate::{MultiUseSandbox, Result, SingleUseSandbox};
 /// A context for calling guest functions.
 ///
 /// Takes ownership of an existing `MultiUseSandbox`.
@@ -203,16 +205,21 @@ impl<'a> SingleUseMultiGuestCallContext<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::func::call_ctx::SingleUseMultiGuestCallContext;
-    use crate::{sandbox_state::sandbox::EvolvableSandbox, MultiUseSandbox};
-    use crate::{sandbox_state::transition::Noop, GuestBinary, HyperlightError};
-    use crate::{Result, SingleUseSandbox, UninitializedSandbox};
+    use std::sync::mpsc::sync_channel;
+    use std::thread::{self, JoinHandle};
+
     use hyperlight_common::flatbuffer_wrappers::function_types::{
         ParameterValue, ReturnType, ReturnValue,
     };
     use hyperlight_testing::simple_guest_as_string;
-    use std::sync::mpsc::sync_channel;
-    use std::thread::{self, JoinHandle};
+
+    use crate::func::call_ctx::SingleUseMultiGuestCallContext;
+    use crate::sandbox_state::sandbox::EvolvableSandbox;
+    use crate::sandbox_state::transition::Noop;
+    use crate::{
+        GuestBinary, HyperlightError, MultiUseSandbox, Result, SingleUseSandbox,
+        UninitializedSandbox,
+    };
 
     fn new_uninit() -> Result<UninitializedSandbox> {
         let path = simple_guest_as_string().map_err(|e| {

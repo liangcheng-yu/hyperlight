@@ -1,40 +1,37 @@
-use super::{
-    fpu::{FP_TAG_WORD_DEFAULT, MXCSR_DEFAULT},
-    handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper},
-    windows_hypervisor_platform::{VMPartition, VMProcessor},
-    wrappers::WHvFPURegisters,
-    Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR,
-    CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
-};
-use super::{surrogate_process::SurrogateProcess, surrogate_process_manager::*};
-use super::{windows_hypervisor_platform as whp, HyperlightExit};
-use crate::hypervisor::fpu::FP_CONTROL_WORD_DEFAULT;
-use crate::hypervisor::hypervisor_handler::{HandlerMsg, HasCommunicationChannels, VCPUAction};
-use crate::hypervisor::wrappers::WHvGeneralRegisters;
-use crate::mem::memory_region::MemoryRegion;
-use crate::mem::{memory_region::MemoryRegionFlags, ptr::GuestPtr};
-use crate::Result;
-use crate::{
-    log_then_return,
-    mem::{ptr::RawPtr, shared_mem::PtrCVoidMut},
-};
-use crate::{
-    new_error,
-    HyperlightError::{NoHypervisorFound, WindowsErrorHResult},
-};
 use core::ffi::c_void;
-use crossbeam::atomic::AtomicCell;
-use crossbeam_channel::{Receiver, Sender};
-use hyperlight_common::mem::PAGE_SIZE_USIZE;
 use std::any::Any;
 use std::string::String;
 use std::sync::Arc;
+
+use crossbeam::atomic::AtomicCell;
+use crossbeam_channel::{Receiver, Sender};
+use hyperlight_common::mem::PAGE_SIZE_USIZE;
 use tracing::{instrument, Span};
 use windows::Win32::System::Hypervisor::{
     WHvX64RegisterCr0, WHvX64RegisterCr3, WHvX64RegisterCr4, WHvX64RegisterCs, WHvX64RegisterEfer,
     WHV_MEMORY_ACCESS_TYPE, WHV_PARTITION_HANDLE, WHV_REGISTER_VALUE, WHV_RUN_VP_EXIT_CONTEXT,
     WHV_RUN_VP_EXIT_REASON, WHV_UINT128, WHV_UINT128_0,
 };
+
+use super::fpu::{FP_TAG_WORD_DEFAULT, MXCSR_DEFAULT};
+use super::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper};
+use super::surrogate_process::SurrogateProcess;
+use super::surrogate_process_manager::*;
+use super::windows_hypervisor_platform::{VMPartition, VMProcessor};
+use super::wrappers::WHvFPURegisters;
+use super::{
+    windows_hypervisor_platform as whp, HyperlightExit, Hypervisor, VirtualCPU, CR0_AM, CR0_ET,
+    CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA,
+    EFER_LME,
+};
+use crate::hypervisor::fpu::FP_CONTROL_WORD_DEFAULT;
+use crate::hypervisor::hypervisor_handler::{HandlerMsg, HasCommunicationChannels, VCPUAction};
+use crate::hypervisor::wrappers::WHvGeneralRegisters;
+use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
+use crate::mem::ptr::{GuestPtr, RawPtr};
+use crate::mem::shared_mem::PtrCVoidMut;
+use crate::HyperlightError::{NoHypervisorFound, WindowsErrorHResult};
+use crate::{log_then_return, new_error, Result};
 
 /// A Hypervisor driver for HyperV-on-Windows.
 #[derive(Debug)]
@@ -420,18 +417,17 @@ impl HasCommunicationChannels for HypervWindowsDriver {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::Result;
-    use crate::{
-        hypervisor::{
-            handlers::{MemAccessHandler, OutBHandler},
-            tests::test_initialise,
-        },
-        mem::{layout::SandboxMemoryLayout, ptr::GuestPtr, ptr_offset::Offset},
-    };
-    use serial_test::serial;
     use std::sync::{Arc, Mutex};
 
+    use serial_test::serial;
+
     use super::HypervWindowsDriver;
+    use crate::hypervisor::handlers::{MemAccessHandler, OutBHandler};
+    use crate::hypervisor::tests::test_initialise;
+    use crate::mem::layout::SandboxMemoryLayout;
+    use crate::mem::ptr::GuestPtr;
+    use crate::mem::ptr_offset::Offset;
+    use crate::Result;
 
     extern "C" fn outb_fn(_port: u16, _payload: u64) {}
 

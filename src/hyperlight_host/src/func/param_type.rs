@@ -1,9 +1,8 @@
+use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterType, ParameterValue};
 use tracing::{instrument, Span};
 
 use crate::HyperlightError::ParameterValueConversionFailure;
 use crate::{log_then_return, Result};
-
-use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterType, ParameterValue};
 
 /// This is a marker trait that is used to indicate that a type is a
 /// valid Hyperlight parameter type.

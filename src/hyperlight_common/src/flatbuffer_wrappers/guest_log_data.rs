@@ -1,18 +1,15 @@
-use alloc::{
-    string::{String, ToString},
-    vec::Vec,
-};
-use anyhow::{anyhow, Error, Result};
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 
+use anyhow::{anyhow, Error, Result};
 #[cfg(feature = "tracing")]
 use tracing::{instrument, Span};
 
+use super::guest_log_level::LogLevel;
 use crate::flatbuffers::hyperlight::generated::{
     size_prefixed_root_as_guest_log_data, GuestLogData as FbGuestLogData,
     GuestLogDataArgs as FbGuestLogDataArgs, LogLevel as FbLogLevel,
 };
-
-use super::guest_log_level::LogLevel;
 
 /// The guest log data for a VM sandbox
 #[derive(Eq, PartialEq, Debug, Clone)]

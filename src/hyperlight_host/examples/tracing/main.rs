@@ -1,18 +1,18 @@
 use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
 use tracing::{span, Level};
 extern crate hyperlight_host;
-use hyperlight_host::{
-    sandbox::uninitialized::UninitializedSandbox,
-    sandbox_state::{sandbox::EvolvableSandbox, transition::Noop},
-    GuestBinary, MultiUseSandbox, Result,
-};
-use hyperlight_testing::simple_guest_as_string;
 use std::sync::{Arc, Mutex};
 use std::thread::{spawn, JoinHandle};
+
+use hyperlight_host::sandbox::uninitialized::UninitializedSandbox;
+use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
+use hyperlight_host::sandbox_state::transition::Noop;
+use hyperlight_host::{GuestBinary, MultiUseSandbox, Result};
+use hyperlight_testing::simple_guest_as_string;
 use tracing_forest::ForestLayer;
-use tracing_subscriber::{
-    layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer, Registry,
-};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, Layer, Registry};
 use uuid::Uuid;
 
 fn fn_writer(_msg: String) -> Result<i32> {

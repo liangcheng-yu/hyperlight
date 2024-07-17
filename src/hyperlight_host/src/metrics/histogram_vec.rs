@@ -1,10 +1,11 @@
+use prometheus::{register_histogram_vec_with_registry, HistogramVec as PHistogramVec};
+use tracing::{instrument, Span};
+
 use super::{
     get_histogram_opts, get_metrics_registry, GetHyperlightMetric, HyperlightMetric,
     HyperlightMetricOps,
 };
 use crate::{new_error, HyperlightError, Result};
-use prometheus::{register_histogram_vec_with_registry, HistogramVec as PHistogramVec};
-use tracing::{instrument, Span};
 
 /// A named bundle of histograms
 #[derive(Debug)]
