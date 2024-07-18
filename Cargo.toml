@@ -9,6 +9,7 @@ default-members = [
 ]
 members = [
     "src/hyperlight_capi",
+    "src/hyperlight_common",
     "src/hyperlight_guest",
     "src/hyperlight_host",
     "src/hyperlight_testing",
@@ -29,6 +30,8 @@ exclude = [
 mshv-bindings = { version = "=0.2.0", registry = "hyperlight_redist" }
 mshv-ioctls = { version = "=0.2.0", registry = "hyperlight_redist" }
 
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
 
 # this will generate symbols for release builds
 # so is handy for debugging issues in release builds

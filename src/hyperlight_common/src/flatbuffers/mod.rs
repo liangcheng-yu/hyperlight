@@ -1,4 +1,4 @@
-#[allow(dead_code, unused_imports, clippy::all)]
+#[allow(dead_code, unused_imports, clippy::all, unsafe_op_in_unsafe_fn)]
 pub mod hyperlight {
     use super::*;
     pub mod generated {

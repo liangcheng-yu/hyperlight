@@ -776,17 +776,19 @@ mod tests {
         /// hook sigsegv to exit with status code, to make it testable, rather than have it exit from a signal
         /// NOTE: We CANNOT panic!() in the handler, and make the tests #[should_panic], because
         ///     the test harness process will crash anyway after the test passes
-        unsafe fn setup_signal_handler() {
-            signal_hook_registry::register_signal_unchecked(libc::SIGSEGV, || {
-                std::process::exit(TEST_EXIT_CODE.into());
-            })
-            .unwrap();
+        fn setup_signal_handler() {
+            unsafe {
+                signal_hook_registry::register_signal_unchecked(libc::SIGSEGV, || {
+                    std::process::exit(TEST_EXIT_CODE.into());
+                })
+                .unwrap();
+            }
         }
 
         #[test]
         #[ignore] // this test is ignored because it will crash the running process
         fn read() {
-            unsafe { setup_signal_handler() };
+            setup_signal_handler();
 
             let mem = SharedMemory::new(4096).unwrap();
             let guard_page_ptr = mem.raw_ptr();
@@ -796,7 +798,7 @@ mod tests {
         #[test]
         #[ignore] // this test is ignored because it will crash the running process
         fn write() {
-            unsafe { setup_signal_handler() };
+            setup_signal_handler();
 
             let mem = SharedMemory::new(4096).unwrap();
             let guard_page_ptr = mem.raw_ptr();
@@ -806,7 +808,7 @@ mod tests {
         #[test]
         #[ignore] // this test is ignored because it will crash the running process
         fn exec() {
-            unsafe { setup_signal_handler() };
+            setup_signal_handler();
 
             let mem = SharedMemory::new(4096).unwrap();
             let guard_page_ptr = mem.raw_ptr();

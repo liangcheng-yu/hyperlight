@@ -416,7 +416,7 @@ impl<'a> UninitializedSandbox {
             };
 
             let fn_location = u64::from(addr) as *const c_void;
-            std::mem::transmute(fn_location)
+            unsafe { std::mem::transmute(fn_location) }
         };
         let peb_i64 = i64::try_from(u64::from(peb_address))?;
         let max_log_level = log::max_level() as u32;

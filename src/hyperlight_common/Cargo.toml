@@ -3,6 +3,9 @@ name = "hyperlight_common"
 version = "0.7.7"
 edition = "2021"
 
+[lints]
+workspace = true
+
 [dependencies]
 flatbuffers = { version = "23.5.26", default-features = false }
 anyhow = { version = "1.0.72", default-features = false }

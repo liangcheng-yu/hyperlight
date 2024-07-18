@@ -55,8 +55,10 @@ impl LoadedLib {
 /// the standard `CString` drop functionality, in that order
 #[instrument(skip_all, parent = Span::current(), level= "Trace")]
 unsafe fn free_and_drop(h_inst: HMODULE, file_name_c_str: *mut c_char) {
-    FreeLibrary(h_inst);
-    drop(CString::from_raw(file_name_c_str));
+    unsafe {
+        FreeLibrary(h_inst);
+        drop(CString::from_raw(file_name_c_str));
+    }
 }
 
 impl Drop for LoadedLib {
