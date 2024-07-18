@@ -9,8 +9,8 @@ use super::guest_err::check_for_guest_error;
 #[cfg(feature = "function_call_metrics")]
 use crate::histogram_vec_time_micros;
 use crate::hypervisor::hypervisor_handler::{
-    execute_vcpu_action, terminate_hypervisor_handler_execution_and_reinitialise, DispatchArgs,
-    VCPUAction,
+    execute_hypervisor_handler_action, terminate_hypervisor_handler_execution_and_reinitialise,
+    DispatchArgs, HypervisorHandlerAction,
 };
 use crate::mem::ptr::RawPtr;
 #[cfg(feature = "function_call_metrics")]
@@ -111,9 +111,9 @@ pub(crate) fn call_function_on_guest<HvMemMgrT: WrapperGetter>(
                 (hv_lock.get_run_cancelled(), hv_lock.get_thread_id())
             };
 
-            match execute_vcpu_action(
+            match execute_hypervisor_handler_action(
                 wrapper_getter.get_hv(),
-                VCPUAction::DispatchCallFromHost(DispatchArgs::new(
+                HypervisorHandlerAction::DispatchCallFromHost(DispatchArgs::new(
                     function_name.to_string(),
                     RawPtr::from(p_dispatch),
                     outb_hdl.clone(),

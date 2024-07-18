@@ -31,6 +31,7 @@ pub struct MultiUseSandbox<'a> {
     /// See the documentation for `SingleUseSandbox::_leaked_out_b` for
     /// details on the purpose of this field.
     _leaked_outb: Arc<Option<LeakedOutBWrapper<'a>>>,
+    is_csharp: bool,
 }
 
 // We need to implement drop to join the
@@ -43,12 +44,17 @@ pub struct MultiUseSandbox<'a> {
 // `create_1000_sandboxes`.
 impl Drop for MultiUseSandbox<'_> {
     fn drop(&mut self) {
-        match kill_hypervisor_handler_thread(self) {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("[POTENTIAL THREAD LEAK] Potentially failed to kill hypervisor handler thread when dropping MultiUseSandbox: {:?}", e);
+        if !self.is_csharp {
+            match kill_hypervisor_handler_thread(self) {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!("[POTENTIAL THREAD LEAK] Potentially failed to kill hypervisor handler thread when dropping MultiUseSandbox: {:?}", e);
+                }
             }
         }
+
+        // If we are running from C#, drop is a no-op
+        // because there's no hypervisor thread to kill.
     }
 }
 
@@ -69,6 +75,7 @@ impl<'a> MultiUseSandbox<'a> {
             run_from_process_memory: val.run_from_process_memory,
             hv: val.hv,
             _leaked_outb: Arc::new(leaked_outb),
+            is_csharp: val.is_csharp,
         }
     }
 

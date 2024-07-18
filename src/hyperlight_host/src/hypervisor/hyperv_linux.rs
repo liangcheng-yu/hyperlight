@@ -21,7 +21,9 @@ use super::{
     Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR4_OSFXSR,
     CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME, EFER_NX, EFER_SCE,
 };
-use crate::hypervisor::hypervisor_handler::{HandlerMsg, HasCommunicationChannels, VCPUAction};
+use crate::hypervisor::hypervisor_handler::{
+    HandlerMsg, HasCommunicationChannels, HypervisorHandlerAction,
+};
 use crate::hypervisor::HyperlightExit;
 use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
 use crate::mem::ptr::{GuestPtr, RawPtr};
@@ -56,8 +58,10 @@ pub struct HypervLinuxDriver {
     entrypoint: u64,
     mem_regions: Vec<MemoryRegion>,
     orig_rsp: GuestPtr,
-    vcpu_action_transmitter: Option<crossbeam_channel::Sender<VCPUAction>>,
-    vcpu_action_receiver: Option<crossbeam_channel::Receiver<VCPUAction>>,
+    hypervisor_handler_action_transmitter:
+        Option<crossbeam_channel::Sender<HypervisorHandlerAction>>,
+    hypervisor_handler_action_receiver:
+        Option<crossbeam_channel::Receiver<HypervisorHandlerAction>>,
     handler_message_receiver: Option<crossbeam_channel::Receiver<HandlerMsg>>,
     handler_message_transmitter: Option<crossbeam_channel::Sender<HandlerMsg>>,
     thread_id: Option<u64>,
@@ -107,8 +111,8 @@ impl HypervLinuxDriver {
             mem_regions,
             entrypoint: entrypoint_ptr.absolute()?,
             orig_rsp: rsp_ptr,
-            vcpu_action_transmitter: None,
-            vcpu_action_receiver: None,
+            hypervisor_handler_action_transmitter: None,
+            hypervisor_handler_action_receiver: None,
             handler_message_receiver: None,
             handler_message_transmitter: None,
             thread_id: None,
@@ -391,14 +395,14 @@ impl Hypervisor for HypervLinuxDriver {
 }
 
 impl HasCommunicationChannels for HypervLinuxDriver {
-    fn get_to_handler_tx(&self) -> Sender<VCPUAction> {
-        self.vcpu_action_transmitter.clone().unwrap()
+    fn get_to_handler_tx(&self) -> Sender<HypervisorHandlerAction> {
+        self.hypervisor_handler_action_transmitter.clone().unwrap()
     }
-    fn set_to_handler_tx(&mut self, tx: Sender<VCPUAction>) {
-        self.vcpu_action_transmitter = Some(tx);
+    fn set_to_handler_tx(&mut self, tx: Sender<HypervisorHandlerAction>) {
+        self.hypervisor_handler_action_transmitter = Some(tx);
     }
     fn drop_to_handler_tx(&mut self) {
-        self.vcpu_action_transmitter = None;
+        self.hypervisor_handler_action_transmitter = None;
     }
 
     fn get_from_handler_rx(&self) -> Receiver<HandlerMsg> {
@@ -415,11 +419,11 @@ impl HasCommunicationChannels for HypervLinuxDriver {
         self.handler_message_transmitter = Some(tx);
     }
 
-    fn set_to_handler_rx(&mut self, rx: Receiver<VCPUAction>) {
-        self.vcpu_action_receiver = Some(rx);
+    fn set_to_handler_rx(&mut self, rx: Receiver<HypervisorHandlerAction>) {
+        self.hypervisor_handler_action_receiver = Some(rx);
     }
-    fn get_to_handler_rx(&self) -> Receiver<VCPUAction> {
-        self.vcpu_action_receiver.clone().unwrap()
+    fn get_to_handler_rx(&self) -> Receiver<HypervisorHandlerAction> {
+        self.hypervisor_handler_action_receiver.clone().unwrap()
     }
 }
 

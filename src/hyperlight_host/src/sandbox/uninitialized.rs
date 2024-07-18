@@ -1120,6 +1120,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     // Tests that traces are emitted as log records when there is no trace
     // subscriber configured.
     fn test_log_trace() {

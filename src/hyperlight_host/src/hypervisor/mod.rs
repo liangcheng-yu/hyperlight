@@ -362,7 +362,8 @@ pub(crate) mod tests {
     use super::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper};
     use super::Hypervisor;
     use crate::hypervisor::hypervisor_handler::{
-        execute_vcpu_action, start_hypervisor_handler, InitArgs, VCPUAction,
+        execute_hypervisor_handler_action, start_hypervisor_handler, HypervisorHandlerAction,
+        InitArgs,
     };
     use crate::mem::layout::SandboxMemoryLayout;
     use crate::mem::mgr::SandboxMemoryManager;
@@ -432,9 +433,9 @@ pub(crate) mod tests {
 
         start_hypervisor_handler(hv_wrapper.get_hypervisor_arc()?.clone())?;
 
-        execute_vcpu_action(
+        execute_hypervisor_handler_action(
             &hv_wrapper,
-            VCPUAction::Initialise(InitArgs::new(
+            HypervisorHandlerAction::Initialise(InitArgs::new(
                 RawPtr::from(0x230000),
                 1234567890,
                 4096,

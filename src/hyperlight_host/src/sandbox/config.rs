@@ -82,6 +82,8 @@ impl SandboxConfiguration {
     pub const DEFAULT_GUEST_ERROR_BUFFER_SIZE: usize = 0x100;
     /// The minimum size for guest error messages
     pub const MIN_GUEST_ERROR_BUFFER_SIZE: usize = 0x80;
+    /// The default value for max initialization time (in milliseconds)
+    pub const DEFAULT_MAX_INITIALIZATION_TIME: u16 = 2000;
     /// The default and minimum values for max execution time (in milliseconds)
     pub const DEFAULT_MAX_EXECUTION_TIME: u16 = 1000;
     /// The minimum value for max execution time (in milliseconds)

@@ -84,6 +84,8 @@ test-rust target=default-target: (test-rust-int "rust" target) (test-rust-int "c
     cargo test --profile={{ if target == "debug" { "dev" } else { target } }} sandbox::metrics::tests::test_gather_metrics -p hyperlight_host -- --ignored 
     cargo test --profile={{ if target == "debug" { "dev" } else { target } }} test_metrics -p hyperlight_host -- --ignored 
     cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --test integration_test log_message -- --ignored
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} sandbox::uninitialized::tests::test_log_trace -p hyperlight_host -- --ignored
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} hypervisor::hypervisor_handler::tests::create_1000_sandboxes -p hyperlight_host
 
 # rust integration tests. guest can either be "rust" or "c"
 test-rust-int guest target=default-target:

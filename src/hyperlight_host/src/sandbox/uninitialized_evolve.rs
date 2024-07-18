@@ -1,19 +1,21 @@
+use std::time::Duration;
+
 use rand::Rng;
 use tracing::{instrument, Span};
 
 use super::leaked_outb::LeakedOutBWrapper;
-use super::WrapperGetter;
+use super::{SandboxConfiguration, WrapperGetter};
 use crate::func::exports::get_os_page_size;
 use crate::hypervisor::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper};
 use crate::hypervisor::hypervisor_handler::{
-    execute_vcpu_action, kill_hypervisor_handler_thread, start_hypervisor_handler, InitArgs,
-    VCPUAction,
+    execute_hypervisor_handler_action, kill_hypervisor_handler_thread, start_hypervisor_handler,
+    HypervisorHandlerAction, InitArgs,
 };
 #[cfg(target_os = "linux")]
 use crate::log_then_return;
 use crate::mem::ptr::RawPtr;
 use crate::sandbox_state::sandbox::Sandbox;
-use crate::{MultiUseSandbox, Result, SingleUseSandbox, UninitializedSandbox};
+use crate::{new_error, MultiUseSandbox, Result, SingleUseSandbox, UninitializedSandbox};
 
 pub(super) type CBFunc<'a> = Box<dyn FnOnce(&mut UninitializedSandbox) -> Result<()> + 'a>;
 
@@ -194,20 +196,22 @@ fn hv_init(
 
     start_hypervisor_handler(u_sbox.get_hv().get_hypervisor_arc()?)?;
 
-    execute_vcpu_action(
+    execute_hypervisor_handler_action(
         u_sbox.get_hv(),
-        VCPUAction::Initialise(InitArgs::new(
+        HypervisorHandlerAction::Initialise(InitArgs::new(
             peb_addr,
             seed,
             page_size,
             outb_hdl,
             mem_access_hdl,
         )),
-        None,
+        Some(Duration::from_millis(
+            SandboxConfiguration::DEFAULT_MAX_INITIALIZATION_TIME as u64,
+        )),
     )
     .map_err(|exec_e| match kill_hypervisor_handler_thread(u_sbox) {
         Ok(_) => exec_e,
-        Err(kill_e) => kill_e,
+        Err(kill_e) => new_error!("{}", format!("{}, {}", exec_e, kill_e)),
     })
 }
 

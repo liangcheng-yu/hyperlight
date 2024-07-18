@@ -30,12 +30,12 @@ use crate::sandbox_state::sandbox::Sandbox;
 use crate::HyperlightError::HypervisorHandlerExecutionCancelAttemptOnFinishedExecution;
 use crate::{log_then_return, new_error, HyperlightError, Result};
 
-/// Trait to indicate that a type contains to/from receivers/transmitters for `VCPUAction`s, and `HandlerMsg`s.
+/// Trait to indicate that a type contains to/from receivers/transmitters for `HypervisorHandlerAction`s, and `HandlerMsg`s.
 pub trait HasCommunicationChannels {
     /// Get the transmitter for vCPU actions to the handler
-    fn get_to_handler_tx(&self) -> Sender<VCPUAction>;
+    fn get_to_handler_tx(&self) -> Sender<HypervisorHandlerAction>;
     /// Set the transmitter to send messages to the handler
-    fn set_to_handler_tx(&mut self, tx: Sender<VCPUAction>);
+    fn set_to_handler_tx(&mut self, tx: Sender<HypervisorHandlerAction>);
     /// Drop the transmitter to send messages to the handler
     /// This is useful to forcefully terminate a vCPU
     fn drop_to_handler_tx(&mut self);
@@ -51,29 +51,32 @@ pub trait HasCommunicationChannels {
     fn set_from_handler_tx(&mut self, tx: Sender<HandlerMsg>);
 
     /// Get the receiver for vCPU actions from the handler
-    fn get_to_handler_rx(&self) -> Receiver<VCPUAction>;
+    fn get_to_handler_rx(&self) -> Receiver<HypervisorHandlerAction>;
 
     /// Set the receiver for vCPU actions from the handler
-    fn set_to_handler_rx(&mut self, rx: Receiver<VCPUAction>);
+    fn set_to_handler_rx(&mut self, rx: Receiver<HypervisorHandlerAction>);
 }
 
-/// `VCPUActions` enumerates the
+/// `HypervisorHandlerActions` enumerates the
 /// possible actions that a Hypervisor
 /// handler can execute.
-pub enum VCPUAction {
+pub enum HypervisorHandlerAction {
     /// Initialise the vCPU
     Initialise(InitArgs),
     /// Execute the vCPU until a HLT instruction
     DispatchCallFromHost(DispatchArgs),
+    /// Terminate hypervisor handler thread
+    TerminateHandlerThread,
 }
 
-// Debug impl for VCPUAction:
+// Debug impl for HypervisorHandlerAction:
 // - just prints the enum variant type name.
-impl std::fmt::Debug for VCPUAction {
+impl std::fmt::Debug for HypervisorHandlerAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            VCPUAction::Initialise(_) => write!(f, "Initialise"),
-            VCPUAction::DispatchCallFromHost(_) => write!(f, "DispatchCallFromHost"),
+            HypervisorHandlerAction::Initialise(_) => write!(f, "Initialise"),
+            HypervisorHandlerAction::DispatchCallFromHost(_) => write!(f, "DispatchCallFromHost"),
+            HypervisorHandlerAction::TerminateHandlerThread => write!(f, "TerminateHandlerThread"),
         }
     }
 }
@@ -83,7 +86,7 @@ impl std::fmt::Debug for VCPUAction {
 /// finished performing an action (i.e., `DispatchCallFromHost`, or
 /// `Initialise`).
 pub enum HandlerMsg {
-    FinishedVCPUAction,
+    FinishedHypervisorHandlerAction,
     Error(HyperlightError),
 }
 
@@ -255,7 +258,7 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
         thread::spawn(move || -> Result<()> {
             for action in to_handler_rx.clone() {
                 match action {
-                    VCPUAction::Initialise(args) => {
+                    HypervisorHandlerAction::Initialise(args) => {
                         let mut hv_lock = hv_clone.lock().unwrap();
 
                         // Reset termination status from a possible previous execution
@@ -296,7 +299,7 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
                         match res {
                             Ok(_) => {
                                 from_handler_tx
-                                    .send(HandlerMsg::FinishedVCPUAction)
+                                    .send(HandlerMsg::FinishedHypervisorHandlerAction)
                                     .map_err(|_| {
                                         HyperlightError::HypervisorHandlerCommunicationFailure()
                                     })?;
@@ -308,7 +311,7 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
                             }
                         }
                     }
-                    VCPUAction::DispatchCallFromHost(args) => {
+                    HypervisorHandlerAction::DispatchCallFromHost(args) => {
                         let mut hv_lock = hv_clone.lock().unwrap();
 
                         // Reset termination status from a possible previous execution
@@ -348,7 +351,7 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
                         match res {
                             Ok(_) => {
                                 from_handler_tx
-                                    .send(HandlerMsg::FinishedVCPUAction)
+                                    .send(HandlerMsg::FinishedHypervisorHandlerAction)
                                     .map_err(|_| {
                                         HyperlightError::HypervisorHandlerCommunicationFailure()
                                     })?;
@@ -360,7 +363,20 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
                             }
                         }
                     }
+                    HypervisorHandlerAction::TerminateHandlerThread => {
+                        log::info!("Terminating Hypervisor Handler Thread");
+                        break;
+                    }
                 }
+            }
+
+            {
+                from_handler_tx
+                    .send(HandlerMsg::FinishedHypervisorHandlerAction)
+                    .map_err(|_| HyperlightError::HypervisorHandlerCommunicationFailure())?;
+
+                let mut hv_lock = hv_clone.lock().unwrap();
+                hv_lock.drop_to_handler_tx();
             }
 
             Ok(())
@@ -399,6 +415,7 @@ where
         while now.elapsed() < timeout {
             if handle.is_finished() {
                 match handle.join() {
+                    // as per docs, join should return immediately and not hang if finished
                     Ok(Ok(())) => return Ok(()),
                     Ok(Err(e)) => {
                         log_then_return!(e);
@@ -432,12 +449,11 @@ pub(crate) fn kill_hypervisor_handler_thread<T>(sbox: &mut T) -> Result<()>
 where
     T: Sandbox,
 {
-    {
-        let mut hv_lock = sbox
-            .get_hypervisor_wrapper_mut()
-            .try_get_hypervisor_lock()?;
-        hv_lock.drop_to_handler_tx();
-    }
+    execute_hypervisor_handler_action(
+        sbox.get_hypervisor_wrapper_mut(),
+        HypervisorHandlerAction::TerminateHandlerThread,
+        None,
+    )?;
 
     try_join_hypervisor_handler_thread(sbox)
 }
@@ -536,7 +552,7 @@ pub(crate) fn terminate_hypervisor_handler_execution_and_reinitialise<HvMemMgrT:
         max_execution_time,
     ) {
         Ok(_) => Ok(new_error!(
-            "Expected ExecutionCanceledByHost, but received FinishedVCPUAction"
+            "Expected ExecutionCanceledByHost, but received FinishedHypervisorHandlerAction"
         )),
         Err(e) => match e {
             HyperlightError::ExecutionCanceledByHost() => {
@@ -559,9 +575,9 @@ pub(crate) fn terminate_hypervisor_handler_execution_and_reinitialise<HvMemMgrT:
     // Re-initialise the vCPU.
     // This is 100% needed because, otherwise, all it takes to cause a DoS is for a
     // function to timeout as the vCPU will be in a bad state without re-init.
-    execute_vcpu_action(
+    execute_hypervisor_handler_action(
         wrapper_getter.get_hv(),
-        VCPUAction::Initialise(InitArgs::new(
+        HypervisorHandlerAction::Initialise(InitArgs::new(
             peb_addr,
             seed,
             page_size,
@@ -581,9 +597,9 @@ pub(crate) fn terminate_hypervisor_handler_execution_and_reinitialise<HvMemMgrT:
 ///
 /// If no `max_wait_time` is provided, the DEFAULT_MAX_EXECUTION_TIME
 /// (1000ms) is used.
-pub(crate) fn execute_vcpu_action(
+pub(crate) fn execute_hypervisor_handler_action(
     hv_wrapper: &HypervisorWrapper,
-    vcpu_action: VCPUAction,
+    hypervisor_handler_action: HypervisorHandlerAction,
     max_wait_time: Option<Duration>,
 ) -> Result<()> {
     let (to_handler_tx, from_handler_rx) = {
@@ -592,7 +608,7 @@ pub(crate) fn execute_vcpu_action(
     };
 
     to_handler_tx
-        .send(vcpu_action)
+        .send(hypervisor_handler_action)
         .map_err(|_| HyperlightError::HypervisorHandlerCommunicationFailure())?;
 
     match max_wait_time {
@@ -606,7 +622,7 @@ pub(crate) fn execute_vcpu_action(
 
 /// Try to receive a `HandlerMsg` from the Hypervisor Handler Thread.
 ///
-/// Usually, you should use `execute_vcpu_action` to send and instantly
+/// Usually, you should use `execute_hypervisor_handler_action` to send and instantly
 /// try to receive a message.
 ///
 /// This function is only useful when we time out, handle a timeout,
@@ -619,7 +635,7 @@ pub(crate) fn try_receive_handler_msg(
     match from_handler_rx.recv_timeout(wait) {
         Ok(msg) => match msg {
             HandlerMsg::Error(e) => Err(e),
-            HandlerMsg::FinishedVCPUAction => Ok(()),
+            HandlerMsg::FinishedHypervisorHandlerAction => Ok(()),
         },
         Err(_) => Err(HyperlightError::HypervisorHandlerMessageReceiveTimedout()),
     }
@@ -627,7 +643,8 @@ pub(crate) fn try_receive_handler_msg(
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::sync::{Arc, Barrier};
+    use std::thread;
     use std::time::Duration;
 
     use crossbeam::atomic::AtomicCell;
@@ -664,9 +681,30 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // this test runs by itself because it uses a lot of system resources
     fn create_1000_sandboxes() {
-        for _ in 0..1000 {
-            create_multi_use_sandbox();
+        let barrier = Arc::new(Barrier::new(21));
+
+        let mut handles = vec![];
+
+        for _ in 0..20 {
+            let c = barrier.clone();
+
+            let handle = thread::spawn(move || {
+                c.wait();
+
+                for _ in 0..50 {
+                    create_multi_use_sandbox();
+                }
+            });
+
+            handles.push(handle);
+        }
+
+        barrier.wait();
+
+        for handle in handles {
+            handle.join().unwrap();
         }
     }
 

@@ -33,6 +33,7 @@ pub struct SingleUseSandbox<'a> {
     ///
     /// See documentation for `LeakedOutB` for more details
     _leaked_outb: Option<LeakedOutBWrapper<'a>>,
+    is_csharp: bool,
 }
 
 // We need to implement drop to join the
@@ -45,12 +46,17 @@ pub struct SingleUseSandbox<'a> {
 // `create_1000_sandboxes`.
 impl Drop for SingleUseSandbox<'_> {
     fn drop(&mut self) {
-        match kill_hypervisor_handler_thread(self) {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("[POTENTIAL THREAD LEAK] Potentially failed to kill hypervisor handler thread when dropping SingleUseSandbox: {:?}", e);
+        if !self.is_csharp {
+            match kill_hypervisor_handler_thread(self) {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!("[POTENTIAL THREAD LEAK] Potentially failed to kill hypervisor handler thread when dropping SingleUseSandbox: {:?}", e);
+                }
             }
         }
+
+        // If we are running from C#, drop is a no-op
+        // because there's no hypervisor thread to kill.
     }
 }
 
@@ -76,6 +82,7 @@ impl<'a> SingleUseSandbox<'a> {
             hv: val.hv,
             make_unsend: PhantomData,
             _leaked_outb: leaked_outb,
+            is_csharp: val.is_csharp,
         }
     }
 
