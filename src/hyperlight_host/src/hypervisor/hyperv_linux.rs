@@ -136,6 +136,12 @@ impl HypervLinuxDriver {
                 l: 1,
                 ..Default::default()
             },
+            tr: SegmentRegister {
+                limit: 65535,
+                type_: 11,
+                present: 1,
+                ..Default::default()
+            },
             ..Default::default()
         };
         vcpu.set_sregs(&sregs)?;
@@ -183,6 +189,7 @@ impl Hypervisor for HypervLinuxDriver {
         let regs = StandardRegisters {
             rip: self.entrypoint,
             rsp: self.orig_rsp.absolute()?,
+            rflags: 2, //bit 1 of rlags is required to be set
 
             // function args
             rcx: peb_addr.into(),
@@ -199,6 +206,7 @@ impl Hypervisor for HypervLinuxDriver {
         // reset RSP to what it was before initialise
         self.vcpu_fd.set_regs(&StandardRegisters {
             rsp: self.orig_rsp.absolute()?,
+            rflags: 2, //bit 1 of rlags is required to be set
             ..Default::default()
         })?;
         Ok(())
@@ -216,6 +224,7 @@ impl Hypervisor for HypervLinuxDriver {
         let regs = StandardRegisters {
             rip: dispatch_func_addr.into(),
             rsp: rsp_before,
+            rflags: 2, //bit 1 of rlags is required to be set
             ..Default::default()
         };
         self.vcpu_fd.set_regs(&regs)?;
@@ -235,6 +244,7 @@ impl Hypervisor for HypervLinuxDriver {
         // reset RSP to what it was before function call
         self.vcpu_fd.set_regs(&StandardRegisters {
             rsp: rsp_before,
+            rflags: 2, //bit 1 of rlags is required to be set
             ..Default::default()
         })?;
         Ok(())
