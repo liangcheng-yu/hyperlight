@@ -141,9 +141,9 @@ impl UninitializedSandbox {
         mgr: &mut SandboxMemoryManager,
     ) -> Result<Box<dyn Hypervisor>> {
         let mem_size = u64::try_from(mgr.shared_mem.mem_size())?;
-        let regions = mgr.layout.get_memory_regions(&mgr.shared_mem);
+        let mut regions = mgr.layout.get_memory_regions(&mgr.shared_mem)?;
         let rsp_ptr = {
-            let rsp_u64 = mgr.set_up_hypervisor_partition(mem_size)?;
+            let rsp_u64 = mgr.set_up_hypervisor_partition(mem_size, &mut regions)?;
             let rsp_raw = RawPtr::from(rsp_u64);
             GuestPtr::try_from(rsp_raw)
         }?;

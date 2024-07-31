@@ -56,7 +56,7 @@ pub unsafe extern "C" fn kvm_create_driver(
         .and_then_mut(|ctx, _| {
             let mgr = get_mem_mgr(ctx, mgr_hdl)?;
             let driver = KVMDriver::new(
-                mgr.layout.get_memory_regions(&mgr.shared_mem),
+                mgr.layout.get_memory_regions(&mgr.shared_mem)?,
                 pml4_addr,
                 entrypoint,
                 rsp,

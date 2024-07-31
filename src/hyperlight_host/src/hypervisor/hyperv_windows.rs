@@ -26,8 +26,8 @@ use super::windows_hypervisor_platform::{VMPartition, VMProcessor};
 use super::wrappers::WHvFPURegisters;
 use super::{
     windows_hypervisor_platform as whp, HyperlightExit, Hypervisor, VirtualCPU, CR0_AM, CR0_ET,
-    CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR4_OSFXSR, CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME,
-    EFER_NX, EFER_SCE,
+    CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA,
+    EFER_LME, EFER_NX, EFER_SCE,
 };
 use crate::hypervisor::fpu::FP_CONTROL_WORD_DEFAULT;
 use crate::hypervisor::hypervisor_handler::{
@@ -122,7 +122,7 @@ impl HypervWindowsDriver {
             (
                 WHvX64RegisterCr0,
                 WHV_REGISTER_VALUE {
-                    Reg64: CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_AM | CR0_PG,
+                    Reg64: CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_AM | CR0_PG | CR0_WP,
                 },
             ),
             (
@@ -627,7 +627,7 @@ pub mod tests {
                     GuestPtr::try_from(total_offset)
                 }?;
                 let driver = HypervWindowsDriver::new(
-                    mgr.layout.get_memory_regions(&mgr.shared_mem),
+                    mgr.layout.get_memory_regions(&mgr.shared_mem)?,
                     mgr.shared_mem.raw_mem_size(),
                     host_addr,
                     pml4_ptr.absolute()?,

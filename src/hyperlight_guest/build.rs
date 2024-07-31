@@ -84,13 +84,11 @@ fn main() {
         cfg.define("free", "hlfree");
         cfg.define("realloc", "hlrealloc");
         cfg.define("weak_alias(old, new) ", " ");
-        cfg.std("c17");
 
         // silence compiler warnings
         cfg.flag("-Wno-sign-compare");
         cfg.flag("-Wno-bitwise-op-parentheses");
-        cfg.flag("-Wno-unused-but-set-variable");
-        cfg.flag("-Wno-bitwise-op-parentheses");
+        cfg.flag("-Wno-unknown-pragmas");
         cfg.flag("-Wno-shift-op-parentheses");
         cfg.flag("-Wno-logical-op-parentheses");
 

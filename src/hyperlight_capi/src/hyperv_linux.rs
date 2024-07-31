@@ -73,7 +73,7 @@ pub unsafe extern "C" fn hyperv_linux_create_driver(
 
             let mgr = get_mem_mgr(ctx, mgr_hdl)?;
             let driver = HypervLinuxDriver::new(
-                mgr.layout.get_memory_regions(&mgr.shared_mem),
+                mgr.layout.get_memory_regions(&mgr.shared_mem)?,
                 entrypoint_ptr,
                 rsp_ptr,
                 pml4_ptr,

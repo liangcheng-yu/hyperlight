@@ -8,15 +8,17 @@ use rand::RngCore;
 use tracing::{instrument, Span};
 
 use super::memory_region::MemoryRegionType::{
-    Code, GuardPage, HeGeIdOdPc, Heap, HostFunctionDefinitions, PageTables, Peb, Stack,
+    Code, GuardPage, GuestErrorData, Heap, HostExceptionData, HostFunctionDefinitions, InputData,
+    OutputData, PageTables, PanicContext, Peb, Stack,
 };
 use super::memory_region::{MemoryRegion, MemoryRegionFlags, MemoryRegionVecBuilder};
+use super::mgr::AMOUNT_OF_MEMORY_PER_PT;
 #[cfg(test)]
 use super::ptr::HostPtr;
 use super::shared_mem::SharedMemory;
 use crate::error::HyperlightError::{GuestOffsetIsInvalid, MemoryRequestTooBig};
 use crate::sandbox::SandboxConfiguration;
-use crate::Result;
+use crate::{new_error, Result};
 
 // +-------------------------------------------+
 // |               Guest Stack                 |
@@ -40,6 +42,8 @@ use crate::Result;
 // |                PEB Struct (0x98)          |
 // +-------------------------------------------+
 // |               Guest Code                  |
+// +-------------------------------------------+
+// |                    PT                     |
 // +-------------------------------------------+ 0x203_000
 // |                    PD                     |
 // +-------------------------------------------+ 0x202_000
@@ -122,6 +126,10 @@ pub struct SandboxMemoryLayout {
     // other
     pub(crate) peb_address: usize,
     code_size: usize,
+    // The total size of the page tables
+    total_page_table_size: usize,
+    // The offset in the sandbox memory where the code starts
+    guest_code_offset: usize,
 }
 
 impl Debug for SandboxMemoryLayout {
@@ -216,16 +224,19 @@ impl Debug for SandboxMemoryLayout {
                 "Guest Stack Buffer Offset",
                 &format_args!("{:#x}", self.guest_stack_buffer_offset),
             )
+            .field(
+                "Page Table Size",
+                &format_args!("{:#x}", self.total_page_table_size),
+            )
+            .field(
+                "Guest Code Offset",
+                &format_args!("{:#x}", self.guest_code_offset),
+            )
             .finish()
     }
 }
 
 impl SandboxMemoryLayout {
-    /// Four Kilobytes (16^3 bytes) - used to round the total amount of memory
-    /// used to the nearest 4K
-    const FOUR_K: usize = 0x1000;
-    /// The size of the page table within a sandbox
-    const PAGE_TABLE_SIZE: usize = 0x3000;
     /// The offset into the sandbox's memory where the PML4 Table is located.
     /// See https://www.pagetable.com/?p=14 for more information.
     pub(crate) const PML4_OFFSET: usize = 0x0000;
@@ -234,13 +245,16 @@ impl SandboxMemoryLayout {
     pub(super) const PDPT_OFFSET: usize = 0x1000;
     /// The offset into the sandbox's memory where the Page Directory starts.
     pub(super) const PD_OFFSET: usize = 0x2000;
+    /// The offset into the sandbox's memory where the Page Tables start.
+    pub(super) const PT_OFFSET: usize = 0x3000;
     /// The address (not the offset) to the start of the page directory
     pub(super) const PD_GUEST_ADDRESS: usize = Self::BASE_ADDRESS + Self::PD_OFFSET;
     /// The address (not the offset) into sandbox memory where the Page
     /// Directory Pointer Table starts
     pub(super) const PDPT_GUEST_ADDRESS: usize = Self::BASE_ADDRESS + Self::PDPT_OFFSET;
-    /// The offset into the sandbox's memory where code starts.
-    pub(super) const CODE_OFFSET: usize = Self::PAGE_TABLE_SIZE;
+    /// The address (not the offset) into sandbox memory where the Page
+    /// Tables start
+    pub(super) const PT_GUEST_ADDRESS: usize = Self::BASE_ADDRESS + Self::PT_OFFSET;
     /// The maximum amount of memory a single sandbox will be allowed.
     /// The addressable virtual memory with current paging setup is virtual address 0x0 - 0x40000000 (excl.),
     /// However, the memory up to Self::BASE_ADDRESS is not used.
@@ -249,10 +263,6 @@ impl SandboxMemoryLayout {
     /// The base address of the sandbox's memory.
     //TODO:(#1029) Once we have a complete C API, we can restrict visibility to crate level.
     pub const BASE_ADDRESS: usize = 0x0200000;
-
-    /// The absolute address (assuming sandbox memory starts at BASE_ADDRESS) into
-    /// sandbox memory where code starts.
-    pub(super) const GUEST_CODE_ADDRESS: usize = Self::BASE_ADDRESS + Self::CODE_OFFSET;
 
     // the offset into a sandbox's input/output buffer where the stack starts
     const STACK_POINTER_SIZE_BYTES: u64 = 8;
@@ -266,8 +276,11 @@ impl SandboxMemoryLayout {
         stack_size: usize,
         heap_size: usize,
     ) -> Result<Self> {
+        let total_page_table_size =
+            Self::get_total_page_table_size(cfg, code_size, stack_size, heap_size);
+        let guest_code_offset = total_page_table_size;
         // The following offsets are to the fields of the PEB struct itself!
-        let peb_offset = Self::PAGE_TABLE_SIZE + round_up_to(code_size, Self::FOUR_K);
+        let peb_offset = total_page_table_size + round_up_to(code_size, PAGE_SIZE_USIZE);
         let peb_security_cookie_seed_offset =
             peb_offset + offset_of!(HyperlightPEB, security_cookie_seed);
         let peb_guest_dispatch_function_ptr_offset =
@@ -290,30 +303,39 @@ impl SandboxMemoryLayout {
         // make sure host function definitions buffer starts at 4K boundary
         let host_function_definitions_buffer_offset = round_up_to(
             peb_stack_data_offset + size_of::<GuestStackData>(),
-            Self::FOUR_K,
+            PAGE_SIZE_USIZE,
         );
         // make sure host exception buffer starts at 4K boundary
         let host_exception_buffer_offset = round_up_to(
             host_function_definitions_buffer_offset + cfg.get_host_function_definition_size(),
-            Self::FOUR_K,
+            PAGE_SIZE_USIZE,
         );
-        let guest_error_buffer_offset =
-            host_exception_buffer_offset + cfg.get_host_exception_size();
-        let input_data_buffer_offset =
-            guest_error_buffer_offset + cfg.get_guest_error_buffer_size();
-        let output_data_buffer_offset = input_data_buffer_offset + cfg.get_input_data_size();
-        let guest_panic_context_buffer_offset =
-            output_data_buffer_offset + cfg.get_output_data_size();
+        let guest_error_buffer_offset = round_up_to(
+            host_exception_buffer_offset + cfg.get_host_exception_size(),
+            PAGE_SIZE_USIZE,
+        );
+        let input_data_buffer_offset = round_up_to(
+            guest_error_buffer_offset + cfg.get_guest_error_buffer_size(),
+            PAGE_SIZE_USIZE,
+        );
+        let output_data_buffer_offset = round_up_to(
+            input_data_buffer_offset + cfg.get_input_data_size(),
+            PAGE_SIZE_USIZE,
+        );
+        let guest_panic_context_buffer_offset = round_up_to(
+            output_data_buffer_offset + cfg.get_output_data_size(),
+            PAGE_SIZE_USIZE,
+        );
         // make sure heap buffer starts at 4K boundary
         let guest_heap_buffer_offset = round_up_to(
             guest_panic_context_buffer_offset + cfg.get_guest_panic_context_buffer_size(),
-            Self::FOUR_K,
+            PAGE_SIZE_USIZE,
         );
         // make sure guard page starts at 4K boundary
-        let guard_page_offset = round_up_to(guest_heap_buffer_offset + heap_size, Self::FOUR_K);
-        let guest_stack_buffer_offset = guard_page_offset + Self::FOUR_K;
+        let guard_page_offset = round_up_to(guest_heap_buffer_offset + heap_size, PAGE_SIZE_USIZE);
+        let guest_stack_buffer_offset = guard_page_offset + PAGE_SIZE_USIZE;
         // round up stack size to page size. This is needed for MemoryRegion
-        let stack_size_rounded = round_up_to(stack_size, Self::FOUR_K);
+        let stack_size_rounded = round_up_to(stack_size, PAGE_SIZE_USIZE);
 
         Ok(Self {
             peb_offset,
@@ -342,6 +364,8 @@ impl SandboxMemoryLayout {
             peb_address,
             guest_panic_context_buffer_offset,
             guard_page_offset,
+            total_page_table_size,
+            guest_code_offset,
         })
     }
 
@@ -410,8 +434,8 @@ impl SandboxMemoryLayout {
     /// base address and whether or not Hyperlight is executing with in-memory
     /// mode enabled.
     #[cfg(test)]
-    pub(crate) fn get_host_code_address(shared_mem: &SharedMemory) -> Result<HostPtr> {
-        HostPtr::try_from((Self::CODE_OFFSET, shared_mem))
+    pub(crate) fn get_host_code_address(&self, shared_mem: &SharedMemory) -> Result<HostPtr> {
+        HostPtr::try_from((self.get_guest_code_offset(), shared_mem))
     }
 
     /// Get the offset in guest memory to the OutB pointer.
@@ -544,18 +568,90 @@ impl SandboxMemoryLayout {
         self.get_top_of_stack_offset() + self.get_stack_size()
     }
 
+    /// get the code offset
+    /// This is the offset in the sandbox memory where the code starts
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get_guest_code_offset(&self) -> usize {
+        self.guest_code_offset
+    }
+
+    /// Get the guest address of the code section in the sandbox
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get_guest_code_address(&self) -> usize {
+        Self::BASE_ADDRESS + self.guest_code_offset
+    }
+
+    #[cfg(test)]
+    /// Get the page table size
+    fn get_page_table_size(&self) -> usize {
+        self.total_page_table_size
+    }
+
+    // This function calculates the page table size for the sandbox
+    // We need enough memory to store the PML4, PDPT, PD and PTs
+    // The size of a single table is 4K, we can map up to 1GB total memory which requires 1 PML4, 1 PDPT, 1 PD and 512 PTs
+    // but we only need enough PTs to map the memory we are using. (In other words we only need 512 PTs to map the memory if the memory size is 1GB)
+    //
+    // Because we always start the physical address space at 0x200_000
+    // we can calculate the amount of memory needed for the PTs by calculating how much memory is needed for the sandbox configuration in total,
+    // then add 0x200_000 to that (as we start at 0x200_000),
+    // and then add 3 * 4K (for the PML4, PDPT and PD)  to that,
+    // then add 2MB to that (the maximum size of memory required for the PTs themselves is 2MB when we map 1GB of memory in 4K pages),
+    // then divide that by 0x200_000 (as we can map 2MB in each PT) and then round the result up by 1 .
+    // This will give us the total size of the PTs required for the sandbox to which we can add the size of the PML4, PDPT and PD.
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn get_total_page_table_size(
+        cfg: SandboxConfiguration,
+        code_size: usize,
+        stack_size: usize,
+        heap_size: usize,
+    ) -> usize {
+        // Get the conigured memory size (assume each section is 4K aligned)
+
+        let mut total_mapped_memory_size: usize = round_up_to(code_size, PAGE_SIZE_USIZE);
+        total_mapped_memory_size += round_up_to(stack_size, PAGE_SIZE_USIZE);
+        total_mapped_memory_size += round_up_to(heap_size, PAGE_SIZE_USIZE);
+        total_mapped_memory_size += round_up_to(cfg.get_host_exception_size(), PAGE_SIZE_USIZE);
+        total_mapped_memory_size +=
+            round_up_to(cfg.get_host_function_definition_size(), PAGE_SIZE_USIZE);
+        total_mapped_memory_size += round_up_to(cfg.get_guest_error_buffer_size(), PAGE_SIZE_USIZE);
+        total_mapped_memory_size += round_up_to(cfg.get_input_data_size(), PAGE_SIZE_USIZE);
+        total_mapped_memory_size += round_up_to(cfg.get_output_data_size(), PAGE_SIZE_USIZE);
+        total_mapped_memory_size +=
+            round_up_to(cfg.get_guest_panic_context_buffer_size(), PAGE_SIZE_USIZE);
+        total_mapped_memory_size += round_up_to(size_of::<HyperlightPEB>(), PAGE_SIZE_USIZE);
+
+        // Add the base address of the sandbox
+        total_mapped_memory_size += Self::BASE_ADDRESS;
+
+        // Add the size of  the PML4, PDPT and PD
+        total_mapped_memory_size += 3 * PAGE_SIZE_USIZE;
+
+        // Add the maximum possible size of the PTs
+        total_mapped_memory_size += 512 * PAGE_SIZE_USIZE;
+
+        // Get the number of pages needed for the PTs
+
+        let num_pages: usize = ((total_mapped_memory_size + AMOUNT_OF_MEMORY_PER_PT - 1)
+            / AMOUNT_OF_MEMORY_PER_PT)
+            + 1 // Round up
+            + 3; // PML4, PDPT, PD
+
+        num_pages * PAGE_SIZE_USIZE
+    }
+
     /// Get the total size of guest memory in `self`'s memory
-    /// layout aligned to 4k page boundaries.
+    /// layout aligned to page size boundaries.
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn get_memory_size(&self) -> Result<usize> {
         let total_memory = self.get_unaligned_memory_size();
 
-        // Size should be a multiple of 4K.
-        let remainder = total_memory % Self::FOUR_K;
-        let multiples = total_memory / Self::FOUR_K;
+        // Size should be a multiple of page size.
+        let remainder = total_memory % PAGE_SIZE_USIZE;
+        let multiples = total_memory / PAGE_SIZE_USIZE;
         let size = match remainder {
             0 => total_memory,
-            _ => (multiples + 1) * Self::FOUR_K,
+            _ => (multiples + 1) * PAGE_SIZE_USIZE,
         };
 
         if size > Self::MAX_MEMORY_SIZE {
@@ -567,15 +663,61 @@ impl SandboxMemoryLayout {
 
     /// Returns the memory regions associated with this memory layout,
     /// suitable for passing to a hypervisor for mapping into memory
-    pub fn get_memory_regions(&self, shared_mem: &SharedMemory) -> Vec<MemoryRegion> {
+    pub fn get_memory_regions(&self, shared_mem: &SharedMemory) -> Result<Vec<MemoryRegion>> {
+        // The C API is a little bit broken and allows for memory regions to be created with a size of 0 so we are going to check here
+        // if the size of the memory region is 0 and if it is we are going to return an error as otherwise the hypervisor will map a 0 sized memory region
+        // and produce a difficult to debug error
+        // The code is in this function rather than in the new function in SandboxConfiguration as that function is not used in the C API and so this check would not be run
+        // Once https://github.com/deislabs/hyperlight/issues/1473 is fixed this check can be removed
+
+        if self
+            .sandbox_memory_config
+            .get_host_function_definition_size()
+            == 0
+        {
+            return Err(new_error!("The get_host_function_definition_size is 0, this is not allowed as it would result in a 0 sized memory region being created"));
+        }
+
+        if self.sandbox_memory_config.get_host_exception_size() == 0 {
+            return Err(new_error!("The get_host_exception_size is 0, this is not allowed as it would result in a 0 sized memory region being created"));
+        }
+
+        if self.sandbox_memory_config.get_guest_error_buffer_size() == 0 {
+            return Err(new_error!("The get_guest_error_buffer_size is 0, this is not allowed as it would result in a 0 sized memory region being created"));
+        }
+
+        if self.sandbox_memory_config.get_input_data_size() == 0 {
+            return Err(new_error!("The get_input_data_size is 0, this is not allowed as it would result in a 0 sized memory region being created"));
+        }
+
+        if self.sandbox_memory_config.get_output_data_size() == 0 {
+            return Err(new_error!("The get_output_data_size is 0, this is not allowed as it would result in a 0 sized memory region being created"));
+        }
+
+        if self
+            .sandbox_memory_config
+            .get_guest_panic_context_buffer_size()
+            == 0
+        {
+            return Err(new_error!("The get_guest_panic_context_buffer_size is 0, this is not allowed as it would result in a 0 sized memory region being created"));
+        }
+
         let mut builder = MemoryRegionVecBuilder::new(Self::BASE_ADDRESS, shared_mem.base_addr());
+
         // PML4, PDPT, PD
         let code_offset = builder.push_page_aligned(
-            Self::PAGE_TABLE_SIZE,
+            self.total_page_table_size,
             MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
             PageTables,
         );
-        assert_eq!(code_offset, Self::CODE_OFFSET);
+
+        if code_offset != self.guest_code_offset {
+            return Err(new_error!(
+                "Code offset does not match expected code offset expected:  {}, actual:  {}",
+                self.guest_code_offset,
+                code_offset
+            ));
+        }
 
         // code
         let peb_offset = builder.push_page_aligned(
@@ -583,10 +725,16 @@ impl SandboxMemoryLayout {
             MemoryRegionFlags::READ | MemoryRegionFlags::WRITE | MemoryRegionFlags::EXECUTE,
             Code,
         );
-        assert_eq!(
-            peb_offset,
-            TryInto::<usize>::try_into(self.peb_offset).unwrap()
-        );
+
+        let expected_peb_offset = TryInto::<usize>::try_into(self.peb_offset)?;
+
+        if peb_offset != expected_peb_offset {
+            return Err(new_error!(
+                "PEB offset does not match expected PEB offset expected:  {}, actual:  {}",
+                expected_peb_offset,
+                peb_offset
+            ));
+        }
 
         // PEB
         let host_functions_definitions_offset = builder.push_page_aligned(
@@ -594,10 +742,17 @@ impl SandboxMemoryLayout {
             MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
             Peb,
         );
-        assert_eq!(
-            host_functions_definitions_offset,
-            TryInto::<usize>::try_into(self.host_function_definitions_buffer_offset).unwrap()
-        );
+
+        let expected_host_functions_definitions_offset =
+            TryInto::<usize>::try_into(self.host_function_definitions_buffer_offset)?;
+
+        if host_functions_definitions_offset != expected_host_functions_definitions_offset {
+            return Err(new_error!(
+                "Host Function Definitions offset does not match expected Host Function Definitions offset expected:  {}, actual:  {}",
+                expected_host_functions_definitions_offset,
+                host_functions_definitions_offset
+            ));
+        }
 
         // host function definitions
         let host_exception_offset = builder.push_page_aligned(
@@ -606,27 +761,106 @@ impl SandboxMemoryLayout {
             MemoryRegionFlags::READ,
             HostFunctionDefinitions,
         );
-        assert_eq!(
-            host_exception_offset,
-            TryInto::<usize>::try_into(self.host_exception_buffer_offset).unwrap()
+
+        let expected_host_exception_offset =
+            TryInto::<usize>::try_into(self.host_exception_buffer_offset)?;
+
+        if host_exception_offset != expected_host_exception_offset {
+            return Err(new_error!(
+                "Host Exception offset does not match expected Host Exception offset expected:  {}, actual:  {}",
+                expected_host_exception_offset,
+                host_exception_offset
+            ));
+        }
+
+        // host exception
+        let guest_error_offset = builder.push_page_aligned(
+            self.sandbox_memory_config.get_host_exception_size(),
+            MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
+            HostExceptionData,
         );
 
-        // host exception, guest error, guest input data, guest output, guest panic context
-        let heap_offset = builder.push_page_aligned(
-            self.sandbox_memory_config.get_host_exception_size()
-                + self.sandbox_memory_config.get_guest_error_buffer_size()
-                + self.sandbox_memory_config.get_input_data_size()
-                + self.sandbox_memory_config.get_output_data_size()
-                + self
-                    .sandbox_memory_config
-                    .get_guest_panic_context_buffer_size(),
+        let expected_guest_error_offset =
+            TryInto::<usize>::try_into(self.guest_error_buffer_offset)?;
+
+        if guest_error_offset != expected_guest_error_offset {
+            return Err(new_error!(
+                "Guest Error offset does not match expected Guest Error offset expected:  {}, actual:  {}",
+                expected_guest_error_offset,
+                guest_error_offset
+            ));
+        }
+
+        // guest error
+        let input_data_offset = builder.push_page_aligned(
+            self.sandbox_memory_config.get_guest_error_buffer_size(),
             MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
-            HeGeIdOdPc,
+            GuestErrorData,
         );
-        assert_eq!(
-            heap_offset,
-            TryInto::<usize>::try_into(self.guest_heap_buffer_offset).unwrap()
+
+        let expected_input_data_offset = TryInto::<usize>::try_into(self.input_data_buffer_offset)?;
+
+        if input_data_offset != expected_input_data_offset {
+            return Err(new_error!(
+                "Input Data offset does not match expected Input Data offset expected:  {}, actual:  {}",
+                expected_input_data_offset,
+                input_data_offset
+            ));
+        }
+
+        // guest input data
+        let output_data_offset = builder.push_page_aligned(
+            self.sandbox_memory_config.get_input_data_size(),
+            MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
+            InputData,
         );
+
+        let expected_output_data_offset =
+            TryInto::<usize>::try_into(self.output_data_buffer_offset)?;
+
+        if output_data_offset != expected_output_data_offset {
+            return Err(new_error!(
+                "Output Data offset does not match expected Output Data offset expected:  {}, actual:  {}",
+                expected_output_data_offset,
+                output_data_offset
+            ));
+        }
+
+        // guest output data
+        let guest_panic_context_offset = builder.push_page_aligned(
+            self.sandbox_memory_config.get_output_data_size(),
+            MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
+            OutputData,
+        );
+
+        let expected_guest_panic_context_offset =
+            TryInto::<usize>::try_into(self.guest_panic_context_buffer_offset)?;
+
+        if guest_panic_context_offset != expected_guest_panic_context_offset {
+            return Err(new_error!(
+                "Guest Panic Context offset does not match expected Guest Panic Context offset expected:  {}, actual:  {}",
+                expected_guest_panic_context_offset,
+                guest_panic_context_offset
+            ));
+        }
+
+        // guest panic context
+        let heap_offset = builder.push_page_aligned(
+            self.sandbox_memory_config
+                .get_guest_panic_context_buffer_size(),
+            MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
+            PanicContext,
+        );
+
+        let expected_heap_offset = TryInto::<usize>::try_into(self.guest_heap_buffer_offset)?;
+
+        if heap_offset != expected_heap_offset {
+            return Err(new_error!(
+                "Guest Heap offset does not match expected Guest Heap offset expected:  {}, actual:  {}",
+                expected_heap_offset,
+                heap_offset
+            ));
+        }
 
         // heap
         #[cfg(feature = "executable_heap")]
@@ -642,18 +876,29 @@ impl SandboxMemoryLayout {
             Heap,
         );
 
-        assert_eq!(
-            guard_page_offset,
-            TryInto::<usize>::try_into(self.guard_page_offset).unwrap()
-        );
+        let expected_guard_page_offset = TryInto::<usize>::try_into(self.guard_page_offset)?;
+
+        if guard_page_offset != expected_guard_page_offset {
+            return Err(new_error!(
+                "Guard Page offset does not match expected Guard Page offset expected:  {}, actual:  {}",
+                expected_guard_page_offset,
+                guard_page_offset
+            ));
+        }
 
         // guard page
         let stack_offset =
             builder.push_page_aligned(PAGE_SIZE_USIZE, MemoryRegionFlags::READ, GuardPage);
-        assert_eq!(
-            stack_offset,
-            TryInto::<usize>::try_into(self.guest_stack_buffer_offset).unwrap()
-        );
+
+        let expected_stack_offset = TryInto::<usize>::try_into(self.guest_stack_buffer_offset)?;
+
+        if stack_offset != expected_stack_offset {
+            return Err(new_error!(
+                "Stack offset does not match expected Stack offset expected:  {}, actual:  {}",
+                expected_stack_offset,
+                stack_offset
+            ));
+        }
 
         // stack
         let final_offset = builder.push_page_aligned(
@@ -661,8 +906,19 @@ impl SandboxMemoryLayout {
             MemoryRegionFlags::READ | MemoryRegionFlags::WRITE,
             Stack,
         );
-        assert_eq!(final_offset, self.get_unaligned_memory_size());
-        builder.build()
+
+        let expected_final_offset =
+            TryInto::<usize>::try_into(self.get_top_of_stack_offset())? + self.get_stack_size();
+
+        if final_offset != expected_final_offset {
+            return Err(new_error!(
+                "Final offset does not match expected Final offset expected:  {}, actual:  {}",
+                expected_final_offset,
+                final_offset
+            ));
+        }
+
+        Ok(builder.build())
     }
 
     /// Write the finished memory layout to `shared_mem` and return
@@ -819,34 +1075,21 @@ mod tests {
         assert_eq!(8, round_up_to(6, 4));
         assert_eq!(8, round_up_to(7, 4));
         assert_eq!(8, round_up_to(8, 4));
-        assert_eq!(
-            SandboxMemoryLayout::FOUR_K,
-            round_up_to(44, SandboxMemoryLayout::FOUR_K)
-        );
-        assert_eq!(
-            SandboxMemoryLayout::FOUR_K,
-            round_up_to(4095, SandboxMemoryLayout::FOUR_K)
-        );
-        assert_eq!(
-            SandboxMemoryLayout::FOUR_K,
-            round_up_to(4096, SandboxMemoryLayout::FOUR_K)
-        );
-        assert_eq!(
-            SandboxMemoryLayout::FOUR_K * 2,
-            round_up_to(4097, SandboxMemoryLayout::FOUR_K)
-        );
-        assert_eq!(
-            SandboxMemoryLayout::FOUR_K * 2,
-            round_up_to(8191, SandboxMemoryLayout::FOUR_K)
-        );
+        assert_eq!(PAGE_SIZE_USIZE, round_up_to(44, PAGE_SIZE_USIZE));
+        assert_eq!(PAGE_SIZE_USIZE, round_up_to(4095, PAGE_SIZE_USIZE));
+        assert_eq!(PAGE_SIZE_USIZE, round_up_to(4096, PAGE_SIZE_USIZE));
+        assert_eq!(PAGE_SIZE_USIZE * 2, round_up_to(4097, PAGE_SIZE_USIZE));
+        assert_eq!(PAGE_SIZE_USIZE * 2, round_up_to(8191, PAGE_SIZE_USIZE));
     }
 
     #[test]
     fn get_host_code_address() {
+        let layout =
+            SandboxMemoryLayout::new(SandboxConfiguration::default(), 4096, 2048, 4096).unwrap();
         let sm = SharedMemory::new(PAGE_SIZE_USIZE).unwrap();
-        let hca_in_proc = SandboxMemoryLayout::get_host_code_address(&sm).unwrap();
-        let hca_in_vm = SandboxMemoryLayout::get_host_code_address(&sm).unwrap();
-        let code_offset: Offset = SandboxMemoryLayout::CODE_OFFSET.try_into().unwrap();
+        let hca_in_proc = layout.get_host_code_address(&sm).unwrap();
+        let hca_in_vm = layout.get_host_code_address(&sm).unwrap();
+        let code_offset: Offset = layout.get_guest_code_offset().try_into().unwrap();
         assert_eq!(hca_in_proc.offset(), code_offset);
         assert_eq!(hca_in_vm.offset(), code_offset);
         assert_eq!(hca_in_proc, hca_in_vm);
@@ -857,22 +1100,24 @@ mod tests {
         let cfg = layout.sandbox_memory_config;
         let mut expected_size = 0;
         // in order of layout
-        expected_size += 3 * PAGE_SIZE_USIZE; // 3 page structs
+        expected_size += layout.get_page_table_size();
         expected_size += layout.code_size;
 
         expected_size += round_up_to(size_of::<HyperlightPEB>(), PAGE_SIZE_USIZE);
 
         expected_size += round_up_to(cfg.get_host_function_definition_size(), PAGE_SIZE_USIZE);
 
-        expected_size += round_up_to(
-            cfg.get_host_exception_size()
-                + cfg.get_guest_error_buffer_size()
-                + cfg.get_input_data_size()
-                + cfg.get_output_data_size()
-                + cfg.get_guest_panic_context_buffer_size()
-                + layout.heap_size,
-            PAGE_SIZE_USIZE,
-        );
+        expected_size += round_up_to(cfg.get_host_exception_size(), PAGE_SIZE_USIZE);
+
+        expected_size += round_up_to(cfg.get_guest_error_buffer_size(), PAGE_SIZE_USIZE);
+
+        expected_size += round_up_to(cfg.get_input_data_size(), PAGE_SIZE_USIZE);
+
+        expected_size += round_up_to(cfg.get_output_data_size(), PAGE_SIZE_USIZE);
+
+        expected_size += round_up_to(cfg.get_guest_panic_context_buffer_size(), PAGE_SIZE_USIZE);
+
+        expected_size += round_up_to(layout.heap_size, PAGE_SIZE_USIZE);
 
         expected_size += PAGE_SIZE_USIZE; // guard page
 

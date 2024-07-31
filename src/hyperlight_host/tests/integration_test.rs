@@ -1,6 +1,7 @@
 use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
 use hyperlight_common::mem::PAGE_SIZE;
 use hyperlight_host::func::{ParameterValue, ReturnType, ReturnValue};
+#[cfg(not(feature = "executable_heap"))]
 use hyperlight_host::mem::memory_region::MemoryRegionFlags;
 use hyperlight_host::sandbox::SandboxConfiguration;
 use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
@@ -412,24 +413,30 @@ fn guard_page_check_2() {
 
 #[test]
 fn execute_on_stack() {
-    #[cfg(target_os = "linux")]
-    {
-        use hyperlight_host::hypervisor::kvm;
-
-        if kvm::is_hypervisor_present() {
-            // This test is not supported on KVM because the stack in KVM cannot be marked non-executable
-            return;
-        }
-    }
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
 
     let result = sbox1
         .call_guest_function_by_name("ExecuteOnStack", ReturnType::String, Some(vec![]))
         .unwrap_err();
-    assert!(matches!(
-        result,
-        HyperlightError::MemoryAccessViolation(_, MemoryRegionFlags::EXECUTE, _)
-    ));
+
+    // TODO: because we set the stack as NX in the guest PTE we get a generic error, once we handle the exception correctly in the guest we can make this more specific
+    if let HyperlightError::Error(message) = result {
+        #[cfg(target_os = "linux")]
+        {
+            use hyperlight_host::hypervisor::kvm;
+            if kvm::is_hypervisor_present() {
+                assert!(message.starts_with("Unexpected VM Exit"));
+            } else {
+                assert!(message.starts_with("unknown Hyper-V run message type"));
+            }
+        }
+        #[cfg(target_os = "windows")]
+        {
+            assert!(message.starts_with("Unexpected VM Exit \"Did not receive a halt from Hypervisor as expected - Received WHV_RUN_VP_EXIT_REASON(4)"));
+        }
+    } else {
+        panic!("Unexpected error type");
+    }
 }
 
 #[test]

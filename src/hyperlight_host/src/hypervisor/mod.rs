@@ -67,6 +67,7 @@ pub(crate) const CR0_PE: u64 = 1;
 pub(crate) const CR0_MP: u64 = 1 << 1;
 pub(crate) const CR0_ET: u64 = 1 << 4;
 pub(crate) const CR0_NE: u64 = 1 << 5;
+pub(crate) const CR0_WP: u64 = 1 << 16;
 pub(crate) const CR0_AM: u64 = 1 << 18;
 pub(crate) const CR0_PG: u64 = 1 << 31;
 pub(crate) const EFER_LME: u64 = 1 << 8;
@@ -395,9 +396,10 @@ pub(crate) mod tests {
 
         let mem_mgr = sandbox.get_mgr_wrapper_mut().as_mut();
         let shared_mem = &mem_mgr.shared_mem;
+        let mut regions = mem_mgr.layout.get_memory_regions(shared_mem)?;
         let rsp_ptr = {
             let mem_size: u64 = shared_mem.mem_size().try_into()?;
-            let u64_val = mem_mgr.set_up_hypervisor_partition(mem_size)?;
+            let u64_val = mem_mgr.set_up_hypervisor_partition(mem_size, &mut regions)?;
             let base_addr_u64 = u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?;
             let offset = Offset::from(u64_val - base_addr_u64);
             GuestPtr::try_from(offset)

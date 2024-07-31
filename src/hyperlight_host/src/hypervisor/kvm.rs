@@ -13,7 +13,7 @@ use tracing::{instrument, Span};
 use super::fpu::{FP_CONTROL_WORD_DEFAULT, FP_TAG_WORD_DEFAULT, MXCSR_DEFAULT};
 use super::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper};
 use super::{
-    HyperlightExit, Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG,
+    HyperlightExit, Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP,
     CR4_OSFXSR, CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME, EFER_NX, EFER_SCE,
 };
 use crate::hypervisor::hypervisor_handler::{
@@ -133,7 +133,7 @@ impl KVMDriver {
         let mut sregs = vcpu_fd.get_sregs()?;
         sregs.cr3 = pml4_addr;
         sregs.cr4 = CR4_PAE | CR4_OSFXSR | CR4_OSXMMEXCPT;
-        sregs.cr0 = CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_AM | CR0_PG;
+        sregs.cr0 = CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_AM | CR0_PG | CR0_WP;
         sregs.efer = EFER_LME | EFER_LMA | EFER_SCE | EFER_NX;
         sregs.cs.l = 1; // required for 64-bit mode
         vcpu_fd.set_sregs(&sregs)?;
@@ -510,7 +510,7 @@ mod tests {
                 }?;
 
                 let driver = KVMDriver::new(
-                    mgr.layout.get_memory_regions(&mgr.shared_mem),
+                    mgr.layout.get_memory_regions(&mgr.shared_mem)?,
                     pml4_ptr.absolute().unwrap(),
                     entrypoint.absolute().unwrap(),
                     rsp,

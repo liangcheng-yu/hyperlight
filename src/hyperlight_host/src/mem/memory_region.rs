@@ -92,14 +92,31 @@ impl TryFrom<hv_x64_memory_intercept_message> for MemoryRegionFlags {
 
 // only used for debugging
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
-pub(crate) enum MemoryRegionType {
+/// The type of memory region
+pub enum MemoryRegionType {
+    /// The region contains the guest's page tables
     PageTables,
+    /// The region contains the guest's code
     Code,
+    /// The region contains the PEB
     Peb,
+    /// The region contains the Host Function Definitions
     HostFunctionDefinitions,
-    HeGeIdOdPc,
+    /// The region contains the Host Exception Data
+    HostExceptionData,
+    /// The region contains the Guest Error Data
+    GuestErrorData,
+    /// The region contains the Input Data
+    InputData,
+    /// The region contains the Output Data
+    OutputData,
+    /// The region contains the Panic Context
+    PanicContext,
+    /// The region contains the Heap
     Heap,
+    /// The region contains the Guard Page
     GuardPage,
+    /// The region contains the Stack
     Stack,
 }
 
@@ -108,13 +125,13 @@ pub(crate) enum MemoryRegionType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MemoryRegion {
     /// the range of guest memory addresses
-    pub guest_region: Range<usize>,
+    pub(crate) guest_region: Range<usize>,
     /// the range of host memory addresses
-    pub host_region: Range<usize>,
+    pub(crate) host_region: Range<usize>,
     /// memory access flags for the given region
-    pub flags: MemoryRegionFlags,
+    pub(crate) flags: MemoryRegionFlags,
     /// the type of memory region
-    region_type: MemoryRegionType,
+    pub(crate) region_type: MemoryRegionType,
 }
 
 pub(crate) struct MemoryRegionVecBuilder {
