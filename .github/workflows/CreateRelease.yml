@@ -105,8 +105,6 @@ jobs:
     needs: [publish]
     uses: ./.github/workflows/CargoPublish.yml
     secrets: inherit
-    with:
-      environment: release
     permissions:
       id-token: write
       contents: read
