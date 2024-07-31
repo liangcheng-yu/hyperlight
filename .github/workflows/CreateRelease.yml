@@ -99,11 +99,25 @@ jobs:
       id-token: write
       contents: read
 
+  cargo-publish:
+    # Only create a dev release if we are on the dev branch and the version is a pre-release
+    if: ${{ github.ref=='refs/heads/dev' && contains(needs.publish.outputs.HYPERLIGHT_VERSION, '-preview') }}
+    needs: [publish]
+    uses: ./.github/workflows/CargoPublish.yml
+    secrets: inherit
+    with:
+      environment: release
+    permissions:
+      id-token: write
+      contents: read
+
   publish:
     environment: release
     # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
     if: ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }}
     runs-on: windows-2022
+    outputs:
+      HYPERLIGHT_VERSION: ${{ steps.build-hyperlight-capi.outputs.HYPERLIGHT_VERSION }}
     needs:
       [
         build-hyperlight-capi,
@@ -171,8 +185,8 @@ jobs:
       - name: Set HYPERLIGHT_VERSION
         run: |
           git fetch --tags
-          minver -vd -tv -p preview.0 -m 0.1
-          echo "HYPERLIGHT_VERSION=$(minver -vd -tv -p preview.0 -m 0.1)" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
+          minver -vd -tv -p preview -a minor
+          echo "HYPERLIGHT_VERSION=$(minver -vd -tv -p preview -a minor)" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
         shell: pwsh
 
       - name: Ensure path exists for debug build
@@ -354,8 +368,8 @@ jobs:
         # Only create a dev release if we are on the dev branch
         if: ${{ github.ref=='refs/heads/dev' }}
         run:  |    
-            gh release delete dev -y --cleanup-tag  || $true
-            gh release create dev -t "Latest Development Build From Dev Branch" --latest=false -p `
+            gh release delete dev-latest -y --cleanup-tag  || $true
+            gh release create dev-latest -t "Latest Development Build From Dev Branch" --latest=false -p `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe `
@@ -378,3 +392,4 @@ jobs:
             benchmarks_Linux_kvm.tar.gz 
         env:
             GH_TOKEN: ${{ github.token }}
+

@@ -35,7 +35,8 @@ jobs:
       - name: Set crate versions
         run: |
           git fetch --tags
-          version=$(MINVER_TAG_PREFIX=v minver)
+          version=$(MINVER_LOG_LEVEL=trace MINVER_TAG_PREFIX=v MINVER_AUTO_INCREMENT_LEVEL=Minor MINVER_PRERELEASE_IDENTIFIER=preview minver)
+          echo "Setting version to $version"
           cargo ws version --force=hyperlight_* --no-git-commit --yes custom $version
 
       # `allow-dirty` is needed in the publish below because we are using the `--no-git-commit`
