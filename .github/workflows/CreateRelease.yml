@@ -109,6 +109,14 @@ jobs:
       id-token: write
       contents: read
 
+  read-hyperlight-version:
+    needs: [publish]
+    runs-on: windows-2022
+    steps:
+      - name: Read HYPERLIGHT_VERSION
+        run: Write-Output "HYPERLIGHT_VERSION=${{ needs.publish.outputs.HYPERLIGHT_VERSION }}"
+        shell: pwsh
+
   publish:
     environment: release
     # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
