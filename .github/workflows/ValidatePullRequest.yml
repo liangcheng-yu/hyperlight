@@ -59,6 +59,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Get system info
+        run: |
+          echo "cmd /ver"
+          cmd /ver
+          echo "systeminfo"
+          systeminfo
+
       # Run this so we can use just targets in this workflow
       - uses: deislabs/hyperlight-workflow-setup@v1.3.0
         with:
@@ -208,6 +215,13 @@ jobs:
         run: git rm munit
         shell: bash
         working-directory: src/hyperlight_capi/tests_capi
+
+      - name: uname (linux)
+        run: |
+          echo "uname -a"
+          uname -a
+          echo "cat /etc/os-release"
+          cat /etc/os-release
 
       - uses: deislabs/hyperlight-workflow-setup@v1.3.0
         with:
