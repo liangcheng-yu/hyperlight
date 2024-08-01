@@ -100,8 +100,8 @@ jobs:
       contents: read
 
   cargo-publish:
-    # Only create a dev release if we are on the dev branch and the version is a pre-release
-    if: ${{ github.ref=='refs/heads/dev' && contains(needs.publish.outputs.HYPERLIGHT_VERSION, '-preview') }}
+    # Only publish if the version is a pre-release
+    if: ${{ contains(needs.publish.outputs.HYPERLIGHT_VERSION, '-preview') }}
     needs: [publish]
     uses: ./.github/workflows/CargoPublish.yml
     secrets: inherit
@@ -115,7 +115,7 @@ jobs:
     if: ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }}
     runs-on: windows-2022
     outputs:      
-      HYPERLIGHT_VERSION: 0.8.0-preview.28
+      HYPERLIGHT_VERSION: ${{ steps.set_hyperlight_version.outputs.HYPERLIGHT_VERSION }}
     needs:
       [
         build-hyperlight-capi,
