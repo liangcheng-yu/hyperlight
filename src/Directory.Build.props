@@ -22,9 +22,10 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <MinVerDefaultPreReleaseIdentifiers>preview.0</MinVerDefaultPreReleaseIdentifiers>
+    <MinVerDefaultPreReleaseIdentifiers>preview</MinVerDefaultPreReleaseIdentifiers>
     <MinVerMinimumMajorMinor>0.1</MinVerMinimumMajorMinor>
     <MinVerTagPrefix>v</MinVerTagPrefix>
+    <MinverAutoIncrement>minor</MinverAutoIncrement>
   </PropertyGroup>
  
   <PropertyGroup Condition=" '$(Configuration.toLower())' != 'release'">
