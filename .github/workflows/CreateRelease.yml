@@ -366,7 +366,6 @@ jobs:
         # Only create a dev release if we are on the dev branch
         if: ${{ github.ref=='refs/heads/dev' }}
         run:  |    
-            gh release delete dev-latest -y --cleanup-tag  || $true
             gh release create dev-latest -t "Latest Development Build From Dev Branch" --latest=false -p `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe `
