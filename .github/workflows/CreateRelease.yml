@@ -114,8 +114,8 @@ jobs:
     # see https://github.com/orgs/community/discussions/26286#discussioncomment-3251208 for why we need to check the ref
     if: ${{ contains(github.ref, 'refs/heads/release/') }} ||  ${{ github.ref=='refs/heads/dev' }}
     runs-on: windows-2022
-    outputs:
-      HYPERLIGHT_VERSION: ${{ steps.set_hyperlight_version.outputs.HYPERLIGHT_VERSION }}
+    outputs:      
+      HYPERLIGHT_VERSION: 0.8.0-preview.28
     needs:
       [
         build-hyperlight-capi,
