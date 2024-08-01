@@ -101,7 +101,7 @@ jobs:
 
   cargo-publish:
     # Only publish if the version is a pre-release
-    if: ${{ contains(needs.publish.outputs.HYPERLIGHT_VERSION, '-preview') }}
+    if: contains(needs.publish.outputs.HYPERLIGHT_VERSION, '-preview') 
     needs: [publish]
     uses: ./.github/workflows/CargoPublish.yml
     secrets: inherit
