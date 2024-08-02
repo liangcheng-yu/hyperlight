@@ -62,6 +62,7 @@ jobs:
           echo "github.ref=${{ github.ref }}"
           echo "HYPERLIGHT_VERSION=$HYPERLIGHT_VERSION"
           if [[ ${{ github.ref }} =~ 'refs/heads/release/' || ( ${{ github.ref }} == 'refs/heads/dev' &&  $HYPERLIGHT_VERSION =~ '-preview' ) ]]
+          then
             echo "SHOULD_PUBLISH=true" >> "$GITHUB_env"
           fi
       # `allow-dirty` is needed in the publish below because we are using the `--no-git-commit`
