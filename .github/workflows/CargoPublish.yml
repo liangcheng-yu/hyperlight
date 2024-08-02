@@ -42,6 +42,13 @@ jobs:
       - name: Set crate versions
         run: |
           git fetch --tags
+          # for debugging...
+          cat .git/HEAD
+          git symbolic-ref HEAD
+          git describe
+          git describe --all
+          MINVER_LOG_LEVEL=trace MINVER_TAG_PREFIX=v MINVER_AUTO_INCREMENT_LEVEL=Minor MINVER_PRERELEASE_IDENTIFIER=preview minver
+          # end debugging...
           version=$(MINVER_TAG_PREFIX=v MINVER_AUTO_INCREMENT_LEVEL=Minor MINVER_PRERELEASE_IDENTIFIER=preview minver)
           echo "Setting version to $version"
           cargo ws version --force=hyperlight_* --no-git-commit --yes custom $version
@@ -51,7 +58,7 @@ jobs:
         run: |
           echo "github.ref=${{ github.ref }}"
           echo "HYPERLIGHT_VERSION=$HYPERLIGHT_VERSION"
-          if [[ ${{ github.ref }} =~ 'refs/heads/release/' || ( ${{ github.ref }} == 'refs/heads/dev' &&  $HYPERLIGHT_VERSION =~ '-preview' }} ]]
+          if [[ ${{ github.ref }} =~ 'refs/heads/release/' || ( ${{ github.ref }} == 'refs/heads/dev' &&  $HYPERLIGHT_VERSION =~ '-preview' ) ]]
             echo "SHOULD_PUBLISH=true" >> "$GITHUB_env"
           fi
       # `allow-dirty` is needed in the publish below because we are using the `--no-git-commit`
