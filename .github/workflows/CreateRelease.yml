@@ -100,22 +100,12 @@ jobs:
       contents: read
 
   cargo-publish:
-    # Only publish if the version is a pre-release
-    if: contains(needs.publish.outputs.HYPERLIGHT_VERSION, '-preview') 
     needs: [publish]
     uses: ./.github/workflows/CargoPublish.yml
     secrets: inherit
     permissions:
       id-token: write
       contents: read
-
-  read-hyperlight-version:
-    needs: [publish]
-    runs-on: windows-2022
-    steps:
-      - name: Read HYPERLIGHT_VERSION
-        run: Write-Output "HYPERLIGHT_VERSION=${{ needs.publish.outputs.HYPERLIGHT_VERSION }}"
-        shell: pwsh
 
   publish:
     environment: release
