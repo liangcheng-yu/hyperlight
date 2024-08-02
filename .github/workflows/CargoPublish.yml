@@ -50,7 +50,7 @@ jobs:
       - name: Determine if we should publish crates
         run: |
           echo "github.ref=${{ github.ref }}"
-          echo "HYPERLIGHT_VERSION=${{ HYPERLIGHT_VERSION} }}"
+          echo "HYPERLIGHT_VERSION=$HYPERLIGHT_VERSION"
           if [[ ${{ github.ref }} =~ 'refs/heads/release/' || ( ${{ github.ref }} == 'refs/heads/dev' &&  $HYPERLIGHT_VERSION =~ '-preview' }} ]]
             echo "SHOULD_PUBLISH=true" >> "$GITHUB_env"
           fi
