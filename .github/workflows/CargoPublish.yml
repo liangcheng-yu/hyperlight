@@ -25,6 +25,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - uses: deislabs/hyperlight-workflow-setup@v1.3.0
         with:
@@ -41,12 +44,12 @@ jobs:
 
       - name: Set crate versions
         run: |
-          git fetch --tags
+          git fetch --tags || true
           # for debugging...
-          cat .git/HEAD
-          git symbolic-ref HEAD
-          git describe
-          git describe --all
+          cat .git/HEAD || true
+          git symbolic-ref HEAD || true
+          git describe || true
+          git describe --all || true
           MINVER_LOG_LEVEL=trace MINVER_TAG_PREFIX=v MINVER_AUTO_INCREMENT_LEVEL=Minor MINVER_PRERELEASE_IDENTIFIER=preview minver
           # end debugging...
           version=$(MINVER_TAG_PREFIX=v MINVER_AUTO_INCREMENT_LEVEL=Minor MINVER_PRERELEASE_IDENTIFIER=preview minver)
