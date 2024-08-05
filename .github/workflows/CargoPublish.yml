@@ -45,13 +45,6 @@ jobs:
       - name: Set crate versions
         run: |
           git fetch --tags || true
-          # for debugging...
-          cat .git/HEAD || true
-          git symbolic-ref HEAD || true
-          git describe || true
-          git describe --all || true
-          MINVER_LOG_LEVEL=trace MINVER_TAG_PREFIX=v MINVER_AUTO_INCREMENT_LEVEL=Minor MINVER_PRERELEASE_IDENTIFIER=preview minver
-          # end debugging...
           version=$(MINVER_TAG_PREFIX=v MINVER_AUTO_INCREMENT_LEVEL=Minor MINVER_PRERELEASE_IDENTIFIER=preview minver)
           echo "Setting version to $version"
           cargo ws version --force=hyperlight_* --no-git-commit --yes custom $version
@@ -63,29 +56,30 @@ jobs:
           echo "HYPERLIGHT_VERSION=$HYPERLIGHT_VERSION"
           if [[ ${{ github.ref }} =~ 'refs/heads/release/' || ( ${{ github.ref }} == 'refs/heads/dev' &&  $HYPERLIGHT_VERSION =~ '-preview' ) ]]
           then
+            echo "Setting SHOULD_PUBLISH in GITHUB_ENV"
             echo "SHOULD_PUBLISH=true" >> "$GITHUB_ENV"
           fi
       # `allow-dirty` is needed in the publish below because we are using the `--no-git-commit`
       # option above to cover the case where no changes are made by cargo ws version because the version
       # is already correct
       - name: Publish hyperlight-flatbuffers
-        if: ${{ env.SHOULD_PUBLISH == true}}
+        if: ${{ env.SHOULD_PUBLISH == 'true' }}
         run: cargo publish --manifest-path ./src/hyperlight_common/Cargo.toml --registry hyperlight_packages --allow-dirty
 
       - name: Publish hyperlight-guest
-        if: ${{ env.SHOULD_PUBLISH == true}}
+        if: ${{ env.SHOULD_PUBLISH == 'true' }}
         run: cargo publish --manifest-path ./src/hyperlight_guest/Cargo.toml --registry hyperlight_packages --allow-dirty
 
       - name: Publish hyperlight-host
-        if: ${{ env.SHOULD_PUBLISH == true}}
+        if: ${{ env.SHOULD_PUBLISH == 'true' }}
         run: cargo publish --manifest-path ./src/hyperlight_host/Cargo.toml --registry hyperlight_packages --allow-dirty
 
       # `--no-verify` is needed because the build.rs script generates ./include/hyperlight_capi.h
       # and cargo does not want you to modify files outside of OUT_DIR
       - name: Publish hyperlight-capi
-        if: ${{ env.SHOULD_PUBLISH == true}}
+        if: ${{ env.SHOULD_PUBLISH == 'true' }}
         run: cargo publish --manifest-path ./src/hyperlight_capi/Cargo.toml --registry hyperlight_packages --no-verify --allow-dirty
 
       - name: Publish hyperlight-guestlib-c-includes
-        if: ${{ env.SHOULD_PUBLISH == true}}
+        if: ${{ env.SHOULD_PUBLISH == 'true' }}
         run: cargo publish --manifest-path ./src/HyperlightGuest/Cargo.toml --registry hyperlight_packages --allow-dirty
