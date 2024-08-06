@@ -83,7 +83,7 @@ jobs:
         working-directory: src/hyperlight_capi/tests_capi
 
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v4.0.0
+        uses: actions/setup-dotnet@v4.0.1
         with:
           dotnet-version: 6.0.x
 
@@ -233,7 +233,7 @@ jobs:
 
       - name: Setup dotnet (not on hyperv)
         if: ${{ (matrix.hypervisor != 'hyperv') }}
-        uses: actions/setup-dotnet@v4.0.0
+        uses: actions/setup-dotnet@v4.0.1
         with:
           dotnet-version: 6.0.x
 
