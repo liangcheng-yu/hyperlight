@@ -4,6 +4,10 @@
 // Force an entry in the PE file's relocation table to help us with testing PE file relocation
 static int (*foo)(const char *format, ...) = printf;
 
+// allocate a static to test section resizing
+
+static char bigArray[1024*1024] = {0};
+
 uint8_t* simpleprintOutput(const char *message)
 {
     int result = foo("%s", message);
@@ -14,6 +18,17 @@ uint8_t* setByteArrayToZero(const uint8_t* arrayPtr, int length)
 {
     memset(arrayPtr, 0, length );
     return GetFlatBufferResultFromSizePrefixedBuffer(arrayPtr, length);
+}
+
+uint8_t* setStatic()
+{
+    int length = sizeof(bigArray);
+    for (int l = 0; l < length; l++)
+    {
+        bigArray[l] = l;
+    }
+
+    return GetFlatBufferResultFromInt(length);
 }
 
 uint8_t* printTwoArgs(const char* arg1, int arg2)
@@ -325,6 +340,7 @@ GENERATE_FUNCTION(printUsingPrintf, 1, hlstring);
 GENERATE_FUNCTION(guestAbortWithCode, 1, hlint);
 GENERATE_FUNCTION(guestAbortWithMessage, 2, hlint, hlstring);
 GENERATE_FUNCTION(executeOnStack, 0);
+GENERATE_FUNCTION(setStatic, 0);
 
 
 void HyperlightMain()
@@ -354,4 +370,5 @@ void HyperlightMain()
     RegisterFunction(FUNCTIONDETAILS("GuestAbortWithCode", guestAbortWithCode));
     RegisterFunction(FUNCTIONDETAILS("GuestAbortWithMessage", guestAbortWithMessage));
     RegisterFunction(FUNCTIONDETAILS("ExecuteOnStack", executeOnStack));
+    RegisterFunction(FUNCTIONDETAILS("SetStatic", setStatic));
 }

@@ -117,3 +117,19 @@ macro_rules! log_then_return {
            return Err(__err);
     };
 }
+
+#[macro_export]
+macro_rules! debug {
+
+    ($($arg:tt)+) =>
+    {
+        // If the print_debug feature is enabled, print the debug message to the console
+        #[cfg(all(feature = "print_debug", debug_assertions))]
+        {
+            (println!($($arg)+))
+        }
+
+        // Then log/trace the debug message
+        (log::debug!($($arg)+))
+    }
+}

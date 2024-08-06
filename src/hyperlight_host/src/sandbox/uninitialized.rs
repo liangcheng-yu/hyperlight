@@ -23,7 +23,7 @@ use crate::mem::ptr::RawPtr;
 use crate::sandbox::{SandboxConfiguration, WrapperGetter};
 use crate::sandbox_state::sandbox::EvolvableSandbox;
 use crate::sandbox_state::transition::{MutatingCallback, Noop};
-use crate::{log_then_return, new_error, MultiUseSandbox, Result, SingleUseSandbox};
+use crate::{debug, log_then_return, new_error, MultiUseSandbox, Result, SingleUseSandbox};
 
 /// A preliminary `Sandbox`, not yet ready to execute guest code.
 ///
@@ -326,8 +326,7 @@ impl<'a> UninitializedSandbox {
             }
         }
 
-        #[cfg(all(debug_assertions, feature = "print_debug"))]
-        println!("Sandbox created:  {:#?}", sandbox);
+        debug!("Sandbox created:  {:#?}", sandbox);
 
         Ok(sandbox)
     }

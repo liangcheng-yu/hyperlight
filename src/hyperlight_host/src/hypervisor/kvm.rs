@@ -21,7 +21,7 @@ use crate::hypervisor::hypervisor_handler::{
 };
 use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
 use crate::mem::ptr::{GuestPtr, RawPtr};
-use crate::{log_then_return, new_error, Result};
+use crate::{debug, log_then_return, new_error, Result};
 
 /// Return `true` if the KVM API is available, version 12, and has UserMemory capability, or `false` otherwise
 // TODO: Once CAPI is complete this does not need to be public
@@ -277,13 +277,11 @@ impl Hypervisor for KVMDriver {
         let exit_reason = self.vcpu_fd.run();
         let result = match exit_reason {
             Ok(VcpuExit::Hlt) => {
-                #[cfg(all(debug_assertions, feature = "print_debug"))]
-                println!("KVM - Halt Details : {:#?}", &self);
+                debug!("KVM - Halt Details : {:#?}", &self);
                 HyperlightExit::Halt()
             }
             Ok(VcpuExit::IoOut(port, data)) => {
-                #[cfg(all(debug_assertions, feature = "print_debug"))]
-                println!(
+                debug!(
                     "KVM IO Details : \nPort : {}\nData : {:?}\n{:#?}",
                     port, data, &self
                 );
@@ -296,8 +294,7 @@ impl Hypervisor for KVMDriver {
                 HyperlightExit::IoOut(port, data.to_vec(), rip, instruction_length)
             }
             Ok(VcpuExit::MmioRead(addr, _)) => {
-                #[cfg(all(debug_assertions, feature = "print_debug"))]
-                println!("KVM MMIO Read -Details: Address: {} \n {:#?}", addr, &self);
+                debug!("KVM MMIO Read -Details: Address: {} \n {:#?}", addr, &self);
                 let gpa = addr as usize;
                 match self.get_memory_access_violation(
                     gpa,
@@ -309,8 +306,7 @@ impl Hypervisor for KVMDriver {
                 }
             }
             Ok(VcpuExit::MmioWrite(addr, _)) => {
-                #[cfg(all(debug_assertions, feature = "print_debug"))]
-                println!("KVM MMIO Write -Details: Address: {} \n {:#?}", addr, &self);
+                debug!("KVM MMIO Write -Details: Address: {} \n {:#?}", addr, &self);
                 let gpa = addr as usize;
                 match self.get_memory_access_violation(
                     gpa,
@@ -326,14 +322,12 @@ impl Hypervisor for KVMDriver {
                 libc::EINTR => HyperlightExit::Cancelled(),
                 libc::EAGAIN => HyperlightExit::Retry(),
                 _ => {
-                    #[cfg(all(debug_assertions, feature = "print_debug"))]
-                    println!("KVM Error -Details: Address: {} \n {:#?}", e, &self);
+                    debug!("KVM Error -Details: Address: {} \n {:#?}", e, &self);
                     log_then_return!("Error running VCPU {:?}", e);
                 }
             },
             Ok(other) => {
-                #[cfg(all(debug_assertions, feature = "print_debug"))]
-                println!("KVM Other Exit: Exit: {:#?} \n {:#?}", other, &self);
+                debug!("KVM Other Exit: Exit: {:#?} \n {:#?}", other, &self);
                 HyperlightExit::Unknown(format!("Unexpected KVM Exit {:?}", other))
             }
         };

@@ -65,6 +65,19 @@ fn invalid_guest_function_name() {
 
 #[test]
 #[cfg_attr(target_os = "windows", serial)] // using LoadLibrary requires serial tests
+fn set_static() {
+    for mut sandbox in get_simpleguest_sandboxes(None).into_iter() {
+        let fn_name = "SetStatic";
+        let res = sandbox.call_guest_function_by_name(fn_name, ReturnType::Int, None);
+        println!("{:?}", res);
+        assert!(res.is_ok());
+        // the result is the size of the static array in the guest
+        assert_eq!(res.unwrap(), ReturnValue::Int(1024 * 1024));
+    }
+}
+
+#[test]
+#[cfg_attr(target_os = "windows", serial)] // using LoadLibrary requires serial tests
 fn multiple_parameters() {
     let messages = Arc::new(Mutex::new(Vec::new()));
     let messages_clone = messages.clone();

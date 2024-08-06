@@ -40,6 +40,18 @@ use log::{debug, error, info, trace, warn};
 
 extern crate hyperlight_guest;
 
+static mut BIGARRAY: [i32; 1024 * 1024] = [0; 1024 * 1024];
+
+fn set_static() -> Result<Vec<u8>> {
+    unsafe {
+        let length = BIGARRAY.len();
+        for i in 0..length {
+            BIGARRAY[i] = i as i32;
+        }
+        Ok(get_flatbuffer_result_from_int(length as i32))
+    }
+}
+
 fn print_output(message: &str) -> Result<Vec<u8>> {
     call_host_function(
         "HostPrint",
@@ -618,6 +630,15 @@ fn get_static(function_call: &FunctionCall) -> Result<Vec<u8>> {
 
 #[no_mangle]
 pub extern "C" fn hyperlight_main() {
+    let set_static_def = GuestFunctionDefinition::new(
+        "SetStatic".to_string(),
+        Vec::new(),
+        ReturnType::Int,
+        set_static as i64,
+    );
+
+    register_function(set_static_def);
+
     let simple_print_output_def = GuestFunctionDefinition::new(
         "PrintOutput".to_string(),
         Vec::from(&[ParameterType::String]),

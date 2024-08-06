@@ -38,7 +38,7 @@ use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
 use crate::mem::ptr::{GuestPtr, RawPtr};
 use crate::mem::shared_mem::PtrCVoidMut;
 use crate::HyperlightError::{NoHypervisorFound, WindowsErrorHResult};
-use crate::{log_then_return, new_error, Result};
+use crate::{debug, log_then_return, new_error, Result};
 
 /// A Hypervisor driver for HyperV-on-Windows.
 pub(crate) struct HypervWindowsDriver {
@@ -451,8 +451,7 @@ impl Hypervisor for HypervWindowsDriver {
                 // see https://learn.microsoft.com/en-us/virtualization/api/hypervisor-platform/funcs/whvexitcontextdatatypes)
                 let instruction_length = exit_context.VpContext._bitfield & 0xF;
                 unsafe {
-                    #[cfg(all(debug_assertions, feature = "print_debug"))]
-                    println!(
+                    debug!(
                         "HyperV IO Details :\n Port: {:#x} \n {:#?}",
                         exit_context.Anonymous.IoPortAccess.PortNumber, &self
                     );
@@ -471,8 +470,7 @@ impl Hypervisor for HypervWindowsDriver {
             }
             // HvRunVpExitReasonX64Halt
             WHV_RUN_VP_EXIT_REASON(8i32) => {
-                #[cfg(all(debug_assertions, feature = "print_debug"))]
-                println!("HyperV Halt Details :\n {:#?}", &self);
+                debug!("HyperV Halt Details :\n {:#?}", &self);
                 HyperlightExit::Halt()
             }
             // WHvRunVpExitReasonMemoryAccess
@@ -485,8 +483,7 @@ impl Hypervisor for HypervWindowsDriver {
                     )
                 };
                 let access_info = MemoryRegionFlags::try_from(access_info)?;
-                #[cfg(all(debug_assertions, feature = "print_debug"))]
-                println!(
+                debug!(
                     "HyperV Memory Access Details :\n GPA: {:#?}\n Access Info :{:#?}\n {:#?} ",
                     gpa, access_info, &self
                 );
@@ -501,13 +498,11 @@ impl Hypervisor for HypervWindowsDriver {
             //  Execution was cancelled by the host.
             //  This will happen when guest code runs for too long
             WHV_RUN_VP_EXIT_REASON(8193i32) => {
-                #[cfg(all(debug_assertions, feature = "print_debug"))]
-                println!("HyperV Cancelled Details :\n {:#?}", &self);
+                debug!("HyperV Cancelled Details :\n {:#?}", &self);
                 HyperlightExit::Cancelled()
             }
             WHV_RUN_VP_EXIT_REASON(_) => {
-                #[cfg(all(debug_assertions, feature = "print_debug"))]
-                println!(
+                debug!(
                     "HyperV Unexpected Exit Details :#nReason {:#?}\n {:#?}",
                     exit_context.ExitReason, &self
                 );

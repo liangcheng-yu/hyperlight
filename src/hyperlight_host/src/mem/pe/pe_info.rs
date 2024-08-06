@@ -7,7 +7,7 @@ use goblin::pe::PE;
 use tracing::{info, instrument, Span};
 
 use crate::mem::pe::base_relocations;
-use crate::{log_then_return, Result};
+use crate::{debug, log_then_return, Result};
 
 const IMAGE_REL_BASED_DIR64: u8 = 10;
 const IMAGE_REL_BASED_ABSOLUTE: u8 = 0;
@@ -42,9 +42,10 @@ impl PEInfo {
     /// PE file and could properly be parsed as such, and `Err` if not.
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn new(pe_bytes: &[u8]) -> Result<Self> {
-        let pe = PE::parse(pe_bytes)?;
+        let mut pe = PE::parse(pe_bytes)?;
 
         // Validate that the PE file has the expected characteristics up-front
+
         if pe.header.coff_header.machine != IMAGE_FILE_MACHINE_AMD64 {
             log_then_return!("unsupported PE file, contents is not a x64 File")
         }
@@ -70,11 +71,114 @@ impl PEInfo {
             log_then_return!("unsupported PE file, not built with /DYNAMICBASE")
         }
 
+        if optional_header.windows_fields.section_alignment
+            != optional_header.windows_fields.file_alignment
+        {
+            log_then_return!("unsupported PE file, section alignment does not match file alignment make sure to link the .exe with /FILEALIGN and /ALIGN options set to the same value")
+        }
+
         if (pe.header.coff_header.characteristics & CHARACTERISTICS_RELOCS_STRIPPED)
             == CHARACTERISTICS_RELOCS_STRIPPED
         {
             log_then_return!("unsupported PE file, relocations have been removed")
         }
+
+        // Check sections and make sure that the virtual size is less than or equal to the raw size
+        // If a difference is found in the .data section, we will resize the data section to match the virtual size
+
+        let mut data_section_additional_bytes = 0;
+        let mut pre_additonal_data_size = 0;
+        let mut post_additional_data_index = 0;
+        let mut data_section_raw_pointer = 0;
+
+        for (i, section) in pe.sections.iter().enumerate() {
+            let name = section.name().unwrap_or("Unknown");
+            let virtual_size = section.virtual_size;
+            let raw_size = section.size_of_raw_data;
+            debug!(
+                "Section: {}, Virtual Size: {}, On-Disk Size: {}",
+                name, virtual_size, raw_size
+            );
+
+            if virtual_size > raw_size {
+                // we are going to take care of the data section
+                if name == ".data" {
+                    data_section_raw_pointer = section.pointer_to_raw_data;
+                    data_section_additional_bytes = virtual_size - raw_size;
+                    debug!(
+                        "Resizing the data section - Data Section Additional Bytes: {}",
+                        data_section_additional_bytes
+                    );
+                    debug!(
+                        "Resizing the data section - Existing PE File Size: {} New PE File Size: {}",
+                        pe_bytes.len(),
+                        pe_bytes.len() + data_section_additional_bytes as usize,
+                    );
+                    debug!(
+                        "Resizing the data section - Data Section Raw Pointer: {}",
+                        data_section_raw_pointer
+                    );
+
+                    // we use all the data in pe_bytes up to the end of the raw data of the .data section
+                    pre_additonal_data_size =
+                        (section.pointer_to_raw_data + section.size_of_raw_data) as usize;
+
+                    debug!("Pre Additional Data Size: {}", pre_additonal_data_size);
+
+                    // the remainder of the data is the rest of the file after the .data section if any
+
+                    let next_section = pe.sections.get(i + 1);
+
+                    if let Some(next_section) = next_section {
+                        post_additional_data_index = (next_section.pointer_to_raw_data) as usize;
+                        debug!("Post Additional Data Index: {}", post_additional_data_index);
+                    } else {
+                        debug!("No more sections after the .data section");
+                    }
+                } else {
+                    log_then_return!(
+                        "Section {} has a virtual size {} greater than the on-disk size {}",
+                        name,
+                        virtual_size,
+                        raw_size
+                    );
+                }
+            }
+        }
+
+        // Now we need to fix up any section addresses if we have resized the .data section
+
+        if data_section_additional_bytes > 0 {
+            for section in pe.sections.iter_mut() {
+                if section.pointer_to_raw_data > data_section_raw_pointer {
+                    section.pointer_to_raw_data += data_section_additional_bytes;
+                }
+            }
+        }
+
+        // Now we need to create the Vec<u8> that will be loaded into guest memory
+
+        let payload = if data_section_additional_bytes > 0 {
+            // extend the data section to match the virtual size in the payload
+            // resize data section is the difference between the virtual size and the raw size of the data section so we need to add that to the size of the pe_file
+            let mut new_pe_bytes =
+                Vec::with_capacity(pe_bytes.len() + data_section_additional_bytes as usize);
+
+            // the first slice is from the start of the file to the end of the raw data of the .data section
+            new_pe_bytes.extend_from_slice(&pe_bytes[..pre_additonal_data_size]);
+
+            // the second slice is the difference between the virtual size and the raw size of the .data section
+            new_pe_bytes.extend_from_slice(&vec![0; data_section_additional_bytes as usize]);
+
+            // the remainder of the data is the rest of the file after the .data section if any
+
+            if post_additional_data_index > 0 {
+                new_pe_bytes.extend_from_slice(&pe_bytes[post_additional_data_index..]);
+            }
+            new_pe_bytes
+        } else {
+            Vec::from(pe_bytes)
+        };
 
         let reloc_section = pe
             .sections
@@ -83,9 +187,9 @@ impl PEInfo {
             .cloned();
 
         Ok(Self {
-            payload: Vec::from(pe_bytes),
+            payload,
             optional_header,
-            payload_len: pe_bytes.len(),
+            payload_len: pe_bytes.len() + data_section_additional_bytes as usize,
             reloc_section,
         })
     }
@@ -254,6 +358,7 @@ mod tests {
 
     use crate::{new_error, Result};
 
+    #[allow(dead_code)]
     struct PEFileTest {
         path: String,
         stack_size: u64,
@@ -348,7 +453,7 @@ mod tests {
             );
 
             let patches = pe_info
-                .get_exe_relocation_patches(&pe_bytes, 0)
+                .get_exe_relocation_patches(&pe_info.payload, 0)
                 .unwrap_or_else(|_| panic!("wrong # of relocation patches returned for {pe_path}"));
 
             let num_patches = patches.len();

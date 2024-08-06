@@ -26,8 +26,11 @@
     "byte_array_tests.h": "c",
     "outb_handler.h": "c",
     "regex": "c",
-    "sstream": "c"
-  },
+    "sstream": "c",
+    "xlocale": "c",
+    "xstring": "c",
+    "system_error": "c"
+},
   "rust-analyzer.showUnlinkedFileNotification": false,
   "rust-analyzer.linkedProjects": [
     "Cargo.toml",
