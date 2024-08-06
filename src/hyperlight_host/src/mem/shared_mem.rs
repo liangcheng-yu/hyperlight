@@ -212,6 +212,8 @@ impl<'a> SharedMemory {
     #[cfg(target_os = "windows")]
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn new(min_size_bytes: usize) -> Result<Self> {
+        use windows::Win32::System::Memory::PAGE_READWRITE;
+
         use crate::HyperlightError::MemoryAllocationFailed;
 
         if min_size_bytes == 0 {
@@ -231,12 +233,7 @@ impl<'a> SharedMemory {
 
         // allocate the memory
         let addr = unsafe {
-            let ptr = VirtualAlloc(
-                Some(null_mut()),
-                total_size,
-                MEM_COMMIT,
-                PAGE_EXECUTE_READWRITE,
-            );
+            let ptr = VirtualAlloc(Some(null_mut()), total_size, MEM_COMMIT, PAGE_READWRITE);
             if ptr.is_null() {
                 log_then_return!(MemoryAllocationFailed(
                     Error::last_os_error().raw_os_error()
@@ -253,6 +250,34 @@ impl<'a> SharedMemory {
                 size: total_size,
             }),
         })
+    }
+
+    pub(super) fn make_memory_executable(&self) -> Result<()> {
+        #[cfg(target_os = "windows")]
+        {
+            use windows::Win32::System::Memory::{VirtualProtect, PAGE_PROTECTION_FLAGS};
+
+            let mut _old_flags = PAGE_PROTECTION_FLAGS::default();
+            let res = unsafe {
+                VirtualProtect(
+                    self.ptr_and_size.ptr.0,
+                    self.ptr_and_size.size,
+                    PAGE_EXECUTE_READWRITE,
+                    &mut _old_flags as *mut PAGE_PROTECTION_FLAGS,
+                )
+            };
+
+            if !res.as_bool() {
+                return Err(new_error!(
+                    "Failed to make memory executable: {:#?}",
+                    Error::last_os_error().raw_os_error()
+                ));
+            }
+        }
+
+        // TODO: Add support for Linux if in process execution is re-enabled on Linux in future
+
+        Ok(())
     }
 
     /// Internal helper method to get the backing memory as a mutable slice.

@@ -598,6 +598,10 @@ impl SandboxMemoryManager {
                     // if we're running in-process, load_addr is the absolute
                     // address to the start of shared memory, plus the offset to
                     // code
+
+                    // We also need to make the memory executable
+
+                    shared_mem.make_memory_executable()?;
                     shared_mem.base_addr() + layout.get_guest_code_offset()
                 } else {
                     // otherwise, we're running in a VM, so load_addr
@@ -647,6 +651,10 @@ impl SandboxMemoryManager {
             let lib = LoadedLib::try_from(guest_bin_path)?;
             let (layout, shared_mem, load_addr, entrypoint_offset) =
                 load_guest_binary_common(cfg, pe_info, 0, |_, _| lib.base_addr())?;
+
+            // make the memory executable when running in-process
+            shared_mem.make_memory_executable()?;
+
             Ok(Self::new(
                 layout,
                 shared_mem,
