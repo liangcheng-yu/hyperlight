@@ -4,10 +4,10 @@ name: Build Hyperlight development image - Ubuntu w/ KVM
 
 on:
   pull_request:
-  branches: [ dev ]
-  paths:
-    - '.github/workflows/ImageBuilder_Ubuntu_kvm.yml'
-    - 'dev/packer/**'
+    branches: [ dev ]
+    paths:
+      - '.github/workflows/ImageBuilder_Ubuntu_kvm.yml'
+      - 'dev/packer/**'
   schedule:
     - cron: '0 1 * * 0' # Runs at 01:00 UTC every Sunday
   workflow_dispatch:
@@ -24,7 +24,7 @@ on:
 # This job will build and publish a Hyperlight development image to a Shared Image Gallery.
 # Packer is configured to use Azure CLI authentication using ODIC credentials.
 
-premissions:
+permissions:
   id-token: write
   contents: read
 
@@ -49,6 +49,9 @@ jobs:
         with:
           version: ${{ env.PRODUCT_VERSION }}
 
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Run `packer init`
         id: init
         run: "packer init ./dev/packer/ubuntu-kvm.pkr.hcl"
@@ -58,11 +61,13 @@ jobs:
         run: "packer validate ./dev/packer/ubuntu-kvm.pkr.hcl"
 
       - name: Run `packer build` (ci)
+        if: ${{ github.event_name == 'pull_request' }}
         id: build-ci
         # force here is used to overwrite the managed image that gets created in the build process
         run: "packer build -force -color=false ./dev/packer/ubuntu-kvm.pkr.hcl"
 
       - name: Run `packer build`
+        if: ${{ github.event_name != 'pull_request' }}
         id: build
         # force here is used to overwrite the managed image that gets created in the build process
-        run: "packer build -var 'vm_size=${{ github.event.inputs.machine_size || 'Standard_D4as_v5' }}' -var 'location=${{ github.event.inputs.location || 'westus3' }}' -var 'image_name=ubuntu-kvm-dev' -force -color=false ./dev/packer/ubuntu-kvm-pkr.hcl"
+        run: "packer build -var 'vm_size=${{ github.event.inputs.machine_size || 'Standard_D4as_v5' }}' -var 'location=${{ github.event.inputs.location || 'westus3' }}' -var 'image_name=ubuntu-kvm-dev' -force -color=false ./dev/packer/ubuntu-kvm.pkr.hcl"
