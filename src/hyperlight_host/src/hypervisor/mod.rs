@@ -222,6 +222,71 @@ pub trait Hypervisor: Debug + Sync + Send + HasCommunicationChannels {
     /// Set cancellation confirmation
     #[cfg(target_os = "linux")]
     fn set_run_cancelled(&self, value: bool);
+
+    /// Dump memory to a file on crash
+    #[cfg(all(debug_assertions, feature = "dump_on_crash", target_os = "linux"))]
+    fn dump_on_crash(&self, mem_regions: Vec<MemoryRegion>) {
+        let memory_size = mem_regions
+            .iter()
+            .map(|region| region.guest_region.end - region.guest_region.start)
+            .sum();
+        if let Err(e) = unsafe {
+            self.write_dump_file(
+                mem_regions.clone(),
+                mem_regions[0].host_region.start as *const u8,
+                memory_size,
+            )
+        } {
+            println!("Error dumping memory: {}", e);
+        }
+    }
+
+    /// A function that takes an address and a size and writes the memory at that address to a file in the temp/tmp directory
+    ///  # Safety
+    /// This function is unsafe because it is writing memory to a file, make sure that the address is valid and that the size is correct
+    /// This function is only available when the `dump_on_crash` feature is enabled and running in debug mode
+    #[cfg(all(feature = "dump_on_crash", debug_assertions))]
+    unsafe fn write_dump_file(
+        &self,
+        regions: Vec<MemoryRegion>,
+        address: *const u8,
+        size: usize,
+    ) -> Result<()> {
+        use std::io::Write;
+
+        use tempfile::NamedTempFile;
+
+        if address.is_null() || size == 0 {
+            return Err(new_error!("Invalid address or size"));
+        }
+
+        let hv_details = format!("{:#?}", self);
+        let regions_details = format!("{:#?}", regions);
+
+        // Create a temporary file
+        let mut file = NamedTempFile::with_prefix("mem")?;
+        let temp_path = file.path().to_path_buf();
+
+        file.write_all(hv_details.as_bytes())?;
+        file.write_all(b"\n")?;
+        file.write_all(regions_details.as_bytes())?;
+        file.write_all(b"\n")?;
+
+        // SAFETY: Ensure the address and size are valid and accessible
+        unsafe {
+            let slice = std::slice::from_raw_parts(address, size);
+            file.write_all(slice)?;
+            file.flush()?;
+        }
+        let persist_path = temp_path.with_extension("dmp");
+        file.persist(&persist_path)
+            .map_err(|e| new_error!("Failed to persist file: {:?}", e))?;
+
+        print!("Memory dumped to file: {:?}", persist_path);
+        error!("Memory dumped to file: {:?}", persist_path);
+
+        Ok(())
+    }
 }
 
 #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]

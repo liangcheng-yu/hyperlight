@@ -297,6 +297,8 @@ impl Hypervisor for HypervLinuxDriver {
                     let rip = io_message.header.rip;
                     let rax = io_message.rax;
                     let instruction_length = io_message.header.instruction_length() as u64;
+
+                    #[cfg(all(debug_assertions, feature = "print_debug"))]
                     debug!("mshv IO Details : \nPort : {}\n{:#?}", port_number, &self);
 
                     HyperlightExit::IoOut(
@@ -313,6 +315,8 @@ impl Hypervisor for HypervLinuxDriver {
                         "mshv MMIO unmapped GPA -Details: Address: {} \n {:#?}",
                         addr, &self
                     );
+                    #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
+                    self.dump_on_crash(self.mem_regions.clone());
                     HyperlightExit::Mmio(addr)
                 }
                 INVALID_GPA_ACCESS_MESSAGE => {
@@ -323,6 +327,8 @@ impl Hypervisor for HypervLinuxDriver {
                         "mshv MMIO invalid GPA access -Details: Address: {} \n {:#?}",
                         gpa, &self
                     );
+                    #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
+                    self.dump_on_crash(self.mem_regions.clone());
                     match self.get_memory_access_violation(
                         gpa as usize,
                         &self.mem_regions,
@@ -333,7 +339,10 @@ impl Hypervisor for HypervLinuxDriver {
                     }
                 }
                 other => {
+                    #[cfg(all(debug_assertions, feature = "print_debug"))]
                     debug!("mshv Other Exit: Exit: {:#?} \n {:#?}", other, &self);
+                    #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
+                    self.dump_on_crash(self.mem_regions.clone());
                     log_then_return!("unknown Hyper-V run message type {:?}", other);
                 }
             },
@@ -342,7 +351,10 @@ impl Hypervisor for HypervLinuxDriver {
                 libc::EINTR => HyperlightExit::Cancelled(),
                 libc::EAGAIN => HyperlightExit::Retry(),
                 _ => {
+                    #[cfg(all(debug_assertions, feature = "print_debug"))]
                     debug!("mshv Error - Details: Error: {} \n {:#?}", e, &self);
+                    #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
+                    self.dump_on_crash(self.mem_regions.clone());
                     log_then_return!("Error running VCPU {:?}", e);
                 }
             },

@@ -294,7 +294,10 @@ impl Hypervisor for KVMDriver {
                 HyperlightExit::IoOut(port, data.to_vec(), rip, instruction_length)
             }
             Ok(VcpuExit::MmioRead(addr, _)) => {
+                #[cfg(all(debug_assertions, feature = "print_debug"))]
                 debug!("KVM MMIO Read -Details: Address: {} \n {:#?}", addr, &self);
+                #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
+                self.dump_on_crash(self.mem_regions.clone());
                 let gpa = addr as usize;
                 match self.get_memory_access_violation(
                     gpa,
@@ -306,7 +309,10 @@ impl Hypervisor for KVMDriver {
                 }
             }
             Ok(VcpuExit::MmioWrite(addr, _)) => {
+                #[cfg(all(debug_assertions, feature = "print_debug"))]
                 debug!("KVM MMIO Write -Details: Address: {} \n {:#?}", addr, &self);
+                #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
+                self.dump_on_crash(self.mem_regions.clone());
                 let gpa = addr as usize;
                 match self.get_memory_access_violation(
                     gpa,
@@ -322,12 +328,18 @@ impl Hypervisor for KVMDriver {
                 libc::EINTR => HyperlightExit::Cancelled(),
                 libc::EAGAIN => HyperlightExit::Retry(),
                 _ => {
+                    #[cfg(all(debug_assertions, feature = "print_debug"))]
                     debug!("KVM Error -Details: Address: {} \n {:#?}", e, &self);
+                    #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
+                    self.dump_on_crash(self.mem_regions.clone());
                     log_then_return!("Error running VCPU {:?}", e);
                 }
             },
             Ok(other) => {
+                #[cfg(all(debug_assertions, feature = "print_debug"))]
                 debug!("KVM Other Exit: Exit: {:#?} \n {:#?}", other, &self);
+                #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
+                self.dump_on_crash(self.mem_regions.clone());
                 HyperlightExit::Unknown(format!("Unexpected KVM Exit {:?}", other))
             }
         };

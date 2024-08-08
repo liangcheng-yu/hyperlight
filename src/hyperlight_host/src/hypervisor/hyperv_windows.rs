@@ -488,6 +488,19 @@ impl Hypervisor for HypervWindowsDriver {
                     gpa, access_info, &self
                 );
 
+                #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
+                {
+                    if let Err(e) = unsafe {
+                        self.write_dump_file(
+                            self.mem_regions.clone(),
+                            self.source_address.as_ptr().add(PAGE_SIZE_USIZE) as *const u8,
+                            self.size,
+                        )
+                    } {
+                        println!("Error dumping memory: {}", e);
+                    }
+                }
+
                 match self.get_memory_access_violation(gpa as usize, &self.mem_regions, access_info)
                 {
                     Some(access_info) => access_info,
@@ -506,6 +519,18 @@ impl Hypervisor for HypervWindowsDriver {
                     "HyperV Unexpected Exit Details :#nReason {:#?}\n {:#?}",
                     exit_context.ExitReason, &self
                 );
+                #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
+                {
+                    if let Err(e) = unsafe {
+                        self.write_dump_file(
+                            self.mem_regions.clone(),
+                            self.source_address.as_ptr().add(PAGE_SIZE_USIZE) as *const u8,
+                            self.size,
+                        )
+                    } {
+                        println!("Error dumping memory: {}", e);
+                    }
+                }
                 match self.get_exit_details(exit_context.ExitReason) {
                     Ok(error) => HyperlightExit::Unknown(error),
                     Err(e) => HyperlightExit::Unknown(format!("Error getting exit details: {}", e)),

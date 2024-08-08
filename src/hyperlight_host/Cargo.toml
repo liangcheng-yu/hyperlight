@@ -40,6 +40,8 @@ crossbeam-channel = "0.5.8"
 thiserror = "1.0.30"
 prometheus = "0.13.3"
 strum = { version = "0.25", features = ["derive"] }
+tempfile = {version = "3.10", optional = true}
+
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.48.0", features = [
@@ -103,6 +105,9 @@ function_call_metrics = []
 executable_heap = []
 # This feature enables printing of debug information to stdout in debug builds
 print_debug = []
+# This feature enables dunping of the VMs details to a file when an unexpected or error exit occurs in a VM in debug mode
+# the name of the file is output to stdout and logged.
+dump_on_crash = ["dep:tempfile"]
 
 [[bench]]
 name = "benchmarks"
