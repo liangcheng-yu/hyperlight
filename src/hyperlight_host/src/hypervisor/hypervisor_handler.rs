@@ -1,3 +1,5 @@
+#[cfg(target_os = "linux")]
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::sleep;
@@ -27,6 +29,8 @@ use crate::sandbox::hypervisor::HypervisorWrapper;
 use crate::sandbox::metrics::SandboxMetric::GuestFunctionCallDurationMicroseconds;
 use crate::sandbox::{SandboxConfiguration, WrapperGetter};
 use crate::sandbox_state::sandbox::Sandbox;
+#[cfg(all(feature = "seccomp", target_os = "linux"))]
+use crate::seccomp::guest::get_seccomp_filter_for_hypervisor_handler;
 use crate::HyperlightError::HypervisorHandlerExecutionCancelAttemptOnFinishedExecution;
 use crate::{log_then_return, new_error, HyperlightError, Result};
 
@@ -150,6 +154,33 @@ thread_local! {
         Arc::new(Mutex::new(WHV_PARTITION_HANDLE::default()));
 }
 
+// This variable is used to check if the hv handler thread is still alive and receiving signals
+// (specifically, `SIGRTMIN`). This field should not be accessed directly and, instead, only through
+// the `is_hv_handler_receiving_signals` function. We use this instead of `join_handle` because it
+// could be the case the thread was terminated due to a disallowed syscall, which means the thread
+// was forcefully terminated and that the hv_lock it held was never dropped as forceful termination
+// of threads is UB in Rust.
+#[cfg(all(feature = "seccomp", target_os = "linux"))]
+static HV_HANDLER_THREAD_RECEIVING_SIGNALS: AtomicBool = AtomicBool::new(false);
+
+// This function is used to check if the Hypervisor Handler thread is still alive and receiving signals.
+#[cfg(all(feature = "seccomp", target_os = "linux"))]
+pub fn is_hv_handler_receiving_signals(thread_id: libc::pthread_t) -> bool {
+    HV_HANDLER_THREAD_RECEIVING_SIGNALS.store(false, std::sync::atomic::Ordering::Relaxed);
+    // ^^^ reset variable pre-check
+    unsafe {
+        libc::pthread_kill(thread_id, SIGRTMIN());
+        // ^^^ send signal to check if thread is alive
+    }
+    sleep(Duration::from_millis(
+        SandboxConfiguration::DEFAULT_MAX_WAIT_FOR_CANCELLATION as u64,
+    ));
+    // ^^^ wait for signal to be received. We cannot use message passing transmitters/receivers
+    // in signal handlers because it does not capture its context.
+
+    HV_HANDLER_THREAD_RECEIVING_SIGNALS.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 /// Sets up a Hypervisor 'handler', designed to listen to
 /// messages to execute a specific action, such as:
 /// - `initialise` resources,
@@ -254,8 +285,14 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
         })?;
     }
 
+    #[cfg(target_os = "linux")]
+    let seccomp_filter = get_seccomp_filter_for_hypervisor_handler()?;
+
     let join_handle = {
         thread::spawn(move || -> Result<()> {
+            #[cfg(all(feature = "seccomp", target_os = "linux"))]
+            seccompiler::apply_filter(&seccomp_filter)?; // applies seccomp filter on thread creation
+
             for action in to_handler_rx.clone() {
                 match action {
                     HypervisorHandlerAction::Initialise(args) => {
@@ -281,10 +318,19 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
                             // function.
 
                             extern "C" fn handle_signal(_: i32, _: *mut siginfo_t, _: *mut c_void) {
+                                #[cfg(feature = "seccomp")]
+                                HV_HANDLER_THREAD_RECEIVING_SIGNALS
+                                    .store(true, std::sync::atomic::Ordering::Relaxed);
                             }
+
                             match register_signal_handler(SIGRTMIN(), handle_signal) {
                                 Ok(_) => {}
-                                Err(e) => panic!("failed to register signal handler: {:?}", e),
+                                Err(e) => {
+                                    return Err(new_error!(
+                                        "failed to register signal handler: {:?}",
+                                        e
+                                    ))
+                                }
                             }
                         }
 
@@ -537,7 +583,7 @@ pub(crate) fn terminate_hypervisor_handler_execution_and_reinitialise<HvMemMgrT:
                 // we had actually timed-out on a host function call as the
                 // `WHvCancelRunVirtualProcessor` didn't unlock.
 
-                return Err(HyperlightError::HostFailedToCancelGuestExecution());
+                return Err(HyperlightError::GuestExecutionHungOnHostFunctionCall());
             }
         }
     }
@@ -780,8 +826,6 @@ mod tests {
                 Duration::from_millis(100),
             )? {
                 HypervisorHandlerExecutionCancelAttemptOnFinishedExecution() => {}
-                #[cfg(target_os = "linux")]
-                HyperlightError::HostFailedToCancelGuestExecutionSendingSignals(_) => {}
                 _ => panic!("Expected error demonstrating execution wasn't cancelled properly"),
             }
         }

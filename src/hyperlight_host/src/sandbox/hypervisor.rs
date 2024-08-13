@@ -19,7 +19,7 @@ use crate::{log_then_return, Result, UninitializedSandbox};
 lazy_static! {
     /// The hypervisor available for the current platform, and is
     /// lazily initialized the first time it is accessed
-    static ref AVAILABLE_HYPERVISOR: HypervisorType = {
+    pub(crate) static ref AVAILABLE_HYPERVISOR: HypervisorType = {
         #[cfg(target_os = "linux")]
         {
             if crate::hypervisor::hyperv_linux::is_hypervisor_present() {
@@ -43,7 +43,7 @@ lazy_static! {
 }
 
 /// The hypervisor types available for the current platform
-enum HypervisorType {
+pub(crate) enum HypervisorType {
     None,
 
     #[cfg(target_os = "linux")]

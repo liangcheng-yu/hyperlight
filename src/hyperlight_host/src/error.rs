@@ -60,6 +60,11 @@ pub enum HyperlightError {
     #[error("Error converting CString {0:?}")]
     CStringConversionError(#[from] std::ffi::NulError),
 
+    /// Disallowed syscall was caught
+    #[error("Seccomp filter Killed Thread on disallowed syscall")]
+    #[cfg(target_os = "linux")]
+    DisallowedSyscall(),
+
     /// A generic error with a message
     #[error("{0}")]
     Error(String),
@@ -100,6 +105,10 @@ pub enum HyperlightError {
     #[error("Guest error occurred {0:?}: {1}")]
     GuestError(ErrorCode, String),
 
+    /// An attempt to cancel guest execution failed because it is hanging on a host function call
+    #[error("Guest execution hung on the execution of a host function call")]
+    GuestExecutionHungOnHostFunctionCall(),
+
     /// Guest call already in progress
     #[error("Guest call is already in progress")]
     GuestFunctionCallAlreadyInProgress(),
@@ -111,15 +120,6 @@ pub enum HyperlightError {
     /// The guest offset is invalid.
     #[error("The guest offset {0} is invalid.")]
     GuestOffsetIsInvalid(usize),
-
-    /// An attempt to cancel guest execution failed
-    #[error("Failed to cancel guest execution.")]
-    HostFailedToCancelGuestExecution(),
-
-    /// Guest executon was cancelled but the guest did not exit after sending signals
-    #[error("Guest executon was cancelled but the guest did not exit after sending {0} signals")]
-    #[cfg(target_os = "linux")]
-    HostFailedToCancelGuestExecutionSendingSignals(i32),
 
     /// A Host function was called by the guest but it was not registered.
     #[error("HostFunction {0} was not found")]
@@ -246,6 +246,16 @@ pub enum HyperlightError {
     /// Stack overflow detected in guest
     #[error("Stack overflow detected")]
     StackOverflow(),
+
+    /// a backend error occurred with seccomp filters
+    #[error("Backend Error with Seccomp Filter {0:?}")]
+    #[cfg(target_os = "linux")]
+    SeccompFilterBackendError(#[from] seccompiler::BackendError),
+
+    /// an error occurred with seccomp filters
+    #[error("Error with Seccomp Filter {0:?}")]
+    #[cfg(target_os = "linux")]
+    SeccompFilterError(#[from] seccompiler::Error),
 
     /// SystemTimeError
     #[error("SystemTimeError {0:?}")]

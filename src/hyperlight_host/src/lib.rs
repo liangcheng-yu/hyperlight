@@ -52,6 +52,8 @@ pub mod sandbox;
 /// `trait`s and other functionality for dealing with defining sandbox
 /// states and moving between them
 pub mod sandbox_state;
+#[cfg(all(feature = "seccomp", target_os = "linux"))]
+pub(crate) mod seccomp;
 /// Utilities for testing including interacting with `simpleguest.exe`
 /// and `callbackguest.exe`, our two most basic guest binaries for testing
 #[deny(missing_docs, unused_mut)]

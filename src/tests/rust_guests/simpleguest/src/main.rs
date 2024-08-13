@@ -28,12 +28,9 @@ use hyperlight_common::mem::PAGE_SIZE;
 use hyperlight_guest::alloca::_alloca;
 use hyperlight_guest::entrypoint::{abort_with_code, abort_with_code_and_message};
 use hyperlight_guest::error::{HyperlightGuestError, Result};
-use hyperlight_guest::flatbuffer_utils::{
-    get_flatbuffer_result_from_int, get_flatbuffer_result_from_string,
-    get_flatbuffer_result_from_vec, get_flatbuffer_result_from_void,
-};
+use hyperlight_guest::flatbuffer_utils::{get_flatbuffer_result_from_int, get_flatbuffer_result_from_string, get_flatbuffer_result_from_vec, get_flatbuffer_result_from_ulong, get_flatbuffer_result_from_void};
 use hyperlight_guest::guest_functions::register_function;
-use hyperlight_guest::host_function_call::{call_host_function, get_host_value_return_as_int};
+use hyperlight_guest::host_function_call::{call_host_function, get_host_value_return_as_int, get_host_value_return_as_ulong};
 use hyperlight_guest::memory::hlmalloc;
 use hyperlight_guest::{logging, MIN_STACK_ADDRESS};
 use log::{debug, error, info, trace, warn};
@@ -377,8 +374,8 @@ fn buffer_overrun(function_call: &FunctionCall) -> Result<Vec<u8>> {
 #[allow(unconditional_recursion)]
 fn infinite_recursion(a: &FunctionCall) -> Result<Vec<u8>> {
     let param = black_box(5); // blackbox is needed so something
-                              //is written to the stack in release mode,
-                              //to trigger guard page violation
+    //is written to the stack in release mode,
+    //to trigger guard page violation
     black_box(param);
     infinite_recursion(a)
 }
@@ -624,6 +621,25 @@ fn get_static(function_call: &FunctionCall) -> Result<Vec<u8>> {
         Err(HyperlightGuestError::new(
             ErrorCode::GuestFunctionParameterTypeMismatch,
             "Invalid parameters passed to get_static".to_string(),
+        ))
+    }
+}
+
+fn violate_seccomp_filters(function_call: &FunctionCall) -> Result<Vec<u8>> {
+    if function_call.parameters.is_none() {
+        call_host_function(
+            "MakeGetpidSyscall",
+            None,
+            ReturnType::ULong,
+        )?;
+
+        let res = get_host_value_return_as_ulong()?;
+
+        Ok(get_flatbuffer_result_from_ulong(res))
+    } else {
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to violate_seccomp_filters".to_string(),
         ))
     }
 }
@@ -957,6 +973,14 @@ pub extern "C" fn hyperlight_main() {
         get_static as i64,
     );
     register_function(get_static_def);
+
+    let violate_seccomp_filters_def = GuestFunctionDefinition::new(
+        "ViolateSeccompFilters".to_string(),
+        Vec::new(),
+        ReturnType::ULong,
+        violate_seccomp_filters as i64,
+    );
+    register_function(violate_seccomp_filters_def);
 }
 
 #[no_mangle]

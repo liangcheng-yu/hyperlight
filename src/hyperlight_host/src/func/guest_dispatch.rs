@@ -16,7 +16,7 @@ use crate::mem::ptr::RawPtr;
 #[cfg(feature = "function_call_metrics")]
 use crate::sandbox::metrics::SandboxMetric::GuestFunctionCallDurationMicroseconds;
 use crate::sandbox::WrapperGetter;
-use crate::HyperlightError::HostFailedToCancelGuestExecution;
+use crate::HyperlightError::GuestExecutionHungOnHostFunctionCall;
 use crate::{HyperlightError, Result};
 
 /// Call a guest function by name, using the given `wrapper_getter`.
@@ -166,7 +166,7 @@ pub(crate) fn call_function_on_guest<HvMemMgrT: WrapperGetter>(
                 // This particular check is needed now, because
                 // unlike w/ the previous scoped thread usage,
                 // we can't check if the thread completed or not.
-                HostFailedToCancelGuestExecution()
+                GuestExecutionHungOnHostFunctionCall()
             } else {
                 e
             }
@@ -179,6 +179,10 @@ mod tests {
     use std::thread;
 
     use hyperlight_testing::{callback_guest_as_string, simple_guest_as_string};
+    #[cfg(target_os = "linux")]
+    use libc::SYS_getpid;
+    #[cfg(all(feature = "seccomp", target_os = "linux"))]
+    use HyperlightError::DisallowedSyscall;
 
     use super::*;
     use crate::func::call_ctx::{MultiUseGuestCallContext, SingleUseGuestCallContext};
@@ -208,6 +212,53 @@ mod tests {
 
     // blank convenience init function for transitioning between a usbox and a isbox
     fn init(_: &mut UninitializedSandbox) -> Result<()> {
+        Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    #[cfg(target_os = "linux")]
+    fn test_violate_seccomp_filters() -> Result<()> {
+        if !is_hypervisor_present() {
+            panic!("Panic on create_multi_use_sandbox because no hypervisor is present");
+        }
+        let mut usbox = UninitializedSandbox::new(
+            GuestBinary::FilePath(simple_guest_as_string().expect("Guest Binary Missing")),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        fn make_get_pid_syscall() -> Result<u64> {
+            let pid = unsafe { libc::syscall(SYS_getpid) };
+            Ok(pid as u64)
+        }
+
+        let make_get_pid_syscall_func = Arc::new(Mutex::new(make_get_pid_syscall));
+
+        make_get_pid_syscall_func.register(&mut usbox, "MakeGetpidSyscall")?;
+
+        let mut sbox: MultiUseSandbox = usbox.evolve(MutatingCallback::from(init))?;
+
+        let res =
+            sbox.call_guest_function_by_name("ViolateSeccompFilters", ReturnType::ULong, None);
+
+        #[cfg(feature = "seccomp")]
+        match res {
+            Ok(_) => panic!("Expected to fail due to seccomp violation"),
+            Err(e) => match e {
+                DisallowedSyscall() => {}
+                _ => panic!("Expected DisallowedSyscall error"),
+            },
+        }
+
+        #[cfg(not(feature = "seccomp"))]
+        match res {
+            Ok(_) => (),
+            Err(e) => panic!("Expected to succeed without seccomp"),
+        }
+
         Ok(())
     }
 
@@ -445,9 +496,7 @@ mod tests {
 
         assert!(result.is_err());
         match result.unwrap_err() {
-            HyperlightError::HostFailedToCancelGuestExecution() => {}
-            #[cfg(target_os = "linux")]
-            HyperlightError::HostFailedToCancelGuestExecutionSendingSignals(_) => {}
+            HyperlightError::GuestExecutionHungOnHostFunctionCall() => {}
             e => panic!(
                 "Expected HyperlightError::ExecutionCanceledByHost() but got {:?}",
                 e

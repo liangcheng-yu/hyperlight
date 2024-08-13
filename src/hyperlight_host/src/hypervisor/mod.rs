@@ -10,8 +10,6 @@ use vmm_sys_util::signal::SIGRTMIN;
 use windows::Win32::System::Hypervisor::WHvCancelRunVirtualProcessor;
 
 use crate::error::HyperlightError::ExecutionCanceledByHost;
-#[cfg(target_os = "linux")]
-use crate::error::HyperlightError::HostFailedToCancelGuestExecutionSendingSignals;
 #[cfg(target_os = "windows")]
 use crate::hypervisor::hypervisor_handler::PARTITION_HANDLE;
 use crate::hypervisor::metrics::HypervisorMetric::NumberOfCancelledGuestExecutions;
@@ -57,8 +55,12 @@ use crossbeam::atomic::AtomicCell;
 use self::handlers::{
     MemAccessHandlerCaller, MemAccessHandlerWrapper, OutBHandlerCaller, OutBHandlerWrapper,
 };
+#[cfg(target_os = "linux")]
+use crate::hypervisor::hypervisor_handler::is_hv_handler_receiving_signals;
 use crate::hypervisor::hypervisor_handler::HasCommunicationChannels;
 use crate::mem::ptr::RawPtr;
+#[cfg(target_os = "linux")]
+use crate::HyperlightError::{DisallowedSyscall, GuestExecutionHungOnHostFunctionCall};
 
 pub(crate) const CR4_PAE: u64 = 1 << 5;
 pub(crate) const CR4_OSFXSR: u64 = 1 << 9;
@@ -338,7 +340,11 @@ pub(crate) fn terminate_execution(
             std::thread::sleep(Duration::from_micros(500));
         }
         if !run_cancelled.load() {
-            log_then_return!(HostFailedToCancelGuestExecutionSendingSignals(count));
+            if is_hv_handler_receiving_signals(thread_id) {
+                log_then_return!(GuestExecutionHungOnHostFunctionCall());
+            } else {
+                log_then_return!(DisallowedSyscall());
+            }
         }
     }
     #[cfg(target_os = "windows")]
