@@ -3,6 +3,7 @@ use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use cfg_if::cfg_if;
 use crossbeam::atomic::AtomicCell;
 use crossbeam_channel::{Receiver, Sender};
 use kvm_bindings::{kvm_fpu, kvm_regs, kvm_userspace_memory_region, KVM_MEM_READONLY};
@@ -247,11 +248,11 @@ impl Hypervisor for KVMDriver {
         &mut self,
         port: u16,
         data: Vec<u8>,
-        rip: u64,
-        instruction_length: u64,
+        _rip: u64,
+        _instruction_length: u64,
         outb_handle_fn: OutBHandlerWrapper,
     ) -> Result<()> {
-        let mut regs = self.vcpu_fd.get_regs()?;
+        // KVM does not need RIP or instruction length, as it automatically sets the RIP
 
         // The payload param for the outb_handle_fn is the first byte
         // of the data array cast to an u64. Thus, we need to make sure
@@ -266,9 +267,6 @@ impl Hypervisor for KVMDriver {
                 .call(port, payload_u64)?;
         }
 
-        // update rip
-        regs.rip = rip + instruction_length;
-        self.vcpu_fd.set_regs(&regs)?;
         Ok(())
     }
 
@@ -281,17 +279,10 @@ impl Hypervisor for KVMDriver {
                 HyperlightExit::Halt()
             }
             Ok(VcpuExit::IoOut(port, data)) => {
-                debug!(
-                    "KVM IO Details : \nPort : {}\nData : {:?}\n{:#?}",
-                    port, data, &self
-                );
-                let regs = self.vcpu_fd.get_regs()?;
-                let rip = regs.rip;
-                //TODO: 1 may be a hack, but it works for now, need to figure out
-                // how to get the instruction length.
-                let instruction_length = 1;
-
-                HyperlightExit::IoOut(port, data.to_vec(), rip, instruction_length)
+                // because vcpufd.run() mutably borrows self we cannot pass self to debug! macro here
+                debug!("KVM IO Details : \nPort : {}\nData : {:?}", port, data);
+                // KVM does not need to set RIP or instruction length so these are set to 0
+                HyperlightExit::IoOut(port, data.to_vec(), 0, 0)
             }
             Ok(VcpuExit::MmioRead(addr, _)) => {
                 #[cfg(all(debug_assertions, feature = "print_debug"))]
@@ -336,11 +327,19 @@ impl Hypervisor for KVMDriver {
                 }
             },
             Ok(other) => {
-                #[cfg(all(debug_assertions, feature = "print_debug"))]
-                debug!("KVM Other Exit: Exit: {:#?} \n {:#?}", other, &self);
-                #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
-                self.dump_on_crash(self.mem_regions.clone());
-                HyperlightExit::Unknown(format!("Unexpected KVM Exit {:?}", other))
+                cfg_if! {
+                    if #[cfg(all(feature = "print_debug", debug_assertions))] {
+                        let _ = other;
+                        debug!("KVM Other Exit: \n {:#?}", &self);
+                        HyperlightExit::Unknown("Unexpected KVM Exit".to_string())
+                    } else if #[cfg(all(feature = "dump_on_crash", debug_assertions))] {
+                            self.dump_on_crash(self.mem_regions.clone());
+                            HyperlightExit::Unknown(format!("Unexpected KVM Exit {:?}", other))
+                    } else{
+                        debug!("KVM Other Exit {:?}", other);
+                        HyperlightExit::Unknown(format!("Unexpected KVM Exit {:?}", other))
+                    }
+                }
             }
         };
         Ok(result)

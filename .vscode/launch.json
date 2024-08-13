@@ -59,7 +59,7 @@
         "type": "lldb",
         "request": "launch",
         "name": "Debug Native code in NativeHost",
-        "args": [],
+        "args": ["--", "--nowait"],
         "program": "${workspaceFolder}/src/examples/NativeHost/bin/debug/net6.0/NativeHost",
         "windows": {
           "program": "${workspaceFolder}/src/examples/NativeHost/bin/debug/net6.0/NativeHost.exe"

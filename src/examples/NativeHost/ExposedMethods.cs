@@ -20,7 +20,12 @@ namespace NativeHost
         [ExposeToGuest(true)]
         public int HostMethod(string msg)
         {
-            return PrintOutput!($"Host Received: {msg} from Guest");
+            // This method is being changed because of https://github.com/deislabs/hyperlight/issues/909
+            // whilst calling back still works from C API for mshv and WHP after https://github.com/deislabs/hyperlight/pull/1528 
+            // it is broken for KVM so rather than amend this for KVM only we will disable it for all for now
+            Console.WriteLine($"Host Received: {msg} from Guest");
+            return string.IsNullOrEmpty(msg) ? 0 : msg.Length;
+            //return PrintOutput!($"Host Received: {msg} from Guest");
         }
     }
 }

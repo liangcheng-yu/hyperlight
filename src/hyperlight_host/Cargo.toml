@@ -61,8 +61,8 @@ windows = { version = "0.48.0", features = [
 [target.'cfg(unix)'.dependencies]
 mshv-bindings = { workspace = true }
 mshv-ioctls = { workspace = true }
-kvm-bindings = { version = "0.6.0", features = ["fam-wrappers"] }
-kvm-ioctls = "0.15.0"
+kvm-bindings = { version = "0.9.0", features = ["fam-wrappers"] }
+kvm-ioctls = "0.18.0"
 
 [patch."https://pkgs.dev.azure.com/AzureContainerUpstream/hyperlight/_packaging/hyperlight_redist/Cargo/index/"]
 vmm-sys-util = "0.12.1"
