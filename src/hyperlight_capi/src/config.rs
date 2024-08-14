@@ -25,6 +25,7 @@ pub extern "C" fn config_new(
     guest_error_message_size: usize,
     stack_size_override: u64,
     heap_size_override: u64,
+    kernel_stack_size: usize,
     max_execution_time: u16,
     max_wait_for_cancellation: u8,
 ) -> SandboxConfiguration {
@@ -36,6 +37,7 @@ pub extern "C" fn config_new(
     config.set_guest_error_buffer_size(guest_error_message_size);
     config.set_stack_size(stack_size_override);
     config.set_heap_size(heap_size_override);
+    config.set_kernel_stack_size(kernel_stack_size);
     config.set_max_execution_time(Duration::from_millis(max_execution_time as u64));
     config.set_max_execution_cancel_wait_time(Duration::from_millis(
         max_wait_for_cancellation as u64,

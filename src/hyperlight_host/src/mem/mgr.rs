@@ -125,7 +125,7 @@ impl SandboxMemoryManager {
     /// the `&self` to access them instead.
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn set_stack_guard(&mut self, cookie: &[u8; STACK_COOKIE_LEN]) -> Result<()> {
-        let stack_offset = self.layout.get_top_of_stack_offset();
+        let stack_offset = self.layout.get_top_of_user_stack_offset();
         self.shared_mem.copy_from_slice(cookie, stack_offset)
     }
 
@@ -151,7 +151,10 @@ impl SandboxMemoryManager {
         //
         // NOTE: We do this also for GCC freestanding binaries because we
         // specify __attribute__((ms_abi)) on the start method
-        let rsp = mem_size + SandboxMemoryLayout::BASE_ADDRESS as u64 - 0x28;
+        let rsp: u64 = self.layout.get_top_of_user_stack_offset() as u64
+            + SandboxMemoryLayout::BASE_ADDRESS as u64
+            + self.layout.stack_size as u64
+            - 0x28;
 
         // Create PDL4 table with only 1 PML4E
         self.shared_mem.write_u64(
@@ -217,6 +220,8 @@ impl SandboxMemoryManager {
                             // Host Exception Data are readonly in the guest
                             MemoryRegionType::HostExceptionData => PAGE_PRESENT | PAGE_NX,
                             MemoryRegionType::PageTables => PAGE_PRESENT | PAGE_RW | PAGE_NX,
+                            MemoryRegionType::KernelStack => PAGE_PRESENT | PAGE_RW | PAGE_NX,
+                            MemoryRegionType::BootStack => PAGE_PRESENT | PAGE_RW | PAGE_NX,
                         },
                         // If there is an error then the address isn't mapped so mark it as not present
                         Err(_) => 0,
@@ -267,7 +272,7 @@ impl SandboxMemoryManager {
     /// of why it isn't.
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn check_stack_guard(&self, cookie: [u8; STACK_COOKIE_LEN]) -> Result<bool> {
-        let offset = self.layout.get_top_of_stack_offset();
+        let offset = self.layout.get_top_of_user_stack_offset();
         let mut test_cookie = vec![b'\0'; cookie.len()];
         self.shared_mem
             .copy_to_slice(test_cookie.as_mut_slice(), offset)?;

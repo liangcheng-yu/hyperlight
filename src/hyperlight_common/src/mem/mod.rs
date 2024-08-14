@@ -43,7 +43,14 @@ pub struct GuestHeapData {
 
 #[repr(C)]
 pub struct GuestStackData {
-    pub minStackAddress: u64,
+    /// This is the top of the user stack
+    pub minUserStackAddress: u64,
+    /// This is the user stack pointer
+    pub userStackAddress: u64,
+    /// This is the stack pointer for the kernel mode stack
+    pub kernelStackAddress: u64,
+    /// This is the initial stack pointer when init is called its used before the TSS is set up
+    pub bootStackAddress: u64,
 }
 
 #[repr(C)]

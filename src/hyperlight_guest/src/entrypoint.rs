@@ -80,7 +80,7 @@ pub extern "C" fn entrypoint(peb_address: u64, seed: u64, ops: u64, log_level_fi
                 // This static is to make it easier to implement the __chksstk function in assembly.
                 // It also means that should we change the layout of the struct in the future, we
                 // don't have to change the assembly code.
-                MIN_STACK_ADDRESS = (*peb_ptr).gueststackData.minStackAddress;
+                MIN_STACK_ADDRESS = (*peb_ptr).gueststackData.minUserStackAddress;
             }
 
             let srand_seed = ((peb_address << 8 ^ seed >> 4) >> 32) as u32;

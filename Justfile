@@ -7,6 +7,7 @@ set dotenv-load := true
 set-trace-env-vars := if os() == "windows" { "$env:RUST_LOG='none,hyperlight_host=info';" } else { "RUST_LOG=none,hyperlight_host=info" }
 set-env-command := if os() == "windows" { "$env:" } else { "export " }
 bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
+build-surrogate-cmd := if os() == "windows" { "msbuild -m hyperlight.sln /p:Configuration={{ target }} /t:HyperlightSurrogate" } else { "echo 'not building hyperlight surrogate no on windows'" }
 
 default-target := "debug"
 simpleguest_source := "src/tests/rust_guests/simpleguest/target/x86_64-pc-windows-msvc"
@@ -119,7 +120,7 @@ test-dotnet-c-guests target=default-target: (test-dotnet-hl-c-guests target) (te
 test-dotnet target=default-target: (build-hyperlight-surrogate target) (test-dotnet-hl target) (test-dotnet-nativehost target)
 
 build-hyperlight-surrogate target=default-target:
-    msbuild -m hyperlight.sln /p:Configuration={{ target }} /t:HyperlightSurrogate
+    {{build-surrogate-cmd}}
 
 test-capi target=default-target:
     cd src/hyperlight_capi && just run-tests-capi {{ target }} 

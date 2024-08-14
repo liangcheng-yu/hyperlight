@@ -49,7 +49,8 @@ MunitResult test_host_print(const MunitParameter params[], void *fixture)
         .input_data_size = 4096,
         .output_data_size = 4096,
         .host_exception_size = 4096,
-        .guest_panic_context_buffer_size = 1024
+        .guest_panic_context_buffer_size = 1024,
+        .kernel_stack_size = 4096,
         };
 #ifdef DEBUG
     Handle binary = string_new(ctx, "../tests/rust_guests/bin/debug/simpleguest.exe");

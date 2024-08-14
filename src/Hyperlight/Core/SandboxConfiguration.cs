@@ -54,16 +54,19 @@ namespace Hyperlight.Core
         public ulong HeapSizeOverride { get; init; }
 
         /// <summary>
-        /// defines the heap size to be allocated for the guest.
-        /// if set to 0 or not defined, the heap size will be determined
-        /// from the guest executable's PE file header
+        /// Defines the kernel stack size to be allocated in the guest.
+        /// if set to 0 or not defined or less that the minimum kernel stack size 
+        /// then it will be set to the minimum kernel stack size.
+        /// </summary>
+        public ulong KernelStackSize { get; init; }
+
+        /// <summary>
+        /// defines the maximum execution time for the a guest function in milliseconds.
         /// </summary>
         public ushort MaxExecutionTime { get; init; }
 
         /// <summary>
-        /// defines the heap size to be allocated for the guest.
-        /// if set to 0 or not defined, the heap size will be determined
-        /// from the guest executable's PE file header
+        /// defines the maximum time to wait for a cancellation request to be processed.
         /// </summary>
         public byte MaxWaitForCancellation { get; init; }
 
@@ -113,9 +116,10 @@ namespace Hyperlight.Core
             ulong guestErrorMessageSize,
             ulong stackSizeOverride = 0,
             ulong heapSizeOverride = 0,
-            ushort maxExecutionTime =0,
-            byte maxWaitForCancellation=0,
-            ulong guestPanicBufferSize=1024
+            ulong kernelStackSize = 0,
+            ushort maxExecutionTime = 0,
+            byte maxWaitForCancellation = 0,
+            ulong guestPanicBufferSize = 1024
         )
         {
             var config = config_new(
@@ -126,6 +130,7 @@ namespace Hyperlight.Core
                 guestErrorMessageSize,
                 stackSizeOverride,
                 heapSizeOverride,
+                kernelStackSize,
                 maxExecutionTime,
                 maxWaitForCancellation
             );
@@ -136,6 +141,7 @@ namespace Hyperlight.Core
             this.OutputDataSize = config.OutputDataSize;
             this.HeapSizeOverride = config.HeapSizeOverride;
             this.StackSizeOverride = config.StackSizeOverride;
+            this.KernelStackSize = config.KernelStackSize;
             this.MaxExecutionTime = config.MaxExecutionTime;
             this.MaxWaitForCancellation = config.MaxWaitForCancellation;
             this.GuestPanicBufferSize = 1024;
@@ -152,6 +158,7 @@ namespace Hyperlight.Core
                 GuestErrorBufferSize = this.GuestErrorBufferSize,
                 HeapSizeOverride = this.HeapSizeOverride,
                 StackSizeOverride = this.StackSizeOverride,
+                KernelStackSize = this.KernelStackSize,
                 MaxExecutionTime = this.MaxExecutionTime,
                 MaxWaitForCancellation = this.MaxWaitForCancellation
             };
@@ -167,6 +174,8 @@ namespace Hyperlight.Core
                 HostExceptionSize = this.HostExceptionSize,
                 GuestErrorBufferSize = this.GuestErrorBufferSize,
                 HeapSizeOverride = this.HeapSizeOverride,
+                StackSizeOverride = this.StackSizeOverride,
+                KernelStackSize = this.KernelStackSize,
                 MaxExecutionTime = this.MaxExecutionTime,
                 MaxWaitForCancellation = this.MaxWaitForCancellation
             };
@@ -183,6 +192,7 @@ namespace Hyperlight.Core
                 GuestErrorBufferSize = this.GuestErrorBufferSize,
                 HeapSizeOverride = this.HeapSizeOverride,
                 StackSizeOverride = this.StackSizeOverride,
+                KernelStackSize = this.KernelStackSize,
                 MaxExecutionTime = this.MaxExecutionTime,
                 MaxWaitForCancellation = this.MaxWaitForCancellation
             };
@@ -199,6 +209,7 @@ namespace Hyperlight.Core
                 GuestErrorBufferSize = this.GuestErrorBufferSize,
                 HeapSizeOverride = this.HeapSizeOverride,
                 StackSizeOverride = this.StackSizeOverride,
+                KernelStackSize = this.KernelStackSize,
                 MaxExecutionTime = this.MaxExecutionTime,
                 MaxWaitForCancellation = this.MaxWaitForCancellation
             };
@@ -215,6 +226,7 @@ namespace Hyperlight.Core
                 GuestErrorBufferSize = size,
                 HeapSizeOverride = this.HeapSizeOverride,
                 StackSizeOverride = this.StackSizeOverride,
+                KernelStackSize = this.KernelStackSize,
                 MaxExecutionTime = this.MaxExecutionTime,
                 MaxWaitForCancellation = this.MaxWaitForCancellation
             };
@@ -231,6 +243,7 @@ namespace Hyperlight.Core
                 GuestErrorBufferSize = this.GuestErrorBufferSize,
                 HeapSizeOverride = size,
                 StackSizeOverride = this.StackSizeOverride,
+                KernelStackSize = this.KernelStackSize,
                 MaxExecutionTime = this.MaxExecutionTime,
                 MaxWaitForCancellation = this.MaxWaitForCancellation
             };
@@ -247,6 +260,24 @@ namespace Hyperlight.Core
                 GuestErrorBufferSize = this.GuestErrorBufferSize,
                 HeapSizeOverride = this.HeapSizeOverride,
                 StackSizeOverride = size,
+                KernelStackSize = this.KernelStackSize,
+                MaxExecutionTime = this.MaxExecutionTime,
+                MaxWaitForCancellation = this.MaxWaitForCancellation
+            };
+        }
+
+        public SandboxConfiguration WithKernelStackSize(ulong size)
+        {
+            return new SandboxConfiguration()
+            {
+                InputDataSize = this.InputDataSize,
+                OutputDataSize = this.OutputDataSize,
+                HostFunctionDefinitionSize = this.HostFunctionDefinitionSize,
+                HostExceptionSize = this.HostExceptionSize,
+                GuestErrorBufferSize = this.GuestErrorBufferSize,
+                HeapSizeOverride = this.HeapSizeOverride,
+                StackSizeOverride = this.StackSizeOverride,
+                KernelStackSize = size,
                 MaxExecutionTime = this.MaxExecutionTime,
                 MaxWaitForCancellation = this.MaxWaitForCancellation
             };
@@ -263,6 +294,7 @@ namespace Hyperlight.Core
                 GuestErrorBufferSize = this.GuestErrorBufferSize,
                 HeapSizeOverride = this.HeapSizeOverride,
                 StackSizeOverride = this.StackSizeOverride,
+                KernelStackSize = this.KernelStackSize,
                 MaxExecutionTime = maxExecutionTime,
                 MaxWaitForCancellation = this.MaxWaitForCancellation
             };
@@ -279,6 +311,7 @@ namespace Hyperlight.Core
                 GuestErrorBufferSize = this.GuestErrorBufferSize,
                 HeapSizeOverride = this.HeapSizeOverride,
                 StackSizeOverride = this.StackSizeOverride,
+                KernelStackSize = this.KernelStackSize,
                 MaxExecutionTime = this.MaxWaitForCancellation,
                 MaxWaitForCancellation = maxWaitForCancellation
             };
@@ -296,6 +329,7 @@ namespace Hyperlight.Core
             ulong guestErrorBufferSize,
             ulong stackSizeOverride,
             ulong heapSizeOverride,
+            ulong kernelStackSize,
             ushort maxExecutionTime,
             byte maxWaitForCancellation
         );

@@ -25,7 +25,7 @@ pub struct SandboxConfiguration {
     /// Guest Binary
     output_data_size: usize,
     /// The stack size to use in the guest sandbox. If set to 0, the stack
-    /// size will be determined from the PE file header
+    /// size will be determined from the PE file header.
     ///
     /// Note: this is a C-compatible struct, so even though this optional
     /// field should be represented as an `Option`, that type is not
@@ -38,6 +38,10 @@ pub struct SandboxConfiguration {
     /// field should be represented as an `Option`, that type is not
     /// FFI-safe, so it cannot be.
     heap_size_override: u64,
+    /// The kernel_stack_size to use in the guest sandbox. If set to 0, the default kernel stack size will be used.
+    /// The value will be increased to a multiple page size when memory is allocated if necessary.
+    ///
+    kernel_stack_size: usize,
     /// The max_execution_time of a guest execution in milliseconds. If set to 0, the max_execution_time
     /// will be set to the default value of 1000ms if the guest execution does not complete within the time specified
     /// then the execution will be cancelled, the minimum value is 1ms
@@ -45,6 +49,7 @@ pub struct SandboxConfiguration {
     /// Note: this is a C-compatible struct, so even though this optional
     /// field should be represented as an `Option`, that type is not
     /// FFI-safe, so it cannot be.
+    ///
     max_execution_time: u16,
     /// The max_wait_for_cancellation represents the maximum time the host should wait for a guest execution to be cancelled
     /// If set to 0, the max_wait_for_cancellation will be set to the default value of 10ms.
@@ -96,6 +101,10 @@ impl SandboxConfiguration {
     pub const DEFAULT_GUEST_PANIC_CONTEXT_BUFFER_SIZE: usize = 0x400;
     /// The minimum value for guest panic context data
     pub const MIN_GUEST_PANIC_CONTEXT_BUFFER_SIZE: usize = 0x400;
+    /// The minimum value for kernel stack size
+    pub const MIN_KERNEL_STACK_SIZE: usize = 0x1000;
+    /// The default value for kernel stack size
+    pub const DEFAULT_KERNEL_STACK_SIZE: usize = Self::MIN_KERNEL_STACK_SIZE;
 
     #[allow(clippy::too_many_arguments)]
     /// Create a new configuration for a sandbox with the given sizes.
@@ -108,6 +117,7 @@ impl SandboxConfiguration {
         guest_error_buffer_size: usize,
         stack_size_override: Option<u64>,
         heap_size_override: Option<u64>,
+        kernel_stack_size: usize,
         max_execution_time: Option<Duration>,
         max_wait_for_cancellation: Option<Duration>,
         guest_panic_context_buffer_size: usize,
@@ -126,6 +136,7 @@ impl SandboxConfiguration {
             ),
             stack_size_override: stack_size_override.unwrap_or(0),
             heap_size_override: heap_size_override.unwrap_or(0),
+            kernel_stack_size: max(kernel_stack_size, Self::MIN_KERNEL_STACK_SIZE),
             max_execution_time: {
                 match max_execution_time {
                     Some(max_execution_time) => match max_execution_time.as_millis() {
@@ -210,6 +221,13 @@ impl SandboxConfiguration {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn set_heap_size(&mut self, heap_size: u64) {
         self.heap_size_override = heap_size;
+    }
+
+    /// Set the kernel stack size to use in the guest sandbox. If less than the minimum value of MIN_KERNEL_STACK_SIZE, the minimum value will be used.
+    /// If its not a multiple of the page size, it will be increased to the a multiple of the page size when memory is allocated.
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub fn set_kernel_stack_size(&mut self, kernel_stack_size: usize) {
+        self.kernel_stack_size = max(kernel_stack_size, Self::MIN_KERNEL_STACK_SIZE);
     }
 
     /// Set the maximum execution time of a guest function execution. If set to 0, the max_execution_time
@@ -313,6 +331,11 @@ impl SandboxConfiguration {
             .unwrap_or_else(|| pe_info.stack_reserve())
     }
 
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(crate) fn get_kernel_stack_size(&self) -> usize {
+        self.kernel_stack_size
+    }
+
     /// If self.heap_size_override is non-zero, return it. Otherwise,
     /// return pe_info.heap_reserve()
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
@@ -333,6 +356,7 @@ impl Default for SandboxConfiguration {
             Self::DEFAULT_GUEST_ERROR_BUFFER_SIZE,
             None,
             None,
+            Self::DEFAULT_KERNEL_STACK_SIZE,
             None,
             None,
             Self::DEFAULT_GUEST_PANIC_CONTEXT_BUFFER_SIZE,
@@ -359,7 +383,8 @@ mod tests {
         const MAX_EXECUTION_TIME_OVERRIDE: u16 = 1010;
         const MAX_WAIT_FOR_CANCELLATION_OVERRIDE: u8 = 200;
         const GUEST_PANIC_CONTEXT_BUFFER_SIZE_OVERRIDE: usize = 0x4005;
-        let cfg = SandboxConfiguration::new(
+        const KERNEL_STACK_SIZE_OVERRIDE: usize = 0x4000;
+        let mut cfg = SandboxConfiguration::new(
             INPUT_DATA_SIZE_OVERRIDE,
             OUTPUT_DATA_SIZE_OVERRIDE,
             HOST_FUNCTION_DEFINITION_SIZE_OVERRIDE,
@@ -367,6 +392,7 @@ mod tests {
             GUEST_ERROR_BUFFER_SIZE_OVERRIDE,
             Some(STACK_SIZE_OVERRIDE),
             Some(HEAP_SIZE_OVERRIDE),
+            KERNEL_STACK_SIZE_OVERRIDE,
             Some(Duration::from_millis(MAX_EXECUTION_TIME_OVERRIDE as u64)),
             Some(Duration::from_millis(
                 MAX_WAIT_FOR_CANCELLATION_OVERRIDE as u64,
@@ -383,22 +409,11 @@ mod tests {
             assert_eq!(STACK_SIZE_OVERRIDE, stack_size);
             assert_eq!(HEAP_SIZE_OVERRIDE, heap_size);
         }
-        let cfg = SandboxConfiguration::new(
-            INPUT_DATA_SIZE_OVERRIDE,
-            OUTPUT_DATA_SIZE_OVERRIDE,
-            HOST_FUNCTION_DEFINITION_SIZE_OVERRIDE,
-            HOST_EXCEPTION_SIZE_OVERRIDE,
-            GUEST_ERROR_BUFFER_SIZE_OVERRIDE,
-            Some(1024),
-            Some(2048),
-            Some(Duration::from_millis(MAX_EXECUTION_TIME_OVERRIDE as u64)),
-            Some(Duration::from_millis(
-                MAX_WAIT_FOR_CANCELLATION_OVERRIDE as u64,
-            )),
-            GUEST_PANIC_CONTEXT_BUFFER_SIZE_OVERRIDE,
-        );
+        cfg.stack_size_override = 1024;
+        cfg.heap_size_override = 2048;
         assert_eq!(1024, cfg.stack_size_override);
         assert_eq!(2048, cfg.heap_size_override);
+        assert_eq!(16384, cfg.kernel_stack_size);
         assert_eq!(INPUT_DATA_SIZE_OVERRIDE, cfg.input_data_size);
         assert_eq!(OUTPUT_DATA_SIZE_OVERRIDE, cfg.output_data_size);
         assert_eq!(
@@ -431,6 +446,7 @@ mod tests {
             SandboxConfiguration::MIN_GUEST_ERROR_BUFFER_SIZE - 1,
             None,
             None,
+            SandboxConfiguration::MIN_KERNEL_STACK_SIZE - 1,
             Some(Duration::from_millis(
                 SandboxConfiguration::MIN_MAX_EXECUTION_TIME as u64,
             )),
@@ -441,6 +457,10 @@ mod tests {
         );
         assert_eq!(SandboxConfiguration::MIN_INPUT_SIZE, cfg.input_data_size);
         assert_eq!(SandboxConfiguration::MIN_OUTPUT_SIZE, cfg.output_data_size);
+        assert_eq!(
+            SandboxConfiguration::MIN_KERNEL_STACK_SIZE,
+            cfg.kernel_stack_size
+        );
         assert_eq!(
             SandboxConfiguration::MIN_HOST_FUNCTION_DEFINITION_SIZE,
             cfg.host_function_definition_size
