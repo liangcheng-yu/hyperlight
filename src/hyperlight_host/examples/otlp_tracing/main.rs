@@ -1,6 +1,7 @@
 use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
 use rand::Rng;
 use tracing::{span, Level};
+use tracing_subscriber::util::SubscriberInitExt;
 extern crate hyperlight_host;
 use std::error::Error;
 use std::io::stdin;
@@ -13,13 +14,12 @@ use hyperlight_host::sandbox_state::transition::Noop;
 use hyperlight_host::{GuestBinary, MultiUseSandbox, Result as HyperlightResult};
 use hyperlight_testing::simple_guest_as_string;
 use opentelemetry::global::shutdown_tracer_provider;
+use opentelemetry::trace::TracerProvider;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::{new_exporter, new_pipeline, WithExportConfig};
 use opentelemetry_sdk::runtime::Tokio;
 use opentelemetry_sdk::{trace, Resource};
-use tracing_opentelemetry::layer;
 use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 use uuid::Uuid;
 
@@ -38,18 +38,20 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
                 .tonic()
                 .with_endpoint("http://localhost:4317/v1/traces"),
         )
-        .with_trace_config(
-            trace::config().with_resource(Resource::new(vec![KeyValue::new(
-                "service.name",
-                "hyperlight_otel_example",
-            )])),
-        )
-        .install_batch(Tokio)?;
+        .with_trace_config(trace::Config::default().with_resource(Resource::new(vec![
+            KeyValue::new("service.name", "hyperlight_otel_example"),
+        ])))
+        .install_batch(Tokio)
+        .unwrap()
+        .tracer("trace-demo");
 
-    tracing_subscriber::registry()
+    let otel_layer = tracing_opentelemetry::OpenTelemetryLayer::new(tracer);
+
+    tracing_subscriber::Registry::default()
         .with(EnvFilter::from_default_env())
-        .with(layer().with_tracer(tracer))
+        .with(otel_layer)
         .try_init()?;
+
     Ok(run_example()?)
 }
 fn run_example() -> HyperlightResult<()> {
