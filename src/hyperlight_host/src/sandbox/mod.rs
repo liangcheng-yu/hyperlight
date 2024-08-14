@@ -225,7 +225,7 @@ mod tests {
                     let sandbox = sq
                         .pop()
                         .unwrap_or_else(|| panic!("Failed to pop Sandbox thread {}", i));
-                    let host_funcs = sandbox.host_funcs.lock();
+                    let host_funcs = sandbox._host_funcs.lock();
 
                     assert!(host_funcs.is_ok());
 

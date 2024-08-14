@@ -24,9 +24,9 @@ use crate::Result;
 /// 2. A MultiUseGuestCallContext can be created from the sandbox and used to make multiple guest function calls to the Sandbox.
 ///  in this case the state of the sandbox is not reset until the context is finished and the `MultiUseSandbox` is returned.
 pub struct MultiUseSandbox<'a> {
-    pub(super) host_funcs: Arc<Mutex<HostFuncsWrapper>>,
+    // We need to keep a reference to the host functions, even if the compiler marks it as unused. The compiler cannot detect our dynamic usages of the host function in `HyperlightFunction::call`.
+    pub(super) _host_funcs: Arc<Mutex<HostFuncsWrapper>>,
     pub(crate) mem_mgr: MemMgrWrapper,
-    pub(super) run_from_process_memory: bool,
     pub(super) hv: HypervisorWrapper,
     /// See the documentation for `SingleUseSandbox::_leaked_out_b` for
     /// details on the purpose of this field.
@@ -70,9 +70,8 @@ impl<'a> MultiUseSandbox<'a> {
         leaked_outb: Option<LeakedOutBWrapper<'a>>,
     ) -> MultiUseSandbox<'a> {
         Self {
-            host_funcs: val.host_funcs,
+            _host_funcs: val.host_funcs,
             mem_mgr: val.mgr,
-            run_from_process_memory: val.run_from_process_memory,
             hv: val.hv,
             _leaked_outb: Arc::new(leaked_outb),
             is_csharp: val.is_csharp,
@@ -207,34 +206,6 @@ impl<'a> std::fmt::Debug for MultiUseSandbox<'a> {
         f.debug_struct("MultiUseSandbox")
             .field("stack_guard", &self.mem_mgr.get_stack_cookie())
             .finish()
-    }
-}
-
-impl<'a>
-    DevolvableSandbox<
-        MultiUseSandbox<'a>,
-        UninitializedSandbox,
-        Noop<MultiUseSandbox<'a>, UninitializedSandbox>,
-    > for MultiUseSandbox<'a>
-{
-    /// Consume `self` and move it back to an `UninitializedSandbox`. The
-    /// devolving process entails the following:
-    ///
-    /// - If `self` was a recyclable sandbox, restore its state from a
-    /// previous state snapshot
-    ///
-    /// TODO: Why are we doing the reset RSP? Its seems wrong to me , we are not using hypervisor in in process mode, why doesnt this fail? Do we have test for it?
-    /// - If `self` was using in-process mode, reset the stack pointer
-    /// (RSP register, to be specific) to what it was when the sandbox
-    /// was first created.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    fn devolve(
-        self,
-        _tsn: Noop<MultiUseSandbox<'a>, UninitializedSandbox>,
-    ) -> Result<UninitializedSandbox> {
-        let mut ret = UninitializedSandbox::from_multi_use(self);
-        ret.mgr.as_mut().pop_and_restore_state_from_snapshot()?;
-        Ok(ret)
     }
 }
 

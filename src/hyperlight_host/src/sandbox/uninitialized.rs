@@ -358,16 +358,6 @@ impl<'a> UninitializedSandbox {
         self.is_csharp = true
     }
 
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    pub(crate) fn from_multi_use(sbox: MultiUseSandbox<'a>) -> Self {
-        Self {
-            host_funcs: sbox.host_funcs.clone(),
-            mgr: sbox.mem_mgr.clone(),
-            hv: sbox.hv.clone(),
-            run_from_process_memory: sbox.run_from_process_memory,
-            is_csharp: false,
-        }
-    }
     /// Clone the internally-stored `Arc` holding the `HostFuncsWrapper`
     /// managed by `self`, then return it.
     // TODO: This function should not be public it is only used publically in the tests for the C API
@@ -688,7 +678,7 @@ mod tests {
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
-            let host_funcs = sandbox.host_funcs.lock();
+            let host_funcs = sandbox._host_funcs.lock();
 
             assert!(host_funcs.is_ok());
 
@@ -711,7 +701,7 @@ mod tests {
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
-            let host_funcs = sandbox.host_funcs.lock();
+            let host_funcs = sandbox._host_funcs.lock();
 
             assert!(host_funcs.is_ok());
 
@@ -740,7 +730,7 @@ mod tests {
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
-            let host_funcs = sandbox.host_funcs.lock();
+            let host_funcs = sandbox._host_funcs.lock();
 
             assert!(host_funcs.is_ok());
 
@@ -755,7 +745,7 @@ mod tests {
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
-            let host_funcs = sandbox.host_funcs.lock();
+            let host_funcs = sandbox._host_funcs.lock();
 
             assert!(host_funcs.is_ok());
 
@@ -995,7 +985,7 @@ mod tests {
                         .pop()
                         .unwrap_or_else(|| panic!("Failed to pop Sandbox thread {}", i));
 
-                    let host_funcs = sandbox.host_funcs.lock();
+                    let host_funcs = sandbox._host_funcs.lock();
 
                     assert!(host_funcs.is_ok());
 
