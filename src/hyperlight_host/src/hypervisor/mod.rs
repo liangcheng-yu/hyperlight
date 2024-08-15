@@ -55,11 +55,11 @@ use crossbeam::atomic::AtomicCell;
 use self::handlers::{
     MemAccessHandlerCaller, MemAccessHandlerWrapper, OutBHandlerCaller, OutBHandlerWrapper,
 };
-#[cfg(target_os = "linux")]
+#[cfg(all(feature = "seccomp", target_os = "linux"))]
 use crate::hypervisor::hypervisor_handler::is_hv_handler_receiving_signals;
 use crate::hypervisor::hypervisor_handler::HasCommunicationChannels;
 use crate::mem::ptr::RawPtr;
-#[cfg(target_os = "linux")]
+#[cfg(all(feature = "seccomp", target_os = "linux"))]
 use crate::HyperlightError::{DisallowedSyscall, GuestExecutionHungOnHostFunctionCall};
 
 pub(crate) const CR4_PAE: u64 = 1 << 5;
@@ -340,10 +340,18 @@ pub(crate) fn terminate_execution(
             std::thread::sleep(Duration::from_micros(500));
         }
         if !run_cancelled.load() {
-            if is_hv_handler_receiving_signals(thread_id) {
-                log_then_return!(GuestExecutionHungOnHostFunctionCall());
-            } else {
-                log_then_return!(DisallowedSyscall());
+            #[cfg(feature = "seccomp")]
+            {
+                if is_hv_handler_receiving_signals(thread_id) {
+                    log_then_return!(GuestExecutionHungOnHostFunctionCall());
+                } else {
+                    log_then_return!(DisallowedSyscall());
+                }
+            }
+
+            #[cfg(not(feature = "seccomp"))]
+            {
+                log_then_return!(ExecutionCanceledByHost());
             }
         }
     }

@@ -103,7 +103,7 @@ anyhow = { version = "1.0.75" }
 
 [features]
 default = ["seccomp"]
-seccomp = ["seccompiler"]
+seccomp = ["dep:seccompiler"]
 function_call_metrics = []
 executable_heap = []
 # This feature enables printing of debug information to stdout in debug builds

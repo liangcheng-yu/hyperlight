@@ -1,5 +1,3 @@
-#[cfg(target_os = "linux")]
-use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::sleep;
@@ -161,7 +159,8 @@ thread_local! {
 // was forcefully terminated and that the hv_lock it held was never dropped as forceful termination
 // of threads is UB in Rust.
 #[cfg(all(feature = "seccomp", target_os = "linux"))]
-static HV_HANDLER_THREAD_RECEIVING_SIGNALS: AtomicBool = AtomicBool::new(false);
+static HV_HANDLER_THREAD_RECEIVING_SIGNALS: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
 
 // This function is used to check if the Hypervisor Handler thread is still alive and receiving signals.
 #[cfg(all(feature = "seccomp", target_os = "linux"))]
@@ -285,7 +284,7 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
         })?;
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(all(feature = "seccomp", target_os = "linux"))]
     let seccomp_filter = get_seccomp_filter_for_hypervisor_handler()?;
 
     let join_handle = {
@@ -296,6 +295,7 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
             for action in to_handler_rx.clone() {
                 match action {
                     HypervisorHandlerAction::Initialise(args) => {
+                        log::debug!("Initialising Hypervisor Handler");
                         let mut hv_lock = hv_clone.lock().unwrap();
 
                         // Reset termination status from a possible previous execution
@@ -329,7 +329,7 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
                                     return Err(new_error!(
                                         "failed to register signal handler: {:?}",
                                         e
-                                    ))
+                                    ));
                                 }
                             }
                         }
@@ -344,6 +344,7 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
 
                         match res {
                             Ok(_) => {
+                                log::debug!("Initialised Hypervisor Handler");
                                 from_handler_tx
                                     .send(HandlerMsg::FinishedHypervisorHandlerAction)
                                     .map_err(|_| {
@@ -351,6 +352,7 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
                                     })?;
                             }
                             Err(e) => {
+                                log::debug!("Error initialising Hypervisor Handler: {:?}", e);
                                 from_handler_tx.send(HandlerMsg::Error(e)).map_err(|_| {
                                     HyperlightError::HypervisorHandlerCommunicationFailure()
                                 })?;
@@ -358,6 +360,7 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
                         }
                     }
                     HypervisorHandlerAction::DispatchCallFromHost(args) => {
+                        log::debug!("Dispatching call from host: {}", args.function_name);
                         let mut hv_lock = hv_clone.lock().unwrap();
 
                         // Reset termination status from a possible previous execution
@@ -396,6 +399,10 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
 
                         match res {
                             Ok(_) => {
+                                log::debug!(
+                                    "Finished dispatching call from host: {}",
+                                    args.function_name
+                                );
                                 from_handler_tx
                                     .send(HandlerMsg::FinishedHypervisorHandlerAction)
                                     .map_err(|_| {
@@ -403,6 +410,11 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
                                     })?;
                             }
                             Err(e) => {
+                                log::debug!(
+                                    "Error dispatching call from host: {}: {:?}",
+                                    args.function_name,
+                                    e
+                                );
                                 from_handler_tx.send(HandlerMsg::Error(e)).map_err(|_| {
                                     HyperlightError::HypervisorHandlerCommunicationFailure()
                                 })?;
@@ -495,6 +507,7 @@ pub(crate) fn kill_hypervisor_handler_thread<T>(sbox: &mut T) -> Result<()>
 where
     T: Sandbox,
 {
+    log::debug!("Killing Hypervisor Handler Thread");
     execute_hypervisor_handler_action(
         sbox.get_hypervisor_wrapper_mut(),
         HypervisorHandlerAction::TerminateHandlerThread,
@@ -560,6 +573,7 @@ pub(crate) fn terminate_hypervisor_handler_execution_and_reinitialise<HvMemMgrT:
                     e
                 );
 
+                log::debug!("Terminating execution of vCPU");
                 terminate_execution(
                     max_execution_time,
                     termination_status,
@@ -583,6 +597,7 @@ pub(crate) fn terminate_hypervisor_handler_execution_and_reinitialise<HvMemMgrT:
                 // we had actually timed-out on a host function call as the
                 // `WHvCancelRunVirtualProcessor` didn't unlock.
 
+                log::debug!("Tried to cancel guest execution on host function call");
                 return Err(HyperlightError::GuestExecutionHungOnHostFunctionCall());
             }
         }
@@ -621,6 +636,7 @@ pub(crate) fn terminate_hypervisor_handler_execution_and_reinitialise<HvMemMgrT:
     // Re-initialise the vCPU.
     // This is 100% needed because, otherwise, all it takes to cause a DoS is for a
     // function to timeout as the vCPU will be in a bad state without re-init.
+    log::debug!("Re-initialising vCPU");
     execute_hypervisor_handler_action(
         wrapper_getter.get_hv(),
         HypervisorHandlerAction::Initialise(InitArgs::new(
@@ -653,10 +669,15 @@ pub(crate) fn execute_hypervisor_handler_action(
         (hv_lock.get_to_handler_tx(), hv_lock.get_from_handler_rx())
     };
 
+    log::debug!(
+        "Sending Hypervisor Handler Action: {:?}",
+        hypervisor_handler_action
+    );
     to_handler_tx
         .send(hypervisor_handler_action)
         .map_err(|_| HyperlightError::HypervisorHandlerCommunicationFailure())?;
 
+    log::debug!("Waiting for Hypervisor Handler Response");
     match max_wait_time {
         Some(wait) => try_receive_handler_msg(from_handler_rx, wait),
         None => try_receive_handler_msg(

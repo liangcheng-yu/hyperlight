@@ -62,7 +62,7 @@ pub enum HyperlightError {
 
     /// Disallowed syscall was caught
     #[error("Seccomp filter Killed Thread on disallowed syscall")]
-    #[cfg(target_os = "linux")]
+    #[cfg(all(feature = "seccomp", target_os = "linux"))]
     DisallowedSyscall(),
 
     /// A generic error with a message
@@ -249,12 +249,12 @@ pub enum HyperlightError {
 
     /// a backend error occurred with seccomp filters
     #[error("Backend Error with Seccomp Filter {0:?}")]
-    #[cfg(target_os = "linux")]
+    #[cfg(all(feature = "seccomp", target_os = "linux"))]
     SeccompFilterBackendError(#[from] seccompiler::BackendError),
 
     /// an error occurred with seccomp filters
     #[error("Error with Seccomp Filter {0:?}")]
-    #[cfg(target_os = "linux")]
+    #[cfg(all(feature = "seccomp", target_os = "linux"))]
     SeccompFilterError(#[from] seccompiler::Error),
 
     /// SystemTimeError
