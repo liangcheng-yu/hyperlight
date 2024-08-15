@@ -5,6 +5,7 @@ use std::fmt::{Debug, Formatter};
 use std::string::String;
 use std::sync::Arc;
 
+use cfg_if::cfg_if;
 use crossbeam::atomic::AtomicCell;
 use crossbeam_channel::{Receiver, Sender};
 use hyperlight_common::mem::PAGE_SIZE_USIZE;
@@ -29,6 +30,8 @@ use super::{
     CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA,
     EFER_LME, EFER_NX, EFER_SCE,
 };
+#[cfg(not(all(feature = "print_debug", debug_assertions)))]
+use crate::debug;
 use crate::hypervisor::fpu::FP_CONTROL_WORD_DEFAULT;
 use crate::hypervisor::hypervisor_handler::{
     HandlerMsg, HasCommunicationChannels, HypervisorHandlerAction,
@@ -38,7 +41,7 @@ use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
 use crate::mem::ptr::{GuestPtr, RawPtr};
 use crate::mem::shared_mem::PtrCVoidMut;
 use crate::HyperlightError::{NoHypervisorFound, WindowsErrorHResult};
-use crate::{debug, log_then_return, new_error, Result};
+use crate::{log_then_return, new_error, Result};
 
 /// A Hypervisor driver for HyperV-on-Windows.
 pub(crate) struct HypervWindowsDriver {
@@ -451,10 +454,19 @@ impl Hypervisor for HypervWindowsDriver {
                 // see https://learn.microsoft.com/en-us/virtualization/api/hypervisor-platform/funcs/whvexitcontextdatatypes)
                 let instruction_length = exit_context.VpContext._bitfield & 0xF;
                 unsafe {
-                    debug!(
-                        "HyperV IO Details :\n Port: {:#x} \n {:#?}",
-                        exit_context.Anonymous.IoPortAccess.PortNumber, &self
-                    );
+                    cfg_if! {
+                        if #[cfg(all(feature = "print_debug", debug_assertions))] {
+                            println!(
+                                "HyperV IO Details :\n Port: {:#x} \n {:#?}",
+                                exit_context.Anonymous.IoPortAccess.PortNumber, &self
+                            );
+                        } else {
+                            debug!(
+                                "HyperV IO Details :\n Port: {:#x} \n {:#?}",
+                                exit_context.Anonymous.IoPortAccess.PortNumber, &self
+                            );
+                        }
+                    }
                     HyperlightExit::IoOut(
                         exit_context.Anonymous.IoPortAccess.PortNumber,
                         exit_context
@@ -470,7 +482,13 @@ impl Hypervisor for HypervWindowsDriver {
             }
             // HvRunVpExitReasonX64Halt
             WHV_RUN_VP_EXIT_REASON(8i32) => {
-                debug!("HyperV Halt Details :\n {:#?}", &self);
+                cfg_if! {
+                    if #[cfg(all(feature = "print_debug", debug_assertions))] {
+                        println!("HyperV Halt Details :\n {:#?}", &self);
+                    } else {
+                        debug!("HyperV Halt Details :\n {:#?}", &self);
+                    }
+                }
                 HyperlightExit::Halt()
             }
             // WHvRunVpExitReasonMemoryAccess
@@ -483,10 +501,20 @@ impl Hypervisor for HypervWindowsDriver {
                     )
                 };
                 let access_info = MemoryRegionFlags::try_from(access_info)?;
-                debug!(
-                    "HyperV Memory Access Details :\n GPA: {:#?}\n Access Info :{:#?}\n {:#?} ",
-                    gpa, access_info, &self
-                );
+
+                cfg_if! {
+                    if #[cfg(all(feature = "print_debug", debug_assertions))] {
+                        println!(
+                            "HyperV Memory Access Details :\n GPA: {:#?}\n Access Info :{:#?}\n {:#?} ",
+                            gpa, access_info, &self
+                        );
+                    } else {
+                        debug!(
+                            "HyperV Memory Access Details :\n GPA: {:#?}\n Access Info :{:#?}\n {:#?} ",
+                            gpa, access_info, &self
+                        );
+                    }
+                }
 
                 #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
                 {
@@ -511,14 +539,29 @@ impl Hypervisor for HypervWindowsDriver {
             //  Execution was cancelled by the host.
             //  This will happen when guest code runs for too long
             WHV_RUN_VP_EXIT_REASON(8193i32) => {
-                debug!("HyperV Cancelled Details :\n {:#?}", &self);
+                cfg_if! {
+                    if #[cfg(all(feature = "print_debug", debug_assertions))] {
+                        println!("HyperV Cancelled Details :\n {:#?}", &self);
+                    } else {
+                        debug!("HyperV Cancelled Details :\n {:#?}", &self);
+                    }
+                }
                 HyperlightExit::Cancelled()
             }
             WHV_RUN_VP_EXIT_REASON(_) => {
-                debug!(
-                    "HyperV Unexpected Exit Details :#nReason {:#?}\n {:#?}",
-                    exit_context.ExitReason, &self
-                );
+                cfg_if! {
+                    if #[cfg(all(feature = "print_debug", debug_assertions))] {
+                        println!(
+                            "HyperV Unexpected Exit Details :#nReason {:#?}\n {:#?}",
+                            exit_context.ExitReason, &self
+                        );
+                    } else {
+                        debug!(
+                            "HyperV Unexpected Exit Details :#nReason {:#?}\n {:#?}",
+                            exit_context.ExitReason, &self
+                        );
+                    }
+                }
                 #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
                 {
                     if let Err(e) = unsafe {

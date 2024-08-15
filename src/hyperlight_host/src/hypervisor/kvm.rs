@@ -17,12 +17,14 @@ use super::{
     HyperlightExit, Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP,
     CR4_OSFXSR, CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME, EFER_NX, EFER_SCE,
 };
+#[cfg(not(all(feature = "print_debug", debug_assertions)))]
+use crate::debug;
 use crate::hypervisor::hypervisor_handler::{
     HandlerMsg, HasCommunicationChannels, HypervisorHandlerAction,
 };
 use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
 use crate::mem::ptr::{GuestPtr, RawPtr};
-use crate::{debug, log_then_return, new_error, Result};
+use crate::{log_then_return, new_error, Result};
 
 /// Return `true` if the KVM API is available, version 12, and has UserMemory capability, or `false` otherwise
 // TODO: Once CAPI is complete this does not need to be public
@@ -157,13 +159,15 @@ impl Debug for KVMDriver {
             f.field("Registers", &regs);
         }
 
-        let sregs = self.vcpu_fd.get_sregs();
+        // TODO: the call to get sregs is removed because of this issue https://github.com/deislabs/hyperlight/issues/1536
+
+        //let sregs = self.vcpu_fd.get_sregs();
 
         // check that sregs is OK and then set field in debug struct
 
-        if let Ok(sregs) = sregs {
-            f.field("Special Registers", &sregs);
-        }
+        // if let Ok(sregs) = sregs {
+        //     f.field("Special Registers", &sregs);
+        // }
 
         f.finish()
     }
@@ -275,18 +279,35 @@ impl Hypervisor for KVMDriver {
         let exit_reason = self.vcpu_fd.run();
         let result = match exit_reason {
             Ok(VcpuExit::Hlt) => {
-                debug!("KVM - Halt Details : {:#?}", &self);
+                cfg_if! {
+                    if #[cfg(all(feature = "print_debug", debug_assertions))] {
+                        println!("KVM - Halt Details : {:#?}", &self);
+                    } else {
+                        debug!("KVM - Halt Details : {:#?}", &self);
+                    }
+                }
                 HyperlightExit::Halt()
             }
             Ok(VcpuExit::IoOut(port, data)) => {
                 // because vcpufd.run() mutably borrows self we cannot pass self to debug! macro here
-                debug!("KVM IO Details : \nPort : {}\nData : {:?}", port, data);
+                cfg_if! {
+                    if #[cfg(all(feature = "print_debug", debug_assertions))] {
+                        println!("KVM IO Details : \nPort : {}\nData : {:?}", port, data);
+                    } else {
+                        debug!("KVM IO Details : \nPort : {}\nData : {:?}", port, data);
+                    }
+                }
                 // KVM does not need to set RIP or instruction length so these are set to 0
                 HyperlightExit::IoOut(port, data.to_vec(), 0, 0)
             }
             Ok(VcpuExit::MmioRead(addr, _)) => {
-                #[cfg(all(debug_assertions, feature = "print_debug"))]
-                debug!("KVM MMIO Read -Details: Address: {} \n {:#?}", addr, &self);
+                cfg_if! {
+                    if #[cfg(all(feature = "print_debug", debug_assertions))] {
+                        println!("KVM MMIO Read -Details: Address: {} \n {:#?}", addr, &self);
+                    } else {
+                        debug!("KVM MMIO Read -Details: Address: {} \n {:#?}", addr, &self);
+                    }
+                }
                 #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
                 self.dump_on_crash(self.mem_regions.clone());
                 let gpa = addr as usize;
@@ -300,8 +321,13 @@ impl Hypervisor for KVMDriver {
                 }
             }
             Ok(VcpuExit::MmioWrite(addr, _)) => {
-                #[cfg(all(debug_assertions, feature = "print_debug"))]
-                debug!("KVM MMIO Write -Details: Address: {} \n {:#?}", addr, &self);
+                cfg_if! {
+                    if #[cfg(all(feature = "print_debug", debug_assertions))] {
+                        println!("KVM MMIO Write -Details: Address: {} \n {:#?}", addr, &self);
+                    } else {
+                        debug!("KVM MMIO Write -Details: Address: {} \n {:#?}", addr, &self);
+                    }
+                }
                 #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
                 self.dump_on_crash(self.mem_regions.clone());
                 let gpa = addr as usize;
@@ -319,8 +345,13 @@ impl Hypervisor for KVMDriver {
                 libc::EINTR => HyperlightExit::Cancelled(),
                 libc::EAGAIN => HyperlightExit::Retry(),
                 _ => {
-                    #[cfg(all(debug_assertions, feature = "print_debug"))]
-                    debug!("KVM Error -Details: Address: {} \n {:#?}", e, &self);
+                    cfg_if! {
+                        if #[cfg(all(feature = "print_debug", debug_assertions))] {
+                            println!("KVM Error - Details: Address: {} \n {:#?}", e, &self);
+                        } else {
+                            debug!("KVM Error - Details: Address: {} \n {:#?}", e, &self);
+                        }
+                    }
                     #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
                     self.dump_on_crash(self.mem_regions.clone());
                     log_then_return!("Error running VCPU {:?}", e);
@@ -330,7 +361,7 @@ impl Hypervisor for KVMDriver {
                 cfg_if! {
                     if #[cfg(all(feature = "print_debug", debug_assertions))] {
                         let _ = other;
-                        debug!("KVM Other Exit: \n {:#?}", &self);
+                        println!("KVM Other Exit: \n {:#?}", &self);
                         HyperlightExit::Unknown("Unexpected KVM Exit".to_string())
                     } else if #[cfg(all(feature = "dump_on_crash", debug_assertions))] {
                             self.dump_on_crash(self.mem_regions.clone());
