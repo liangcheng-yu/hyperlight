@@ -2,7 +2,6 @@ use std::any::Any;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
-use cfg_if::cfg_if;
 use crossbeam::atomic::AtomicCell;
 use crossbeam_channel::{Receiver, Sender};
 use log::error;
@@ -289,13 +288,7 @@ impl Hypervisor for HypervLinuxDriver {
         let result = match &self.vcpu_fd.run(hv_message) {
             Ok(m) => match m.header.message_type {
                 HALT_MESSAGE => {
-                    cfg_if! {
-                        if #[cfg(all(feature = "print_debug", debug_assertions))] {
-                            println!("mshv - Halt Details : {:#?}", &self);
-                        } else {
-                            debug!("mshv - Halt Details : {:#?}", &self);
-                        }
-                    }
+                    debug!("mshv - Halt Details : {:#?}", &self);
                     HyperlightExit::Halt()
                 }
                 IO_PORT_INTERCEPT_MESSAGE => {
@@ -304,13 +297,7 @@ impl Hypervisor for HypervLinuxDriver {
                     let rip = io_message.header.rip;
                     let rax = io_message.rax;
                     let instruction_length = io_message.header.instruction_length() as u64;
-                    cfg_if! {
-                        if #[cfg(all(feature = "print_debug", debug_assertions))] {
-                            println!("mshv IO Details : \nPort : {}\n{:#?}", port_number, &self);
-                        } else {
-                            debug!("mshv IO Details : \nPort : {}\n{:#?}", port_number, &self);
-                        }
-                    }
+                    debug!("mshv IO Details : \nPort : {}\n{:#?}", port_number, &self);
                     HyperlightExit::IoOut(
                         port_number,
                         rax.to_le_bytes().to_vec(),
@@ -349,13 +336,7 @@ impl Hypervisor for HypervLinuxDriver {
                     }
                 }
                 other => {
-                    cfg_if! {
-                        if #[cfg(all(feature = "print_debug", debug_assertions))] {
-                            println!("mshv Other Exit: Exit: {:#?} \n {:#?}", other, &self);
-                        } else {
-                            debug!("mshv Other Exit: Exit: {:#?} \n {:#?}", other, &self);
-                        }
-                    }
+                    debug!("mshv Other Exit: Exit: {:#?} \n {:#?}", other, &self);
                     #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
                     self.dump_on_crash(self.mem_regions.clone());
                     log_then_return!("unknown Hyper-V run message type {:?}", other);
@@ -366,13 +347,7 @@ impl Hypervisor for HypervLinuxDriver {
                 libc::EINTR => HyperlightExit::Cancelled(),
                 libc::EAGAIN => HyperlightExit::Retry(),
                 _ => {
-                    cfg_if! {
-                        if #[cfg(all(feature = "print_debug", debug_assertions))] {
-                            println!("mshv Error - Details: Error: {} \n {:#?}", e, &self);
-                        } else {
-                            debug!("mshv Error - Details: Error: {} \n {:#?}", e, &self);
-                        }
-                    }
+                    debug!("mshv Error - Details: Error: {} \n {:#?}", e, &self);
                     #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
                     self.dump_on_crash(self.mem_regions.clone());
                     log_then_return!("Error running VCPU {:?}", e);

@@ -4,7 +4,7 @@ use tracing::{instrument, Span};
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::Hypervisor::*;
 
-use crate::hypervisor::wrappers::{WHvFPURegisters, WHvGeneralRegisters};
+use crate::hypervisor::wrappers::{WHvFPURegisters, WHvGeneralRegisters, WHvSpecialRegisters};
 use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
 use crate::Result;
 
@@ -145,6 +145,64 @@ impl VMProcessor {
         }
 
         Ok(())
+    }
+
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn get_sregs(&self) -> Result<WHvSpecialRegisters> {
+        const LEN: usize = 17;
+
+        let names: [WHV_REGISTER_NAME; LEN] = [
+            WHvX64RegisterCr0,
+            WHvX64RegisterCr2,
+            WHvX64RegisterCr3,
+            WHvX64RegisterCr4,
+            WHvX64RegisterCr8,
+            WHvX64RegisterEfer,
+            WHvX64RegisterApicBase,
+            WHvX64RegisterCs,
+            WHvX64RegisterDs,
+            WHvX64RegisterEs,
+            WHvX64RegisterFs,
+            WHvX64RegisterGs,
+            WHvX64RegisterSs,
+            WHvX64RegisterTr,
+            WHvX64RegisterLdtr,
+            WHvX64RegisterGdtr,
+            WHvX64RegisterIdtr,
+        ];
+
+        let mut out: [WHV_REGISTER_VALUE; LEN] = unsafe { std::mem::zeroed() };
+        unsafe {
+            WHvGetVirtualProcessorRegisters(
+                self.get_partition_hdl(),
+                0,
+                names.as_ptr(),
+                LEN as u32,
+                out.as_mut_ptr(),
+            )?;
+        }
+
+        let res: WHvSpecialRegisters = WHvSpecialRegisters {
+            cr0: out[0],
+            cr2: out[1],
+            cr3: out[2],
+            cr4: out[3],
+            cr8: out[4],
+            efer: out[5],
+            apic_base: out[6],
+            cs: out[7],
+            ds: out[8],
+            es: out[9],
+            fs: out[10],
+            gs: out[11],
+            ss: out[12],
+            tr: out[13],
+            ldtr: out[14],
+            gdtr: out[15],
+            idtr: out[16],
+        };
+
+        Ok(res)
     }
 
     // Sets the registers for the VMProcessor to the given general purpose registers.

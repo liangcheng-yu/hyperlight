@@ -11,10 +11,7 @@ use crossbeam_channel::{Receiver, Sender};
 use hyperlight_common::mem::PAGE_SIZE_USIZE;
 use tracing::{instrument, Span};
 use windows::Win32::System::Hypervisor::{
-    WHvGetVirtualProcessorRegisters, WHvX64RegisterApicBase, WHvX64RegisterCr0, WHvX64RegisterCr2,
-    WHvX64RegisterCr3, WHvX64RegisterCr4, WHvX64RegisterCr8, WHvX64RegisterCs, WHvX64RegisterDs,
-    WHvX64RegisterEfer, WHvX64RegisterEs, WHvX64RegisterFs, WHvX64RegisterGdtr, WHvX64RegisterGs,
-    WHvX64RegisterIdtr, WHvX64RegisterLdtr, WHvX64RegisterSs, WHvX64RegisterTr,
+    WHvX64RegisterCr0, WHvX64RegisterCr3, WHvX64RegisterCr4, WHvX64RegisterCs, WHvX64RegisterEfer,
     WHV_MEMORY_ACCESS_TYPE, WHV_PARTITION_HANDLE, WHV_REGISTER_VALUE, WHV_RUN_VP_EXIT_CONTEXT,
     WHV_RUN_VP_EXIT_REASON, WHV_X64_SEGMENT_REGISTER, WHV_X64_SEGMENT_REGISTER_0,
 };
@@ -30,8 +27,6 @@ use super::{
     CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP, CR4_OSFXSR, CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA,
     EFER_LME, EFER_NX, EFER_SCE,
 };
-#[cfg(not(all(feature = "print_debug", debug_assertions)))]
-use crate::debug;
 use crate::hypervisor::fpu::FP_CONTROL_WORD_DEFAULT;
 use crate::hypervisor::hypervisor_handler::{
     HandlerMsg, HasCommunicationChannels, HypervisorHandlerAction,
@@ -41,7 +36,7 @@ use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
 use crate::mem::ptr::{GuestPtr, RawPtr};
 use crate::mem::shared_mem::PtrCVoidMut;
 use crate::HyperlightError::{NoHypervisorFound, WindowsErrorHResult};
-use crate::{log_then_return, new_error, Result};
+use crate::{debug, log_then_return, new_error, Result};
 
 /// A Hypervisor driver for HyperV-on-Windows.
 pub(crate) struct HypervWindowsDriver {
@@ -164,76 +159,6 @@ impl HypervWindowsDriver {
     pub(super) fn get_partition_hdl(&self) -> WHV_PARTITION_HANDLE {
         self.processor.get_partition_hdl()
     }
-
-    fn get_all_special_registers(
-        partition: WHV_PARTITION_HANDLE,
-    ) -> Result<Vec<(String, WHV_REGISTER_VALUE)>> {
-        // Define all the special registers we want to retrieve
-
-        let register_names = [
-            WHvX64RegisterCr0,
-            WHvX64RegisterCr2,
-            WHvX64RegisterCr3,
-            WHvX64RegisterCr4,
-            WHvX64RegisterCr8,
-            WHvX64RegisterEfer,
-            WHvX64RegisterApicBase,
-            WHvX64RegisterCs,
-            WHvX64RegisterDs,
-            WHvX64RegisterEs,
-            WHvX64RegisterFs,
-            WHvX64RegisterGs,
-            WHvX64RegisterSs,
-            WHvX64RegisterTr,
-            WHvX64RegisterLdtr,
-            WHvX64RegisterGdtr,
-            WHvX64RegisterIdtr,
-        ];
-
-        // Create a buffer to hold the register values
-        let mut register_values: [WHV_REGISTER_VALUE; 17] = Default::default();
-
-        // Call WHvGetVirtualProcessorRegisters to get the register values
-        unsafe {
-            WHvGetVirtualProcessorRegisters(
-                partition,
-                0,
-                register_names.as_ptr(),
-                register_names.len() as u32,
-                register_values.as_mut_ptr(),
-            )?
-        };
-
-        // Create an array of tuples to hold the register names and values
-
-        let mut res: Vec<(String, WHV_REGISTER_VALUE)> = Vec::new();
-
-        for (i, reg) in register_names.iter().enumerate() {
-            #[allow(non_upper_case_globals)]
-            match *reg {
-                WHvX64RegisterCr0 => res.push(("CR0".to_string(), register_values[i])),
-                WHvX64RegisterCr2 => res.push(("CR2".to_string(), register_values[i])),
-                WHvX64RegisterCr3 => res.push(("CR3".to_string(), register_values[i])),
-                WHvX64RegisterCr4 => res.push(("CR4".to_string(), register_values[i])),
-                WHvX64RegisterCr8 => res.push(("CR8".to_string(), register_values[i])),
-                WHvX64RegisterEfer => res.push(("EFER".to_string(), register_values[i])),
-                WHvX64RegisterApicBase => res.push(("APIC_BASE".to_string(), register_values[i])),
-                WHvX64RegisterCs => res.push(("CS".to_string(), register_values[i])),
-                WHvX64RegisterDs => res.push(("DS".to_string(), register_values[i])),
-                WHvX64RegisterEs => res.push(("ES".to_string(), register_values[i])),
-                WHvX64RegisterFs => res.push(("FS".to_string(), register_values[i])),
-                WHvX64RegisterGs => res.push(("GS".to_string(), register_values[i])),
-                WHvX64RegisterSs => res.push(("SS".to_string(), register_values[i])),
-                WHvX64RegisterTr => res.push(("TR".to_string(), register_values[i])),
-                WHvX64RegisterLdtr => res.push(("LDTR".to_string(), register_values[i])),
-                WHvX64RegisterGdtr => res.push(("GDTR".to_string(), register_values[i])),
-                WHvX64RegisterIdtr => res.push(("IDTR".to_string(), register_values[i])),
-                _ => (),
-            }
-        }
-
-        Ok(res)
-    }
 }
 
 impl Debug for HypervWindowsDriver {
@@ -261,40 +186,116 @@ impl Debug for HypervWindowsDriver {
 
         // Get the special registers
 
-        let special_regs = Self::get_all_special_registers(self.get_partition_hdl());
+        let special_regs = self.processor.get_sregs();
         if let Ok(special_regs) = special_regs {
-            for (name, value) in special_regs {
-                match name.as_str() {
-                    "CR0" | "CR2" | "CR3" | "CR4" | "CR8" | "EFER" | "APIC_BASE" => {
-                        fs.field(&name, unsafe { &value.Reg64 });
-                    }
-                    "CS" | "DS" | "ES" | "FS" | "GS" | "SS" | "TR" | "LDTR" => {
-                        fs.field(
-                            &name,
-                            &format_args!(
-                                "{{ Base: {:?}, Limit: {:?}, Selector: {:?}, Attributes: {:?} }}",
-                                unsafe { &value.Segment.Base },
-                                unsafe { &value.Segment.Limit },
-                                unsafe { &value.Segment.Selector },
-                                unsafe { &value.Segment.Anonymous.Attributes }
-                            ),
-                        );
-                    }
-                    "GDTR" | "IDTR" => {
-                        fs.field(
-                            &name,
-                            &format_args!(
-                                "{{ Base: {:?}, Limit: {:?}, Pad: {:?} }}",
-                                unsafe { &value.Table.Base },
-                                unsafe { &value.Table.Limit },
-                                unsafe { &value.Table.Pad }
-                            ),
-                        );
-                    }
-                    _ => {}
-                };
-            }
-        }
+            fs.field("CR0", unsafe { &special_regs.cr0.Reg64 });
+            fs.field("CR2", unsafe { &special_regs.cr2.Reg64 });
+            fs.field("CR3", unsafe { &special_regs.cr3.Reg64 });
+            fs.field("CR4", unsafe { &special_regs.cr4.Reg64 });
+            fs.field("CR8", unsafe { &special_regs.cr8.Reg64 });
+            fs.field("EFER", unsafe { &special_regs.efer.Reg64 });
+            fs.field("APIC_BASE", unsafe { &special_regs.apic_base.Reg64 });
+
+            // Segment registers
+            fs.field(
+                "CS",
+                &format_args!(
+                    "{{ Base: {:?}, Limit: {:?}, Selector: {:?}, Attributes: {:?} }}",
+                    unsafe { &special_regs.cs.Segment.Base },
+                    unsafe { &special_regs.cs.Segment.Limit },
+                    unsafe { &special_regs.cs.Segment.Selector },
+                    unsafe { &special_regs.cs.Segment.Anonymous.Attributes }
+                ),
+            );
+            fs.field(
+                "DS",
+                &format_args!(
+                    "{{ Base: {:?}, Limit: {:?}, Selector: {:?}, Attributes: {:?} }}",
+                    unsafe { &special_regs.ds.Segment.Base },
+                    unsafe { &special_regs.ds.Segment.Limit },
+                    unsafe { &special_regs.ds.Segment.Selector },
+                    unsafe { &special_regs.ds.Segment.Anonymous.Attributes }
+                ),
+            );
+            fs.field(
+                "ES",
+                &format_args!(
+                    "{{ Base: {:?}, Limit: {:?}, Selector: {:?}, Attributes: {:?} }}",
+                    unsafe { &special_regs.es.Segment.Base },
+                    unsafe { &special_regs.es.Segment.Limit },
+                    unsafe { &special_regs.es.Segment.Selector },
+                    unsafe { &special_regs.es.Segment.Anonymous.Attributes }
+                ),
+            );
+            fs.field(
+                "FS",
+                &format_args!(
+                    "{{ Base: {:?}, Limit: {:?}, Selector: {:?}, Attributes: {:?} }}",
+                    unsafe { &special_regs.fs.Segment.Base },
+                    unsafe { &special_regs.fs.Segment.Limit },
+                    unsafe { &special_regs.fs.Segment.Selector },
+                    unsafe { &special_regs.fs.Segment.Anonymous.Attributes }
+                ),
+            );
+            fs.field(
+                "GS",
+                &format_args!(
+                    "{{ Base: {:?}, Limit: {:?}, Selector: {:?}, Attributes: {:?} }}",
+                    unsafe { &special_regs.gs.Segment.Base },
+                    unsafe { &special_regs.gs.Segment.Limit },
+                    unsafe { &special_regs.gs.Segment.Selector },
+                    unsafe { &special_regs.gs.Segment.Anonymous.Attributes }
+                ),
+            );
+            fs.field(
+                "SS",
+                &format_args!(
+                    "{{ Base: {:?}, Limit: {:?}, Selector: {:?}, Attributes: {:?} }}",
+                    unsafe { &special_regs.ss.Segment.Base },
+                    unsafe { &special_regs.ss.Segment.Limit },
+                    unsafe { &special_regs.ss.Segment.Selector },
+                    unsafe { &special_regs.ss.Segment.Anonymous.Attributes }
+                ),
+            );
+            fs.field(
+                "TR",
+                &format_args!(
+                    "{{ Base: {:?}, Limit: {:?}, Selector: {:?}, Attributes: {:?} }}",
+                    unsafe { &special_regs.tr.Segment.Base },
+                    unsafe { &special_regs.tr.Segment.Limit },
+                    unsafe { &special_regs.tr.Segment.Selector },
+                    unsafe { &special_regs.tr.Segment.Anonymous.Attributes }
+                ),
+            );
+            fs.field(
+                "LDTR",
+                &format_args!(
+                    "{{ Base: {:?}, Limit: {:?}, Selector: {:?}, Attributes: {:?} }}",
+                    unsafe { &special_regs.ldtr.Segment.Base },
+                    unsafe { &special_regs.ldtr.Segment.Limit },
+                    unsafe { &special_regs.ldtr.Segment.Selector },
+                    unsafe { &special_regs.ldtr.Segment.Anonymous.Attributes }
+                ),
+            );
+            fs.field(
+                "GDTR",
+                &format_args!(
+                    "{{ Base: {:?}, Limit: {:?}, Pad: {:?} }}",
+                    unsafe { &special_regs.gdtr.Table.Base },
+                    unsafe { &special_regs.gdtr.Table.Limit },
+                    unsafe { &special_regs.gdtr.Table.Pad }
+                ),
+            );
+            fs.field(
+                "IDTR",
+                &format_args!(
+                    "{{ Base: {:?}, Limit: {:?}, Pad: {:?} }}",
+                    unsafe { &special_regs.idtr.Table.Base },
+                    unsafe { &special_regs.idtr.Table.Limit },
+                    unsafe { &special_regs.idtr.Table.Pad }
+                ),
+            );
+        };
 
         fs.finish()
     }
@@ -482,13 +483,7 @@ impl Hypervisor for HypervWindowsDriver {
             }
             // HvRunVpExitReasonX64Halt
             WHV_RUN_VP_EXIT_REASON(8i32) => {
-                cfg_if! {
-                    if #[cfg(all(feature = "print_debug", debug_assertions))] {
-                        println!("HyperV Halt Details :\n {:#?}", &self);
-                    } else {
-                        debug!("HyperV Halt Details :\n {:#?}", &self);
-                    }
-                }
+                debug!("HyperV Halt Details :\n {:#?}", &self);
                 HyperlightExit::Halt()
             }
             // WHvRunVpExitReasonMemoryAccess
@@ -501,21 +496,10 @@ impl Hypervisor for HypervWindowsDriver {
                     )
                 };
                 let access_info = MemoryRegionFlags::try_from(access_info)?;
-
-                cfg_if! {
-                    if #[cfg(all(feature = "print_debug", debug_assertions))] {
-                        println!(
-                            "HyperV Memory Access Details :\n GPA: {:#?}\n Access Info :{:#?}\n {:#?} ",
-                            gpa, access_info, &self
-                        );
-                    } else {
-                        debug!(
-                            "HyperV Memory Access Details :\n GPA: {:#?}\n Access Info :{:#?}\n {:#?} ",
-                            gpa, access_info, &self
-                        );
-                    }
-                }
-
+                debug!(
+                    "HyperV Memory Access Details :\n GPA: {:#?}\n Access Info :{:#?}\n {:#?} ",
+                    gpa, access_info, &self
+                );
                 #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
                 {
                     if let Err(e) = unsafe {
@@ -539,29 +523,14 @@ impl Hypervisor for HypervWindowsDriver {
             //  Execution was cancelled by the host.
             //  This will happen when guest code runs for too long
             WHV_RUN_VP_EXIT_REASON(8193i32) => {
-                cfg_if! {
-                    if #[cfg(all(feature = "print_debug", debug_assertions))] {
-                        println!("HyperV Cancelled Details :\n {:#?}", &self);
-                    } else {
-                        debug!("HyperV Cancelled Details :\n {:#?}", &self);
-                    }
-                }
+                debug!("HyperV Cancelled Details :\n {:#?}", &self);
                 HyperlightExit::Cancelled()
             }
             WHV_RUN_VP_EXIT_REASON(_) => {
-                cfg_if! {
-                    if #[cfg(all(feature = "print_debug", debug_assertions))] {
-                        println!(
-                            "HyperV Unexpected Exit Details :#nReason {:#?}\n {:#?}",
-                            exit_context.ExitReason, &self
-                        );
-                    } else {
-                        debug!(
-                            "HyperV Unexpected Exit Details :#nReason {:#?}\n {:#?}",
-                            exit_context.ExitReason, &self
-                        );
-                    }
-                }
+                debug!(
+                    "HyperV Unexpected Exit Details :#nReason {:#?}\n {:#?}",
+                    exit_context.ExitReason, &self
+                );
                 #[cfg(all(debug_assertions, feature = "dump_on_crash"))]
                 {
                     if let Err(e) = unsafe {

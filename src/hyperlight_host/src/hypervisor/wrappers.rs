@@ -2,6 +2,7 @@ use std::ffi::CString;
 
 use tracing::{instrument, Span};
 use windows::core::PSTR;
+use windows::Win32::System::Hypervisor::WHV_REGISTER_VALUE;
 
 use crate::{HyperlightError, Result};
 
@@ -94,4 +95,25 @@ pub(super) struct WHvFPURegisters {
     pub fp_tag_word: u8,
 
     pub mxcsr: u32,
+}
+
+#[derive(Default, Copy, Clone)]
+pub(super) struct WHvSpecialRegisters {
+    pub cr0: WHV_REGISTER_VALUE,
+    pub cr2: WHV_REGISTER_VALUE,
+    pub cr3: WHV_REGISTER_VALUE,
+    pub cr4: WHV_REGISTER_VALUE,
+    pub cr8: WHV_REGISTER_VALUE,
+    pub efer: WHV_REGISTER_VALUE,
+    pub apic_base: WHV_REGISTER_VALUE,
+    pub cs: WHV_REGISTER_VALUE,
+    pub ds: WHV_REGISTER_VALUE,
+    pub es: WHV_REGISTER_VALUE,
+    pub fs: WHV_REGISTER_VALUE,
+    pub gs: WHV_REGISTER_VALUE,
+    pub ss: WHV_REGISTER_VALUE,
+    pub tr: WHV_REGISTER_VALUE,
+    pub ldtr: WHV_REGISTER_VALUE,
+    pub gdtr: WHV_REGISTER_VALUE,
+    pub idtr: WHV_REGISTER_VALUE,
 }
