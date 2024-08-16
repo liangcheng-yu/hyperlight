@@ -60,7 +60,9 @@ use crate::hypervisor::hypervisor_handler::is_hv_handler_receiving_signals;
 use crate::hypervisor::hypervisor_handler::HasCommunicationChannels;
 use crate::mem::ptr::RawPtr;
 #[cfg(all(feature = "seccomp", target_os = "linux"))]
-use crate::HyperlightError::{DisallowedSyscall, GuestExecutionHungOnHostFunctionCall};
+use crate::HyperlightError::DisallowedSyscall;
+#[cfg(target_os = "linux")]
+use crate::HyperlightError::GuestExecutionHungOnHostFunctionCall;
 
 pub(crate) const CR4_PAE: u64 = 1 << 5;
 pub(crate) const CR4_OSFXSR: u64 = 1 << 9;
@@ -351,7 +353,7 @@ pub(crate) fn terminate_execution(
 
             #[cfg(not(feature = "seccomp"))]
             {
-                log_then_return!(ExecutionCanceledByHost());
+                log_then_return!(GuestExecutionHungOnHostFunctionCall());
             }
         }
     }

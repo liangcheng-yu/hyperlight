@@ -249,14 +249,14 @@ mod tests {
             Ok(_) => panic!("Expected to fail due to seccomp violation"),
             Err(e) => match e {
                 DisallowedSyscall() => {}
-                _ => panic!("Expected DisallowedSyscall error"),
+                _ => panic!("Expected DisallowedSyscall error: {}", e),
             },
         }
 
         #[cfg(not(feature = "seccomp"))]
         match res {
             Ok(_) => (),
-            Err(e) => panic!("Expected to succeed without seccomp"),
+            Err(e) => panic!("Expected to succeed without seccomp: {}", e),
         }
 
         Ok(())
@@ -498,7 +498,7 @@ mod tests {
         match result.unwrap_err() {
             HyperlightError::GuestExecutionHungOnHostFunctionCall() => {}
             e => panic!(
-                "Expected HyperlightError::ExecutionCanceledByHost() but got {:?}",
+                "Expected HyperlightError::GuestExecutionHungOnHostFunctionCall but got {:?}",
                 e
             ),
         }
