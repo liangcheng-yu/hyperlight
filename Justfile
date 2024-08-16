@@ -79,14 +79,14 @@ test-rust target=default-target: (test-rust-int "rust" target) (test-rust-int "c
     cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --lib
     
     # ignored tests
-    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} test_trace -p hyperlight_host -- --ignored 
-    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} test_drop  -p hyperlight_host -- --ignored 
-    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} hypervisor::metrics::tests::test_gather_metrics -p hyperlight_host -- --ignored 
-    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} sandbox::metrics::tests::test_gather_metrics -p hyperlight_host -- --ignored 
-    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} test_metrics -p hyperlight_host -- --ignored 
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} -p hyperlight_host --lib test_trace -- --ignored 
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} -p hyperlight_host --lib test_drop -- --ignored 
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} hypervisor::metrics::tests::test_gather_metrics -p hyperlight_host --lib -- --ignored 
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} sandbox::metrics::tests::test_gather_metrics -p hyperlight_host --lib -- --ignored 
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} test_metrics -p hyperlight_host --lib -- --ignored 
     cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --test integration_test log_message -- --ignored
-    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} sandbox::uninitialized::tests::test_log_trace -p hyperlight_host -- --ignored
-    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} hypervisor::hypervisor_handler::tests::create_1000_sandboxes -p hyperlight_host
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} sandbox::uninitialized::tests::test_log_trace -p hyperlight_host --lib -- --ignored
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} hypervisor::hypervisor_handler::tests::create_1000_sandboxes -p hyperlight_host --lib -- --ignored
 
 test-seccomp target=default-target:
     # run seccomp test with feature "seccomp" on and off
