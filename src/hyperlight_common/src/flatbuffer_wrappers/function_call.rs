@@ -32,7 +32,8 @@ pub struct FunctionCall {
     /// The parameters for the function call.
     pub parameters: Option<Vec<ParameterValue>>,
     function_call_type: FunctionCallType,
-    expected_return_type: ReturnType,
+    /// The return type of the function call
+    pub expected_return_type: ReturnType,
 }
 
 impl FunctionCall {

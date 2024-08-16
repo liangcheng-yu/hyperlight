@@ -75,7 +75,7 @@ pub(crate) fn validate_host_function_call(function_call: &FunctionCall) -> Resul
     Ok(())
 }
 
-pub(crate) fn get_host_function_details() -> HostFunctionDetails {
+pub fn get_host_function_details() -> HostFunctionDetails {
     let peb_ptr = unsafe { P_PEB.unwrap() };
 
     let host_function_details_buffer =
