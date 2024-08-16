@@ -22,6 +22,19 @@ pub enum OutBAction {
     Abort = 102,
 }
 
+pub fn get_host_value_return_as_void() -> Result<()> {
+    let return_value = try_pop_shared_input_data_into::<ReturnValue>()
+        .expect("Unable to deserialize a return value from host");
+    if let ReturnValue::Void = return_value {
+        Ok(())
+    } else {
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestError,
+            "Host return value was not void as expected".to_string(),
+        ))
+    }
+}
+
 pub fn get_host_value_return_as_int() -> Result<i32> {
     let return_value = try_pop_shared_input_data_into::<ReturnValue>()
         .expect("Unable to deserialize return value from host");
