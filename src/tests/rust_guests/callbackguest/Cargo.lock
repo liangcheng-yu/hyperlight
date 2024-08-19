@@ -67,7 +67,7 @@ checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
 name = "hyperlight_common"
-version = "0.7.7"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "flatbuffers",
@@ -78,7 +78,7 @@ dependencies = [
 
 [[package]]
 name = "hyperlight_guest"
-version = "0.7.7"
+version = "0.8.0"
 dependencies = [
  "buddy_system_allocator",
  "cc",

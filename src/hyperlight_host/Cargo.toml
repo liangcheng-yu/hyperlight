@@ -1,6 +1,6 @@
 [package]
 name = "hyperlight_host"
-version = "0.7.7"
+version = "0.8.0"
 edition = "2021"
 
 [lib]
@@ -31,7 +31,7 @@ tracing = { version = "0.1.37", features = ["log"] }
 tracing-log = "0.2.0"
 tracing-core = "0.1.31"
 uuid = { version = "1.4.1", features = ["v4"] }
-hyperlight_common = { path = "../hyperlight_common", version = "0.7.7", registry = "hyperlight_packages" }
+hyperlight_common = { path = "../hyperlight_common", version = "0.8.0", registry = "hyperlight_packages" }
 rust-embed = { version = "8.3.0", features = ["debug-embed", "include-exclude", "interpolate-folder-path"] }
 sha256 = "1.4.0"
 vmm-sys-util = "0.12.1"
