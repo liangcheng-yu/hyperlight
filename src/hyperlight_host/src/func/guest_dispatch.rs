@@ -216,6 +216,7 @@ mod tests {
     }
 
     #[test]
+    // TODO: Investigate why this test fails with the an incorrect error when run alongside other tests see https://github.com/deislabs/hyperlight/issues/1552
     #[ignore]
     #[cfg(target_os = "linux")]
     fn test_violate_seccomp_filters() -> Result<()> {
