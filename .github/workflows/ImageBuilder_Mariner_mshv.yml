@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ dev ]
     paths:
-      - '.github/workflows/ImageBuilder.yml'
+      - '.github/workflows/ImageBuilder_Mariner_mshv.yml'
       - 'dev/packer/**'
   schedule:
     - cron: '0 0 * * 0' # Runs at 00:00 every Sunday
@@ -17,7 +17,7 @@ on:
           required: true
           default: 'Standard_D4as_v5' 
         location:
-          description: 'Location to build and store the image'
+          description: 'Location to build the image in'
           required: true
           default: 'westus3' # Default value
 

@@ -9,7 +9,7 @@ packer {
 
 variable location {
   type = string
-  description = "Azure location (region) where the image will be produced and persisted"
+  description = "Azure location (region) where the image will be produced"
   default = "westus3"
 }
 
@@ -51,7 +51,7 @@ source "azure-arm" "hyperlight_dev" {
     gallery_name = "hyperlight"
     image_name = var.image_name
     image_version = "${local.major}.${local.minor}.${local.patch}"
-    replication_regions = [var.location]
+    replication_regions = ["westus2", "westus3"]
   }
   shared_gallery_image_version_end_of_life_date = local.end_of_life
 }
@@ -61,6 +61,6 @@ build {
 
   provisioner "shell" {
     execute_command = "echo 'packer' | sudo -S sh -c '{{ .Vars }} {{ .Path }}'"
-    script = "${path.root}/scripts/provision.sh"
+    script = "${path.root}/scripts/mariner-mshv-provision.sh"
   }
 }
