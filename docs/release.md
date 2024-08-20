@@ -2,11 +2,11 @@
 
 This document details the process of releasing a new version of Hyperlight to the [Azure-internal Cargo feeds](https://dev.azure.com/AzureContainerUpstream/hyperlight/_artifacts/feed/hyperlight_packages_test). It's intended to be used as a checklist for the developer doing the release. The checklist is represented in the below sections.
 
-## Update cargo.toml Versions
+## Update Cargo.toml Versions
 
-Currently, we need to manually update the `Cargo.toml` version numbers to match to whatever release we are making. This can be done with the following command:
+Currently, we need to manually update the `Cargo.toml` version numbers to match to whatever release we are making. This can be done with the following command (replacing `0.4.0` with your new version):
 ```bash
-cargo ws version --force=hyperlight_* --no-git-commit --yes custom 0.6.0
+cargo ws version --force=hyperlight_* --no-git-commit --yes custom 0.4.0
 ```
 
 > Note: If you don't have cargo-workspaces installed, you can do so with: `cargo install cargo-workspaces`
@@ -15,7 +15,7 @@ Create a PR with these changes and merge them into the dev branch.
 
 ## Create a tag
 
-When the `dev` branch has reached a state in which you want to release a new Cargo version, you should create a tag. Although you can do this from the GitHub releases page, we currently recommend doing the tag from the command line (we will revisit this in the future). Do so with the following commands:
+When the above PR has merged into `dev` branch you should create a tag. ***Make sure you have pulled the recently updated `dev` branch***, and do the following on the `dev` branch:
 
 ```bash
 git tag -a v0.4.0 -m"A brief description of the release"
@@ -38,21 +38,15 @@ After the previous CI job runs to create the new release branch, go to the ["Cre
 1. In the Use workflow from dropdown, select the `release/v0.4.0` branch
 1. Click the green **Run workflow** button
 
-When this job is done, a new [GitHub release](https://github.com/deislabs/hyperlight/releases) will be created for you. This release is not necessary for releasing a new cargo crate to the internal feed, but it is necessary to house other artifacts (e.g. `simpleguest.exe`, `callbackguest.exe`, etc) and also to create nuget packages, which, besides being used to create the dotnet version of Hyperlight are also currently used to distribute native libraries and headers to projects that consume Hyperlight, this will change in the future when [this issue](https://github.com/deislabs/hyperlight/issues/512) has been addressed.
+> Note: In case you see a "Create a Release" job already running before starting this step, that is because the "Create a Release" workflow also automatically runs on push to `dev` branch to create a pre-release. You must still do the steps outlined above.
 
-## Run the publish crates job
-
-Next, go to the ["Publish crates to intenral cargo registry"](https://github.com/deislabs/hyperlight/actions/workflows/CargoPublish.yml) Github actions workflow (yup, `intenral` is misspelled, and we like it that way!) and do the following:
-
-1. Click the "Run workflow" button near the top right
-1. In the Use workflow from dropdown, select the `release/v0.4.0` branch
-1. Click the green **Run workflow** button
-
-After step 3, the job will start and you'll have the following 3 crates published to the [internal Azure DevOps Cargo feeds](https://dev.azure.com/AzureContainerUpstream/hyperlight/_artifacts/feed/hyperlight_packages_test) upon completion:
-
+When this job is done, a new [GitHub release](https://github.com/deislabs/hyperlight/releases) will be created for you. This job also publishes the following rust packages to the internal cargo feed:
 - `hyperlight_capi`
 - `hyperlight_host`
 - `hyperlight_common`
+
+ The github release also houses other artifacts (e.g. `simpleguest.exe`, `callbackguest.exe`, etc) and also to creates nuget packages, which, besides being used to create the dotnet version of Hyperlight are also currently used to distribute native libraries and headers to projects that consume Hyperlight, this will change in the future when [this issue](https://github.com/deislabs/hyperlight/issues/512) has been addressed.
+
 
 ## Patching a release
 
