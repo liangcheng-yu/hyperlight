@@ -38,7 +38,7 @@ jobs:
           ]
         include:
           - build: windows-2022-debug
-            os: [self-hosted, Windows, X64, "1ES.Pool=HL-Windows-2022"]
+            os: [self-hosted, Windows, X64, "1ES.Pool=HL-win-2022-amd"]
             hypervisor: none
             config: debug
           - build: linux-kvm-debug
@@ -50,7 +50,7 @@ jobs:
             hypervisor: hyperv
             config: debug
           - build: windows-2022-release
-            os: [self-hosted, Windows, X64, "1ES.Pool=HL-Windows-2022"]
+            os: [self-hosted, Windows, X64, "1ES.Pool=HL-win-2022-amd"]
             hypervisor: none
             config: release
           - build: linux-kvm-release

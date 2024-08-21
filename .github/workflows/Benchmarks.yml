@@ -30,7 +30,7 @@ jobs:
         build: [windows-2022-release, linux-kvm-release, linux-hyperv-release]
         include:
           - build: windows-2022-release
-            os: [self-hosted, Windows, X64, "1ES.Pool=HL-Windows-2022"]
+            os: [self-hosted, Windows, X64, "1ES.Pool=HL-win-2022-amd"]
             hypervisor: none
           - build: linux-kvm-release
             os: [self-hosted, Linux, X64, "1ES.Pool=HL-Ubuntu-20.04-KVM"]

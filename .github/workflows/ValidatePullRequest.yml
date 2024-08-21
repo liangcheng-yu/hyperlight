@@ -45,11 +45,11 @@ jobs:
         build: [windows-debug, windows-release]
         include:
           - build: windows-debug
-            os: [self-hosted, Windows, X64, "1ES.Pool=HL-Windows-2022"]
+            os: [self-hosted, Windows, X64, "1ES.Pool=HL-win-2022-amd"]
             config: debug
             platform: x64
           - build: windows-release
-            os: [self-hosted, Windows, X64, "1ES.Pool=HL-Windows-2022"]
+            os: [self-hosted, Windows, X64, "1ES.Pool=HL-win-2022-amd"]
             config: release
             platform: x64
     env:
