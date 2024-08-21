@@ -421,18 +421,14 @@ fn execute_on_stack() {
 
     // TODO: because we set the stack as NX in the guest PTE we get a generic error, once we handle the exception correctly in the guest we can make this more specific
     if let HyperlightError::Error(message) = result {
-        #[cfg(target_os = "linux")]
-        {
-            use hyperlight_host::hypervisor::kvm;
-            if kvm::is_hypervisor_present() {
-                assert!(message.starts_with("Unexpected VM Exit"));
+        cfg_if::cfg_if! {
+            if #[cfg(target_os = "linux")] {
+                assert!(message.starts_with("Unexpected VM Exit") || message.starts_with("unknown Hyper-V run message type"));
+            } else if #[cfg(target_os = "windows")] {
+                assert!(message.starts_with("Unexpected VM Exit \"Did not receive a halt from Hypervisor as expected - Received WHV_RUN_VP_EXIT_REASON(4)"));
             } else {
-                assert!(message.starts_with("unknown Hyper-V run message type"));
+                panic!("Unexpected");
             }
-        }
-        #[cfg(target_os = "windows")]
-        {
-            assert!(message.starts_with("Unexpected VM Exit \"Did not receive a halt from Hypervisor as expected - Received WHV_RUN_VP_EXIT_REASON(4)"));
         }
     } else {
         panic!("Unexpected error type");
@@ -442,7 +438,7 @@ fn execute_on_stack() {
 #[test]
 #[ignore] // ran from Justfile because requires feature "executable_heap"
 fn execute_on_heap() {
-    #[cfg(target_os = "linux")]
+    #[cfg(kvm)]
     {
         use hyperlight_host::hypervisor::kvm;
 

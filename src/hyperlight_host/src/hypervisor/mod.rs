@@ -21,13 +21,13 @@ pub mod fpu;
 /// Handlers for Hypervisor custom logic
 pub mod handlers;
 /// HyperV-on-linux functionality
-#[cfg(target_os = "linux")]
+#[cfg(mshv)]
 pub mod hyperv_linux;
 #[cfg(target_os = "windows")]
 /// Hyperv-on-windows functionality
 pub(crate) mod hyperv_windows;
 pub(crate) mod hypervisor_handler;
-#[cfg(target_os = "linux")]
+#[cfg(kvm)]
 /// Functionality to manipulate KVM-based virtual machines
 pub mod kvm;
 /// Metric definitions for Hypervisor module.
@@ -63,6 +63,9 @@ use crate::mem::ptr::RawPtr;
 use crate::HyperlightError::DisallowedSyscall;
 #[cfg(target_os = "linux")]
 use crate::HyperlightError::GuestExecutionHungOnHostFunctionCall;
+
+#[cfg(all(target_os = "linux", not(mshv), not(kvm)))]
+compile_error!("Hyperlight requires either the `mshv` or `kvm` feature to be enabled on Linux");
 
 pub(crate) const CR4_PAE: u64 = 1 << 5;
 pub(crate) const CR4_OSFXSR: u64 = 1 << 9;
@@ -434,7 +437,7 @@ impl VirtualCPU {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, any(target_os = "windows", kvm)))]
 pub(crate) mod tests {
     use std::path::Path;
     use std::time::Duration;

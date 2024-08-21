@@ -100,9 +100,10 @@ proc-maps = "0.3.1"
 
 [build-dependencies]
 anyhow = { version = "1.0.75" }
+cfg_aliases = "0.2.1"
 
 [features]
-default = ["seccomp"]
+default = ["kvm", "mshv", "seccomp"]
 seccomp = ["dep:seccompiler"]
 function_call_metrics = []
 executable_heap = []
@@ -111,6 +112,8 @@ print_debug = []
 # This feature enables dunping of the VMs details to a file when an unexpected or error exit occurs in a VM in debug mode
 # the name of the file is output to stdout and logged.
 dump_on_crash = ["dep:tempfile"]
+kvm = []
+mshv = []
 
 [[bench]]
 name = "benchmarks"

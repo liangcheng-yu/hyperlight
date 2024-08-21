@@ -98,7 +98,14 @@ jobs:
         env:
           CARGO_TERM_COLOR: always
         run: |
+          # with default features
           just test-rust ${{ matrix.config }}
+
+          # with only one driver enabled (driver mshv/kvm feature is ignored on windows) + seccomp
+          just test-rust ${{ matrix.config }} seccomp,${{ matrix.hypervisor == 'hyperv' && 'mshv' || 'kvm' }} 
+
+          # without any driver (shouldn't compile)
+          just test-rust-feature-compilation-fail ${{ matrix.config }}
 
         # One of the examples is flaky on Windows GH runners, so this allows us to disable it for now
       - name: Run Rust examples - windows

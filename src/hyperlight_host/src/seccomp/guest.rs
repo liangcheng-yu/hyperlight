@@ -4,63 +4,82 @@ use seccompiler::{
     SeccompRule,
 };
 
-use crate::sandbox::hypervisor::{HypervisorType, AVAILABLE_HYPERVISOR};
+use crate::sandbox::hypervisor::get_available_hypervisor;
+// this cfg is so if neither of these features are enabled, we only get 1 compiler error
+// compile_error!("Hyperlight requires either the `mshv` or `kvm` feature to be enabled on Linux")
+#[cfg(any(kvm, mshv))]
+use crate::sandbox::hypervisor::HypervisorType;
 use crate::HyperlightError::NoHypervisorFound;
 use crate::{and, or, Result};
 
 const TCGETS: u64 = 0x5401;
 
+#[cfg(mshv)]
 mod mshv {
-    pub const MSHV_UNMAP_GUEST_MEMORY: u64 = 0x4020_b803;
-    pub const MSHV_GET_VP_REGISTERS: u64 = 0xc010_b805;
-    pub const MSHV_SET_VP_REGISTERS: u64 = 0x4010_b806;
-    pub const MSHV_RUN_VP: u64 = 0x8100_b807;
-    pub const MSHV_GET_VP_STATE: u64 = 0xc010_b80a;
-    pub const MSHV_ROOT_HVCALL: u64 = 0xc020_b835;
-}
+    use seccompiler::SeccompCmpOp::Eq;
+    use seccompiler::SeccompRule;
 
+    use super::create_common_ioctl_rules;
+    use crate::seccomp::guest::{ArgLen, Cond};
+    use crate::{and, or, Result};
+
+    pub(super) const MSHV_UNMAP_GUEST_MEMORY: u64 = 0x4020_b803;
+    pub(super) const MSHV_GET_VP_REGISTERS: u64 = 0xc010_b805;
+    pub(super) const MSHV_SET_VP_REGISTERS: u64 = 0x4010_b806;
+    pub(super) const MSHV_RUN_VP: u64 = 0x8100_b807;
+    pub(super) const MSHV_GET_VP_STATE: u64 = 0xc010_b80a;
+    pub(super) const MSHV_ROOT_HVCALL: u64 = 0xc020_b835;
+
+    pub(super) fn create_mshv_ioctl_rules() -> Result<Vec<SeccompRule>> {
+        let common_rules = create_common_ioctl_rules()?;
+        let mut arch_rules = or![
+            and![Cond::new(1, ArgLen::Dword, Eq, MSHV_UNMAP_GUEST_MEMORY)?],
+            and![Cond::new(1, ArgLen::Dword, Eq, MSHV_GET_VP_REGISTERS)?],
+            and![Cond::new(1, ArgLen::Dword, Eq, MSHV_SET_VP_REGISTERS)?],
+            and![Cond::new(1, ArgLen::Dword, Eq, MSHV_RUN_VP)?],
+            and![Cond::new(1, ArgLen::Dword, Eq, MSHV_GET_VP_STATE)?],
+            and![Cond::new(1, ArgLen::Dword, Eq, MSHV_ROOT_HVCALL)?],
+        ];
+
+        arch_rules.extend(common_rules);
+
+        Ok(arch_rules)
+    }
+}
+#[cfg(kvm)]
 mod kvm {
-    pub const KVM_SET_REGS: u64 = 0x4090_ae82;
-    pub const KVM_SET_FPU: u64 = 0x41a0_ae8d;
-    pub const KVM_RUN: u64 = 0xae80;
-    pub const KVM_GET_REGS: u64 = 0x8090_ae81;
-}
+    use seccompiler::SeccompCmpOp::Eq;
+    use seccompiler::SeccompRule;
 
-fn create_mshv_ioctl_rules() -> Result<Vec<SeccompRule>> {
-    use mshv::*;
-    let common_rules = create_common_ioctl_rules()?;
-    let mut arch_rules = or![
-        and![Cond::new(1, ArgLen::Dword, Eq, MSHV_UNMAP_GUEST_MEMORY)?],
-        and![Cond::new(1, ArgLen::Dword, Eq, MSHV_GET_VP_REGISTERS)?],
-        and![Cond::new(1, ArgLen::Dword, Eq, MSHV_SET_VP_REGISTERS)?],
-        and![Cond::new(1, ArgLen::Dword, Eq, MSHV_RUN_VP)?],
-        and![Cond::new(1, ArgLen::Dword, Eq, MSHV_GET_VP_STATE)?],
-        and![Cond::new(1, ArgLen::Dword, Eq, MSHV_ROOT_HVCALL)?],
-    ];
+    use super::create_common_ioctl_rules;
+    use crate::seccomp::guest::{ArgLen, Cond};
+    use crate::{and, or, Result};
 
-    arch_rules.extend(common_rules);
+    pub(super) const KVM_SET_REGS: u64 = 0x4090_ae82;
+    pub(super) const KVM_SET_FPU: u64 = 0x41a0_ae8d;
+    pub(super) const KVM_RUN: u64 = 0xae80;
+    pub(super) const KVM_GET_REGS: u64 = 0x8090_ae81;
 
-    Ok(arch_rules)
-}
+    pub(super) fn create_kvm_ioctl_rules() -> Result<Vec<SeccompRule>> {
+        let common_rules = create_common_ioctl_rules()?;
+        let mut arch_rules = or![
+            and![Cond::new(1, ArgLen::Dword, Eq, KVM_SET_REGS)?],
+            and![Cond::new(1, ArgLen::Dword, Eq, KVM_SET_FPU)?],
+            and![Cond::new(1, ArgLen::Dword, Eq, KVM_RUN)?],
+            and![Cond::new(1, ArgLen::Dword, Eq, KVM_GET_REGS)?],
+        ];
+        arch_rules.extend(common_rules);
 
-fn create_kvm_ioctl_rules() -> Result<Vec<SeccompRule>> {
-    use kvm::*;
-    let common_rules = create_common_ioctl_rules()?;
-    let mut arch_rules = or![
-        and![Cond::new(1, ArgLen::Dword, Eq, KVM_SET_REGS)?],
-        and![Cond::new(1, ArgLen::Dword, Eq, KVM_SET_FPU)?],
-        and![Cond::new(1, ArgLen::Dword, Eq, KVM_RUN)?],
-        and![Cond::new(1, ArgLen::Dword, Eq, KVM_GET_REGS)?],
-    ];
-    arch_rules.extend(common_rules);
-
-    Ok(arch_rules)
+        Ok(arch_rules)
+    }
 }
 
 fn create_ioctl_seccomp_rule() -> Result<Vec<SeccompRule>> {
-    match *AVAILABLE_HYPERVISOR {
-        HypervisorType::Kvm => create_kvm_ioctl_rules(),
-        HypervisorType::HyperVLinux => create_mshv_ioctl_rules(),
+    match *get_available_hypervisor() {
+        #[cfg(kvm)]
+        Some(HypervisorType::Kvm) => kvm::create_kvm_ioctl_rules(),
+        #[cfg(mshv)]
+        Some(HypervisorType::Mshv) => mshv::create_mshv_ioctl_rules(),
         _ => Err(NoHypervisorFound()),
     }
 }

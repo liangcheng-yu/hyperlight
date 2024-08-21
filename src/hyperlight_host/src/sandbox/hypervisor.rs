@@ -1,13 +1,16 @@
 use std::fmt::Debug;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use lazy_static::lazy_static;
 use tracing::{instrument, Span};
 
 use crate::error::HyperlightError::NoHypervisorFound;
 use crate::hypervisor::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper};
+#[cfg(mshv)]
+use crate::hypervisor::hyperv_linux;
+#[cfg(kvm)]
+use crate::hypervisor::kvm;
 use crate::hypervisor::Hypervisor;
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::mgr::SandboxMemoryManager;
@@ -16,44 +19,60 @@ use crate::mem::ptr_offset::Offset;
 use crate::HyperlightError::LockAttemptFailed;
 use crate::{log_then_return, Result, UninitializedSandbox};
 
-lazy_static! {
-    /// The hypervisor available for the current platform, and is
-    /// lazily initialized the first time it is accessed
-    pub(crate) static ref AVAILABLE_HYPERVISOR: HypervisorType = {
-        #[cfg(target_os = "linux")]
-        {
-            if crate::hypervisor::hyperv_linux::is_hypervisor_present() {
-                HypervisorType::HyperVLinux
-            } else if crate::hypervisor::kvm::is_hypervisor_present() {
-                HypervisorType::Kvm
-            } else {
-                HypervisorType::None
-            }
-        }
-        #[cfg(target_os = "windows")]
-        {
-            if crate::hypervisor::windows_hypervisor_platform::is_hypervisor_present() {
-                HypervisorType::HyperV
-            } else {
-                HypervisorType::None
-            }
-        }
-    };
+static AVAILABLE_HYPERVISOR: OnceLock<Option<HypervisorType>> = OnceLock::new();
 
+pub fn get_available_hypervisor() -> &'static Option<HypervisorType> {
+    AVAILABLE_HYPERVISOR.get_or_init(|| {
+        cfg_if::cfg_if! {
+            if #[cfg(all(kvm, mshv))] {
+                // If both features are enabled, we need to determine hypervisor at runtime.
+                // Currently /dev/kvm and /dev/mshv cannot exist on the same machine, so the first one
+                // that works is guaranteed to be correct.
+                if hyperv_linux::is_hypervisor_present() {
+                    Some(HypervisorType::Mshv)
+                } else if kvm::is_hypervisor_present() {
+                    Some(HypervisorType::Kvm)
+                } else {
+                    None
+                }
+            } else if #[cfg(kvm)] {
+                if kvm::is_hypervisor_present() {
+                    Some(HypervisorType::Kvm)
+                } else {
+                    None
+                }
+            } else if #[cfg(mshv)] {
+                if hyperv_linux::is_hypervisor_present() {
+                    Some(HypervisorType::Mshv)
+                } else {
+                    None
+                }
+            } else if #[cfg(target_os = "windows")] {
+                use crate::sandbox::windows_hypervisor_platform;
+
+                if windows_hypervisor_platform::is_hypervisor_present() {
+                    Some(HypervisorType::Whp)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
+    })
 }
 
 /// The hypervisor types available for the current platform
+#[derive(PartialEq, Eq, Debug)]
 pub(crate) enum HypervisorType {
-    None,
-
-    #[cfg(target_os = "linux")]
+    #[cfg(kvm)]
     Kvm,
 
-    #[cfg(target_os = "linux")]
-    HyperVLinux,
+    #[cfg(mshv)]
+    Mshv,
 
     #[cfg(target_os = "windows")]
-    HyperV,
+    Whp,
 }
 
 /// A container with convenience methods attached for an
@@ -161,21 +180,17 @@ impl UninitializedSandbox {
         assert!(entrypoint_ptr > pml4_ptr);
         assert!(rsp_ptr > entrypoint_ptr);
 
-        match *AVAILABLE_HYPERVISOR {
-            HypervisorType::None => {
-                log_then_return!(NoHypervisorFound());
-            }
-
-            #[cfg(target_os = "linux")]
-            HypervisorType::HyperVLinux => {
+        match *get_available_hypervisor() {
+            #[cfg(mshv)]
+            Some(HypervisorType::Mshv) => {
                 use crate::hypervisor::hyperv_linux::HypervLinuxDriver;
 
                 let hv = HypervLinuxDriver::new(regions, entrypoint_ptr, rsp_ptr, pml4_ptr)?;
                 Ok(Box::new(hv))
             }
 
-            #[cfg(target_os = "linux")]
-            HypervisorType::Kvm => {
+            #[cfg(kvm)]
+            Some(HypervisorType::Kvm) => {
                 use crate::hypervisor::kvm::KVMDriver;
 
                 let hv = KVMDriver::new(
@@ -188,7 +203,7 @@ impl UninitializedSandbox {
             }
 
             #[cfg(target_os = "windows")]
-            HypervisorType::HyperV => {
+            Some(HypervisorType::Whp) => {
                 use crate::hypervisor::hyperv_windows::HypervWindowsDriver;
 
                 let hv = HypervWindowsDriver::new(
@@ -200,6 +215,10 @@ impl UninitializedSandbox {
                     rsp_ptr.absolute()?,
                 )?;
                 Ok(Box::new(hv))
+            }
+
+            _ => {
+                log_then_return!(NoHypervisorFound());
             }
         }
     }

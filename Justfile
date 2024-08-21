@@ -73,7 +73,7 @@ clean-rust:
 # Some tests cannot run with other tests, they are marked as ignored so that cargo test works
 # there may be tests that we really want to ignore so we cant just use --ignored and we have to
 # Specify the test name of the ignored tests that we want to run
-test-rust target=default-target  features="": (test-rust-int "rust" target features) (test-rust-int "c" target features ) (test-seccomp target)
+test-rust target=default-target features="": (test-rust-int "rust" target features) (test-rust-int "c" target features) (test-seccomp target)
     # unit tests
     cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }}  --lib
     
@@ -89,8 +89,8 @@ test-rust target=default-target  features="": (test-rust-int "rust" target featu
 
 test-seccomp target=default-target:
     # run seccomp test with feature "seccomp" on and off
-    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} test_violate_seccomp_filters -- --ignored
-    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} test_violate_seccomp_filters --no-default-features -- --ignored
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} -p hyperlight_host test_violate_seccomp_filters --lib -- --ignored
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} -p hyperlight_host test_violate_seccomp_filters --no-default-features --features mshv,kvm --lib -- --ignored
 
 # rust integration tests. guest can either be "rust" or "c"
 test-rust-int guest target=default-target features="":
@@ -100,7 +100,12 @@ test-rust-int guest target=default-target features="":
     {{if os() == "windows" { "$env:" } else { "" } }}GUEST="{{guest}}"{{if os() == "windows" { ";" } else { "" } }} cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --test integration_test execute_on_heap --features executable_heap -- --ignored
     {{if os() == "windows" { "$env:" } else { "" } }}GUEST="{{guest}}"{{if os() == "windows" { ";" } else { "" } }} cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --test integration_test execute_on_heap -- --ignored
     # run the rest of the integration tests
-    {{if os() == "windows" { "$env:" } else { "" } }}GUEST="{{guest}}"{{if os() == "windows" { ";" } else { "" } }} cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} --test '*'
+    {{if os() == "windows" { "$env:" } else { "" } }}GUEST="{{guest}}"{{if os() == "windows" { ";" } else { "" } }} cargo test -p hyperlight_host {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} --test '*'
+
+test-rust-feature-compilation-fail target=default-target:
+    @# the following should fail on linux because either kvm or msh feature must be specified, which is why the exit code is inverted with an !.
+    {{ if os() == "linux" { "! cargo check -p hyperlight_host --no-default-features 2> /dev/null"} else { "" } }}
+    
 
 test-dotnet-hl target=default-target:
     cd src/tests/Hyperlight.Tests && dotnet test -c {{ target }} -l "console;verbosity=normal"

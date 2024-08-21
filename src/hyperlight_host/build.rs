@@ -67,5 +67,14 @@ fn main() -> Result<()> {
         );
     }
 
+    // Makes #[cfg(kvm)] == #[cfg(all(feature = "kvm", target_os = "linux"))]
+    // and #[cfg(mshv)] == #[cfg(all(feature = "mshv", target_os = "linux"))].
+    // Essentially the kvm and mshv features are ignored on windows as long as you use #[cfg(kvm)] and not #[cfg(feature = "kvm")].
+    // You should never use #[cfg(feature = "kvm")] or #[cfg(feature = "mshv")] in the codebase.
+    cfg_aliases::cfg_aliases! {
+        kvm: { all(feature = "kvm", target_os = "linux") },
+        mshv: { all(feature = "mshv", target_os = "linux") },
+    }
+
     Ok(())
 }
