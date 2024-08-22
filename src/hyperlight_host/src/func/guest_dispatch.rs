@@ -111,6 +111,12 @@ pub(crate) fn call_function_on_guest<HvMemMgrT: WrapperGetter>(
                 (hv_lock.get_run_cancelled(), hv_lock.get_thread_id())
             };
 
+            #[cfg(target_os = "windows")]
+            let partition_handle = {
+                let hv_lock = wrapper_getter.get_hv_mut().try_get_hypervisor_lock()?;
+                hv_lock.get_partition_handle()
+            };
+
             match execute_hypervisor_handler_action(
                 wrapper_getter.get_hv(),
                 HypervisorHandlerAction::DispatchCallFromHost(DispatchArgs::new(
@@ -131,6 +137,8 @@ pub(crate) fn call_function_on_guest<HvMemMgrT: WrapperGetter>(
                             termination_status,
                             outb_hdl,
                             mem_access_hdl,
+                            #[cfg(target_os = "windows")]
+                                partition_handle,
                             #[cfg(target_os = "linux")]
                                 thread_id,
                             #[cfg(target_os = "linux")]
@@ -449,8 +457,7 @@ mod tests {
         Ok(())
     }
 
-    // Because the terminate logic uses TLS to store state we need to ensure that once we have called terminate
-    // on a thread we can create and initialize a new sandbox on that thread and it does not error
+    // Test that we can terminate a VCPU that has been running the VCPU for too long and then call a guest function on the same host thread.
     #[test]
     fn test_terminate_vcpu_and_then_call_guest_function_on_the_same_host_thread() -> Result<()> {
         terminate_vcpu_after_1000ms()?;

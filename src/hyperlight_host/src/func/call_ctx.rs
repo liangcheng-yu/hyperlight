@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use hyperlight_common::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
 };
@@ -25,15 +23,6 @@ use crate::{MultiUseSandbox, Result, SingleUseSandbox};
 #[derive(Debug)]
 pub struct MultiUseGuestCallContext<'a> {
     sbox: MultiUseSandbox<'a>,
-    /// Adding this "marker type" to ensure `MultiUseGuestCallContext` is not
-    /// `Send` and thus, instances thereof cannot be sent to a different
-    /// thread. This feature is important because it allows us to enlist the
-    /// compiler to ensure only one call can ever be in-flight against a
-    /// given sandbox at once.
-    ///
-    /// See https://github.com/rust-lang/rust/issues/68318#issuecomment-1066221968
-    /// for more detail
-    make_unsend: PhantomData<*mut ()>,
 }
 
 impl<'a> MultiUseGuestCallContext<'a> {
@@ -42,10 +31,7 @@ impl<'a> MultiUseGuestCallContext<'a> {
     ///     
     #[instrument(skip_all, parent = Span::current())]
     pub(crate) fn start(sbox: MultiUseSandbox<'a>) -> Self {
-        Self {
-            sbox,
-            make_unsend: PhantomData,
-        }
+        Self { sbox }
     }
 
     /// Call the guest function called `func_name` with the given arguments
@@ -103,15 +89,6 @@ impl<'a> MultiUseGuestCallContext<'a> {
 #[derive(Debug)]
 pub struct SingleUseGuestCallContext<'a> {
     sbox: SingleUseSandbox<'a>,
-    /// Adding this "marker type" to ensure `SingleUseGuestCallContext` is not `Send`
-    /// and thus, instances thereof cannot be sent to a different thread. This
-    /// feature is important because it allows us to enlist the compiler to
-    /// ensure only one call can ever be in-flight against a given sandbox
-    /// at once.
-    ///
-    /// See https://github.com/rust-lang/rust/issues/68318#issuecomment-1066221968
-    /// for more detail on marker types.
-    make_unsend: PhantomData<*mut ()>,
 }
 
 impl<'a> SingleUseGuestCallContext<'a> {
@@ -120,10 +97,7 @@ impl<'a> SingleUseGuestCallContext<'a> {
     ///     
     #[instrument(skip_all, parent = Span::current())]
     pub(crate) fn start(sbox: SingleUseSandbox<'a>) -> Self {
-        Self {
-            sbox,
-            make_unsend: PhantomData,
-        }
+        Self { sbox }
     }
 
     /// Call the guest function called `func_name` with the given arguments

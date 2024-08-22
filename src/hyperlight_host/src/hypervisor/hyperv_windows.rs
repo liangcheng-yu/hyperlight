@@ -156,7 +156,7 @@ impl HypervWindowsDriver {
     }
 
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    pub(super) fn get_partition_hdl(&self) -> WHV_PARTITION_HANDLE {
+    pub(crate) fn get_partition_hdl(&self) -> WHV_PARTITION_HANDLE {
         self.processor.get_partition_hdl()
     }
 }
@@ -551,6 +551,10 @@ impl Hypervisor for HypervWindowsDriver {
         };
 
         Ok(result)
+    }
+
+    fn get_partition_handle(&self) -> WHV_PARTITION_HANDLE {
+        self.processor.get_partition_hdl()
     }
 
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]

@@ -10,8 +10,6 @@ use vmm_sys_util::signal::SIGRTMIN;
 use windows::Win32::System::Hypervisor::WHvCancelRunVirtualProcessor;
 
 use crate::error::HyperlightError::ExecutionCanceledByHost;
-#[cfg(target_os = "windows")]
-use crate::hypervisor::hypervisor_handler::PARTITION_HANDLE;
 use crate::hypervisor::metrics::HypervisorMetric::NumberOfCancelledGuestExecutions;
 use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
 use crate::{int_counter_inc, log_then_return, new_error, HyperlightError, Result};
@@ -51,6 +49,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use crossbeam::atomic::AtomicCell;
+#[cfg(target_os = "windows")]
+use windows::Win32::System::Hypervisor::WHV_PARTITION_HANDLE;
 
 use self::handlers::{
     MemAccessHandlerCaller, MemAccessHandlerWrapper, OutBHandlerCaller, OutBHandlerWrapper,
@@ -208,6 +208,10 @@ pub trait Hypervisor: Debug + Sync + Send + HasCommunicationChannels {
     #[cfg(target_os = "linux")]
     fn get_thread_id(&self) -> u64;
 
+    /// Get the partition handle for WHP
+    #[cfg(target_os = "windows")]
+    fn get_partition_handle(&self) -> windows::Win32::System::Hypervisor::WHV_PARTITION_HANDLE;
+
     /// Request termination of the Hypervisor
     fn set_termination_status(&mut self, value: bool);
 
@@ -300,6 +304,7 @@ pub trait Hypervisor: Debug + Sync + Send + HasCommunicationChannels {
 pub(crate) fn terminate_execution(
     timeout: Duration,
     cancel_run_requested: Arc<AtomicCell<bool>>,
+    #[cfg(target_os = "windows")] partition_handle: WHV_PARTITION_HANDLE,
     #[cfg(target_os = "linux")] run_cancelled: Arc<AtomicCell<bool>>,
     #[cfg(target_os = "linux")] thread_id: u64,
     #[cfg(target_os = "linux")] timeout_wait_to_cancel: Duration,
@@ -363,13 +368,8 @@ pub(crate) fn terminate_execution(
     #[cfg(target_os = "windows")]
     {
         unsafe {
-            PARTITION_HANDLE.with(|elem| -> Result<()> {
-                let partition_handle = elem.lock().unwrap();
-                WHvCancelRunVirtualProcessor(*partition_handle, 0, 0)
-                    .map_err(|e| new_error!("Failed to cancel guest execution {:?}", e))?;
-
-                Ok(())
-            })?;
+            WHvCancelRunVirtualProcessor(partition_handle, 0, 0)
+                .map_err(|e| new_error!("Failed to cancel guest execution {:?}", e))?;
         }
     }
 

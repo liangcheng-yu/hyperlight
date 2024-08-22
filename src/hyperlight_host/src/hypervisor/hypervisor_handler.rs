@@ -18,8 +18,6 @@ use crate::func::exports::get_os_page_size;
 #[cfg(feature = "function_call_metrics")]
 use crate::histogram_vec_observe;
 use crate::hypervisor::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper};
-#[cfg(target_os = "windows")]
-use crate::hypervisor::hyperv_windows::HypervWindowsDriver;
 use crate::hypervisor::{terminate_execution, Hypervisor};
 use crate::mem::ptr::RawPtr;
 use crate::sandbox::hypervisor::HypervisorWrapper;
@@ -145,13 +143,6 @@ impl DispatchArgs {
     }
 }
 
-// For Windows, we don't mess with the thread ID, we just need to set the partition handle
-#[cfg(target_os = "windows")]
-thread_local! {
-    pub static PARTITION_HANDLE: Arc<Mutex<WHV_PARTITION_HANDLE>> =
-        Arc::new(Mutex::new(WHV_PARTITION_HANDLE::default()));
-}
-
 // This variable is used to check if the hv handler thread is still alive and receiving signals
 // (specifically, `SIGRTMIN`). This field should not be accessed directly and, instead, only through
 // the `is_hv_handler_receiving_signals` function. We use this instead of `join_handle` because it
@@ -248,40 +239,6 @@ pub(crate) fn start_hypervisor_handler(hv: Arc<Mutex<Box<dyn Hypervisor>>>) -> c
         {
             hv_lock.set_run_cancelled(false);
         }
-    }
-
-    // On Windows, we have a slightly different problem. Windows supports an API that allows us
-    // to cancel the execution of a vCPU, but using that from here would require us to expose
-    // an API from the `WindowsHypervisor` implementation, because, in the thread spawned,
-    // we move the mutable self reference into the thread closure, which it makes it painful to
-    // be able to call such a cancel function from the main thread since we would need
-    // the mutable reference to call `run` we would not also be able to have a reference to call
-    // cancel. As Windows is happy for us to interact with the VM from different threads
-    // the solution we are going to use is to get the partition handle from the `WindowsHypervisor`
-    // implementation, and then use that handle in a call to the cancel function from the
-    // main thread. We only need the partition handle to call the cancel function as we are always
-    // ever creating a single vCPU in a partition, and, therefore, can default the other parameters
-    // to 0.
-    #[cfg(target_os = "windows")]
-    {
-        PARTITION_HANDLE.with(|elem| {
-            let mut partition_handle_lock = elem.lock().unwrap();
-            *partition_handle_lock = {
-                // To get the partition handle, we need to downcast the Hypervisor trait object to a
-                // `WindowsHypervisorDriver`.
-                let hv_lock = hv.lock().unwrap();
-                let hyperv_windows_driver: &HypervWindowsDriver =
-                    match hv_lock.as_any().downcast_ref::<HypervWindowsDriver>() {
-                        Some(b) => b,
-                        None => {
-                            log_then_return!("Expected a WindowsHypervisorDriver");
-                        }
-                    };
-                hyperv_windows_driver.get_partition_hdl()
-            };
-
-            Ok(())
-        })?;
     }
 
     #[cfg(all(feature = "seccomp", target_os = "linux"))]
@@ -542,6 +499,7 @@ pub(crate) fn terminate_hypervisor_handler_execution_and_reinitialise<HvMemMgrT:
     termination_status: Arc<AtomicCell<bool>>,
     outb_hdl: OutBHandlerWrapper,
     mem_access_hdl: MemAccessHandlerWrapper,
+    #[cfg(target_os = "windows")] partition_handle: WHV_PARTITION_HANDLE,
     #[cfg(target_os = "linux")] thread_id: u64,
     #[cfg(target_os = "linux")] run_cancelled: Arc<AtomicCell<bool>>,
     #[cfg(target_os = "linux")] max_wait_for_cancellation: Duration,
@@ -577,6 +535,8 @@ pub(crate) fn terminate_hypervisor_handler_execution_and_reinitialise<HvMemMgrT:
                 terminate_execution(
                     max_execution_time,
                     termination_status,
+                    #[cfg(target_os = "windows")]
+                    partition_handle,
                     #[cfg(target_os = "linux")]
                     run_cancelled,
                     #[cfg(target_os = "linux")]
@@ -833,12 +793,20 @@ mod tests {
                 hv_lock.get_thread_id()
             };
 
+            #[cfg(target_os = "windows")]
+            let partition_handle = {
+                let hv_lock = sandbox.get_hv_mut().try_get_hypervisor_lock()?;
+                hv_lock.get_partition_handle()
+            };
+
             match terminate_hypervisor_handler_execution_and_reinitialise(
                 &mut sandbox,
                 Duration::from_millis(SandboxConfiguration::DEFAULT_MAX_EXECUTION_TIME as u64),
                 Arc::new(AtomicCell::new(true)),
                 outb_hdl,
                 mem_access_hdl,
+                #[cfg(target_os = "windows")]
+                partition_handle,
                 #[cfg(target_os = "linux")]
                 thread_id,
                 #[cfg(target_os = "linux")]
