@@ -1,4 +1,29 @@
-fn main() {
+use std::path::{Path, PathBuf};
+use std::{env, fs};
+
+fn copy_includes<P: AsRef<Path>, Q: AsRef<Path> + std::fmt::Debug>(include_dir: P, base: Q) {
+    let entries = fs::read_dir(&base)
+        .unwrap_or_else(|e| panic!("could not open include dir {:?}: {}", base, e));
+    for entry in entries {
+        let entry =
+            entry.unwrap_or_else(|e| panic!("could not read include dir {:?}: {}", base, e));
+        let src = entry.path();
+        let dst = include_dir.as_ref().join(entry.file_name());
+        let kind = entry
+            .file_type()
+            .unwrap_or_else(|e| panic!("could not find type of {:?}: {}", src, e));
+        if kind.is_dir() {
+            fs::create_dir_all(&dst)
+                .unwrap_or_else(|e| panic!("could not create include dir {:?}, {}", &dst, e));
+            copy_includes(&dst, src);
+        } else if Some(std::ffi::OsStr::new("h")) == src.extension() {
+            fs::copy(&src, &dst)
+                .unwrap_or_else(|e| panic!("could not copy header {:?}, {}", &src, e));
+        }
+    }
+}
+
+fn cargo_main() {
     println!("cargo:rerun-if-changed=third_party");
     println!("cargo:rerun-if-changed=src/alloca");
 
@@ -103,10 +128,187 @@ fn main() {
 
         cfg_if::cfg_if! {
             if #[cfg(unix)] {
-                std::env::set_var("AR_x86_64_pc_windows_msvc", "llvm-lib");
+                env::set_var("AR_x86_64_pc_windows_msvc", "llvm-lib");
             }
         }
 
         cfg.compile("hyperlight_guest");
+    }
+
+    let out_dir = env::var("OUT_DIR").expect("cargo OUT_DIR not set");
+    let include_dir = PathBuf::from(&out_dir).join("include");
+    fs::create_dir_all(&include_dir)
+        .unwrap_or_else(|e| panic!("Could not create include dir {:?}: {}", &include_dir, e));
+    if cfg!(feature = "printf") {
+        copy_includes(&include_dir, "third_party/printf/");
+    }
+    if cfg!(feature = "libc") {
+        copy_includes(&include_dir, "third_party/libc/musl/include");
+        copy_includes(&include_dir, "third_party/libc/musl/arch/generic");
+        copy_includes(&include_dir, "third_party/libc/musl/arch/x86_64");
+        copy_includes(&include_dir, "third_party/libc/musl/src/internal");
+    }
+    /* do not canonicalize: clang has trouble with UNC paths */
+    let include_str = include_dir
+        .to_str()
+        .expect("out dir include dir was not valid utf-8");
+    println!("cargo::metadata=include={}", include_str);
+
+    /* Correctly setting up the libc include paths for downstream
+     * libraries which depend on -sys packages which need to build C
+     * libraries is surprisingly difficult. Ideally, we would
+     * eventually build and publish clang toolchains targeting
+     * hyperlight directly, but until then we need a way for
+     * downstream crates to get at the include files in this crate.
+     * Copying them into our output directory, using `links = "c"`
+     * (since we're libc), and using cargo metadata keys (as we have
+     * just done above) mostly works for crates whose build scripts we
+     * control. However, since our downstreams might also need to use
+     * -sys packages that have their own detection logic (in
+     * cc-rs/bindgen/clang-sys/etc), it would be nice to provide a
+     * wrapped version of clang that searches all the correct include
+     * paths. (Downstream crates also can't just use
+     * BINDGEN_EXTRA_CLANG_ARGS="--sysroot ..." or similar, since the
+     * include directory that we generate in this script ends up in
+     * target/build under some unpredictable name). Cargo doesn't
+     * (yet) give us an easy way to provide binaries that downstream
+     * crates can use at build time, so we do an extremely ugly thing
+     * here and simply write wrapper binaries into wherever an env var
+     * set by downstream tells us to. Because we don't have an easy
+     * way to build binaries for the host target when the library is
+     * being cross-built, we do an even uglier thing and simply use
+     * this build script as a multi-call binary to be those
+     * wrappers. We should revisit this approach as relevant cargo
+     * features like -Zartifact-dependencies, -Zout-dir,
+     * -Zforced-target, etc. are stabilised, or if we decide to
+     * publish a proper sysroot when the cbindgen C API is ready.
+     *
+     * Since we're already doing this for clang, we take advantage of
+     * the same approach to provide the ml64.exe binary that cc-rs is
+     * hardcoded to look for when assembling targeting msvc targets.
+     * On linux, ml64.exe doesn't exist, so we replace it with a
+     * wrapper that calls the compatible llvm-ml -m64.
+     *
+     * In general, to take advantage of this, a downstream binary
+     * crate needs to:
+     * - Set HYPERLIGHT_GUEST_TOOLCHAIN_ROOT to somewhere sensible
+     * - Ensure that other packages look for relevant binaries in that
+     *   directory, e.g. by setting CLANG_PATH for clang-sys's include
+     *   path autodetection logic (used by bindgen).
+     * - Ensure that hyperlight_guest is built before any packages
+     *   which might need to use the toolchain, even if they don't
+     *   directly depend on it, e.g. by running `cargo build -p
+     *   hyperlight_guest` before building anything else.
+     */
+    if let Ok(binroot) = env::var("HYPERLIGHT_GUEST_TOOLCHAIN_ROOT") {
+        let binroot = PathBuf::from(binroot);
+        let binpath = env::current_exe().expect("couldn't get build script path");
+        fs::create_dir_all(&binroot)
+            .unwrap_or_else(|e| panic!("Could not create binary root {:?}: {}", &binroot, e));
+        fs::write(&binroot.join(".out_dir"), out_dir).expect("Could not write out_dir");
+        fs::copy(&binpath, (&binroot).join("ml64.exe")).expect("Could not copy to ml64.exe");
+        fs::copy(&binpath, (&binroot).join("clang")).expect("Could not copy to clang");
+        fs::copy(&binpath, (&binroot).join("clang.exe")).expect("Could not copy to clang.exe");
+        fs::copy(&binpath, (&binroot).join("clang-cl")).expect("Could not copy to clang-cl");
+        fs::copy(&binpath, (&binroot).join("clang-cl.exe"))
+            .expect("Could not copy to clang-cl.exe");
+    }
+}
+
+#[derive(PartialEq)]
+enum Tool {
+    CargoBuildScript,
+    Ml64,
+    Clang,
+    ClangCl,
+}
+impl From<&std::ffi::OsStr> for Tool {
+    fn from(x: &std::ffi::OsStr) -> Tool {
+        if x == "ml64.exe" {
+            Tool::Ml64
+        } else if x == "clang" {
+            Tool::Clang
+        } else if x == "clang.exe" {
+            Tool::Clang
+        } else if x == "clang-cl" {
+            Tool::ClangCl
+        } else if x == "clang-cl.exe" {
+            Tool::ClangCl
+        } else {
+            Tool::CargoBuildScript
+        }
+    }
+}
+
+fn find_next(root_dir: &Path, tool_name: &str) -> PathBuf {
+    let path = env::var_os("PATH").expect("$PATH should exist");
+    let paths: Vec<_> = env::split_paths(&path).collect();
+    for path in &paths {
+        let abs_path = fs::canonicalize(path);
+        /* since path entries may not exist (especially on Windows),
+         * use the original if there are any errors. */
+        let abs_path = abs_path.as_ref().unwrap_or(path);
+        if abs_path == root_dir {
+            continue;
+        }
+        let base_path = path.join(tool_name);
+        if base_path.exists() {
+            return base_path;
+        }
+        let exe_path = base_path.with_extension("exe");
+        if exe_path.exists() {
+            return exe_path;
+        }
+    }
+    panic!("Could not find another implementation of {}", tool_name);
+}
+
+fn main() -> std::process::ExitCode {
+    let exe = env::current_exe().expect("expected program name");
+    let name = Path::file_name(exe.as_ref()).expect("program name should not be directory");
+    let tool: Tool = name.into();
+    if tool == Tool::CargoBuildScript {
+        cargo_main();
+        return std::process::ExitCode::SUCCESS;
+    }
+    let exe_abs = fs::canonicalize(&exe).expect("program name should be possible to canonicalize");
+    let root_dir = exe_abs
+        .parent()
+        .expect("program name should be in a directory");
+    let out_dir = std::fs::read_to_string(root_dir.join(".out_dir"))
+        .expect(".out_dir should have a valid path in it");
+    let mut args = env::args();
+    args.next(); // ignore the exe name
+    let include_dir = <String as AsRef<Path>>::as_ref(&out_dir).join("include");
+    match tool {
+        Tool::Ml64 => std::process::Command::new("llvm-ml")
+            .arg("-m64")
+            .args(args)
+            .status()
+            .ok()
+            .and_then(|x| (x.code()))
+            .map(|x| (x as u8).into())
+            .unwrap_or(std::process::ExitCode::FAILURE),
+        Tool::Clang => std::process::Command::new(find_next(&root_dir, "clang"))
+            .arg("-nostdinc")
+            .arg("-isystem")
+            .arg(include_dir)
+            .args(args)
+            .status()
+            .ok()
+            .and_then(|x| (x.code()))
+            .map(|x| (x as u8).into())
+            .unwrap_or(std::process::ExitCode::FAILURE),
+        Tool::ClangCl => std::process::Command::new(find_next(&root_dir, "clang-cl"))
+            .arg("-nostdinc")
+            .arg("/external:I")
+            .arg(include_dir)
+            .args(args)
+            .status()
+            .ok()
+            .and_then(|x| (x.code()))
+            .map(|x| (x as u8).into())
+            .unwrap_or(std::process::ExitCode::FAILURE),
+        _ => std::process::ExitCode::FAILURE,
     }
 }

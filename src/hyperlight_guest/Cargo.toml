@@ -2,6 +2,7 @@
 name = "hyperlight_guest"
 version = "0.8.0"
 edition = "2021"
+links = "c"
 
 [features]
 default = ["libc", "printf", "alloca"]
