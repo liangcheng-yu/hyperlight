@@ -33,7 +33,7 @@ use crate::{log_then_return, new_error, HyperlightError, Result};
 
 /// Paging Flags
 ///
-/// See the following links explaining paging, also see paging.md in docs:
+/// See the following links explaining paging, also see paging-development-notes.md in docs:
 ///
 /// * Very basic description: https://stackoverflow.com/a/26945892
 /// * More in-depth descriptions: https://wiki.osdev.org/Paging

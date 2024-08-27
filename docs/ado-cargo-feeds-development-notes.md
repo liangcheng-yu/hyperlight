@@ -1,4 +1,4 @@
-# AzureDevOps Cargo feeds
+# AzureDevOps Cargo feeds - Development Notes
 
 This document outlines how the various cargo feeds hosted in AzureDevOps were set up and how the project publishes to them.
 
@@ -6,16 +6,16 @@ This document outlines how the various cargo feeds hosted in AzureDevOps were se
 
 Currently, we have two feeds set up in AzureDevOps:
 
-- [hyperlight_redist](https://dev.azure.com/AzureContainerUpstream/hyperlight/_artifacts/feed/hyperlight_redist): This feed is used to distribute some crates that Hyperlight depends that are not currently published to crates.io (or any other feeds).
-- [hyperlight_packages](https://dev.azure.com/AzureContainerUpstream/hyperlight/_artifacts/feed/hyperlight_packages_test): This feed is used to distribute crates produced by the Hyperlight project.
+- [hyperlight_redist](https://dev.azure.com/AzureContainerUpstream/hyperlight/_artifacts/feed/hyperlight_redist): This feed is used to distribute some crates that Hyperlight depends on that are not currently published to crates.io (or any other feeds).
+- [hyperlight_packages](https://dev.azure.com/AzureContainerUpstream/hyperlight/_artifacts/feed/hyperlight_packages): This feed is used to distribute crates produced by the Hyperlight project.
 
 ## Feed Access
 
-To gain access please join the navigate to [IDWeb](http://aka.ms/idweb) and join the **Hyperlight-Cargo-Readers**  security group.
+To gain access please navigate to [IDWeb](http://aka.ms/idweb) and join the **Hyperlight-Cargo-Readers**  security group.
 
 ## Cargo Login
 
-To login the AzureDevOps cargo from any of the Hyperlight repositories run:
+To log in the AzureDevOps cargo from any of the Hyperlight repositories run:
 
 ```bash
 az login
@@ -24,7 +24,7 @@ just cargo-login
 
 ## Authentication in GitHub workflows
 
-All of the GitHub workflows in the various Hyperlight repositories use OIDC tokens to authenticate with AzureDevOps using Azure Entra ID identities.
+All the GitHub workflows in the various Hyperlight repositories use OIDC tokens to authenticate with AzureDevOps using Azure Entra ID identities.
 This section outlines how the various components are configured.
 
 ### App Registrations
@@ -46,7 +46,7 @@ The projects in Hyperlight use **PullRequest** and **Environment** scopes.
 
 To edit the scopes for federated authentication for a given application registration:
 
-- Navigate to the application registrion in the azure portal
+- Navigate to the application registration in the azure portal
 - Click on `Manage` -> `Certificates & secrets` on the side menu
 - Click on `Federated credentials` in the table on the page
 
@@ -54,11 +54,11 @@ To edit the scopes for federated authentication for a given application registra
 
 The GitHub workflows use the following secrets to authenticate with Azure:
 
-| Secret Name | Description |
-|-------------|-------------|
-| ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID | The client ID for the `AzureContainerUpstream-Hyperlight-AzureDevops-CargoFeed-ReadAccess` application registration |
+| Secret Name                             | Description                                                                                                              |
+|-----------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID | The client ID for the `AzureContainerUpstream-Hyperlight-AzureDevops-CargoFeed-ReadAccess` application registration      |
 | ADO_HYPERLIGHT_CARGO_RW_AZURE_CLIENT_ID | The client ID for the `AzureContainerUpstream-Hyperlight-AzureDevops-CargoFeed-ReadWriteAccess` application registration |
-| AZURE_TENANT_ID | The tenant ID for the Azure AD tenant |
+| AZURE_TENANT_ID                         | The tenant ID for the Azure AD tenant                                                                                    |
 
 These secrets are set at the organization level in the **deislabs** GitHub organization.
 
@@ -71,7 +71,7 @@ Each Hyperlight repository has an environment named `release` and the use of thi
 Note: Many of the workflows in the Hyperlight repositories are called from both PR jobs and release jobs.
 We support this by taking an environment name as an optional input and set this when the workflows are called from CreateRelease.yml (or similar) workflows and GitHub seems OK setting a blank environment for jobs in workflows.
 
-## New Repo on boarding
+## New Repo onboarding
 
 When a new repository is created in the Hyperlight organization the following steps must be taken to enable reading from and publishing to the Hyperlight feeds:
 

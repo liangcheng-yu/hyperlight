@@ -202,6 +202,9 @@ run-rust-examples-linux target=default-target: (build-rust target) (run-rust-exa
 # Warning: can overwrite previous local benchmarks, so run this before running benchmarks
 # Downloads the benchmarks result from the given release tag.
 # If tag is not given, defaults to latest release
+# Options for os: "Windows", or "Linux"
+# Options for Linux hypervisor: "kvm", "hyperv"
+# Options for Windows hypervisor: "none"
 bench-download os hypervisor tag="":
     gh release download {{ tag }} -D ./target/ -p benchmarks_{{ os }}_{{ hypervisor }}.tar.gz
     mkdir -p target/criterion {{ if os() == "windows" { "-Force" } else { "" } }}

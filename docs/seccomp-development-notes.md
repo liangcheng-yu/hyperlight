@@ -28,6 +28,7 @@ You can check what was trapped with:
 journalctl | grep SECCOMP
 ```
 > Note: `journalctl | grep SECCOMP` looks very different on MSHV and KVM. This tutorial covers how it shows on KVM, so more experimentation might be needed on MSHV.
+
 This will output something like:
 ```text
 <date> <your-user> audit[62172]: SECCOMP auid=4294967295 uid=1000 gid=1000 ses=4294967295 subj=kernel pid=62172 comm="<function-hint>" exe="<some executable>" sig=0 arch=c000003e syscall=1 compat=0 ip=0x7cbdbe5b132f code=0x7ffc0000

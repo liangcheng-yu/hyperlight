@@ -9,7 +9,7 @@ Hyperlight is an SDK for creating micro virtual machines (VMs) intended for exec
 As such, those platforms provide much more infrastructure of which running applications can take advantage. A very rough contrast between Hyperlight's offerings and other platforms is as follows:
 
 | Feature                                                                 | Hyperlight | Other platforms    |
-| ----------------------------------------------------------------------- | ---------- | ------------------ |
+|-------------------------------------------------------------------------|------------|--------------------|
 | Hardware isolation (vCPU, virtual memory)                               | Yes        | Yes                |
 | Shared memory between host and in-VM process                            | Yes        | Yes <sup>[2]</sup> |
 | Lightweight function calls between host and in-VM process (the "guest") | Yes        | No                 |
@@ -26,8 +26,7 @@ With this background in mind, it's well worth focusing on the "lifecycle" of a V
 
 At the highest level, Hyperlight takes roughly the following steps to create and run arbitrary code inside a VM <sup>3</sup>:
 
-1. Load arbitrary binary data as a [Portable Executable (PE)](https://en.wikipedia.org/wiki/Portable_Executable) file
-   1. Either by manually parsing or optionally calling [`LoadLibraryA`](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibrarya) on Windows
+1. Load arbitrary binary data as a [Portable Executable (PE)](https://en.wikipedia.org/wiki/Portable_Executable) file (either by manually parsing or optionally calling [`LoadLibraryA`](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibrarya) on Windows)
 2. Using `mmap` (on Linux) or `VirtualAlloc` (on Windows) to create a shared memory region for the VM, then writing a "memory layout" with space to store a heap, stack, guest->host function calls, host->guest function calls, and more
 3. Create an individual hypervisor instance ("partition" hereafter)
 4. Create a single memory region within the partition, mapped to the shared memory created previously
@@ -36,9 +35,6 @@ At the highest level, Hyperlight takes roughly the following steps to create and
 7. In a loop, tell previously created vCPU to run until we reach a halt message, one of several known error states (e.g. unmapped memory access), or an unsupported message
    1. In the former case, exit successfully
    2. In any of the latter cases, exit with a failure message
-
-
-
 
 ---
 

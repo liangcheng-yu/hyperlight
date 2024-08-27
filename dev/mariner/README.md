@@ -3,12 +3,7 @@ This will walk you through creating a Mariner Linux Hyperlight development machi
 
 ## Tools to install
 - [Terraform](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli)
-- [Tailscale](https://tailscale.com/kb/installation/)
 - [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
-
-## Create an Auth Key in Tailscale
-Log in to Tailscale, and go to the settings page. You should find "Keys" under the personal settings. Click on "Generate auth key...", and create a single use auth key. Copy the auth key to your clipboard for use in the next step.
-![Tailscale Auth Key Generate](./img/tailscale-auth-key.png)
 
 ## Create the Machine
 ```shell
@@ -17,7 +12,7 @@ terraform plan -out main.tfplan
 # you will be prompted for your tailscale auth key
 terraform apply main.tfplan
 ```
-**NOTE**: The machine will restart once at the end of the provisioning script, which is needed to ensure the mshv device is ready. It may take a couple minutes.
+**NOTE**: The machine will restart once at the end of the provisioning script, which is needed to ensure the MSHV device is ready. It may take a couple of minutes.
 
 ## Login to the Machine
 With tailscale enabled on your local machine and on your Mariner VM, you should be able to log via SSH using the following command. 
@@ -27,7 +22,7 @@ If you are not able to connect right away, the machine may not have completed Ta
 ssh azureuser@hyperlightdev -A
 ```
 
-## Setup Your Development Environment and Run the Tests
+## Set up Your Development Environment and Run the Tests
 ```shell
 # clone the repo
 git clone --recursive git@github.com:deislabs/hyperlight.git
