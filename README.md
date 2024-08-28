@@ -171,9 +171,9 @@ git clone https://github.com/deislabs/hyperlight.git # or, git clone git@github.
 just init
 just build-capi
 # on windows, just build-hyperlight-surrogate
-just build
 just build-and-move-rust-guests
 just build-c-guests
+just build
 just test # runs the rust, .NET, C API, and Valgrind tests
 ```
 
