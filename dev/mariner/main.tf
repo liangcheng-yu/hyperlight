@@ -12,8 +12,15 @@ terraform {
 # Configure the Microsoft Azure Provider
 provider "azurerm" {
   features {}
-
 }
+
+# Needed to access the shared image gallery images in our hyperlight-ci sub
+provider "azurerm" {
+  alias  = "alias"
+  subscription_id = "22c0772f-8056-4c9a-a7d7-d1b17fd277d4"
+  features {}
+}
+
 
 variable "prefix" {
   default = "hyperlight"
@@ -21,18 +28,16 @@ variable "prefix" {
 
 # Note: Choose vmsize that supports Nested Virtualization
 variable "vmsize" {
-  default = "Standard_D2_v4"
+  default = "Standard_D2s_v5"
 }
 
 variable "location" {
-  default = "southcentralus"
+  default = "westus2"
 }
 
 variable "sshkeypath" {
   default = "~/.ssh/id_rsa.pub"
 }
-
-variable "tailscale_auth_key" {}
 
 # Create a resource group
 resource "azurerm_resource_group" "rg" {
@@ -67,18 +72,6 @@ resource "azurerm_network_security_group" "nsg" {
   name                = "${var.prefix}NetworkSecurityGroup"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
-
-  security_rule {
-    name                       = "SSH"
-    priority                   = 1001
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
 }
 
 resource "azurerm_network_interface" "nic" {
@@ -99,6 +92,14 @@ resource "azurerm_network_interface_security_group_association" "ssh_nsg" {
   network_security_group_id = azurerm_network_security_group.nsg.id
 }
 
+data "azurerm_shared_image" "image" {
+  name                = "hyperlight-dev"
+  gallery_name        = "hyperlight"
+  resource_group_name = "dev-images"
+
+  provider = azurerm.alias
+}
+
 resource "azurerm_virtual_machine" "main" {
   name                             = "${var.prefix}-vm"
   location                         = azurerm_resource_group.rg.location
@@ -108,10 +109,7 @@ resource "azurerm_virtual_machine" "main" {
   delete_os_disk_on_termination    = true
   delete_data_disks_on_termination = true
   storage_image_reference {
-    publisher = "MicrosoftCBLMariner"
-    offer     = "cbl-mariner"
-    sku       = "cbl-mariner-2-kata"
-    version   = "latest"
+    id = "${data.azurerm_shared_image.image.id}"
   }
   storage_os_disk {
     name              = "myosdisk1"
@@ -123,9 +121,6 @@ resource "azurerm_virtual_machine" "main" {
   os_profile {
     computer_name  = "hyperlightdev"
     admin_username = "azureuser"
-    custom_data    = templatefile("${path.module}/init.tpl", {
-      tailscale_auth_key = var.tailscale_auth_key
-    })
   }
   os_profile_linux_config {
     disable_password_authentication = true

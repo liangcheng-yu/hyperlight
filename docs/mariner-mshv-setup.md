@@ -1,161 +1,26 @@
-# Set up a Mariner VM with MSHV for local use
+# Set up a Mariner VM with MSHV in Azure
 
-This document describes how to set up a Mariner VM with MSHV.
+The easiest way to set up a Mariner VM with MSHV is to use an image provided by the Hyperlight team.
 
-## Prerequisites
+Access to the image is granted by joining the `Hyperlight-Cargo-Readers` [idweb](https://idweb.microsoft.com/identitymanagement/default.aspx) security group.
+One you have access to the images search for the [hyperlight-dev image](https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/22c0772f-8056-4c9a-a7d7-d1b17fd277d4/resourceGroups/dev-images/providers/Microsoft.Compute/galleries/hyperlight/images/hyperlight-dev/overview) in the Hyperlight Azure Compute Gallery and create a VM from it.
 
-There are two ways to get a vhd with Mariner and MSHV before creating your virtual machine:
+This image is built using the following packer resources:
 
-* [Download the latest Mariner release](#download-latest-mariner-release)
-* Use AzCopy to [copy a vhd from another developer](#copy-another-developers-mariner-vhd) (recommended)
+- [Packer file](../dev/packer/hyperlight.pkr.hcl)
+- [Configuration script](../dev/packer/hyperlight.sh)
 
-### Download latest Mariner release
+More information on how to create your own image from scratch can be found [here](https://www.osgwiki.com/wiki/LSG/Distro/Linux_in_Dom0/Nested#Obtaining_Dom0_images).
 
-Follow the instructions [here](https://www.osgwiki.com/wiki/LSG/Distro/Linux_in_Dom0/Nested#Obtaining_Dom0_images) to obtain a Mariner image with MSHV and set up in HyperV. If you don't have access contact **@marosset**, **@simongdavies**, **@danbugs**, **@ludfjig**, **@devigned**, or **@syntactically**.
+> Note - Currently the image is only available in the `westus2` and `westus3` regions. Please reach out to the Hyperlight team if you need the image in a different region.
 
-Find a run where both the stages have succeeded, select the run, under the summary select the "Artifacts" summary, select `dom0 out->images->dom0` and download either the `vhdx` or `vhdx.xz` file. If you download the `.xz` file, you will need to extract it with the below command before using it:
+An example terraform script to set up a VM can be found [here](../dev/mariner/main.tf).
 
-```shell
-xz -d -v <filename>
-```
+## VM SKU Requirements
 
-### Copy another developer's Mariner vhd
+- Nested virtualization is required to run a VM with MSHV enabled. To check if your VM SKU supports nested virtualization, look up your desired VM Size / SKU Family (ex: [dv5](https://learn.microsoft.com/en-us/azure/virtual-machines/dv5-dsv5-series)) and search for "Nested Virtualization" on the SKU Family's page.
 
-1. Ask another developer on the project for a link to their Mariner vhd in their Azure Blob Storage account, including an [unexpired SAS token][blob-sas-token] so that you can authenticate. The link will look like this: 
-   ```
-   https://STORAGEACCOUNT.blob.core.windows.net/CONTAINER/dom0-mariner-dev-latest-x86_64.vhd?SAS_TOKEN_QUERY_STRING_PARAMETERS
-   ```
-2. Download [azcopy] and add the binary to your PATH
-   ```
-   curl -o azcopy.tar.gz https://aka.ms/downloadazcopy-v10-linux
-   tar -zxf azcopy.tar.gz
-   # adjust the directory name below to match the version that you downloaded
-   sudo mv azcopy_linux_amd64_10.17.0/azcopy /usr/local/bin/
-   ```
-3. If you will use the vhd on Azure:
-   1. Create an Azure Blob Storage account (or reuse an existing one) and create a container to transfer the vhd into.
-   2. Generate a SAS token link for your container, inserting the name of the blob to the URL before the query string. It should look like the template URL shown at the top of this section.
-   3. Transfer the vhd into your storage account. The transfer happens within Azure, so it is fine to run this command from your local machine, and it won't cause you to download and then upload the (large) vhd.
-      ```
-      azcopy copy SOURCE_BLOB_URL_WITH_SAS_TOKEN DEST_BLOB_URL_WITH_SAS_TOKEN
-      ```
-4. Otherwise, if you are running the VM locally, download it with:
-   ```
-   azcopy copy SOURCE_BLOB_URL_WITH_SAS_TOKEN DESTINATION_FILE_PATH
-   ```
+## VM SKU Recommendations
 
-[azcopy]: https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-v10#download-azcopy
-[blob-sas-token]: https://learn.microsoft.com/en-us/azure/cognitive-services/translator/document-translation/how-to-guides/create-sas-tokens?tabs=Containers
-
-## Set up the VM
-
-Before starting the VM, ensure the disk is 20GB or larger. Some VHDX disk images are too small for all the Hyperlight pre-requisites. See [here](https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/user-guide/expand-virtual-hard-disk) for instructions on how to expand the VHDX. Many of the latest (as of this writing) Mariner disk images are of sufficient size, so this step will be unnecessary in that case.
-
-Start the VM and login with the default credentials from the wiki above. As of this writing, they will be:
-
-```shell
-user: cloud
-pass: Cloud123
-```
-
-## If you're launching on Azure
-
-There are several steps necessary to set up a Mariner VM on Azure. There is a script described [here](https://www.osgwiki.com/wiki/LSG/Distro/Linux_in_Dom0/Nested#Setting_up_an_Azure_Dom0_VM) that you should use to do almost all of them.
-
-To get the script, you'll need access to the https://microsoft.visualstudio.com/DefaultCollection/LSG/_git/lsg-tools repository. If you need access, contact **@marosset**, **@simongdavies**, **@danbugs**, **@ludfjig**, **@devigned**, or **@syntactically**.
-
-If you haven't already done so, ensure that the VHD image you got in the previous section is uploaded to an Azure Blob Store container in your Azure subscription. It's recommended to do the upload from Azure Cloud Shell or another VM in Azure because network speeds will be faster. The blob and container can be set to private access, but be sure to copy the URL to the VHD and set it to the environment variable `BLOB_STORE_IMAGE_LOCATION`, as it will be used in the subsequent step:
-
-```shell
-export BLOB_STORE_IMAGE_LOCATION=<full URL>
-```
-
-You also need to export your Azure Subscription ID:
-
-```shell
-export AZURE_SUBSCRIPTION_ID="YOUR AZURE SUB ID"
-```
-
-Finally, the command to launch the VM is slightly different from what's listed on the wiki:
-
-```shell
-./scripts/create_vm.sh -t linux-dom0 -n ${NAME_OF_NEW_VM} -s ${BLOB_STORE_IMAGE_LOCATION} --vm-nsg-rule SSH --subscription ${AZURE_SUBSCRIPTION_ID}
-```
-
-There are additional optional flags that you can specify, for example the resource group to create/reuse, you can find those flags in the source of the script.
-
-## VM Configuration Steps
-
-Finally, you'll need to log into your VM. If you launched it on Azure with the steps in the previous section, you'll need to use Azure Bastion for this. Once you're logged in, follow these steps:
-
-1. Add a new user.
-2. Optionally set the hostname for the VM by editing /etc/hostname and then restarting.
-3. Install dnf `sudo yum install -y dnf`
-4. Install vim `sudo dnf install -y vim`
-5. Give the new user sudoer access. Edit `edit /etc/sudoers.d/90-dom0-users`
-6. Add the new user to the mshv group `sudo usermod -G mshv -a $(whoami)`
-7. Disable cloud user `sudo usermod -L cloud`
-8. Install tools needed for development:
-   ```shell
-   sudo dnf install -y \
-   git \
-   clang \
-   lldb \
-   dotnet-sdk-6.0 \
-   binutils \
-   valgrind \
-   glibc-devel \
-   kernel-headers \
-   nano
-   ```
-9. Install rust `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-10. Install just `cargo install just`
-
-> Note: An alternative to having to do all this, is creating the VM image off our Packer scripts, which are available in the packer directory [../dev/packer](../dev/packer).
-
-## Dev/test Setup - not needed for GitHub Custom Runner
-
-1. Configure your git and gh cli authentication. If you have ssh keys configured with GitHub an easy way to do that is to forward you ssh keys with `ssh -A` when connecting to your VM and then running `gh auth setup-git` so that the gh cli uses them.
-2. Clone Hyperlight `git clone git@github.com:deislabs/hyperlight.git`
-3. Change to the Hyperlight directory and run `git submodule update --init`. Hyperlight uses submodules to pull in some dependencies such as munit. If you see munit errors when running tests, make sure you have the submodules cloned.
-4. Install direnv `curl -sfL https://direnv.net/install.sh | bash`
-5. Edit `~/.bashrc` and add `eval "$(direnv hook bash)"` to the end of the file.
-6. Add env var to `.envrc` `echo "export HYPERV_SHOULD_BE_PRESENT=true" > ./hyperlight/.envrc`
-7. Change to the Hyperlight directory and run `direnv allow`
-8. Install GitHub CLI
-   ```shell
-   sudo dnf install 'dnf-command(config-manager)'
-   sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
-   sudo dnf install gh
-   ```
-9. Build the test programs
-   ```shell
-   just build-and-move-rust-guests
-   just build-c-guests
-   ```
-
-Now, follow the instructions in the [Hyperlight README instructions for WSL2 or Linux](../README.md#wsl2-or-linux).
-
-## Configuring a GitHub Actions self-hosted runner
-
-- Go to [the self-hosted runner create page](https://github.com/organizations/deislabs/settings/actions/runners/new) and click the "Linux" radio button.
-- Follow all steps up to but not including the `./run.sh` command
-- Go to the [configure the runner as a service](https://docs.github.com/en/actions/hosting-your-own-runners/configuring-the-self-hosted-runner-application-as-a-service) documentation page and follow steps through the `sudo ./svc.sh status` command.
-  - Make sure you're on the "Linux" tab
-
-The total list of commands should look similar to:
-
-```shell
-mkdir actions-runner && cd actions-runner
-curl -o actions-runner-linux-x64-2.298.2.tar.gz -L https://github.com/actions/runner/releases/download/v2.298.2/actions-runner-linux-x64-2.298.2.tar.gz
-# optional: validate the hash
-echo "SOME HASH  actions-runner-linux-x64-2.298.2.tar.gz" | shasum -a 256 -c
-tar xzf ./actions-runner-linux-x64-2.298.2.tar.gz
-./config.sh --url https://github.com/deislabs --token AAARJUJJFCJTBIMGC6PECA3DNQYRA
-# Reminder: do not execute ./run.sh here
-sudo ./svc.sh install
-sudo ./svc.sh start
-sudo ./svc.sh status
-```
-
-There is also a `.github/setup_runners.sh` script that automates the above steps.
+- We recommend starting off with either the [Dsv5](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/general-purpose/dsv5-series?tabs=sizebasic) (for Intel processors) or the [Dasv5](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/general-purpose/dasv5-series?tabs=sizebasic) (for AMD processors) series of VMs. These are the most cost-effective VMs that support nested virtualization.
+- 2 vCPUs and 8 GB of memory is the minimum recommended configuration for a Mariner VM with MSHV enabled.
