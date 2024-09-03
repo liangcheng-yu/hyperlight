@@ -9,12 +9,9 @@ use std::time::Duration;
 use tracing::{instrument, Span};
 
 use super::host_funcs::{default_writer_func, HostFuncsWrapper};
-use super::hypervisor::HypervisorWrapper;
-use super::mem_access::mem_access_handler_wrapper;
 use super::mem_mgr::MemMgrWrapper;
-use super::outb::outb_handler_wrapper;
 use super::run_options::SandboxRunOptions;
-use super::uninitialized_evolve::{evolve_impl_multi_use, evolve_impl_single_use};
+use super::uninitialized_evolve::{evolve_impl_multi_use, evolve_impl_single_use, ExecutionMode};
 use crate::error::HyperlightError::{CallEntryPointIsInProcOnly, GuestBinaryShouldBeAFile};
 use crate::func::host_functions::HostFunction1;
 use crate::mem::mgr::{SandboxMemoryManager, STACK_COOKIE_LEN};
@@ -38,30 +35,22 @@ pub struct UninitializedSandbox {
     pub(crate) host_funcs: Arc<Mutex<HostFuncsWrapper>>,
     /// The memory manager for the sandbox.
     pub(crate) mgr: MemMgrWrapper,
-    pub(super) hv: HypervisorWrapper,
     pub(crate) run_from_process_memory: bool,
+    pub(crate) max_initialization_time: Duration,
+    pub(crate) max_execution_time: Duration,
+    pub(crate) max_wait_for_cancellation: Duration,
     /// Whether we're running in the context of C# code.
     ///
     /// This is a hack.
     pub(crate) is_csharp: bool,
 }
 
-impl WrapperGetter for UninitializedSandbox {
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
+impl WrapperGetter<'_> for UninitializedSandbox {
     fn get_mgr_wrapper(&self) -> &MemMgrWrapper {
         &self.mgr
     }
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn get_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper {
         &mut self.mgr
-    }
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    fn get_hv(&self) -> &HypervisorWrapper {
-        &self.hv
-    }
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    fn get_hv_mut(&mut self) -> &mut HypervisorWrapper {
-        &mut self.hv
     }
 }
 
@@ -86,14 +75,8 @@ impl Debug for UninitializedSandbox {
 }
 
 impl crate::sandbox_state::sandbox::Sandbox for UninitializedSandbox {
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn check_stack_guard(&self) -> Result<bool> {
         self.mgr.check_stack_guard()
-    }
-
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper {
-        &mut self.hv
     }
 }
 
@@ -179,7 +162,7 @@ impl<'a>
         // Once we fix up the Hypervisor C API this should be removed and
         // replaced with the code commented out on line 106
         let i_sbox = if self.is_csharp {
-            Ok(SingleUseSandbox::from_uninit(self, None))
+            Ok(SingleUseSandbox::from_uninit(self, ExecutionMode::CSharp))
         } else {
             evolve_impl_single_use(self, None)
         }?;
@@ -213,7 +196,7 @@ impl<'a>
         // Once we fix up the Hypervisor C API this should be removed and
         // replaced with the code commented out on line 106
         let i_sbox = if self.is_csharp {
-            Ok(MultiUseSandbox::from_uninit(self, None))
+            Ok(MultiUseSandbox::from_uninit(self, ExecutionMode::CSharp))
         } else {
             evolve_impl_multi_use(self, None)
         }?;
@@ -239,9 +222,9 @@ impl<'a> UninitializedSandbox {
     /// The name attribute is used to name the tracing span.
     /// The err attribute is used to emit an error should the Result be an error, it uses the std::`fmt::Debug trait` to print the error.
     #[instrument(
-    err(Debug),
-    skip(guest_binary, host_print_writer),
-    parent = Span::current()
+        err(Debug),
+        skip(guest_binary, host_print_writer),
+        parent = Span::current()
     )]
     pub fn new(
         guest_binary: GuestBinary,
@@ -280,34 +263,20 @@ impl<'a> UninitializedSandbox {
 
         mem_mgr_wrapper.write_memory_layout(run_from_process_memory)?;
 
-        let hv_opt = if !run_from_process_memory {
-            let h = Self::set_up_hypervisor_partition(mem_mgr_wrapper.as_mut())?;
-            Some(h)
-        } else {
-            None
-        };
-
         let host_funcs = Arc::new(Mutex::new(HostFuncsWrapper::default()));
-
-        let hv = {
-            let outb_wrapper = outb_handler_wrapper(mem_mgr_wrapper.clone(), host_funcs.clone());
-            let mem_access_wrapper = mem_access_handler_wrapper(mem_mgr_wrapper.clone());
-            HypervisorWrapper::new(
-                hv_opt,
-                outb_wrapper,
-                mem_access_wrapper,
-                Duration::from_millis(sandbox_cfg.get_max_execution_time() as u64),
-                #[cfg(target_os = "linux")]
-                Duration::from_millis(sandbox_cfg.get_max_wait_for_cancellation() as u64),
-            )
-        };
 
         let mut sandbox = Self {
             host_funcs,
             mgr: mem_mgr_wrapper,
-            hv,
             run_from_process_memory,
             is_csharp: false,
+            max_initialization_time: Duration::from_millis(
+                sandbox_cfg.get_max_initialization_time() as u64,
+            ),
+            max_execution_time: Duration::from_millis(sandbox_cfg.get_max_execution_time() as u64),
+            max_wait_for_cancellation: Duration::from_millis(
+                sandbox_cfg.get_max_wait_for_cancellation() as u64,
+            ),
         };
 
         // If we were passed a writer for host print register it otherwise use the default.

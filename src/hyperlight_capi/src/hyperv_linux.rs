@@ -136,6 +136,7 @@ pub unsafe extern "C" fn hyperv_linux_initialise(
         page_size,
         Arc::new(Mutex::new(outb_func)),
         Arc::new(Mutex::new(mem_access_func)),
+        None,
     );
     match init_res {
         Ok(_) => Handle::new_empty(),
@@ -175,6 +176,7 @@ pub unsafe extern "C" fn hyperv_linux_run_vcpu(
         };
     match VirtualCPU::run(
         (*driver).as_mut_hypervisor(),
+        None,
         Arc::new(Mutex::new(outb_func)),
         Arc::new(Mutex::new(mem_access_func)),
     ) {
@@ -215,6 +217,7 @@ pub unsafe extern "C" fn hyperv_linux_dispatch_call_from_host(
         dispatch_func_addr.into(),
         Arc::new(Mutex::new(outb_func)),
         Arc::new(Mutex::new(mem_access_func)),
+        None,
     ) {
         Ok(_) => Handle::new_empty(),
         Err(e) => (*ctx).register_err(e),

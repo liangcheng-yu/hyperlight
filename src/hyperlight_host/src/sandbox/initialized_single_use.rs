@@ -1,14 +1,11 @@
-use std::marker::PhantomData;
-
 use hyperlight_common::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
 };
 use tracing::{instrument, Span};
 
-use super::leaked_outb::LeakedOutBWrapper;
-use super::{HypervisorWrapper, MemMgrWrapper, UninitializedSandbox, WrapperGetter};
+use super::{MemMgrWrapper, UninitializedSandbox, WrapperGetter};
 use crate::func::call_ctx::SingleUseGuestCallContext;
-use crate::hypervisor::hypervisor_handler::kill_hypervisor_handler_thread;
+use crate::sandbox::uninitialized_evolve::ExecutionMode;
 use crate::sandbox_state::sandbox::Sandbox;
 use crate::Result;
 
@@ -16,24 +13,7 @@ use crate::Result;
 /// function
 pub struct SingleUseSandbox<'a> {
     pub(super) mem_mgr: MemMgrWrapper,
-    pub(super) hv: HypervisorWrapper,
-    /// This field is a "marker type" to ensure `SingleUseSandbox` is not
-    /// `Send` and thus, instances thereof cannot be sent to a different
-    /// thread. This feature is important because the owner of a single-use
-    /// sandbox should be the only owner, and not be able to move or share
-    /// it across threads.
-    ///
-    /// See https://github.com/rust-lang/rust/issues/68318#issuecomment-1066221968
-    /// for more detail on marker types.
-    make_unsend: PhantomData<*mut ()>,
-    /// This field is a representation of a leaked outb handler. It exists
-    /// only to support in-process mode, and will be set to None in all
-    /// other cases. It is never actually used, and is only here so it
-    /// will be dropped and the leaked memory is cleaned up.
-    ///
-    /// See documentation for `LeakedOutB` for more details
-    _leaked_outb: Option<LeakedOutBWrapper<'a>>,
-    is_csharp: bool,
+    execution_mode: ExecutionMode<'a>,
 }
 
 // We need to implement drop to join the
@@ -46,17 +26,21 @@ pub struct SingleUseSandbox<'a> {
 // `create_1000_sandboxes`.
 impl Drop for SingleUseSandbox<'_> {
     fn drop(&mut self) {
-        if !self.is_csharp {
-            match kill_hypervisor_handler_thread(self) {
-                Ok(_) => {}
-                Err(e) => {
-                    log::error!("[POTENTIAL THREAD LEAK] Potentially failed to kill hypervisor handler thread when dropping SingleUseSandbox: {:?}", e);
+        let execution_mode = self.get_execution_mode_mut();
+        match execution_mode {
+            ExecutionMode::InHypervisor(hv_handler) => {
+                match hv_handler.kill_hypervisor_handler_thread() {
+                    Ok(_) => {}
+                    Err(e) => {
+                        log::error!("[POTENTIAL THREAD LEAK] Potentially failed to kill hypervisor handler thread when dropping MultiUseSandbox: {:?}", e);
+                    }
                 }
             }
+            _ => {
+                // If we are running from C# or in process, drop is a no-op
+                // because there's no hypervisor thread to kill.
+            }
         }
-
-        // If we are running from C#, drop is a no-op
-        // because there's no hypervisor thread to kill.
     }
 }
 
@@ -65,7 +49,7 @@ impl<'a> SingleUseSandbox<'a> {
     ///
     /// This function is not equivalent to doing an `evolve` from uninitialized
     /// to initialized. It only copies values from `val` to the new returned
-    /// `SingleUseSandbox` instance, and does not execute any intialization
+    /// `SingleUseSandbox` instance, and does not execute any initialization
     /// logic on the guest. We want to ensure that, when users request to
     /// convert an `UninitializedSandbox` to a `SingleUseSandbox`,
     /// initialization logic is always run, so we are purposely making this
@@ -75,14 +59,11 @@ impl<'a> SingleUseSandbox<'a> {
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     pub(super) fn from_uninit(
         val: UninitializedSandbox,
-        leaked_outb: Option<LeakedOutBWrapper<'a>>,
-    ) -> SingleUseSandbox<'a> {
+        execution_mode: ExecutionMode<'a>,
+    ) -> SingleUseSandbox {
         Self {
             mem_mgr: val.mgr,
-            hv: val.hv,
-            make_unsend: PhantomData,
-            _leaked_outb: leaked_outb,
-            is_csharp: val.is_csharp,
+            execution_mode,
         }
     }
 
@@ -186,22 +167,18 @@ impl<'a> SingleUseSandbox<'a> {
     }
 }
 
-impl<'a> WrapperGetter for SingleUseSandbox<'a> {
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
+impl<'a> WrapperGetter<'a> for SingleUseSandbox<'a> {
     fn get_mgr_wrapper(&self) -> &MemMgrWrapper {
         &self.mem_mgr
     }
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn get_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper {
         &mut self.mem_mgr
     }
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    fn get_hv(&self) -> &HypervisorWrapper {
-        &self.hv
+    fn get_execution_mode(&self) -> &ExecutionMode<'a> {
+        &self.execution_mode
     }
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    fn get_hv_mut(&mut self) -> &mut HypervisorWrapper {
-        &mut self.hv
+    fn get_execution_mode_mut(&mut self) -> &mut ExecutionMode<'a> {
+        &mut self.execution_mode
     }
 }
 
@@ -209,11 +186,6 @@ impl<'a> Sandbox for SingleUseSandbox<'a> {
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn check_stack_guard(&self) -> Result<bool> {
         self.mem_mgr.check_stack_guard()
-    }
-
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper {
-        &mut self.hv
     }
 }
 

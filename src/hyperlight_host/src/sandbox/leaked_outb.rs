@@ -56,7 +56,7 @@ extern "C" fn call_outb(ptr: *mut Arc<Mutex<dyn OutBHandlerCaller>>, port: u16, 
 /// dropped before it's used.
 ///
 /// This struct also ensures that, when _it_ gets dropped -- which is later
-/// than the contained `FnMut` would have been -- it properly cleans up the
+/// than the contained `FnMut` would have been -- it properly cleans up
 /// the previously-leaked memory.
 ///
 /// # Note for in-hypervisor mode or Linux
@@ -69,7 +69,8 @@ extern "C" fn call_outb(ptr: *mut Arc<Mutex<dyn OutBHandlerCaller>>, port: u16, 
 ///
 /// In the future, this struct _should_ be behind a compile flag, as described
 /// in https://github.com/deislabs/hyperlight/issues/533.
-pub(super) struct LeakedOutBWrapper<'a> {
+#[derive(Clone)]
+pub(crate) struct LeakedOutBWrapper<'a> {
     #[cfg(target_os = "windows")]
     hdl_ptr: Arc<Mutex<CustomPtrDrop<'a, OutBHandlerWrapper>>>,
     /// This `PhantomData` will never be used, since it's impossible to

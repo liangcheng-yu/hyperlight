@@ -59,6 +59,14 @@ pub struct SandboxConfiguration {
     /// field should be represented as an `Option`, that type is not
     /// FFI-safe, so it cannot be.
     max_wait_for_cancellation: u8,
+    // The max_initialization_time represents the maximum time the host should wait for a guest to initialize
+    // If set to 0, the max_initialization_time will be set to the default value of 2000ms.
+    // The minimum value is 1ms.
+    //
+    // Note: this is a C-compatible struct, so even though this optional
+    // field should be represented as an `Option`, that type is not
+    // FFI-safe, so it cannot be.
+    max_initialization_time: u16,
     /// The size of the memory buffer that is made available for serializing
     /// guest panic context
     guest_panic_context_buffer_size: usize,
@@ -89,6 +97,8 @@ impl SandboxConfiguration {
     pub const MIN_GUEST_ERROR_BUFFER_SIZE: usize = 0x80;
     /// The default value for max initialization time (in milliseconds)
     pub const DEFAULT_MAX_INITIALIZATION_TIME: u16 = 2000;
+    /// The minimum value for max initialization time (in milliseconds)
+    pub const MIN_MAX_INITIALIZATION_TIME: u16 = 1;
     /// The default and minimum values for max execution time (in milliseconds)
     pub const DEFAULT_MAX_EXECUTION_TIME: u16 = 1000;
     /// The minimum value for max execution time (in milliseconds)
@@ -119,6 +129,7 @@ impl SandboxConfiguration {
         heap_size_override: Option<u64>,
         kernel_stack_size: usize,
         max_execution_time: Option<Duration>,
+        max_initialization_time: Option<Duration>,
         max_wait_for_cancellation: Option<Duration>,
         guest_panic_context_buffer_size: usize,
     ) -> Self {
@@ -163,6 +174,19 @@ impl SandboxConfiguration {
                         }
                     }
                     None => Self::DEFAULT_MAX_WAIT_FOR_CANCELLATION,
+                }
+            },
+            max_initialization_time: {
+                match max_initialization_time {
+                    Some(max_initialization_time) => match max_initialization_time.as_millis() {
+                        0 => Self::DEFAULT_MAX_INITIALIZATION_TIME,
+                        1..=65_535u128 => max(
+                            max_initialization_time.as_millis(),
+                            Self::MIN_MAX_EXECUTION_TIME.into(),
+                        ) as u16,
+                        _ => Self::DEFAULT_MAX_INITIALIZATION_TIME,
+                    },
+                    None => Self::DEFAULT_MAX_INITIALIZATION_TIME,
                 }
             },
             guest_panic_context_buffer_size: max(
@@ -249,7 +273,7 @@ impl SandboxConfiguration {
 
     /// Set the maximum time to wait for guest execution calculation. If set to 0, the maximum cancellation time
     /// will be set to the default value of DEFAULT_MAX_WAIT_FOR_CANCELLATION if the guest execution cancellation does not complete within the time specified
-    /// then an eror will be returned, the minimum value is MIN_MAX_WAIT_FOR_CANCELLATION
+    /// then an error will be returned, the minimum value is MIN_MAX_WAIT_FOR_CANCELLATION
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub fn set_max_execution_cancel_wait_time(&mut self, max_wait_for_cancellation: Duration) {
         match max_wait_for_cancellation.as_millis() {
@@ -261,6 +285,22 @@ impl SandboxConfiguration {
                 ) as u8
             }
             _ => self.max_wait_for_cancellation = Self::DEFAULT_MAX_WAIT_FOR_CANCELLATION,
+        }
+    }
+
+    /// Set the maximum time to wait for guest initialization. If set to 0, the maximum initialization time
+    /// will be set to the default value of DEFAULT_MAX_INITIALIZATION_TIME if the guest initialization does not complete within the time specified
+    /// then an error will be returned, the minimum value is MIN_MAX_INITIALIZATION_TIME
+    pub fn set_max_initialization_time(&mut self, max_initialization_time: Duration) {
+        match max_initialization_time.as_millis() {
+            0 => self.max_initialization_time = Self::DEFAULT_MAX_INITIALIZATION_TIME,
+            1..=65_535u128 => {
+                self.max_initialization_time = max(
+                    max_initialization_time.as_millis(),
+                    Self::MIN_MAX_EXECUTION_TIME.into(),
+                ) as u16
+            }
+            _ => self.max_initialization_time = Self::DEFAULT_MAX_INITIALIZATION_TIME,
         }
     }
 
@@ -313,6 +353,10 @@ impl SandboxConfiguration {
         self.max_wait_for_cancellation
     }
 
+    pub(crate) fn get_max_initialization_time(&self) -> u16 {
+        self.max_initialization_time
+    }
+
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn stack_size_override_opt(&self) -> Option<u64> {
         option_when(self.stack_size_override, self.stack_size_override > 0)
@@ -359,6 +403,7 @@ impl Default for SandboxConfiguration {
             Self::DEFAULT_KERNEL_STACK_SIZE,
             None,
             None,
+            None,
             Self::DEFAULT_GUEST_PANIC_CONTEXT_BUFFER_SIZE,
         )
     }
@@ -382,6 +427,7 @@ mod tests {
         const GUEST_ERROR_BUFFER_SIZE_OVERRIDE: usize = 0x40004;
         const MAX_EXECUTION_TIME_OVERRIDE: u16 = 1010;
         const MAX_WAIT_FOR_CANCELLATION_OVERRIDE: u8 = 200;
+        const MAX_INITIALIZATION_TIME_OVERRIDE: u16 = 2000;
         const GUEST_PANIC_CONTEXT_BUFFER_SIZE_OVERRIDE: usize = 0x4005;
         const KERNEL_STACK_SIZE_OVERRIDE: usize = 0x4000;
         let mut cfg = SandboxConfiguration::new(
@@ -394,6 +440,9 @@ mod tests {
             Some(HEAP_SIZE_OVERRIDE),
             KERNEL_STACK_SIZE_OVERRIDE,
             Some(Duration::from_millis(MAX_EXECUTION_TIME_OVERRIDE as u64)),
+            Some(Duration::from_millis(
+                MAX_INITIALIZATION_TIME_OVERRIDE as u64,
+            )),
             Some(Duration::from_millis(
                 MAX_WAIT_FOR_CANCELLATION_OVERRIDE as u64,
             )),
@@ -431,6 +480,10 @@ mod tests {
             cfg.max_wait_for_cancellation
         );
         assert_eq!(
+            MAX_WAIT_FOR_CANCELLATION_OVERRIDE,
+            cfg.max_wait_for_cancellation
+        );
+        assert_eq!(
             GUEST_PANIC_CONTEXT_BUFFER_SIZE_OVERRIDE,
             cfg.guest_panic_context_buffer_size
         );
@@ -449,6 +502,9 @@ mod tests {
             SandboxConfiguration::MIN_KERNEL_STACK_SIZE - 1,
             Some(Duration::from_millis(
                 SandboxConfiguration::MIN_MAX_EXECUTION_TIME as u64,
+            )),
+            Some(Duration::from_millis(
+                SandboxConfiguration::MIN_MAX_INITIALIZATION_TIME as u64,
             )),
             Some(Duration::from_millis(
                 SandboxConfiguration::MIN_MAX_WAIT_FOR_CANCELLATION as u64 - 1,
@@ -487,6 +543,10 @@ mod tests {
             SandboxConfiguration::MIN_GUEST_PANIC_CONTEXT_BUFFER_SIZE,
             cfg.guest_panic_context_buffer_size
         );
+        assert_eq!(
+            SandboxConfiguration::MIN_MAX_EXECUTION_TIME,
+            cfg.max_initialization_time
+        );
 
         cfg.set_input_data_size(SandboxConfiguration::MIN_INPUT_SIZE - 1);
         cfg.set_output_data_size(SandboxConfiguration::MIN_OUTPUT_SIZE - 1);
@@ -497,6 +557,9 @@ mod tests {
         cfg.set_guest_error_buffer_size(SandboxConfiguration::MIN_GUEST_ERROR_BUFFER_SIZE - 1);
         cfg.set_max_execution_time(Duration::from_millis(
             SandboxConfiguration::MIN_MAX_EXECUTION_TIME as u64,
+        ));
+        cfg.set_max_initialization_time(Duration::from_millis(
+            SandboxConfiguration::MIN_MAX_INITIALIZATION_TIME as u64 - 1,
         ));
         cfg.set_max_execution_cancel_wait_time(Duration::from_millis(
             SandboxConfiguration::MIN_MAX_WAIT_FOR_CANCELLATION as u64 - 1,
@@ -593,6 +656,13 @@ mod tests {
                 let mut cfg = SandboxConfiguration::default();
                 cfg.set_max_execution_cancel_wait_time(std::time::Duration::from_millis(time.into()));
                 prop_assert_eq!(time, cfg.get_max_wait_for_cancellation());
+            }
+
+            #[test]
+            fn max_initialization_time(time in SandboxConfiguration::MIN_MAX_INITIALIZATION_TIME..=SandboxConfiguration::MIN_MAX_INITIALIZATION_TIME * 10) {
+                let mut cfg = SandboxConfiguration::default();
+                cfg.set_max_initialization_time(std::time::Duration::from_millis(time.into()));
+                prop_assert_eq!(time, cfg.get_max_initialization_time());
             }
 
             #[test]

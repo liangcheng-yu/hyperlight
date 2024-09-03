@@ -17,11 +17,11 @@ pub mod initialized_single_use;
 mod leaked_outb;
 /// Functionality for dealing with memory access from the VM guest
 /// executable
-mod mem_access;
+pub(crate) mod mem_access;
 /// Functionality for interacting with a sandbox's internally-stored
 /// `SandboxMemoryManager`
 pub(crate) mod mem_mgr;
-mod outb;
+pub(crate) mod outb;
 /// Options for configuring a sandbox
 mod run_options;
 /// Functionality for creating uninitialized sandboxes, manipulating them,
@@ -29,7 +29,7 @@ mod run_options;
 pub mod uninitialized;
 /// Functionality for properly converting `UninitailizedSandbox`es to
 /// initialized `Sandbox`es.
-mod uninitialized_evolve;
+pub(crate) mod uninitialized_evolve;
 
 /// Metric definitions for Sandbox module.
 pub(crate) mod metrics;
@@ -51,10 +51,10 @@ pub use uninitialized::GuestBinary;
 pub use uninitialized::UninitializedSandbox;
 
 use self::mem_mgr::MemMgrWrapper;
-use super::sandbox::hypervisor::HypervisorWrapper;
 use crate::func::HyperlightFunction;
 #[cfg(target_os = "windows")]
 use crate::hypervisor::windows_hypervisor_platform;
+use crate::sandbox::uninitialized_evolve::ExecutionMode;
 
 // In case its not obvious why there are separate is_supported_platform and is_hypervisor_present functions its because
 // Hyperlight is designed to be able to run on a host that doesn't have a hypervisor.
@@ -115,11 +115,15 @@ pub fn is_hypervisor_present() -> bool {
     hypervisor::get_available_hypervisor().is_some()
 }
 
-pub(crate) trait WrapperGetter {
+pub(crate) trait WrapperGetter<'a> {
     fn get_mgr_wrapper(&self) -> &MemMgrWrapper;
     fn get_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper;
-    fn get_hv(&self) -> &HypervisorWrapper;
-    fn get_hv_mut(&mut self) -> &mut HypervisorWrapper;
+    fn get_execution_mode(&self) -> &ExecutionMode<'a> {
+        panic!("Uninitialized sandboxes are not ready for execution");
+    }
+    fn get_execution_mode_mut(&mut self) -> &mut ExecutionMode<'a> {
+        panic!("Uninitialized sandboxes are not ready for execution");
+    }
 }
 
 #[cfg(test)]

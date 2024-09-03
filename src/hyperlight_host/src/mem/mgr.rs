@@ -133,14 +133,14 @@ impl SandboxMemoryManager {
     /// `shared_mem`, with the given memory size `mem_size`
     //TODO:(#1029) Once we have a full C API visibility can be pub(crate)
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub fn set_up_hypervisor_partition(
+    pub fn set_up_shared_memory(
         &mut self,
         mem_size: u64,
         regions: &mut [MemoryRegion],
     ) -> Result<u64> {
         // Add 0x200000 because that's the start of mapped memory
         // For MSVC, move rsp down by 0x28.  This gives the called 'main'
-        // function the appearance that rsp was was 16 byte aligned before
+        // function the appearance that rsp was 16 byte aligned before
         // the 'call' that calls main (note we don't really have a return value
         // on the stack but some assembly instructions are expecting rsp have
         // started 0x8 bytes off of 16 byte alignment when 'main' is invoked.

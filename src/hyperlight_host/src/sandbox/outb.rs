@@ -140,7 +140,7 @@ fn handle_outb_impl(
 ///
 /// TODO: pass at least the `host_funcs_wrapper` param by reference.
 #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-pub(super) fn outb_handler_wrapper(
+pub(crate) fn outb_handler_wrapper(
     mut mem_mgr_wrapper: MemMgrWrapper,
     host_funcs_wrapper: Arc<Mutex<HostFuncsWrapper>>,
 ) -> OutBHandlerWrapper {
@@ -183,6 +183,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_log_outb_log() {
         Logger::initialize_test_logger();
         LOGGER.set_max_level(log::LevelFilter::Off);

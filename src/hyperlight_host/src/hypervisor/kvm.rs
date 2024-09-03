@@ -1,11 +1,7 @@
-use std::any::Any;
 use std::convert::TryFrom;
 use std::fmt::Debug;
-use std::sync::Arc;
 
 use cfg_if::cfg_if;
-use crossbeam::atomic::AtomicCell;
-use crossbeam_channel::{Receiver, Sender};
 use kvm_bindings::{kvm_fpu, kvm_regs, kvm_userspace_memory_region, KVM_MEM_READONLY};
 use kvm_ioctls::Cap::UserMemory;
 use kvm_ioctls::{Kvm, VcpuExit, VcpuFd, VmFd};
@@ -17,9 +13,7 @@ use super::{
     HyperlightExit, Hypervisor, VirtualCPU, CR0_AM, CR0_ET, CR0_MP, CR0_NE, CR0_PE, CR0_PG, CR0_WP,
     CR4_OSFXSR, CR4_OSXMMEXCPT, CR4_PAE, EFER_LMA, EFER_LME, EFER_NX, EFER_SCE,
 };
-use crate::hypervisor::hypervisor_handler::{
-    HandlerMsg, HasCommunicationChannels, HypervisorHandlerAction,
-};
+use crate::hypervisor::hypervisor_handler::HypervisorHandler;
 use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
 use crate::mem::ptr::{GuestPtr, RawPtr};
 use crate::{debug, log_then_return, new_error, Result};
@@ -56,18 +50,6 @@ pub struct KVMDriver {
     entrypoint: u64,
     orig_rsp: GuestPtr,
     mem_regions: Vec<MemoryRegion>,
-    hypervisor_handler_action_transmitter:
-        Option<crossbeam_channel::Sender<HypervisorHandlerAction>>,
-    hypervisor_handler_action_receiver:
-        Option<crossbeam_channel::Receiver<HypervisorHandlerAction>>,
-    handler_message_receiver: Option<crossbeam_channel::Receiver<HandlerMsg>>,
-    handler_message_transmitter: Option<crossbeam_channel::Sender<HandlerMsg>>,
-    thread_id: Option<u64>,
-    cancel_run_requested: Arc<AtomicCell<bool>>,
-    run_cancelled: Arc<AtomicCell<bool>>,
-    join_handle: Option<std::thread::JoinHandle<Result<()>>>,
-    // ^^^ a Hypervisor's operations are executed on a Hypervisor Handler thread (i.e.,
-    // separate from the main host thread). This is a handle to the Hypervisor Handler thread.
 }
 
 impl KVMDriver {
@@ -117,14 +99,6 @@ impl KVMDriver {
             entrypoint,
             orig_rsp: rsp_gp,
             mem_regions,
-            hypervisor_handler_action_transmitter: None,
-            hypervisor_handler_action_receiver: None,
-            handler_message_receiver: None,
-            handler_message_transmitter: None,
-            thread_id: None,
-            cancel_run_requested: Arc::new(AtomicCell::new(false)),
-            run_cancelled: Arc::new(AtomicCell::new(false)),
-            join_handle: None,
         })
     }
 
@@ -184,6 +158,7 @@ impl Hypervisor for KVMDriver {
         page_size: u32,
         outb_hdl: OutBHandlerWrapper,
         mem_access_hdl: MemAccessHandlerWrapper,
+        hv_handler: Option<HypervisorHandler>,
     ) -> Result<()> {
         let regs = kvm_regs {
             rip: self.entrypoint,
@@ -199,7 +174,12 @@ impl Hypervisor for KVMDriver {
         };
         self.vcpu_fd.set_regs(&regs)?;
 
-        VirtualCPU::run(self.as_mut_hypervisor(), outb_hdl, mem_access_hdl)?;
+        VirtualCPU::run(
+            self.as_mut_hypervisor(),
+            hv_handler,
+            outb_hdl,
+            mem_access_hdl,
+        )?;
 
         // reset RSP to what it was before initialise
         self.vcpu_fd.set_regs(&kvm_regs {
@@ -215,6 +195,7 @@ impl Hypervisor for KVMDriver {
         dispatch_func_addr: RawPtr,
         outb_handle_fn: OutBHandlerWrapper,
         mem_access_fn: MemAccessHandlerWrapper,
+        hv_handler: Option<HypervisorHandler>,
     ) -> Result<()> {
         // Reset general purpose registers except RSP, then set RIP
         let rsp_before = self.vcpu_fd.get_regs()?.rsp;
@@ -235,7 +216,12 @@ impl Hypervisor for KVMDriver {
         self.vcpu_fd.set_fpu(&fpu)?;
 
         // run
-        VirtualCPU::run(self.as_mut_hypervisor(), outb_handle_fn, mem_access_fn)?;
+        VirtualCPU::run(
+            self.as_mut_hypervisor(),
+            hv_handler,
+            outb_handle_fn,
+            mem_access_fn,
+        )?;
 
         // reset RSP to what it was before function call
         self.vcpu_fd.set_regs(&kvm_regs {
@@ -345,82 +331,8 @@ impl Hypervisor for KVMDriver {
     }
 
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn as_mut_hypervisor(&mut self) -> &mut dyn Hypervisor {
         self as &mut dyn Hypervisor
-    }
-
-    fn set_handler_join_handle(&mut self, handle: std::thread::JoinHandle<Result<()>>) {
-        self.join_handle = Some(handle);
-    }
-
-    fn get_mut_handler_join_handle(&mut self) -> &mut Option<std::thread::JoinHandle<Result<()>>> {
-        &mut self.join_handle
-    }
-
-    fn set_thread_id(&mut self, thread_id: u64) {
-        log::debug!("Setting thread id to {}", thread_id);
-        self.thread_id = Some(thread_id);
-    }
-
-    fn get_thread_id(&self) -> u64 {
-        self.thread_id
-            .expect("Hypervisor hasn't been initialized yet, missing thread ID")
-    }
-
-    fn set_termination_status(&mut self, value: bool) {
-        log::debug!("Setting termination status to {}", value);
-        self.cancel_run_requested.store(value);
-    }
-
-    fn get_termination_status(&self) -> Arc<AtomicCell<bool>> {
-        self.cancel_run_requested.clone()
-    }
-
-    fn get_run_cancelled(&self) -> Arc<AtomicCell<bool>> {
-        self.run_cancelled.clone()
-    }
-
-    fn set_run_cancelled(&self, value: bool) {
-        log::debug!("Setting run cancelled to {}", value);
-        self.run_cancelled.store(value);
-    }
-}
-
-impl HasCommunicationChannels for KVMDriver {
-    fn get_to_handler_tx(&self) -> Sender<HypervisorHandlerAction> {
-        self.hypervisor_handler_action_transmitter.clone().unwrap()
-    }
-    fn set_to_handler_tx(&mut self, tx: Sender<HypervisorHandlerAction>) {
-        self.hypervisor_handler_action_transmitter = Some(tx);
-    }
-    fn drop_to_handler_tx(&mut self) {
-        self.hypervisor_handler_action_transmitter = None;
-    }
-
-    fn get_from_handler_rx(&self) -> Receiver<HandlerMsg> {
-        self.handler_message_receiver.clone().unwrap()
-    }
-    fn set_from_handler_rx(&mut self, rx: Receiver<HandlerMsg>) {
-        self.handler_message_receiver = Some(rx);
-    }
-
-    fn get_from_handler_tx(&self) -> Sender<HandlerMsg> {
-        self.handler_message_transmitter.clone().unwrap()
-    }
-    fn set_from_handler_tx(&mut self, tx: Sender<HandlerMsg>) {
-        self.handler_message_transmitter = Some(tx);
-    }
-
-    fn set_to_handler_rx(&mut self, rx: Receiver<HypervisorHandlerAction>) {
-        self.hypervisor_handler_action_receiver = Some(rx);
-    }
-    fn get_to_handler_rx(&self) -> Receiver<HypervisorHandlerAction> {
-        self.hypervisor_handler_action_receiver.clone().unwrap()
     }
 }
 

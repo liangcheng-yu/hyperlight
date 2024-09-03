@@ -1,13 +1,9 @@
 use core::ffi::c_void;
-use std::any::Any;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::string::String;
-use std::sync::Arc;
 
 use cfg_if::cfg_if;
-use crossbeam::atomic::AtomicCell;
-use crossbeam_channel::{Receiver, Sender};
 use hyperlight_common::mem::PAGE_SIZE_USIZE;
 use tracing::{instrument, Span};
 use windows::Win32::System::Hypervisor::{
@@ -28,9 +24,7 @@ use super::{
     EFER_LME, EFER_NX, EFER_SCE,
 };
 use crate::hypervisor::fpu::FP_CONTROL_WORD_DEFAULT;
-use crate::hypervisor::hypervisor_handler::{
-    HandlerMsg, HasCommunicationChannels, HypervisorHandlerAction,
-};
+use crate::hypervisor::hypervisor_handler::HypervisorHandler;
 use crate::hypervisor::wrappers::WHvGeneralRegisters;
 use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
 use crate::mem::ptr::{GuestPtr, RawPtr};
@@ -47,16 +41,6 @@ pub(crate) struct HypervWindowsDriver {
     entrypoint: u64,
     orig_rsp: GuestPtr,
     mem_regions: Vec<MemoryRegion>,
-    hypervisor_handler_action_transmitter:
-        Option<crossbeam_channel::Sender<HypervisorHandlerAction>>,
-    hypervisor_handler_action_receiver:
-        Option<crossbeam_channel::Receiver<HypervisorHandlerAction>>,
-    handler_message_receiver: Option<crossbeam_channel::Receiver<HandlerMsg>>,
-    handler_message_transmitter: Option<crossbeam_channel::Sender<HandlerMsg>>,
-    cancel_run_requested: Arc<AtomicCell<bool>>,
-    join_handle: Option<std::thread::JoinHandle<Result<()>>>,
-    // ^^^ a Hypervisor's operations are executed on a Hypervisor Handler thread (i.e.,
-    // separate from the main host thread). This is a handle to the Hypervisor Handler thread.
 }
 
 impl HypervWindowsDriver {
@@ -99,12 +83,6 @@ impl HypervWindowsDriver {
             entrypoint,
             orig_rsp: GuestPtr::try_from(RawPtr::from(rsp))?,
             mem_regions,
-            hypervisor_handler_action_transmitter: None,
-            hypervisor_handler_action_receiver: None,
-            handler_message_receiver: None,
-            handler_message_transmitter: None,
-            cancel_run_requested: Arc::new(AtomicCell::new(false)),
-            join_handle: None,
         })
     }
 
@@ -310,6 +288,7 @@ impl Hypervisor for HypervWindowsDriver {
         page_size: u32,
         outb_hdl: OutBHandlerWrapper,
         mem_access_hdl: MemAccessHandlerWrapper,
+        hv_handler: Option<HypervisorHandler>,
     ) -> Result<()> {
         let regs = WHvGeneralRegisters {
             rip: self.entrypoint,
@@ -326,7 +305,12 @@ impl Hypervisor for HypervWindowsDriver {
         };
         self.processor.set_general_purpose_registers(&regs)?;
 
-        VirtualCPU::run(self.as_mut_hypervisor(), outb_hdl, mem_access_hdl)?;
+        VirtualCPU::run(
+            self.as_mut_hypervisor(),
+            hv_handler,
+            outb_hdl,
+            mem_access_hdl,
+        )?;
 
         // reset RSP to what it was before initialise
         self.processor
@@ -343,6 +327,7 @@ impl Hypervisor for HypervWindowsDriver {
         dispatch_func_addr: RawPtr,
         outb_hdl: OutBHandlerWrapper,
         mem_access_hdl: MemAccessHandlerWrapper,
+        hv_handler: Option<HypervisorHandler>,
     ) -> Result<()> {
         // Reset general purpose registers except RSP, then set RIP
         let rsp_before = self.processor.get_regs()?.rsp;
@@ -362,7 +347,12 @@ impl Hypervisor for HypervWindowsDriver {
             ..Default::default() // zero out the rest
         })?;
 
-        VirtualCPU::run(self.as_mut_hypervisor(), outb_hdl, mem_access_hdl)?;
+        VirtualCPU::run(
+            self.as_mut_hypervisor(),
+            hv_handler,
+            outb_hdl,
+            mem_access_hdl,
+        )?;
 
         // reset RSP to what it was before function call
         self.processor
@@ -558,63 +548,8 @@ impl Hypervisor for HypervWindowsDriver {
     }
 
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn as_mut_hypervisor(&mut self) -> &mut dyn Hypervisor {
         self as &mut dyn Hypervisor
-    }
-
-    fn set_handler_join_handle(&mut self, handle: std::thread::JoinHandle<Result<()>>) {
-        self.join_handle = Some(handle);
-    }
-
-    fn get_mut_handler_join_handle(&mut self) -> &mut Option<std::thread::JoinHandle<Result<()>>> {
-        &mut self.join_handle
-    }
-
-    fn set_termination_status(&mut self, value: bool) {
-        log::debug!("Setting termination status to {}", value);
-        self.cancel_run_requested.store(value);
-    }
-
-    fn get_termination_status(&self) -> Arc<AtomicCell<bool>> {
-        self.cancel_run_requested.clone()
-    }
-}
-
-impl HasCommunicationChannels for HypervWindowsDriver {
-    fn get_to_handler_tx(&self) -> Sender<HypervisorHandlerAction> {
-        self.hypervisor_handler_action_transmitter.clone().unwrap()
-    }
-    fn set_to_handler_tx(&mut self, tx: Sender<HypervisorHandlerAction>) {
-        self.hypervisor_handler_action_transmitter = Some(tx);
-    }
-    fn drop_to_handler_tx(&mut self) {
-        self.hypervisor_handler_action_transmitter = None;
-    }
-
-    fn get_from_handler_rx(&self) -> Receiver<HandlerMsg> {
-        self.handler_message_receiver.clone().unwrap()
-    }
-    fn set_from_handler_rx(&mut self, rx: Receiver<HandlerMsg>) {
-        self.handler_message_receiver = Some(rx);
-    }
-
-    fn get_from_handler_tx(&self) -> Sender<HandlerMsg> {
-        self.handler_message_transmitter.clone().unwrap()
-    }
-    fn set_from_handler_tx(&mut self, tx: Sender<HandlerMsg>) {
-        self.handler_message_transmitter = Some(tx);
-    }
-
-    fn get_to_handler_rx(&self) -> Receiver<HypervisorHandlerAction> {
-        self.hypervisor_handler_action_receiver.clone().unwrap()
-    }
-    fn set_to_handler_rx(&mut self, rx: Receiver<HypervisorHandlerAction>) {
-        self.hypervisor_handler_action_receiver = Some(rx);
     }
 }
 

@@ -8,16 +8,13 @@ use tracing::{instrument, Span};
 use super::guest_err::check_for_guest_error;
 #[cfg(feature = "function_call_metrics")]
 use crate::histogram_vec_time_micros;
-use crate::hypervisor::hypervisor_handler::{
-    execute_hypervisor_handler_action, terminate_hypervisor_handler_execution_and_reinitialise,
-    DispatchArgs, HypervisorHandlerAction,
-};
-use crate::mem::ptr::RawPtr;
+use crate::hypervisor::hypervisor_handler::HypervisorHandlerAction;
 #[cfg(feature = "function_call_metrics")]
 use crate::sandbox::metrics::SandboxMetric::GuestFunctionCallDurationMicroseconds;
+use crate::sandbox::uninitialized_evolve::ExecutionMode;
 use crate::sandbox::WrapperGetter;
 use crate::HyperlightError::GuestExecutionHungOnHostFunctionCall;
-use crate::{HyperlightError, Result};
+use crate::{log_then_return, HyperlightError, Result};
 
 /// Call a guest function by name, using the given `wrapper_getter`.
 #[instrument(
@@ -26,23 +23,13 @@ use crate::{HyperlightError, Result};
     parent = Span::current(),
     level = "Trace"
 )]
-pub(crate) fn call_function_on_guest<HvMemMgrT: WrapperGetter>(
-    wrapper_getter: &mut HvMemMgrT,
+pub(crate) fn call_function_on_guest<'a, WrapperGetterT: WrapperGetter<'a>>(
+    wrapper_getter: &mut WrapperGetterT,
     function_name: &str,
     return_type: ReturnType,
     args: Option<Vec<ParameterValue>>,
 ) -> Result<ReturnValue> {
     let mut timedout = false;
-    let (is_in_process, p_dispatch) = {
-        // only borrow immutably from hv_mem_mgr_getter inside this
-        // scope so we can later borrow mutably from it to get the
-        // hypervisor
-        let mem_mgr = wrapper_getter.get_mgr_wrapper().as_ref();
-        (
-            mem_mgr.is_in_process(),
-            mem_mgr.get_pointer_to_dispatch_function()?,
-        )
-    };
 
     let fc = FunctionCall::new(
         function_name.to_string(),
@@ -56,107 +43,65 @@ pub(crate) fn call_function_on_guest<HvMemMgrT: WrapperGetter>(
         .map_err(|_| HyperlightError::Error("Failed to serialize FunctionCall".to_string()))?;
 
     {
-        // once again, only borrow mutably from hv_mem_mgr_getter
-        // from inside this scope so we can borrow mutably later
         let mem_mgr = wrapper_getter.get_mgr_wrapper_mut();
         mem_mgr.as_mut().write_guest_function_call(&buffer)?;
     }
 
-    if is_in_process {
-        let dispatch: fn() = unsafe { std::mem::transmute(p_dispatch) };
-        // Q: Why does this function not take `args` and doesn't return `return_type`?
-        //
-        // A: That's because we've already written the function call details to memory
-        // with `mem_mgr.write_guest_function_call(&buffer)?;`
-        // and the `dispatch` function can directly access that via shared memory.
-        cfg_if! {
-            if #[cfg(feature = "function_call_metrics")] {
-                histogram_vec_time_micros!(
-                    &GuestFunctionCallDurationMicroseconds,
-                    &[function_name],
-                    dispatch()
-                );
-            }
-            else {
-                dispatch();
-            }
-        }
-    } else {
-        // this is the mutable borrow for which we had to do scope gymnastics
-        // above
-        {
-            let (outb_hdl, mem_access_hdl, max_execution_time) = {
-                let hv_wrapper = wrapper_getter.get_hv_mut();
-                (
-                    hv_wrapper.outb_hdl.clone(),
-                    hv_wrapper.mem_access_hdl.clone(),
-                    hv_wrapper.max_execution_time,
+    match wrapper_getter.get_execution_mode().clone() {
+        ExecutionMode::InProc(_) => {
+            let dispatch: fn() = unsafe {
+                std::mem::transmute(
+                    wrapper_getter
+                        .get_mgr_wrapper()
+                        .as_ref()
+                        .get_pointer_to_dispatch_function()?,
                 )
             };
-
-            #[cfg(target_os = "linux")]
-            let max_wait_for_cancellation = {
-                let hv_wrapper = wrapper_getter.get_hv_mut();
-                hv_wrapper.max_wait_for_cancellation
-            };
-
-            let termination_status = wrapper_getter
-                .get_hv_mut()
-                .try_get_hypervisor_lock()?
-                .get_termination_status();
-
-            #[cfg(target_os = "linux")]
-            let (run_cancelled, thread_id) = {
-                let hv_lock = wrapper_getter.get_hv_mut().try_get_hypervisor_lock()?;
-                (hv_lock.get_run_cancelled(), hv_lock.get_thread_id())
-            };
-
-            #[cfg(target_os = "windows")]
-            let partition_handle = {
-                let hv_lock = wrapper_getter.get_hv_mut().try_get_hypervisor_lock()?;
-                hv_lock.get_partition_handle()
-            };
-
-            match execute_hypervisor_handler_action(
-                wrapper_getter.get_hv(),
-                HypervisorHandlerAction::DispatchCallFromHost(DispatchArgs::new(
-                    function_name.to_string(),
-                    RawPtr::from(p_dispatch),
-                    outb_hdl.clone(),
-                    mem_access_hdl.clone(),
-                )),
-                Some(max_execution_time),
-            ) {
-                Ok(()) => {}
-                Err(e) => match e {
-                    HyperlightError::HypervisorHandlerMessageReceiveTimedout() => {
-                        timedout = true;
-                        match terminate_hypervisor_handler_execution_and_reinitialise(
-                            wrapper_getter,
-                            max_execution_time,
-                            termination_status,
-                            outb_hdl,
-                            mem_access_hdl,
-                            #[cfg(target_os = "windows")]
-                                partition_handle,
-                            #[cfg(target_os = "linux")]
-                                thread_id,
-                            #[cfg(target_os = "linux")]
-                                run_cancelled,
-                            #[cfg(target_os = "linux")]
-                                max_wait_for_cancellation,
-                        )? {
-                            HyperlightError::HypervisorHandlerExecutionCancelAttemptOnFinishedExecution() => {}
-                            // ^^^ do nothing, we just want to actually get the Flatbuffer return value
-                            // from shared memory in this case
-                            e => return Err(e),
-                        }
-                    }
-                    e => return Err(e),
-                },
+            // Q: Why does this function not take `args` and doesn't return `return_type`?
+            //
+            // A: That's because we've already written the function call details to memory
+            // with `mem_mgr.write_guest_function_call(&buffer)?;`
+            // and the `dispatch` function can directly access that via shared memory.
+            cfg_if! {
+                if #[cfg(feature = "function_call_metrics")] {
+                    histogram_vec_time_micros!(
+                        &GuestFunctionCallDurationMicroseconds,
+                        &[function_name],
+                        dispatch()
+                    );
+                }
+                else {
+                    dispatch();
+                }
             }
         }
-    }
+        ExecutionMode::InHypervisor(hv_handler) => {
+            {
+                match hv_handler.execute_hypervisor_handler_action(
+                    HypervisorHandlerAction::DispatchCallFromHost(function_name.to_string()),
+                ) {
+                    Ok(()) => {}
+                    Err(e) => match e {
+                        HyperlightError::HypervisorHandlerMessageReceiveTimedout() => {
+                            timedout = true;
+                            match hv_handler.terminate_hypervisor_handler_execution_and_reinitialise(
+                                wrapper_getter.get_mgr_wrapper_mut().unwrap_mgr_mut(),
+                            )? {
+                                HyperlightError::HypervisorHandlerExecutionCancelAttemptOnFinishedExecution() => {}
+                                // ^^^ do nothing, we just want to actually get the Flatbuffer return value
+                                // from shared memory in this case
+                                e => return Err(e),
+                            }
+                        }
+                        e => return Err(e),
+                    },
+                }
+            }
+        }
+        ExecutionMode::CSharp => {
+            log_then_return!("CSharp execution mode should use the C API for guest function calls");
+        }
+    };
 
     let mem_mgr = wrapper_getter.get_mgr_wrapper_mut();
     mem_mgr.check_stack_guard()?; // <- wrapper around mem_mgr `check_for_stack_guard`
@@ -174,6 +119,7 @@ pub(crate) fn call_function_on_guest<HvMemMgrT: WrapperGetter>(
                 // This particular check is needed now, because
                 // unlike w/ the previous scoped thread usage,
                 // we can't check if the thread completed or not.
+                log::error!("Guest execution hung on host function call");
                 GuestExecutionHungOnHostFunctionCall()
             } else {
                 e

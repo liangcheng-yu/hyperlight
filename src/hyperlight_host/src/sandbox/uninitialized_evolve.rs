@@ -1,23 +1,32 @@
-use std::time::Duration;
+use std::sync::{Arc, Mutex};
 
 use rand::Rng;
 use tracing::{instrument, Span};
 
 use super::leaked_outb::LeakedOutBWrapper;
-use super::{SandboxConfiguration, WrapperGetter};
+use super::WrapperGetter;
 use crate::func::exports::get_os_page_size;
-use crate::hypervisor::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper};
+use crate::hypervisor::handlers::OutBHandlerWrapper;
 use crate::hypervisor::hypervisor_handler::{
-    execute_hypervisor_handler_action, kill_hypervisor_handler_thread, start_hypervisor_handler,
-    HypervisorHandlerAction, InitArgs,
+    HvHandlerConfig, HypervisorHandler, HypervisorHandlerAction,
 };
 #[cfg(target_os = "linux")]
 use crate::log_then_return;
 use crate::mem::ptr::RawPtr;
+use crate::sandbox::mem_access::mem_access_handler_wrapper;
+use crate::sandbox::outb::outb_handler_wrapper;
 use crate::sandbox_state::sandbox::Sandbox;
 use crate::{new_error, MultiUseSandbox, Result, SingleUseSandbox, UninitializedSandbox};
 
 pub(super) type CBFunc<'a> = Box<dyn FnOnce(&mut UninitializedSandbox) -> Result<()> + 'a>;
+
+#[derive(Clone)]
+pub(crate) enum ExecutionMode<'a> {
+    #[allow(dead_code)]
+    InProc(LeakedOutBWrapper<'a>),
+    InHypervisor(HypervisorHandler),
+    CSharp,
+}
 
 /// The implementation for evolving `UninitializedSandbox`es to
 /// `Sandbox`es.
@@ -33,38 +42,37 @@ pub(super) type CBFunc<'a> = Box<dyn FnOnce(&mut UninitializedSandbox) -> Result
 #[instrument(err(Debug), skip_all, , parent = Span::current(), level = "Trace")]
 fn evolve_impl<'a, TransformFunc, ResSandbox: Sandbox>(
     mut u_sbox: UninitializedSandbox,
-    cb_opt: Option<CBFunc<'a>>,
+    cb_opt: Option<CBFunc>,
     transform: TransformFunc,
 ) -> Result<ResSandbox>
 where
-    TransformFunc: Fn(UninitializedSandbox, Option<LeakedOutBWrapper<'a>>) -> Result<ResSandbox>,
+    TransformFunc: Fn(UninitializedSandbox, ExecutionMode<'a>) -> Result<ResSandbox>,
 {
-    let outb_wrapper = {
-        let hv = u_sbox.get_hv();
-        hv.outb_hdl.clone()
-    };
     let run_from_proc_mem = u_sbox.run_from_process_memory;
 
-    let leaked_outb = if run_from_proc_mem {
+    let execution_mode = if run_from_proc_mem {
+        let outb_wrapper =
+            outb_handler_wrapper(u_sbox.get_mgr_wrapper().clone(), u_sbox.host_funcs.clone());
         let leaked_outb = evolve_in_proc(&mut u_sbox, outb_wrapper)?;
-        Some(leaked_outb)
+        ExecutionMode::InProc(leaked_outb)
     } else {
-        let outb_hdl = u_sbox.hv.outb_hdl.clone();
-        let mem_access_hdl = u_sbox.hv.mem_access_hdl.clone();
-        hv_init(&mut u_sbox, outb_hdl, mem_access_hdl)?;
+        let mut hv_handler = hv_init(&mut u_sbox)?;
 
         {
             let mgr = u_sbox.mgr.as_ref();
-            assert_ne!(mgr.get_pointer_to_dispatch_function()?, 0);
+            let dispatch_function_addr = mgr.get_pointer_to_dispatch_function()?;
+            assert_ne!(dispatch_function_addr, 0);
+            hv_handler.set_dispatch_function_addr(RawPtr::from(dispatch_function_addr));
         }
 
-        None
+        ExecutionMode::InHypervisor(hv_handler)
     };
+
     if let Some(cb) = cb_opt {
         cb(&mut u_sbox)?;
     }
 
-    transform(u_sbox, leaked_outb)
+    transform(u_sbox, execution_mode)
 }
 
 #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
@@ -72,11 +80,11 @@ pub(super) fn evolve_impl_multi_use(
     u_sbox: UninitializedSandbox,
     cb_opt: Option<CBFunc>,
 ) -> Result<MultiUseSandbox> {
-    evolve_impl(u_sbox, cb_opt, |mut u, leaked_outb| {
+    evolve_impl(u_sbox, cb_opt, |mut u, execution_mode| {
         {
             u.get_mgr_wrapper_mut().as_mut().push_state()?;
         }
-        Ok(MultiUseSandbox::from_uninit(u, leaked_outb))
+        Ok(MultiUseSandbox::from_uninit(u, execution_mode))
     })
 }
 
@@ -85,11 +93,11 @@ pub(super) fn evolve_impl_single_use(
     u_sbox: UninitializedSandbox,
     cb_opt: Option<CBFunc>,
 ) -> Result<SingleUseSandbox> {
-    evolve_impl(u_sbox, cb_opt, |u, leaked_outb| {
+    evolve_impl(u_sbox, cb_opt, |u, execution_mode| {
         // Its intentional not to snapshot state here. This is because
         // single use sandboxes are not reusable and so there is no need
         // to snapshot state as they cannot be devolved back to an uninitialized sandbox.
-        Ok(SingleUseSandbox::from_uninit(u, leaked_outb))
+        Ok(SingleUseSandbox::from_uninit(u, execution_mode))
     })
 }
 
@@ -176,12 +184,15 @@ fn evolve_in_proc<'a>(
 }
 
 #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-fn hv_init(
-    u_sbox: &mut UninitializedSandbox,
-    outb_hdl: OutBHandlerWrapper,
-    mem_access_hdl: MemAccessHandlerWrapper,
-) -> Result<()> {
-    let mem_mgr = u_sbox.get_mgr_wrapper().unwrap_mgr();
+fn hv_init(uninitialized_sandbox: &mut UninitializedSandbox) -> Result<HypervisorHandler> {
+    let outb_hdl = outb_handler_wrapper(
+        uninitialized_sandbox.get_mgr_wrapper().clone(),
+        uninitialized_sandbox.host_funcs.clone(),
+    );
+    let mem_access_hdl =
+        mem_access_handler_wrapper(uninitialized_sandbox.get_mgr_wrapper().clone());
+
+    let mem_mgr = uninitialized_sandbox.get_mgr_wrapper().unwrap_mgr();
     let seed = {
         let mut rng = rand::thread_rng();
         rng.gen::<u64>()
@@ -190,29 +201,39 @@ fn hv_init(
         let peb_u64 = u64::try_from(mem_mgr.layout.peb_address)?;
         RawPtr::from(peb_u64)
     };
+
+    let max_init_time = uninitialized_sandbox.max_initialization_time;
+    let max_exec_time = uninitialized_sandbox.max_execution_time;
+    let max_wait_for_cancellation = uninitialized_sandbox.max_wait_for_cancellation;
+
     let page_size = u32::try_from(get_os_page_size())?;
-    let outb_hdl = outb_hdl.clone();
-    let mem_access_hdl = mem_access_hdl.clone();
+    let hv_handler_config = HvHandlerConfig {
+        outb_handler: outb_hdl,
+        mem_access_handler: mem_access_hdl,
+        seed,
+        page_size,
+        peb_addr,
+        dispatch_function_addr: Arc::new(Mutex::new(None)),
+        max_init_time,
+        max_exec_time,
+        max_wait_for_cancellation,
+    };
+    // Note: `dispatch_function_addr` is set by the Hyperlight guest library, and so it isn't in
+    // shared memory at this point in time. We will set it after the execution of `hv_init`.
 
-    start_hypervisor_handler(u_sbox.get_hv().get_hypervisor_arc()?)?;
+    let mut hv_handler = HypervisorHandler::new(hv_handler_config);
 
-    execute_hypervisor_handler_action(
-        u_sbox.get_hv(),
-        HypervisorHandlerAction::Initialise(InitArgs::new(
-            peb_addr,
-            seed,
-            page_size,
-            outb_hdl,
-            mem_access_hdl,
-        )),
-        Some(Duration::from_millis(
-            SandboxConfiguration::DEFAULT_MAX_INITIALIZATION_TIME as u64,
-        )),
-    )
-    .map_err(|exec_e| match kill_hypervisor_handler_thread(u_sbox) {
-        Ok(_) => exec_e,
-        Err(kill_e) => new_error!("{}", format!("{}, {}", exec_e, kill_e)),
-    })
+    hv_handler
+        .start_hypervisor_handler(uninitialized_sandbox.get_mgr_wrapper_mut().unwrap_mgr_mut())?;
+
+    hv_handler
+        .execute_hypervisor_handler_action(HypervisorHandlerAction::Initialise)
+        .map_err(|exec_e| match hv_handler.kill_hypervisor_handler_thread() {
+            Ok(_) => exec_e,
+            Err(kill_e) => new_error!("{}", format!("{}, {}", exec_e, kill_e)),
+        })?;
+
+    Ok(hv_handler)
 }
 
 #[cfg(test)]

@@ -6,11 +6,10 @@ use hyperlight_common::flatbuffer_wrappers::function_types::{
 use tracing::{instrument, Span};
 
 use super::host_funcs::HostFuncsWrapper;
-use super::leaked_outb::LeakedOutBWrapper;
-use super::{HypervisorWrapper, MemMgrWrapper, UninitializedSandbox, WrapperGetter};
+use super::{MemMgrWrapper, UninitializedSandbox, WrapperGetter};
 use crate::func::call_ctx::MultiUseGuestCallContext;
 use crate::func::guest_dispatch::call_function_on_guest;
-use crate::hypervisor::hypervisor_handler::kill_hypervisor_handler_thread;
+use crate::sandbox::uninitialized_evolve::ExecutionMode;
 use crate::sandbox_state::sandbox::{DevolvableSandbox, EvolvableSandbox, Sandbox};
 use crate::sandbox_state::transition::{MultiUseContextCallback, Noop};
 use crate::Result;
@@ -27,11 +26,7 @@ pub struct MultiUseSandbox<'a> {
     // We need to keep a reference to the host functions, even if the compiler marks it as unused. The compiler cannot detect our dynamic usages of the host function in `HyperlightFunction::call`.
     pub(super) _host_funcs: Arc<Mutex<HostFuncsWrapper>>,
     pub(crate) mem_mgr: MemMgrWrapper,
-    pub(super) hv: HypervisorWrapper,
-    /// See the documentation for `SingleUseSandbox::_leaked_out_b` for
-    /// details on the purpose of this field.
-    _leaked_outb: Arc<Option<LeakedOutBWrapper<'a>>>,
-    is_csharp: bool,
+    execution_mode: ExecutionMode<'a>,
 }
 
 // We need to implement drop to join the
@@ -44,17 +39,21 @@ pub struct MultiUseSandbox<'a> {
 // `create_1000_sandboxes`.
 impl Drop for MultiUseSandbox<'_> {
     fn drop(&mut self) {
-        if !self.is_csharp {
-            match kill_hypervisor_handler_thread(self) {
-                Ok(_) => {}
-                Err(e) => {
-                    log::error!("[POTENTIAL THREAD LEAK] Potentially failed to kill hypervisor handler thread when dropping MultiUseSandbox: {:?}", e);
+        let execution_mode = self.get_execution_mode_mut();
+        match execution_mode {
+            ExecutionMode::InHypervisor(hv_handler) => {
+                match hv_handler.kill_hypervisor_handler_thread() {
+                    Ok(_) => {}
+                    Err(e) => {
+                        log::error!("[POTENTIAL THREAD LEAK] Potentially failed to kill hypervisor handler thread when dropping MultiUseSandbox: {:?}", e);
+                    }
                 }
             }
+            _ => {
+                // If we are running from C# or in process, drop is a no-op
+                // because there's no hypervisor thread to kill.
+            }
         }
-
-        // If we are running from C#, drop is a no-op
-        // because there's no hypervisor thread to kill.
     }
 }
 
@@ -67,14 +66,12 @@ impl<'a> MultiUseSandbox<'a> {
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     pub(super) fn from_uninit(
         val: UninitializedSandbox,
-        leaked_outb: Option<LeakedOutBWrapper<'a>>,
-    ) -> MultiUseSandbox<'a> {
+        execution_mode: ExecutionMode<'a>,
+    ) -> MultiUseSandbox {
         Self {
             _host_funcs: val.host_funcs,
             mem_mgr: val.mgr,
-            hv: val.hv,
-            _leaked_outb: Arc::new(leaked_outb),
-            is_csharp: val.is_csharp,
+            execution_mode,
         }
     }
 
@@ -170,34 +167,26 @@ impl<'a> MultiUseSandbox<'a> {
     }
 }
 
-impl<'a> WrapperGetter for MultiUseSandbox<'a> {
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
+impl<'a> WrapperGetter<'a> for MultiUseSandbox<'a> {
     fn get_mgr_wrapper(&self) -> &MemMgrWrapper {
         &self.mem_mgr
     }
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn get_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper {
         &mut self.mem_mgr
     }
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    fn get_hv(&self) -> &HypervisorWrapper {
-        &self.hv
+
+    fn get_execution_mode(&self) -> &ExecutionMode<'a> {
+        &self.execution_mode
     }
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    fn get_hv_mut(&mut self) -> &mut HypervisorWrapper {
-        &mut self.hv
+
+    fn get_execution_mode_mut(&mut self) -> &mut ExecutionMode<'a> {
+        &mut self.execution_mode
     }
 }
 
 impl<'a> Sandbox for MultiUseSandbox<'a> {
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn check_stack_guard(&self) -> Result<bool> {
         self.mem_mgr.check_stack_guard()
-    }
-
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper {
-        &mut self.hv
     }
 }
 

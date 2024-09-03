@@ -4,7 +4,6 @@ use std::panic;
 use tracing::{instrument, Span};
 
 use super::transition::TransitionMetadata;
-use crate::sandbox::hypervisor::HypervisorWrapper;
 use crate::Result;
 
 /// The minimal functionality of a Hyperlight sandbox. Most of the types
@@ -35,13 +34,6 @@ pub trait Sandbox: Sized + Debug {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn check_stack_guard(&self) -> Result<bool> {
         panic!("check_stack_guard not implemented for this type");
-    }
-
-    /// Every `Sandbox` `impl`ementor (i.e., `SingleUseSandbox`, and `MultiUseSandbox` has a
-    /// `HypervisorWrapper` field. This method allows you to get a reference to that field.
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn get_hypervisor_wrapper_mut(&mut self) -> &mut HypervisorWrapper {
-        panic!("get_hypervisor_wrapper_mut not implemented for this type");
     }
 }
 

@@ -80,7 +80,7 @@ pub unsafe extern "C" fn mem_mgr_set_up_hypervisor_partition(
         Ok(r) => r,
         Err(e) => return (*ctx).register_err(e),
     };
-    match mgr.set_up_hypervisor_partition(mem_size, &mut regions) {
+    match mgr.set_up_shared_memory(mem_size, &mut regions) {
         Ok(rsp) => Context::register(rsp, &mut (*ctx).uint64s, Hdl::UInt64),
         Err(e) => (*ctx).register_err(e),
     }
