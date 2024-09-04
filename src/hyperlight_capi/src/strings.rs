@@ -37,12 +37,12 @@ pub unsafe fn to_string(c_string: RawCString) -> String {
 /// undefined behavior or memory problems:
 ///
 /// - The returned memory must be freed manually by
-/// calling `free_c_string`.
+/// calling `free_raw_string`.
 /// - `string` should not contain any null bytes in it. They
 /// will be interpreted as the end of the string in C (and
 /// `to_string` above), which can lead to memory leaks.
 /// - If this function returns `Ok(cstr)`, you must not
-/// modify `cstr` at all. If you do so, `free_c_string` may
+/// modify `cstr` at all. If you do so, `free_raw_string` may
 /// not work properly.
 pub(crate) fn to_c_string<T: Into<Vec<u8>>>(string: T) -> Result<RawCString> {
     Ok(CString::new(string).map(|s| s.into_raw() as RawCString)?)
@@ -129,6 +129,7 @@ pub unsafe extern "C" fn handle_is_string(ctx: *const Context, hdl: Handle) -> b
 #[cfg(test)]
 mod tests {
     use super::{to_c_string, to_string};
+    use crate::strings::free_raw_string;
 
     #[test]
     fn string_roundtrip() {
@@ -136,9 +137,7 @@ mod tests {
         let cstr = to_c_string(orig).unwrap();
         let str = unsafe { to_string(cstr) };
         assert_eq!(orig, str);
-        // prevent `cstr` from leaking
-        unsafe {
-            let _ = Box::from_raw(cstr as *mut u8);
-        };
+
+        free_raw_string(cstr);
     }
 }
