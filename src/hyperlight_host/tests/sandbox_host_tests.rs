@@ -82,7 +82,10 @@ fn multiple_parameters() {
     let messages = Arc::new(Mutex::new(Vec::new()));
     let messages_clone = messages.clone();
     let writer = move |msg| {
-        let mut lock = messages_clone.lock().unwrap();
+        let mut lock = messages_clone
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))
+            .unwrap();
         lock.push(msg);
         Ok(0)
     };
@@ -225,7 +228,10 @@ fn multiple_parameters() {
         }
     }
 
-    let lock = messages.lock().unwrap();
+    let lock = messages
+        .try_lock()
+        .map_err(|_| new_error!("Error locking"))
+        .unwrap();
     lock.clone()
         .into_iter()
         .zip(test_cases)
@@ -312,7 +318,10 @@ fn simple_test_helper() -> Result<()> {
     let messages_clone = messages.clone();
     let writer = move |msg: String| {
         let len = msg.len();
-        let mut lock = messages_clone.lock().unwrap();
+        let mut lock = messages_clone
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))
+            .unwrap();
         lock.push(msg);
         Ok(len as i32)
     };
@@ -353,11 +362,27 @@ fn simple_test_helper() -> Result<()> {
     }
 
     #[cfg(target_os = "windows")]
-    assert_eq!(messages.lock()?.len(), 3);
+    assert_eq!(
+        messages
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?
+            .len(),
+        3
+    );
     #[cfg(target_os = "linux")]
-    assert_eq!(messages.lock()?.len(), 1);
+    assert_eq!(
+        messages
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?
+            .len(),
+        1
+    );
 
-    assert!(messages.lock()?.iter().all(|msg| msg == message));
+    assert!(messages
+        .try_lock()
+        .map_err(|_| new_error!("Error locking"))?
+        .iter()
+        .all(|msg| msg == message));
     Ok(())
 }
 
@@ -415,7 +440,10 @@ fn callback_test_helper() -> Result<()> {
         let vec_cloned = vec.clone();
         let host_func1 = Arc::new(Mutex::new(move |msg: String| {
             let len = msg.len();
-            vec_cloned.lock()?.push(msg);
+            vec_cloned
+                .try_lock()
+                .map_err(|_| new_error!("Error locking"))?
+                .push(msg);
             Ok(len as i32)
         }));
         host_func1.register(&mut sandbox, "HostMethod1").unwrap();
@@ -429,9 +457,16 @@ fn callback_test_helper() -> Result<()> {
             Some(vec![ParameterValue::String(msg.to_string())]),
         )?;
 
-        assert_eq!(vec.lock()?.len(), 1);
         assert_eq!(
-            vec.lock()?.remove(0),
+            vec.try_lock()
+                .map_err(|_| new_error!("Error locking"))?
+                .len(),
+            1
+        );
+        assert_eq!(
+            vec.try_lock()
+                .map_err(|_| new_error!("Error locking"))?
+                .remove(0),
             format!("Hello from GuestFunction1, {}", msg)
         );
     }

@@ -11,7 +11,7 @@ use super::host_funcs::HostFuncsWrapper;
 use super::mem_mgr::MemMgrWrapper;
 use crate::hypervisor::handlers::{OutBHandler, OutBHandlerFunction, OutBHandlerWrapper};
 use crate::mem::mgr::SandboxMemoryManager;
-use crate::{HyperlightError, Result};
+use crate::{new_error, HyperlightError, Result};
 
 pub(super) enum OutBAction {
     Log,
@@ -107,7 +107,10 @@ fn handle_outb_impl(
             let call = mem_mgr.as_mut().get_host_function_call()?; // pop output buffer
             let name = call.function_name.clone();
             let args: Vec<ParameterValue> = call.parameters.unwrap_or(vec![]);
-            let res = host_funcs.lock()?.call_host_function(&name, args)?;
+            let res = host_funcs
+                .try_lock()
+                .map_err(|_| new_error!("Error locking"))?
+                .call_host_function(&name, args)?;
             mem_mgr
                 .as_mut()
                 .write_response_from_host_method_call(&res)?; // push input buffers

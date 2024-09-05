@@ -339,7 +339,10 @@ impl SandboxMemoryManager {
     /// It should be used when you want to save the state of the memory, for example, when evolving a sandbox to a new state
     pub(crate) fn push_state(&mut self) -> Result<()> {
         let snapshot = SharedMemorySnapshot::new(self.shared_mem.clone())?;
-        self.snapshots.lock()?.push(snapshot);
+        self.snapshots
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?
+            .push(snapshot);
         Ok(())
     }
 
@@ -348,7 +351,10 @@ impl SandboxMemoryManager {
     /// It should be used when you want to restore the state of the memory to a previous state but still want to
     /// retain that state, for example after calling a function in the guest
     pub(crate) fn restore_state_from_last_snapshot(&mut self) -> Result<()> {
-        let mut snapshots = self.snapshots.lock()?;
+        let mut snapshots = self
+            .snapshots
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?;
         let last = snapshots.last_mut();
         if last.is_none() {
             log_then_return!(NoMemorySnapshot);
@@ -361,7 +367,11 @@ impl SandboxMemoryManager {
     /// It should be used when you want to restore the state of the memory to a previous state and do not need to retain that state
     /// for example when devolving a sandbox to a previous state.
     pub(crate) fn pop_and_restore_state_from_snapshot(&mut self) -> Result<()> {
-        let last = self.snapshots.lock()?.pop();
+        let last = self
+            .snapshots
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?
+            .pop();
         if last.is_none() {
             log_then_return!(NoMemorySnapshot);
         }

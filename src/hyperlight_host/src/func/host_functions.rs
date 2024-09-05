@@ -7,7 +7,7 @@ use tracing::{instrument, Span};
 use super::{HyperlightFunction, SupportedParameterType, SupportedReturnType};
 use crate::sandbox::UninitializedSandbox;
 use crate::HyperlightError::UnexpectedNoOfArguments;
-use crate::{log_then_return, Result};
+use crate::{log_then_return, new_error, Result};
 
 /// A host function that takes no arguments and returns an `Result` of type `R` (which must implement `SupportedReturnType`).
 pub trait HostFunction0<'a, R: SupportedReturnType<R>> {
@@ -24,14 +24,18 @@ where
     fn register(&self, sandbox: &mut UninitializedSandbox, name: &str) -> Result<()> {
         let cloned = self.clone();
         let func = Box::new(move |_: Vec<ParameterValue>| {
-            let result = cloned.lock()?()?;
+            let result = cloned.try_lock().map_err(|_| new_error!("Error locking"))?()?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_funcs.lock()?.register_host_function(
-            sandbox.mgr.as_mut(),
-            &HostFunctionDefinition::new(name.to_string(), None, R::get_hyperlight_type()),
-            HyperlightFunction::new(func),
-        )?;
+        sandbox
+            .host_funcs
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?
+            .register_host_function(
+                sandbox.mgr.as_mut(),
+                &HostFunctionDefinition::new(name.to_string(), None, R::get_hyperlight_type()),
+                HyperlightFunction::new(func),
+            )?;
 
         Ok(())
     }
@@ -59,18 +63,22 @@ where
                 log_then_return!(UnexpectedNoOfArguments(args.len(), 1));
             }
             let p1 = P1::get_inner(args[0].clone())?;
-            let result = cloned.lock()?(p1)?;
+            let result = cloned.try_lock().map_err(|_| new_error!("Error locking"))?(p1)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_funcs.lock()?.register_host_function(
-            sandbox.mgr.as_mut(),
-            &HostFunctionDefinition::new(
-                name.to_string(),
-                Some(vec![P1::get_hyperlight_type()]),
-                R::get_hyperlight_type(),
-            ),
-            HyperlightFunction::new(func),
-        )?;
+        sandbox
+            .host_funcs
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?
+            .register_host_function(
+                sandbox.mgr.as_mut(),
+                &HostFunctionDefinition::new(
+                    name.to_string(),
+                    Some(vec![P1::get_hyperlight_type()]),
+                    R::get_hyperlight_type(),
+                ),
+                HyperlightFunction::new(func),
+            )?;
 
         Ok(())
     }
@@ -104,18 +112,22 @@ where
             }
             let p1 = P1::get_inner(args[0].clone())?;
             let p2 = P2::get_inner(args[1].clone())?;
-            let result = cloned.lock()?(p1, p2)?;
+            let result = cloned.try_lock().map_err(|_| new_error!("Error locking"))?(p1, p2)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_funcs.lock()?.register_host_function(
-            sandbox.mgr.as_mut(),
-            &HostFunctionDefinition::new(
-                name.to_string(),
-                Some(vec![P1::get_hyperlight_type(), P2::get_hyperlight_type()]),
-                R::get_hyperlight_type(),
-            ),
-            HyperlightFunction::new(func),
-        )?;
+        sandbox
+            .host_funcs
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?
+            .register_host_function(
+                sandbox.mgr.as_mut(),
+                &HostFunctionDefinition::new(
+                    name.to_string(),
+                    Some(vec![P1::get_hyperlight_type(), P2::get_hyperlight_type()]),
+                    R::get_hyperlight_type(),
+                ),
+                HyperlightFunction::new(func),
+            )?;
 
         Ok(())
     }
@@ -152,22 +164,26 @@ where
             let p1 = P1::get_inner(args[0].clone())?;
             let p2 = P2::get_inner(args[1].clone())?;
             let p3 = P3::get_inner(args[2].clone())?;
-            let result = cloned.lock()?(p1, p2, p3)?;
+            let result = cloned.try_lock().map_err(|_| new_error!("Error locking"))?(p1, p2, p3)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_funcs.lock()?.register_host_function(
-            sandbox.mgr.as_mut(),
-            &HostFunctionDefinition::new(
-                name.to_string(),
-                Some(vec![
-                    P1::get_hyperlight_type(),
-                    P2::get_hyperlight_type(),
-                    P3::get_hyperlight_type(),
-                ]),
-                R::get_hyperlight_type(),
-            ),
-            HyperlightFunction::new(func),
-        )?;
+        sandbox
+            .host_funcs
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?
+            .register_host_function(
+                sandbox.mgr.as_mut(),
+                &HostFunctionDefinition::new(
+                    name.to_string(),
+                    Some(vec![
+                        P1::get_hyperlight_type(),
+                        P2::get_hyperlight_type(),
+                        P3::get_hyperlight_type(),
+                    ]),
+                    R::get_hyperlight_type(),
+                ),
+                HyperlightFunction::new(func),
+            )?;
 
         Ok(())
     }
@@ -207,23 +223,28 @@ where
             let p2 = P2::get_inner(args[1].clone())?;
             let p3 = P3::get_inner(args[2].clone())?;
             let p4 = P4::get_inner(args[3].clone())?;
-            let result = cloned.lock()?(p1, p2, p3, p4)?;
+            let result =
+                cloned.try_lock().map_err(|_| new_error!("Error locking"))?(p1, p2, p3, p4)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_funcs.lock()?.register_host_function(
-            sandbox.mgr.as_mut(),
-            &HostFunctionDefinition::new(
-                name.to_string(),
-                Some(vec![
-                    P1::get_hyperlight_type(),
-                    P2::get_hyperlight_type(),
-                    P3::get_hyperlight_type(),
-                    P4::get_hyperlight_type(),
-                ]),
-                R::get_hyperlight_type(),
-            ),
-            HyperlightFunction::new(func),
-        )?;
+        sandbox
+            .host_funcs
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?
+            .register_host_function(
+                sandbox.mgr.as_mut(),
+                &HostFunctionDefinition::new(
+                    name.to_string(),
+                    Some(vec![
+                        P1::get_hyperlight_type(),
+                        P2::get_hyperlight_type(),
+                        P3::get_hyperlight_type(),
+                        P4::get_hyperlight_type(),
+                    ]),
+                    R::get_hyperlight_type(),
+                ),
+                HyperlightFunction::new(func),
+            )?;
 
         Ok(())
     }
@@ -266,24 +287,29 @@ where
             let p3 = P3::get_inner(args[2].clone())?;
             let p4 = P4::get_inner(args[3].clone())?;
             let p5 = P5::get_inner(args[4].clone())?;
-            let result = cloned.lock()?(p1, p2, p3, p4, p5)?;
+            let result =
+                cloned.try_lock().map_err(|_| new_error!("Error locking"))?(p1, p2, p3, p4, p5)?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_funcs.lock()?.register_host_function(
-            sandbox.mgr.as_mut(),
-            &HostFunctionDefinition::new(
-                name.to_string(),
-                Some(vec![
-                    P1::get_hyperlight_type(),
-                    P2::get_hyperlight_type(),
-                    P3::get_hyperlight_type(),
-                    P4::get_hyperlight_type(),
-                    P5::get_hyperlight_type(),
-                ]),
-                R::get_hyperlight_type(),
-            ),
-            HyperlightFunction::new(func),
-        )?;
+        sandbox
+            .host_funcs
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?
+            .register_host_function(
+                sandbox.mgr.as_mut(),
+                &HostFunctionDefinition::new(
+                    name.to_string(),
+                    Some(vec![
+                        P1::get_hyperlight_type(),
+                        P2::get_hyperlight_type(),
+                        P3::get_hyperlight_type(),
+                        P4::get_hyperlight_type(),
+                        P5::get_hyperlight_type(),
+                    ]),
+                    R::get_hyperlight_type(),
+                ),
+                HyperlightFunction::new(func),
+            )?;
 
         Ok(())
     }
@@ -330,25 +356,31 @@ where
             let p4 = P4::get_inner(args[3].clone())?;
             let p5 = P5::get_inner(args[4].clone())?;
             let p6 = P6::get_inner(args[5].clone())?;
-            let result = cloned.lock()?(p1, p2, p3, p4, p5, p6)?;
+            let result = cloned.try_lock().map_err(|_| new_error!("Error locking"))?(
+                p1, p2, p3, p4, p5, p6,
+            )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_funcs.lock()?.register_host_function(
-            sandbox.mgr.as_mut(),
-            &HostFunctionDefinition::new(
-                name.to_string(),
-                Some(vec![
-                    P1::get_hyperlight_type(),
-                    P2::get_hyperlight_type(),
-                    P3::get_hyperlight_type(),
-                    P4::get_hyperlight_type(),
-                    P5::get_hyperlight_type(),
-                    P6::get_hyperlight_type(),
-                ]),
-                R::get_hyperlight_type(),
-            ),
-            HyperlightFunction::new(func),
-        )?;
+        sandbox
+            .host_funcs
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?
+            .register_host_function(
+                sandbox.mgr.as_mut(),
+                &HostFunctionDefinition::new(
+                    name.to_string(),
+                    Some(vec![
+                        P1::get_hyperlight_type(),
+                        P2::get_hyperlight_type(),
+                        P3::get_hyperlight_type(),
+                        P4::get_hyperlight_type(),
+                        P5::get_hyperlight_type(),
+                        P6::get_hyperlight_type(),
+                    ]),
+                    R::get_hyperlight_type(),
+                ),
+                HyperlightFunction::new(func),
+            )?;
 
         Ok(())
     }
@@ -398,26 +430,32 @@ where
             let p5 = P5::get_inner(args[4].clone())?;
             let p6 = P6::get_inner(args[5].clone())?;
             let p7 = P7::get_inner(args[6].clone())?;
-            let result = cloned.lock()?(p1, p2, p3, p4, p5, p6, p7)?;
+            let result = cloned.try_lock().map_err(|_| new_error!("Error locking"))?(
+                p1, p2, p3, p4, p5, p6, p7,
+            )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_funcs.lock()?.register_host_function(
-            sandbox.mgr.as_mut(),
-            &HostFunctionDefinition::new(
-                name.to_string(),
-                Some(vec![
-                    P1::get_hyperlight_type(),
-                    P2::get_hyperlight_type(),
-                    P3::get_hyperlight_type(),
-                    P4::get_hyperlight_type(),
-                    P5::get_hyperlight_type(),
-                    P6::get_hyperlight_type(),
-                    P7::get_hyperlight_type(),
-                ]),
-                R::get_hyperlight_type(),
-            ),
-            HyperlightFunction::new(func),
-        )?;
+        sandbox
+            .host_funcs
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?
+            .register_host_function(
+                sandbox.mgr.as_mut(),
+                &HostFunctionDefinition::new(
+                    name.to_string(),
+                    Some(vec![
+                        P1::get_hyperlight_type(),
+                        P2::get_hyperlight_type(),
+                        P3::get_hyperlight_type(),
+                        P4::get_hyperlight_type(),
+                        P5::get_hyperlight_type(),
+                        P6::get_hyperlight_type(),
+                        P7::get_hyperlight_type(),
+                    ]),
+                    R::get_hyperlight_type(),
+                ),
+                HyperlightFunction::new(func),
+            )?;
 
         Ok(())
     }
@@ -470,27 +508,33 @@ where
             let p6 = P6::get_inner(args[5].clone())?;
             let p7 = P7::get_inner(args[6].clone())?;
             let p8 = P8::get_inner(args[7].clone())?;
-            let result = cloned.lock()?(p1, p2, p3, p4, p5, p6, p7, p8)?;
+            let result = cloned.try_lock().map_err(|_| new_error!("Error locking"))?(
+                p1, p2, p3, p4, p5, p6, p7, p8,
+            )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_funcs.lock()?.register_host_function(
-            sandbox.mgr.as_mut(),
-            &HostFunctionDefinition::new(
-                name.to_string(),
-                Some(vec![
-                    P1::get_hyperlight_type(),
-                    P2::get_hyperlight_type(),
-                    P3::get_hyperlight_type(),
-                    P4::get_hyperlight_type(),
-                    P5::get_hyperlight_type(),
-                    P6::get_hyperlight_type(),
-                    P7::get_hyperlight_type(),
-                    P8::get_hyperlight_type(),
-                ]),
-                R::get_hyperlight_type(),
-            ),
-            HyperlightFunction::new(func),
-        )?;
+        sandbox
+            .host_funcs
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?
+            .register_host_function(
+                sandbox.mgr.as_mut(),
+                &HostFunctionDefinition::new(
+                    name.to_string(),
+                    Some(vec![
+                        P1::get_hyperlight_type(),
+                        P2::get_hyperlight_type(),
+                        P3::get_hyperlight_type(),
+                        P4::get_hyperlight_type(),
+                        P5::get_hyperlight_type(),
+                        P6::get_hyperlight_type(),
+                        P7::get_hyperlight_type(),
+                        P8::get_hyperlight_type(),
+                    ]),
+                    R::get_hyperlight_type(),
+                ),
+                HyperlightFunction::new(func),
+            )?;
 
         Ok(())
     }
@@ -546,28 +590,34 @@ where
             let p7 = P7::get_inner(args[6].clone())?;
             let p8 = P8::get_inner(args[7].clone())?;
             let p9 = P9::get_inner(args[8].clone())?;
-            let result = cloned.lock()?(p1, p2, p3, p4, p5, p6, p7, p8, p9)?;
+            let result = cloned.try_lock().map_err(|_| new_error!("Error locking"))?(
+                p1, p2, p3, p4, p5, p6, p7, p8, p9,
+            )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_funcs.lock()?.register_host_function(
-            sandbox.mgr.as_mut(),
-            &HostFunctionDefinition::new(
-                name.to_string(),
-                Some(vec![
-                    P1::get_hyperlight_type(),
-                    P2::get_hyperlight_type(),
-                    P3::get_hyperlight_type(),
-                    P4::get_hyperlight_type(),
-                    P5::get_hyperlight_type(),
-                    P6::get_hyperlight_type(),
-                    P7::get_hyperlight_type(),
-                    P8::get_hyperlight_type(),
-                    P9::get_hyperlight_type(),
-                ]),
-                R::get_hyperlight_type(),
-            ),
-            HyperlightFunction::new(func),
-        )?;
+        sandbox
+            .host_funcs
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?
+            .register_host_function(
+                sandbox.mgr.as_mut(),
+                &HostFunctionDefinition::new(
+                    name.to_string(),
+                    Some(vec![
+                        P1::get_hyperlight_type(),
+                        P2::get_hyperlight_type(),
+                        P3::get_hyperlight_type(),
+                        P4::get_hyperlight_type(),
+                        P5::get_hyperlight_type(),
+                        P6::get_hyperlight_type(),
+                        P7::get_hyperlight_type(),
+                        P8::get_hyperlight_type(),
+                        P9::get_hyperlight_type(),
+                    ]),
+                    R::get_hyperlight_type(),
+                ),
+                HyperlightFunction::new(func),
+            )?;
 
         Ok(())
     }
@@ -626,29 +676,35 @@ where
             let p8 = P8::get_inner(args[7].clone())?;
             let p9 = P9::get_inner(args[8].clone())?;
             let p10 = P10::get_inner(args[9].clone())?;
-            let result = cloned.lock()?(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10)?;
+            let result = cloned.try_lock().map_err(|_| new_error!("Error locking"))?(
+                p1, p2, p3, p4, p5, p6, p7, p8, p9, p10,
+            )?;
             Ok(result.get_hyperlight_value())
         });
-        sandbox.host_funcs.lock()?.register_host_function(
-            sandbox.mgr.as_mut(),
-            &HostFunctionDefinition::new(
-                name.to_string(),
-                Some(vec![
-                    P1::get_hyperlight_type(),
-                    P2::get_hyperlight_type(),
-                    P3::get_hyperlight_type(),
-                    P4::get_hyperlight_type(),
-                    P5::get_hyperlight_type(),
-                    P6::get_hyperlight_type(),
-                    P7::get_hyperlight_type(),
-                    P8::get_hyperlight_type(),
-                    P9::get_hyperlight_type(),
-                    P10::get_hyperlight_type(),
-                ]),
-                R::get_hyperlight_type(),
-            ),
-            HyperlightFunction::new(func),
-        )?;
+        sandbox
+            .host_funcs
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?
+            .register_host_function(
+                sandbox.mgr.as_mut(),
+                &HostFunctionDefinition::new(
+                    name.to_string(),
+                    Some(vec![
+                        P1::get_hyperlight_type(),
+                        P2::get_hyperlight_type(),
+                        P3::get_hyperlight_type(),
+                        P4::get_hyperlight_type(),
+                        P5::get_hyperlight_type(),
+                        P6::get_hyperlight_type(),
+                        P7::get_hyperlight_type(),
+                        P8::get_hyperlight_type(),
+                        P9::get_hyperlight_type(),
+                        P10::get_hyperlight_type(),
+                    ]),
+                    R::get_hyperlight_type(),
+                ),
+                HyperlightFunction::new(func),
+            )?;
 
         Ok(())
     }

@@ -27,8 +27,9 @@ use crate::Result;
 extern "C" fn call_outb(ptr: *mut Arc<Mutex<dyn OutBHandlerCaller>>, port: u16, data: u64) {
     let outb_handlercaller = unsafe { Box::from_raw(ptr) };
     let res = outb_handlercaller
-        .lock()
-        .expect("Error Locking")
+        .try_lock()
+        .map_err(|_| crate::new_error!("Error locking"))
+        .unwrap()
         .call(port, data);
     // TODO, handle the case correctly when res is an error
     assert!(res.is_ok());
@@ -83,7 +84,7 @@ pub(crate) struct LeakedOutBWrapper<'a> {
 
 #[cfg(target_os = "windows")]
 impl<'a> LeakedOutBWrapper<'a> {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     pub(super) fn new(mgr: &mut SandboxMemoryManager, wrapper: OutBHandlerWrapper) -> Result<Self> {
         let hdl_box = Box::new(wrapper.clone());
         let hdl_ptr = Box::into_raw(hdl_box);
@@ -107,13 +108,16 @@ impl<'a> LeakedOutBWrapper<'a> {
     ///
     /// This pointer is referred to by the `SandboxMemoryManager` as
     /// the outb "context"
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     pub(super) fn hdl_wrapper_addr(&self) -> Result<u64> {
-        let ptr = self.hdl_ptr.lock()?;
+        let ptr = self
+            .hdl_ptr
+            .try_lock()
+            .map_err(|_| crate::new_error!("Error locking"))?;
         Ok(ptr.as_mut_ptr() as u64)
     }
 
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     pub(super) fn outb_addr() -> u64 {
         call_outb as *const c_void as u64
     }

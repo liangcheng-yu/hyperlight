@@ -37,7 +37,7 @@ impl From<OutBHandlerFunction> for OutBHandler {
 impl OutBHandlerCaller for OutBHandler {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn call(&mut self, port: u16, payload: u64) -> Result<()> {
-        let mut func = self.0.lock()?;
+        let mut func = self.0.try_lock().map_err(|_| new_error!("Error locking"))?;
         func(port, payload)
     }
 }
@@ -76,10 +76,7 @@ impl From<MemAccessHandlerFunction> for MemAccessHandler {
 impl MemAccessHandlerCaller for MemAccessHandler {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     fn call(&mut self) -> Result<()> {
-        let mut func = self
-            .0
-            .lock()
-            .map_err(|_| new_error!("could not lock mem access function"))?;
+        let mut func = self.0.try_lock().map_err(|_| new_error!("Error locking"))?;
         func()
     }
 }

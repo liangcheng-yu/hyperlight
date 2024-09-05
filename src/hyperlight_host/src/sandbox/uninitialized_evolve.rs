@@ -62,7 +62,7 @@ where
             let mgr = u_sbox.mgr.as_ref();
             let dispatch_function_addr = mgr.get_pointer_to_dispatch_function()?;
             assert_ne!(dispatch_function_addr, 0);
-            hv_handler.set_dispatch_function_addr(RawPtr::from(dispatch_function_addr));
+            hv_handler.set_dispatch_function_addr(RawPtr::from(dispatch_function_addr))?;
         }
 
         ExecutionMode::InHypervisor(hv_handler)

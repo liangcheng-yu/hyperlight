@@ -247,8 +247,8 @@ impl Hypervisor for HypervLinuxDriver {
     ) -> Result<()> {
         let payload = data[..8].try_into()?;
         outb_handle_fn
-            .lock()
-            .map_err(|e| new_error!("Error Locking {}", e))?
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?
             .call(port, u64::from_le_bytes(payload))?;
 
         // update rip

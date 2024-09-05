@@ -374,8 +374,8 @@ impl Hypervisor for HypervWindowsDriver {
     ) -> Result<()> {
         let payload = data[..8].try_into()?;
         outb_handle_fn
-            .lock()
-            .map_err(|e| new_error!("error locking {}", e))?
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?
             .call(port, u64::from_le_bytes(payload))?;
 
         let mut regs = self.processor.get_regs()?;

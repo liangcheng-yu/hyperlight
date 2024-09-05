@@ -85,36 +85,67 @@ struct HvHandlerExecVars {
 
 impl HvHandlerExecVars {
     /// Sets the `join_handle`, to be called `thread::spawn` in `start_hypervisor_handler`.
-    fn set_join_handle(&mut self, join_handle: JoinHandle<Result<()>>) {
-        *self.join_handle.lock().unwrap() = Some(join_handle);
+    fn set_join_handle(&mut self, join_handle: JoinHandle<Result<()>>) -> Result<()> {
+        *self
+            .join_handle
+            .try_lock()
+            .map_err(|_| new_error!("Failed to set_join_handle"))? = Some(join_handle);
+
+        Ok(())
     }
 
     #[cfg(target_os = "linux")]
-    fn set_thread_id(&mut self, thread_id: libc::pthread_t) {
-        *self.thread_id.lock().unwrap() = Some(thread_id);
+    fn set_thread_id(&mut self, thread_id: libc::pthread_t) -> Result<()> {
+        *self
+            .thread_id
+            .try_lock()
+            .map_err(|_| new_error!("Failed to set_thread_id"))? = Some(thread_id);
+
+        Ok(())
     }
 
     #[cfg(target_os = "linux")]
-    fn get_thread_id(&self) -> libc::pthread_t {
-        self.thread_id.lock().unwrap().unwrap()
+    fn get_thread_id(&self) -> Result<libc::pthread_t> {
+        (*self
+            .thread_id
+            .try_lock()
+            .map_err(|_| new_error!("Failed to get_thread_id"))?)
+        .ok_or_else(|| new_error!("thread_id not set"))
     }
 
     #[cfg(target_os = "windows")]
-    fn set_partition_handle(&mut self, partition_handle: WHV_PARTITION_HANDLE) {
-        *self.partition_handle.lock().unwrap() = Some(partition_handle);
+    fn set_partition_handle(&mut self, partition_handle: WHV_PARTITION_HANDLE) -> Result<()> {
+        *self
+            .partition_handle
+            .try_lock()
+            .map_err(|_| new_error!("Failed to set_partition_handle"))? = Some(partition_handle);
+
+        Ok(())
     }
 
     #[cfg(target_os = "windows")]
-    fn get_partition_handle(&self) -> WHV_PARTITION_HANDLE {
-        self.partition_handle.lock().unwrap().unwrap()
+    fn get_partition_handle(&self) -> Result<WHV_PARTITION_HANDLE> {
+        (*self
+            .partition_handle
+            .try_lock()
+            .map_err(|_| new_error!("Failed to get_partition_handle"))?)
+        .ok_or_else(|| new_error!("partition_handle not set"))
     }
 
-    fn set_timeout(&mut self, timeout: Duration) {
-        *self.timeout.lock().unwrap() = timeout;
+    fn set_timeout(&mut self, timeout: Duration) -> Result<()> {
+        *self
+            .timeout
+            .try_lock()
+            .map_err(|_| new_error!("Failed to set_timeout"))? = timeout;
+
+        Ok(())
     }
 
-    fn get_timeout(&self) -> Duration {
-        *self.timeout.lock().unwrap()
+    fn get_timeout(&self) -> Result<Duration> {
+        Ok(*self
+            .timeout
+            .try_lock()
+            .map_err(|_| new_error!("Failed to get_timeout"))?)
     }
 }
 
@@ -216,7 +247,7 @@ impl HypervisorHandler {
 
         #[cfg(target_os = "windows")]
         self.execution_variables
-            .set_partition_handle(hv.get_partition_handle());
+            .set_partition_handle(hv.get_partition_handle())?;
 
         #[cfg(all(feature = "seccomp", target_os = "linux"))]
         // This initializes the HV_HANDLER_THREAD_RECEIVING_SIGNALS variable in the main thread.
@@ -227,7 +258,11 @@ impl HypervisorHandler {
         let seccomp_filter = get_seccomp_filter_for_hypervisor_handler()?;
 
         let to_handler_rx = self.communication_channels.to_handler_rx.clone();
+        #[cfg(target_os = "windows")]
+        let execution_variables = self.execution_variables.clone();
+        #[cfg(target_os = "linux")]
         let mut execution_variables = self.execution_variables.clone();
+        // ^^^ this needs to be mut on linux to set_thread_id
         let from_handler_tx = self.communication_channels.from_handler_tx.clone();
         let hv_handler_clone = self.clone();
 
@@ -239,12 +274,11 @@ impl HypervisorHandler {
                 for action in to_handler_rx {
                     match action {
                         HypervisorHandlerAction::Initialise => {
-                            execution_variables.set_timeout(configuration.max_init_time);
                             #[cfg(target_os = "linux")]
                             {
                                 // We cannot use the Killable trait, so we get the `pthread_t` via a libc
                                 // call.
-                                execution_variables.set_thread_id(unsafe { pthread_self() });
+                                execution_variables.set_thread_id(unsafe { pthread_self() })?;
                             }
                             execution_variables.running.store(true, Ordering::SeqCst);
 
@@ -326,7 +360,6 @@ impl HypervisorHandler {
                             }
                         }
                         HypervisorHandlerAction::DispatchCallFromHost(function_name) => {
-                            execution_variables.set_timeout(configuration.max_exec_time);
                             // Lock to indicate an action is being performed in the hypervisor
                             execution_variables.running.store(true, Ordering::SeqCst);
 
@@ -338,8 +371,8 @@ impl HypervisorHandler {
                             let dispatch_function_addr = configuration
                                 .dispatch_function_addr
                                 .clone()
-                                .lock()
-                                .unwrap()
+                                .try_lock()
+                                .map_err(|_| new_error!("Error locking"))?
                                 .clone()
                                 .ok_or_else(|| new_error!("Hypervisor not initialized"))?;
 
@@ -415,7 +448,7 @@ impl HypervisorHandler {
             })
         };
 
-        self.execution_variables.set_join_handle(join_handle);
+        self.execution_variables.set_join_handle(join_handle)?;
 
         Ok(())
     }
@@ -428,15 +461,15 @@ impl HypervisorHandler {
         let mut join_handle_guard = self
             .execution_variables
             .join_handle
-            .lock()
-            .map_err(|e| new_error!("{:?}", e))?;
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))?;
         if let Some(handle) = join_handle_guard.take() {
             // check if thread is handle.is_finished for `timeout`
             // note: dropping the transmitter in `kill_hypervisor_handler_thread`
             // should have caused the thread to finish, in here, we are just syncing.
             let now = std::time::Instant::now();
 
-            while now.elapsed() < self.execution_variables.get_timeout() {
+            while now.elapsed() < self.execution_variables.get_timeout()? {
                 if handle.is_finished() {
                     match handle.join() {
                         // as per docs, join should return immediately and not hang if finished
@@ -460,7 +493,7 @@ impl HypervisorHandler {
 
     // This function is used to check if the Hypervisor Handler thread is still alive and receiving signals.
     #[cfg(all(feature = "seccomp", target_os = "linux"))]
-    pub fn is_hv_handler_receiving_signals(&self) -> bool {
+    pub fn is_hv_handler_receiving_signals(&self) -> Result<bool> {
         // Reset the variable pre-check
         let hv_handler_thread_receiving_signals =
             HV_HANDLER_THREAD_RECEIVING_SIGNALS.with(|elem| elem.borrow().clone());
@@ -468,7 +501,7 @@ impl HypervisorHandler {
 
         unsafe {
             // Send a signal to the thread to check if it is still receiving signals
-            libc::pthread_kill(self.execution_variables.get_thread_id(), SIGRTMIN());
+            libc::pthread_kill(self.execution_variables.get_thread_id()?, SIGRTMIN());
         }
 
         // Wait for signal to be received. We cannot use message passing transmitters/receivers
@@ -476,8 +509,8 @@ impl HypervisorHandler {
         // closure).
         sleep(self.configuration.max_wait_for_cancellation);
 
-        HV_HANDLER_THREAD_RECEIVING_SIGNALS
-            .with(|elem| elem.borrow().load(std::sync::atomic::Ordering::Relaxed))
+        Ok(HV_HANDLER_THREAD_RECEIVING_SIGNALS
+            .with(|elem| elem.borrow().load(std::sync::atomic::Ordering::Relaxed)))
     }
 
     /// Tries to kill the Hypervisor Handler Thread.
@@ -494,7 +527,7 @@ impl HypervisorHandler {
     /// This function should be used for most interactions with the Hypervisor
     /// Handler.
     pub(crate) fn execute_hypervisor_handler_action(
-        &self,
+        &mut self,
         hypervisor_handler_action: HypervisorHandlerAction,
     ) -> Result<()> {
         log::debug!(
@@ -502,12 +535,27 @@ impl HypervisorHandler {
             hypervisor_handler_action
         );
 
+        match hypervisor_handler_action {
+            HypervisorHandlerAction::Initialise => self
+                .execution_variables
+                .set_timeout(self.configuration.max_init_time)?,
+            HypervisorHandlerAction::DispatchCallFromHost(_) => self
+                .execution_variables
+                .set_timeout(self.configuration.max_exec_time)?,
+            HypervisorHandlerAction::TerminateHandlerThread => self
+                .execution_variables
+                .set_timeout(self.configuration.max_init_time)?,
+            // note: timeout can never hang, so setting the timeout for it is just for completion of the match statement
+            // and it is not really needed for `TerminateHandlerThread`.
+        }
+
         self.communication_channels
             .to_handler_tx
             .send(hypervisor_handler_action)
             .map_err(|_| HyperlightError::HypervisorHandlerCommunicationFailure())?;
 
         log::debug!("Waiting for Hypervisor Handler Response");
+
         self.try_receive_handler_msg()
     }
 
@@ -523,7 +571,7 @@ impl HypervisorHandler {
         match self
             .communication_channels
             .from_handler_rx
-            .recv_timeout(self.execution_variables.get_timeout())
+            .recv_timeout(self.execution_variables.get_timeout()?)
         {
             Ok(msg) => match msg {
                 HandlerMsg::Error(e) => Err(e),
@@ -552,7 +600,7 @@ impl HypervisorHandler {
     /// `HypervisorHandlerExecutionCancelAttemptOnFinishedExecution`, you can safely ignore
     /// retrieve the return value from shared memory.
     pub(crate) fn terminate_hypervisor_handler_execution_and_reinitialise(
-        &self,
+        &mut self,
         sandbox_memory_manager: &mut SandboxMemoryManager,
     ) -> Result<HyperlightError> {
         {
@@ -606,20 +654,30 @@ impl HypervisorHandler {
         res
     }
 
-    pub(crate) fn set_dispatch_function_addr(&mut self, dispatch_function_addr: RawPtr) {
-        *self.configuration.dispatch_function_addr.lock().unwrap() = Some(dispatch_function_addr);
+    pub(crate) fn set_dispatch_function_addr(
+        &mut self,
+        dispatch_function_addr: RawPtr,
+    ) -> Result<()> {
+        *self
+            .configuration
+            .dispatch_function_addr
+            .try_lock()
+            .map_err(|_| new_error!("Failed to set_dispatch_function_addr"))? =
+            Some(dispatch_function_addr);
+
+        Ok(())
     }
 
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     pub(crate) fn terminate_execution(&self) -> Result<()> {
         error!(
             "Execution timed out after {} milliseconds , cancelling execution",
-            self.execution_variables.get_timeout().as_millis()
+            self.execution_variables.get_timeout()?.as_millis()
         );
 
         #[cfg(target_os = "linux")]
         {
-            let thread_id = self.execution_variables.get_thread_id();
+            let thread_id = self.execution_variables.get_thread_id()?;
             if thread_id == u64::MAX {
                 log_then_return!("Failed to get thread id to signal thread");
             }
@@ -656,7 +714,7 @@ impl HypervisorHandler {
             if !self.execution_variables.run_cancelled.load() {
                 #[cfg(feature = "seccomp")]
                 {
-                    if self.is_hv_handler_receiving_signals() {
+                    if self.is_hv_handler_receiving_signals()? {
                         log_then_return!(GuestExecutionHungOnHostFunctionCall());
                     } else {
                         log_then_return!(DisallowedSyscall());
@@ -672,8 +730,12 @@ impl HypervisorHandler {
         #[cfg(target_os = "windows")]
         {
             unsafe {
-                WHvCancelRunVirtualProcessor(self.execution_variables.get_partition_handle(), 0, 0)
-                    .map_err(|e| new_error!("Failed to cancel guest execution {:?}", e))?;
+                WHvCancelRunVirtualProcessor(
+                    self.execution_variables.get_partition_handle()?,
+                    0,
+                    0,
+                )
+                .map_err(|e| new_error!("Failed to cancel guest execution {:?}", e))?;
             }
         }
 
@@ -933,7 +995,7 @@ mod tests {
         // finished while we attempted to terminate execution
         {
             match sandbox.get_execution_mode().clone() {
-                ExecutionMode::InHypervisor(hv_handler) => {
+                ExecutionMode::InHypervisor(mut hv_handler) => {
                     match hv_handler.terminate_hypervisor_handler_execution_and_reinitialise(
                         sandbox.get_mgr_wrapper_mut().unwrap_mgr_mut(),
                     )? {

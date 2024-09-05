@@ -254,8 +254,8 @@ impl VirtualCPU {
                 HyperlightExit::Mmio(addr) => {
                     mem_access_fn
                         .clone()
-                        .lock()
-                        .map_err(|e| new_error!("error locking: {:?}", e))?
+                        .try_lock()
+                        .map_err(|_| new_error!("Error locking"))?
                         .call()?;
                     log_then_return!("MMIO access address {:#x}", addr);
                 }

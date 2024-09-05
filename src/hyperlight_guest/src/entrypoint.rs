@@ -102,7 +102,10 @@ pub extern "C" fn entrypoint(peb_address: u64, seed: u64, ops: u64, log_level_fi
 
             let heap_start = (*peb_ptr).guestheapData.guestHeapBuffer as usize;
             let heap_size = (*peb_ptr).guestheapData.guestHeapSize as usize;
-            HEAP_ALLOCATOR.lock().init(heap_start, heap_size);
+            HEAP_ALLOCATOR
+                .try_lock()
+                .expect("Failed to access HEAP_ALLOCATOR")
+                .init(heap_start, heap_size);
 
             // In C, at this point, we call __security_init_cookie.
             // That's a dependency on MSVC, which we can't utilize here.

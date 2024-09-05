@@ -143,7 +143,7 @@ mod tests {
     use crate::sandbox::uninitialized::GuestBinary;
     use crate::sandbox_state::sandbox::EvolvableSandbox;
     use crate::sandbox_state::transition::Noop;
-    use crate::{MultiUseSandbox, UninitializedSandbox};
+    use crate::{new_error, MultiUseSandbox, UninitializedSandbox};
 
     #[test]
     // TODO: add support for testing on WHP
@@ -203,7 +203,10 @@ mod tests {
                     let uninitialized_sandbox = uq.pop().unwrap_or_else(|| {
                         panic!("Failed to pop UninitializedSandbox thread {}", i)
                     });
-                    let host_funcs = uninitialized_sandbox.host_funcs.lock();
+                    let host_funcs = uninitialized_sandbox
+                        .host_funcs
+                        .try_lock()
+                        .map_err(|_| new_error!("Error locking"));
 
                     assert!(host_funcs.is_ok());
 
@@ -236,7 +239,10 @@ mod tests {
                     let sandbox = sq
                         .pop()
                         .unwrap_or_else(|| panic!("Failed to pop Sandbox thread {}", i));
-                    let host_funcs = sandbox._host_funcs.lock();
+                    let host_funcs = sandbox
+                        ._host_funcs
+                        .try_lock()
+                        .map_err(|_| new_error!("Error locking"));
 
                     assert!(host_funcs.is_ok());
 

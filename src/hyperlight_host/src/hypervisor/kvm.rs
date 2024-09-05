@@ -250,8 +250,8 @@ impl Hypervisor for KVMDriver {
         } else {
             let payload_u64 = u64::from(data[0]);
             outb_handle_fn
-                .lock()
-                .map_err(|e| new_error!("Error Locking {}", e))?
+                .try_lock()
+                .map_err(|_| new_error!("Error locking"))?
                 .call(port, payload_u64)?;
         }
 

@@ -72,7 +72,7 @@ fn run_example() -> HyperlightResult<()> {
         let exit = Arc::clone(&should_exit);
         let writer_func = Arc::new(Mutex::new(fn_writer));
         let handle = spawn(move || -> HyperlightResult<()> {
-            while !*exit.lock().unwrap() {
+            while !*exit.try_lock().unwrap() {
                 // Construct a new span named "hyperlight tracing example thread" with INFO  level.
                 let id = Uuid::new_v4();
                 let span = span!(
@@ -155,7 +155,7 @@ fn run_example() -> HyperlightResult<()> {
     println!("Press enter to exit...");
     let mut input = String::new();
     stdin().read_line(&mut input)?;
-    *should_exit.lock().unwrap() = true;
+    *should_exit.try_lock().unwrap() = true;
     for join_handle in join_handles {
         let result = join_handle.join();
         assert!(result.is_ok());

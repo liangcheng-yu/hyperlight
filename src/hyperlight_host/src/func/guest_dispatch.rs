@@ -75,7 +75,7 @@ pub(crate) fn call_function_on_guest<'a, WrapperGetterT: WrapperGetter<'a>>(
                 }
             }
         }
-        ExecutionMode::InHypervisor(hv_handler) => {
+        ExecutionMode::InHypervisor(mut hv_handler) => {
             {
                 match hv_handler.execute_hypervisor_handler_action(
                     HypervisorHandlerAction::DispatchCallFromHost(function_name.to_string()),
@@ -145,7 +145,9 @@ mod tests {
     use crate::sandbox::uninitialized::GuestBinary;
     use crate::sandbox_state::sandbox::EvolvableSandbox;
     use crate::sandbox_state::transition::MutatingCallback;
-    use crate::{HyperlightError, MultiUseSandbox, Result, SingleUseSandbox, UninitializedSandbox};
+    use crate::{
+        new_error, HyperlightError, MultiUseSandbox, Result, SingleUseSandbox, UninitializedSandbox,
+    };
 
     // simple function
     fn test_function0(_: MultiUseGuestCallContext) -> Result<i32> {
@@ -277,9 +279,16 @@ mod tests {
                 let handle = thread::spawn(move || {
                     // we're not actually using the context, but we're calling
                     // it here to test the mutual exclusion
-                    let mut num = count.lock().unwrap();
+                    let mut num = count
+                        .try_lock()
+                        .map_err(|_| new_error!("Error locking"))
+                        .unwrap();
                     *num += 1;
-                    order.lock().unwrap().push(*num);
+                    order
+                        .try_lock()
+                        .map_err(|_| new_error!("Error locking"))
+                        .unwrap()
+                        .push(*num);
                 });
                 handles.push(handle);
             }
@@ -289,7 +298,10 @@ mod tests {
             }
 
             // Check if the order of operations is sequential
-            let order = order.lock().unwrap();
+            let order = order
+                .try_lock()
+                .map_err(|_| new_error!("Error locking"))
+                .unwrap();
             for i in 0..10 {
                 assert_eq!(order[i], i + 1);
             }

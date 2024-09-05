@@ -10,7 +10,7 @@ use hyperlight_host::sandbox::{
 };
 use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
 use hyperlight_host::sandbox_state::transition::Noop;
-use hyperlight_host::{log_then_return, sandbox, Result};
+use hyperlight_host::{log_then_return, new_error, sandbox, Result};
 
 use super::bool::register_boolean;
 use super::c_func::CFunc;
@@ -260,7 +260,8 @@ pub unsafe extern "C" fn sandbox_call_host_print(
             let rsbox = sbox.to_uninit_mut()?;
             rsbox
                 .get_host_funcs()
-                .lock()?
+                .try_lock()
+                .map_err(|_| new_error!("Error locking"))?
                 .host_print(String::from(msg))?;
             Ok(Handle::new_empty())
         })

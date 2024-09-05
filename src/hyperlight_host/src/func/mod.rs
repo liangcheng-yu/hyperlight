@@ -1,4 +1,4 @@
-use crate::Result;
+use crate::{new_error, Result};
 /// Context structures used to allow the user to call one or more guest
 /// functions on the same Hyperlight sandbox instance, all from within the
 /// same state and mutual exclusion context.
@@ -55,7 +55,7 @@ impl HyperlightFunction {
 
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn call(&self, args: Vec<ParameterValue>) -> Result<ReturnValue> {
-        let mut f = self.0.lock().unwrap();
+        let mut f = self.0.try_lock().map_err(|_| new_error!("Error locking"))?;
         f(args)
     }
 }

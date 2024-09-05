@@ -285,8 +285,8 @@ impl<'a> UninitializedSandbox {
                 #[allow(clippy::arc_with_non_send_sync)]
                 let writer_func = Arc::new(Mutex::new(writer_func));
                 writer_func
-                    .lock()
-                    .map_err(|e| new_error!("Error Locking {:?}", e))?
+                    .try_lock()
+                    .map_err(|_| new_error!("Error locking"))?
                     .register(&mut sandbox, "HostPrint")?;
             }
             None => {
@@ -464,7 +464,7 @@ mod tests {
     use crate::testing::log_values::{test_value_as_str, try_to_strings};
     #[cfg(target_os = "windows")]
     use crate::SandboxRunOptions;
-    use crate::{MultiUseSandbox, Result, UninitializedSandbox};
+    use crate::{new_error, MultiUseSandbox, Result, UninitializedSandbox};
 
     #[test]
     fn test_new_sandbox() {
@@ -520,7 +520,10 @@ mod tests {
         let received_msg_clone = received_msg.clone();
 
         let writer = move |msg| {
-            let mut received_msg = received_msg_clone.lock().unwrap();
+            let mut received_msg = received_msg_clone
+                .try_lock()
+                .map_err(|_| new_error!("Error locking"))
+                .unwrap();
             *received_msg = msg;
             Ok(0)
         };
@@ -542,7 +545,8 @@ mod tests {
         fn init(uninitialized_sandbox: &mut UninitializedSandbox) -> Result<()> {
             uninitialized_sandbox
                 .host_funcs
-                .lock()?
+                .try_lock()
+                .map_err(|_| new_error!("Error locking"))?
                 .host_print("test".to_string())?;
 
             Ok(())
@@ -554,7 +558,14 @@ mod tests {
 
         drop(sandbox);
 
-        assert_eq!(received_msg.lock().unwrap().as_str(), "test");
+        assert_eq!(
+            received_msg
+                .try_lock()
+                .map_err(|_| new_error!("Error locking"))
+                .unwrap()
+                .as_str(),
+            "test"
+        );
 
         // Test with a valid guest binary buffer
 
@@ -647,7 +658,10 @@ mod tests {
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
-            let host_funcs = sandbox._host_funcs.lock();
+            let host_funcs = sandbox
+                ._host_funcs
+                .try_lock()
+                .map_err(|_| new_error!("Error locking"));
 
             assert!(host_funcs.is_ok());
 
@@ -670,7 +684,10 @@ mod tests {
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
-            let host_funcs = sandbox._host_funcs.lock();
+            let host_funcs = sandbox
+                ._host_funcs
+                .try_lock()
+                .map_err(|_| new_error!("Error locking"));
 
             assert!(host_funcs.is_ok());
 
@@ -699,7 +716,10 @@ mod tests {
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
-            let host_funcs = sandbox._host_funcs.lock();
+            let host_funcs = sandbox
+                ._host_funcs
+                .try_lock()
+                .map_err(|_| new_error!("Error locking"));
 
             assert!(host_funcs.is_ok());
 
@@ -714,7 +734,10 @@ mod tests {
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
-            let host_funcs = sandbox._host_funcs.lock();
+            let host_funcs = sandbox
+                ._host_funcs
+                .try_lock()
+                .map_err(|_| new_error!("Error locking"));
 
             assert!(host_funcs.is_ok());
 
@@ -754,7 +777,10 @@ mod tests {
         let received_msg_clone = received_msg.clone();
 
         let writer = move |msg| {
-            let mut received_msg = received_msg_clone.lock().unwrap();
+            let mut received_msg = received_msg_clone
+                .try_lock()
+                .map_err(|_| new_error!("Error locking"))
+                .unwrap();
             *received_msg = msg;
             Ok(0)
         };
@@ -769,7 +795,10 @@ mod tests {
         )
         .expect("Failed to create sandbox");
 
-        let host_funcs = sandbox.host_funcs.lock();
+        let host_funcs = sandbox
+            .host_funcs
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"));
 
         assert!(host_funcs.is_ok());
 
@@ -777,7 +806,14 @@ mod tests {
 
         drop(sandbox);
 
-        assert_eq!(received_msg.lock().unwrap().as_str(), "test");
+        assert_eq!(
+            received_msg
+                .try_lock()
+                .map_err(|_| new_error!("Error locking"))
+                .unwrap()
+                .as_str(),
+            "test"
+        );
 
         // There may be cases where a mutable reference to the captured variable is not required to be used outside the closue
         // e.g. if the function is writing to a file or a socket etc.
@@ -792,12 +828,18 @@ mod tests {
         let captured_file = Arc::new(Mutex::new(NamedTempFile::new().unwrap()));
         let capture_file_clone = captured_file.clone();
 
-        let capture_file_lock = captured_file.lock().unwrap();
+        let capture_file_lock = captured_file
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"))
+            .unwrap();
         let mut file = capture_file_lock.reopen().unwrap();
         drop(capture_file_lock);
 
         let writer = move |msg: String| -> Result<i32> {
-            let mut captured_file = capture_file_clone.lock().unwrap();
+            let mut captured_file = capture_file_clone
+                .try_lock()
+                .map_err(|_| new_error!("Error locking"))
+                .unwrap();
             captured_file.write_all(msg.as_bytes()).unwrap();
             Ok(0)
         };
@@ -812,7 +854,10 @@ mod tests {
         )
         .expect("Failed to create sandbox");
 
-        let host_funcs = sandbox.host_funcs.lock();
+        let host_funcs = sandbox
+            .host_funcs
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"));
 
         assert!(host_funcs.is_ok());
 
@@ -838,7 +883,10 @@ mod tests {
         )
         .expect("Failed to create sandbox");
 
-        let host_funcs = sandbox.host_funcs.lock();
+        let host_funcs = sandbox
+            .host_funcs
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"));
 
         assert!(host_funcs.is_ok());
 
@@ -862,7 +910,10 @@ mod tests {
         )
         .expect("Failed to create sandbox");
 
-        let host_funcs = sandbox.host_funcs.lock();
+        let host_funcs = sandbox
+            .host_funcs
+            .try_lock()
+            .map_err(|_| new_error!("Error locking"));
 
         assert!(host_funcs.is_ok());
 
@@ -920,7 +971,10 @@ mod tests {
                         panic!("Failed to pop UninitializedSandbox thread {}", i)
                     });
 
-                    let host_funcs = uninitialized_sandbox.host_funcs.lock();
+                    let host_funcs = uninitialized_sandbox
+                        .host_funcs
+                        .try_lock()
+                        .map_err(|_| new_error!("Error locking"));
 
                     assert!(host_funcs.is_ok());
 
@@ -954,7 +1008,10 @@ mod tests {
                         .pop()
                         .unwrap_or_else(|| panic!("Failed to pop Sandbox thread {}", i));
 
-                    let host_funcs = sandbox._host_funcs.lock();
+                    let host_funcs = sandbox
+                        ._host_funcs
+                        .try_lock()
+                        .map_err(|_| new_error!("Error locking"));
 
                     assert!(host_funcs.is_ok());
 
