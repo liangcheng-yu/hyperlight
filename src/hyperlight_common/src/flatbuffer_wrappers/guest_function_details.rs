@@ -1,12 +1,12 @@
 use alloc::vec::Vec;
 
 use anyhow::{anyhow, Error, Result};
+use flatbuffers::size_prefixed_root;
 #[cfg(feature = "tracing")]
 use tracing::{instrument, Span};
 
 use super::guest_function_definition::GuestFunctionDefinition;
 use crate::flatbuffers::hyperlight::generated::{
-    size_prefixed_root_as_guest_function_details,
     GuestFunctionDefinition as FbGuestFunctionDefinition,
     GuestFunctionDetails as FbGuestFunctionDetails,
     GuestFunctionDetailsArgs as FbGuestFunctionDetailsArgs,
@@ -48,7 +48,7 @@ impl TryFrom<&[u8]> for GuestFunctionDetails {
     type Error = Error;
     #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
     fn try_from(bytes: &[u8]) -> Result<Self> {
-        let guest_function_details_fb = size_prefixed_root_as_guest_function_details(bytes)
+        let guest_function_details_fb = size_prefixed_root::<FbGuestFunctionDetails>(bytes)
             .map_err(|e| anyhow!("Error while reading GuestFunctionDetails: {:?}", e))?;
 
         let guest_function_definitions = {

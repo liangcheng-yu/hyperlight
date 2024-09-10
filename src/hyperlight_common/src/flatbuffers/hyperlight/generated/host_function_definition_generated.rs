@@ -2,14 +2,13 @@
 // @generated
 extern crate alloc;
 extern crate flatbuffers;
+use self::flatbuffers::{EndianScalar, Follow};
+use super::*;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::mem;
-
-use self::flatbuffers::{EndianScalar, Follow};
-use super::*;
 pub enum HostFunctionDefinitionOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -37,8 +36,8 @@ impl<'a> HostFunctionDefinition<'a> {
         HostFunctionDefinition { _tab: table }
     }
     #[allow(unused_mut)]
-    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
         args: &'args HostFunctionDefinitionArgs<'args>,
     ) -> flatbuffers::WIPOffset<HostFunctionDefinition<'bldr>> {
         let mut builder = HostFunctionDefinitionBuilder::new(_fbb);
@@ -144,11 +143,11 @@ impl<'a> Default for HostFunctionDefinitionArgs<'a> {
     }
 }
 
-pub struct HostFunctionDefinitionBuilder<'a: 'b, 'b> {
-    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct HostFunctionDefinitionBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> HostFunctionDefinitionBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> HostFunctionDefinitionBuilder<'a, 'b, A> {
     #[inline]
     pub fn add_function_name(&mut self, function_name: flatbuffers::WIPOffset<&'b str>) {
         self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
@@ -176,8 +175,8 @@ impl<'a: 'b, 'b> HostFunctionDefinitionBuilder<'a, 'b> {
     }
     #[inline]
     pub fn new(
-        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-    ) -> HostFunctionDefinitionBuilder<'a, 'b> {
+        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+    ) -> HostFunctionDefinitionBuilder<'a, 'b, A> {
         let start = _fbb.start_table();
         HostFunctionDefinitionBuilder {
             fbb_: _fbb,

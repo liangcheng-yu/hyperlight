@@ -11,9 +11,11 @@ public enum ParameterType : byte
   hluint = 1,
   hllong = 2,
   hlulong = 3,
-  hlstring = 4,
-  hlbool = 5,
-  hlvecbytes = 6,
+  hlfloat = 4,
+  hldouble = 5,
+  hlstring = 6,
+  hlbool = 7,
+  hlvecbytes = 8,
 };
 
 

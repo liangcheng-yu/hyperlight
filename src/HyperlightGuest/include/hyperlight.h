@@ -156,12 +156,24 @@ uint8_t* __call_##function(ns(FunctionCall_table_t) functionCall) \
 int __##function##_pcount = 10; \
 ns(ParameterType_enum_t) __##function##_pKind[] = {ns(ParameterType_##union0_member), ns(ParameterType_##union1_member), ns(ParameterType_##union2_member), ns(ParameterType_##union3_member), ns(ParameterType_##union4_member), ns(ParameterType_##union5_member), ns(ParameterType_##union6_member), ns(ParameterType_##union7_member), ns(ParameterType_##union8_member), ns(ParameterType_##union9_member)};
 
+#define GENERATE_FUNCTION_11(function, union0_member, union1_member, union2_member, union3_member, union4_member, union5_member, union6_member, union7_member, union8_member, union9_member, union10_member) \
+uint8_t* __call_##function(ns(FunctionCall_table_t) functionCall) \
+{ \
+    Parameter params[11] = {0}; \
+    GetFunctionCallParameters(functionCall, params);   \
+    return function(params[0].value.union0_member, params[1].value.union1_member, params[2].value.union2_member, params[3].value.union3_member, params[4].value.union4_member, params[5].value.union5_member, params[6].value.union6_member, params[7].value.union7_member, params[8].value.union8_member, params[9].value.union9_member, params[10].value.union10_member); \
+} \
+int __##function##_pcount = 11; \
+ns(ParameterType_enum_t) __##function##_pKind[] = {ns(ParameterType_##union0_member), ns(ParameterType_##union1_member), ns(ParameterType_##union2_member), ns(ParameterType_##union3_member), ns(ParameterType_##union4_member), ns(ParameterType_##union5_member), ns(ParameterType_##union6_member), ns(ParameterType_##union7_member), ns(ParameterType_##union8_member), ns(ParameterType_##union9_member), ns(ParameterType_##union10_member)};
+
 #define FUNCTIONDETAILS(name, function)  CreateFunctionDefinition(name, &__call_##function, __##function##_pcount, __##function##_pKind)
 typedef enum {
     hlint,
     hluint,
     hllong,
     hlulong,
+    hlfloat,
+    hldouble,
     hlstring,
     hlbool,
     hlvecbytes
@@ -175,6 +187,8 @@ typedef struct
         uint32_t hluint;
         int64_t hllong;
         uint64_t hlulong;
+        float hlfloat;
+        double hldouble;
         const char* hlstring;
         bool hlbool;
         const uint8_t* hlvecbytes;

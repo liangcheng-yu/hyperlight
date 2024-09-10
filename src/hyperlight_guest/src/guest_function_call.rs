@@ -30,8 +30,8 @@ pub(crate) fn call_guest_function(function_call: &FunctionCall) -> Result<Vec<u8
     let function_call_fparameters = function_call.parameters.clone().unwrap_or_default();
     let function_call_fname = function_call.clone().function_name;
 
-    // Verify that the function does not have more than 10 parameters.
-    const MAX_PARAMETERS: usize = 10;
+    // Verify that the function does not have more than 11 parameters.
+    const MAX_PARAMETERS: usize = 11;
     if function_call_fparameters.len() > MAX_PARAMETERS {
         return Err(HyperlightGuestError::new(
             ErrorCode::GuestError,

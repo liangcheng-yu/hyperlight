@@ -2,14 +2,13 @@
 // @generated
 extern crate alloc;
 extern crate flatbuffers;
+use self::flatbuffers::{EndianScalar, Follow};
+use super::*;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::mem;
-
-use self::flatbuffers::{EndianScalar, Follow};
-use super::*;
 pub enum GuestFunctionDefinitionOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -38,8 +37,8 @@ impl<'a> GuestFunctionDefinition<'a> {
         GuestFunctionDefinition { _tab: table }
     }
     #[allow(unused_mut)]
-    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
         args: &'args GuestFunctionDefinitionArgs<'args>,
     ) -> flatbuffers::WIPOffset<GuestFunctionDefinition<'bldr>> {
         let mut builder = GuestFunctionDefinitionBuilder::new(_fbb);
@@ -161,11 +160,11 @@ impl<'a> Default for GuestFunctionDefinitionArgs<'a> {
     }
 }
 
-pub struct GuestFunctionDefinitionBuilder<'a: 'b, 'b> {
-    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct GuestFunctionDefinitionBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> GuestFunctionDefinitionBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> GuestFunctionDefinitionBuilder<'a, 'b, A> {
     #[inline]
     pub fn add_function_name(&mut self, function_name: flatbuffers::WIPOffset<&'b str>) {
         self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
@@ -201,8 +200,8 @@ impl<'a: 'b, 'b> GuestFunctionDefinitionBuilder<'a, 'b> {
     }
     #[inline]
     pub fn new(
-        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-    ) -> GuestFunctionDefinitionBuilder<'a, 'b> {
+        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+    ) -> GuestFunctionDefinitionBuilder<'a, 'b, A> {
         let start = _fbb.start_table();
         GuestFunctionDefinitionBuilder {
             fbb_: _fbb,

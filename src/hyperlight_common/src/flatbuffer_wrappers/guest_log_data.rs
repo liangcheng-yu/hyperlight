@@ -2,13 +2,13 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use anyhow::{anyhow, Error, Result};
+use flatbuffers::size_prefixed_root;
 #[cfg(feature = "tracing")]
 use tracing::{instrument, Span};
 
 use super::guest_log_level::LogLevel;
 use crate::flatbuffers::hyperlight::generated::{
-    size_prefixed_root_as_guest_log_data, GuestLogData as FbGuestLogData,
-    GuestLogDataArgs as FbGuestLogDataArgs, LogLevel as FbLogLevel,
+    GuestLogData as FbGuestLogData, GuestLogDataArgs as FbGuestLogDataArgs, LogLevel as FbLogLevel,
 };
 
 /// The guest log data for a VM sandbox
@@ -48,7 +48,7 @@ impl TryFrom<&[u8]> for GuestLogData {
     type Error = Error;
     #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
     fn try_from(raw_bytes: &[u8]) -> Result<Self> {
-        let gld_gen = size_prefixed_root_as_guest_log_data(raw_bytes)
+        let gld_gen = size_prefixed_root::<FbGuestLogData>(raw_bytes)
             .map_err(|e| anyhow!("Error while reading GuestLogData: {:?}", e))?;
         let message = convert_generated_option("message", gld_gen.message())?;
         let source = convert_generated_option("source", gld_gen.source())?;

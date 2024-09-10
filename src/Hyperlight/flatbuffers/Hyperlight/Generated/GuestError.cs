@@ -13,7 +13,7 @@ public struct GuestError : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_24_3_25(); }
   public static GuestError GetRootAsGuestError(ByteBuffer _bb) { return GetRootAsGuestError(_bb, new GuestError()); }
   public static GuestError GetRootAsGuestError(ByteBuffer _bb, GuestError obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public static bool VerifyGuestError(ByteBuffer _bb) {Google.FlatBuffers.Verifier verifier = new Google.FlatBuffers.Verifier(_bb); return verifier.VerifyBuffer("", false, GuestErrorVerify.Verify); }

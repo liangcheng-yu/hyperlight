@@ -223,7 +223,7 @@ fn guest_hlmalloc_abort() {
     );
 
     // allocate a vector (on heap) that is bigger than the heap
-    let heap_size = 0x3000;
+    let heap_size = 0x4000;
     let size_to_allocate = 0x10000;
     assert!(size_to_allocate > heap_size);
 

@@ -17,7 +17,7 @@ rand = { version = "0.8.5" }
 cfg-if = { version = "1.0.0" }
 libc = { version = "0.2.155" }
 paste = "1.0"
-flatbuffers = "23.5.26"
+flatbuffers = "24.3.25"
 page_size = "0.6.0"
 termcolor = "1.2.0"
 is-terminal = "0.4.9"

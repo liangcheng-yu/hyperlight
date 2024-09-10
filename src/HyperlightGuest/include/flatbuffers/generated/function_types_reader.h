@@ -35,6 +35,14 @@ typedef const struct Hyperlight_Generated_hlulong_table *Hyperlight_Generated_hl
 typedef struct Hyperlight_Generated_hlulong_table *Hyperlight_Generated_hlulong_mutable_table_t;
 typedef const flatbuffers_uoffset_t *Hyperlight_Generated_hlulong_vec_t;
 typedef flatbuffers_uoffset_t *Hyperlight_Generated_hlulong_mutable_vec_t;
+typedef const struct Hyperlight_Generated_hlfloat_table *Hyperlight_Generated_hlfloat_table_t;
+typedef struct Hyperlight_Generated_hlfloat_table *Hyperlight_Generated_hlfloat_mutable_table_t;
+typedef const flatbuffers_uoffset_t *Hyperlight_Generated_hlfloat_vec_t;
+typedef flatbuffers_uoffset_t *Hyperlight_Generated_hlfloat_mutable_vec_t;
+typedef const struct Hyperlight_Generated_hldouble_table *Hyperlight_Generated_hldouble_table_t;
+typedef struct Hyperlight_Generated_hldouble_table *Hyperlight_Generated_hldouble_mutable_table_t;
+typedef const flatbuffers_uoffset_t *Hyperlight_Generated_hldouble_vec_t;
+typedef flatbuffers_uoffset_t *Hyperlight_Generated_hldouble_mutable_vec_t;
 typedef const struct Hyperlight_Generated_hlstring_table *Hyperlight_Generated_hlstring_table_t;
 typedef struct Hyperlight_Generated_hlstring_table *Hyperlight_Generated_hlstring_mutable_table_t;
 typedef const flatbuffers_uoffset_t *Hyperlight_Generated_hlstring_vec_t;
@@ -103,6 +111,30 @@ typedef flatbuffers_uoffset_t *Hyperlight_Generated_hlvoid_mutable_vec_t;
 #ifndef Hyperlight_Generated_hlulong_file_extension
 #define Hyperlight_Generated_hlulong_file_extension "bin"
 #endif
+#ifndef Hyperlight_Generated_hlfloat_file_identifier
+#define Hyperlight_Generated_hlfloat_file_identifier 0
+#endif
+/* deprecated, use Hyperlight_Generated_hlfloat_file_identifier */
+#ifndef Hyperlight_Generated_hlfloat_identifier
+#define Hyperlight_Generated_hlfloat_identifier 0
+#endif
+#define Hyperlight_Generated_hlfloat_type_hash ((flatbuffers_thash_t)0xb901bf60)
+#define Hyperlight_Generated_hlfloat_type_identifier "\x60\xbf\x01\xb9"
+#ifndef Hyperlight_Generated_hlfloat_file_extension
+#define Hyperlight_Generated_hlfloat_file_extension "bin"
+#endif
+#ifndef Hyperlight_Generated_hldouble_file_identifier
+#define Hyperlight_Generated_hldouble_file_identifier 0
+#endif
+/* deprecated, use Hyperlight_Generated_hldouble_file_identifier */
+#ifndef Hyperlight_Generated_hldouble_identifier
+#define Hyperlight_Generated_hldouble_identifier 0
+#endif
+#define Hyperlight_Generated_hldouble_type_hash ((flatbuffers_thash_t)0xace41f0f)
+#define Hyperlight_Generated_hldouble_type_identifier "\x0f\x1f\xe4\xac"
+#ifndef Hyperlight_Generated_hldouble_file_extension
+#define Hyperlight_Generated_hldouble_file_extension "bin"
+#endif
 #ifndef Hyperlight_Generated_hlstring_file_identifier
 #define Hyperlight_Generated_hlstring_file_identifier 0
 #endif
@@ -170,9 +202,11 @@ __flatbuffers_define_integer_type(Hyperlight_Generated_ParameterType, Hyperlight
 #define Hyperlight_Generated_ParameterType_hluint ((Hyperlight_Generated_ParameterType_enum_t)UINT8_C(1))
 #define Hyperlight_Generated_ParameterType_hllong ((Hyperlight_Generated_ParameterType_enum_t)UINT8_C(2))
 #define Hyperlight_Generated_ParameterType_hlulong ((Hyperlight_Generated_ParameterType_enum_t)UINT8_C(3))
-#define Hyperlight_Generated_ParameterType_hlstring ((Hyperlight_Generated_ParameterType_enum_t)UINT8_C(4))
-#define Hyperlight_Generated_ParameterType_hlbool ((Hyperlight_Generated_ParameterType_enum_t)UINT8_C(5))
-#define Hyperlight_Generated_ParameterType_hlvecbytes ((Hyperlight_Generated_ParameterType_enum_t)UINT8_C(6))
+#define Hyperlight_Generated_ParameterType_hlfloat ((Hyperlight_Generated_ParameterType_enum_t)UINT8_C(4))
+#define Hyperlight_Generated_ParameterType_hldouble ((Hyperlight_Generated_ParameterType_enum_t)UINT8_C(5))
+#define Hyperlight_Generated_ParameterType_hlstring ((Hyperlight_Generated_ParameterType_enum_t)UINT8_C(6))
+#define Hyperlight_Generated_ParameterType_hlbool ((Hyperlight_Generated_ParameterType_enum_t)UINT8_C(7))
+#define Hyperlight_Generated_ParameterType_hlvecbytes ((Hyperlight_Generated_ParameterType_enum_t)UINT8_C(8))
 
 static inline const char *Hyperlight_Generated_ParameterType_name(Hyperlight_Generated_ParameterType_enum_t value)
 {
@@ -181,6 +215,8 @@ static inline const char *Hyperlight_Generated_ParameterType_name(Hyperlight_Gen
     case Hyperlight_Generated_ParameterType_hluint: return "hluint";
     case Hyperlight_Generated_ParameterType_hllong: return "hllong";
     case Hyperlight_Generated_ParameterType_hlulong: return "hlulong";
+    case Hyperlight_Generated_ParameterType_hlfloat: return "hlfloat";
+    case Hyperlight_Generated_ParameterType_hldouble: return "hldouble";
     case Hyperlight_Generated_ParameterType_hlstring: return "hlstring";
     case Hyperlight_Generated_ParameterType_hlbool: return "hlbool";
     case Hyperlight_Generated_ParameterType_hlvecbytes: return "hlvecbytes";
@@ -195,6 +231,8 @@ static inline int Hyperlight_Generated_ParameterType_is_known_value(Hyperlight_G
     case Hyperlight_Generated_ParameterType_hluint: return 1;
     case Hyperlight_Generated_ParameterType_hllong: return 1;
     case Hyperlight_Generated_ParameterType_hlulong: return 1;
+    case Hyperlight_Generated_ParameterType_hlfloat: return 1;
+    case Hyperlight_Generated_ParameterType_hldouble: return 1;
     case Hyperlight_Generated_ParameterType_hlstring: return 1;
     case Hyperlight_Generated_ParameterType_hlbool: return 1;
     case Hyperlight_Generated_ParameterType_hlvecbytes: return 1;
@@ -208,10 +246,12 @@ __flatbuffers_define_integer_type(Hyperlight_Generated_ReturnType, Hyperlight_Ge
 #define Hyperlight_Generated_ReturnType_hluint ((Hyperlight_Generated_ReturnType_enum_t)UINT8_C(1))
 #define Hyperlight_Generated_ReturnType_hllong ((Hyperlight_Generated_ReturnType_enum_t)UINT8_C(2))
 #define Hyperlight_Generated_ReturnType_hlulong ((Hyperlight_Generated_ReturnType_enum_t)UINT8_C(3))
-#define Hyperlight_Generated_ReturnType_hlstring ((Hyperlight_Generated_ReturnType_enum_t)UINT8_C(4))
-#define Hyperlight_Generated_ReturnType_hlbool ((Hyperlight_Generated_ReturnType_enum_t)UINT8_C(5))
-#define Hyperlight_Generated_ReturnType_hlvoid ((Hyperlight_Generated_ReturnType_enum_t)UINT8_C(6))
-#define Hyperlight_Generated_ReturnType_hlsizeprefixedbuffer ((Hyperlight_Generated_ReturnType_enum_t)UINT8_C(7))
+#define Hyperlight_Generated_ReturnType_hlfloat ((Hyperlight_Generated_ReturnType_enum_t)UINT8_C(4))
+#define Hyperlight_Generated_ReturnType_hldouble ((Hyperlight_Generated_ReturnType_enum_t)UINT8_C(5))
+#define Hyperlight_Generated_ReturnType_hlstring ((Hyperlight_Generated_ReturnType_enum_t)UINT8_C(6))
+#define Hyperlight_Generated_ReturnType_hlbool ((Hyperlight_Generated_ReturnType_enum_t)UINT8_C(7))
+#define Hyperlight_Generated_ReturnType_hlvoid ((Hyperlight_Generated_ReturnType_enum_t)UINT8_C(8))
+#define Hyperlight_Generated_ReturnType_hlsizeprefixedbuffer ((Hyperlight_Generated_ReturnType_enum_t)UINT8_C(9))
 
 static inline const char *Hyperlight_Generated_ReturnType_name(Hyperlight_Generated_ReturnType_enum_t value)
 {
@@ -220,6 +260,8 @@ static inline const char *Hyperlight_Generated_ReturnType_name(Hyperlight_Genera
     case Hyperlight_Generated_ReturnType_hluint: return "hluint";
     case Hyperlight_Generated_ReturnType_hllong: return "hllong";
     case Hyperlight_Generated_ReturnType_hlulong: return "hlulong";
+    case Hyperlight_Generated_ReturnType_hlfloat: return "hlfloat";
+    case Hyperlight_Generated_ReturnType_hldouble: return "hldouble";
     case Hyperlight_Generated_ReturnType_hlstring: return "hlstring";
     case Hyperlight_Generated_ReturnType_hlbool: return "hlbool";
     case Hyperlight_Generated_ReturnType_hlvoid: return "hlvoid";
@@ -235,6 +277,8 @@ static inline int Hyperlight_Generated_ReturnType_is_known_value(Hyperlight_Gene
     case Hyperlight_Generated_ReturnType_hluint: return 1;
     case Hyperlight_Generated_ReturnType_hllong: return 1;
     case Hyperlight_Generated_ReturnType_hlulong: return 1;
+    case Hyperlight_Generated_ReturnType_hlfloat: return 1;
+    case Hyperlight_Generated_ReturnType_hldouble: return 1;
     case Hyperlight_Generated_ReturnType_hlstring: return 1;
     case Hyperlight_Generated_ReturnType_hlbool: return 1;
     case Hyperlight_Generated_ReturnType_hlvoid: return 1;
@@ -284,6 +328,26 @@ __flatbuffers_offset_vec_at(Hyperlight_Generated_hlulong_table_t, vec, i, 0)
 __flatbuffers_table_as_root(Hyperlight_Generated_hlulong)
 
 __flatbuffers_define_scalar_field(0, Hyperlight_Generated_hlulong, value, flatbuffers_uint64, uint64_t, UINT64_C(0))
+
+struct Hyperlight_Generated_hlfloat_table { uint8_t unused__; };
+
+static inline size_t Hyperlight_Generated_hlfloat_vec_len(Hyperlight_Generated_hlfloat_vec_t vec)
+__flatbuffers_vec_len(vec)
+static inline Hyperlight_Generated_hlfloat_table_t Hyperlight_Generated_hlfloat_vec_at(Hyperlight_Generated_hlfloat_vec_t vec, size_t i)
+__flatbuffers_offset_vec_at(Hyperlight_Generated_hlfloat_table_t, vec, i, 0)
+__flatbuffers_table_as_root(Hyperlight_Generated_hlfloat)
+
+__flatbuffers_define_scalar_field(0, Hyperlight_Generated_hlfloat, value, flatbuffers_float, float, 0.00000000f)
+
+struct Hyperlight_Generated_hldouble_table { uint8_t unused__; };
+
+static inline size_t Hyperlight_Generated_hldouble_vec_len(Hyperlight_Generated_hldouble_vec_t vec)
+__flatbuffers_vec_len(vec)
+static inline Hyperlight_Generated_hldouble_table_t Hyperlight_Generated_hldouble_vec_at(Hyperlight_Generated_hldouble_vec_t vec, size_t i)
+__flatbuffers_offset_vec_at(Hyperlight_Generated_hldouble_table_t, vec, i, 0)
+__flatbuffers_table_as_root(Hyperlight_Generated_hldouble)
+
+__flatbuffers_define_scalar_field(0, Hyperlight_Generated_hldouble, value, flatbuffers_double, double, 0.0000000000000000)
 
 struct Hyperlight_Generated_hlstring_table { uint8_t unused__; };
 
@@ -342,9 +406,11 @@ __flatbuffers_define_union(flatbuffers_, Hyperlight_Generated_ParameterValue)
 #define Hyperlight_Generated_ParameterValue_hluint ((Hyperlight_Generated_ParameterValue_union_type_t)UINT8_C(2))
 #define Hyperlight_Generated_ParameterValue_hllong ((Hyperlight_Generated_ParameterValue_union_type_t)UINT8_C(3))
 #define Hyperlight_Generated_ParameterValue_hlulong ((Hyperlight_Generated_ParameterValue_union_type_t)UINT8_C(4))
-#define Hyperlight_Generated_ParameterValue_hlstring ((Hyperlight_Generated_ParameterValue_union_type_t)UINT8_C(5))
-#define Hyperlight_Generated_ParameterValue_hlbool ((Hyperlight_Generated_ParameterValue_union_type_t)UINT8_C(6))
-#define Hyperlight_Generated_ParameterValue_hlvecbytes ((Hyperlight_Generated_ParameterValue_union_type_t)UINT8_C(7))
+#define Hyperlight_Generated_ParameterValue_hlfloat ((Hyperlight_Generated_ParameterValue_union_type_t)UINT8_C(5))
+#define Hyperlight_Generated_ParameterValue_hldouble ((Hyperlight_Generated_ParameterValue_union_type_t)UINT8_C(6))
+#define Hyperlight_Generated_ParameterValue_hlstring ((Hyperlight_Generated_ParameterValue_union_type_t)UINT8_C(7))
+#define Hyperlight_Generated_ParameterValue_hlbool ((Hyperlight_Generated_ParameterValue_union_type_t)UINT8_C(8))
+#define Hyperlight_Generated_ParameterValue_hlvecbytes ((Hyperlight_Generated_ParameterValue_union_type_t)UINT8_C(9))
 
 static inline const char *Hyperlight_Generated_ParameterValue_type_name(Hyperlight_Generated_ParameterValue_union_type_t type)
 {
@@ -354,6 +420,8 @@ static inline const char *Hyperlight_Generated_ParameterValue_type_name(Hyperlig
     case Hyperlight_Generated_ParameterValue_hluint: return "hluint";
     case Hyperlight_Generated_ParameterValue_hllong: return "hllong";
     case Hyperlight_Generated_ParameterValue_hlulong: return "hlulong";
+    case Hyperlight_Generated_ParameterValue_hlfloat: return "hlfloat";
+    case Hyperlight_Generated_ParameterValue_hldouble: return "hldouble";
     case Hyperlight_Generated_ParameterValue_hlstring: return "hlstring";
     case Hyperlight_Generated_ParameterValue_hlbool: return "hlbool";
     case Hyperlight_Generated_ParameterValue_hlvecbytes: return "hlvecbytes";
@@ -369,6 +437,8 @@ static inline int Hyperlight_Generated_ParameterValue_is_known_type(Hyperlight_G
     case Hyperlight_Generated_ParameterValue_hluint: return 1;
     case Hyperlight_Generated_ParameterValue_hllong: return 1;
     case Hyperlight_Generated_ParameterValue_hlulong: return 1;
+    case Hyperlight_Generated_ParameterValue_hlfloat: return 1;
+    case Hyperlight_Generated_ParameterValue_hldouble: return 1;
     case Hyperlight_Generated_ParameterValue_hlstring: return 1;
     case Hyperlight_Generated_ParameterValue_hlbool: return 1;
     case Hyperlight_Generated_ParameterValue_hlvecbytes: return 1;
@@ -384,10 +454,12 @@ __flatbuffers_define_union(flatbuffers_, Hyperlight_Generated_ReturnValue)
 #define Hyperlight_Generated_ReturnValue_hluint ((Hyperlight_Generated_ReturnValue_union_type_t)UINT8_C(2))
 #define Hyperlight_Generated_ReturnValue_hllong ((Hyperlight_Generated_ReturnValue_union_type_t)UINT8_C(3))
 #define Hyperlight_Generated_ReturnValue_hlulong ((Hyperlight_Generated_ReturnValue_union_type_t)UINT8_C(4))
-#define Hyperlight_Generated_ReturnValue_hlstring ((Hyperlight_Generated_ReturnValue_union_type_t)UINT8_C(5))
-#define Hyperlight_Generated_ReturnValue_hlbool ((Hyperlight_Generated_ReturnValue_union_type_t)UINT8_C(6))
-#define Hyperlight_Generated_ReturnValue_hlvoid ((Hyperlight_Generated_ReturnValue_union_type_t)UINT8_C(7))
-#define Hyperlight_Generated_ReturnValue_hlsizeprefixedbuffer ((Hyperlight_Generated_ReturnValue_union_type_t)UINT8_C(8))
+#define Hyperlight_Generated_ReturnValue_hlfloat ((Hyperlight_Generated_ReturnValue_union_type_t)UINT8_C(5))
+#define Hyperlight_Generated_ReturnValue_hldouble ((Hyperlight_Generated_ReturnValue_union_type_t)UINT8_C(6))
+#define Hyperlight_Generated_ReturnValue_hlstring ((Hyperlight_Generated_ReturnValue_union_type_t)UINT8_C(7))
+#define Hyperlight_Generated_ReturnValue_hlbool ((Hyperlight_Generated_ReturnValue_union_type_t)UINT8_C(8))
+#define Hyperlight_Generated_ReturnValue_hlvoid ((Hyperlight_Generated_ReturnValue_union_type_t)UINT8_C(9))
+#define Hyperlight_Generated_ReturnValue_hlsizeprefixedbuffer ((Hyperlight_Generated_ReturnValue_union_type_t)UINT8_C(10))
 
 static inline const char *Hyperlight_Generated_ReturnValue_type_name(Hyperlight_Generated_ReturnValue_union_type_t type)
 {
@@ -397,6 +469,8 @@ static inline const char *Hyperlight_Generated_ReturnValue_type_name(Hyperlight_
     case Hyperlight_Generated_ReturnValue_hluint: return "hluint";
     case Hyperlight_Generated_ReturnValue_hllong: return "hllong";
     case Hyperlight_Generated_ReturnValue_hlulong: return "hlulong";
+    case Hyperlight_Generated_ReturnValue_hlfloat: return "hlfloat";
+    case Hyperlight_Generated_ReturnValue_hldouble: return "hldouble";
     case Hyperlight_Generated_ReturnValue_hlstring: return "hlstring";
     case Hyperlight_Generated_ReturnValue_hlbool: return "hlbool";
     case Hyperlight_Generated_ReturnValue_hlvoid: return "hlvoid";
@@ -413,6 +487,8 @@ static inline int Hyperlight_Generated_ReturnValue_is_known_type(Hyperlight_Gene
     case Hyperlight_Generated_ReturnValue_hluint: return 1;
     case Hyperlight_Generated_ReturnValue_hllong: return 1;
     case Hyperlight_Generated_ReturnValue_hlulong: return 1;
+    case Hyperlight_Generated_ReturnValue_hlfloat: return 1;
+    case Hyperlight_Generated_ReturnValue_hldouble: return 1;
     case Hyperlight_Generated_ReturnValue_hlstring: return 1;
     case Hyperlight_Generated_ReturnValue_hlbool: return 1;
     case Hyperlight_Generated_ReturnValue_hlvoid: return 1;

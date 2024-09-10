@@ -162,6 +162,20 @@ uint8_t* printTenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4
     return result;
 }
 
+uint8_t* printElevenArgs(const char* arg1, int arg2, int64_t arg3, const char* arg4, const char* arg5, bool arg6, bool arg7, uint32_t arg8, uint64_t arg9, int arg10, float arg11)
+{
+    size_t length = (size_t)strlen(arg1) + (size_t)strlen(arg4) + (size_t)strlen(arg5) + 145;
+    char* message = malloc(length);
+    if (NULL == message)
+    {
+        setError(GUEST_ERROR, "Malloc Failed");
+    }
+    snprintf(message, length, "Message: arg1:%s arg2:%d arg3:%d arg4:%s arg5:%s arg6:%s arg7:%s arg8:%d arg9:%d arg10:%d arg11:%.3f.", arg1, arg2, arg3, arg4, arg5, arg6 ? "true" : "false", arg7 ? "true" : "false", arg8, arg9, arg10, arg11);
+    uint8_t* result = printOutputAsGuestFunction(message);
+    free(message);
+    return result;
+}
+
 uint8_t* stackAllocate(int length)
 {
     if (0 == length)
@@ -332,6 +346,7 @@ GENERATE_FUNCTION(printSevenArgs, 7, hlstring, hlint, hllong, hlstring, hlstring
 GENERATE_FUNCTION(printEightArgs, 8, hlstring, hlint, hllong, hlstring, hlstring, hlbool, hlbool, hluint);
 GENERATE_FUNCTION(printNineArgs, 9, hlstring, hlint, hllong, hlstring, hlstring, hlbool, hlbool, hluint, hlulong);
 GENERATE_FUNCTION(printTenArgs, 10, hlstring, hlint, hllong, hlstring, hlstring, hlbool, hlbool, hluint, hlulong, hlint);
+GENERATE_FUNCTION(printElevenArgs, 11, hlstring, hlint, hllong, hlstring, hlstring, hlbool, hlbool, hluint, hlulong, hlint, hlfloat);
 GENERATE_FUNCTION(setByteArrayToZero, 2, hlvecbytes, hlint);
 GENERATE_FUNCTION(echo, 1, hlstring);
 GENERATE_FUNCTION(getSizePrefixedBuffer, 2, hlvecbytes, hlint);
@@ -362,6 +377,7 @@ void HyperlightMain()
     RegisterFunction(FUNCTIONDETAILS("PrintEightArgs", printEightArgs));
     RegisterFunction(FUNCTIONDETAILS("PrintNineArgs", printNineArgs));
     RegisterFunction(FUNCTIONDETAILS("PrintTenArgs", printTenArgs));
+    RegisterFunction(FUNCTIONDETAILS("PrintElevenArgs", printElevenArgs));
     RegisterFunction(FUNCTIONDETAILS("SetByteArrayToZero", setByteArrayToZero));
     RegisterFunction(FUNCTIONDETAILS("Echo", echo));
     RegisterFunction(FUNCTIONDETAILS("GetSizePrefixedBuffer", getSizePrefixedBuffer));

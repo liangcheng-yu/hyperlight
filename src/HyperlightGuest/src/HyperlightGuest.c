@@ -673,6 +673,16 @@ void GetFunctionCallParameters(ns(FunctionCall_table_t) functionCall, Parameter 
             ns(hlulong_table_t) hlulongTable = ns(Parameter_value(parameter));
             parameterValues[i].value.hlulong = ns(hlulong_value(hlulongTable));
             break;
+        case ns(ParameterValue_hlfloat):
+            parameterValues[i].kind = hlfloat;
+            ns(hlfloat_table_t) hlfloatTable = ns(Parameter_value(parameter));
+            parameterValues[i].value.hlfloat = ns(hlfloat_value(hlfloatTable));
+            break;
+        case ns(ParameterValue_hldouble):
+            parameterValues[i].kind = hldouble;
+            ns(hldouble_table_t) hldoubleTable = ns(Parameter_value(parameter));
+            parameterValues[i].value.hldouble = ns(hldouble_value(hldoubleTable));
+            break;
         case ns(ParameterValue_hlstring):
             parameterValues[i].kind = hlstring;
             ns(hlstring_table_t) hlstringTable = ns(Parameter_value(parameter));
@@ -830,6 +840,12 @@ uint8_t *CallGuestFunction(ns(FunctionCall_table_t) functionCall)
             break;
         case ns(ParameterValue_hlulong):
             parameterKind[i] = ns(ParameterType_hlulong);
+            break;
+        case ns(ParameterValue_hlfloat):
+            parameterKind[i] = ns(ParameterType_hlfloat);
+            break;
+        case ns(ParameterValue_hldouble):
+            parameterKind[i] = ns(ParameterType_hldouble);
             break;
         case ns(ParameterValue_hlstring):
             parameterKind[i] = ns(ParameterType_hlstring);

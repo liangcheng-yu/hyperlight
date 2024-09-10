@@ -2,14 +2,13 @@
 // @generated
 extern crate alloc;
 extern crate flatbuffers;
+use self::flatbuffers::{EndianScalar, Follow};
+use super::*;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::mem;
-
-use self::flatbuffers::{EndianScalar, Follow};
-use super::*;
 pub enum FunctionCallOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -38,8 +37,8 @@ impl<'a> FunctionCall<'a> {
         FunctionCall { _tab: table }
     }
     #[allow(unused_mut)]
-    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
         args: &'args FunctionCallArgs<'args>,
     ) -> flatbuffers::WIPOffset<FunctionCall<'bldr>> {
         let mut builder = FunctionCallBuilder::new(_fbb);
@@ -170,11 +169,11 @@ impl<'a> Default for FunctionCallArgs<'a> {
     }
 }
 
-pub struct FunctionCallBuilder<'a: 'b, 'b> {
-    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct FunctionCallBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> FunctionCallBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> FunctionCallBuilder<'a, 'b, A> {
     #[inline]
     pub fn add_function_name(&mut self, function_name: flatbuffers::WIPOffset<&'b str>) {
         self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
@@ -209,7 +208,9 @@ impl<'a: 'b, 'b> FunctionCallBuilder<'a, 'b> {
         );
     }
     #[inline]
-    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> FunctionCallBuilder<'a, 'b> {
+    pub fn new(
+        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+    ) -> FunctionCallBuilder<'a, 'b, A> {
         let start = _fbb.start_table();
         FunctionCallBuilder {
             fbb_: _fbb,
@@ -234,81 +235,4 @@ impl core::fmt::Debug for FunctionCall<'_> {
         ds.field("expected_return_type", &self.expected_return_type());
         ds.finish()
     }
-}
-#[inline]
-/// Verifies that a buffer of bytes contains a `FunctionCall`
-/// and returns it.
-/// Note that verification is still experimental and may not
-/// catch every error, or be maximally performant. For the
-/// previous, unchecked, behavior use
-/// `root_as_function_call_unchecked`.
-pub fn root_as_function_call(buf: &[u8]) -> Result<FunctionCall, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::root::<FunctionCall>(buf)
-}
-#[inline]
-/// Verifies that a buffer of bytes contains a size prefixed
-/// `FunctionCall` and returns it.
-/// Note that verification is still experimental and may not
-/// catch every error, or be maximally performant. For the
-/// previous, unchecked, behavior use
-/// `size_prefixed_root_as_function_call_unchecked`.
-pub fn size_prefixed_root_as_function_call(
-    buf: &[u8],
-) -> Result<FunctionCall, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::size_prefixed_root::<FunctionCall>(buf)
-}
-#[inline]
-/// Verifies, with the given options, that a buffer of bytes
-/// contains a `FunctionCall` and returns it.
-/// Note that verification is still experimental and may not
-/// catch every error, or be maximally performant. For the
-/// previous, unchecked, behavior use
-/// `root_as_function_call_unchecked`.
-pub fn root_as_function_call_with_opts<'b, 'o>(
-    opts: &'o flatbuffers::VerifierOptions,
-    buf: &'b [u8],
-) -> Result<FunctionCall<'b>, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::root_with_opts::<FunctionCall<'b>>(opts, buf)
-}
-#[inline]
-/// Verifies, with the given verifier options, that a buffer of
-/// bytes contains a size prefixed `FunctionCall` and returns
-/// it. Note that verification is still experimental and may not
-/// catch every error, or be maximally performant. For the
-/// previous, unchecked, behavior use
-/// `root_as_function_call_unchecked`.
-pub fn size_prefixed_root_as_function_call_with_opts<'b, 'o>(
-    opts: &'o flatbuffers::VerifierOptions,
-    buf: &'b [u8],
-) -> Result<FunctionCall<'b>, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::size_prefixed_root_with_opts::<FunctionCall<'b>>(opts, buf)
-}
-#[inline]
-/// Assumes, without verification, that a buffer of bytes contains a FunctionCall and returns it.
-/// # Safety
-/// Callers must trust the given bytes do indeed contain a valid `FunctionCall`.
-pub unsafe fn root_as_function_call_unchecked(buf: &[u8]) -> FunctionCall {
-    flatbuffers::root_unchecked::<FunctionCall>(buf)
-}
-#[inline]
-/// Assumes, without verification, that a buffer of bytes contains a size prefixed FunctionCall and returns it.
-/// # Safety
-/// Callers must trust the given bytes do indeed contain a valid size prefixed `FunctionCall`.
-pub unsafe fn size_prefixed_root_as_function_call_unchecked(buf: &[u8]) -> FunctionCall {
-    flatbuffers::size_prefixed_root_unchecked::<FunctionCall>(buf)
-}
-#[inline]
-pub fn finish_function_call_buffer<'a, 'b>(
-    fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-    root: flatbuffers::WIPOffset<FunctionCall<'a>>,
-) {
-    fbb.finish(root, None);
-}
-
-#[inline]
-pub fn finish_size_prefixed_function_call_buffer<'a, 'b>(
-    fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-    root: flatbuffers::WIPOffset<FunctionCall<'a>>,
-) {
-    fbb.finish_size_prefixed(root, None);
 }

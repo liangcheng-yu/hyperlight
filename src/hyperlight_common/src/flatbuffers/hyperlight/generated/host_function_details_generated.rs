@@ -2,14 +2,13 @@
 // @generated
 extern crate alloc;
 extern crate flatbuffers;
+use self::flatbuffers::{EndianScalar, Follow};
+use super::*;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::mem;
-
-use self::flatbuffers::{EndianScalar, Follow};
-use super::*;
 pub enum HostFunctionDetailsOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -35,8 +34,8 @@ impl<'a> HostFunctionDetails<'a> {
         HostFunctionDetails { _tab: table }
     }
     #[allow(unused_mut)]
-    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
         args: &'args HostFunctionDetailsArgs<'args>,
     ) -> flatbuffers::WIPOffset<HostFunctionDetails<'bldr>> {
         let mut builder = HostFunctionDetailsBuilder::new(_fbb);
@@ -91,11 +90,11 @@ impl<'a> Default for HostFunctionDetailsArgs<'a> {
     }
 }
 
-pub struct HostFunctionDetailsBuilder<'a: 'b, 'b> {
-    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct HostFunctionDetailsBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> HostFunctionDetailsBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> HostFunctionDetailsBuilder<'a, 'b, A> {
     #[inline]
     pub fn add_functions(
         &mut self,
@@ -110,8 +109,8 @@ impl<'a: 'b, 'b> HostFunctionDetailsBuilder<'a, 'b> {
     }
     #[inline]
     pub fn new(
-        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-    ) -> HostFunctionDetailsBuilder<'a, 'b> {
+        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+    ) -> HostFunctionDetailsBuilder<'a, 'b, A> {
         let start = _fbb.start_table();
         HostFunctionDetailsBuilder {
             fbb_: _fbb,
@@ -131,85 +130,4 @@ impl core::fmt::Debug for HostFunctionDetails<'_> {
         ds.field("functions", &self.functions());
         ds.finish()
     }
-}
-#[inline]
-/// Verifies that a buffer of bytes contains a `HostFunctionDetails`
-/// and returns it.
-/// Note that verification is still experimental and may not
-/// catch every error, or be maximally performant. For the
-/// previous, unchecked, behavior use
-/// `root_as_host_function_details_unchecked`.
-pub fn root_as_host_function_details(
-    buf: &[u8],
-) -> Result<HostFunctionDetails, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::root::<HostFunctionDetails>(buf)
-}
-#[inline]
-/// Verifies that a buffer of bytes contains a size prefixed
-/// `HostFunctionDetails` and returns it.
-/// Note that verification is still experimental and may not
-/// catch every error, or be maximally performant. For the
-/// previous, unchecked, behavior use
-/// `size_prefixed_root_as_host_function_details_unchecked`.
-pub fn size_prefixed_root_as_host_function_details(
-    buf: &[u8],
-) -> Result<HostFunctionDetails, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::size_prefixed_root::<HostFunctionDetails>(buf)
-}
-#[inline]
-/// Verifies, with the given options, that a buffer of bytes
-/// contains a `HostFunctionDetails` and returns it.
-/// Note that verification is still experimental and may not
-/// catch every error, or be maximally performant. For the
-/// previous, unchecked, behavior use
-/// `root_as_host_function_details_unchecked`.
-pub fn root_as_host_function_details_with_opts<'b, 'o>(
-    opts: &'o flatbuffers::VerifierOptions,
-    buf: &'b [u8],
-) -> Result<HostFunctionDetails<'b>, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::root_with_opts::<HostFunctionDetails<'b>>(opts, buf)
-}
-#[inline]
-/// Verifies, with the given verifier options, that a buffer of
-/// bytes contains a size prefixed `HostFunctionDetails` and returns
-/// it. Note that verification is still experimental and may not
-/// catch every error, or be maximally performant. For the
-/// previous, unchecked, behavior use
-/// `root_as_host_function_details_unchecked`.
-pub fn size_prefixed_root_as_host_function_details_with_opts<'b, 'o>(
-    opts: &'o flatbuffers::VerifierOptions,
-    buf: &'b [u8],
-) -> Result<HostFunctionDetails<'b>, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::size_prefixed_root_with_opts::<HostFunctionDetails<'b>>(opts, buf)
-}
-#[inline]
-/// Assumes, without verification, that a buffer of bytes contains a HostFunctionDetails and returns it.
-/// # Safety
-/// Callers must trust the given bytes do indeed contain a valid `HostFunctionDetails`.
-pub unsafe fn root_as_host_function_details_unchecked(buf: &[u8]) -> HostFunctionDetails {
-    flatbuffers::root_unchecked::<HostFunctionDetails>(buf)
-}
-#[inline]
-/// Assumes, without verification, that a buffer of bytes contains a size prefixed HostFunctionDetails and returns it.
-/// # Safety
-/// Callers must trust the given bytes do indeed contain a valid size prefixed `HostFunctionDetails`.
-pub unsafe fn size_prefixed_root_as_host_function_details_unchecked(
-    buf: &[u8],
-) -> HostFunctionDetails {
-    flatbuffers::size_prefixed_root_unchecked::<HostFunctionDetails>(buf)
-}
-#[inline]
-pub fn finish_host_function_details_buffer<'a, 'b>(
-    fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-    root: flatbuffers::WIPOffset<HostFunctionDetails<'a>>,
-) {
-    fbb.finish(root, None);
-}
-
-#[inline]
-pub fn finish_size_prefixed_host_function_details_buffer<'a, 'b>(
-    fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-    root: flatbuffers::WIPOffset<HostFunctionDetails<'a>>,
-) {
-    fbb.finish_size_prefixed(root, None);
 }

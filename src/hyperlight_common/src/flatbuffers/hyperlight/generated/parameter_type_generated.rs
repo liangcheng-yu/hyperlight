@@ -2,14 +2,13 @@
 // @generated
 extern crate alloc;
 extern crate flatbuffers;
+use self::flatbuffers::{EndianScalar, Follow};
+use super::*;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::mem;
-
-use self::flatbuffers::{EndianScalar, Follow};
-use super::*;
 #[deprecated(
     since = "2.0.0",
     note = "Use associated constants instead. This will no longer be generated in 2021."
@@ -19,17 +18,19 @@ pub const ENUM_MIN_PARAMETER_TYPE: u8 = 0;
     since = "2.0.0",
     note = "Use associated constants instead. This will no longer be generated in 2021."
 )]
-pub const ENUM_MAX_PARAMETER_TYPE: u8 = 6;
+pub const ENUM_MAX_PARAMETER_TYPE: u8 = 8;
 #[deprecated(
     since = "2.0.0",
     note = "Use associated constants instead. This will no longer be generated in 2021."
 )]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_PARAMETER_TYPE: [ParameterType; 7] = [
+pub const ENUM_VALUES_PARAMETER_TYPE: [ParameterType; 9] = [
     ParameterType::hlint,
     ParameterType::hluint,
     ParameterType::hllong,
     ParameterType::hlulong,
+    ParameterType::hlfloat,
+    ParameterType::hldouble,
     ParameterType::hlstring,
     ParameterType::hlbool,
     ParameterType::hlvecbytes,
@@ -44,17 +45,21 @@ impl ParameterType {
     pub const hluint: Self = Self(1);
     pub const hllong: Self = Self(2);
     pub const hlulong: Self = Self(3);
-    pub const hlstring: Self = Self(4);
-    pub const hlbool: Self = Self(5);
-    pub const hlvecbytes: Self = Self(6);
+    pub const hlfloat: Self = Self(4);
+    pub const hldouble: Self = Self(5);
+    pub const hlstring: Self = Self(6);
+    pub const hlbool: Self = Self(7);
+    pub const hlvecbytes: Self = Self(8);
 
     pub const ENUM_MIN: u8 = 0;
-    pub const ENUM_MAX: u8 = 6;
+    pub const ENUM_MAX: u8 = 8;
     pub const ENUM_VALUES: &'static [Self] = &[
         Self::hlint,
         Self::hluint,
         Self::hllong,
         Self::hlulong,
+        Self::hlfloat,
+        Self::hldouble,
         Self::hlstring,
         Self::hlbool,
         Self::hlvecbytes,
@@ -66,6 +71,8 @@ impl ParameterType {
             Self::hluint => Some("hluint"),
             Self::hllong => Some("hllong"),
             Self::hlulong => Some("hlulong"),
+            Self::hlfloat => Some("hlfloat"),
+            Self::hldouble => Some("hldouble"),
             Self::hlstring => Some("hlstring"),
             Self::hlbool => Some("hlbool"),
             Self::hlvecbytes => Some("hlvecbytes"),

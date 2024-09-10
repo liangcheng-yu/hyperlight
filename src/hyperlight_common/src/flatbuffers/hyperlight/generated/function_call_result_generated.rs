@@ -2,14 +2,13 @@
 // @generated
 extern crate alloc;
 extern crate flatbuffers;
+use self::flatbuffers::{EndianScalar, Follow};
+use super::*;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::mem;
-
-use self::flatbuffers::{EndianScalar, Follow};
-use super::*;
 pub enum FunctionCallResultOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -36,8 +35,8 @@ impl<'a> FunctionCallResult<'a> {
         FunctionCallResult { _tab: table }
     }
     #[allow(unused_mut)]
-    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
         args: &'args FunctionCallResultArgs,
     ) -> flatbuffers::WIPOffset<FunctionCallResult<'bldr>> {
         let mut builder = FunctionCallResultBuilder::new(_fbb);
@@ -127,6 +126,34 @@ impl<'a> FunctionCallResult<'a> {
             // Created from a valid Table for this object
             // Which contains a valid union in this slot
             Some(unsafe { hlulong::init_from_table(u) })
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn return_value_as_hlfloat(&self) -> Option<hlfloat<'a>> {
+        if self.return_value_type() == ReturnValue::hlfloat {
+            let u = self.return_value();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { hlfloat::init_from_table(u) })
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn return_value_as_hldouble(&self) -> Option<hldouble<'a>> {
+        if self.return_value_type() == ReturnValue::hldouble {
+            let u = self.return_value();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { hldouble::init_from_table(u) })
         } else {
             None
         }
@@ -224,6 +251,16 @@ impl flatbuffers::Verifiable for FunctionCallResult<'_> {
                             "ReturnValue::hlulong",
                             pos,
                         ),
+                    ReturnValue::hlfloat => v
+                        .verify_union_variant::<flatbuffers::ForwardsUOffset<hlfloat>>(
+                            "ReturnValue::hlfloat",
+                            pos,
+                        ),
+                    ReturnValue::hldouble => v
+                        .verify_union_variant::<flatbuffers::ForwardsUOffset<hldouble>>(
+                            "ReturnValue::hldouble",
+                            pos,
+                        ),
                     ReturnValue::hlstring => v
                         .verify_union_variant::<flatbuffers::ForwardsUOffset<hlstring>>(
                             "ReturnValue::hlstring",
@@ -265,11 +302,11 @@ impl<'a> Default for FunctionCallResultArgs {
     }
 }
 
-pub struct FunctionCallResultBuilder<'a: 'b, 'b> {
-    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct FunctionCallResultBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> FunctionCallResultBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> FunctionCallResultBuilder<'a, 'b, A> {
     #[inline]
     pub fn add_return_value_type(&mut self, return_value_type: ReturnValue) {
         self.fbb_.push_slot::<ReturnValue>(
@@ -290,8 +327,8 @@ impl<'a: 'b, 'b> FunctionCallResultBuilder<'a, 'b> {
     }
     #[inline]
     pub fn new(
-        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-    ) -> FunctionCallResultBuilder<'a, 'b> {
+        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+    ) -> FunctionCallResultBuilder<'a, 'b, A> {
         let start = _fbb.start_table();
         FunctionCallResultBuilder {
             fbb_: _fbb,
@@ -352,6 +389,26 @@ impl core::fmt::Debug for FunctionCallResult<'_> {
                     )
                 }
             }
+            ReturnValue::hlfloat => {
+                if let Some(x) = self.return_value_as_hlfloat() {
+                    ds.field("return_value", &x)
+                } else {
+                    ds.field(
+                        "return_value",
+                        &"InvalidFlatbuffer: Union discriminant does not match value.",
+                    )
+                }
+            }
+            ReturnValue::hldouble => {
+                if let Some(x) = self.return_value_as_hldouble() {
+                    ds.field("return_value", &x)
+                } else {
+                    ds.field(
+                        "return_value",
+                        &"InvalidFlatbuffer: Union discriminant does not match value.",
+                    )
+                }
+            }
             ReturnValue::hlstring => {
                 if let Some(x) = self.return_value_as_hlstring() {
                     ds.field("return_value", &x)
@@ -399,85 +456,4 @@ impl core::fmt::Debug for FunctionCallResult<'_> {
         };
         ds.finish()
     }
-}
-#[inline]
-/// Verifies that a buffer of bytes contains a `FunctionCallResult`
-/// and returns it.
-/// Note that verification is still experimental and may not
-/// catch every error, or be maximally performant. For the
-/// previous, unchecked, behavior use
-/// `root_as_function_call_result_unchecked`.
-pub fn root_as_function_call_result(
-    buf: &[u8],
-) -> Result<FunctionCallResult, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::root::<FunctionCallResult>(buf)
-}
-#[inline]
-/// Verifies that a buffer of bytes contains a size prefixed
-/// `FunctionCallResult` and returns it.
-/// Note that verification is still experimental and may not
-/// catch every error, or be maximally performant. For the
-/// previous, unchecked, behavior use
-/// `size_prefixed_root_as_function_call_result_unchecked`.
-pub fn size_prefixed_root_as_function_call_result(
-    buf: &[u8],
-) -> Result<FunctionCallResult, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::size_prefixed_root::<FunctionCallResult>(buf)
-}
-#[inline]
-/// Verifies, with the given options, that a buffer of bytes
-/// contains a `FunctionCallResult` and returns it.
-/// Note that verification is still experimental and may not
-/// catch every error, or be maximally performant. For the
-/// previous, unchecked, behavior use
-/// `root_as_function_call_result_unchecked`.
-pub fn root_as_function_call_result_with_opts<'b, 'o>(
-    opts: &'o flatbuffers::VerifierOptions,
-    buf: &'b [u8],
-) -> Result<FunctionCallResult<'b>, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::root_with_opts::<FunctionCallResult<'b>>(opts, buf)
-}
-#[inline]
-/// Verifies, with the given verifier options, that a buffer of
-/// bytes contains a size prefixed `FunctionCallResult` and returns
-/// it. Note that verification is still experimental and may not
-/// catch every error, or be maximally performant. For the
-/// previous, unchecked, behavior use
-/// `root_as_function_call_result_unchecked`.
-pub fn size_prefixed_root_as_function_call_result_with_opts<'b, 'o>(
-    opts: &'o flatbuffers::VerifierOptions,
-    buf: &'b [u8],
-) -> Result<FunctionCallResult<'b>, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::size_prefixed_root_with_opts::<FunctionCallResult<'b>>(opts, buf)
-}
-#[inline]
-/// Assumes, without verification, that a buffer of bytes contains a FunctionCallResult and returns it.
-/// # Safety
-/// Callers must trust the given bytes do indeed contain a valid `FunctionCallResult`.
-pub unsafe fn root_as_function_call_result_unchecked(buf: &[u8]) -> FunctionCallResult {
-    flatbuffers::root_unchecked::<FunctionCallResult>(buf)
-}
-#[inline]
-/// Assumes, without verification, that a buffer of bytes contains a size prefixed FunctionCallResult and returns it.
-/// # Safety
-/// Callers must trust the given bytes do indeed contain a valid size prefixed `FunctionCallResult`.
-pub unsafe fn size_prefixed_root_as_function_call_result_unchecked(
-    buf: &[u8],
-) -> FunctionCallResult {
-    flatbuffers::size_prefixed_root_unchecked::<FunctionCallResult>(buf)
-}
-#[inline]
-pub fn finish_function_call_result_buffer<'a, 'b>(
-    fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-    root: flatbuffers::WIPOffset<FunctionCallResult<'a>>,
-) {
-    fbb.finish(root, None);
-}
-
-#[inline]
-pub fn finish_size_prefixed_function_call_result_buffer<'a, 'b>(
-    fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-    root: flatbuffers::WIPOffset<FunctionCallResult<'a>>,
-) {
-    fbb.finish_size_prefixed(root, None);
 }

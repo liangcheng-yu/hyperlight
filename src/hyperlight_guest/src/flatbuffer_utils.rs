@@ -2,14 +2,35 @@ use alloc::vec::Vec;
 
 use flatbuffers::{FlatBufferBuilder, UnionWIPOffset, WIPOffset};
 use hyperlight_common::flatbuffers::hyperlight::generated::{
-    hlint as Fbhlint, hlintArgs as FbhlintArgs, hllong as Fbhllong, hllongArgs as FbhllongArgs,
-    hlsizeprefixedbuffer as Fbhlsizeprefixedbuffer,
+    hldouble as Fbhldouble, hldoubleArgs as FbhldoubleArgs, hlfloat as Fbhlfloat,
+    hlfloatArgs as FbhlfloatArgs, hlint as Fbhlint, hlintArgs as FbhlintArgs, hllong as Fbhllong,
+    hllongArgs as FbhllongArgs, hlsizeprefixedbuffer as Fbhlsizeprefixedbuffer,
     hlsizeprefixedbufferArgs as FbhlsizeprefixedbufferArgs, hlstring as Fbhlstring,
     hlstringArgs as FbhlstringArgs, hluint as Fbhluint, hluintArgs as FbhluintArgs,
     hlulong as Fbhlulong, hlulongArgs as FbhlulongArgs, hlvoid as Fbhlvoid,
     hlvoidArgs as FbhlvoidArgs, FunctionCallResult as FbFunctionCallResult,
     FunctionCallResultArgs as FbFunctionCallResultArgs, ReturnValue as FbReturnValue,
 };
+
+pub fn get_flatbuffer_result_from_double(value: f64) -> Vec<u8> {
+    let mut builder = FlatBufferBuilder::new();
+    let hldouble = Fbhldouble::create(&mut builder, &FbhldoubleArgs { value });
+
+    let rt = FbReturnValue::hldouble;
+    let rv: Option<WIPOffset<UnionWIPOffset>> = Some(hldouble.as_union_value());
+
+    get_flatbuffer_result(&mut builder, rt, rv)
+}
+
+pub fn get_flatbuffer_result_from_float(value: f32) -> Vec<u8> {
+    let mut builder = FlatBufferBuilder::new();
+    let hlfloat = Fbhlfloat::create(&mut builder, &FbhlfloatArgs { value });
+
+    let rt = FbReturnValue::hlfloat;
+    let rv: Option<WIPOffset<UnionWIPOffset>> = Some(hlfloat.as_union_value());
+
+    get_flatbuffer_result(&mut builder, rt, rv)
+}
 
 pub fn get_flatbuffer_result_from_int(value: i32) -> Vec<u8> {
     let mut builder = FlatBufferBuilder::new();

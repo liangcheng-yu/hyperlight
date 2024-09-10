@@ -2,20 +2,21 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use anyhow::{anyhow, bail, Error, Result};
+use flatbuffers::size_prefixed_root;
 #[cfg(feature = "tracing")]
 use tracing::{instrument, Span};
 
 use crate::flatbuffers::hyperlight::generated::{
-    hlbool, hlboolArgs, hlint, hlintArgs, hllong, hllongArgs, hlsizeprefixedbuffer,
-    hlsizeprefixedbufferArgs, hlstring, hlstringArgs, hluint, hluintArgs, hlulong, hlulongArgs,
-    hlvoid, hlvoidArgs, size_prefixed_root_as_function_call_result,
+    hlbool, hlboolArgs, hldouble, hldoubleArgs, hlfloat, hlfloatArgs, hlint, hlintArgs, hllong,
+    hllongArgs, hlsizeprefixedbuffer, hlsizeprefixedbufferArgs, hlstring, hlstringArgs, hluint,
+    hluintArgs, hlulong, hlulongArgs, hlvoid, hlvoidArgs,
     FunctionCallResult as FbFunctionCallResult, FunctionCallResultArgs as FbFunctionCallResultArgs,
     Parameter, ParameterType as FbParameterType, ParameterValue as FbParameterValue,
     ReturnType as FbReturnType, ReturnValue as FbReturnValue,
 };
 
 /// Supported parameter types with values for function calling.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ParameterValue {
     /// i32
     Int(i32),
@@ -25,6 +26,10 @@ pub enum ParameterValue {
     Long(i64),
     /// i64
     ULong(u64),
+    /// f32
+    Float(f32),
+    /// f64
+    Double(f64),
     /// String
     String(String),
     /// bool
@@ -44,6 +49,10 @@ pub enum ParameterType {
     Long,
     /// u64
     ULong,
+    /// f32
+    Float,
+    /// f64
+    Double,
     /// String
     String,
     /// bool
@@ -53,7 +62,7 @@ pub enum ParameterType {
 }
 
 /// Supported return types with values from function calling.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ReturnValue {
     /// i32
     Int(i32),
@@ -63,6 +72,10 @@ pub enum ReturnValue {
     Long(i64),
     /// u64
     ULong(u64),
+    /// f32
+    Float(f32),
+    /// f64
+    Double(f64),
     /// String
     String(String),
     /// bool
@@ -85,6 +98,10 @@ pub enum ReturnType {
     Long,
     /// u64
     ULong,
+    /// f32
+    Float,
+    /// f64
+    Double,
     /// String
     String,
     /// bool
@@ -103,6 +120,8 @@ impl From<&ParameterValue> for ParameterType {
             ParameterValue::UInt(_) => ParameterType::UInt,
             ParameterValue::Long(_) => ParameterType::Long,
             ParameterValue::ULong(_) => ParameterType::ULong,
+            ParameterValue::Float(_) => ParameterType::Float,
+            ParameterValue::Double(_) => ParameterType::Double,
             ParameterValue::String(_) => ParameterType::String,
             ParameterValue::Bool(_) => ParameterType::Bool,
             ParameterValue::VecBytes(_) => ParameterType::VecBytes,
@@ -129,6 +148,12 @@ impl TryFrom<Parameter<'_>> for ParameterValue {
             FbParameterValue::hlulong => param
                 .value_as_hlulong()
                 .map(|hlulong| ParameterValue::ULong(hlulong.value())),
+            FbParameterValue::hlfloat => param
+                .value_as_hlfloat()
+                .map(|hlfloat| ParameterValue::Float(hlfloat.value())),
+            FbParameterValue::hldouble => param
+                .value_as_hldouble()
+                .map(|hldouble| ParameterValue::Double(hldouble.value())),
             FbParameterValue::hlbool => param
                 .value_as_hlbool()
                 .map(|hlbool| ParameterValue::Bool(hlbool.value())),
@@ -154,6 +179,8 @@ impl From<ParameterType> for FbParameterType {
             ParameterType::UInt => FbParameterType::hluint,
             ParameterType::Long => FbParameterType::hllong,
             ParameterType::ULong => FbParameterType::hlulong,
+            ParameterType::Float => FbParameterType::hlfloat,
+            ParameterType::Double => FbParameterType::hldouble,
             ParameterType::String => FbParameterType::hlstring,
             ParameterType::Bool => FbParameterType::hlbool,
             ParameterType::VecBytes => FbParameterType::hlvecbytes,
@@ -169,6 +196,8 @@ impl From<ReturnType> for FbReturnType {
             ReturnType::UInt => FbReturnType::hluint,
             ReturnType::Long => FbReturnType::hllong,
             ReturnType::ULong => FbReturnType::hlulong,
+            ReturnType::Float => FbReturnType::hlfloat,
+            ReturnType::Double => FbReturnType::hldouble,
             ReturnType::String => FbReturnType::hlstring,
             ReturnType::Bool => FbReturnType::hlbool,
             ReturnType::Void => FbReturnType::hlvoid,
@@ -186,6 +215,8 @@ impl TryFrom<FbParameterType> for ParameterType {
             FbParameterType::hluint => Ok(ParameterType::UInt),
             FbParameterType::hllong => Ok(ParameterType::Long),
             FbParameterType::hlulong => Ok(ParameterType::ULong),
+            FbParameterType::hlfloat => Ok(ParameterType::Float),
+            FbParameterType::hldouble => Ok(ParameterType::Double),
             FbParameterType::hlstring => Ok(ParameterType::String),
             FbParameterType::hlbool => Ok(ParameterType::Bool),
             FbParameterType::hlvecbytes => Ok(ParameterType::VecBytes),
@@ -205,6 +236,8 @@ impl TryFrom<FbReturnType> for ReturnType {
             FbReturnType::hluint => Ok(ReturnType::UInt),
             FbReturnType::hllong => Ok(ReturnType::Long),
             FbReturnType::hlulong => Ok(ReturnType::ULong),
+            FbReturnType::hlfloat => Ok(ReturnType::Float),
+            FbReturnType::hldouble => Ok(ReturnType::Double),
             FbReturnType::hlstring => Ok(ReturnType::String),
             FbReturnType::hlbool => Ok(ReturnType::Bool),
             FbReturnType::hlvoid => Ok(ReturnType::Void),
@@ -261,6 +294,32 @@ impl TryFrom<ParameterValue> for u64 {
     fn try_from(value: ParameterValue) -> Result<Self> {
         match value {
             ParameterValue::ULong(v) => Ok(v),
+            _ => {
+                bail!("Unexpected parameter value type: {:?}", value)
+            }
+        }
+    }
+}
+
+impl TryFrom<ParameterValue> for f32 {
+    type Error = Error;
+    #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
+    fn try_from(value: ParameterValue) -> Result<Self> {
+        match value {
+            ParameterValue::Float(v) => Ok(v),
+            _ => {
+                bail!("Unexpected parameter value type: {:?}", value)
+            }
+        }
+    }
+}
+
+impl TryFrom<ParameterValue> for f64 {
+    type Error = Error;
+    #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
+    fn try_from(value: ParameterValue) -> Result<Self> {
+        match value {
+            ParameterValue::Double(v) => Ok(v),
             _ => {
                 bail!("Unexpected parameter value type: {:?}", value)
             }
@@ -359,6 +418,32 @@ impl TryFrom<ReturnValue> for u64 {
     }
 }
 
+impl TryFrom<ReturnValue> for f32 {
+    type Error = Error;
+    #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
+    fn try_from(value: ReturnValue) -> Result<Self> {
+        match value {
+            ReturnValue::Float(v) => Ok(v),
+            _ => {
+                bail!("Unexpected return value type: {:?}", value)
+            }
+        }
+    }
+}
+
+impl TryFrom<ReturnValue> for f64 {
+    type Error = Error;
+    #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
+    fn try_from(value: ReturnValue) -> Result<Self> {
+        match value {
+            ReturnValue::Double(v) => Ok(v),
+            _ => {
+                bail!("Unexpected return value type: {:?}", value)
+            }
+        }
+    }
+}
+
 impl TryFrom<ReturnValue> for String {
     type Error = Error;
     #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
@@ -440,6 +525,18 @@ impl TryFrom<FbFunctionCallResult<'_>> for ReturnValue {
                     .ok_or_else(|| anyhow!("Failed to get hlulong from return value"))?;
                 Ok(ReturnValue::ULong(hlulong.value()))
             }
+            FbReturnValue::hlfloat => {
+                let hlfloat = function_call_result_fb
+                    .return_value_as_hlfloat()
+                    .ok_or_else(|| anyhow!("Failed to get hlfloat from return value"))?;
+                Ok(ReturnValue::Float(hlfloat.value()))
+            }
+            FbReturnValue::hldouble => {
+                let hldouble = function_call_result_fb
+                    .return_value_as_hldouble()
+                    .ok_or_else(|| anyhow!("Failed to get hldouble from return value"))?;
+                Ok(ReturnValue::Double(hldouble.value()))
+            }
             FbReturnValue::hlbool => {
                 let hlbool = function_call_result_fb
                     .return_value_as_hlbool()
@@ -475,7 +572,7 @@ impl TryFrom<&[u8]> for ReturnValue {
     type Error = Error;
     #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
     fn try_from(value: &[u8]) -> Result<Self> {
-        let function_call_result_fb = size_prefixed_root_as_function_call_result(value)
+        let function_call_result_fb = size_prefixed_root::<FbFunctionCallResult>(value)
             .map_err(|e| anyhow!("Failed to get ReturnValue from bytes: {:?}", e))?;
         function_call_result_fb.try_into()
     }
@@ -530,6 +627,30 @@ impl TryFrom<&ReturnValue> for Vec<u8> {
                     &FbFunctionCallResultArgs {
                         return_value: Some(hlulong.as_union_value()),
                         return_value_type: FbReturnValue::hlulong,
+                    },
+                );
+                builder.finish_size_prefixed(function_call_result, None);
+                builder.finished_data().to_vec()
+            }
+            ReturnValue::Float(f) => {
+                let hlfloat = hlfloat::create(&mut builder, &hlfloatArgs { value: *f });
+                let function_call_result = FbFunctionCallResult::create(
+                    &mut builder,
+                    &FbFunctionCallResultArgs {
+                        return_value: Some(hlfloat.as_union_value()),
+                        return_value_type: FbReturnValue::hlfloat,
+                    },
+                );
+                builder.finish_size_prefixed(function_call_result, None);
+                builder.finished_data().to_vec()
+            }
+            ReturnValue::Double(d) => {
+                let hldouble = hldouble::create(&mut builder, &hldoubleArgs { value: *d });
+                let function_call_result = FbFunctionCallResult::create(
+                    &mut builder,
+                    &FbFunctionCallResultArgs {
+                        return_value: Some(hldouble.as_union_value()),
+                        return_value_type: FbReturnValue::hldouble,
                     },
                 );
                 builder.finish_size_prefixed(function_call_result, None);

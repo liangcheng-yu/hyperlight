@@ -1,5 +1,7 @@
+use core::f64;
 use std::sync::{Arc, Mutex};
 
+use common::new_uninit_rust;
 use hyperlight_host::func::{HostFunction1, ParameterValue, ReturnType, ReturnValue};
 use hyperlight_host::sandbox::SandboxConfiguration;
 use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
@@ -47,6 +49,72 @@ fn pass_byte_array() {
             Some(vec![ParameterValue::VecBytes(bytes.clone())]),
         );
         assert!(res.is_err()); // missing length param
+    }
+}
+
+#[test]
+#[cfg_attr(target_os = "windows", serial)] // using LoadLibrary requires serial tests
+fn float_roundtrip() {
+    let doubles = [
+        0.0,
+        -0.0,
+        1.0,
+        -1.0,
+        std::f64::consts::PI,
+        -std::f64::consts::PI,
+        -1231.43821,
+        f64::MAX,
+        f64::MIN,
+        f64::EPSILON,
+        f64::INFINITY,
+        -f64::INFINITY,
+        f64::NAN,
+        -f64::NAN,
+    ];
+    let floats = [
+        0.0,
+        -0.0,
+        1.0,
+        -1.0,
+        std::f32::consts::PI,
+        -std::f32::consts::PI,
+        -1231.4382,
+        f32::MAX,
+        f32::MIN,
+        f32::EPSILON,
+        f32::INFINITY,
+        -f32::INFINITY,
+        f32::NAN,
+        -f32::NAN,
+    ];
+    let mut sandbox: MultiUseSandbox = new_uninit_rust().unwrap().evolve(Noop::default()).unwrap();
+    for f in doubles.iter() {
+        let res = sandbox.call_guest_function_by_name(
+            "EchoDouble",
+            ReturnType::Double,
+            Some(vec![ParameterValue::Double(*f)]),
+        );
+
+        assert!(
+            matches!(res, Ok(ReturnValue::Double(f2)) if f2 == *f || f2.is_nan() && f.is_nan()),
+            "Expected {:?} but got {:?}",
+            f,
+            res
+        );
+    }
+    for f in floats.iter() {
+        let res = sandbox.call_guest_function_by_name(
+            "EchoFloat",
+            ReturnType::Float,
+            Some(vec![ParameterValue::Float(*f)]),
+        );
+
+        assert!(
+            matches!(res, Ok(ReturnValue::Float(f2)) if f2 == *f || f2.is_nan() && f.is_nan()),
+            "Expected {:?} but got {:?}",
+            f,
+            res
+        );
     }
 }
 
@@ -219,11 +287,32 @@ fn multiple_parameters() {
                 "1", 2, 3, "4", "5", true, false, 8, 9, 10
             ),
         ),
+        (
+            "PrintElevenArgs",
+            vec![
+                ParameterValue::String("1".to_string()),
+                ParameterValue::Int(2),
+                ParameterValue::Long(3),
+                ParameterValue::String("4".to_string()),
+                ParameterValue::String("5".to_string()),
+                ParameterValue::Bool(true),
+                ParameterValue::Bool(false),
+                ParameterValue::UInt(8),
+                ParameterValue::ULong(9),
+                ParameterValue::Int(10),
+                ParameterValue::Float(3.123),
+            ],
+            format!(
+                "Message: arg1:{} arg2:{} arg3:{} arg4:{} arg5:{} arg6:{} arg7:{} arg8:{} arg9:{} arg10:{} arg11:{}.",
+                "1", 2, 3, "4", "5", true, false, 8, 9, 10, 3.123
+            ),
+        )
     ];
 
     for mut sandbox in get_simpleguest_sandboxes(Some(&writer_func)).into_iter() {
         for (fn_name, args, _expected) in test_cases.clone().into_iter() {
             let res = sandbox.call_guest_function_by_name(fn_name, ReturnType::Int, Some(args));
+            println!("{:?}", res);
             assert!(res.is_ok());
         }
     }
@@ -235,7 +324,10 @@ fn multiple_parameters() {
     lock.clone()
         .into_iter()
         .zip(test_cases)
-        .for_each(|(printed_msg, expected)| assert!(printed_msg == expected.2));
+        .for_each(|(printed_msg, expected)| {
+            println!("{:?}", printed_msg);
+            assert!(printed_msg == expected.2);
+        });
 }
 
 #[test]

@@ -4,12 +4,12 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use anyhow::{Error, Result};
+use flatbuffers::size_prefixed_root;
 #[cfg(feature = "tracing")]
 use tracing::{instrument, Span};
 
 use crate::flatbuffers::hyperlight::generated::{
-    size_prefixed_root_as_guest_error, ErrorCode as FbErrorCode, GuestError as GuestErrorFb,
-    GuestErrorArgs,
+    ErrorCode as FbErrorCode, GuestError as FbGuestError, GuestErrorArgs,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -181,7 +181,7 @@ impl TryFrom<&[u8]> for GuestError {
     type Error = Error;
     #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
     fn try_from(value: &[u8]) -> Result<Self> {
-        let guest_error_fb = size_prefixed_root_as_guest_error(value)
+        let guest_error_fb = size_prefixed_root::<FbGuestError>(value)
             .map_err(|e| anyhow::anyhow!("Error while reading GuestError: {:?}", e))?;
         let code = guest_error_fb.code();
         let message = match guest_error_fb.message() {
@@ -202,7 +202,7 @@ impl TryFrom<&GuestError> for Vec<u8> {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
         let message = builder.create_string(&value.message);
 
-        let guest_error_fb = GuestErrorFb::create(
+        let guest_error_fb = FbGuestError::create(
             &mut builder,
             &GuestErrorArgs {
                 code: value.code.clone().into(),

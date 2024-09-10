@@ -2,14 +2,13 @@
 // @generated
 extern crate alloc;
 extern crate flatbuffers;
+use self::flatbuffers::{EndianScalar, Follow};
+use super::*;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::mem;
-
-use self::flatbuffers::{EndianScalar, Follow};
-use super::*;
 pub enum hlsizeprefixedbufferOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -36,8 +35,8 @@ impl<'a> hlsizeprefixedbuffer<'a> {
         hlsizeprefixedbuffer { _tab: table }
     }
     #[allow(unused_mut)]
-    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
         args: &'args hlsizeprefixedbufferArgs<'args>,
     ) -> flatbuffers::WIPOffset<hlsizeprefixedbuffer<'bldr>> {
         let mut builder = hlsizeprefixedbufferBuilder::new(_fbb);
@@ -106,11 +105,11 @@ impl<'a> Default for hlsizeprefixedbufferArgs<'a> {
     }
 }
 
-pub struct hlsizeprefixedbufferBuilder<'a: 'b, 'b> {
-    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct hlsizeprefixedbufferBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> hlsizeprefixedbufferBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> hlsizeprefixedbufferBuilder<'a, 'b, A> {
     #[inline]
     pub fn add_size_(&mut self, size_: i32) {
         self.fbb_
@@ -123,8 +122,8 @@ impl<'a: 'b, 'b> hlsizeprefixedbufferBuilder<'a, 'b> {
     }
     #[inline]
     pub fn new(
-        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-    ) -> hlsizeprefixedbufferBuilder<'a, 'b> {
+        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+    ) -> hlsizeprefixedbufferBuilder<'a, 'b, A> {
         let start = _fbb.start_table();
         hlsizeprefixedbufferBuilder {
             fbb_: _fbb,

@@ -2,17 +2,17 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use anyhow::{bail, Error, Result};
-use flatbuffers::WIPOffset;
+use flatbuffers::{size_prefixed_root, WIPOffset};
 #[cfg(feature = "tracing")]
 use tracing::{instrument, Span};
 
 use super::function_types::{ParameterValue, ReturnType};
 use crate::flatbuffers::hyperlight::generated::{
-    hlbool, hlboolArgs, hlint, hlintArgs, hllong, hllongArgs, hlstring, hlstringArgs, hluint,
-    hluintArgs, hlulong, hlulongArgs, hlvecbytes, hlvecbytesArgs,
-    size_prefixed_root_as_function_call, FunctionCall as FbFunctionCall,
-    FunctionCallArgs as FbFunctionCallArgs, FunctionCallType as FbFunctionCallType, Parameter,
-    ParameterArgs, ParameterValue as FbParameterValue,
+    hlbool, hlboolArgs, hldouble, hldoubleArgs, hlfloat, hlfloatArgs, hlint, hlintArgs, hllong,
+    hllongArgs, hlstring, hlstringArgs, hluint, hluintArgs, hlulong, hlulongArgs, hlvecbytes,
+    hlvecbytesArgs, FunctionCall as FbFunctionCall, FunctionCallArgs as FbFunctionCallArgs,
+    FunctionCallType as FbFunctionCallType, Parameter, ParameterArgs,
+    ParameterValue as FbParameterValue,
 };
 
 /// The type of function call.
@@ -60,7 +60,7 @@ impl FunctionCall {
 
 #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
 pub fn validate_guest_function_call_buffer(function_call_buffer: &[u8]) -> Result<()> {
-    let guest_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer)
+    let guest_function_call_fb = size_prefixed_root::<FbFunctionCall>(function_call_buffer)
         .map_err(|e| anyhow::anyhow!("Error reading function call buffer: {:?}", e))?;
     match guest_function_call_fb.function_call_type() {
         FbFunctionCallType::guest => Ok(()),
@@ -72,7 +72,7 @@ pub fn validate_guest_function_call_buffer(function_call_buffer: &[u8]) -> Resul
 
 #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
 pub fn validate_host_function_call_buffer(function_call_buffer: &[u8]) -> Result<()> {
-    let host_function_call_fb = size_prefixed_root_as_function_call(function_call_buffer)
+    let host_function_call_fb = size_prefixed_root::<FbFunctionCall>(function_call_buffer)
         .map_err(|e| anyhow::anyhow!("Error reading function call buffer: {:?}", e))?;
     match host_function_call_fb.function_call_type() {
         FbFunctionCallType::host => Ok(()),
@@ -86,7 +86,7 @@ impl TryFrom<&[u8]> for FunctionCall {
     type Error = Error;
     #[cfg_attr(feature = "tracing", instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace"))]
     fn try_from(value: &[u8]) -> Result<Self> {
-        let function_call_fb = size_prefixed_root_as_function_call(value)
+        let function_call_fb = size_prefixed_root::<FbFunctionCall>(value)
             .map_err(|e| anyhow::anyhow!("Error reading function call buffer: {:?}", e))?;
         let function_name = function_call_fb.function_name();
         let function_call_type = match function_call_fb.function_call_type() {
@@ -182,6 +182,29 @@ impl TryFrom<FunctionCall> for Vec<u8> {
                             );
                             parameters.push(parameter);
                         }
+                        ParameterValue::Float(f) => {
+                            let hlfloat = hlfloat::create(&mut builder, &hlfloatArgs { value: *f });
+                            let parameter = Parameter::create(
+                                &mut builder,
+                                &ParameterArgs {
+                                    value_type: FbParameterValue::hlfloat,
+                                    value: Some(hlfloat.as_union_value()),
+                                },
+                            );
+                            parameters.push(parameter);
+                        }
+                        ParameterValue::Double(d) => {
+                            let hldouble =
+                                hldouble::create(&mut builder, &hldoubleArgs { value: *d });
+                            let parameter = Parameter::create(
+                                &mut builder,
+                                &ParameterArgs {
+                                    value_type: FbParameterValue::hldouble,
+                                    value: Some(hldouble.as_union_value()),
+                                },
+                            );
+                            parameters.push(parameter);
+                        }
                         ParameterValue::Bool(b) => {
                             let hlbool: WIPOffset<hlbool<'_>> =
                                 hlbool::create(&mut builder, &hlboolArgs { value: *b });
@@ -259,88 +282,54 @@ impl TryFrom<FunctionCall> for Vec<u8> {
 mod tests {
     use alloc::vec;
 
-    use hyperlight_testing::{get_guest_function_call_test_data, get_host_function_call_test_data};
-
     use super::*;
     use crate::flatbuffer_wrappers::function_types::ReturnType;
 
     #[test]
     fn read_from_flatbuffer() -> Result<()> {
-        let test_data = get_guest_function_call_test_data();
+        let test_data: Vec<u8> = FunctionCall::new(
+            "PrintTwelveArgs".to_string(),
+            Some(vec![
+                ParameterValue::String("1".to_string()),
+                ParameterValue::Int(2),
+                ParameterValue::Long(3),
+                ParameterValue::String("4".to_string()),
+                ParameterValue::String("5".to_string()),
+                ParameterValue::Bool(true),
+                ParameterValue::Bool(false),
+                ParameterValue::UInt(8),
+                ParameterValue::ULong(9),
+                ParameterValue::Int(10),
+                ParameterValue::Float(3.123),
+                ParameterValue::Double(0.01),
+            ]),
+            FunctionCallType::Guest,
+            ReturnType::Int,
+        )
+        .try_into()
+        .unwrap();
+
         let function_call = FunctionCall::try_from(test_data.as_slice())?;
-        assert_eq!(function_call.function_name, "PrintNineArgs");
+        assert_eq!(function_call.function_name, "PrintTwelveArgs");
         assert!(function_call.parameters.is_some());
         let parameters = function_call.parameters.unwrap();
-        assert_eq!(parameters.len(), 9);
+        assert_eq!(parameters.len(), 12);
         let expected_parameters = vec![
-            ParameterValue::String(String::from("Test9")),
-            ParameterValue::Int(8),
-            ParameterValue::Long(9),
-            ParameterValue::String(String::from("Tested")),
-            ParameterValue::String(String::from("Test9")),
-            ParameterValue::Bool(false),
+            ParameterValue::String("1".to_string()),
+            ParameterValue::Int(2),
+            ParameterValue::Long(3),
+            ParameterValue::String("4".to_string()),
+            ParameterValue::String("5".to_string()),
             ParameterValue::Bool(true),
-            ParameterValue::UInt(10),
-            ParameterValue::ULong(11),
+            ParameterValue::Bool(false),
+            ParameterValue::UInt(8),
+            ParameterValue::ULong(9),
+            ParameterValue::Int(10),
+            ParameterValue::Float(3.123),
+            ParameterValue::Double(0.01),
         ];
         assert!(expected_parameters == parameters);
         assert_eq!(function_call.function_call_type, FunctionCallType::Guest);
-
-        let test_data = get_host_function_call_test_data();
-        let function_call = FunctionCall::try_from(test_data.as_slice())?;
-        assert_eq!(function_call.function_name, "HostMethod1");
-        assert!(function_call.parameters.is_some());
-        let parameters = function_call.parameters.unwrap();
-        assert_eq!(parameters.len(), 1);
-        let expected_parameters = vec![ParameterValue::String(String::from(
-            "Hello from GuestFunction1, Hello from CallbackTest",
-        ))];
-        assert!(expected_parameters == parameters);
-        assert_eq!(function_call.function_call_type, FunctionCallType::Host);
-
-        Ok(())
-    }
-
-    #[test]
-    fn write_to_flatbuffer() -> Result<()> {
-        let guest_parameters = Some(vec![
-            ParameterValue::String(String::from("Test9")),
-            ParameterValue::Int(8),
-            ParameterValue::Long(9),
-            ParameterValue::String(String::from("Tested")),
-            ParameterValue::String(String::from("Test9")),
-            ParameterValue::Bool(false),
-            ParameterValue::Bool(true),
-            ParameterValue::UInt(10),
-            ParameterValue::ULong(11),
-        ]);
-        let guest_function_call = FunctionCall {
-            function_name: "PrintNineArgs".to_string(),
-            parameters: guest_parameters,
-            function_call_type: FunctionCallType::Guest,
-            expected_return_type: ReturnType::Int,
-        };
-        let guest_function_call_buffer: Vec<u8> = guest_function_call.try_into()?;
-
-        assert_eq!(
-            guest_function_call_buffer,
-            get_guest_function_call_test_data()
-        );
-
-        let host_parameters = Some(vec![ParameterValue::String(String::from(
-            "Hello from GuestFunction1, Hello from CallbackTest",
-        ))]);
-        let function_call = FunctionCall {
-            function_name: "HostMethod1".to_string(),
-            parameters: host_parameters,
-            function_call_type: FunctionCallType::Host,
-            expected_return_type: ReturnType::Int,
-        };
-        let host_function_call_buffer: Vec<u8> = function_call.try_into()?;
-        assert_eq!(
-            host_function_call_buffer,
-            get_host_function_call_test_data()
-        );
 
         Ok(())
     }

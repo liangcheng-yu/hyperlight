@@ -19,51 +19,11 @@ Follow instructions in the links above to build/or install the tools. You can us
 
 Once you have the tools installed, you can generate the code by running as follows:
 
-## Linux commands
-
-<details>
-
-<summary>Expand for commands</summary>
-
-### Generate Rust code
-
+### Generate Rust, C and C# code
 ```console
-flatc -r --rust-module-root-file --gen-all -o ./src/hyperlight_common/src/flatbuffers/ ./src/schema/guest_error.fbs 
+just gen-all-fbs
 ```
-
-### Generate C# code
-
-```console
-flatc -n  --gen-object-api -o ./src/Hyperlight/flatbuffers  ./src/schema/guest_error.fbs
-```
-
-</details>
-
----
-
-## Windows commands
-
-<details>
-
-<summary>Expand for commands</summary>
-
-### Generate Rust code
-
-```console
-flatc -r --rust-module-root-file --gen-all -o .\src\hyperlight_common\src\flatbuffers\ .\src\schema\guest_error.fbs 
-```
-
-### Generate C# code
-
-```console
-flatc -n  --gen-object-api -o .\src\Hyperlight\flatbuffers  .\src\schema\guest_error.fbs
-```
-
-</details>
-
----
-
-<br/>
+See the just-recipe in [Justfile](../Justfile) for more details regarding the individual flatc[c] commands used.
 
 ### Note about generated Rust code
 

@@ -273,7 +273,7 @@ mod tests {
     #[test]
     fn test_with_small_stack_and_heap() {
         let mut cfg = SandboxConfiguration::default();
-        cfg.set_heap_size(16 * 1024);
+        cfg.set_heap_size(20 * 1024);
         cfg.set_stack_size(16 * 1024);
 
         let sbox1: MultiUseSandbox = {

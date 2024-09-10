@@ -165,7 +165,6 @@ clippy-apply-fix-windows:
 # GEN FLATBUFFERS
 gen-all-fbs-rust-code:
     for fbs in `find src -name "*.fbs"`; do flatc -r --rust-module-root-file --gen-all -o ./src/hyperlight_host/src/flatbuffers/ $fbs; done
-    cargo fmt --all
 
 gen-all-fbs-csharp-code:
     for fbs in `find src -name "*.fbs"`; do flatc -n  --gen-object-api -o ./src/Hyperlight/flatbuffers $fbs; done

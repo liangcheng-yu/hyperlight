@@ -832,6 +832,20 @@ namespace Hyperlight
                         }
                         args[i] = parameterValue.Value.ValueAshlulong().Value;
                         break;
+                    case ParameterValue.hlfloat:
+                        if (!typeof(float).IsAssignableFrom(parameters[i].ParameterType))
+                        {
+                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compatible with hlfloat", GetType().Name);
+                        }
+                        args[i] = parameterValue.Value.ValueAshlfloat().Value;
+                        break;
+                    case ParameterValue.hldouble:
+                        if (!typeof(double).IsAssignableFrom(parameters[i].ParameterType))
+                        {
+                            HyperlightException.LogAndThrowException<ArgumentException>($"The argument at index {i} passed to the host function {hostFunctionCall.FunctionName} is of type {parameters[i].ParameterType} which is not compatible with hldouble", GetType().Name);
+                        }
+                        args[i] = parameterValue.Value.ValueAshldouble().Value;
+                        break;
                     case ParameterValue.hlbool:
                         if (!typeof(bool).IsAssignableFrom(parameters[i].ParameterType))
                         {

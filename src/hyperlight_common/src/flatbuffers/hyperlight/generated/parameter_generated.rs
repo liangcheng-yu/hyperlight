@@ -2,14 +2,13 @@
 // @generated
 extern crate alloc;
 extern crate flatbuffers;
+use self::flatbuffers::{EndianScalar, Follow};
+use super::*;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::mem;
-
-use self::flatbuffers::{EndianScalar, Follow};
-use super::*;
 pub enum ParameterOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -36,8 +35,8 @@ impl<'a> Parameter<'a> {
         Parameter { _tab: table }
     }
     #[allow(unused_mut)]
-    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
         args: &'args ParameterArgs,
     ) -> flatbuffers::WIPOffset<Parameter<'bldr>> {
         let mut builder = ParameterBuilder::new(_fbb);
@@ -131,6 +130,34 @@ impl<'a> Parameter<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
+    pub fn value_as_hlfloat(&self) -> Option<hlfloat<'a>> {
+        if self.value_type() == ParameterValue::hlfloat {
+            let u = self.value();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { hlfloat::init_from_table(u) })
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn value_as_hldouble(&self) -> Option<hldouble<'a>> {
+        if self.value_type() == ParameterValue::hldouble {
+            let u = self.value();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { hldouble::init_from_table(u) })
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
     pub fn value_as_hlstring(&self) -> Option<hlstring<'a>> {
         if self.value_type() == ParameterValue::hlstring {
             let u = self.value();
@@ -207,6 +234,16 @@ impl flatbuffers::Verifiable for Parameter<'_> {
                             "ParameterValue::hlulong",
                             pos,
                         ),
+                    ParameterValue::hlfloat => v
+                        .verify_union_variant::<flatbuffers::ForwardsUOffset<hlfloat>>(
+                            "ParameterValue::hlfloat",
+                            pos,
+                        ),
+                    ParameterValue::hldouble => v
+                        .verify_union_variant::<flatbuffers::ForwardsUOffset<hldouble>>(
+                            "ParameterValue::hldouble",
+                            pos,
+                        ),
                     ParameterValue::hlstring => v
                         .verify_union_variant::<flatbuffers::ForwardsUOffset<hlstring>>(
                             "ParameterValue::hlstring",
@@ -243,11 +280,11 @@ impl<'a> Default for ParameterArgs {
     }
 }
 
-pub struct ParameterBuilder<'a: 'b, 'b> {
-    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct ParameterBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> ParameterBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ParameterBuilder<'a, 'b, A> {
     #[inline]
     pub fn add_value_type(&mut self, value_type: ParameterValue) {
         self.fbb_.push_slot::<ParameterValue>(
@@ -262,7 +299,7 @@ impl<'a: 'b, 'b> ParameterBuilder<'a, 'b> {
             .push_slot_always::<flatbuffers::WIPOffset<_>>(Parameter::VT_VALUE, value);
     }
     #[inline]
-    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> ParameterBuilder<'a, 'b> {
+    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> ParameterBuilder<'a, 'b, A> {
         let start = _fbb.start_table();
         ParameterBuilder {
             fbb_: _fbb,
@@ -314,6 +351,26 @@ impl core::fmt::Debug for Parameter<'_> {
             }
             ParameterValue::hlulong => {
                 if let Some(x) = self.value_as_hlulong() {
+                    ds.field("value", &x)
+                } else {
+                    ds.field(
+                        "value",
+                        &"InvalidFlatbuffer: Union discriminant does not match value.",
+                    )
+                }
+            }
+            ParameterValue::hlfloat => {
+                if let Some(x) = self.value_as_hlfloat() {
+                    ds.field("value", &x)
+                } else {
+                    ds.field(
+                        "value",
+                        &"InvalidFlatbuffer: Union discriminant does not match value.",
+                    )
+                }
+            }
+            ParameterValue::hldouble => {
+                if let Some(x) = self.value_as_hldouble() {
                     ds.field("value", &x)
                 } else {
                     ds.field(

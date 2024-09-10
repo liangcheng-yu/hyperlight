@@ -13,7 +13,7 @@ public struct Parameter : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_24_3_25(); }
   public static Parameter GetRootAsParameter(ByteBuffer _bb) { return GetRootAsParameter(_bb, new Parameter()); }
   public static Parameter GetRootAsParameter(ByteBuffer _bb, Parameter obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
@@ -25,6 +25,8 @@ public struct Parameter : IFlatbufferObject
   public Hyperlight.Generated.hluint ValueAshluint() { return Value<Hyperlight.Generated.hluint>().Value; }
   public Hyperlight.Generated.hllong ValueAshllong() { return Value<Hyperlight.Generated.hllong>().Value; }
   public Hyperlight.Generated.hlulong ValueAshlulong() { return Value<Hyperlight.Generated.hlulong>().Value; }
+  public Hyperlight.Generated.hlfloat ValueAshlfloat() { return Value<Hyperlight.Generated.hlfloat>().Value; }
+  public Hyperlight.Generated.hldouble ValueAshldouble() { return Value<Hyperlight.Generated.hldouble>().Value; }
   public Hyperlight.Generated.hlstring ValueAshlstring() { return Value<Hyperlight.Generated.hlstring>().Value; }
   public Hyperlight.Generated.hlbool ValueAshlbool() { return Value<Hyperlight.Generated.hlbool>().Value; }
   public Hyperlight.Generated.hlvecbytes ValueAshlvecbytes() { return Value<Hyperlight.Generated.hlvecbytes>().Value; }
@@ -67,6 +69,12 @@ public struct Parameter : IFlatbufferObject
         break;
       case Hyperlight.Generated.ParameterValue.hlulong:
         _o.Value.Value = this.Value<Hyperlight.Generated.hlulong>().HasValue ? this.Value<Hyperlight.Generated.hlulong>().Value.UnPack() : null;
+        break;
+      case Hyperlight.Generated.ParameterValue.hlfloat:
+        _o.Value.Value = this.Value<Hyperlight.Generated.hlfloat>().HasValue ? this.Value<Hyperlight.Generated.hlfloat>().Value.UnPack() : null;
+        break;
+      case Hyperlight.Generated.ParameterValue.hldouble:
+        _o.Value.Value = this.Value<Hyperlight.Generated.hldouble>().HasValue ? this.Value<Hyperlight.Generated.hldouble>().Value.UnPack() : null;
         break;
       case Hyperlight.Generated.ParameterValue.hlstring:
         _o.Value.Value = this.Value<Hyperlight.Generated.hlstring>().HasValue ? this.Value<Hyperlight.Generated.hlstring>().Value.UnPack() : null;

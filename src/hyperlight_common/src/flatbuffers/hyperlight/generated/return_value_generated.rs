@@ -2,14 +2,13 @@
 // @generated
 extern crate alloc;
 extern crate flatbuffers;
+use self::flatbuffers::{EndianScalar, Follow};
+use super::*;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::mem;
-
-use self::flatbuffers::{EndianScalar, Follow};
-use super::*;
 #[deprecated(
     since = "2.0.0",
     note = "Use associated constants instead. This will no longer be generated in 2021."
@@ -19,18 +18,20 @@ pub const ENUM_MIN_RETURN_VALUE: u8 = 0;
     since = "2.0.0",
     note = "Use associated constants instead. This will no longer be generated in 2021."
 )]
-pub const ENUM_MAX_RETURN_VALUE: u8 = 8;
+pub const ENUM_MAX_RETURN_VALUE: u8 = 10;
 #[deprecated(
     since = "2.0.0",
     note = "Use associated constants instead. This will no longer be generated in 2021."
 )]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RETURN_VALUE: [ReturnValue; 9] = [
+pub const ENUM_VALUES_RETURN_VALUE: [ReturnValue; 11] = [
     ReturnValue::NONE,
     ReturnValue::hlint,
     ReturnValue::hluint,
     ReturnValue::hllong,
     ReturnValue::hlulong,
+    ReturnValue::hlfloat,
+    ReturnValue::hldouble,
     ReturnValue::hlstring,
     ReturnValue::hlbool,
     ReturnValue::hlvoid,
@@ -47,19 +48,23 @@ impl ReturnValue {
     pub const hluint: Self = Self(2);
     pub const hllong: Self = Self(3);
     pub const hlulong: Self = Self(4);
-    pub const hlstring: Self = Self(5);
-    pub const hlbool: Self = Self(6);
-    pub const hlvoid: Self = Self(7);
-    pub const hlsizeprefixedbuffer: Self = Self(8);
+    pub const hlfloat: Self = Self(5);
+    pub const hldouble: Self = Self(6);
+    pub const hlstring: Self = Self(7);
+    pub const hlbool: Self = Self(8);
+    pub const hlvoid: Self = Self(9);
+    pub const hlsizeprefixedbuffer: Self = Self(10);
 
     pub const ENUM_MIN: u8 = 0;
-    pub const ENUM_MAX: u8 = 8;
+    pub const ENUM_MAX: u8 = 10;
     pub const ENUM_VALUES: &'static [Self] = &[
         Self::NONE,
         Self::hlint,
         Self::hluint,
         Self::hllong,
         Self::hlulong,
+        Self::hlfloat,
+        Self::hldouble,
         Self::hlstring,
         Self::hlbool,
         Self::hlvoid,
@@ -73,6 +78,8 @@ impl ReturnValue {
             Self::hluint => Some("hluint"),
             Self::hllong => Some("hllong"),
             Self::hlulong => Some("hlulong"),
+            Self::hlfloat => Some("hlfloat"),
+            Self::hldouble => Some("hldouble"),
             Self::hlstring => Some("hlstring"),
             Self::hlbool => Some("hlbool"),
             Self::hlvoid => Some("hlvoid"),

@@ -27,6 +27,18 @@ table hlulong {
     value:ulong;
 }
 
+// hlfloat is 32-bit float
+
+table hlfloat {
+    value:float;
+}
+
+// hldouble is 64-bit float
+
+table hldouble {
+    value:double;
+}
+
 // hlstring is a UTF8 encoded string 
 
 table hlstring{
@@ -64,6 +76,8 @@ union ParameterValue {
     hluint,
     hllong,
     hlulong,
+    hlfloat,
+    hldouble,
     hlstring,
     hlbool,
     hlvecbytes,
@@ -76,6 +90,8 @@ enum ParameterType : ubyte {
     hluint,
     hllong,
     hlulong,
+    hlfloat,
+    hldouble,
     hlstring,
     hlbool,
     hlvecbytes,
@@ -86,6 +102,8 @@ enum ReturnType : ubyte {
     hluint,
     hllong,
     hlulong,
+    hlfloat,
+    hldouble,
     hlstring,
     hlbool,
     hlvoid,
@@ -97,6 +115,8 @@ union ReturnValue {
     hluint,
     hllong,
     hlulong,
+    hlfloat,
+    hldouble,
     hlstring,
     hlbool,
     hlvoid,

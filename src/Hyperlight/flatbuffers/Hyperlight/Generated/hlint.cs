@@ -13,7 +13,7 @@ public struct hlint : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_24_3_25(); }
   public static hlint GetRootAshlint(ByteBuffer _bb) { return GetRootAshlint(_bb, new hlint()); }
   public static hlint GetRootAshlint(ByteBuffer _bb, hlint obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }

@@ -2,14 +2,13 @@
 // @generated
 extern crate alloc;
 extern crate flatbuffers;
+use self::flatbuffers::{EndianScalar, Follow};
+use super::*;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::mem;
-
-use self::flatbuffers::{EndianScalar, Follow};
-use super::*;
 pub enum GuestErrorOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -36,8 +35,8 @@ impl<'a> GuestError<'a> {
         GuestError { _tab: table }
     }
     #[allow(unused_mut)]
-    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
         args: &'args GuestErrorArgs<'args>,
     ) -> flatbuffers::WIPOffset<GuestError<'bldr>> {
         let mut builder = GuestErrorBuilder::new(_fbb);
@@ -99,11 +98,11 @@ impl<'a> Default for GuestErrorArgs<'a> {
     }
 }
 
-pub struct GuestErrorBuilder<'a: 'b, 'b> {
-    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct GuestErrorBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
     start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> GuestErrorBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> GuestErrorBuilder<'a, 'b, A> {
     #[inline]
     pub fn add_code(&mut self, code: ErrorCode) {
         self.fbb_
@@ -115,7 +114,9 @@ impl<'a: 'b, 'b> GuestErrorBuilder<'a, 'b> {
             .push_slot_always::<flatbuffers::WIPOffset<_>>(GuestError::VT_MESSAGE, message);
     }
     #[inline]
-    pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> GuestErrorBuilder<'a, 'b> {
+    pub fn new(
+        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+    ) -> GuestErrorBuilder<'a, 'b, A> {
         let start = _fbb.start_table();
         GuestErrorBuilder {
             fbb_: _fbb,
@@ -136,81 +137,4 @@ impl core::fmt::Debug for GuestError<'_> {
         ds.field("message", &self.message());
         ds.finish()
     }
-}
-#[inline]
-/// Verifies that a buffer of bytes contains a `GuestError`
-/// and returns it.
-/// Note that verification is still experimental and may not
-/// catch every error, or be maximally performant. For the
-/// previous, unchecked, behavior use
-/// `root_as_guest_error_unchecked`.
-pub fn root_as_guest_error(buf: &[u8]) -> Result<GuestError, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::root::<GuestError>(buf)
-}
-#[inline]
-/// Verifies that a buffer of bytes contains a size prefixed
-/// `GuestError` and returns it.
-/// Note that verification is still experimental and may not
-/// catch every error, or be maximally performant. For the
-/// previous, unchecked, behavior use
-/// `size_prefixed_root_as_guest_error_unchecked`.
-pub fn size_prefixed_root_as_guest_error(
-    buf: &[u8],
-) -> Result<GuestError, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::size_prefixed_root::<GuestError>(buf)
-}
-#[inline]
-/// Verifies, with the given options, that a buffer of bytes
-/// contains a `GuestError` and returns it.
-/// Note that verification is still experimental and may not
-/// catch every error, or be maximally performant. For the
-/// previous, unchecked, behavior use
-/// `root_as_guest_error_unchecked`.
-pub fn root_as_guest_error_with_opts<'b, 'o>(
-    opts: &'o flatbuffers::VerifierOptions,
-    buf: &'b [u8],
-) -> Result<GuestError<'b>, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::root_with_opts::<GuestError<'b>>(opts, buf)
-}
-#[inline]
-/// Verifies, with the given verifier options, that a buffer of
-/// bytes contains a size prefixed `GuestError` and returns
-/// it. Note that verification is still experimental and may not
-/// catch every error, or be maximally performant. For the
-/// previous, unchecked, behavior use
-/// `root_as_guest_error_unchecked`.
-pub fn size_prefixed_root_as_guest_error_with_opts<'b, 'o>(
-    opts: &'o flatbuffers::VerifierOptions,
-    buf: &'b [u8],
-) -> Result<GuestError<'b>, flatbuffers::InvalidFlatbuffer> {
-    flatbuffers::size_prefixed_root_with_opts::<GuestError<'b>>(opts, buf)
-}
-#[inline]
-/// Assumes, without verification, that a buffer of bytes contains a GuestError and returns it.
-/// # Safety
-/// Callers must trust the given bytes do indeed contain a valid `GuestError`.
-pub unsafe fn root_as_guest_error_unchecked(buf: &[u8]) -> GuestError {
-    flatbuffers::root_unchecked::<GuestError>(buf)
-}
-#[inline]
-/// Assumes, without verification, that a buffer of bytes contains a size prefixed GuestError and returns it.
-/// # Safety
-/// Callers must trust the given bytes do indeed contain a valid size prefixed `GuestError`.
-pub unsafe fn size_prefixed_root_as_guest_error_unchecked(buf: &[u8]) -> GuestError {
-    flatbuffers::size_prefixed_root_unchecked::<GuestError>(buf)
-}
-#[inline]
-pub fn finish_guest_error_buffer<'a, 'b>(
-    fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-    root: flatbuffers::WIPOffset<GuestError<'a>>,
-) {
-    fbb.finish(root, None);
-}
-
-#[inline]
-pub fn finish_size_prefixed_guest_error_buffer<'a, 'b>(
-    fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-    root: flatbuffers::WIPOffset<GuestError<'a>>,
-) {
-    fbb.finish_size_prefixed(root, None);
 }

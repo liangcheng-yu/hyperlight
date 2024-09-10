@@ -29,6 +29,7 @@ use hyperlight_guest::alloca::_alloca;
 use hyperlight_guest::entrypoint::{abort_with_code, abort_with_code_and_message};
 use hyperlight_guest::error::{HyperlightGuestError, Result};
 use hyperlight_guest::flatbuffer_utils::{
+    get_flatbuffer_result_from_double, get_flatbuffer_result_from_float,
     get_flatbuffer_result_from_int, get_flatbuffer_result_from_string,
     get_flatbuffer_result_from_ulong, get_flatbuffer_result_from_vec,
     get_flatbuffer_result_from_void,
@@ -52,6 +53,28 @@ fn set_static() -> Result<Vec<u8>> {
             BIGARRAY[i] = i as i32;
         }
         Ok(get_flatbuffer_result_from_int(length as i32))
+    }
+}
+
+fn echo_double(function_call: &FunctionCall) -> Result<Vec<u8>> {
+    if let ParameterValue::Double(value) = function_call.parameters.clone().unwrap()[0].clone() {
+        Ok(get_flatbuffer_result_from_double(value))
+    } else {
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to echo_double".to_string(),
+        ))
+    }
+}
+
+fn echo_float(function_call: &FunctionCall) -> Result<Vec<u8>> {
+    if let ParameterValue::Float(value) = function_call.parameters.clone().unwrap()[0].clone() {
+        Ok(get_flatbuffer_result_from_float(value))
+    } else {
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to echo_float".to_string(),
+        ))
     }
 }
 
@@ -328,6 +351,42 @@ fn print_ten_args(function_call: &FunctionCall) -> Result<Vec<u8>> {
         function_call.parameters.clone().unwrap()[9].clone(),
     ) {
         let message = format!("Message: arg1:{} arg2:{} arg3:{} arg4:{} arg5:{} arg6:{} arg7:{} arg8:{} arg9:{} arg10:{}.", arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);
+        print_output(&message)
+    } else {
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to print_ten_args".to_string(),
+        ))
+    }
+}
+
+fn print_eleven_args(function_call: &FunctionCall) -> Result<Vec<u8>> {
+    if let (
+        ParameterValue::String(arg1),
+        ParameterValue::Int(arg2),
+        ParameterValue::Long(arg3),
+        ParameterValue::String(arg4),
+        ParameterValue::String(arg5),
+        ParameterValue::Bool(arg6),
+        ParameterValue::Bool(arg7),
+        ParameterValue::UInt(arg8),
+        ParameterValue::ULong(arg9),
+        ParameterValue::Int(arg10),
+        ParameterValue::Float(arg11),
+    ) = (
+        function_call.parameters.clone().unwrap()[0].clone(),
+        function_call.parameters.clone().unwrap()[1].clone(),
+        function_call.parameters.clone().unwrap()[2].clone(),
+        function_call.parameters.clone().unwrap()[3].clone(),
+        function_call.parameters.clone().unwrap()[4].clone(),
+        function_call.parameters.clone().unwrap()[5].clone(),
+        function_call.parameters.clone().unwrap()[6].clone(),
+        function_call.parameters.clone().unwrap()[7].clone(),
+        function_call.parameters.clone().unwrap()[8].clone(),
+        function_call.parameters.clone().unwrap()[9].clone(),
+        function_call.parameters.clone().unwrap()[10].clone(),
+    ) {
+        let message = format!("Message: arg1:{} arg2:{} arg3:{} arg4:{} arg5:{} arg6:{} arg7:{} arg8:{} arg9:{} arg10:{} arg11:{:.3}.", arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11);
         print_output(&message)
     } else {
         Err(HyperlightGuestError::new(
@@ -862,6 +921,26 @@ pub extern "C" fn hyperlight_main() {
     );
     register_function(print_ten_args_def);
 
+    let print_eleven_args_def = GuestFunctionDefinition::new(
+        "PrintElevenArgs".to_string(),
+        Vec::from(&[
+            ParameterType::String,
+            ParameterType::Int,
+            ParameterType::Long,
+            ParameterType::String,
+            ParameterType::String,
+            ParameterType::Bool,
+            ParameterType::Bool,
+            ParameterType::UInt,
+            ParameterType::ULong,
+            ParameterType::Int,
+            ParameterType::Float,
+        ]),
+        ReturnType::Int,
+        print_eleven_args as i64,
+    );
+    register_function(print_eleven_args_def);
+
     let set_byte_array_to_zero_def = GuestFunctionDefinition::new(
         "SetByteArrayToZero".to_string(),
         Vec::from(&[ParameterType::VecBytes, ParameterType::Int]),
@@ -984,6 +1063,22 @@ pub extern "C" fn hyperlight_main() {
         violate_seccomp_filters as i64,
     );
     register_function(violate_seccomp_filters_def);
+
+    let echo_float_def = GuestFunctionDefinition::new(
+        "EchoFloat".to_string(),
+        Vec::from(&[ParameterType::Float]),
+        ReturnType::Float,
+        echo_float as i64,
+    );
+    register_function(echo_float_def);
+
+    let echo_double_def = GuestFunctionDefinition::new(
+        "EchoDouble".to_string(),
+        Vec::from(&[ParameterType::Double]),
+        ReturnType::Double,
+        echo_double as i64,
+    );
+    register_function(echo_double_def);
 }
 
 #[no_mangle]

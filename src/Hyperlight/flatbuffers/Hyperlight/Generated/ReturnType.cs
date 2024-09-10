@@ -11,10 +11,12 @@ public enum ReturnType : byte
   hluint = 1,
   hllong = 2,
   hlulong = 3,
-  hlstring = 4,
-  hlbool = 5,
-  hlvoid = 6,
-  hlsizeprefixedbuffer = 7,
+  hlfloat = 4,
+  hldouble = 5,
+  hlstring = 6,
+  hlbool = 7,
+  hlvoid = 8,
+  hlsizeprefixedbuffer = 9,
 };
 
 
