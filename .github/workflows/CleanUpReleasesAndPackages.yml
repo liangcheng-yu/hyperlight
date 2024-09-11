@@ -35,7 +35,7 @@ jobs:
           delete-only-pre-release-versions: "true"
 
       - name: Delete old 'Hyperlight' releases
-        uses: sgpublic/delete-release-action@v1.1
+        uses: sgpublic/delete-release-action@v1.2
         with:
           pre-release-drop: true
           pre-release-keep-count: 5
