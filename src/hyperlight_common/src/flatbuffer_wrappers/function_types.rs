@@ -87,7 +87,7 @@ pub enum ReturnValue {
 }
 
 /// Supported return types from function calling.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub enum ReturnType {
     /// i32
     #[default]

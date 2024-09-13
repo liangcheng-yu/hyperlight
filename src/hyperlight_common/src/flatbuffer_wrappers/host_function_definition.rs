@@ -45,7 +45,7 @@ impl HostFunctionDefinition {
         builder: &mut FlatBufferBuilder<'a>,
     ) -> Result<WIPOffset<FbHostFunctionDefinition<'a>>> {
         let host_function_name = builder.create_string(&self.function_name);
-        let return_value_type = self.return_type.clone().into();
+        let return_value_type = self.return_type.into();
         let vec_parameters = match &self.parameter_types {
             Some(vec_pvt) => {
                 let num_items = vec_pvt.len();

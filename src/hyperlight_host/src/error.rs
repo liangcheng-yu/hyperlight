@@ -18,6 +18,7 @@ use hyperlight_common::flatbuffers::hyperlight::generated::{
     ReturnValue as FBReturnValue,
 };
 use serde::{Deserialize, Serialize};
+use serde_yaml;
 use thiserror::Error;
 #[cfg(target_os = "windows")]
 use windows::Win32::Foundation::HANDLE;
@@ -34,6 +35,9 @@ pub(crate) struct HyperlightHostError {
 /// The error type for Hyperlight operations
 #[derive(Error, Debug)]
 pub enum HyperlightError {
+    /// Anyhow error
+    #[error("Anyhow Error was returned: {0}")]
+    AnyhowError(#[from] anyhow::Error),
     /// Memory access out of bounds
     #[error("Offset: {0} out of bounds, Max is: {1}")]
     BoundsCheckFailed(u64, usize),
@@ -159,7 +163,7 @@ pub enum HyperlightError {
 
     /// Conversion of str to Json failed
     #[error("Conversion of str data to json failed")]
-    JsonConversionFailure(#[source] serde_json::Error),
+    JsonConversionFailure(#[from] serde_json::Error),
 
     /// Error occurred in KVM Operation
     #[error("KVM Error {0:?}")]
@@ -321,6 +325,10 @@ pub enum HyperlightError {
     #[cfg(target_os = "windows")]
     #[error("Windows API called returned an error HRESULT {0:?}")]
     WindowsErrorHResult(windows::core::HRESULT),
+
+    /// Conversion of str to YAML failed
+    #[error("Conversion of str data to yaml failed")]
+    YamlConversionFailure(#[from] serde_yaml::Error),
 }
 
 impl From<Infallible> for HyperlightError {

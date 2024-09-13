@@ -80,6 +80,10 @@ pub use sandbox::SandboxRunOptions;
 pub use sandbox::SingleUseSandbox;
 /// The re-export for the `UninitializedSandbox` type
 pub use sandbox::UninitializedSandbox;
+
+/// The re-export for the `MultiUseGuestCallContext` type`
+pub use crate::func::call_ctx::MultiUseGuestCallContext;
+
 /// Return `Some(val)` when `cond == true`. Otherwise, return `None`
 pub fn option_when<T>(val: T, cond: bool) -> Option<T> {
     match cond {

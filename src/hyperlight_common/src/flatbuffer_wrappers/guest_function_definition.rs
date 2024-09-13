@@ -95,7 +95,7 @@ impl GuestFunctionDefinition {
         builder: &mut FlatBufferBuilder<'a>,
     ) -> Result<WIPOffset<FbGuestFunctionDefinition<'a>>> {
         let guest_function_name = builder.create_string(&self.function_name);
-        let return_type = self.return_type.clone().into();
+        let return_type = self.return_type.into();
         let guest_parameters = {
             let num_items = self.parameter_types.len();
             let mut vec_parameters: Vec<FbParameterType> = Vec::with_capacity(num_items);

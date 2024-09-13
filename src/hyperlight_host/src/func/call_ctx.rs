@@ -30,7 +30,7 @@ impl<'a> MultiUseGuestCallContext<'a> {
     /// return a new `MultiUseGuestCallContext` instance.
     ///     
     #[instrument(skip_all, parent = Span::current())]
-    pub(crate) fn start(sbox: MultiUseSandbox<'a>) -> Self {
+    pub fn start(sbox: MultiUseSandbox<'a>) -> Self {
         Self { sbox }
     }
 
@@ -224,7 +224,7 @@ mod tests {
         for call in calls.iter() {
             let sbox: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
             let ctx = sbox.new_call_context();
-            let res = ctx.call(call.0, call.1.clone(), call.2.clone()).unwrap();
+            let res = ctx.call(call.0, call.1, call.2.clone()).unwrap();
             assert_eq!(call.3, res);
         }
     }
@@ -253,7 +253,7 @@ mod tests {
             let mut res: ReturnValue = ReturnValue::Int(0);
             for call in calls.iter() {
                 res = ctx
-                    .call(call.0, call.1.clone(), call.2.clone())
+                    .call(call.0, call.1, call.2.clone())
                     .expect("failed to call guest function");
                 assert_eq!(call.3, res);
             }
