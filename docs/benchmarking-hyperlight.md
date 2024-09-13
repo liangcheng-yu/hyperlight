@@ -5,7 +5,7 @@ Hyperlight uses the [Criterion](https://bheisler.github.io/criterion.rs/book/ind
 ## When Benchmarks are ran
 
 1. Every time a branch gets a push
-    - Compares the current branch benchmarking results to the "latest" release (which is the most recent push to "dev" branch). This is done as part of `dep_rust.yml`, which is invoked by `ValidatePullRequest.yml`. These benchmarks are for the developer to compare their branch to dev, and the results can only be seen in the GitHub action logs, and nothing is saved. 
+    - Compares the current branch benchmarking results to the "dev-latest" release (which is the most recent push to "dev" branch). This is done as part of `dep_rust.yml`, which is invoked by `ValidatePullRequest.yml`. These benchmarks are for the developer to compare their branch to dev, and the results can only be seen in the GitHub action logs, and nothing is saved. 
 
     ```
     sandboxes/create_sandbox
