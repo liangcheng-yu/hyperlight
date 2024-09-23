@@ -279,12 +279,13 @@ jobs:
       - name: Determine if we should publish github packages
         run: |
           echo "github.ref=${{ github.ref }}"
-          echo "HYPERLIGHT_VERSION=$HYPERLIGHT_VERSION"
-          if [[ ${{ github.ref }} =~ 'refs/heads/release/' || ( ${{ github.ref }} == 'refs/heads/dev' &&  $HYPERLIGHT_VERSION =~ '-preview' ) ]]
-          then
+          echo "HYPERLIGHT_VERSION=$Env:HYPERLIGHT_VERSION"
+          if (('${{ github.ref }}'.contains('refs/heads/release')) -or
+              (('${{ github.ref }}'.contains('refs/heads/dev')) -and
+               ($Env:HYPERLIGHT_VERSION.contains('-preview')))) {
             echo "Setting SHOULD_PUBLISH in GITHUB_ENV"
-            echo "SHOULD_PUBLISH=true" >> "$GITHUB_ENV"
-          fi
+            echo "SHOULD_PUBLISH=true" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
+          }
 
       - name: Publish Github Packages
         if: ${{ env.SHOULD_PUBLISH == 'true' }}
