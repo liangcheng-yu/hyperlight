@@ -409,7 +409,7 @@ void ValidateHostFunctionCall(flatcc_builder_t *HostFunctionCallBuilder, int32_t
             
             // If the parameter is of type then the following parameter must be its length
 
-            ns(ParameterType_enum_t) lenParamType = ns(ParameterType_vec_at(parameterTypes, i++));
+            ns(ParameterType_enum_t) lenParamType = ns(ParameterType_vec_at(parameterTypes, ++i));
             if (lenParamType != ns(ParameterType_hlint))
             {
                 char message[100];
