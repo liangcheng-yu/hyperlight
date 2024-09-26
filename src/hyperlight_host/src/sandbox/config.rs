@@ -4,7 +4,6 @@ use std::time::Duration;
 use tracing::{instrument, Span};
 
 use crate::mem::pe::pe_info::PEInfo;
-use crate::option_when;
 
 /// The complete set of configuration needed to create a Sandbox
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -359,12 +358,12 @@ impl SandboxConfiguration {
 
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn stack_size_override_opt(&self) -> Option<u64> {
-        option_when(self.stack_size_override, self.stack_size_override > 0)
+        (self.stack_size_override > 0).then_some(self.stack_size_override)
     }
 
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn heap_size_override_opt(&self) -> Option<u64> {
-        option_when(self.heap_size_override, self.heap_size_override > 0)
+        (self.heap_size_override > 0).then_some(self.heap_size_override)
     }
 
     /// If self.stack_size is non-zero, return it. Otherwise,

@@ -84,13 +84,6 @@ pub use sandbox::UninitializedSandbox;
 /// The re-export for the `MultiUseGuestCallContext` type`
 pub use crate::func::call_ctx::MultiUseGuestCallContext;
 
-/// Return `Some(val)` when `cond == true`. Otherwise, return `None`
-pub fn option_when<T>(val: T, cond: bool) -> Option<T> {
-    match cond {
-        true => Some(val),
-        false => None,
-    }
-}
 /// The universal `Result` type used throughout the Hyperlight codebase.
 pub type Result<T> = core::result::Result<T, error::HyperlightError>;
 
