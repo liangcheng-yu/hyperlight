@@ -167,7 +167,7 @@ pub enum HyperlightError {
 
     /// Error occurred in KVM Operation
     #[error("KVM Error {0:?}")]
-    #[cfg(target_os = "linux")]
+    #[cfg(kvm)]
     KVMError(#[source] kvm_ioctls::Error),
 
     /// An attempt to get a lock from a Mutex failed.
@@ -204,7 +204,7 @@ pub enum HyperlightError {
 
     /// mshv Error Occurred
     #[error("mshv Error {0:?}")]
-    #[cfg(target_os = "linux")]
+    #[cfg(mshv)]
     MSHVError(#[from] mshv_ioctls::MshvError),
 
     /// No Hypervisor was found for Sandbox.

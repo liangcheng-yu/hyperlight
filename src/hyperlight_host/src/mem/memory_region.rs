@@ -1,10 +1,10 @@
 use std::ops::Range;
 
 use bitflags::bitflags;
-#[cfg(target_os = "linux")]
+#[cfg(mshv)]
 use hyperlight_common::mem::PAGE_SHIFT;
 use hyperlight_common::mem::PAGE_SIZE_USIZE;
-#[cfg(target_os = "linux")]
+#[cfg(mshv)]
 use mshv_bindings::{
     hv_x64_memory_intercept_message, mshv_user_mem_region, HV_MAP_GPA_EXECUTABLE,
     HV_MAP_GPA_PERMISSIONS_NONE, HV_MAP_GPA_READABLE, HV_MAP_GPA_WRITABLE,
@@ -73,7 +73,7 @@ impl TryFrom<WHV_MEMORY_ACCESS_TYPE> for MemoryRegionFlags {
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(mshv)]
 impl TryFrom<hv_x64_memory_intercept_message> for MemoryRegionFlags {
     type Error = HyperlightError;
 
@@ -204,7 +204,7 @@ impl MemoryRegionVecBuilder {
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(mshv)]
 impl From<MemoryRegion> for mshv_user_mem_region {
     fn from(region: MemoryRegion) -> Self {
         let size = (region.guest_region.end - region.guest_region.start) as u64;

@@ -18,7 +18,7 @@ crate-type = ["cdylib"]
 bench = false # see https://bheisler.github.io/criterion.rs/book/faq.html#cargo-bench-gives-unrecognized-option-errors-for-valid-command-line-options
 
 [dependencies]
-hyperlight_host = { path = "../hyperlight_host", version = "0.8.0", registry = "hyperlight_packages", features = ["executable_heap"] }
+hyperlight_host = { path = "../hyperlight_host", version = "0.8.0", registry = "hyperlight_packages", default-features = false, features = ["executable_heap"] }
 hyperlight_common = { path = "../hyperlight_common", version = "0.8.0", registry = "hyperlight_packages" }
 tracing-subscriber = { version = "0.3.17", features = ["json"] }
 anyhow = { version = "1.0.72" }
@@ -31,9 +31,6 @@ uuid = { version = "1.4.1", features = ["v4"] }
 bitflags = "2.4.0"
 log ="0.4.14"
 
-[target.'cfg(unix)'.dependencies]
-mshv-bindings = { workspace = true }
-
 [build-dependencies]
 anyhow = { version = "1.0.72" }
 cbindgen = { version = "0.27.0", default-features = false}
@@ -41,3 +38,9 @@ cbindgen = { version = "0.27.0", default-features = false}
 [dev-dependencies]
 hyperlight_host = { path = "../hyperlight_host" }
 hyperlight_testing = { path = "../hyperlight_testing" }
+
+[features]
+default = ["kvm", "mshv", "seccomp"]
+seccomp = ["hyperlight_host/seccomp"]
+kvm = ["hyperlight_host/kvm"]
+mshv = ["hyperlight_host/mshv"]
