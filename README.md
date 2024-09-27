@@ -177,6 +177,18 @@ just build
 just test # runs the rust, .NET, C API, and Valgrind tests
 ```
 
+## Troubleshooting
+
+### `NoHypervisorFound`
+
+(1) For running tests, we require an environment variable to be set, which you could be missing (e.g., `KVM_SHOULD_BE_PRESENT=true`).
+
+(2) If you have a Hypervisor device (e.g., `/dev/kvm` or `/dev/mshv`) setup, it could just be a permissions issue. 
+Update your permissions (e.g., `sudo chmod 666 /dev/kvm` or set up a KVM group as shown [here](https://help.ubuntu.com/community/KVM/Installation)).
+
+(3) You really don't have a Hypervisor. If this is the case, look for instructions for your specific platform to get 
+setup (here's an example for [Ubuntu KVM](https://ubuntu.com/blog/kvm-hyphervisor)).
+
 ## More Information
 
 For more information, please refer to our compilation of documents in the [`docs/` directory](./docs/README.md). 
