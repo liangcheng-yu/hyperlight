@@ -20,7 +20,9 @@ use crate::mem::ptr::RawPtr;
 use crate::sandbox::{SandboxConfiguration, WrapperGetter};
 use crate::sandbox_state::sandbox::EvolvableSandbox;
 use crate::sandbox_state::transition::{MutatingCallback, Noop};
-use crate::{debug, log_then_return, new_error, MultiUseSandbox, Result, SingleUseSandbox};
+use crate::{
+    debug, log_build_details, log_then_return, new_error, MultiUseSandbox, Result, SingleUseSandbox,
+};
 
 /// A preliminary `Sandbox`, not yet ready to execute guest code.
 ///
@@ -232,6 +234,8 @@ impl<'a> UninitializedSandbox {
         sandbox_run_options: Option<SandboxRunOptions>,
         host_print_writer: Option<&dyn HostFunction1<'a, String, i32>>,
     ) -> Result<Self> {
+        log_build_details();
+
         // If the guest binary is a file make sure it exists
 
         let guest_binary = match guest_binary {
@@ -1089,10 +1093,10 @@ mod tests {
             let span_metadata = subscriber.get_span_metadata(2);
             assert_eq!(span_metadata.name(), "new");
 
-            // There should be one event for the error that the binary path does not exist
+            // There should be one event for the error that the binary path does not exist plus 14 info events for the logging of the crate info
 
             let events = subscriber.get_events();
-            assert_eq!(events.len(), 1);
+            assert_eq!(events.len(), 15);
 
             let mut count_matching_events = 0;
 
@@ -1165,12 +1169,15 @@ mod tests {
             // and exit from the span.
             //
             // It also creates a log record for the span being dropped.
-            // So we expect 5 log records for this test, four for the span and
+            //
+            // In addition there are 14 info log records created for build information
+            //
+            // So we expect 19 log records for this test, four for the span and
             // then one for the error as the file that we are attempting to
-            // load into the sandbox does not exist
+            // load into the sandbox does not exist, plus the 14 info log records
 
             let num_calls = TEST_LOGGER.num_log_calls();
-            assert_eq!(5, num_calls);
+            assert_eq!(19, num_calls);
 
             // Log record 1
 
@@ -1187,23 +1194,23 @@ mod tests {
             assert_eq!(logcall.args, "-> new;");
             assert_eq!("tracing::span::active", logcall.target);
 
-            // Log record 3
+            // Log record 17
 
-            let logcall = TEST_LOGGER.get_log_call(2).unwrap();
+            let logcall = TEST_LOGGER.get_log_call(16).unwrap();
             assert_eq!(Level::Error, logcall.level);
             assert!(logcall.args.starts_with("error=IOError(Os { code"));
             assert_eq!("hyperlight_host::sandbox::uninitialized", logcall.target);
 
-            // Log record 4
+            // Log record 18
 
-            let logcall = TEST_LOGGER.get_log_call(3).unwrap();
+            let logcall = TEST_LOGGER.get_log_call(17).unwrap();
             assert_eq!(Level::Trace, logcall.level);
             assert_eq!(logcall.args, "<- new;");
             assert_eq!("tracing::span::active", logcall.target);
 
-            // Log record 6
+            // Log record 19
 
-            let logcall = TEST_LOGGER.get_log_call(4).unwrap();
+            let logcall = TEST_LOGGER.get_log_call(18).unwrap();
             assert_eq!(Level::Trace, logcall.level);
             assert_eq!(logcall.args, "-- new;");
             assert_eq!("tracing::span", logcall.target);

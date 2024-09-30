@@ -1,4 +1,5 @@
 use anyhow::Result;
+use built::write_built_file;
 
 fn main() -> Result<()> {
     // re-run the build if this script is changed (or deleted!),
@@ -75,6 +76,8 @@ fn main() -> Result<()> {
         kvm: { all(feature = "kvm", target_os = "linux") },
         mshv: { all(feature = "mshv", target_os = "linux") },
     }
+
+    write_built_file()?;
 
     Ok(())
 }
