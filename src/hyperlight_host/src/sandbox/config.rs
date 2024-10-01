@@ -1,4 +1,4 @@
-use std::cmp::max;
+use std::cmp::{max, min};
 use std::time::Duration;
 
 use tracing::{instrument, Span};
@@ -98,14 +98,20 @@ impl SandboxConfiguration {
     pub const DEFAULT_MAX_INITIALIZATION_TIME: u16 = 2000;
     /// The minimum value for max initialization time (in milliseconds)
     pub const MIN_MAX_INITIALIZATION_TIME: u16 = 1;
+    /// The maximum value for max initialization time (in milliseconds)
+    pub const MAX_MAX_INITIALIZATION_TIME: u16 = std::u16::MAX;
     /// The default and minimum values for max execution time (in milliseconds)
     pub const DEFAULT_MAX_EXECUTION_TIME: u16 = 1000;
     /// The minimum value for max execution time (in milliseconds)
     pub const MIN_MAX_EXECUTION_TIME: u16 = 1;
+    /// The maximum value for max execution time (in milliseconds)
+    pub const MAX_MAX_EXECUTION_TIME: u16 = std::u16::MAX;
     /// The default and minimum values for max wait for cancellation (in milliseconds)
     pub const DEFAULT_MAX_WAIT_FOR_CANCELLATION: u8 = 100;
     /// The minimum value for max wait for cancellation (in milliseconds)
     pub const MIN_MAX_WAIT_FOR_CANCELLATION: u8 = 10;
+    /// The maximum value for max wait for cancellation (in milliseconds)
+    pub const MAX_MAX_WAIT_FOR_CANCELLATION: u8 = std::u8::MAX;
     /// The default and minimum values for guest panic context data
     pub const DEFAULT_GUEST_PANIC_CONTEXT_BUFFER_SIZE: usize = 0x400;
     /// The minimum value for guest panic context data
@@ -151,11 +157,13 @@ impl SandboxConfiguration {
                 match max_execution_time {
                     Some(max_execution_time) => match max_execution_time.as_millis() {
                         0 => Self::DEFAULT_MAX_EXECUTION_TIME,
-                        1..=65_535u128 => max(
-                            max_execution_time.as_millis(),
-                            Self::MIN_MAX_EXECUTION_TIME.into(),
+                        1.. => min(
+                            Self::MAX_MAX_EXECUTION_TIME.into(),
+                            max(
+                                max_execution_time.as_millis(),
+                                Self::MIN_MAX_EXECUTION_TIME.into(),
+                            ),
                         ) as u16,
-                        _ => Self::DEFAULT_MAX_EXECUTION_TIME,
                     },
                     None => Self::DEFAULT_MAX_EXECUTION_TIME,
                 }
@@ -165,11 +173,13 @@ impl SandboxConfiguration {
                     Some(max_wait_for_cancellation) => {
                         match max_wait_for_cancellation.as_millis() {
                             0 => Self::DEFAULT_MAX_WAIT_FOR_CANCELLATION,
-                            1..=255u128 => max(
-                                max_wait_for_cancellation.as_millis(),
-                                Self::MIN_MAX_WAIT_FOR_CANCELLATION.into(),
+                            1.. => min(
+                                Self::MAX_MAX_WAIT_FOR_CANCELLATION.into(),
+                                max(
+                                    max_wait_for_cancellation.as_millis(),
+                                    Self::MIN_MAX_WAIT_FOR_CANCELLATION.into(),
+                                ),
                             ) as u8,
-                            _ => Self::DEFAULT_MAX_WAIT_FOR_CANCELLATION,
                         }
                     }
                     None => Self::DEFAULT_MAX_WAIT_FOR_CANCELLATION,
@@ -179,11 +189,13 @@ impl SandboxConfiguration {
                 match max_initialization_time {
                     Some(max_initialization_time) => match max_initialization_time.as_millis() {
                         0 => Self::DEFAULT_MAX_INITIALIZATION_TIME,
-                        1..=65_535u128 => max(
-                            max_initialization_time.as_millis(),
-                            Self::MIN_MAX_EXECUTION_TIME.into(),
+                        1.. => min(
+                            Self::MAX_MAX_INITIALIZATION_TIME.into(),
+                            max(
+                                max_initialization_time.as_millis(),
+                                Self::MIN_MAX_INITIALIZATION_TIME.into(),
+                            ),
                         ) as u16,
-                        _ => Self::DEFAULT_MAX_INITIALIZATION_TIME,
                     },
                     None => Self::DEFAULT_MAX_INITIALIZATION_TIME,
                 }
@@ -260,13 +272,15 @@ impl SandboxConfiguration {
     pub fn set_max_execution_time(&mut self, max_execution_time: Duration) {
         match max_execution_time.as_millis() {
             0 => self.max_execution_time = Self::DEFAULT_MAX_EXECUTION_TIME,
-            1..=65_535u128 => {
-                self.max_execution_time = max(
-                    max_execution_time.as_millis(),
-                    Self::MIN_MAX_EXECUTION_TIME.into(),
+            1.. => {
+                self.max_execution_time = min(
+                    Self::MAX_MAX_EXECUTION_TIME.into(),
+                    max(
+                        max_execution_time.as_millis(),
+                        Self::MIN_MAX_EXECUTION_TIME.into(),
+                    ),
                 ) as u16
             }
-            _ => self.max_execution_time = Self::DEFAULT_MAX_EXECUTION_TIME,
         }
     }
 
@@ -277,13 +291,15 @@ impl SandboxConfiguration {
     pub fn set_max_execution_cancel_wait_time(&mut self, max_wait_for_cancellation: Duration) {
         match max_wait_for_cancellation.as_millis() {
             0 => self.max_wait_for_cancellation = Self::DEFAULT_MAX_WAIT_FOR_CANCELLATION,
-            1..=255u128 => {
-                self.max_wait_for_cancellation = max(
-                    max_wait_for_cancellation.as_millis(),
-                    Self::MIN_MAX_WAIT_FOR_CANCELLATION.into(),
+            1.. => {
+                self.max_wait_for_cancellation = min(
+                    Self::MAX_MAX_WAIT_FOR_CANCELLATION.into(),
+                    max(
+                        max_wait_for_cancellation.as_millis(),
+                        Self::MIN_MAX_WAIT_FOR_CANCELLATION.into(),
+                    ),
                 ) as u8
             }
-            _ => self.max_wait_for_cancellation = Self::DEFAULT_MAX_WAIT_FOR_CANCELLATION,
         }
     }
 
@@ -293,13 +309,15 @@ impl SandboxConfiguration {
     pub fn set_max_initialization_time(&mut self, max_initialization_time: Duration) {
         match max_initialization_time.as_millis() {
             0 => self.max_initialization_time = Self::DEFAULT_MAX_INITIALIZATION_TIME,
-            1..=65_535u128 => {
-                self.max_initialization_time = max(
-                    max_initialization_time.as_millis(),
-                    Self::MIN_MAX_EXECUTION_TIME.into(),
+            1.. => {
+                self.max_initialization_time = min(
+                    Self::MAX_MAX_INITIALIZATION_TIME.into(),
+                    max(
+                        max_initialization_time.as_millis(),
+                        Self::MIN_MAX_INITIALIZATION_TIME.into(),
+                    ),
                 ) as u16
             }
-            _ => self.max_initialization_time = Self::DEFAULT_MAX_INITIALIZATION_TIME,
         }
     }
 
