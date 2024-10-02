@@ -1,123 +1,81 @@
-use std::ffi::{c_char, CString};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::ffi::OsStr;
+use std::os::windows::ffi::OsStrExt;
+use std::sync::{Arc, Mutex, Weak};
 
 use tracing::{instrument, Span};
-use windows::core::PCSTR;
+use windows::core::PCWSTR;
 use windows::Win32::Foundation::HMODULE;
-use windows::Win32::System::LibraryLoader::{FreeLibrary, LoadLibraryA};
+use windows::Win32::System::LibraryLoader::{FreeLibrary, LoadLibraryW};
 
 use super::ptr::RawPtr;
-use crate::error::HyperlightError;
 use crate::{log_then_return, Result};
 
-static IS_RUNNING_FROM_GUEST_BINARY: AtomicBool = AtomicBool::new(false);
-
-// Loadedlib needs to send so that it can be used in a Sandbox that can be passed between threads
-// *mut c_char is not send, so that means LoadedLib cannot be Send.
-// to work around this  we could try and wrap *mut c_char in a Mutex but in order for Mutex to be send
-// *mut c_char would need to be sync which it is not.
-// Additionally *muc c_char is impl !Send so we cannot unsafe impl Send for *mut c_char
-// Therefore we need to wrap *mut c_char in a struct that is impl Send
-// We also need to make this type Sync as it is wrapped in an Arc and Arc (just like Mutex) requires Sync in order to impl Send
-// Marking this type Sync is safe as it is intended to only ever used from a single thread.
-
-struct PtrCCharMut(*mut c_char);
-
-unsafe impl Send for PtrCCharMut {}
-unsafe impl Sync for PtrCCharMut {}
-
 /// A wrapper around a binary loaded with the Windows
-/// [`LoadLibraryA`](https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/System/LibraryLoader/fn.LoadLibraryA.html)
+/// [`LoadLibraryW`](https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/System/LibraryLoader/fn.LoadLibraryW.html)
 /// function.
 ///
-/// This struct ensures that globally, only one binary can be loaded at
-/// at one time. It is concurrency safe and the `Drop` implementation
+/// This struct ensures that per process, only one binary can be loaded at at one time.
+/// This is needed as it's not possible to load different copies of the same binary.
+///
+/// `LoadedLib` is concurrency safe and the `Drop` implementation
 /// automatically unloads the binary with
 /// [`FreeLibrary`](https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/System/LibraryLoader/fn.FreeLibrary.html).
 ///
-/// Use the `TryFrom` implementation to create a new instance.
+/// Use the `load` method to create a new instance.
 #[derive(Clone)]
-pub(super) struct LoadedLib {
-    data: Arc<(HMODULE, PtrCCharMut)>,
+pub struct LoadedLib {
+    inner: Arc<LoadedLibInner>,
 }
+
+static LOADED_LIB: Mutex<Weak<LoadedLibInner>> = Mutex::new(Weak::new());
 
 impl LoadedLib {
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub(super) fn base_addr(&self) -> Result<RawPtr> {
-        let h_inst = self.data.0;
-        let h_inst_u64: u64 = h_inst.0.try_into()?;
-        Ok(RawPtr::from(h_inst_u64))
-    }
-}
-
-/// frees `h_inst` using `FreeLibrary`, then frees `file_name_c_str` using
-/// the standard `CString` drop functionality, in that order
-#[instrument(skip_all, parent = Span::current(), level= "Trace")]
-unsafe fn free_and_drop(h_inst: HMODULE, file_name_c_str: *mut c_char) {
-    unsafe {
-        FreeLibrary(h_inst);
-        drop(CString::from_raw(file_name_c_str));
-    }
-}
-
-impl Drop for LoadedLib {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn drop(&mut self) {
-        // if the ref count is greater than 1, this particular LoadedLib
-        // has been cloned, so we don't want to free stuff yet
-        if Arc::strong_count(&self.data) > 1 {
-            return;
-        }
-        // the library, referenced by self.h_instance, owns
-        // self.file_name. make sure they're freed in reverse order
-        unsafe {
-            free_and_drop(self.data.0, self.data.1 .0);
-        }
-        if !set_guest_binary_boolean(false) {
-            // should never get here, in place just to catch bugs
-            panic!("LoadedLib: could not set global guest binary boolean to false")
-        }
-    }
-}
-
-impl TryFrom<&str> for LoadedLib {
-    type Error = HyperlightError;
     #[instrument(err(Debug), parent = Span::current(), level= "Trace")]
-    fn try_from(file_name: &str) -> Result<Self> {
-        let cstr = CString::new(file_name)?.into_raw();
-        let file_name_pc_str = PCSTR::from_raw(cstr as *const u8);
-        let h_instance = unsafe { LoadLibraryA(file_name_pc_str) }?;
-
-        // ensure we set the atomic bool to true here _before_ creating
-        // the actual instance, because the instance's drop will always
-        // set the boolean to false.
-        if !set_guest_binary_boolean(true) {
-            unsafe {
-                // safety: we just created h_instance and c_str
-                free_and_drop(h_instance, cstr);
-            }
-            log_then_return!("LoadedLib: could not set global guest binary boolean to true");
+    pub fn load(path: impl AsRef<OsStr> + std::fmt::Debug) -> Result<Self> {
+        // There's a potential race condition where the upgrade call runs after the last
+        // arc reference is dropped, but before the destructor is executed. This however
+        // is ok, as it means that the old library is not going to be used anymore and
+        // we can use it instead.
+        let mut lock = LOADED_LIB.lock().unwrap();
+        if lock.upgrade().is_some() {
+            // An owning copy of the loaded library still exists somewhere,
+            // we can't load a new libary yet
+            log_then_return!("LoadedLib: Only one guest binary can be loaded at any single time");
         }
+        let inner = Arc::new(LoadedLibInner::load(path)?);
+        *lock = Arc::downgrade(&inner);
+        Ok(Self { inner })
+    }
 
-        Ok(Self {
-            data: Arc::new((h_instance, PtrCCharMut(cstr))),
-        })
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(super) fn base_addr(&self) -> RawPtr {
+        self.inner.base_addr()
     }
 }
 
-/// do the following operation atomically on the internal global boolean that
-/// indicates whether we're running directly from the guest binary:
-///
-/// - if it was set to `!val`, set it to `val` and return `true`
-/// - otherwise, return `false`
-#[instrument(skip_all, parent = Span::current(), level= "Trace")]
-fn set_guest_binary_boolean(val: bool) -> bool {
-    // atomically set IS_RUNNING_FROM_GUEST_BINARY to true. if this returns
-    // an Ok, the set operation succeeded
-    IS_RUNNING_FROM_GUEST_BINARY
-        .compare_exchange(!val, val, Ordering::SeqCst, Ordering::SeqCst)
-        .is_ok()
+struct LoadedLibInner {
+    handle: HMODULE,
+}
+
+impl LoadedLibInner {
+    fn load(path: impl AsRef<OsStr>) -> Result<Self> {
+        // convert path to a wide string, and append a null terminator
+        let path: Vec<u16> = path.as_ref().encode_wide().chain([0]).collect();
+        let pcwstr = PCWSTR::from_raw(path.as_ptr());
+        let handle = unsafe { LoadLibraryW(pcwstr) }?;
+
+        Ok(Self { handle })
+    }
+
+    fn base_addr(&self) -> RawPtr {
+        RawPtr::from(self.handle.0 as u64)
+    }
+}
+
+impl Drop for LoadedLibInner {
+    fn drop(&mut self) {
+        unsafe { FreeLibrary(self.handle) };
+    }
 }
 
 #[cfg(test)]
@@ -125,7 +83,7 @@ mod tests {
     use hyperlight_testing::{rust_guest_as_pathbuf, simple_guest_as_string};
     use serial_test::serial;
 
-    use super::{set_guest_binary_boolean, LoadedLib};
+    use super::LoadedLib;
 
     /// universal test for all LoadedLib-related functionality. It's necessary
     /// to put everything into a single test because LoadedLib relies on global
@@ -133,32 +91,33 @@ mod tests {
     #[test]
     #[serial]
     fn test_universal() {
-        // first, test the basic set_guest_binary_boolean
-        {
-            // should not be running, so mark running
-            assert!(set_guest_binary_boolean(true));
-            // should already be running, so marking running should return false
-            assert!(!set_guest_binary_boolean(true));
-            // now should be running, so mark not running
-            assert!(set_guest_binary_boolean(false));
-            // should not be running, so marking not running should return false
-            assert!(!set_guest_binary_boolean(false));
-        }
-        // next, test basic load/unload functionality
+        // test basic load/unload functionality
         {
             // a test to just ensure we can load and unload (when dropped)
             // a library using LoadLibraryA and FreeLibrary, respectively
             let path = simple_guest_as_string().unwrap();
-            let _ = LoadedLib::try_from(path.as_str()).unwrap();
+            let lib = LoadedLib::load(path).unwrap();
+            drop(lib);
         }
-        // finally, actually test loading a library from a real compiled
+        // test the locking mechanism allowing only one loaded library
+        {
+            let path = simple_guest_as_string().unwrap();
+            let lib1 = LoadedLib::load(&path);
+            assert!(lib1.is_ok());
+            let lib2 = LoadedLib::load(&path);
+            assert!(lib2.is_err());
+            drop(lib1);
+            let lib3 = LoadedLib::load(&path);
+            assert!(lib3.is_ok());
+        }
+        // test actually loading a library from a real compiled
         // binary
         {
             let lib_name = rust_guest_as_pathbuf("simpleguest");
-            let lib = LoadedLib::try_from(lib_name.to_str().unwrap()).unwrap();
+            let lib = LoadedLib::load(lib_name).unwrap();
             for _ in 0..9 {
                 let l = lib.clone();
-                assert_eq!(lib.base_addr().unwrap(), l.base_addr().unwrap());
+                assert_eq!(lib.base_addr(), l.base_addr());
             }
         }
     }

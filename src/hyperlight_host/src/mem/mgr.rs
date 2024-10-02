@@ -663,9 +663,9 @@ impl SandboxMemoryManager {
     ) -> Result<Self> {
         #[cfg(target_os = "windows")]
         {
-            let lib = LoadedLib::try_from(guest_bin_path)?;
+            let lib = LoadedLib::load(guest_bin_path)?;
             let (layout, shared_mem, load_addr, entrypoint_offset) =
-                load_guest_binary_common(cfg, pe_info, 0, |_, _| lib.base_addr())?;
+                load_guest_binary_common(cfg, pe_info, 0, |_, _| Ok(lib.base_addr()))?;
 
             // make the memory executable when running in-process
             shared_mem.make_memory_executable()?;
