@@ -604,11 +604,8 @@ impl SandboxMemoryManager {
         pe_info: &mut PEInfo,
         run_from_process_memory: bool,
     ) -> Result<Self> {
-        let (layout, mut shared_mem, load_addr, entrypoint_offset) = load_guest_binary_common(
-            cfg,
-            pe_info,
-            pe_info.get_payload_len(),
-            |shared_mem, layout| {
+        let (layout, mut shared_mem, load_addr, entrypoint_offset) =
+            load_guest_binary_common(cfg, pe_info, |shared_mem, layout| {
                 let addr_usize = if run_from_process_memory {
                     // if we're running in-process, load_addr is the absolute
                     // address to the start of shared memory, plus the offset to
@@ -625,18 +622,17 @@ impl SandboxMemoryManager {
                     layout.get_guest_code_address()
                 };
                 RawPtr::try_from(addr_usize)
-            },
-        )?;
+            })?;
 
-        let relocation_patches = pe_info
-            .get_exe_relocation_patches(pe_info.get_payload(), load_addr.clone().try_into()?)?;
+        let relocation_patches =
+            pe_info.get_exe_relocation_patches(load_addr.clone().try_into()?)?;
 
         {
             // Apply relocations to the PE file (if necessary), then copy
             // the PE file into shared memory
-            PEInfo::apply_relocation_patches(pe_info.get_payload_mut(), relocation_patches)?;
+            pe_info.apply_relocation_patches(relocation_patches)?;
             let code_offset = layout.get_guest_code_offset();
-            shared_mem.copy_from_slice(pe_info.get_payload(), code_offset)
+            shared_mem.copy_from_slice(&pe_info.payload, code_offset)
         }?;
 
         Ok(Self::new(
@@ -665,7 +661,7 @@ impl SandboxMemoryManager {
         {
             let lib = LoadedLib::load(guest_bin_path)?;
             let (layout, shared_mem, load_addr, entrypoint_offset) =
-                load_guest_binary_common(cfg, pe_info, 0, |_, _| Ok(lib.base_addr()))?;
+                load_guest_binary_common(cfg, pe_info, |_, _| Ok(lib.base_addr()))?;
 
             // make the memory executable when running in-process
             shared_mem.make_memory_executable()?;
@@ -849,7 +845,6 @@ impl TryFrom<&[u8]> for I32Wrapper {
 fn load_guest_binary_common<F>(
     cfg: SandboxConfiguration,
     pe_info: &PEInfo,
-    code_size: usize,
     load_addr_fn: F,
 ) -> Result<(SandboxMemoryLayout, SharedMemory, RawPtr, Offset)>
 where
@@ -857,7 +852,7 @@ where
 {
     let layout = SandboxMemoryLayout::new(
         cfg,
-        code_size,
+        pe_info.payload.len(),
         usize::try_from(cfg.get_stack_size(pe_info))?,
         usize::try_from(cfg.get_heap_size(pe_info))?,
     )?;
@@ -917,7 +912,7 @@ mod tests {
             cfg.set_stack_size(stack_size_override);
             cfg.set_heap_size(heap_size_override);
             let (layout, shared_mem, _, _) =
-                super::load_guest_binary_common(cfg, &pe_info, 100, |_, _| Ok(RawPtr::from(100)))
+                super::load_guest_binary_common(cfg, &pe_info, |_, _| Ok(RawPtr::from(100)))
                     .unwrap();
             assert_eq!(
                 stack_size_override,

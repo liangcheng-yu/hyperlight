@@ -405,7 +405,7 @@ impl<'a> UninitializedSandbox {
     ) -> Result<SandboxMemoryManager> {
         let mut pe_info = match guest_binary {
             GuestBinary::FilePath(bin_path_str) => PEInfo::from_file(bin_path_str)?,
-            GuestBinary::Buffer(buffer) => PEInfo::new(buffer)?,
+            GuestBinary::Buffer(buffer) => PEInfo::new(buffer.clone())?,
         };
 
         if run_from_guest_binary {

@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::{Cursor, Read, Write};
+use std::{iter, mem};
 
 use goblin::pe::optional_header::OptionalHeader;
 use goblin::pe::section_table::SectionTable;
@@ -21,8 +22,7 @@ const CHARACTERISTICS_EXECUTABLE_IMAGE: u16 = 0x0002;
 /// PE file, but rather just enough to be able to do relocations,
 /// symbol resolution, and actually execute it within a `Sandbox`.
 pub(crate) struct PEInfo {
-    payload: Vec<u8>,
-    payload_len: usize,
+    pub(crate) payload: Vec<u8>,
     optional_header: OptionalHeader,
     reloc_section: Option<SectionTable>,
 }
@@ -34,15 +34,17 @@ impl PEInfo {
         let mut file = File::open(filename)?;
         let mut contents = Vec::new();
         file.read_to_end(&mut contents)?;
-        Self::new(contents.as_slice())
+        Self::new(contents)
     }
-    /// Create a new `PEInfo` from a slice of bytes.
+
+    /// Create a new `PEInfo`.
     ///
     /// Returns `Ok` with the new `PEInfo` if `pe_bytes` is a valid
     /// PE file and could properly be parsed as such, and `Err` if not.
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub(crate) fn new(pe_bytes: &[u8]) -> Result<Self> {
-        let mut pe = PE::parse(pe_bytes)?;
+    pub fn new(pe_bytes: impl Into<Vec<u8>>) -> Result<Self> {
+        let mut pe_bytes: Vec<u8> = pe_bytes.into();
+        let mut pe = PE::parse(&pe_bytes)?;
 
         // Validate that the PE file has the expected characteristics up-front
 
@@ -86,9 +88,13 @@ impl PEInfo {
         // Check sections and make sure that the virtual size is less than or equal to the raw size
         // If a difference is found in the .data section, we will resize the data section to match the virtual size
 
+        // The number of additional bytes required to resize the .data section to be equal to the virtual size
         let mut data_section_additional_bytes = 0;
-        let mut pre_additonal_data_size = 0;
-        let mut post_additional_data_index = 0;
+
+        // The index of the first byte after the raw data of the .data section
+        let mut end_of_data_index = 0;
+
+        // The index to the .data section
         let mut data_section_raw_pointer = 0;
 
         for (i, section) in pe.sections.iter().enumerate() {
@@ -103,10 +109,16 @@ impl PEInfo {
             if virtual_size > raw_size {
                 // we are going to take care of the data section
                 if name == ".data" {
+                    // Make sure we fail if we enter this block more than once
+                    assert_eq!(
+                        data_section_additional_bytes, 0,
+                        "Hyperlight currently only supports one .data section"
+                    );
+
                     data_section_raw_pointer = section.pointer_to_raw_data;
                     data_section_additional_bytes = virtual_size - raw_size;
                     debug!(
-                        "Resizing the data section - Data Section Additional Bytes: {}",
+                        "Resizing the data section - Additional bytes required: {}",
                         data_section_additional_bytes
                     );
                     debug!(
@@ -120,18 +132,20 @@ impl PEInfo {
                     );
 
                     // we use all the data in pe_bytes up to the end of the raw data of the .data section
-                    pre_additonal_data_size =
+                    end_of_data_index =
                         (section.pointer_to_raw_data + section.size_of_raw_data) as usize;
 
-                    debug!("Pre Additional Data Size: {}", pre_additonal_data_size);
+                    debug!("End of data index: {}", end_of_data_index);
 
                     // the remainder of the data is the rest of the file after the .data section if any
 
                     let next_section = pe.sections.get(i + 1);
 
                     if let Some(next_section) = next_section {
-                        post_additional_data_index = (next_section.pointer_to_raw_data) as usize;
-                        debug!("Post Additional Data Index: {}", post_additional_data_index);
+                        debug!(
+                            "Start of section after data index: {}",
+                            next_section.pointer_to_raw_data
+                        );
                     } else {
                         debug!("No more sections after the .data section");
                     }
@@ -156,59 +170,24 @@ impl PEInfo {
             }
         }
 
-        // Now we need to create the Vec<u8> that will be loaded into guest memory
-
-        let payload = if data_section_additional_bytes > 0 {
-            // extend the data section to match the virtual size in the payload
-            // resize data section is the difference between the virtual size and the raw size of the data section so we need to add that to the size of the pe_file
-            let mut new_pe_bytes =
-                Vec::with_capacity(pe_bytes.len() + data_section_additional_bytes as usize);
-
-            // the first slice is from the start of the file to the end of the raw data of the .data section
-            new_pe_bytes.extend_from_slice(&pe_bytes[..pre_additonal_data_size]);
-
-            // the second slice is the difference between the virtual size and the raw size of the .data section
-            new_pe_bytes.extend_from_slice(&vec![0; data_section_additional_bytes as usize]);
-
-            // the remainder of the data is the rest of the file after the .data section if any
-
-            if post_additional_data_index > 0 {
-                new_pe_bytes.extend_from_slice(&pe_bytes[post_additional_data_index..]);
-            }
-            new_pe_bytes
-        } else {
-            Vec::from(pe_bytes)
-        };
-
         let reloc_section = pe
             .sections
             .iter()
             .find(|section| section.name().unwrap_or_default() == ".reloc")
             .cloned();
 
+        // extend the .data section to match the virtual size in the payload.
+        // We insert `data_section_additional_bytes` number of zeroes starting at `end_of_data_index`
+        pe_bytes.splice(
+            end_of_data_index..end_of_data_index,
+            iter::repeat(0).take(data_section_additional_bytes as usize),
+        );
+
         Ok(Self {
-            payload,
+            payload: pe_bytes,
             optional_header,
-            payload_len: pe_bytes.len() + data_section_additional_bytes as usize,
             reloc_section,
         })
-    }
-
-    /// Get a reference to the payload contained within `self`
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(crate) fn get_payload(&self) -> &[u8] {
-        &self.payload
-    }
-
-    /// Get a mutable reference to the payload contained within `self`
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(crate) fn get_payload_mut(&mut self) -> &mut [u8] {
-        &mut self.payload
-    }
-    /// Get the length of the entire PE file payload
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(crate) fn get_payload_len(&self) -> usize {
-        self.payload_len
     }
 
     /// Get the entry point offset from the PE file's optional COFF
@@ -248,20 +227,19 @@ impl PEInfo {
         self.optional_header.windows_fields.size_of_heap_commit
     }
 
-    /// Apply the list of `RelocationPatch`es in `patches` to the given
-    /// `payload` and return the number of patches applied.
+    /// Apply the list of `RelocationPatch`es in `patches` to self and return the number of patches applied.
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn apply_relocation_patches(
-        payload: &mut [u8],
+        &mut self,
         patches: Vec<RelocationPatch>,
     ) -> Result<usize> {
-        let payload_len = payload.len();
-        let mut cur = Cursor::new(payload);
+        let payload_len = self.payload.len();
+        let mut cur = Cursor::new(&mut self.payload);
 
         // Track how many patches were applied to the payload
         let mut applied: usize = 0;
         for patch in patches {
-            if patch.offset >= payload_len {
+            if patch.offset + mem::size_of::<u64>() > payload_len {
                 log_then_return!("invalid offset is larger than the payload");
             }
 
@@ -279,7 +257,6 @@ impl PEInfo {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn get_exe_relocation_patches(
         &self,
-        payload: &[u8],
         address_to_load_at: usize,
     ) -> Result<Vec<RelocationPatch>> {
         // see the following for information on relocations:
@@ -294,8 +271,9 @@ impl PEInfo {
             return Ok(Vec::new());
         }
 
-        let relocations = base_relocations::get_base_relocations(payload, &self.reloc_section)
-            .expect("error parsing base relocations");
+        let relocations =
+            base_relocations::get_base_relocations(&self.payload, &self.reloc_section)
+                .expect("error parsing base relocations");
         let mut patches = Vec::with_capacity(relocations.len());
 
         for reloc in relocations {
@@ -308,7 +286,7 @@ impl PEInfo {
                     let offset = reloc.page_base_rva as u64 + (reloc.page_offset as u64);
 
                     // Read the virtual address stored in reloc_offset as a 64bit value
-                    let mut cur = Cursor::new(payload);
+                    let mut cur = Cursor::new(&self.payload);
                     cur.set_position(offset);
                     let mut bytes = [0; 8];
                     cur.read_exact(&mut bytes)?;
@@ -352,8 +330,6 @@ pub(crate) struct RelocationPatch {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-
     use hyperlight_testing::{callback_guest_as_string, simple_guest_as_string};
 
     use crate::{new_error, Result};
@@ -422,8 +398,7 @@ mod tests {
     fn load_pe_info() -> Result<()> {
         for test in pe_files()? {
             let pe_path = test.path;
-            let pe_bytes = fs::read(pe_path.clone())?;
-            let pe_info = super::PEInfo::new(&pe_bytes)?;
+            let pe_info = super::PEInfo::from_file(&pe_path)?;
 
             // Validate that the pe headers aren't empty
             assert_eq!(
@@ -453,7 +428,7 @@ mod tests {
             );
 
             let patches = pe_info
-                .get_exe_relocation_patches(&pe_info.payload, 0)
+                .get_exe_relocation_patches(0)
                 .unwrap_or_else(|_| panic!("wrong # of relocation patches returned for {pe_path}"));
 
             let num_patches = patches.len();

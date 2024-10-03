@@ -1,5 +1,3 @@
-use tracing::{instrument, Span};
-
 use super::pe_info::PEInfo;
 
 /// An immutable set of PE File headers.
@@ -26,7 +24,6 @@ pub(crate) struct PEHeaders {
 }
 
 impl From<&PEInfo> for PEHeaders {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn from(pe_info: &PEInfo) -> PEHeaders {
         PEHeaders {
             entrypoint_offset: pe_info.entry_point_offset(),

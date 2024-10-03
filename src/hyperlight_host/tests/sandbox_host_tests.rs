@@ -134,6 +134,7 @@ fn invalid_guest_function_name() {
 #[test]
 #[cfg_attr(target_os = "windows", serial)] // using LoadLibrary requires serial tests
 fn set_static() {
+    env_logger::init();
     for mut sandbox in get_simpleguest_sandboxes(None).into_iter() {
         let fn_name = "SetStatic";
         let res = sandbox.call_guest_function_by_name(fn_name, ReturnType::Int, None);

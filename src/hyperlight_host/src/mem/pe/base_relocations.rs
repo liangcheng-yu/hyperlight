@@ -35,7 +35,6 @@ impl<'a> BaseRelocations<'a> {
     /// Parse a base relocation table at the given offset.
     ///
     /// The offset and number of relocations should be from the base relocation table header.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn parse(
         bytes: &'a [u8],
         offset: usize,
@@ -58,7 +57,6 @@ impl<'a> BaseRelocations<'a> {
 
 impl<'a> Iterator for BaseRelocations<'a> {
     type Item = BaseRelocation;
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn next(&mut self) -> Option<Self::Item> {
         // Check if we can read 2 bytes from the array
         if self.offset + 1 >= self.relocations.len() {
