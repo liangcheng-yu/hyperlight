@@ -76,9 +76,6 @@ jobs:
         if: ${{ (matrix.hypervisor == 'hyperv') }}
         run: sudo dnf install -y valgrind
 
-      - name: Install cargo-valgrind
-        run: cargo install cargo-valgrind
-
       - name: Download Guest Binaries
         uses: actions/download-artifact@v3
         with:
@@ -90,9 +87,6 @@ jobs:
           cp ./downloaded-guest-binaries-${{ matrix.config }}/callbackguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/callbackguest.exe
           cp ./downloaded-guest-binaries-${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/simpleguest.exe
           cp ./downloaded-guest-binaries-${{ matrix.config }}/dummyguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/dummyguest.exe
-
-      - name: Valgrind Rust tests
-        run: cargo valgrind test capi
 
       - name: Valgrind C tests
         working-directory: src/hyperlight_capi

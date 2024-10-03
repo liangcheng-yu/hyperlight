@@ -3,7 +3,6 @@ bin-suffix := if os() == "windows" { ".exe" } else { ".out" }
 clang-checks := if os() == "windows" { "-Wstrict-prototypes -Wwrite-strings -Wbad-function-cast -Wignored-qualifiers -Wformat-security -Wformat -Wempty-body -Wcast-align -Wmissing-declarations -Wpointer-arith -Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" } else { "-Wall -Werror -Wunused-variable -Werror=sign-compare -Wincompatible-pointer-types" }
 valgrind-command := if os() == "windows" { "echo 'valgrind not supported on windows'" } else { "./scripts/valgrind-command.sh" }
 test-command := if os() == "windows" { "./scripts/test-command.bat" } else { "./scripts/test-command.sh" }
-gen-suppressions:= if os() == "windows" { " " } else { "GEN_SUPPRESSIONS_ON=1 LOG_FILE_ON=1" }
 set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 set fallback
 
@@ -34,5 +33,3 @@ run-tests-capi target=default-target: (build-tests-capi target)
 
 valgrind-tests-capi target=default-target: (build-tests-capi target)
     {{valgrind-command}} {{target}}
-valgrind-tests-capi-gen-suppressions target=default-target: (build-tests-capi target)
-    {{gen-suppressions}} {{valgrind-command}} {{target}}
