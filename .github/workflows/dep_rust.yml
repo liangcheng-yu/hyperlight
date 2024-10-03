@@ -20,9 +20,6 @@ permissions:
   contents: read
 
 jobs:
-  # this job requires the build-guest-binaries job be complete prior to
-  # its execution. this dependency should be expressed in the dependent
-  # workflow
   build:
     strategy:
       fail-fast: true

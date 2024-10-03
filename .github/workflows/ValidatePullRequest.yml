@@ -12,23 +12,12 @@ permissions:
   contents: read
 
 jobs:
-  build-hyperlight-capi:
-    uses: ./.github/workflows/dep_build_hyperlight_capi.yml
-    secrets: inherit
-  build-guest-binaries:
-    uses: ./.github/workflows/dep_build_guest_binaries.yml
-    secrets: inherit
+
   rust:
     uses: ./.github/workflows/dep_rust.yml
-    needs: [build-guest-binaries]
-    secrets: inherit
-  valgrind:
-    uses: ./.github/workflows/dep_valgrind.yml
-    needs: [build-guest-binaries]
     secrets: inherit
   fuzzing:
     uses: ./.github/workflows/dep_fuzzing.yml
-    needs: [build-guest-binaries]
     with:
       max_total_time: 300 # 5 minutes in seconds
     secrets: inherit
@@ -38,7 +27,6 @@ jobs:
   #####
   build-on-windows:
     runs-on: ${{ matrix.os }}
-    needs: [build-guest-binaries, build-hyperlight-capi]
     strategy:
       fail-fast: true
       matrix:
@@ -103,11 +91,10 @@ jobs:
         with:
           msbuild-architecture: x64
 
-      - name: Download hyperlight_capi.dll
-        uses: actions/download-artifact@v3
-        with:
-          name: ${{ matrix.config}}_assets
-          path: target/${{ matrix.config }}
+      - name: Build hyperlight_capi.dll
+        run: |
+          cd src/hyperlight_capi
+          just build ${{ matrix.config }}
 
       - name: Fetch printf
         working-directory: src/HyperlightGuest/third_party/printf
@@ -116,17 +103,10 @@ jobs:
         run: |
           echo "WHP_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
 
-      - name: Download Guest Binaries
-        uses: actions/download-artifact@v3
-        with:
-          name: guest-binaries-${{ matrix.config }}
-          path: ./downloaded-guest-binaries-${{ matrix.config }}
-
-      - name: Copy Rust Guest Binaries
+      - name: Build and Move Guest Binaries
         run: |
-          cp ./downloaded-guest-binaries-${{ matrix.config }}/callbackguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/callbackguest.exe
-          cp ./downloaded-guest-binaries-${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/simpleguest.exe
-          cp ./downloaded-guest-binaries-${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/dummyguest.exe
+          just build-rust-guests ${{ matrix.config }}
+          just move-rust-guests ${{ matrix.config }}
 
       - name: Build C Guest Binaries
         run: |
@@ -171,7 +151,6 @@ jobs:
   # start build-on-linux
   #####
   build-on-linux:
-    needs: [build-guest-binaries, build-hyperlight-capi]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
@@ -244,23 +223,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget
 
-      - name: Download Guest Binaries
-        uses: actions/download-artifact@v3
-        with:
-          name: guest-binaries-${{ matrix.config }}
-          path: ./downloaded-guest-binaries-${{ matrix.config }}
-
-      - name: Copy Guest Binaries
+      - name: Build and Move Guest Binaries
         run: |
-          cp ./downloaded-guest-binaries-${{ matrix.config }}/callbackguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/callbackguest.exe
-          cp ./downloaded-guest-binaries-${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/simpleguest.exe
-          cp ./downloaded-guest-binaries-${{ matrix.config }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ matrix.config }}/dummyguest.exe
+          just build-rust-guests ${{ matrix.config }}
+          just move-rust-guests ${{ matrix.config }}
 
-      - name: Download libhyperlight_capi.so
-        uses: actions/download-artifact@v3
-        with:
-          name: ${{ matrix.config }}_assets
-          path: target/${{ matrix.config }}
+      - name: Build hyperlight_capi.so
+        run: |
+          cd src/hyperlight_capi
+          just build ${{ matrix.config }}
 
       - name: Restore
         run: dotnet restore

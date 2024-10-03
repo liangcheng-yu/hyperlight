@@ -16,9 +16,6 @@ permissions:
   contents: read
 
 jobs:
-  # this job requires the build-guest-binaries job be complete prior to
-  # its execution. this dependency should be expressed in the dependent
-  # workflow
   fuzz:
     environment: ${{ inputs.environment }}
     runs-on: [ self-hosted, Linux, X64, "1ES.Pool=HL-Ubuntu-20.04-KVM" ]
@@ -37,17 +34,11 @@ jobs:
       - name: Set up nightly rust
         uses: dtolnay/rust-toolchain@nightly
 
-      - name: Download Guest Binaries
-        uses: actions/download-artifact@v3
-        with:
-          name: guest-binaries-release
-          path: ./downloaded-guest-binaries-release
-
-      - name: Copy Guest Binaries
+      - name: Build rust binaries
         run: |
-          cp ./downloaded-guest-binaries-release/callbackguest.exe ./src/tests/rust_guests/bin/release/callbackguest.exe
-          cp ./downloaded-guest-binaries-release/simpleguest.exe ./src/tests/rust_guests/bin/release/simpleguest.exe
-          cp ./downloaded-guest-binaries-release/dummyguest.exe ./src/tests/rust_guests/bin/release/dummyguest.exe          
+          # use these commands in favor of build-and-move-rust-guests to avoid building debug
+          just build-rust-guests release
+          just move-rust-guests release
 
       - name: Install cargo-fuzz
         run: cargo install cargo-fuzz
