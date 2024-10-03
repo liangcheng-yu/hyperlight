@@ -706,6 +706,28 @@ fn violate_seccomp_filters(function_call: &FunctionCall) -> Result<Vec<u8>> {
     }
 }
 
+fn add(function_call: &FunctionCall) -> Result<Vec<u8>> {
+    if let (ParameterValue::Int(a), ParameterValue::Int(b)) = (
+        function_call.parameters.clone().unwrap()[0].clone(),
+        function_call.parameters.clone().unwrap()[1].clone(),
+    ) {
+        call_host_function(
+            "HostAdd",
+            Some(Vec::from(&[ParameterValue::Int(a), ParameterValue::Int(b)])),
+            ReturnType::Int,
+        )?;
+
+        let res = get_host_value_return_as_int()?;
+
+        Ok(get_flatbuffer_result_from_int(res))
+    } else {
+        Err(HyperlightGuestError::new(
+            ErrorCode::GuestFunctionParameterTypeMismatch,
+            "Invalid parameters passed to add".to_string(),
+        ))
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn hyperlight_main() {
     let set_static_def = GuestFunctionDefinition::new(
@@ -1079,6 +1101,14 @@ pub extern "C" fn hyperlight_main() {
         echo_double as i64,
     );
     register_function(echo_double_def);
+
+    let add_def = GuestFunctionDefinition::new(
+        "Add".to_string(),
+        Vec::from(&[ParameterType::Int, ParameterType::Int]),
+        ReturnType::Int,
+        add as i64,
+    );
+    register_function(add_def);
 }
 
 #[no_mangle]
