@@ -41,7 +41,6 @@ jobs:
             config: release
             platform: x64
     env:
-      DOTNET_INSTALL_DIR: "./.dotnet"
       RUST_BACKTRACE: FULL
 
     steps:
@@ -70,6 +69,7 @@ jobs:
         shell: pwsh
         working-directory: src/hyperlight_capi/tests_capi
 
+     # This is still needed until we remove the HyperlightDepenenices.csproj
       - name: Setup dotnet
         uses: actions/setup-dotnet@v4.0.1
         with:
@@ -99,49 +99,10 @@ jobs:
       - name: Fetch printf
         working-directory: src/HyperlightGuest/third_party/printf
         run: git submodule update --init
-      - name: Set up WHP_SHOULD_BE_PRESENT Env Var
-        run: |
-          echo "WHP_SHOULD_BE_PRESENT=true" >> $GITHUB_ENV
-
-      - name: Build and Move Guest Binaries
-        run: |
-          just build-rust-guests ${{ matrix.config }}
-          just move-rust-guests ${{ matrix.config }}
-
-      - name: Build C Guest Binaries
-        run: |
-          just build-c-guests ${{ matrix.config }}
 
       - name: Build Solution
         run: msbuild -m hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
         shell: pwsh
-
-      - name: Test dotnet with rust guests
-        shell: pwsh
-        run: dotnet test -c ${{ matrix.config }} --logger "trx;verbosity=detailed;LogFilePrefix=win-${{ matrix.config }}" --blame
-        working-directory: src/tests/Hyperlight.Tests
-
-      - name: Build Example
-        shell: pwsh
-        run: dotnet build -c ${{ matrix.config }}
-        working-directory: src/examples/NativeHost
-
-      - name: Run Example with rust guests
-        shell: pwsh
-        run: dotnet run -c ${{ matrix.config }} -- -nowait
-        working-directory: src/examples/NativeHost
-
-      - name: Test dotnet with c guests
-        shell: pwsh
-        run: |
-          just test-dotnet-c-guests ${{ matrix.config }}
-
-      - name: Upload Test Results
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-results-${{ matrix.config }}
-          path: src\tests\Hyperlight.Tests\TestResults\*.trx
 
   #####
   # end build-on-windows
@@ -210,67 +171,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup dotnet (not on hyperv)
-        if: ${{ (matrix.hypervisor != 'hyperv') }}
-        uses: actions/setup-dotnet@v4.0.1
-        with:
-          dotnet-version: 6.0.x
-
-      - uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget
-
-      - name: Build and Move Guest Binaries
-        run: |
-          just build-rust-guests ${{ matrix.config }}
-          just move-rust-guests ${{ matrix.config }}
-
       - name: Build hyperlight_capi.so
         run: |
           cd src/hyperlight_capi
           just build ${{ matrix.config }}
 
-      - name: Restore
-        run: dotnet restore
-        shell: bash
-
-      - name: Build Hyperlight
-        shell: bash
-        run: dotnet build -c ${{ matrix.config }}
-        working-directory: src/Hyperlight
-
-        # Only clean the example if we're on a self-hosted
-        # runner. GitHub hosted runners are automatically
-        # cleaned.
-      - name: Clean example
-        shell: bash
-        run: dotnet clean -c ${{ matrix.config }}
-        working-directory: src/examples/NativeHost
-        if: ${{ matrix.os }} == 'self-hosted'
-
       - name: Build C Guest Binaries
         run: |
           just build-c-guests ${{ matrix.config }}
 
-      - name: Run Example
-        shell: bash
-        run: dotnet run -c ${{ matrix.config }} -- -nowait
-        working-directory: src/examples/NativeHost
-
-      - name: Test
-        shell: bash
-        run: dotnet test -c ${{ matrix.config }} --logger "trx;verbosity=detailed;LogFilePrefix=linux-${{ matrix.config }}-${{ matrix.hypervisor }}" --blame
-        working-directory: src/tests/Hyperlight.Tests
-
-      - name: Upload Test Results
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-results-${{ matrix.config }}-${{ matrix.hypervisor }}
-          path: src/tests/Hyperlight.Tests/TestResults/*.trx
   #####
   # end build-on-linux
   #####

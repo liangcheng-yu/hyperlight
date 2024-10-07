@@ -5,36 +5,6 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": ".NET Core Launch Native Host Example",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "Build NativeHost Example",
-      "program": "${workspaceFolder}/src/examples/NativeHost/bin/debug/net6.0/NativeHost",
-      "args": [],
-      "cwd": "${workspaceFolder}",
-      "stopAtEntry": true,
-      "console": "internalConsole",
-      "justMyCode": false
-    },
-    {
-      "name": "Attach dotnet debugger",
-      "type": "coreclr",
-      "request": "attach",
-      "processId": "${command:pickProcess}"
-    },
-    {
-      "name": "Debug Native Guest",
-      "type": "cppvsdbg",
-      "request": "launch",
-      "program": "${workspaceFolder}/src/examples/NativeHost/bin/debug/net6.0/NativeHost.exe",
-      "args": [],
-      "stopAtEntry": false,
-      "cwd": "${workspaceFolder}/src/examples/NativeHost/bin/debug/net6.0",
-      "environment": [],
-      "externalConsole": false,
-      "preLaunchTask": "Build Example Host"
-    },
-    {
       "type": "lldb",
       "request": "launch",
       "name": "Debug Tests",

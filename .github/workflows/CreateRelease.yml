@@ -225,49 +225,8 @@ jobs:
           cp ./downloaded-guest-binaries-${{ env.CONFIG }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe
           cp ./downloaded-guest-binaries-${{ env.CONFIG }}/dummyguest.exe ./src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe
 
-      - name: Copy Rust Guests for dotnet tests
-        run: |
-          mkdir -p src\tests\Hyperlight.Tests\rust_guests\bin\${{ env.CONFIG }}
-          cp src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}
-          cp src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}    
-          cp src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe src/tests/Hyperlight.Tests/rust_guests/bin/${{ env.CONFIG }}
-
-      # The dotnet test solutions require the c and rust guests to exist before the projects will build
-      - name: Build C guests
-        run: just build-c-guests ${{ env.CONFIG }}
-
       - name: Build Solution
         run: msbuild -m hyperlight.sln /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /p:ContinuousIntegrationBuild=true
-        shell: pwsh
-
-      - name: Test
-        shell: pwsh
-        run: dotnet test -c $env:CONFIG
-        working-directory: src/tests/Hyperlight.Tests
-
-      - name: Build Example for Windows
-        shell: pwsh
-        run: dotnet publish -c $env:CONFIG --self-contained -r win-x64 -f $env:FRAMEWORK
-        working-directory: src/examples/NativeHost
-
-      - name: Archive Windows Release
-        shell: pwsh
-        run: 7z a -tzip  ../windows-x64.zip .
-        working-directory: src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/publish
-
-      - name: Build Example for Linux
-        shell: pwsh
-        run: dotnet publish -c $env:CONFIG --self-contained -r linux-x64 -f $env:FRAMEWORK
-        working-directory: src/examples/NativeHost
-
-      - name: Archive Linux Release
-        shell: pwsh
-        run: tar -zcvf ../linux-x64.tar.gz .
-        working-directory: src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/publish
-
-      - name: Package Hyperlight
-        run: dotnet pack -c $env:CONFIG --include-symbols -p:RepositoryUrl=https://github.com/${{ github.repository }}.git
-        working-directory: src/Hyperlight
         shell: pwsh
 
       - name: Package Hyperlight Dependencies
@@ -359,8 +318,6 @@ jobs:
             src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe `
-            src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip `
-            src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz `
             ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib `
             src/HyperlightGuest/include/hyperlight.h `
             src/HyperlightGuest/third_party/printf/printf.h `
@@ -383,8 +340,6 @@ jobs:
             src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe `
-            src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/win-x64/windows-x64.zip `
-            src/examples/NativeHost/bin/${{ env.PLATFORM }}/${{ env.CONFIG }}/${{ env.FRAMEWORK }}/linux-x64/linux-x64.tar.gz `
             ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib `
             src/HyperlightGuest/include/hyperlight.h `
             src/HyperlightGuest/third_party/printf/printf.h `
@@ -393,8 +348,6 @@ jobs:
             libhyperlight_capi.d `
             hyperlight_capi.dll `
             hyperlight_capi.pdb `
-            src/Hyperlight/bin/x64/debug/Deislabs.HyperLight.${{ env.HYPERLIGHT_VERSION }}.nupkg `
-            src/Hyperlight/bin/x64/debug/Deislabs.HyperLight.${{ env.HYPERLIGHT_VERSION }}.snupkg `
             src/HyperlightDependencies/bin/x64/debug/Deislabs.HyperlightDependencies.${{ env.HYPERLIGHT_VERSION }}.nupkg `
             src/HyperlightDependencies/bin/x64/debug/Deislabs.HyperlightDependencies.${{ env.HYPERLIGHT_VERSION }}.snupkg `
             benchmarks_Windows_none.tar.gz `

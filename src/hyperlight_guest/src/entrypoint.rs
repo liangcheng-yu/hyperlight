@@ -20,7 +20,7 @@ use crate::{
 pub fn halt() {
     unsafe {
         if RUNNING_IN_HYPERLIGHT {
-            // nostack and inline(never) is strictly necessary for dotnet tests
+            // nostack and inline(never) is strictly necessary for tests
             // to run in release mode, but unsure why
             asm!("hlt", options(nostack));
         }

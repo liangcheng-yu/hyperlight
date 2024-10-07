@@ -48,15 +48,11 @@ rg: build-and-move-rust-guests
 cg: build-c-guests
 guests: rg cg
 
-build-dotnet:
-    cd src/Hyperlight && dotnet build 
-    cd src/examples/NativeHost && dotnet build 
 
 build-rust target=default-target:
     cargo build --profile={{ if target == "debug" { "dev" } else { target } }}
 
-build: build-rust build-dotnet
-    echo "built all .NET and Rust projects"
+build: build-rust
 
 # CLEANING
 clean: clean-rust
@@ -105,26 +101,6 @@ test-rust-int guest target=default-target features="":
 test-rust-feature-compilation-fail target=default-target:
     @# the following should fail on linux because either kvm or msh feature must be specified, which is why the exit code is inverted with an !.
     {{ if os() == "linux" { "! cargo check -p hyperlight_host --no-default-features 2> /dev/null"} else { "" } }}
-    
-
-test-dotnet-hl target=default-target:
-    cd src/tests/Hyperlight.Tests && dotnet test -c {{ target }} -l "console;verbosity=normal"
-
-test-dotnet-nativehost target=default-target:
-    cd src/examples/NativeHost && dotnet run -c {{ target }} -- -nowait 
-
-test-dotnet-nativehost-c-guests target=default-target:
-    cd src/examples/NativeHost && dotnet run -c {{ target }} -- -nowait -usecguests
-
-test-dotnet-hl-c-guests target=default-target:
-    [Environment]::SetEnvironmentVariable('guesttype','c', 'Process') && cd src/tests/Hyperlight.Tests && dotnet test -c {{ target }}
-
-test-dotnet-c-guests target=default-target: (test-dotnet-hl-c-guests target) (test-dotnet-nativehost-c-guests target)
-
-test-dotnet target=default-target: (build-hyperlight-surrogate target) (test-dotnet-hl target) (test-dotnet-nativehost target)
-
-build-hyperlight-surrogate target=default-target:
-    {{ if os() == "windows" { "msbuild -m hyperlight.sln /p:Configuration=" + target + " /t:HyperlightSurrogate" } else { "echo 'not building hyperlight surrogate on windows'" } }}
 
 test-capi target=default-target:
     cd src/hyperlight_capi && just run-tests-capi {{ target }} 
@@ -135,7 +111,7 @@ build-capi target=default-target:
 valgrind-capi target=default-target:
     cd src/hyperlight_capi && just valgrind-tests-capi {{ target }} 
 
-test target=default-target: (test-rust target) (test-dotnet target) (valgrind-capi target) (test-capi target)
+test target=default-target: (test-rust target) (valgrind-capi target) (test-capi target)
 
 # RUST LINTING
 check:

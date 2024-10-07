@@ -77,7 +77,6 @@ For examples of guest applications, see the [./src/tests/Guests](./src/tests/Gue
 ## Repository Structure
 
 - Hyperlight Host Libraries (i.e., the ones that create and manage the VMs)
-  - [src/Hyperlight](./src/Hyperlight) - This is the C# Hyperlight host library.
   - [src/hyperlight_host](./src/hyperlight_host) - This is the Rust Hyperlight host library.
   - [src/hyperlight-capi](./src/hyperlight_capi/) - C-API bindings for the Hyperlight Rust host.
 
@@ -94,12 +93,9 @@ For examples of guest applications, see the [./src/tests/Guests](./src/tests/Gue
 
 - Tests:
     - [src/hyperlight-testing](./src/hyperlight_testing/) - Shared testing code for Hyperlight projects build int Rust.
-    - [src/tests/Hyperlight.Tests](./src/tests/Hyperlight.Tests) - This directory contains the tests for the Hyperlight host library.
 
 
 - Miscellaneous:
-  - [src/examples/NativeHost](./src/examples/NativeHost) - This is a "driver" program used for testing. It knows how to run the Hyperlight Guest applications that live within the `src/test/Guests` directory within sandboxes. If you are developing Hyperlight itself, you'll need this program, but if you're using the library to build your own applications, you won't need this project.
-  - [src/HyperlightSurrogate](./src/HyperlightSurrogate) - For more information see [this](./docs/hyperlight-surrogate-development-notes.md) document.
   - [src/HyperlightDependencies](./src/HyperlightDependencies) - This directory contains a .NET assembly which can be used to build a wrapper around Hyperlight such as [Hyperlight WASM](https://github.com/deislabs/hyperlight-wasm).
 
 ## Try it yourself!
@@ -157,7 +153,6 @@ Hello, World! I am executing inside of a VM :)
 
 > Note: For general Hyperlight development, you'll most likely also need these additional pre-requisites:
 > - [cbindgen](https://github.com/eqrion/cbindgen). `cargo install cbindgen` 
-> - .NET. For Windows, see [this](https://learn.microsoft.com/en-us/dotnet/core/install/windows). For Mariner, `sudo dnf install dotnet-sdk-6.0`. For Ubuntu, `sudo apt install dotnet-sdk-6.0`.
 > - For Windows, install the Visual Studio 2022 build tools. You can find them [here](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022).
 > - flatcc (Flatbuffer C compiler): for instructions, see [here](https://github.com/dvidelabs/flatcc).
 > - flatc (Flatbuffer compiler for other languages): for instructions, see [here](https://github.com/google/flatbuffers).
@@ -170,11 +165,10 @@ If you are interested in contributing to Hyperlight, running the entire test-sui
 git clone https://github.com/deislabs/hyperlight.git # or, git clone git@github.com:deislabs/hyperlight.git
 just init
 just build-capi
-# on windows, just build-hyperlight-surrogate
 just build-and-move-rust-guests
 just build-c-guests
 just build
-just test # runs the rust, .NET, C API, and Valgrind tests
+just test # runs the rust, C API, and Valgrind tests
 ```
 
 ## Troubleshooting

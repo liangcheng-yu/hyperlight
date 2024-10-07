@@ -297,7 +297,7 @@ uint8_t* executeOnStack()
 
 uint8_t *GuestDispatchFunction(ns(FunctionCall_table_t) functionCall)
 {
-    // this function is only used for a specific dotnet test.
+    // this function is only used for a specific test.
     // The test checks the stack behavior of the input/output buffer
     // by calling the host before serializing the function call.
     // If the stack is not working correctly, the input or output buffer will be 

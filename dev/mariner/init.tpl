@@ -5,7 +5,7 @@ runcmd:
 - dnf install -y 'dnf-command(config-manager)'
 - dnf config-manager --add-repo https://pkgs.tailscale.com/stable/fedora/tailscale.repo
 - dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
-- dnf install -y tailscale vim kernel-mshv kernel-mshv-devel git clang lldb dotnet-sdk-6.0 binutils valgrind glibc-devel kernel-headers nano gh grubby ca-certificates
+- dnf install -y tailscale vim kernel-mshv kernel-mshv-devel git clang lldb binutils valgrind glibc-devel kernel-headers nano gh grubby ca-certificates
 - update-ca-trust
 - systemctl enable --now tailscaled
 - tailscale up --ssh --authkey="${tailscale_auth_key}"
