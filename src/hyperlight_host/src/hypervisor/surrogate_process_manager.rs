@@ -1,6 +1,6 @@
 use core::ffi::c_void;
 use std::fs::File;
-use std::io::{Error, Write};
+use std::io::Write;
 use std::mem::size_of;
 use std::path::{Path, PathBuf};
 
@@ -8,9 +8,8 @@ use crossbeam_channel::{unbounded, Receiver, Sender};
 use hyperlight_common::mem::PAGE_SIZE_USIZE;
 use rust_embed::RustEmbed;
 use tracing::{info, instrument, Span};
-use windows::core::PCSTR;
-use windows::s;
-use windows::Win32::Foundation::{GetLastError, HANDLE};
+use windows::core::{s, PCSTR};
+use windows::Win32::Foundation::HANDLE;
 use windows::Win32::Security::SECURITY_ATTRIBUTES;
 use windows::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectA, JobObjectExtendedLimitInformation,
@@ -26,9 +25,9 @@ use windows::Win32::System::Threading::{
 };
 
 use super::surrogate_process::SurrogateProcess;
-use super::wrappers::PSTRWrapper;
+use super::wrappers::{HandleWrapper, PSTRWrapper};
 use crate::mem::shared_mem::PtrCVoidMut;
-use crate::HyperlightError::MemoryProtectionFailed;
+use crate::HyperlightError::WindowsAPIError;
 use crate::{log_then_return, new_error, Result};
 
 // Use the rust-embed crate to embed the hyperlights_surrogate.exe
@@ -84,7 +83,7 @@ const NUMBER_OF_SURROGATE_PROCESSES: usize = 512;
 /// This class is `Send + Sync`, and internally manages the pool of 512
 /// surrogate processes in a concurrency-safe way.
 pub(crate) struct SurrogateProcessManager {
-    job_handle: HANDLE,
+    job_handle: HandleWrapper,
     /// `process_receiver` and `process_sender` allow us to synchronize the
     /// operations of reserving a surrogate process from the pool, or
     /// returning a surrogate process to the pool.
@@ -100,8 +99,8 @@ pub(crate) struct SurrogateProcessManager {
     /// - ... `SurrogateProcess`es are stored within `HypervWindowsDriver`s
     /// - ... and `HypervWindowsDriver`s must `impl Hypervisor`
     /// - ... and the `Hypervisor` trait requires `Send + Sync`
-    process_receiver: Receiver<HANDLE>,
-    process_sender: Sender<HANDLE>,
+    process_receiver: Receiver<HandleWrapper>,
+    process_sender: Sender<HandleWrapper>,
 }
 
 impl SurrogateProcessManager {
@@ -120,7 +119,7 @@ impl SurrogateProcessManager {
         };
 
         surrogate_process_manager
-            .create_surrogate_processes(&surrogate_process_path, &job_handle)?;
+            .create_surrogate_processes(&surrogate_process_path, job_handle)?;
         Ok(surrogate_process_manager)
     }
     /// Gets a surrogate process from the pool of surrogate processes and
@@ -132,60 +131,56 @@ impl SurrogateProcessManager {
         raw_size: usize,
         raw_source_address: *const c_void,
     ) -> Result<SurrogateProcess> {
-        let process_handle = self.process_receiver.recv()?;
+        let process_handle: HANDLE = self.process_receiver.recv()?.into();
 
         // allocate memory
         let allocated_address = unsafe {
-            let allocated_ptr = VirtualAllocEx(
+            VirtualAllocEx(
                 process_handle,
                 Some(raw_source_address),
                 raw_size,
                 MEM_COMMIT | MEM_RESERVE,
                 PAGE_READWRITE,
-            );
-            if allocated_ptr.is_null() {
-                log_then_return!(
-                    "VirtualAllocEx failed for mem address {:?}",
-                    raw_source_address
-                );
-            }
-            allocated_ptr
+            )
         };
+        if allocated_address.is_null() {
+            log_then_return!(
+                "VirtualAllocEx failed for mem address {:?}",
+                raw_source_address
+            );
+        }
 
         // set up guard page
-        unsafe {
-            let mut unused_out_old_prot_flags = PAGE_PROTECTION_FLAGS(0);
 
-            // the first page of the raw_size is the guard page
-            let first_guard_page_start = raw_source_address;
-            let success = VirtualProtectEx(
+        let mut unused_out_old_prot_flags = PAGE_PROTECTION_FLAGS(0);
+
+        // the first page of the raw_size is the guard page
+        let first_guard_page_start = raw_source_address;
+        if let Err(e) = unsafe {
+            VirtualProtectEx(
                 process_handle,
                 first_guard_page_start,
                 PAGE_SIZE_USIZE,
                 PAGE_NOACCESS,
                 &mut unused_out_old_prot_flags,
-            );
-            if !success.as_bool() {
-                log_then_return!(MemoryProtectionFailed(
-                    Error::last_os_error().raw_os_error()
-                ));
-            }
+            )
+        } {
+            log_then_return!(WindowsAPIError(e.clone()));
+        }
 
-            // the last page of the raw_size is the guard page
-            let last_guard_page_start = raw_source_address.add(raw_size - PAGE_SIZE_USIZE);
-            let success = VirtualProtectEx(
+        // the last page of the raw_size is the guard page
+        let last_guard_page_start = unsafe { raw_source_address.add(raw_size - PAGE_SIZE_USIZE) };
+        if let Err(e) = unsafe {
+            VirtualProtectEx(
                 process_handle,
                 last_guard_page_start,
                 PAGE_SIZE_USIZE,
                 PAGE_NOACCESS,
                 &mut unused_out_old_prot_flags,
-            );
-            if !success.as_bool() {
-                log_then_return!(MemoryProtectionFailed(
-                    Error::last_os_error().raw_os_error()
-                ));
-            }
-        };
+            )
+        } {
+            log_then_return!(WindowsAPIError(e.clone()));
+        }
 
         Ok(SurrogateProcess::new(
             PtrCVoidMut::from(allocated_address),
@@ -197,7 +192,7 @@ impl SurrogateProcessManager {
     /// This should be called from within a surrogate process's drop
     /// implementation, after process resources have been freed.
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub(super) fn return_surrogate_process(&self, proc_handle: HANDLE) -> Result<()> {
+    pub(super) fn return_surrogate_process(&self, proc_handle: HandleWrapper) -> Result<()> {
         Ok(self.process_sender.clone().send(proc_handle)?)
     }
 
@@ -206,7 +201,7 @@ impl SurrogateProcessManager {
     fn create_surrogate_processes(
         &self,
         surrogate_process_path: &Path,
-        job_handle: &HANDLE,
+        job_handle: HandleWrapper,
     ) -> Result<()> {
         for _ in 0..NUMBER_OF_SURROGATE_PROCESSES {
             let surrogate_process = create_surrogate_process(surrogate_process_path, job_handle)?;
@@ -220,14 +215,14 @@ impl SurrogateProcessManager {
 impl Drop for SurrogateProcessManager {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn drop(&mut self) {
-        let terminated = unsafe {
+        let handle: HANDLE = self.job_handle.into();
+        unsafe {
             // Terminating the job object will terminate all the surrogate
             // processes.
-            TerminateJobObject(self.job_handle, 0)
-        };
-        if !terminated.as_bool() {
-            panic!("surrogate job objects were not all terminated");
+
+            TerminateJobObject(handle, 0)
         }
+        .expect("surrogate job objects were not all terminated error:");
     }
 }
 
@@ -246,7 +241,7 @@ pub(crate) fn get_surrogate_process_manager() -> Result<&'static SurrogateProces
 
 // Creates a job object that will terminate all the surrogate processes when the struct instance is dropped.
 #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-fn create_job_object() -> Result<HANDLE> {
+fn create_job_object() -> Result<HandleWrapper> {
     let security_attributes: SECURITY_ATTRIBUTES = Default::default();
 
     let job_object = unsafe {
@@ -256,29 +251,27 @@ fn create_job_object() -> Result<HANDLE> {
         )?
     };
 
-    unsafe {
-        let mut job_object_information = JOBOBJECT_EXTENDED_LIMIT_INFORMATION {
-            BasicLimitInformation: JOBOBJECT_BASIC_LIMIT_INFORMATION {
-                LimitFlags: JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
-                ..Default::default()
-            },
+    let mut job_object_information = JOBOBJECT_EXTENDED_LIMIT_INFORMATION {
+        BasicLimitInformation: JOBOBJECT_BASIC_LIMIT_INFORMATION {
+            LimitFlags: JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
             ..Default::default()
-        };
-        let job_object_information_ptr: *mut c_void =
-            &mut job_object_information as *mut _ as *mut c_void;
-        if !SetInformationJobObject(
+        },
+        ..Default::default()
+    };
+    let job_object_information_ptr: *mut c_void =
+        &mut job_object_information as *mut _ as *mut c_void;
+    if let Err(e) = unsafe {
+        SetInformationJobObject(
             job_object,
             JobObjectExtendedLimitInformation,
             job_object_information_ptr,
             size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
         )
-        .as_bool()
-        {
-            log_then_return!("SetInformationJobObject failed");
-        }
-    };
+    } {
+        log_then_return!(WindowsAPIError(e.clone()));
+    }
 
-    Ok(job_object)
+    Ok(job_object.into())
 }
 
 #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
@@ -338,20 +331,23 @@ fn ensure_surrogate_process_exe() -> Result<()> {
 /// All manipulation of the memory is done in memory allocated to the Sandbox
 /// which is then copied to and from the surrogate process.
 #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-fn create_surrogate_process(surrogate_process_path: &Path, job_handle: &HANDLE) -> Result<HANDLE> {
-    let process_handle = unsafe {
-        let mut process_information: PROCESS_INFORMATION = std::mem::zeroed();
-        let mut startup_info: STARTUPINFOA = std::mem::zeroed();
-        let process_attributes: SECURITY_ATTRIBUTES = Default::default();
-        let thread_attributes: SECURITY_ATTRIBUTES = Default::default();
-        startup_info.cb = std::mem::size_of::<STARTUPINFOA>() as u32;
+fn create_surrogate_process(
+    surrogate_process_path: &Path,
+    job_handle: HandleWrapper,
+) -> Result<HandleWrapper> {
+    let mut process_information: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
+    let mut startup_info: STARTUPINFOA = unsafe { std::mem::zeroed() };
+    let process_attributes: SECURITY_ATTRIBUTES = Default::default();
+    let thread_attributes: SECURITY_ATTRIBUTES = Default::default();
+    startup_info.cb = std::mem::size_of::<STARTUPINFOA>() as u32;
 
-        let cmd_line = surrogate_process_path.to_str().ok_or(new_error!(
-            "failed to convert surrogate process path to a string"
-        ))?;
-        let p_cmd_line = &PSTRWrapper::try_from(cmd_line)?;
+    let cmd_line = surrogate_process_path.to_str().ok_or(new_error!(
+        "failed to convert surrogate process path to a string"
+    ))?;
+    let p_cmd_line = &PSTRWrapper::try_from(cmd_line)?;
 
-        let process_created = CreateProcessA(
+    if let Err(e) = unsafe {
+        CreateProcessA(
             PCSTR::null(),
             p_cmd_line.into(),
             Some(&process_attributes),
@@ -362,26 +358,20 @@ fn create_surrogate_process(surrogate_process_path: &Path, job_handle: &HANDLE) 
             None,
             &startup_info,
             &mut process_information,
-        );
+        )
+    } {
+        log_then_return!(WindowsAPIError(e.clone()));
+    }
 
-        if !process_created.as_bool() {
-            new_error!("Create Surrogate Process failed");
-        }
-
-        process_information.hProcess
-    };
-
+    let job_handle: HANDLE = job_handle.into();
+    let process_handle: HANDLE = process_information.hProcess;
     unsafe {
-        if !AssignProcessToJobObject(*job_handle, process_handle).as_bool() {
-            let hresult = GetLastError();
-            return Err(new_error!(
-                "Assign SurrogateProcess To JobObject Failed: {}",
-                hresult.to_hresult()
-            ));
+        if let Err(e) = AssignProcessToJobObject(job_handle, process_handle) {
+            log_then_return!(WindowsAPIError(e.clone()));
         }
     }
 
-    Ok(process_handle)
+    Ok(process_handle.into())
 }
 #[cfg(test)]
 mod tests {
@@ -437,13 +427,10 @@ mod tests {
                     };
 
                     let mut result: BOOL = Default::default();
+                    let process_handle: HANDLE = surrogate_process.process_handle.into();
+                    let job_handle: HANDLE = job_handle.into();
                     unsafe {
-                        assert!(IsProcessInJob(
-                            surrogate_process.process_handle,
-                            job_handle,
-                            &mut result
-                        )
-                        .as_bool());
+                        assert!(IsProcessInJob(process_handle, job_handle, &mut result).is_ok());
                         assert!(result.as_bool());
                     }
 
@@ -454,7 +441,8 @@ mod tests {
                     // below, will return it to the surrogate process manager
                     drop(surrogate_process);
                     unsafe {
-                        VirtualFree(allocated_address, 0, MEM_RELEASE);
+                        let res = VirtualFree(allocated_address, 0, MEM_RELEASE);
+                        assert!(res.is_ok())
                     }
                 }
                 Ok(())
@@ -480,19 +468,18 @@ mod tests {
                 dwSize: size_of::<PROCESSENTRY32>() as u32,
                 ..Default::default()
             };
-            let mut result =
-                unsafe { Process32First(snapshot_handle, &mut process_entry).as_bool() };
+            let mut result = unsafe { Process32First(snapshot_handle, &mut process_entry).is_ok() };
             let mut count = 0;
             while result {
-                if let Ok(process_name) = unsafe {
-                    CStr::from_ptr(process_entry.szExeFile.as_ptr() as *const i8).to_str()
-                } {
+                if let Ok(process_name) =
+                    unsafe { CStr::from_ptr(process_entry.szExeFile.as_ptr()).to_str() }
+                {
                     if process_name == SURROGATE_PROCESS_BINARY_NAME {
                         count += 1;
                     }
                 }
                 unsafe {
-                    result = Process32Next(snapshot_handle, &mut process_entry).as_bool();
+                    result = Process32Next(snapshot_handle, &mut process_entry).is_ok();
                 }
             }
 
@@ -520,37 +507,38 @@ mod tests {
 
         let buffer = vec![0u8; SIZE];
         let bytes_read: Option<*mut usize> = None;
+        let process_handle: HANDLE = process.process_handle.into();
 
         unsafe {
             // read the first guard page, should fail
             let success = windows::Win32::System::Diagnostics::Debug::ReadProcessMemory(
-                process.process_handle,
+                process_handle,
                 process.allocated_address.as_ptr(),
                 buffer.as_ptr() as *mut c_void,
                 SIZE,
                 bytes_read,
             );
-            assert!(!success.as_bool());
+            assert!(success.is_err());
 
             // read the memory, should be OK
             let success = windows::Win32::System::Diagnostics::Debug::ReadProcessMemory(
-                process.process_handle,
+                process_handle,
                 process.allocated_address.as_ptr().add(SIZE),
                 buffer.as_ptr() as *mut c_void,
                 SIZE,
                 bytes_read,
             );
-            assert!(success.as_bool());
+            assert!(success.is_ok());
 
             // read the second guard page, should fail
             let success = windows::Win32::System::Diagnostics::Debug::ReadProcessMemory(
-                process.process_handle,
+                process_handle,
                 process.allocated_address.as_ptr().add(2 * SIZE),
                 buffer.as_ptr() as *mut c_void,
                 SIZE,
                 bytes_read,
             );
-            assert!(!success.as_bool());
+            assert!(success.is_err());
         }
     }
 }

@@ -20,9 +20,9 @@ use hyperlight_common::flatbuffers::hyperlight::generated::{
 use serde::{Deserialize, Serialize};
 use serde_yaml;
 use thiserror::Error;
-#[cfg(target_os = "windows")]
-use windows::Win32::Foundation::HANDLE;
 
+#[cfg(target_os = "windows")]
+use crate::hypervisor::wrappers::HandleWrapper;
 use crate::mem::memory_region::MemoryRegionFlags;
 use crate::mem::ptr::RawPtr;
 
@@ -58,7 +58,7 @@ pub enum HyperlightError {
     /// Cross beam channel send error
     #[error("{0:?}")]
     #[cfg(target_os = "windows")]
-    CrossBeamSendError(#[from] SendError<HANDLE>),
+    CrossBeamSendError(#[from] SendError<HandleWrapper>),
 
     /// CString conversion error
     #[error("Error converting CString {0:?}")]
@@ -319,12 +319,7 @@ pub enum HyperlightError {
     /// Windows Error
     #[cfg(target_os = "windows")]
     #[error("Windows API Error Result {0:?}")]
-    WindowsAPIError(#[from] windows::core::Error),
-
-    /// Windows Error HRESULT
-    #[cfg(target_os = "windows")]
-    #[error("Windows API called returned an error HRESULT {0:?}")]
-    WindowsErrorHResult(windows::core::HRESULT),
+    WindowsAPIError(#[from] windows_result::Error),
 
     /// Conversion of str to YAML failed
     #[error("Conversion of str data to yaml failed")]

@@ -9,6 +9,8 @@ use tracing::{instrument, Span};
 #[cfg(target_os = "windows")]
 use windows::Win32::System::Memory::{VirtualAlloc, MEM_COMMIT, PAGE_EXECUTE_READWRITE};
 
+#[cfg(target_os = "windows")]
+use crate::HyperlightError::WindowsAPIError;
 use crate::{log_then_return, new_error, Result};
 
 /// Makes sure that the given `offset` and `size` are within the bounds of the memory with size `mem_size`.
@@ -109,8 +111,8 @@ impl Drop for PtrAndSize {
     fn drop(&mut self) {
         use windows::Win32::System::Memory::{VirtualFree, MEM_DECOMMIT};
 
-        unsafe {
-            VirtualFree(self.ptr.0, self.size, MEM_DECOMMIT);
+        if let Err(e) = unsafe { VirtualFree(self.ptr.0, self.size, MEM_DECOMMIT) } {
+            tracing::error!("Failed to free shared memory (VirtualFree failed): {:?}", e);
         }
     }
 }
@@ -167,34 +169,34 @@ impl<'a> SharedMemory {
 
         // allocate the memory
         let addr = unsafe {
-            let ptr = mmap(
+            mmap(
                 null_mut(),
                 total_size as size_t,
                 PROT_READ | PROT_WRITE,
                 MAP_ANONYMOUS | MAP_SHARED | MAP_NORESERVE,
                 -1 as c_int,
                 0 as off_t,
-            );
-            if ptr == MAP_FAILED {
-                log_then_return!(MmapFailed(Error::last_os_error().raw_os_error()));
-            }
-            ptr
+            )
         };
+        if addr == MAP_FAILED {
+            log_then_return!(MmapFailed(Error::last_os_error().raw_os_error()));
+        }
 
         // protect the guard pages
-        unsafe {
-            let res = mprotect(addr, PAGE_SIZE_USIZE, PROT_NONE);
-            if res != 0 {
-                return Err(MprotectFailed(Error::last_os_error().raw_os_error()));
-            }
-            let res = mprotect(
+
+        let res = unsafe { mprotect(addr, PAGE_SIZE_USIZE, PROT_NONE) };
+        if res != 0 {
+            return Err(MprotectFailed(Error::last_os_error().raw_os_error()));
+        }
+        let res = unsafe {
+            mprotect(
                 (addr as *const u8).add(total_size - PAGE_SIZE_USIZE) as *mut c_void,
                 PAGE_SIZE_USIZE,
                 PROT_NONE,
-            );
-            if res != 0 {
-                return Err(MprotectFailed(Error::last_os_error().raw_os_error()));
-            }
+            )
+        };
+        if res != 0 {
+            return Err(MprotectFailed(Error::last_os_error().raw_os_error()));
         }
 
         Ok(Self {
@@ -232,15 +234,13 @@ impl<'a> SharedMemory {
         }
 
         // allocate the memory
-        let addr = unsafe {
-            let ptr = VirtualAlloc(Some(null_mut()), total_size, MEM_COMMIT, PAGE_READWRITE);
-            if ptr.is_null() {
-                log_then_return!(MemoryAllocationFailed(
-                    Error::last_os_error().raw_os_error()
-                ));
-            }
-            ptr
-        };
+        let addr =
+            unsafe { VirtualAlloc(Some(null_mut()), total_size, MEM_COMMIT, PAGE_READWRITE) };
+        if addr.is_null() {
+            log_then_return!(MemoryAllocationFailed(
+                Error::last_os_error().raw_os_error()
+            ));
+        }
 
         // TODO protect the guard pages
 
@@ -258,20 +258,15 @@ impl<'a> SharedMemory {
             use windows::Win32::System::Memory::{VirtualProtect, PAGE_PROTECTION_FLAGS};
 
             let mut _old_flags = PAGE_PROTECTION_FLAGS::default();
-            let res = unsafe {
+            if let Err(e) = unsafe {
                 VirtualProtect(
                     self.ptr_and_size.ptr.0,
                     self.ptr_and_size.size,
                     PAGE_EXECUTE_READWRITE,
                     &mut _old_flags as *mut PAGE_PROTECTION_FLAGS,
                 )
-            };
-
-            if !res.as_bool() {
-                return Err(new_error!(
-                    "Failed to make memory executable: {:#?}",
-                    Error::last_os_error().raw_os_error()
-                ));
+            } {
+                log_then_return!(WindowsAPIError(e.clone()));
             }
         }
 

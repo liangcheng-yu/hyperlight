@@ -3,6 +3,7 @@ use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::Memory::{VirtualFreeEx, MEM_RELEASE};
 
 use super::surrogate_process_manager::get_surrogate_process_manager;
+use super::wrappers::HandleWrapper;
 use crate::mem::shared_mem::PtrCVoidMut;
 
 /// Contains details of a surrogate process to be used by a Sandbox for providing memory to a HyperV VM on Windows.
@@ -12,7 +13,7 @@ pub(super) struct SurrogateProcess {
     /// The address of memory allocated in the surrogate process to be mapped to the VM.
     pub(crate) allocated_address: PtrCVoidMut,
     /// The handle to the surrogate process.
-    pub(crate) process_handle: HANDLE,
+    pub(crate) process_handle: HandleWrapper,
 }
 
 impl SurrogateProcess {
@@ -20,7 +21,7 @@ impl SurrogateProcess {
     pub(super) fn new(allocated_address: PtrCVoidMut, process_handle: HANDLE) -> Self {
         Self {
             allocated_address,
-            process_handle,
+            process_handle: HandleWrapper::from(process_handle),
         }
     }
 }
@@ -36,19 +37,14 @@ impl Default for SurrogateProcess {
 impl Drop for SurrogateProcess {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn drop(&mut self) {
-        unsafe {
-            if !VirtualFreeEx(
-                self.process_handle,
-                self.allocated_address.as_mut_ptr(),
-                0,
-                MEM_RELEASE,
-            )
-            .as_bool()
-            {
-                tracing::error!(
-                    "Failed to free surrogate process resources (VirtualFreeEx failed)"
-                );
-            }
+        let handle: HANDLE = self.process_handle.into();
+        if let Err(e) =
+            unsafe { VirtualFreeEx(handle, self.allocated_address.as_mut_ptr(), 0, MEM_RELEASE) }
+        {
+            tracing::error!(
+                "Failed to free surrogate process resources (VirtualFreeEx failed): {:?}",
+                e
+            );
         }
 
         // we need to do this take so we can take ownership

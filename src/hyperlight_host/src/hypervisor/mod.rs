@@ -32,7 +32,7 @@ pub(crate) mod surrogate_process_manager;
 pub(crate) mod windows_hypervisor_platform;
 /// Safe wrappers around windows types like `PSTR`
 #[cfg(target_os = "windows")]
-mod wrappers;
+pub(crate) mod wrappers;
 
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};

@@ -5,9 +5,11 @@ use std::sync::{Arc, Mutex, Weak};
 use tracing::{instrument, Span};
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::HMODULE;
-use windows::Win32::System::LibraryLoader::{FreeLibrary, LoadLibraryW};
+use windows::Win32::System::LibraryLoader::LoadLibraryW;
+use windows_sys::Win32::Foundation::FreeLibrary;
 
 use super::ptr::RawPtr;
+use crate::hypervisor::wrappers::HModuleWrapper;
 use crate::{log_then_return, Result};
 
 /// A wrapper around a binary loaded with the Windows
@@ -54,7 +56,7 @@ impl LoadedLib {
 }
 
 struct LoadedLibInner {
-    handle: HMODULE,
+    handle: HModuleWrapper,
 }
 
 impl LoadedLibInner {
@@ -64,17 +66,19 @@ impl LoadedLibInner {
         let pcwstr = PCWSTR::from_raw(path.as_ptr());
         let handle = unsafe { LoadLibraryW(pcwstr) }?;
 
-        Ok(Self { handle })
+        Ok(Self {
+            handle: handle.into(),
+        })
     }
 
     fn base_addr(&self) -> RawPtr {
-        RawPtr::from(self.handle.0 as u64)
+        RawPtr::from(<HModuleWrapper as Into<HMODULE>>::into(self.handle).0 as u64)
     }
 }
 
 impl Drop for LoadedLibInner {
     fn drop(&mut self) {
-        unsafe { FreeLibrary(self.handle) };
+        unsafe { FreeLibrary(<HModuleWrapper as Into<HMODULE>>::into(self.handle).0) };
     }
 }
 

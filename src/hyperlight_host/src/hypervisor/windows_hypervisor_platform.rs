@@ -4,6 +4,7 @@ use tracing::{instrument, Span};
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::Hypervisor::*;
 
+use super::wrappers::HandleWrapper;
 use crate::hypervisor::wrappers::{WHvFPURegisters, WHvGeneralRegisters, WHvSpecialRegisters};
 use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
 use crate::Result;
@@ -24,16 +25,16 @@ pub(crate) fn is_hypervisor_present() -> bool {
     let mut capability: WHV_CAPABILITY = Default::default();
     let written_size: Option<*mut u32> = None;
 
-    unsafe {
-        match WHvGetCapability(
+    match unsafe {
+        WHvGetCapability(
             WHvCapabilityCodeHypervisorPresent,
             &mut capability as *mut _ as *mut c_void,
             std::mem::size_of::<WHV_CAPABILITY>() as u32,
             written_size,
-        ) {
-            Ok(_) => capability.HypervisorPresent.as_bool(),
-            Err(_) => false,
-        }
+        )
+    } {
+        Ok(_) => unsafe { capability.HypervisorPresent.as_bool() },
+        Err(_) => false,
     }
 }
 
@@ -70,12 +71,13 @@ impl VMPartition {
     pub(super) fn map_gpa_range(
         &mut self,
         regions: &[MemoryRegion],
-        process_handle: &HANDLE,
+        process_handle: HandleWrapper,
     ) -> Result<()> {
+        let process_handle: HANDLE = process_handle.into();
         regions.iter().try_for_each(|region| unsafe {
             WHvMapGpaRange2(
                 self.0,
-                *process_handle,
+                process_handle,
                 region.host_region.start as *const c_void,
                 region.guest_region.start as u64,
                 (region.guest_region.end - region.guest_region.start) as u64,
@@ -99,7 +101,12 @@ impl VMPartition {
 impl Drop for VMPartition {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn drop(&mut self) {
-        unsafe { WHvDeletePartition(self.0) }.unwrap();
+        if let Err(e) = unsafe { WHvDeletePartition(self.0) } {
+            tracing::error!(
+                "Failed to delete partition (WHvDeletePartition failed): {:?}",
+                e
+            );
+        }
     }
 }
 
@@ -437,6 +444,11 @@ impl Drop for VMProcessor {
     #[instrument(parent = Span::current(), level= "Trace")]
     fn drop(&mut self) {
         let part_hdl = self.get_partition_hdl();
-        unsafe { WHvDeleteVirtualProcessor(part_hdl, 0) }.unwrap()
+        if let Err(e) = unsafe { WHvDeleteVirtualProcessor(part_hdl, 0) } {
+            tracing::error!(
+                "Failed to delete virtual processor (WHvDeleteVirtualProcessor failed): {:?}",
+                e
+            );
+        }
     }
 }
