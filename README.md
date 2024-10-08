@@ -70,9 +70,6 @@ For examples of guest applications, see the [./src/tests/Guests](./src/tests/Gue
 
 [Hyperlight Wasm](https://github.com/deislabs/hyperlight-wasm) is a sibling project of Hyperlight designed to make it easy for users to run arbitrary Wasm modules within a Hyperlight sandbox.
 
-## Hyperlight-JS
-
-[Hyperlight JS](https://github.com/deislabs/hyperlight-js) is a sibling project of Hyperlight designed to make it easy for users to run arbitrary JavaScript code within a Hyperlight sandbox.
 
 ## Repository Structure
 
@@ -102,7 +99,7 @@ For examples of guest applications, see the [./src/tests/Guests](./src/tests/Gue
 
 You can run Hyperlight on:
     - [Linux with KVM][kvm].
-    - [Linux with MSHV][mariner].
+    - [Linux with MSHV][azure_linux].
     - [Windows with Windows Hypervisor Platform (WHP) or Hyper-V (MSHV)][whp]. If you don't have WHP, you can use our "in-process" mode, which is intended for development purposes only.
     - Windows Subsystem for Linux 2 ([WSL2][wsl2]) with [KVM][wsl2-kvm].
 
@@ -199,5 +196,5 @@ FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact
 [wsl2]: https://docs.microsoft.com/en-us/windows/wsl/install
 [wsl2-kvm]: https://boxofcables.dev/kvm-optimized-custom-kernel-wsl2-2022/
 [kvm]: https://help.ubuntu.com/community/KVM/Installation
-[mariner]: ./docs/mariner-mshv-setup
+[azure_linux]: ./docs/mariner-mshv-setup
 [whp]: https://devblogs.microsoft.com/visualstudio/hyper-v-android-emulator-support/#1-enable-hyper-v-and-the-windows-hypervisor-platform
