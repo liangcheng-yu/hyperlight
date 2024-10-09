@@ -193,20 +193,6 @@ jobs:
         run: mkdir -p target\release
         shell: pwsh
 
-      - name: Download Debug DLL
-        uses: actions/download-artifact@v3
-        if: ${{ env.CONFIG }} == "debug"
-        with:
-          name: debug_assets
-          path: target/debug/
-
-      - name: Download Release DLL
-        uses: actions/download-artifact@v3
-        if: ${{ env.CONFIG }} == "release"
-        with:
-          name: release_assets
-          path: target/release/
-
       - name: Download Guest Binaries
         uses: actions/download-artifact@v3
         with:
@@ -249,18 +235,6 @@ jobs:
           done
         shell: bash
         working-directory: src/
-
-      - name: Download artifacts (debug)
-        uses: actions/download-artifact@v3
-        if: ${{ env.CONFIG }} == "debug"
-        with:
-          name: debug_assets
-
-      - name: Download artifacts (release)
-        uses: actions/download-artifact@v3
-        if: ${{ env.CONFIG }} == "release"
-        with:
-          name: release_assets
 
       - name: Download benchmarks (Windows)
         uses: actions/download-artifact@v3
