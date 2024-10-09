@@ -71,9 +71,8 @@ impl HostFuncsWrapper {
     ///
     /// Return `Ok` if the function was found and was of the right signature,
     /// and `Err` otherwise.
-    //TODO:(#1029) Once CAPI is complete this should be pub(super)
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    pub fn host_print(&mut self, msg: String) -> Result<i32> {
+    pub(super) fn host_print(&mut self, msg: String) -> Result<i32> {
         let res = call_host_func_impl(
             self.get_host_funcs(),
             "HostPrint",

@@ -6,8 +6,7 @@ use crate::Result;
 /// A wrapper around a `SharedMemory` reference and a snapshot
 /// of the memory therein
 #[derive(Clone)]
-//TODO:(#1029) Once we have a complete C API then this should have visibility `pub(super)`
-pub struct SharedMemorySnapshot {
+pub(super) struct SharedMemorySnapshot {
     snapshot: Vec<u8>,
     shared_mem: SharedMemory,
 }
@@ -15,9 +14,8 @@ pub struct SharedMemorySnapshot {
 impl SharedMemorySnapshot {
     /// Take a snapshot of the memory in `shared_mem`, then create a new
     /// instance of `Self` with the snapshot stored therein.
-    //TODO:(#1029) Once we have a complete C API then this should have visibility `pub(super)`
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub fn new(shared_mem: SharedMemory) -> Result<Self> {
+    pub(super) fn new(shared_mem: SharedMemory) -> Result<Self> {
         // TODO: Track dirty pages instead of copying entire memory
         let snapshot = shared_mem.copy_all_to_vec()?;
         Ok(Self {
@@ -28,9 +26,8 @@ impl SharedMemorySnapshot {
 
     /// Take another snapshot of the internally-stored `SharedMemory`,
     /// then store it internally.
-    //TODO:(#1029) Once we have a complete C API then this should have visibility `pub(super)`
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub fn replace_snapshot(&mut self) -> Result<()> {
+    pub(super) fn replace_snapshot(&mut self) -> Result<()> {
         let new_snapshot = self.shared_mem.copy_all_to_vec()?;
         self.snapshot = new_snapshot;
         Ok(())
@@ -38,9 +35,8 @@ impl SharedMemorySnapshot {
 
     /// Copy the memory from the internally-stored memory snapshot
     /// into the internally-stored `SharedMemory`
-    //TODO:(#1029) Once we have a complete C API then this should have visibility `pub(super)`
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub fn restore_from_snapshot(&mut self) -> Result<()> {
+    pub(super) fn restore_from_snapshot(&mut self) -> Result<()> {
         self.shared_mem.copy_from_slice(self.snapshot.as_slice(), 0)
     }
 }

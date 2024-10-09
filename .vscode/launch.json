@@ -6,73 +6,44 @@
   "configurations": [
     {
       "type": "lldb",
-      "request": "launch",
-      "name": "Debug Tests",
-      "args": ["--no-fork", "-f" ,"/tests_capi/sandbox_tests/test_host_print"],
-      "env": {
-        "LD_LIBRARY_PATH": "${workspaceFolder}/target/debug",
-        "KVM_SHOULD_BE_PRESENT": "true"
-      },
-      "program": "${workspaceFolder}/src/hyperlight_capi/bin/test_c.out",
-      "cwd": "${workspaceFolder}/src/hyperlight_host",
-      "stopOnEntry": true,
-      "sourceLanguages": ["rust", "c"],
-      "console": "internalConsole"
-    },
-    {
-      "type": "lldb",
       "request": "attach",
       "name": "Attach LLDB",
       "pid": "${command:pickMyProcess}" // use ${command:pickProcess} to pick other users' processes
     },
+    // Use this to debug a test build with release optimizations
     {
-        "type": "lldb",
-        "request": "launch",
-        "name": "Debug Native code in NativeHost",
-        "args": ["--", "--nowait"],
-        "program": "${workspaceFolder}/src/examples/NativeHost/bin/debug/net6.0/NativeHost",
-        "windows": {
-          "program": "${workspaceFolder}/src/examples/NativeHost/bin/debug/net6.0/NativeHost.exe"
-        },
-        "cwd": "${workspaceFolder}",
-        "stopOnEntry": true,
-        "sourceLanguages": ["rust", "c"],
-        "console": "internalConsole"
+      "type": "lldb",
+      "request": "launch",
+      "name": "Cargo test",
+      "cargo": {
+        "args": [
+          "test",
+          "--profile=release-with-debug",
+          "--lib",
+          "--no-run",
+        ],
+        "filter": {
+          "name": "hyperlight_host",
+          "kind": "lib"
+        }
       },
-      // Use this to debug a test build with release optimizations
-      {
-        "type": "lldb",
-        "request": "launch",
-        "name": "Cargo test",
-        "cargo": {
-          "args": [
-            "test",
-            "--profile=release-with-debug",
-            "--lib",
-            "--no-run",
-          ],
-          "filter": {
-            "name": "hyperlight_host",
-            "kind": "lib"
-          }
-        },
-        "args": ["sandbox::initialized_single_use::tests"]
+      "args": ["sandbox::initialized_single_use::tests"]
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Cargo debug integration_test",
+      "cargo": {
+        "args": [
+          "test",
+          "--profile=dev",
+          "--no-run",
+        ],
+        "filter": {
+          "name": "integration_test",
+        }
       },
-      {
-        "type": "lldb",
-        "request": "launch",
-        "name": "Cargo debug integration_test",
-        "cargo": {
-          "args": [
-            "test",
-            "--profile=dev",
-            "--no-run",
-          ],
-          "filter": {
-            "name": "integration_test",
-          }
-        },
-       "args": ["--exact", "guest_abort"] // the specific test to run
-      }
+      "args": ["--exact", "guest_abort"] // the specific test to run
+    }
   ]
 }

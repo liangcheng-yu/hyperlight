@@ -119,17 +119,6 @@ jobs:
           RUST_LOG: debug
         run: just run-rust-examples-linux ${{ matrix.config }}
 
-      - name: Set up munit
-        working-directory: src/hyperlight_capi/tests_capi
-        run: |
-          git submodule init
-          git submodule update
-
-      - name: Run C Tests
-        working-directory: src/hyperlight_capi
-        run: |
-          just run-tests-capi ${{ matrix.config }}
-
       ### Benchmarks ###
       - name: Install github-cli (Linux mariner)
         if: runner.os == 'Linux' && matrix.hypervisor == 'hyperv'

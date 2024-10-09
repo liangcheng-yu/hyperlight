@@ -14,10 +14,6 @@ dummyguest_source := "src/tests/rust_guests/dummyguest/target/x86_64-pc-windows-
 callbackguest_source := "src/tests/rust_guests/callbackguest/target/x86_64-pc-windows-msvc"
 rust_guests_bin_dir := "src/tests/rust_guests/bin"
 
-# INITIALIZATION/INSTALLATION
-init:
-    git submodule update --init --recursive
-
 install-vcpkg:
     cd .. && git clone https://github.com/Microsoft/vcpkg.git || cd -
     cd ../vcpkg && ./bootstrap-vcpkg{{ bin-suffix }} && ./vcpkg integrate install || cd -
@@ -102,16 +98,7 @@ test-rust-feature-compilation-fail target=default-target:
     @# the following should fail on linux because either kvm or msh feature must be specified, which is why the exit code is inverted with an !.
     {{ if os() == "linux" { "! cargo check -p hyperlight_host --no-default-features 2> /dev/null"} else { "" } }}
 
-test-capi target=default-target:
-    cd src/hyperlight_capi && just run-tests-capi {{ target }} 
-
-build-capi target=default-target:
-    cd src/hyperlight_capi && just build-tests-capi {{ target }} 
-
-valgrind-capi target=default-target:
-    cd src/hyperlight_capi && just valgrind-tests-capi {{ target }} 
-
-test target=default-target: (test-rust target) (valgrind-capi target) (test-capi target)
+test target=default-target: (test-rust target)
 
 # RUST LINTING
 check:

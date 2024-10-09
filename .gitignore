@@ -461,13 +461,6 @@ $RECYCLE.BIN/
 !src/tests/rust_guests/callbackguest/Cargo.lock
 !src/tests/rust_guests/simpleguest/Cargo.lock
 !src/tests/rust_guests/dummyguest/Cargo.lock
-/src/tests/Hyperlight.Tests/libhyperlight_host
-/src/tests/Hyperlight.Tests/hyperlight_host
-/src/examples/NativeHost/libhyperlight_host
-/src/examples/NativeHost/hyperlight_host
-libhyperlight_capi.so
-libhyperlight_capi.d
-hyperlight_capi.dll
 libhyperlight_host.so
 libhyperlight_host.d
 hyperlight_host.dll

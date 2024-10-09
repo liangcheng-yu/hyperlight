@@ -62,13 +62,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # This is a workaround for the issue described at https://github.com/dotnet/sourcelink/issues/675 ,
-      # it supresses the warning about the sourcelink package not being found.
-      - name: Remove Submodule
-        run: git rm munit
-        shell: pwsh
-        working-directory: src/hyperlight_capi/tests_capi
-
      # This is still needed until we remove the HyperlightDepenenices.csproj
       - name: Setup dotnet
         uses: actions/setup-dotnet@v4.0.1
@@ -90,11 +83,6 @@ jobs:
         uses: microsoft/setup-msbuild@v2
         with:
           msbuild-architecture: x64
-
-      - name: Build hyperlight_capi.dll
-        run: |
-          cd src/hyperlight_capi
-          just build ${{ matrix.config }}
 
       - name: Fetch printf
         working-directory: src/HyperlightGuest/third_party/printf
@@ -149,12 +137,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      # This is a workaround for the issue described at https://github.com/dotnet/sourcelink/issues/675 ,
-      # it supresses the warning about the sourcelink package not being found.
-      - name: Remove Submodule
-        run: git rm munit
-        shell: bash
-        working-directory: src/hyperlight_capi/tests_capi
 
       - name: uname (linux)
         run: |
@@ -170,11 +152,6 @@ jobs:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build hyperlight_capi.so
-        run: |
-          cd src/hyperlight_capi
-          just build ${{ matrix.config }}
 
       - name: Build C Guest Binaries
         run: |

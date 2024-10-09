@@ -12,7 +12,6 @@ use crate::Result;
 ///
 /// Use this type to distinguish between an offset and a raw pointer
 #[derive(Debug, Clone, Eq, PartialEq)]
-//TODO:(#1029) Once we have a complete C API then this should have visibility `pub(crate)`
 pub struct RawPtr(u64);
 
 impl From<u64> for RawPtr {
@@ -87,8 +86,7 @@ impl TryFrom<(usize, &SharedMemory)> for HostPtr {
     }
 }
 /// Convenience type for representing a pointer into the guest address space
-//TODO:(#1029) Once we have a complete C API then this should have visibility `pub(crate)`
-pub type GuestPtr = Ptr<GuestAddressSpace>;
+pub(crate) type GuestPtr = Ptr<GuestAddressSpace>;
 
 impl TryFrom<RawPtr> for GuestPtr {
     type Error = HyperlightError;
@@ -129,8 +127,7 @@ impl TryFrom<GuestPtr> for i64 {
 
 /// A pointer into a specific `AddressSpace` `T`.
 #[derive(Debug, Copy, Clone)]
-//TODO:(#1029) Once we have a complete C API then this should have visibility `pub(crate)`
-pub struct Ptr<T: AddressSpace> {
+pub(crate) struct Ptr<T: AddressSpace> {
     addr_space: T,
     offset: Offset,
 }

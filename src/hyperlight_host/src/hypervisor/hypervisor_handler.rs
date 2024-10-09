@@ -44,9 +44,8 @@ type HypervisorHandlerRx = Receiver<HypervisorHandlerAction>;
 type HandlerMsgTx = Sender<HandlerMsg>;
 type HandlerMsgRx = Receiver<HandlerMsg>;
 
-// Note: This needs to be `pub` for hyperlight_capi
 #[derive(Clone)]
-pub struct HypervisorHandler {
+pub(crate) struct HypervisorHandler {
     communication_channels: HvHandlerCommChannels,
     configuration: HvHandlerConfig,
     execution_variables: HvHandlerExecVars,

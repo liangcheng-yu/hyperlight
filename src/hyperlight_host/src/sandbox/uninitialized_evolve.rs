@@ -25,7 +25,6 @@ pub(crate) enum ExecutionMode<'a> {
     #[allow(dead_code)]
     InProc(LeakedOutBWrapper<'a>),
     InHypervisor(HypervisorHandler),
-    CSharp,
 }
 
 /// The implementation for evolving `UninitializedSandbox`es to
@@ -170,7 +169,7 @@ fn evolve_in_proc<'a>(
         let leaked_outb = LeakedOutBWrapper::new(mgr, outb_hdl.clone())?;
         let peb_address = {
             let base_addr = u64::try_from(mgr.shared_mem.base_addr())?;
-            mgr.get_peb_address(base_addr)
+            mgr.get_peb_address(base_addr, true)
         }?;
         let page_size = u32::try_from(get_os_page_size())?;
         let seed = {

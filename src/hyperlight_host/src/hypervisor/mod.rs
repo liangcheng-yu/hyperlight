@@ -85,7 +85,7 @@ pub enum HyperlightExit {
 /// Note: a lot of these structures take in an `Option<HypervisorHandler>`.
 /// This is because, if we are coming from the C API, we don't have a HypervisorHandler and have
 /// to account for the fact the Hypervisor was set up beforehand.
-pub trait Hypervisor: Debug + Sync + Send {
+pub(crate) trait Hypervisor: Debug + Sync + Send {
     /// Initialise the internally stored vCPU with the given PEB address and
     /// random number seed, then run it until a HLT instruction.
     #[allow(clippy::too_many_arguments)]

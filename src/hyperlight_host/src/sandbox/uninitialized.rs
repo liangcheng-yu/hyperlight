@@ -11,7 +11,7 @@ use tracing::{instrument, Span};
 use super::host_funcs::{default_writer_func, HostFuncsWrapper};
 use super::mem_mgr::MemMgrWrapper;
 use super::run_options::SandboxRunOptions;
-use super::uninitialized_evolve::{evolve_impl_multi_use, evolve_impl_single_use, ExecutionMode};
+use super::uninitialized_evolve::{evolve_impl_multi_use, evolve_impl_single_use};
 use crate::error::HyperlightError::{CallEntryPointIsInProcOnly, GuestBinaryShouldBeAFile};
 use crate::func::host_functions::HostFunction1;
 use crate::mem::mgr::{SandboxMemoryManager, STACK_COOKIE_LEN};
@@ -41,10 +41,6 @@ pub struct UninitializedSandbox {
     pub(crate) max_initialization_time: Duration,
     pub(crate) max_execution_time: Duration,
     pub(crate) max_wait_for_cancellation: Duration,
-    /// Whether we're running in the context of C# code.
-    ///
-    /// This is a hack.
-    pub(crate) is_csharp: bool,
 }
 
 impl WrapperGetter<'_> for UninitializedSandbox {
@@ -156,18 +152,7 @@ impl<'a>
         self,
         _: Noop<UninitializedSandbox, SingleUseSandbox<'a>>,
     ) -> Result<SingleUseSandbox<'a>> {
-        // TODO: the following if statement is to stop evolve_impl being called
-        // when we run in proc (it ends up calling the entrypoint in the guest
-        // twice)
-        // Since we are not using the NOOP version of evolve in Hyperlight WASM
-        // we can use the if statement below to avoid the call to evolve_impl
-        // Once we fix up the Hypervisor C API this should be removed and
-        // replaced with the code commented out on line 106
-        let i_sbox = if self.is_csharp {
-            Ok(SingleUseSandbox::from_uninit(self, ExecutionMode::CSharp))
-        } else {
-            evolve_impl_single_use(self, None)
-        }?;
+        let i_sbox = evolve_impl_single_use(self, None)?;
         Ok(i_sbox)
     }
 }
@@ -189,19 +174,7 @@ impl<'a>
         self,
         _: Noop<UninitializedSandbox, MultiUseSandbox<'a>>,
     ) -> Result<MultiUseSandbox<'a>> {
-        // TODO: the following if statement is to stop evovle_impl being called
-        // when we run in proc (it ends up calling the entrypoint in the guest
-        // twice)
-        //
-        // Since we are not using the NOOP version of evolve in Hyperlight WASM
-        // we can use the if statement below to avoid the call to evolve_impl
-        // Once we fix up the Hypervisor C API this should be removed and
-        // replaced with the code commented out on line 106
-        let i_sbox = if self.is_csharp {
-            Ok(MultiUseSandbox::from_uninit(self, ExecutionMode::CSharp))
-        } else {
-            evolve_impl_multi_use(self, None)
-        }?;
+        let i_sbox = evolve_impl_multi_use(self, None)?;
         Ok(i_sbox)
     }
 }
@@ -273,7 +246,6 @@ impl<'a> UninitializedSandbox {
             host_funcs,
             mgr: mem_mgr_wrapper,
             run_from_process_memory,
-            is_csharp: false,
             max_initialization_time: Duration::from_millis(
                 sandbox_cfg.get_max_initialization_time() as u64,
             ),
@@ -304,14 +276,6 @@ impl<'a> UninitializedSandbox {
         Ok(sandbox)
     }
 
-    /// Get a reference to the internally-stored `SandboxMemoryManager`.
-    ///
-    /// TODO: remove this after the C API function `sandbox_get_memory_mgr`
-    /// is removed.
-    pub fn get_mem_mgr_ref(&self) -> &SandboxMemoryManager {
-        self.get_mgr_wrapper().as_ref()
-    }
-
     /// Get a mutable reference to the internally-stored
     /// `SandboxMemoryManager`
     #[cfg(target_os = "windows")]
@@ -320,23 +284,6 @@ impl<'a> UninitializedSandbox {
         self.get_mgr_wrapper_mut().as_mut()
     }
 
-    /// Set the internal flag to indicate this `UninitializedSandbox`
-    /// is running in the context of C# code.
-    ///
-    /// This flag is used to indicate that Rust code should not call the
-    /// guest's initialise function, since it expects C# code to do so
-    /// manually.
-    //TODO: Remove this once the port to the C API is complete
-    pub fn set_is_csharp(&mut self) {
-        self.is_csharp = true
-    }
-
-    /// Clone the internally-stored `Arc` holding the `HostFuncsWrapper`
-    /// managed by `self`, then return it.
-    // TODO: This function should not be public it is only used publically in the tests for the C API
-    pub fn get_host_funcs(&self) -> Arc<Mutex<HostFuncsWrapper>> {
-        self.host_funcs.clone()
-    }
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn create_stack_guard() -> [u8; STACK_COOKIE_LEN] {
         rand::random::<[u8; STACK_COOKIE_LEN]>()
@@ -359,8 +306,7 @@ impl<'a> UninitializedSandbox {
     /// Additionally, `page_size` must correspond to the operating system's
     /// chosen size of a virtual memory page.
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    //TODO:(#1029) Once CAPI is complete this should be pub(super)
-    pub unsafe fn call_entry_point(
+    pub(super) unsafe fn call_entry_point(
         &self,
         peb_address: RawPtr,
         seed: u64,
@@ -416,18 +362,13 @@ impl<'a> UninitializedSandbox {
                 }
             };
             // TODO: This produces the wrong error message on Linux and is possibly obsfucating the real error on Windows
-            SandboxMemoryManager::load_guest_binary_using_load_library(
-                cfg,
-                path,
-                &mut pe_info,
-                run_from_process_memory,
-            )
-            .map_err(|e: crate::HyperlightError| {
-                new_error!(
+            SandboxMemoryManager::load_guest_binary_using_load_library(cfg, path, &mut pe_info)
+                .map_err(|e: crate::HyperlightError| {
+                    new_error!(
                     "Only one instance of Sandbox is allowed when running from guest binary: {:?}",
                     e
                 )
-            })
+                })
         } else {
             SandboxMemoryManager::load_guest_binary_into_memory(
                 cfg,

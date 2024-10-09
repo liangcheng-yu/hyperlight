@@ -26,8 +26,7 @@ use crate::{debug, log_then_return, new_error, Result};
 /// Determine whether the HyperV for Linux hypervisor API is present
 /// and functional.
 #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-//TODO:(#1029) Once CAPI is complete this does not need to be public
-pub fn is_hypervisor_present() -> bool {
+pub(crate) fn is_hypervisor_present() -> bool {
     match Mshv::open_with_cloexec(true) {
         Ok(fd) => {
             unsafe {
@@ -44,8 +43,7 @@ pub fn is_hypervisor_present() -> bool {
 
 /// A Hypervisor driver for HyperV-on-Linux. This hypervisor is often
 /// called the Microsoft Hypervisor (MSHV)
-//TODO:(#1029) Once CAPI is complete this does not need to be public
-pub struct HypervLinuxDriver {
+pub(super) struct HypervLinuxDriver {
     _mshv: Mshv,
     vm_fd: VmFd,
     vcpu_fd: VcpuFd,
@@ -63,9 +61,8 @@ impl HypervLinuxDriver {
     /// the underlying virtual CPU after this function returns. Call the
     /// `apply_registers` method to do that, or more likely call
     /// `initialise` to do it for you.
-    //TODO:(#1029) Once CAPI is complete this does not need to be public
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    pub fn new(
+    pub(super) fn new(
         mem_regions: Vec<MemoryRegion>,
         entrypoint_ptr: GuestPtr,
         rsp_ptr: GuestPtr,

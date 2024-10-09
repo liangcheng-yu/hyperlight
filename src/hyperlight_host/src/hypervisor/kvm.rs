@@ -19,9 +19,8 @@ use crate::mem::ptr::{GuestPtr, RawPtr};
 use crate::{debug, log_then_return, new_error, Result};
 
 /// Return `true` if the KVM API is available, version 12, and has UserMemory capability, or `false` otherwise
-// TODO: Once CAPI is complete this does not need to be public
 #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-pub fn is_hypervisor_present() -> bool {
+pub(crate) fn is_hypervisor_present() -> bool {
     if let Ok(kvm) = Kvm::new() {
         let api_version = kvm.get_api_version();
         match api_version {
@@ -42,8 +41,7 @@ pub fn is_hypervisor_present() -> bool {
 }
 
 /// A Hypervisor driver for KVM on Linux
-//TODO:(#1029) Once CAPI is complete this does not need to be public
-pub struct KVMDriver {
+pub(super) struct KVMDriver {
     _kvm: Kvm,
     _vm_fd: VmFd,
     vcpu_fd: VcpuFd,
@@ -59,9 +57,8 @@ impl KVMDriver {
     ///
     /// TODO: when rust rewrite is complete, change `rsp` and `pml4_addr`
     /// params to be of type `GuestPtr`.
-    //TODO:(#1029) Once CAPI is complete this does not need to be public
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    pub fn new(
+    pub(super) fn new(
         mem_regions: Vec<MemoryRegion>,
         pml4_addr: u64,
         entrypoint: u64,

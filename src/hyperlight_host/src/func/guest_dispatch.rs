@@ -14,7 +14,7 @@ use crate::sandbox::metrics::SandboxMetric::GuestFunctionCallDurationMicrosecond
 use crate::sandbox::uninitialized_evolve::ExecutionMode;
 use crate::sandbox::WrapperGetter;
 use crate::HyperlightError::GuestExecutionHungOnHostFunctionCall;
-use crate::{log_then_return, HyperlightError, Result};
+use crate::{HyperlightError, Result};
 
 /// Call a guest function by name, using the given `wrapper_getter`.
 #[instrument(
@@ -97,9 +97,6 @@ pub(crate) fn call_function_on_guest<'a, WrapperGetterT: WrapperGetter<'a>>(
                     },
                 }
             }
-        }
-        ExecutionMode::CSharp => {
-            log_then_return!("CSharp execution mode should use the C API for guest function calls");
         }
     };
 

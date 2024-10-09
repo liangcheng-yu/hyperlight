@@ -74,12 +74,6 @@ jobs:
         if: ${{ env.SHOULD_PUBLISH == 'true' }}
         run: cargo publish --manifest-path ./src/hyperlight_host/Cargo.toml --registry hyperlight_packages --allow-dirty
 
-      # `--no-verify` is needed because the build.rs script generates ./include/hyperlight_capi.h
-      # and cargo does not want you to modify files outside of OUT_DIR
-      - name: Publish hyperlight-capi
-        if: ${{ env.SHOULD_PUBLISH == 'true' }}
-        run: cargo publish --manifest-path ./src/hyperlight_capi/Cargo.toml --registry hyperlight_packages --no-verify --allow-dirty
-
       - name: Publish hyperlight-guestlib-c-includes
         if: ${{ env.SHOULD_PUBLISH == 'true' }}
         run: cargo publish --manifest-path ./src/HyperlightGuest/Cargo.toml --registry hyperlight_packages --allow-dirty

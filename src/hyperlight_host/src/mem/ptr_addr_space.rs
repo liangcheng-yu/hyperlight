@@ -12,8 +12,7 @@ pub trait AddressSpace: std::cmp::Eq {
 
 /// The address space for the guest executable
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-//TODO:(#1029) Once we have a complete C API then this should have visibility `pub(crate)`
-pub struct GuestAddressSpace(u64);
+pub(crate) struct GuestAddressSpace(u64);
 impl GuestAddressSpace {
     /// Create a new instance of a `GuestAddressSpace`
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]

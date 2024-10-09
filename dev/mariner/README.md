@@ -12,7 +12,6 @@ This will walk you through creating a Mariner Linux Hyperlight development machi
 ```shell
 terraform init
 terraform plan -out main.tfplan
-# you will be prompted for your tailscale auth key
 terraform apply main.tfplan
 ```
 

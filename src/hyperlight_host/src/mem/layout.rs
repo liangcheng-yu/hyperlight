@@ -101,8 +101,7 @@ use crate::{new_error, Result};
 /// Guest Stack Guard Page is to Guard against kernel stack overflow so we dont corrupt the user stack
 
 #[derive(Copy, Clone)]
-//TODO:(#1029) Once we have a complete C API, we can restrict visibility to crate level.
-pub struct SandboxMemoryLayout {
+pub(crate) struct SandboxMemoryLayout {
     pub(super) sandbox_memory_config: SandboxConfiguration,
     /// The total stack size of this sandbox.
     pub(super) stack_size: usize,
@@ -296,8 +295,7 @@ impl SandboxMemoryLayout {
     const MAX_MEMORY_SIZE: usize = 0x40000000 - Self::BASE_ADDRESS;
 
     /// The base address of the sandbox's memory.
-    //TODO:(#1029) Once we have a complete C API, we can restrict visibility to crate level.
-    pub const BASE_ADDRESS: usize = 0x0200000;
+    pub(crate) const BASE_ADDRESS: usize = 0x0200000;
 
     // the offset into a sandbox's input/output buffer where the stack starts
     const STACK_POINTER_SIZE_BYTES: u64 = 8;

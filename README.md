@@ -75,7 +75,6 @@ For examples of guest applications, see the [./src/tests/Guests](./src/tests/Gue
 
 - Hyperlight Host Libraries (i.e., the ones that create and manage the VMs)
   - [src/hyperlight_host](./src/hyperlight_host) - This is the Rust Hyperlight host library.
-  - [src/hyperlight-capi](./src/hyperlight_capi/) - C-API bindings for the Hyperlight Rust host.
 
 
 - Hyperlight Guest Libraries (i.e., the ones to make it easier to create guests that run inside the VMs)
@@ -160,12 +159,10 @@ If you are interested in contributing to Hyperlight, running the entire test-sui
 
 ```sh
 git clone https://github.com/deislabs/hyperlight.git # or, git clone git@github.com:deislabs/hyperlight.git
-just init
-just build-capi
-just build-and-move-rust-guests
-just build-c-guests
+just rg
+just cg
 just build
-just test # runs the rust, C API, and Valgrind tests
+just test # runs the tests
 ```
 
 ## Troubleshooting
