@@ -9,11 +9,11 @@ use super::handle::Handle;
 /// features:
 ///
 /// - Keeps extra state about the "function name" currently being executed,
-/// and adds that information to error messages
+///   and adds that information to error messages
 /// - Holds a `*mut Context` and automatically includes it in the parameter
-/// list of all `map`, `and_then`, etc... functions
+///   list of all `map`, `and_then`, etc... functions
 /// - Ensures that the `*mut Context` is non-null, and automatically
-/// returns an error or panics, as appropriate, if it is
+///   returns an error or panics, as appropriate, if it is
 pub(super) struct CFunc<T> {
     func_name: String,
     ctx: *mut Context,

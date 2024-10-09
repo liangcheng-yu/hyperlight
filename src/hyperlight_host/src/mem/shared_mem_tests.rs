@@ -1,4 +1,3 @@
-#![cfg(test)]
 use std::clone::Clone;
 use std::cmp::PartialEq;
 use std::convert::TryFrom;

@@ -95,7 +95,7 @@ pub(crate) struct SurrogateProcessManager {
     ///
     /// - Embed this type into `SurrogateProcess`
     ///     - Required so `SurrogateProcess`es can drop themselves by
-    ///     returning themselves to the originating `SurrogateProcessManager`
+    ///       returning themselves to the originating `SurrogateProcessManager`
     /// - ... `SurrogateProcess`es are stored within `HypervWindowsDriver`s
     /// - ... and `HypervWindowsDriver`s must `impl Hypervisor`
     /// - ... and the `Hypervisor` trait requires `Send + Sync`

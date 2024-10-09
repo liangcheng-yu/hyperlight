@@ -66,34 +66,34 @@ use crate::{new_error, Result};
 
 ///
 /// - `HostDefinitions` - the length of this is the `HostFunctionDefinitionSize`
-/// field from `SandboxConfiguration`
+///   field from `SandboxConfiguration`
 ///
 /// - `HostExceptionData` - memory that contains details of any Host Exception that
-/// occurred in outb function. it contains a 32 bit length following by a json
-/// serialisation of any error that occurred. the length of this field is
-/// `HostExceptionSize` from` `SandboxConfiguration`
+///   occurred in outb function. it contains a 32 bit length following by a json
+///   serialisation of any error that occurred. the length of this field is
+///   `HostExceptionSize` from` `SandboxConfiguration`
 ///
 /// - `GuestError` - contains a buffer for any guest error that occurred.
-/// the length of this field is `GuestErrorBufferSize` from `SandboxConfiguration`
+///   the length of this field is `GuestErrorBufferSize` from `SandboxConfiguration`
 ///
 /// - `InputData` -  this is a buffer that is used for input data to the host program.
-/// the length of this field is `InputDataSize` from `SandboxConfiguration`
+///   the length of this field is `InputDataSize` from `SandboxConfiguration`
 ///
 /// - `OutputData` - this is a buffer that is used for output data from host program.
-/// the length of this field is `OutputDataSize` from `SandboxConfiguration`
+///   the length of this field is `OutputDataSize` from `SandboxConfiguration`
 ///
 /// - `GuestHeap` - this is a buffer that is used for heap data in the guest. the length
-/// of this field is returned by the `heap_size()` method of this struct
+///   of this field is returned by the `heap_size()` method of this struct
 ///
 /// - `GuestStack` - this is a buffer that is used for stack data in the guest. the length
-/// of this field is returned by the `stack_size()` method of this struct. in reality,
-/// the stack might be slightly bigger or smaller than this value since total memory
-/// size is rounded up to the nearest 4K, and there is a 16-byte stack guard written
-/// to the top of the stack. (see below for more details)
+///   of this field is returned by the `stack_size()` method of this struct. in reality,
+///   the stack might be slightly bigger or smaller than this value since total memory
+///   size is rounded up to the nearest 4K, and there is a 16-byte stack guard written
+///   to the top of the stack. (see below for more details)
 ///
 /// - `GuestPanicContext` - contains a buffer for context associated with any guest
-/// panic that occurred.
-/// the length of this field is returned by the `guest_panic_context_size()` fn of this struct.
+///   panic that occurred.
+///   the length of this field is returned by the `guest_panic_context_size()` fn of this struct.
 ///
 /// Boot Stack - this is the stack that is used before the TSS is set up. It is fixed to 4K
 /// Kernel Stack Guard Page is to Guard against boot stack overflow so we dont corrupt the kernel stack

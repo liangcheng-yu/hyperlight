@@ -58,10 +58,10 @@ macro_rules! validate_context {
 /// # Safety
 ///
 /// - Wherever a `Context` pointer is expected in a C function, you should
-/// always pass a pointer returned to you by the `context_new` function,
-/// that you have not modified in any way or passed to `context_free`.
+///   always pass a pointer returned to you by the `context_new` function,
+///   that you have not modified in any way or passed to `context_free`.
 /// - Functions that return a `Handle` often write new data into the
-/// `Context`
+///   `Context`
 /// - `Context` is not thread-safe. Do not share one between threads
 #[derive(Default)]
 pub struct Context {

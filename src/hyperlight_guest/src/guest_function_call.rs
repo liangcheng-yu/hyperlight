@@ -131,9 +131,8 @@ fn internal_dispatch_function() -> Result<()> {
     let function_call = try_pop_shared_input_data_into::<FunctionCall>()
         .expect("Function call deserialization failed");
 
-    let result_vec = call_guest_function(&function_call).map_err(|e| {
+    let result_vec = call_guest_function(&function_call).inspect_err(|e| {
         set_error(e.kind.clone(), e.message.as_str());
-        e
     })?;
 
     push_shared_output_data(result_vec)

@@ -21,7 +21,7 @@ impl<T: Copy> RawVec<T> {
     ///
     /// - Free it manually
     /// - Interact with it in any way except directly or transitively via
-    /// the `RawPtr` API
+    ///   the `RawPtr` API
     /// - Pass the same pointer to this function more than once
     pub(crate) unsafe fn from_ptr(ptr: *mut T, len: usize) -> Self {
         let vec = Vec::from_raw_parts(ptr, len, len);

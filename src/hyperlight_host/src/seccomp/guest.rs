@@ -13,6 +13,7 @@ use crate::HyperlightError::NoHypervisorFound;
 use crate::{and, or, Result};
 
 const TCGETS: u64 = 0x5401;
+const F_GETFD: u64 = libc::F_GETFD as u64;
 
 #[cfg(mshv)]
 mod mshv {
@@ -87,6 +88,11 @@ fn create_ioctl_seccomp_rule() -> Result<Vec<SeccompRule>> {
 fn create_common_ioctl_rules() -> Result<Vec<SeccompRule>> {
     Ok(or![and![Cond::new(1, ArgLen::Dword, Eq, TCGETS)?],])
 }
+fn create_fnctl_seccomp_rule() -> Result<Vec<SeccompRule>> {
+    // Allow `fnctl(fd, F_GETFD)` which is used by Rust's stdlib to check for UB when dropping files
+    // See https://github.com/rust-lang/rust/blob/f7c8928f035370be33463bb7f1cd1aeca2c5f898/library/std/src/sys/pal/unix/fs.rs#L851
+    Ok(or![and![Cond::new(1, ArgLen::Dword, Eq, F_GETFD)?],])
+}
 fn syscalls_allowlist() -> Result<Vec<(i64, Vec<SeccompRule>)>> {
     Ok(vec![
         (libc::SYS_mmap, vec![]),
@@ -105,6 +111,7 @@ fn syscalls_allowlist() -> Result<Vec<(i64, Vec<SeccompRule>)>> {
         (libc::SYS_exit, vec![]),
         (libc::SYS_rt_sigreturn, vec![]),
         (libc::SYS_clock_nanosleep, vec![]),
+        (libc::SYS_fcntl, create_fnctl_seccomp_rule()?),
     ])
 }
 

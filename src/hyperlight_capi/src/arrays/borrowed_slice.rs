@@ -18,12 +18,12 @@ use hyperlight_host::{log_then_return, Result};
 /// all of the following conditions hold:
 ///
 /// - You are inside an `extern "C"` (or similar) function intended to provide
-/// an API via an FFI interface
+///   an API via an FFI interface
 /// - Foreign code (e.g. a C program) passes you a mutable pointer and a length,
-/// both of which together are intended to represent an array (most likely on
-/// the heap)
+///   both of which together are intended to represent an array (most likely on
+///   the heap)
 /// - You intend to borrow that memory, write to it, and return it back
-/// to the caller
+///   to the caller
 ///
 /// # Use sparingly
 ///

@@ -19,7 +19,7 @@ ln -s /usr/lib/llvm-17/bin/llvm-ml /usr/bin/llvm-ml
 # Install rust toolchain
 curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused --location --silent --show-error --fail "https://sh.rustup.rs" | sh -s -- --default-toolchain none -y
 . "$HOME/.cargo/env"
-rustup toolchain install 1.78.0 
+rustup toolchain install 1.81.0 
 rustup target add x86_64-pc-windows-msvc # needed for building the guest binaries
 rustup toolchain install nightly-2023-11-28-x86_64-unknown-linux-gnu # needed for fuzzing workflows
 rustup component add rustfmt clippy

@@ -205,13 +205,12 @@ fn cargo_main() {
         let binpath = env::current_exe().expect("couldn't get build script path");
         fs::create_dir_all(&binroot)
             .unwrap_or_else(|e| panic!("Could not create binary root {:?}: {}", &binroot, e));
-        fs::write(&binroot.join(".out_dir"), out_dir).expect("Could not write out_dir");
-        fs::copy(&binpath, (&binroot).join("ml64.exe")).expect("Could not copy to ml64.exe");
-        fs::copy(&binpath, (&binroot).join("clang")).expect("Could not copy to clang");
-        fs::copy(&binpath, (&binroot).join("clang.exe")).expect("Could not copy to clang.exe");
-        fs::copy(&binpath, (&binroot).join("clang-cl")).expect("Could not copy to clang-cl");
-        fs::copy(&binpath, (&binroot).join("clang-cl.exe"))
-            .expect("Could not copy to clang-cl.exe");
+        fs::write(binroot.join(".out_dir"), out_dir).expect("Could not write out_dir");
+        fs::copy(&binpath, binroot.join("ml64.exe")).expect("Could not copy to ml64.exe");
+        fs::copy(&binpath, binroot.join("clang")).expect("Could not copy to clang");
+        fs::copy(&binpath, binroot.join("clang.exe")).expect("Could not copy to clang.exe");
+        fs::copy(&binpath, binroot.join("clang-cl")).expect("Could not copy to clang-cl");
+        fs::copy(&binpath, binroot.join("clang-cl.exe")).expect("Could not copy to clang-cl.exe");
     }
 }
 
@@ -289,7 +288,7 @@ fn main() -> std::process::ExitCode {
             .and_then(|x| (x.code()))
             .map(|x| (x as u8).into())
             .unwrap_or(std::process::ExitCode::FAILURE),
-        Tool::Clang => std::process::Command::new(find_next(&root_dir, "clang"))
+        Tool::Clang => std::process::Command::new(find_next(root_dir, "clang"))
             .arg("-nostdinc")
             .arg("-isystem")
             .arg(include_dir)
@@ -299,7 +298,7 @@ fn main() -> std::process::ExitCode {
             .and_then(|x| (x.code()))
             .map(|x| (x as u8).into())
             .unwrap_or(std::process::ExitCode::FAILURE),
-        Tool::ClangCl => std::process::Command::new(find_next(&root_dir, "clang-cl"))
+        Tool::ClangCl => std::process::Command::new(find_next(root_dir, "clang-cl"))
             .arg("-nostdinc")
             .arg("/external:I")
             .arg(include_dir)

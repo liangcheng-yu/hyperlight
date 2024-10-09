@@ -99,19 +99,19 @@ impl SandboxConfiguration {
     /// The minimum value for max initialization time (in milliseconds)
     pub const MIN_MAX_INITIALIZATION_TIME: u16 = 1;
     /// The maximum value for max initialization time (in milliseconds)
-    pub const MAX_MAX_INITIALIZATION_TIME: u16 = std::u16::MAX;
+    pub const MAX_MAX_INITIALIZATION_TIME: u16 = u16::MAX;
     /// The default and minimum values for max execution time (in milliseconds)
     pub const DEFAULT_MAX_EXECUTION_TIME: u16 = 1000;
     /// The minimum value for max execution time (in milliseconds)
     pub const MIN_MAX_EXECUTION_TIME: u16 = 1;
     /// The maximum value for max execution time (in milliseconds)
-    pub const MAX_MAX_EXECUTION_TIME: u16 = std::u16::MAX;
+    pub const MAX_MAX_EXECUTION_TIME: u16 = u16::MAX;
     /// The default and minimum values for max wait for cancellation (in milliseconds)
     pub const DEFAULT_MAX_WAIT_FOR_CANCELLATION: u8 = 100;
     /// The minimum value for max wait for cancellation (in milliseconds)
     pub const MIN_MAX_WAIT_FOR_CANCELLATION: u8 = 10;
     /// The maximum value for max wait for cancellation (in milliseconds)
-    pub const MAX_MAX_WAIT_FOR_CANCELLATION: u8 = std::u8::MAX;
+    pub const MAX_MAX_WAIT_FOR_CANCELLATION: u8 = u8::MAX;
     /// The default and minimum values for guest panic context data
     pub const DEFAULT_GUEST_PANIC_CONTEXT_BUFFER_SIZE: usize = 0x400;
     /// The minimum value for guest panic context data

@@ -15,11 +15,11 @@ pub(crate) mod guest_err;
 /// This module includes functionality to do the following
 ///
 /// - Define several prototypes for what a host function must look like,
-/// including the number of arguments (arity) they can have, supported argument
-/// types, and supported return types
+///   including the number of arguments (arity) they can have, supported argument
+///   types, and supported return types
 /// - Registering host functions to be callable by the guest
 /// - Dynamically dispatching a call from the guest to the appropriate
-/// host function
+///   host function
 pub mod host_functions;
 /// Definitions and functionality for supported parameter types
 pub(crate) mod param_type;

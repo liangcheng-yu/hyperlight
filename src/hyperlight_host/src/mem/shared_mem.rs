@@ -709,8 +709,8 @@ mod tests {
 
         // we should be able to copy a byte array into both gm1 and gm2,
         // and have both changes be reflected in all clones
-        gm1.copy_from_slice(&[b'a'], 0).unwrap();
-        gm2.copy_from_slice(&[b'b'], 1).unwrap();
+        gm1.copy_from_slice(b"a", 0).unwrap();
+        gm2.copy_from_slice(b"b", 1).unwrap();
 
         // at this point, both gm1 and gm2 should have
         // offset 0 = 'a', offset 1 = 'b'
@@ -727,7 +727,7 @@ mod tests {
         for (raw_offset, expected) in &[(0, b'a'), (1, b'b')] {
             assert_eq!(gm2.read_u8(*raw_offset).unwrap(), *expected);
         }
-        gm2.copy_from_slice(&[b'c'], 2).unwrap();
+        gm2.copy_from_slice(b"c", 2).unwrap();
         assert_eq!(gm2.read_u8(2).unwrap(), b'c');
         drop(gm2);
     }

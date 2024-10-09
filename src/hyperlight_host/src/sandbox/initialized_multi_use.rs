@@ -18,10 +18,10 @@ use crate::Result;
 /// The implication of being used multiple times is two-fold:
 ///
 /// 1. The sandbox can be used to call guest functions multiple times, each time a
-///  guest function is called the state of the sandbox is reset to the state it was in before the call was made.
+///    guest function is called the state of the sandbox is reset to the state it was in before the call was made.
 ///
 /// 2. A MultiUseGuestCallContext can be created from the sandbox and used to make multiple guest function calls to the Sandbox.
-///  in this case the state of the sandbox is not reset until the context is finished and the `MultiUseSandbox` is returned.
+///    in this case the state of the sandbox is not reset until the context is finished and the `MultiUseSandbox` is returned.
 pub struct MultiUseSandbox<'a> {
     // We need to keep a reference to the host functions, even if the compiler marks it as unused. The compiler cannot detect our dynamic usages of the host function in `HyperlightFunction::call`.
     pub(super) _host_funcs: Arc<Mutex<HostFuncsWrapper>>,

@@ -37,13 +37,13 @@ pub unsafe fn to_string(c_string: RawCString) -> String {
 /// undefined behavior or memory problems:
 ///
 /// - The returned memory must be freed manually by
-/// calling `free_raw_string`.
+///   calling `free_raw_string`.
 /// - `string` should not contain any null bytes in it. They
-/// will be interpreted as the end of the string in C (and
-/// `to_string` above), which can lead to memory leaks.
+///   will be interpreted as the end of the string in C (and
+///   `to_string` above), which can lead to memory leaks.
 /// - If this function returns `Ok(cstr)`, you must not
-/// modify `cstr` at all. If you do so, `free_raw_string` may
-/// not work properly.
+///   modify `cstr` at all. If you do so, `free_raw_string` may
+///   not work properly.
 pub(crate) fn to_c_string<T: Into<Vec<u8>>>(string: T) -> Result<RawCString> {
     Ok(CString::new(string).map(|s| s.into_raw() as RawCString)?)
 }

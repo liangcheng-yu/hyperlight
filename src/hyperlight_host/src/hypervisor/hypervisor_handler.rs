@@ -594,7 +594,7 @@ impl HypervisorHandler {
     /// This function, usually, will return one of the following HyperlightError's
     /// - `ExecutionCanceledByHost` if the execution was successfully terminated, or
     /// - `HypervisorHandlerExecutionCancelAttemptOnFinishedExecution` if the execution
-    ///  finished while we tried to terminate it.
+    ///   finished while we tried to terminate it.
     ///
     /// Hence, common usage of this function would be to match on the result. If you get a
     /// `HypervisorHandlerExecutionCancelAttemptOnFinishedExecution`, you can safely ignore
