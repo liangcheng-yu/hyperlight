@@ -1,7 +1,6 @@
 use tracing::{instrument, Span};
 
 use super::layout::SandboxMemoryLayout;
-use super::shared_mem::SharedMemory;
 use crate::Result;
 
 /// A representation of a specific address space
@@ -28,39 +27,10 @@ impl AddressSpace for GuestAddressSpace {
     }
 }
 
-/// The address space for the host executable
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct HostAddressSpace(u64);
-impl HostAddressSpace {
-    /// Create a new instance of a `HostAddressSpace`, using the given
-    /// `SharedMemory` as the base address.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub(crate) fn new(shared_mem: &SharedMemory) -> Result<Self> {
-        let base = u64::try_from(shared_mem.base_addr())?;
-        Ok(Self(base))
-    }
-}
-impl AddressSpace for HostAddressSpace {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn base(&self) -> u64 {
-        self.0
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use hyperlight_common::mem::PAGE_SIZE_USIZE;
-
-    use super::{AddressSpace, GuestAddressSpace, HostAddressSpace};
+    use super::{AddressSpace, GuestAddressSpace};
     use crate::mem::layout::SandboxMemoryLayout;
-    use crate::mem::shared_mem::SharedMemory;
-
-    #[test]
-    fn host_addr_space_base() {
-        let gm = SharedMemory::new(PAGE_SIZE_USIZE).unwrap();
-        let space = HostAddressSpace::new(&gm).unwrap();
-        assert_eq!(gm.base_addr() as u64, space.base());
-    }
 
     #[test]
     fn guest_addr_space_base() {

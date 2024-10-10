@@ -299,26 +299,18 @@ pub(crate) mod tests {
     use hyperlight_testing::dummy_guest_as_string;
 
     use super::handlers::{MemAccessHandlerWrapper, OutBHandlerWrapper};
-    use super::Hypervisor;
     use crate::hypervisor::hypervisor_handler::{
         HvHandlerConfig, HypervisorHandler, HypervisorHandlerAction,
     };
-    use crate::mem::layout::SandboxMemoryLayout;
-    use crate::mem::mgr::SandboxMemoryManager;
-    use crate::mem::ptr::{GuestPtr, RawPtr};
-    use crate::mem::ptr_offset::Offset;
+    use crate::mem::ptr::RawPtr;
     use crate::sandbox::uninitialized::GuestBinary;
-    use crate::sandbox::{SandboxConfiguration, UninitializedSandbox, WrapperGetter};
+    use crate::sandbox::{SandboxConfiguration, UninitializedSandbox};
     use crate::{new_error, Result};
 
-    pub(crate) fn test_initialise<NewFn>(
+    pub(crate) fn test_initialise(
         outb_hdl: OutBHandlerWrapper,
         mem_access_hdl: MemAccessHandlerWrapper,
-        new_fn: NewFn,
-    ) -> Result<()>
-    where
-        NewFn: Fn(&SandboxMemoryManager, GuestPtr, GuestPtr) -> Result<Box<dyn Hypervisor>>,
-    {
+    ) -> Result<()> {
         let filename = dummy_guest_as_string().map_err(|e| new_error!("{}", e))?;
         if !Path::new(&filename).exists() {
             return Err(new_error!(
@@ -327,26 +319,10 @@ pub(crate) mod tests {
             ));
         }
 
-        let mut sandbox =
+        let sandbox =
             UninitializedSandbox::new(GuestBinary::FilePath(filename.clone()), None, None, None)?;
-
-        let mem_mgr = sandbox.get_mgr_wrapper_mut().as_mut();
-        let shared_mem = &mem_mgr.shared_mem;
-        let mut regions = mem_mgr.layout.get_memory_regions(shared_mem)?;
-        let rsp_ptr = {
-            let mem_size: u64 = shared_mem.mem_size().try_into()?;
-            let u64_val = mem_mgr.set_up_shared_memory(mem_size, &mut regions)?;
-            let base_addr_u64 = u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?;
-            let offset = Offset::from(u64_val - base_addr_u64);
-            GuestPtr::try_from(offset)
-        }?;
-        let pml4_ptr = {
-            let offset_u64 = u64::try_from(SandboxMemoryLayout::PML4_OFFSET)?;
-            let offset = Offset::from(offset_u64);
-            GuestPtr::try_from(offset)
-        }?;
-
-        let _hv = new_fn(mem_mgr, rsp_ptr, pml4_ptr)?;
+        let (hshm, gshm) = sandbox.mgr.build();
+        drop(hshm);
 
         let hv_handler_config = HvHandlerConfig {
             outb_handler: outb_hdl,
@@ -381,7 +357,7 @@ pub(crate) mod tests {
         // whether we can configure the shared memory region, load a binary
         // into it, and run the CPU to completion (e.g., a HLT interrupt)
 
-        hv_handler.start_hypervisor_handler(mem_mgr)?;
+        hv_handler.start_hypervisor_handler(gshm)?;
 
         hv_handler.execute_hypervisor_handler_action(HypervisorHandlerAction::Initialise)
     }

@@ -3,8 +3,9 @@ use hyperlight_common::flatbuffer_wrappers::function_types::{
 };
 use tracing::{instrument, Span};
 
-use super::{MemMgrWrapper, UninitializedSandbox, WrapperGetter};
+use super::{MemMgrWrapper, WrapperGetter};
 use crate::func::call_ctx::SingleUseGuestCallContext;
+use crate::mem::shared_mem::HostSharedMemory;
 use crate::sandbox::uninitialized_evolve::ExecutionMode;
 use crate::sandbox_state::sandbox::Sandbox;
 use crate::Result;
@@ -12,7 +13,7 @@ use crate::Result;
 /// A sandbox implementation that supports calling no more than 1 guest
 /// function
 pub struct SingleUseSandbox<'a> {
-    pub(super) mem_mgr: MemMgrWrapper,
+    pub(super) mem_mgr: MemMgrWrapper<HostSharedMemory>,
     execution_mode: ExecutionMode<'a>,
 }
 
@@ -58,11 +59,11 @@ impl<'a> SingleUseSandbox<'a> {
     /// users would then see it and be able to use it.
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     pub(super) fn from_uninit(
-        val: UninitializedSandbox,
+        mgr: MemMgrWrapper<HostSharedMemory>,
         execution_mode: ExecutionMode<'a>,
     ) -> SingleUseSandbox {
         Self {
-            mem_mgr: val.mgr,
+            mem_mgr: mgr,
             execution_mode,
         }
     }
@@ -168,10 +169,10 @@ impl<'a> SingleUseSandbox<'a> {
 }
 
 impl<'a> WrapperGetter<'a> for SingleUseSandbox<'a> {
-    fn get_mgr_wrapper(&self) -> &MemMgrWrapper {
+    fn get_mgr_wrapper(&self) -> &MemMgrWrapper<HostSharedMemory> {
         &self.mem_mgr
     }
-    fn get_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper {
+    fn get_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper<HostSharedMemory> {
         &mut self.mem_mgr
     }
     fn get_execution_mode(&self) -> &ExecutionMode<'a> {

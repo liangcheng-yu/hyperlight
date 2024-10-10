@@ -416,7 +416,7 @@ mod tests {
     use super::test_cfg::{SHOULD_RUN_TEST, TEST_CONFIG};
     use super::*;
     use crate::mem::memory_region::MemoryRegionVecBuilder;
-    use crate::mem::shared_mem::SharedMemory;
+    use crate::mem::shared_mem::{ExclusiveSharedMemory, SharedMemory};
     use crate::should_run_hyperv_linux_test;
 
     #[rustfmt::skip]
@@ -435,7 +435,7 @@ mod tests {
         code: &[u8],
         mem_size: usize,
         load_offset: usize,
-    ) -> Result<Box<SharedMemory>> {
+    ) -> Result<Box<ExclusiveSharedMemory>> {
         if load_offset > mem_size {
             log_then_return!(
                 "code load offset ({}) > memory size ({})",
@@ -443,7 +443,7 @@ mod tests {
                 mem_size
             );
         }
-        let mut shared_mem = SharedMemory::new(mem_size)?;
+        let mut shared_mem = ExclusiveSharedMemory::new(mem_size)?;
         shared_mem.copy_from_slice(code, load_offset)?;
         Ok(Box::new(shared_mem))
     }

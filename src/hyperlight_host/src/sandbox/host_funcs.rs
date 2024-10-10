@@ -10,6 +10,7 @@ use tracing::{instrument, Span};
 use super::{ExtraAllowedSyscall, FunctionsMap};
 use crate::func::HyperlightFunction;
 use crate::mem::mgr::SandboxMemoryManager;
+use crate::mem::shared_mem::ExclusiveSharedMemory;
 #[cfg(all(feature = "seccomp", target_os = "linux"))]
 use crate::signal_handlers::mark_as_hyperlight_thread;
 #[cfg(all(feature = "seccomp", target_os = "linux"))]
@@ -46,7 +47,7 @@ impl HostFuncsWrapper {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     pub(crate) fn register_host_function(
         &mut self,
-        mgr: &mut SandboxMemoryManager,
+        mgr: &mut SandboxMemoryManager<ExclusiveSharedMemory>,
         hfd: &HostFunctionDefinition,
         func: HyperlightFunction,
     ) -> Result<()> {
@@ -59,7 +60,7 @@ impl HostFuncsWrapper {
     #[cfg(all(feature = "seccomp", target_os = "linux"))]
     pub(crate) fn register_host_function_with_syscalls(
         &mut self,
-        mgr: &mut SandboxMemoryManager,
+        mgr: &mut SandboxMemoryManager<ExclusiveSharedMemory>,
         hfd: &HostFunctionDefinition,
         func: HyperlightFunction,
         extra_allowed_syscalls: Vec<ExtraAllowedSyscall>,
@@ -101,7 +102,7 @@ impl HostFuncsWrapper {
 
 fn register_host_function_helper(
     self_: &mut HostFuncsWrapper,
-    mgr: &mut SandboxMemoryManager,
+    mgr: &mut SandboxMemoryManager<ExclusiveSharedMemory>,
     hfd: &HostFunctionDefinition,
     func: HyperlightFunction,
     extra_allowed_syscalls: Option<Vec<ExtraAllowedSyscall>>,

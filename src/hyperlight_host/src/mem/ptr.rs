@@ -2,9 +2,8 @@ use std::ops::Add;
 
 use tracing::{instrument, Span};
 
-use super::ptr_addr_space::{AddressSpace, GuestAddressSpace, HostAddressSpace};
+use super::ptr_addr_space::{AddressSpace, GuestAddressSpace};
 use super::ptr_offset::Offset;
-use super::shared_mem::SharedMemory;
 use crate::error::HyperlightError::{self, CheckedAddOverflow, RawPointerLessThanBaseAddress};
 use crate::Result;
 
@@ -61,30 +60,6 @@ impl From<&RawPtr> for u64 {
     }
 }
 
-/// Convenience type for representing a pointer into the host address space
-pub(crate) type HostPtr = Ptr<HostAddressSpace>;
-impl TryFrom<(RawPtr, &SharedMemory)> for HostPtr {
-    type Error = HyperlightError;
-    /// Create a new `HostPtr` from the given `host_raw_ptr`, which must
-    /// be a pointer in the host's address space.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    fn try_from(tup: (RawPtr, &SharedMemory)) -> Result<Self> {
-        let (host_raw_ptr, shared_mem) = tup;
-        let addr_space = HostAddressSpace::new(shared_mem)?;
-        HostPtr::from_raw_ptr(addr_space, host_raw_ptr)
-    }
-}
-
-impl TryFrom<(usize, &SharedMemory)> for HostPtr {
-    type Error = HyperlightError;
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    fn try_from(tup: (usize, &SharedMemory)) -> Result<Self> {
-        Ok(Self {
-            addr_space: HostAddressSpace::new(tup.1)?,
-            offset: Offset::from(tup.0 as u64),
-        })
-    }
-}
 /// Convenience type for representing a pointer into the guest address space
 pub(crate) type GuestPtr = Ptr<GuestAddressSpace>;
 
@@ -188,30 +163,6 @@ impl<T: AddressSpace> Ptr<T> {
         Self { addr_space, offset }
     }
 
-    #[cfg(test)]
-    /// Create a new `Ptr<Tgt>` from a source pointer and a target
-    /// address space
-    fn from_foreign_ptr<Src: AddressSpace, Tgt: AddressSpace>(
-        foreign_ptr: &Ptr<Src>,
-        target_addr_space: Tgt,
-    ) -> Result<Ptr<Tgt>> {
-        let tgt = Ptr {
-            addr_space: target_addr_space,
-            offset: foreign_ptr.offset(),
-        };
-        Ok(tgt)
-    }
-
-    #[cfg(test)]
-    /// Convert `self` into a new `Ptr` with a different address
-    /// space.
-    pub(crate) fn to_foreign_ptr<Tgt: AddressSpace>(
-        &self,
-        target_addr_space: Tgt,
-    ) -> Result<Ptr<Tgt>> {
-        Self::from_foreign_ptr(self, target_addr_space)
-    }
-
     /// Get the base address for this pointer
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn base(&self) -> u64 {
@@ -259,23 +210,12 @@ impl<T: AddressSpace> TryFrom<Ptr<T>> for usize {
 
 #[cfg(test)]
 mod tests {
-    use hyperlight_common::mem::PAGE_SIZE_USIZE;
-
-    use super::{GuestPtr, HostPtr, RawPtr};
+    use super::{GuestPtr, RawPtr};
     use crate::mem::layout::SandboxMemoryLayout;
-    use crate::mem::ptr_addr_space::{GuestAddressSpace, HostAddressSpace};
-    use crate::mem::shared_mem::SharedMemory;
     const OFFSET: u64 = 1;
 
     #[test]
     fn ptr_basic_ops() {
-        {
-            let gm = SharedMemory::new(PAGE_SIZE_USIZE).unwrap();
-
-            let raw_host_ptr = RawPtr(OFFSET + gm.base_addr() as u64);
-            let host_ptr = HostPtr::try_from((raw_host_ptr, &gm)).unwrap();
-            assert_eq!(OFFSET + gm.base_addr() as u64, host_ptr.absolute().unwrap());
-        }
         {
             let raw_guest_ptr = RawPtr(OFFSET + SandboxMemoryLayout::BASE_ADDRESS as u64);
             let guest_ptr = GuestPtr::try_from(raw_guest_ptr).unwrap();
@@ -288,105 +228,10 @@ mod tests {
 
     #[test]
     fn ptr_fail() {
-        // the pointer absolute value is less than the base address of
-        // guest memory, so you shouldn't be able to create a host or guest
-        // address
-        {
-            let gm = SharedMemory::new(PAGE_SIZE_USIZE).unwrap();
-
-            let raw_host_ptr = RawPtr(gm.base_addr() as u64 - 1);
-            let host_ptr = HostPtr::try_from((raw_host_ptr, &gm));
-            assert!(host_ptr.is_err());
-        }
         {
             let raw_guest_ptr = RawPtr(SandboxMemoryLayout::BASE_ADDRESS as u64 - 1);
             let guest_ptr = GuestPtr::try_from(raw_guest_ptr);
             assert!(guest_ptr.is_err());
-        }
-    }
-
-    #[test]
-    fn round_trip() {
-        let gm = SharedMemory::new(PAGE_SIZE_USIZE).unwrap();
-        let raw_host_ptr = RawPtr(gm.base_addr() as u64 + OFFSET);
-
-        let host_ptr = {
-            let hp = HostPtr::try_from((raw_host_ptr, &gm));
-            assert!(hp.is_ok());
-            let host_ptr = hp.unwrap();
-            assert_eq!(OFFSET, u64::from(host_ptr.offset()));
-            host_ptr
-        };
-
-        let guest_ptr = {
-            let gp_res = host_ptr.to_foreign_ptr(GuestAddressSpace::new().unwrap());
-            assert!(gp_res.is_ok());
-            gp_res.unwrap()
-        };
-        assert_eq!(OFFSET, u64::from(guest_ptr.offset()));
-        assert_eq!(
-            OFFSET + SandboxMemoryLayout::BASE_ADDRESS as u64,
-            guest_ptr.absolute().unwrap()
-        );
-
-        let ret_host_ptr = {
-            let gp = guest_ptr.to_foreign_ptr(HostAddressSpace::new(&gm).unwrap());
-            assert!(gp.is_ok());
-            gp.unwrap()
-        };
-        assert_eq!(
-            host_ptr.absolute().unwrap(),
-            ret_host_ptr.absolute().unwrap()
-        );
-    }
-}
-
-#[cfg(test)]
-mod prop_tests {
-    use hyperlight_common::mem::PAGE_SIZE_USIZE;
-    use proptest::prelude::*;
-
-    use super::{HostPtr, RawPtr};
-    use crate::mem::layout::SandboxMemoryLayout;
-    use crate::mem::ptr_addr_space::{GuestAddressSpace, HostAddressSpace};
-    use crate::mem::shared_mem::SharedMemory;
-    proptest! {
-        #[test]
-        fn test_round_trip(
-            offset in 1_u64..1000_u64,
-        ) {
-            let shared_mem = SharedMemory::new(PAGE_SIZE_USIZE).unwrap();
-            let raw_host_ptr = RawPtr(shared_mem.base_addr() as u64 + offset);
-            let host_ptr = {
-                let hp = HostPtr::try_from((raw_host_ptr, &shared_mem));
-                assert!(hp.is_ok());
-                let host_ptr = hp.unwrap();
-                assert_eq!(offset, u64::from(host_ptr.offset()));
-                host_ptr
-            };
-
-            let guest_ptr = {
-                let gp_res = host_ptr.to_foreign_ptr(GuestAddressSpace::new().unwrap());
-                assert!(gp_res.is_ok());
-                gp_res.unwrap()
-            };
-
-            assert_eq!(offset, u64::from(guest_ptr.offset()));
-            assert_eq!(
-            offset + SandboxMemoryLayout::BASE_ADDRESS as u64,
-                guest_ptr.absolute().unwrap()
-            );
-
-        let ret_host_ptr = {
-            let gp = guest_ptr.to_foreign_ptr(HostAddressSpace::new(&shared_mem).unwrap());
-            assert!(gp.is_ok());
-            gp.unwrap()
-        };
-        assert_eq!(
-            host_ptr.absolute().unwrap(),
-            ret_host_ptr.absolute().unwrap()
-        );
-
         }
     }
 }

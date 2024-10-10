@@ -3,6 +3,7 @@ use hyperlight_common::flatbuffer_wrappers::guest_error::{
 };
 
 use crate::error::HyperlightError::{GuestError, OutBHandlingError, StackOverflow};
+use crate::mem::shared_mem::HostSharedMemory;
 use crate::sandbox::mem_mgr::MemMgrWrapper;
 use crate::sandbox::metrics::SandboxMetric::GuestErrorCount;
 use crate::{int_counter_vec_inc, log_then_return, Result};
@@ -10,7 +11,7 @@ use crate::{int_counter_vec_inc, log_then_return, Result};
 /// and `Ok` if one was not found.
 /// TODO: remove this when we hook it up to the rest of the
 /// sandbox in https://github.com/deislabs/hyperlight/pull/727
-pub(crate) fn check_for_guest_error(mgr: &MemMgrWrapper) -> Result<()> {
+pub(crate) fn check_for_guest_error(mgr: &MemMgrWrapper<HostSharedMemory>) -> Result<()> {
     let guest_err = mgr.as_ref().get_guest_error()?;
     match guest_err.code {
         ErrorCode::NoError => Ok(()),

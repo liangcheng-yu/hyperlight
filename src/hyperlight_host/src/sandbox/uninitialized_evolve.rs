@@ -1,10 +1,12 @@
+use core::ffi::c_void;
+use core::time::Duration;
+use std::ops::Add;
 use std::sync::{Arc, Mutex};
 
 use rand::Rng;
 use tracing::{instrument, Span};
 
 use super::leaked_outb::LeakedOutBWrapper;
-use super::WrapperGetter;
 use crate::func::exports::get_os_page_size;
 use crate::hypervisor::handlers::OutBHandlerWrapper;
 use crate::hypervisor::hypervisor_handler::{
@@ -12,13 +14,17 @@ use crate::hypervisor::hypervisor_handler::{
 };
 #[cfg(target_os = "linux")]
 use crate::log_then_return;
+use crate::mem::mgr::SandboxMemoryManager;
 use crate::mem::ptr::RawPtr;
+use crate::mem::shared_mem::GuestSharedMemory;
+#[cfg(windows)]
+use crate::mem::shared_mem::SharedMemory;
+use crate::sandbox::host_funcs::HostFuncsWrapper;
 use crate::sandbox::mem_access::mem_access_handler_wrapper;
 use crate::sandbox::outb::outb_handler_wrapper;
+use crate::sandbox::{HostSharedMemory, MemMgrWrapper};
 use crate::sandbox_state::sandbox::Sandbox;
 use crate::{new_error, MultiUseSandbox, Result, SingleUseSandbox, UninitializedSandbox};
-
-pub(super) type CBFunc<'a> = Box<dyn FnOnce(&mut UninitializedSandbox) -> Result<()> + 'a>;
 
 #[derive(Clone)]
 pub(crate) enum ExecutionMode<'a> {
@@ -40,26 +46,36 @@ pub(crate) enum ExecutionMode<'a> {
 /// please reach out to a Hyperlight developer before making the change.
 #[instrument(err(Debug), skip_all, , parent = Span::current(), level = "Trace")]
 fn evolve_impl<'a, TransformFunc, ResSandbox: Sandbox>(
-    mut u_sbox: UninitializedSandbox,
-    cb_opt: Option<CBFunc>,
+    u_sbox: UninitializedSandbox,
     transform: TransformFunc,
 ) -> Result<ResSandbox>
 where
-    TransformFunc: Fn(UninitializedSandbox, ExecutionMode<'a>) -> Result<ResSandbox>,
+    TransformFunc: Fn(
+        Arc<Mutex<HostFuncsWrapper>>,
+        MemMgrWrapper<HostSharedMemory>,
+        ExecutionMode<'a>,
+    ) -> Result<ResSandbox>,
 {
     let run_from_proc_mem = u_sbox.run_from_process_memory;
 
+    let (hshm, gshm) = u_sbox.mgr.build();
+
     let execution_mode = if run_from_proc_mem {
-        let outb_wrapper =
-            outb_handler_wrapper(u_sbox.get_mgr_wrapper().clone(), u_sbox.host_funcs.clone());
-        let leaked_outb = evolve_in_proc(&mut u_sbox, outb_wrapper)?;
+        let outb_wrapper = outb_handler_wrapper(hshm.clone(), u_sbox.host_funcs.clone());
+        let leaked_outb = evolve_in_proc(hshm.clone(), gshm, outb_wrapper)?;
         ExecutionMode::InProc(leaked_outb)
     } else {
-        let mut hv_handler = hv_init(&mut u_sbox)?;
+        let mut hv_handler = hv_init(
+            &hshm,
+            gshm,
+            u_sbox.host_funcs.clone(),
+            u_sbox.max_initialization_time,
+            u_sbox.max_execution_time,
+            u_sbox.max_wait_for_cancellation,
+        )?;
 
         {
-            let mgr = u_sbox.mgr.as_ref();
-            let dispatch_function_addr = mgr.get_pointer_to_dispatch_function()?;
+            let dispatch_function_addr = hshm.as_ref().get_pointer_to_dispatch_function()?;
             assert_ne!(dispatch_function_addr, 0);
             hv_handler.set_dispatch_function_addr(RawPtr::from(dispatch_function_addr))?;
         }
@@ -67,42 +83,76 @@ where
         ExecutionMode::InHypervisor(hv_handler)
     };
 
-    if let Some(cb) = cb_opt {
-        cb(&mut u_sbox)?;
-    }
-
-    transform(u_sbox, execution_mode)
+    transform(u_sbox.host_funcs, hshm, execution_mode)
 }
 
 #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-pub(super) fn evolve_impl_multi_use(
+pub(super) fn evolve_impl_multi_use<'a>(
     u_sbox: UninitializedSandbox,
-    cb_opt: Option<CBFunc>,
-) -> Result<MultiUseSandbox> {
-    evolve_impl(u_sbox, cb_opt, |mut u, execution_mode| {
+) -> Result<MultiUseSandbox<'a>> {
+    evolve_impl(u_sbox, |hf, mut hshm, execution_mode| {
         {
-            u.get_mgr_wrapper_mut().as_mut().push_state()?;
+            hshm.as_mut().push_state()?;
         }
-        Ok(MultiUseSandbox::from_uninit(u, execution_mode))
+        Ok(MultiUseSandbox::from_uninit(hf, hshm, execution_mode))
     })
 }
 
 #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-pub(super) fn evolve_impl_single_use(
+pub(super) fn evolve_impl_single_use<'a>(
     u_sbox: UninitializedSandbox,
-    cb_opt: Option<CBFunc>,
-) -> Result<SingleUseSandbox> {
-    evolve_impl(u_sbox, cb_opt, |u, execution_mode| {
+) -> Result<SingleUseSandbox<'a>> {
+    evolve_impl(u_sbox, |_hf, hshm, execution_mode| {
         // Its intentional not to snapshot state here. This is because
         // single use sandboxes are not reusable and so there is no need
         // to snapshot state as they cannot be devolved back to an uninitialized sandbox.
-        Ok(SingleUseSandbox::from_uninit(u, execution_mode))
+        Ok(SingleUseSandbox::from_uninit(hshm, execution_mode))
     })
+}
+
+/// Call the entry point inside this `Sandbox` and return `Ok(())` if
+/// the entry point returned successfully. This function only applies to
+/// sandboxes with in-process mode turned on (e.g.
+/// `SandboxRunOptions::RunInProcess` passed as run options to the
+/// `UninitializedSandbox::new` function). If in-process mode is not
+/// turned on this function does nothing and immediately returns an `Err`.
+///
+/// # Safety
+///
+/// The given `peb_address` parameter must be an address in the guest
+/// memory corresponding to the start of the process
+/// environment block (PEB). If running with in-process mode, it must
+/// be an address into the host memory that points to the PEB.
+///
+/// Additionally, `page_size` must correspond to the operating system's
+/// chosen size of a virtual memory page.
+#[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
+pub(super) unsafe fn call_entry_point(
+    mgr: &SandboxMemoryManager<GuestSharedMemory>,
+    peb_address: RawPtr,
+    seed: u64,
+    page_size: u32,
+) -> Result<()> {
+    type EntryPoint = extern "C" fn(i64, u64, u32, u32) -> i32;
+    let entry_point: EntryPoint = {
+        let addr = {
+            let offset = mgr.entrypoint_offset;
+            mgr.load_addr.clone().add(offset)
+        };
+
+        let fn_location = u64::from(addr) as *const c_void;
+        unsafe { std::mem::transmute(fn_location) }
+    };
+    let peb_i64 = i64::try_from(u64::from(peb_address))?;
+    let max_log_level = log::max_level() as u32;
+    entry_point(peb_i64, seed, page_size, max_log_level);
+    Ok(())
 }
 
 #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
 fn evolve_in_proc<'a>(
-    u_sbox: &mut UninitializedSandbox,
+    mut _hshm: MemMgrWrapper<HostSharedMemory>,
+    mut _gshm: SandboxMemoryManager<GuestSharedMemory>,
     outb_hdl: OutBHandlerWrapper,
 ) -> Result<LeakedOutBWrapper<'a>> {
     #[cfg(target_os = "linux")]
@@ -147,7 +197,6 @@ fn evolve_in_proc<'a>(
         //
         // - u_sbox being marked mut and unused
         // - outb_hdl being unused
-        let _ = u_sbox.get_mgr_wrapper();
         let _ = outb_hdl;
         log_then_return!("in-process execution is not supported on linux");
     }
@@ -165,11 +214,10 @@ fn evolve_in_proc<'a>(
         //
         // This leaked memory is eventually dropped in the drop implementation
         // of SingleUseSandbox or MultiUseSandbox
-        let mgr = u_sbox.get_mem_mgr_mut();
-        let leaked_outb = LeakedOutBWrapper::new(mgr, outb_hdl.clone())?;
+        let leaked_outb = LeakedOutBWrapper::new(_hshm.as_mut(), outb_hdl.clone())?;
         let peb_address = {
-            let base_addr = u64::try_from(mgr.shared_mem.base_addr())?;
-            mgr.get_peb_address(base_addr, true)
+            let base_addr = u64::try_from(_gshm.shared_mem.base_addr())?;
+            _gshm.get_peb_address(base_addr, true)
         }?;
         let page_size = u32::try_from(get_os_page_size())?;
         let seed = {
@@ -177,33 +225,31 @@ fn evolve_in_proc<'a>(
             let mut rng = rand::thread_rng();
             rng.gen::<u64>()
         };
-        unsafe { u_sbox.call_entry_point(RawPtr::from(peb_address), seed, page_size) }?;
+        unsafe { call_entry_point(&_gshm, RawPtr::from(peb_address), seed, page_size) }?;
         Ok(leaked_outb)
     }
 }
 
 #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-fn hv_init(uninitialized_sandbox: &mut UninitializedSandbox) -> Result<HypervisorHandler> {
-    let outb_hdl = outb_handler_wrapper(
-        uninitialized_sandbox.get_mgr_wrapper().clone(),
-        uninitialized_sandbox.host_funcs.clone(),
-    );
-    let mem_access_hdl =
-        mem_access_handler_wrapper(uninitialized_sandbox.get_mgr_wrapper().clone());
+fn hv_init(
+    hshm: &MemMgrWrapper<HostSharedMemory>,
+    gshm: SandboxMemoryManager<GuestSharedMemory>,
+    host_funcs: Arc<Mutex<HostFuncsWrapper>>,
+    max_init_time: Duration,
+    max_exec_time: Duration,
+    max_wait_for_cancellation: Duration,
+) -> Result<HypervisorHandler> {
+    let outb_hdl = outb_handler_wrapper(hshm.clone(), host_funcs);
+    let mem_access_hdl = mem_access_handler_wrapper(hshm.clone());
 
-    let mem_mgr = uninitialized_sandbox.get_mgr_wrapper().unwrap_mgr();
     let seed = {
         let mut rng = rand::thread_rng();
         rng.gen::<u64>()
     };
     let peb_addr = {
-        let peb_u64 = u64::try_from(mem_mgr.layout.peb_address)?;
+        let peb_u64 = u64::try_from(gshm.layout.peb_address)?;
         RawPtr::from(peb_u64)
     };
-
-    let max_init_time = uninitialized_sandbox.max_initialization_time;
-    let max_exec_time = uninitialized_sandbox.max_execution_time;
-    let max_wait_for_cancellation = uninitialized_sandbox.max_wait_for_cancellation;
 
     let page_size = u32::try_from(get_os_page_size())?;
     let hv_handler_config = HvHandlerConfig {
@@ -222,8 +268,7 @@ fn hv_init(uninitialized_sandbox: &mut UninitializedSandbox) -> Result<Hyperviso
 
     let mut hv_handler = HypervisorHandler::new(hv_handler_config);
 
-    hv_handler
-        .start_hypervisor_handler(uninitialized_sandbox.get_mgr_wrapper_mut().unwrap_mgr_mut())?;
+    hv_handler.start_hypervisor_handler(gshm)?;
 
     hv_handler
         .execute_hypervisor_handler_action(HypervisorHandlerAction::Initialise)
@@ -257,7 +302,7 @@ mod tests {
                 None,
             )
             .unwrap();
-            evolve_impl_multi_use(u_sbox, None).unwrap();
+            evolve_impl_multi_use(u_sbox).unwrap();
         }
     }
 
@@ -280,7 +325,7 @@ mod tests {
             .unwrap();
             let err = format!("error evolving sandbox with guest binary {guest_bin_path}");
             let err_str = err.as_str();
-            evolve_impl_multi_use(u_sbox, None).expect(err_str);
+            evolve_impl_multi_use(u_sbox).expect(err_str);
         }
     }
 }

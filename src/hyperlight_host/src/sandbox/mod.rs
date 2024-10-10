@@ -54,6 +54,7 @@ use self::mem_mgr::MemMgrWrapper;
 use crate::func::HyperlightFunction;
 #[cfg(target_os = "windows")]
 use crate::hypervisor::windows_hypervisor_platform;
+use crate::mem::shared_mem::HostSharedMemory;
 use crate::sandbox::uninitialized_evolve::ExecutionMode;
 
 // In case its not obvious why there are separate is_supported_platform and is_hypervisor_present functions its because
@@ -129,8 +130,8 @@ pub fn is_hypervisor_present() -> bool {
 }
 
 pub(crate) trait WrapperGetter<'a> {
-    fn get_mgr_wrapper(&self) -> &MemMgrWrapper;
-    fn get_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper;
+    fn get_mgr_wrapper(&self) -> &MemMgrWrapper<HostSharedMemory>;
+    fn get_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper<HostSharedMemory>;
     fn get_execution_mode(&self) -> &ExecutionMode<'a> {
         panic!("Uninitialized sandboxes are not ready for execution");
     }

@@ -13,9 +13,7 @@ use super::memory_region::MemoryRegionType::{
 };
 use super::memory_region::{MemoryRegion, MemoryRegionFlags, MemoryRegionVecBuilder};
 use super::mgr::AMOUNT_OF_MEMORY_PER_PT;
-#[cfg(test)]
-use super::ptr::HostPtr;
-use super::shared_mem::SharedMemory;
+use super::shared_mem::{ExclusiveSharedMemory, GuestSharedMemory, SharedMemory};
 use crate::error::HyperlightError::{GuestOffsetIsInvalid, MemoryRequestTooBig};
 use crate::sandbox::SandboxConfiguration;
 use crate::{new_error, Result};
@@ -474,14 +472,6 @@ impl SandboxMemoryLayout {
         self.host_exception_buffer_offset
     }
 
-    /// Get the address of the code section on the host, given `share_mem`'s
-    /// base address and whether or not Hyperlight is executing with in-memory
-    /// mode enabled.
-    #[cfg(test)]
-    pub(crate) fn get_host_code_address(&self, shared_mem: &SharedMemory) -> Result<HostPtr> {
-        HostPtr::try_from((self.get_guest_code_offset(), shared_mem))
-    }
-
     /// Get the offset in guest memory to the OutB pointer.
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn get_outb_pointer_offset(&self) -> usize {
@@ -759,7 +749,7 @@ impl SandboxMemoryLayout {
 
     /// Returns the memory regions associated with this memory layout,
     /// suitable for passing to a hypervisor for mapping into memory
-    pub fn get_memory_regions(&self, shared_mem: &SharedMemory) -> Result<Vec<MemoryRegion>> {
+    pub fn get_memory_regions(&self, shared_mem: &GuestSharedMemory) -> Result<Vec<MemoryRegion>> {
         // The C API is a little bit broken and allows for memory regions to be created with a size of 0 so we are going to check here
         // if the size of the memory region is 0 and if it is we are going to return an error as otherwise the hypervisor will map a 0 sized memory region
         // and produce a difficult to debug error
@@ -1091,7 +1081,7 @@ impl SandboxMemoryLayout {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn write(
         &self,
-        shared_mem: &mut SharedMemory,
+        shared_mem: &mut ExclusiveSharedMemory,
         guest_offset: usize,
         size: usize,
     ) -> Result<()> {
@@ -1268,8 +1258,6 @@ mod tests {
     use hyperlight_common::mem::PAGE_SIZE_USIZE;
 
     use super::*;
-    use crate::mem::ptr_offset::Offset;
-    use crate::mem::shared_mem::SharedMemory;
 
     #[test]
     fn test_round_up() {
@@ -1287,19 +1275,6 @@ mod tests {
         assert_eq!(PAGE_SIZE_USIZE, round_up_to(4096, PAGE_SIZE_USIZE));
         assert_eq!(PAGE_SIZE_USIZE * 2, round_up_to(4097, PAGE_SIZE_USIZE));
         assert_eq!(PAGE_SIZE_USIZE * 2, round_up_to(8191, PAGE_SIZE_USIZE));
-    }
-
-    #[test]
-    fn get_host_code_address() {
-        let layout =
-            SandboxMemoryLayout::new(SandboxConfiguration::default(), 4096, 2048, 4096).unwrap();
-        let sm = SharedMemory::new(PAGE_SIZE_USIZE).unwrap();
-        let hca_in_proc = layout.get_host_code_address(&sm).unwrap();
-        let hca_in_vm = layout.get_host_code_address(&sm).unwrap();
-        let code_offset: Offset = layout.get_guest_code_offset().try_into().unwrap();
-        assert_eq!(hca_in_proc.offset(), code_offset);
-        assert_eq!(hca_in_vm.offset(), code_offset);
-        assert_eq!(hca_in_proc, hca_in_vm);
     }
 
     // helper func for testing

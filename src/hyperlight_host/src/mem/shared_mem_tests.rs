@@ -6,15 +6,14 @@ use std::mem::size_of;
 
 use hyperlight_common::mem::PAGE_SIZE_USIZE;
 
-use super::shared_mem::SharedMemory;
 use crate::{log_then_return, new_error, Result};
 
 /// A function that knows how to read data of type `T` from a
 /// `SharedMemory` at a specified offset
-type ReaderFn<T> = dyn Fn(&SharedMemory, usize) -> Result<T>;
+type ReaderFn<S, T> = dyn Fn(&S, usize) -> Result<T>;
 /// A function that knows how to write data of type `T` from a
 /// `SharedMemory` at a specified offset.
-type WriterFn<T> = dyn Fn(&mut SharedMemory, usize, T) -> Result<()>;
+type WriterFn<S, T> = dyn Fn(&mut S, usize, T) -> Result<()>;
 
 /// Run the standard suite of tests for a specified type `U` to write to
 /// a `SharedMemory` and a specified type `T` to read back out of
@@ -28,10 +27,11 @@ type WriterFn<T> = dyn Fn(&mut SharedMemory, usize, T) -> Result<()>;
 /// Regardless of which types you choose, they must be `Clone`able,
 /// `Debug`able, and you must be able to check if `T`, the one returned
 /// by the `reader`, is equal to `U`, the one accepted by the writer.
-pub(super) fn read_write_test_suite<T, U>(
+pub(super) fn read_write_test_suite<S, T, U, ShmNew: Fn(usize) -> Result<S>>(
     initial_val: U,
-    reader: Box<ReaderFn<T>>,
-    writer: Box<WriterFn<U>>,
+    shared_memory_new: ShmNew,
+    reader: Box<ReaderFn<S, T>>,
+    writer: Box<WriterFn<S, U>>,
 ) -> Result<()>
 where
     T: PartialEq + Debug + Clone + TryFrom<U>,
@@ -39,17 +39,17 @@ where
 {
     let mem_size = PAGE_SIZE_USIZE;
     let test_read = |mem_size, offset| {
-        let sm = SharedMemory::new(mem_size)?;
+        let sm = shared_memory_new(mem_size)?;
         (reader)(&sm, offset)
     };
 
     let test_write = |mem_size, offset, val| {
-        let mut sm = SharedMemory::new(mem_size)?;
+        let mut sm = shared_memory_new(mem_size)?;
         (writer)(&mut sm, offset, val)
     };
 
     let test_write_read = |mem_size, offset: usize, initial_val: U| {
-        let mut sm = SharedMemory::new(mem_size)?;
+        let mut sm = shared_memory_new(mem_size)?;
         writer(&mut sm, offset, initial_val.clone())?;
         let ret_val = reader(&sm, offset)?;
 

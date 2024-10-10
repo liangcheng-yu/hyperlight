@@ -2,29 +2,32 @@ use tracing::{instrument, Span};
 
 use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::mgr::{SandboxMemoryManager, STACK_COOKIE_LEN};
+use crate::mem::shared_mem::{
+    ExclusiveSharedMemory, GuestSharedMemory, HostSharedMemory, SharedMemory,
+};
 use crate::Result;
 
 /// StackCookie
 pub type StackCookie = [u8; STACK_COOKIE_LEN];
 
-#[derive(Clone)]
 /// A container with methods for accessing `SandboxMemoryManager` and other
 /// related objects
-pub(crate) struct MemMgrWrapper(SandboxMemoryManager, StackCookie);
+#[derive(Clone)]
+pub(crate) struct MemMgrWrapper<S>(SandboxMemoryManager<S>, StackCookie);
 
-impl MemMgrWrapper {
+impl<S: SharedMemory> MemMgrWrapper<S> {
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(super) fn new(mgr: SandboxMemoryManager, stack_cookie: StackCookie) -> Self {
+    pub(super) fn new(mgr: SandboxMemoryManager<S>, stack_cookie: StackCookie) -> Self {
         Self(mgr, stack_cookie)
     }
 
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(crate) fn unwrap_mgr(&self) -> &SandboxMemoryManager {
+    pub(crate) fn unwrap_mgr(&self) -> &SandboxMemoryManager<S> {
         &self.0
     }
 
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(crate) fn unwrap_mgr_mut(&mut self) -> &mut SandboxMemoryManager {
+    pub(crate) fn unwrap_mgr_mut(&mut self) -> &mut SandboxMemoryManager<S> {
         &mut self.0
     }
 
@@ -32,16 +35,31 @@ impl MemMgrWrapper {
     pub(super) fn get_stack_cookie(&self) -> &StackCookie {
         &self.1
     }
+}
 
-    /// Check the stack guard against the given `stack_cookie`.
-    ///
-    /// Return `Ok(true)` if the given cookie matches the one in guest memory,
-    /// and `Ok(false)` otherwise. Return `Err` if it could not be found or
-    /// there was some other error.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub(crate) fn check_stack_guard(&self) -> Result<bool> {
+impl<S: SharedMemory> AsMut<SandboxMemoryManager<S>> for MemMgrWrapper<S> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn as_mut(&mut self) -> &mut SandboxMemoryManager<S> {
+        self.unwrap_mgr_mut()
+    }
+}
+
+impl<S: SharedMemory> AsRef<SandboxMemoryManager<S>> for MemMgrWrapper<S> {
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    fn as_ref(&self) -> &SandboxMemoryManager<S> {
         self.unwrap_mgr()
-            .check_stack_guard(*self.get_stack_cookie())
+    }
+}
+
+impl MemMgrWrapper<ExclusiveSharedMemory> {
+    pub(crate) fn build(
+        self,
+    ) -> (
+        MemMgrWrapper<HostSharedMemory>,
+        SandboxMemoryManager<GuestSharedMemory>,
+    ) {
+        let (hshm, gshm) = self.0.build();
+        (MemMgrWrapper(hshm, self.1), gshm)
     }
 
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
@@ -59,16 +77,15 @@ impl MemMgrWrapper {
     }
 }
 
-impl AsMut<SandboxMemoryManager> for MemMgrWrapper {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn as_mut(&mut self) -> &mut SandboxMemoryManager {
-        self.unwrap_mgr_mut()
-    }
-}
-
-impl AsRef<SandboxMemoryManager> for MemMgrWrapper {
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn as_ref(&self) -> &SandboxMemoryManager {
+impl MemMgrWrapper<HostSharedMemory> {
+    /// Check the stack guard against the given `stack_cookie`.
+    ///
+    /// Return `Ok(true)` if the given cookie matches the one in guest memory,
+    /// and `Ok(false)` otherwise. Return `Err` if it could not be found or
+    /// there was some other error.
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    pub(crate) fn check_stack_guard(&self) -> Result<bool> {
         self.unwrap_mgr()
+            .check_stack_guard(*self.get_stack_cookie())
     }
 }

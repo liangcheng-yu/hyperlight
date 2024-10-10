@@ -1,3 +1,5 @@
+#[cfg(target_os = "windows")]
+use core::ffi::c_void;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -8,9 +10,7 @@ use std::time::Duration;
 use crossbeam::atomic::AtomicCell;
 use crossbeam_channel::{Receiver, Sender};
 #[cfg(target_os = "linux")]
-use libc::pthread_self;
-#[cfg(target_os = "linux")]
-use libc::{pthread_kill, ESRCH};
+use libc::{pthread_kill, pthread_self, ESRCH};
 use log::{error, info};
 use tracing::{instrument, Span};
 #[cfg(target_os = "linux")]
@@ -26,6 +26,7 @@ use crate::mem::layout::SandboxMemoryLayout;
 use crate::mem::mgr::SandboxMemoryManager;
 use crate::mem::ptr::{GuestPtr, RawPtr};
 use crate::mem::ptr_offset::Offset;
+use crate::mem::shared_mem::{GuestSharedMemory, HostSharedMemory, SharedMemory};
 use crate::sandbox::hypervisor::{get_available_hypervisor, HypervisorType};
 #[cfg(feature = "function_call_metrics")]
 use crate::sandbox::metrics::SandboxMetric::GuestFunctionCallDurationMicroseconds;
@@ -72,6 +73,7 @@ impl HypervisorHandler {
 #[derive(Clone)]
 struct HvHandlerExecVars {
     join_handle: Arc<Mutex<Option<JoinHandle<Result<()>>>>>,
+    shm: Arc<Mutex<Option<SandboxMemoryManager<GuestSharedMemory>>>>,
     timeout: Arc<Mutex<Duration>>,
     #[cfg(target_os = "linux")]
     thread_id: Arc<Mutex<Option<libc::pthread_t>>>,
@@ -185,6 +187,7 @@ impl HypervisorHandler {
 
         let execution_variables = HvHandlerExecVars {
             join_handle: Arc::new(Mutex::new(None)),
+            shm: Arc::new(Mutex::new(None)),
             #[cfg(target_os = "linux")]
             thread_id: Arc::new(Mutex::new(None)),
             #[cfg(target_os = "windows")]
@@ -212,9 +215,10 @@ impl HypervisorHandler {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     pub(crate) fn start_hypervisor_handler(
         &mut self,
-        sandbox_memory_manager: &mut SandboxMemoryManager,
+        mut sandbox_memory_manager: SandboxMemoryManager<GuestSharedMemory>,
     ) -> Result<()> {
-        let mut hv = set_up_hypervisor_partition(sandbox_memory_manager)?;
+        let mut hv = set_up_hypervisor_partition(&mut sandbox_memory_manager)?;
+        *self.execution_variables.shm.try_lock().unwrap() = Some(sandbox_memory_manager);
         let configuration = self.configuration.clone();
 
         // Other than running initialization and code execution, the handler thread also handles
@@ -285,6 +289,23 @@ impl HypervisorHandler {
                                     hltimeout_signal_handler::register_signal_handler_once()?;
                                 }
 
+                                let mut evar_lock_guard =
+                                    execution_variables.shm.try_lock().map_err(|e| {
+                                        new_error!(
+                                            "Error locking exec var shm lock: {}:{}: {}",
+                                            file!(),
+                                            line!(),
+                                            e
+                                        )
+                                    })?;
+                                let mem_lock_guard = evar_lock_guard
+                                    .as_mut()
+                                    .ok_or_else(|| {
+                                        new_error!("guest shm lock: {}:{}:", file!(), line!())
+                                    })?
+                                    .shared_mem
+                                    .lock
+                                    .try_read();
                                 let res = hv.initialise(
                                     configuration.peb_addr.clone(),
                                     configuration.seed,
@@ -293,6 +314,8 @@ impl HypervisorHandler {
                                     configuration.mem_access_handler.clone(),
                                     Some(hv_handler_clone.clone()),
                                 );
+                                drop(mem_lock_guard);
+                                drop(evar_lock_guard);
 
                                 execution_variables.running.store(false, Ordering::SeqCst);
 
@@ -340,6 +363,24 @@ impl HypervisorHandler {
                                     .clone()
                                     .ok_or_else(|| new_error!("Hypervisor not initialized"))?;
 
+                                let mut evar_lock_guard =
+                                    execution_variables.shm.try_lock().map_err(|e| {
+                                        new_error!(
+                                            "Error locking exec var shm lock: {}:{}: {}",
+                                            file!(),
+                                            line!(),
+                                            e
+                                        )
+                                    })?;
+                                let mem_lock_guard = evar_lock_guard
+                                    .as_mut()
+                                    .ok_or_else(|| {
+                                        new_error!("guest shm lock {}:{}", file!(), line!())
+                                    })?
+                                    .shared_mem
+                                    .lock
+                                    .try_read();
+
                                 let res = {
                                     #[cfg(feature = "function_call_metrics")]
                                     {
@@ -366,6 +407,8 @@ impl HypervisorHandler {
                                         Some(hv_handler_clone.clone()),
                                     )
                                 };
+                                drop(mem_lock_guard);
+                                drop(evar_lock_guard);
 
                                 execution_variables.running.store(false, Ordering::SeqCst);
 
@@ -546,7 +589,7 @@ impl HypervisorHandler {
     /// retrieve the return value from shared memory.
     pub(crate) fn terminate_hypervisor_handler_execution_and_reinitialise(
         &mut self,
-        sandbox_memory_manager: &mut SandboxMemoryManager,
+        sandbox_memory_manager: &mut SandboxMemoryManager<HostSharedMemory>,
     ) -> Result<HyperlightError> {
         {
             if !self.execution_variables.running.load(Ordering::SeqCst) {
@@ -709,7 +752,9 @@ pub enum HandlerMsg {
     Error(HyperlightError),
 }
 
-fn set_up_hypervisor_partition(mgr: &mut SandboxMemoryManager) -> Result<Box<dyn Hypervisor>> {
+fn set_up_hypervisor_partition(
+    mgr: &mut SandboxMemoryManager<GuestSharedMemory>,
+) -> Result<Box<dyn Hypervisor>> {
     let mem_size = u64::try_from(mgr.shared_mem.mem_size())?;
     let mut regions = mgr.layout.get_memory_regions(&mgr.shared_mem)?;
     let rsp_ptr = {
@@ -777,7 +822,7 @@ fn set_up_hypervisor_partition(mgr: &mut SandboxMemoryManager) -> Result<Box<dyn
             let hv = crate::hypervisor::hyperv_windows::HypervWindowsDriver::new(
                 regions,
                 mgr.shared_mem.raw_mem_size(), // we use raw_* here because windows driver requires 64K aligned addresses,
-                mgr.shared_mem.raw_ptr(), // and instead convert it to base_addr where needed in the driver itself
+                mgr.shared_mem.raw_ptr() as *mut c_void, // and instead convert it to base_addr where needed in the driver itself
                 pml4_ptr.absolute()?,
                 entrypoint_ptr.absolute()?,
                 rsp_ptr.absolute()?,

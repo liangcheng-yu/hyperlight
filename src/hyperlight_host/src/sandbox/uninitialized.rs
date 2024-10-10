@@ -1,6 +1,4 @@
-use std::ffi::c_void;
 use std::fmt::Debug;
-use std::ops::Add;
 use std::option::Option;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -12,12 +10,12 @@ use super::host_funcs::{default_writer_func, HostFuncsWrapper};
 use super::mem_mgr::MemMgrWrapper;
 use super::run_options::SandboxRunOptions;
 use super::uninitialized_evolve::{evolve_impl_multi_use, evolve_impl_single_use};
-use crate::error::HyperlightError::{CallEntryPointIsInProcOnly, GuestBinaryShouldBeAFile};
+use crate::error::HyperlightError::GuestBinaryShouldBeAFile;
 use crate::func::host_functions::HostFunction1;
 use crate::mem::mgr::{SandboxMemoryManager, STACK_COOKIE_LEN};
 use crate::mem::pe::pe_info::PEInfo;
-use crate::mem::ptr::RawPtr;
-use crate::sandbox::{SandboxConfiguration, WrapperGetter};
+use crate::mem::shared_mem::ExclusiveSharedMemory;
+use crate::sandbox::SandboxConfiguration;
 use crate::sandbox_state::sandbox::EvolvableSandbox;
 use crate::sandbox_state::transition::Noop;
 use crate::{
@@ -31,25 +29,15 @@ use crate::{
 /// host-implemented functions you need to be available to the guest, then
 /// call  `evolve` to transform your
 /// `UninitializedSandbox` into an initialized `Sandbox`.
-#[derive(Clone)]
 pub struct UninitializedSandbox {
     /// Registered host functions
     pub(crate) host_funcs: Arc<Mutex<HostFuncsWrapper>>,
     /// The memory manager for the sandbox.
-    pub(crate) mgr: MemMgrWrapper,
+    pub(crate) mgr: MemMgrWrapper<ExclusiveSharedMemory>,
     pub(crate) run_from_process_memory: bool,
     pub(crate) max_initialization_time: Duration,
     pub(crate) max_execution_time: Duration,
     pub(crate) max_wait_for_cancellation: Duration,
-}
-
-impl WrapperGetter<'_> for UninitializedSandbox {
-    fn get_mgr_wrapper(&self) -> &MemMgrWrapper {
-        &self.mgr
-    }
-    fn get_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper {
-        &mut self.mgr
-    }
 }
 
 impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for UninitializedSandbox {
@@ -74,7 +62,9 @@ impl Debug for UninitializedSandbox {
 
 impl crate::sandbox_state::sandbox::Sandbox for UninitializedSandbox {
     fn check_stack_guard(&self) -> Result<bool> {
-        self.mgr.check_stack_guard()
+        log_then_return!(
+            "Checking the stack cookie before the sandbox is initialized is unsupported"
+        );
     }
 }
 
@@ -91,8 +81,7 @@ impl<'a>
         self,
         _: Noop<UninitializedSandbox, SingleUseSandbox<'a>>,
     ) -> Result<SingleUseSandbox<'a>> {
-        let i_sbox = evolve_impl_single_use(self, None)?;
-        Ok(i_sbox)
+        evolve_impl_single_use(self)
     }
 }
 
@@ -109,8 +98,7 @@ impl<'a>
         self,
         _: Noop<UninitializedSandbox, MultiUseSandbox<'a>>,
     ) -> Result<MultiUseSandbox<'a>> {
-        let i_sbox = evolve_impl_multi_use(self, None)?;
-        Ok(i_sbox)
+        evolve_impl_multi_use(self)
     }
 }
 
@@ -250,60 +238,9 @@ impl<'a> UninitializedSandbox {
         Ok(sandbox)
     }
 
-    /// Get a mutable reference to the internally-stored
-    /// `SandboxMemoryManager`
-    #[cfg(target_os = "windows")]
-    #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    pub(crate) fn get_mem_mgr_mut(&mut self) -> &mut SandboxMemoryManager {
-        self.get_mgr_wrapper_mut().as_mut()
-    }
-
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn create_stack_guard() -> [u8; STACK_COOKIE_LEN] {
         rand::random::<[u8; STACK_COOKIE_LEN]>()
-    }
-
-    /// Call the entry point inside this `Sandbox` and return `Ok(())` if
-    /// the entry point returned successfully. This function only applies to
-    /// sandboxes with in-process mode turned on (e.g.
-    /// `SandboxRunOptions::RunInProcess` passed as run options to the
-    /// `UninitializedSandbox::new` function). If in-process mode is not
-    /// turned on this function does nothing and immediately returns an `Err`.
-    ///
-    /// # Safety
-    ///
-    /// The given `peb_address` parameter must be an address in the guest
-    /// memory corresponding to the start of the process
-    /// environment block (PEB). If running with in-process mode, it must
-    /// be an address into the host memory that points to the PEB.
-    ///
-    /// Additionally, `page_size` must correspond to the operating system's
-    /// chosen size of a virtual memory page.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    pub(super) unsafe fn call_entry_point(
-        &self,
-        peb_address: RawPtr,
-        seed: u64,
-        page_size: u32,
-    ) -> Result<()> {
-        if !self.run_from_process_memory {
-            log_then_return!(CallEntryPointIsInProcOnly());
-        }
-        type EntryPoint = extern "C" fn(i64, u64, u32, u32) -> i32;
-        let entry_point: EntryPoint = {
-            let addr = {
-                let mgr = self.get_mgr_wrapper().as_ref();
-                let offset = mgr.entrypoint_offset;
-                mgr.load_addr.clone().add(offset)
-            };
-
-            let fn_location = u64::from(addr) as *const c_void;
-            unsafe { std::mem::transmute(fn_location) }
-        };
-        let peb_i64 = i64::try_from(u64::from(peb_address))?;
-        let max_log_level = log::max_level() as u32;
-        entry_point(peb_i64, seed, page_size, max_log_level);
-        Ok(())
     }
 
     /// Load the file at `bin_path_str` into a PE file, then attempt to
@@ -322,7 +259,7 @@ impl<'a> UninitializedSandbox {
         guest_binary: &GuestBinary,
         run_from_process_memory: bool,
         run_from_guest_binary: bool,
-    ) -> Result<SandboxMemoryManager> {
+    ) -> Result<SandboxMemoryManager<ExclusiveSharedMemory>> {
         let mut pe_info = match guest_binary {
             GuestBinary::FilePath(bin_path_str) => PEInfo::from_file(bin_path_str)?,
             GuestBinary::Buffer(buffer) => PEInfo::new(buffer.clone())?,
@@ -375,7 +312,7 @@ mod tests {
 
     use crate::func::host_functions::{HostFunction1, HostFunction2};
     use crate::sandbox::uninitialized::GuestBinary;
-    use crate::sandbox::{SandboxConfiguration, WrapperGetter};
+    use crate::sandbox::SandboxConfiguration;
     use crate::sandbox_state::sandbox::EvolvableSandbox;
     use crate::sandbox_state::transition::Noop;
     use crate::testing::log_values::{test_value_as_str, try_to_strings};
@@ -476,23 +413,6 @@ mod tests {
             false,
         )
         .unwrap();
-    }
-
-    #[test]
-    fn test_stack_guard() {
-        let simple_guest_path = simple_guest_as_string().unwrap();
-        let sbox =
-            UninitializedSandbox::new(GuestBinary::FilePath(simple_guest_path), None, None, None)
-                .unwrap();
-        let res = sbox.get_mgr_wrapper().check_stack_guard();
-        assert!(
-            res.is_ok(),
-            "UninitializedSandbox::check_stack_guard returned an error"
-        );
-        assert!(
-            res.unwrap(),
-            "UninitializedSandbox::check_stack_guard returned false"
-        );
     }
 
     #[test]

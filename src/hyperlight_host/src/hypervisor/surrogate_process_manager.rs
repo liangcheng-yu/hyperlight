@@ -26,7 +26,6 @@ use windows::Win32::System::Threading::{
 
 use super::surrogate_process::SurrogateProcess;
 use super::wrappers::{HandleWrapper, PSTRWrapper};
-use crate::mem::shared_mem::PtrCVoidMut;
 use crate::HyperlightError::WindowsAPIError;
 use crate::{log_then_return, new_error, Result};
 
@@ -182,10 +181,7 @@ impl SurrogateProcessManager {
             log_then_return!(WindowsAPIError(e.clone()));
         }
 
-        Ok(SurrogateProcess::new(
-            PtrCVoidMut::from(allocated_address),
-            process_handle,
-        ))
+        Ok(SurrogateProcess::new(allocated_address, process_handle))
     }
 
     /// Returns a surrogate process to the pool of surrogate processes.
@@ -391,7 +387,7 @@ mod tests {
     };
 
     use super::*;
-    use crate::mem::shared_mem::SharedMemory;
+    use crate::mem::shared_mem::{ExclusiveSharedMemory, SharedMemory};
     #[test]
     #[serial]
     fn test_surrogate_process_manager() {
@@ -499,10 +495,10 @@ mod tests {
         // NOTE, functions like ReadProcessMemory do not trigger guard pages, the function fails instead
         const SIZE: usize = 4096;
         let mgr = get_surrogate_process_manager().unwrap();
-        let mem = SharedMemory::new(SIZE).unwrap();
+        let mem = ExclusiveSharedMemory::new(SIZE).unwrap();
 
         let process = mgr
-            .get_surrogate_process(mem.raw_mem_size(), mem.raw_ptr())
+            .get_surrogate_process(mem.raw_mem_size(), mem.raw_ptr() as *mut c_void)
             .unwrap();
 
         let buffer = vec![0u8; SIZE];
@@ -513,7 +509,7 @@ mod tests {
             // read the first guard page, should fail
             let success = windows::Win32::System::Diagnostics::Debug::ReadProcessMemory(
                 process_handle,
-                process.allocated_address.as_ptr(),
+                process.allocated_address,
                 buffer.as_ptr() as *mut c_void,
                 SIZE,
                 bytes_read,
@@ -523,7 +519,7 @@ mod tests {
             // read the memory, should be OK
             let success = windows::Win32::System::Diagnostics::Debug::ReadProcessMemory(
                 process_handle,
-                process.allocated_address.as_ptr().add(SIZE),
+                process.allocated_address.add(SIZE),
                 buffer.as_ptr() as *mut c_void,
                 SIZE,
                 bytes_read,
@@ -533,7 +529,7 @@ mod tests {
             // read the second guard page, should fail
             let success = windows::Win32::System::Diagnostics::Debug::ReadProcessMemory(
                 process_handle,
-                process.allocated_address.as_ptr().add(2 * SIZE),
+                process.allocated_address.add(2 * SIZE),
                 buffer.as_ptr() as *mut c_void,
                 SIZE,
                 bytes_read,

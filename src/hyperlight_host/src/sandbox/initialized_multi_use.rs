@@ -6,9 +6,10 @@ use hyperlight_common::flatbuffer_wrappers::function_types::{
 use tracing::{instrument, Span};
 
 use super::host_funcs::HostFuncsWrapper;
-use super::{MemMgrWrapper, UninitializedSandbox, WrapperGetter};
+use super::{MemMgrWrapper, WrapperGetter};
 use crate::func::call_ctx::MultiUseGuestCallContext;
 use crate::func::guest_dispatch::call_function_on_guest;
+use crate::mem::shared_mem::HostSharedMemory;
 use crate::sandbox::uninitialized_evolve::ExecutionMode;
 use crate::sandbox_state::sandbox::{DevolvableSandbox, EvolvableSandbox, Sandbox};
 use crate::sandbox_state::transition::{MultiUseContextCallback, Noop};
@@ -25,7 +26,7 @@ use crate::Result;
 pub struct MultiUseSandbox<'a> {
     // We need to keep a reference to the host functions, even if the compiler marks it as unused. The compiler cannot detect our dynamic usages of the host function in `HyperlightFunction::call`.
     pub(super) _host_funcs: Arc<Mutex<HostFuncsWrapper>>,
-    pub(crate) mem_mgr: MemMgrWrapper,
+    pub(crate) mem_mgr: MemMgrWrapper<HostSharedMemory>,
     execution_mode: ExecutionMode<'a>,
 }
 
@@ -65,12 +66,13 @@ impl<'a> MultiUseSandbox<'a> {
     /// (as a `From` implementation would be)
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     pub(super) fn from_uninit(
-        val: UninitializedSandbox,
+        host_funcs: Arc<Mutex<HostFuncsWrapper>>,
+        mgr: MemMgrWrapper<HostSharedMemory>,
         execution_mode: ExecutionMode<'a>,
     ) -> MultiUseSandbox {
         Self {
-            _host_funcs: val.host_funcs,
-            mem_mgr: val.mgr,
+            _host_funcs: host_funcs,
+            mem_mgr: mgr,
             execution_mode,
         }
     }
@@ -168,10 +170,10 @@ impl<'a> MultiUseSandbox<'a> {
 }
 
 impl<'a> WrapperGetter<'a> for MultiUseSandbox<'a> {
-    fn get_mgr_wrapper(&self) -> &MemMgrWrapper {
+    fn get_mgr_wrapper(&self) -> &MemMgrWrapper<HostSharedMemory> {
         &self.mem_mgr
     }
-    fn get_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper {
+    fn get_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper<HostSharedMemory> {
         &mut self.mem_mgr
     }
 

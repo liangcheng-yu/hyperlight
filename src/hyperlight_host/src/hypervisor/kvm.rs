@@ -389,12 +389,8 @@ pub(crate) mod test_cfg {
 mod tests {
     use std::sync::{Arc, Mutex};
 
-    use super::KVMDriver;
     use crate::hypervisor::handlers::{MemAccessHandler, OutBHandler};
     use crate::hypervisor::tests::test_initialise;
-    use crate::mem::layout::SandboxMemoryLayout;
-    use crate::mem::ptr::GuestPtr;
-    use crate::mem::ptr_offset::Offset;
     use crate::{should_run_kvm_linux_test, Result};
 
     #[test]
@@ -409,28 +405,6 @@ mod tests {
             let func: Box<dyn FnMut() -> Result<()> + Send> = Box::new(|| -> Result<()> { Ok(()) });
             Arc::new(Mutex::new(MemAccessHandler::from(func)))
         };
-        test_initialise(
-            outb_handler,
-            mem_access_handler,
-            |mgr, rsp_ptr, pml4_ptr| {
-                let rsp = rsp_ptr.absolute()?;
-                let entrypoint = {
-                    let load_addr = mgr.load_addr.clone();
-                    let load_offset_u64 =
-                        u64::from(load_addr) - u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?;
-                    let total_offset = Offset::from(load_offset_u64) + mgr.entrypoint_offset;
-                    GuestPtr::try_from(total_offset)
-                }?;
-
-                let driver = KVMDriver::new(
-                    mgr.layout.get_memory_regions(&mgr.shared_mem)?,
-                    pml4_ptr.absolute().unwrap(),
-                    entrypoint.absolute().unwrap(),
-                    rsp,
-                )?;
-                Ok(Box::new(driver))
-            },
-        )
-        .unwrap();
+        test_initialise(outb_handler, mem_access_handler).unwrap();
     }
 }

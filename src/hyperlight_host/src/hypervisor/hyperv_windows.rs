@@ -29,7 +29,6 @@ use crate::hypervisor::hypervisor_handler::HypervisorHandler;
 use crate::hypervisor::wrappers::WHvGeneralRegisters;
 use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
 use crate::mem::ptr::{GuestPtr, RawPtr};
-use crate::mem::shared_mem::PtrCVoidMut;
 use crate::HyperlightError::{NoHypervisorFound, WindowsAPIError};
 use crate::{debug, log_then_return, new_error, Result};
 
@@ -38,11 +37,18 @@ pub(crate) struct HypervWindowsDriver {
     size: usize, // this is the size of the memory region, excluding the 2 surrounding guard pages
     processor: VMProcessor,
     surrogate_process: SurrogateProcess,
-    source_address: PtrCVoidMut, // this points into the first guard page
+    source_address: *mut c_void, // this points into the first guard page
     entrypoint: u64,
     orig_rsp: GuestPtr,
     mem_regions: Vec<MemoryRegion>,
 }
+/* This does not automatically impl Send/Sync because the host
+ * address of the shared memory region is a raw pointer, which are
+ * marked as !Send and !Sync. However, the access patterns used
+ * here are safe.
+ */
+unsafe impl Send for HypervWindowsDriver {}
+unsafe impl Sync for HypervWindowsDriver {}
 
 impl HypervWindowsDriver {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
@@ -80,7 +86,7 @@ impl HypervWindowsDriver {
             size: mem_size,
             processor: proc,
             surrogate_process,
-            source_address: PtrCVoidMut::from(raw_source_address),
+            source_address: raw_source_address,
             entrypoint,
             orig_rsp: GuestPtr::try_from(RawPtr::from(rsp))?,
             mem_regions,
@@ -406,9 +412,8 @@ impl Hypervisor for HypervWindowsDriver {
                 handle,
                 self.surrogate_process
                     .allocated_address
-                    .as_ptr()
                     .add(PAGE_SIZE_USIZE),
-                self.source_address.as_ptr().add(PAGE_SIZE_USIZE),
+                self.source_address.add(PAGE_SIZE_USIZE),
                 self.size,
                 bytes_written,
             )
@@ -426,9 +431,8 @@ impl Hypervisor for HypervWindowsDriver {
                 handle,
                 self.surrogate_process
                     .allocated_address
-                    .as_ptr()
                     .add(PAGE_SIZE_USIZE),
-                self.source_address.as_mut_ptr().add(PAGE_SIZE_USIZE),
+                self.source_address.add(PAGE_SIZE_USIZE),
                 self.size,
                 bytes_read,
             )
@@ -493,7 +497,7 @@ impl Hypervisor for HypervWindowsDriver {
                     if let Err(e) = unsafe {
                         self.write_dump_file(
                             self.mem_regions.clone(),
-                            self.source_address.as_ptr().add(PAGE_SIZE_USIZE) as *const u8,
+                            self.source_address.add(PAGE_SIZE_USIZE) as *const u8,
                             self.size,
                         )
                     } {
@@ -524,7 +528,7 @@ impl Hypervisor for HypervWindowsDriver {
                     if let Err(e) = unsafe {
                         self.write_dump_file(
                             self.mem_regions.clone(),
-                            self.source_address.as_ptr().add(PAGE_SIZE_USIZE) as *const u8,
+                            self.source_address.add(PAGE_SIZE_USIZE) as *const u8,
                             self.size,
                         )
                     } {
@@ -557,12 +561,8 @@ pub mod tests {
 
     use serial_test::serial;
 
-    use super::HypervWindowsDriver;
     use crate::hypervisor::handlers::{MemAccessHandler, OutBHandler};
     use crate::hypervisor::tests::test_initialise;
-    use crate::mem::layout::SandboxMemoryLayout;
-    use crate::mem::ptr::GuestPtr;
-    use crate::mem::ptr_offset::Offset;
     use crate::Result;
 
     extern "C" fn outb_fn(_port: u16, _payload: u64) {}
@@ -581,32 +581,6 @@ pub mod tests {
             let func: Box<dyn FnMut() -> Result<()> + Send> = Box::new(|| -> Result<()> { Ok(()) });
             Arc::new(Mutex::new(MemAccessHandler::from(func)))
         };
-        test_initialise(
-            outb_handler,
-            mem_access_handler,
-            |mgr, rsp_ptr, pml4_ptr| {
-                let host_addr = mgr.shared_mem.raw_ptr();
-                let rsp = rsp_ptr.absolute()?;
-                let _guest_pfn = u64::try_from(SandboxMemoryLayout::BASE_ADDRESS << 12)?;
-                let entrypoint = {
-                    let load_addr = mgr.load_addr.clone();
-                    let load_offset_u64 =
-                        u64::from(load_addr) - u64::try_from(SandboxMemoryLayout::BASE_ADDRESS)?;
-                    let total_offset = Offset::from(load_offset_u64) + mgr.entrypoint_offset;
-                    GuestPtr::try_from(total_offset)
-                }?;
-                let driver = HypervWindowsDriver::new(
-                    mgr.layout.get_memory_regions(&mgr.shared_mem)?,
-                    mgr.shared_mem.raw_mem_size(),
-                    host_addr,
-                    pml4_ptr.absolute()?,
-                    entrypoint.absolute().unwrap(),
-                    rsp,
-                )?;
-
-                Ok(Box::new(driver))
-            },
-        )
-        .unwrap();
+        test_initialise(outb_handler, mem_access_handler).unwrap();
     }
 }

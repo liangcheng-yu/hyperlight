@@ -16,6 +16,8 @@ use crate::mem::custom_drop::CustomPtrDrop;
 #[cfg(target_os = "windows")]
 use crate::mem::mgr::SandboxMemoryManager;
 #[cfg(target_os = "windows")]
+use crate::mem::shared_mem::HostSharedMemory;
+#[cfg(target_os = "windows")]
 use crate::Result;
 
 #[cfg(target_os = "windows")]
@@ -85,7 +87,10 @@ pub(crate) struct LeakedOutBWrapper<'a> {
 #[cfg(target_os = "windows")]
 impl<'a> LeakedOutBWrapper<'a> {
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    pub(super) fn new(mgr: &mut SandboxMemoryManager, wrapper: OutBHandlerWrapper) -> Result<Self> {
+    pub(super) fn new(
+        mgr: &mut SandboxMemoryManager<HostSharedMemory>,
+        wrapper: OutBHandlerWrapper,
+    ) -> Result<Self> {
         let hdl_box = Box::new(wrapper.clone());
         let hdl_ptr = Box::into_raw(hdl_box);
         let cd = CustomPtrDrop::new(

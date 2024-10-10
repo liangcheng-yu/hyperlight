@@ -11,6 +11,7 @@ use super::host_funcs::HostFuncsWrapper;
 use super::mem_mgr::MemMgrWrapper;
 use crate::hypervisor::handlers::{OutBHandler, OutBHandlerFunction, OutBHandlerWrapper};
 use crate::mem::mgr::SandboxMemoryManager;
+use crate::mem::shared_mem::HostSharedMemory;
 use crate::{new_error, HyperlightError, Result};
 
 pub(super) enum OutBAction {
@@ -32,7 +33,7 @@ impl From<u16> for OutBAction {
 }
 
 #[instrument(err(Debug), skip_all, parent = Span::current(), level="Trace")]
-pub(super) fn outb_log(mgr: &mut SandboxMemoryManager) -> Result<()> {
+pub(super) fn outb_log(mgr: &mut SandboxMemoryManager<HostSharedMemory>) -> Result<()> {
     // This code will create either a logging record or a tracing record for the GuestLogData depending on if the host has set up a tracing subscriber.
     // In theory as we have enabled the log feature in the Cargo.toml for tracing this should happen
     // automatically (based on if there is tracing subscriber present) but only works if the event created using macros. (see https://github.com/tokio-rs/tracing/blob/master/tracing/src/macros.rs#L2421 )
@@ -96,7 +97,7 @@ pub(super) fn outb_log(mgr: &mut SandboxMemoryManager) -> Result<()> {
 /// Handles OutB operations from the guest.
 #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 fn handle_outb_impl(
-    mem_mgr: &mut MemMgrWrapper,
+    mem_mgr: &mut MemMgrWrapper<HostSharedMemory>,
     host_funcs: Arc<Mutex<HostFuncsWrapper>>,
     port: u16,
     byte: u64,
@@ -144,7 +145,7 @@ fn handle_outb_impl(
 /// TODO: pass at least the `host_funcs_wrapper` param by reference.
 #[instrument(skip_all, parent = Span::current(), level= "Trace")]
 pub(crate) fn outb_handler_wrapper(
-    mut mem_mgr_wrapper: MemMgrWrapper,
+    mut mem_mgr_wrapper: MemMgrWrapper<HostSharedMemory>,
     host_funcs_wrapper: Arc<Mutex<HostFuncsWrapper>>,
 ) -> OutBHandlerWrapper {
     let outb_func: OutBHandlerFunction = Box::new(move |port, payload| {
@@ -169,6 +170,7 @@ mod tests {
     use super::outb_log;
     use crate::mem::layout::SandboxMemoryLayout;
     use crate::mem::mgr::SandboxMemoryManager;
+    use crate::mem::shared_mem::SharedMemory;
     use crate::sandbox::outb::GuestLogData;
     use crate::sandbox::SandboxConfiguration;
     use crate::testing::log_values::test_value_as_str;
@@ -207,7 +209,8 @@ mod tests {
             layout
                 .write(shared_mem, SandboxMemoryLayout::BASE_ADDRESS, mem_size)
                 .unwrap();
-            mgr
+            let (hmgr, _) = mgr.build();
+            hmgr
         };
         {
             // We set a logger but there is no guest log data
@@ -321,7 +324,8 @@ mod tests {
                 layout
                     .write(shared_mem, SandboxMemoryLayout::BASE_ADDRESS, mem_size)
                     .unwrap();
-                mgr
+                let (hmgr, _) = mgr.build();
+                hmgr
             };
 
             // as a span does not exist one will be automatically created
@@ -367,11 +371,11 @@ mod tests {
 
                     // We cannot get the parent span using the `current_span()` method as by the time we get to this point that span has been exited so there is no current span
                     // We need to make sure that the span that we created is in the spans map instead
-                    // We expect to have created 40 spans at this point. We are only interested in the first one that was created when calling outb_log.
+                    // We expect to have created 21 spans at this point. We are only interested in the first one that was created when calling outb_log.
 
                     assert!(
-                        spans.len() == 40,
-                        "expected 40 spans, found {}",
+                        spans.len() == 21,
+                        "expected 21 spans, found {}",
                         spans.len()
                     );
 
