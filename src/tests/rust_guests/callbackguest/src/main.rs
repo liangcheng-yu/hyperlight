@@ -13,13 +13,13 @@ use hyperlight_common::flatbuffer_wrappers::function_types::{
     ParameterType, ParameterValue, ReturnType,
 };
 use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
-use hyperlight_common::flatbuffer_wrappers::guest_function_definition::GuestFunctionDefinition;
 use hyperlight_common::flatbuffer_wrappers::guest_log_level::LogLevel;
 use hyperlight_guest::error::{HyperlightGuestError, Result};
 use hyperlight_guest::flatbuffer_utils::{
     get_flatbuffer_result_from_int, get_flatbuffer_result_from_void,
 };
-use hyperlight_guest::guest_functions::register_function;
+use hyperlight_guest::guest_function_definition::GuestFunctionDefinition;
+use hyperlight_guest::guest_function_register::register_function;
 use hyperlight_guest::host_function_call::{
     call_host_function, get_host_value_return_as_int, print_output_as_guest_function,
 };

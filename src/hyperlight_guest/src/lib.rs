@@ -1,13 +1,12 @@
 #![no_std]
 // Deps
 use alloc::string::ToString;
-use alloc::vec::Vec;
 use core::hint::unreachable_unchecked;
 use core::ptr::copy_nonoverlapping;
 
 use buddy_system_allocator::LockedHeap;
+use guest_function_register::GuestFunctionRegister;
 use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
-use hyperlight_common::flatbuffer_wrappers::guest_function_details::GuestFunctionDetails;
 use hyperlight_common::mem::HyperlightPEB;
 
 use crate::host_function_call::{outb, OutBAction};
@@ -20,7 +19,8 @@ pub mod shared_output_data;
 
 pub mod guest_error;
 pub mod guest_function_call;
-pub mod guest_functions;
+pub mod guest_function_definition;
+pub mod guest_function_register;
 
 pub mod host_error;
 pub mod host_function_call;
@@ -80,6 +80,5 @@ pub(crate) static mut OUTB_PTR: Option<fn(u16, u8)> = None;
 pub(crate) static mut OUTB_PTR_WITH_CONTEXT: Option<fn(*mut core::ffi::c_void, u16, u8)> = None;
 pub static mut RUNNING_IN_HYPERLIGHT: bool = false;
 
-pub(crate) static mut GUEST_FUNCTIONS_BUILDER: GuestFunctionDetails =
-    GuestFunctionDetails::new(Vec::new());
-pub(crate) static mut GUEST_FUNCTIONS: Vec<u8> = Vec::new();
+pub(crate) static mut REGISTERED_GUEST_FUNCTIONS: GuestFunctionRegister =
+    GuestFunctionRegister::new();

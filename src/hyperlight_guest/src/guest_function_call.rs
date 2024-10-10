@@ -5,14 +5,13 @@ use alloc::vec::Vec;
 use hyperlight_common::flatbuffer_wrappers::function_call::{FunctionCall, FunctionCallType};
 use hyperlight_common::flatbuffer_wrappers::function_types::ParameterType;
 use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
-use hyperlight_common::flatbuffer_wrappers::guest_function_details::GuestFunctionDetails;
 
 use crate::entrypoint::halt;
 use crate::error::{HyperlightGuestError, Result};
 use crate::guest_error::{reset_error, set_error};
 use crate::shared_input_data::try_pop_shared_input_data_into;
 use crate::shared_output_data::push_shared_output_data;
-use crate::GUEST_FUNCTIONS;
+use crate::REGISTERED_GUEST_FUNCTIONS;
 
 type GuestFunc = fn(&FunctionCall) -> Result<Vec<u8>>;
 pub(crate) fn call_guest_function(function_call: &FunctionCall) -> Result<Vec<u8>> {
@@ -43,17 +42,9 @@ pub(crate) fn call_guest_function(function_call: &FunctionCall) -> Result<Vec<u8
         ));
     }
 
-    // Get registered function definitions.
-    let guest_function_details: GuestFunctionDetails = unsafe {
-        GUEST_FUNCTIONS
-            .as_slice()
-            .try_into()
-            .expect("Invalid GuestFunctionDetails")
-    };
-
     // Find the function definition for the function call.
     if let Some(registered_function_definition) =
-        guest_function_details.find_by_function_name(&function_call_fname)
+        unsafe { REGISTERED_GUEST_FUNCTIONS.get(&function_call_fname) }
     {
         // Verify that the function call has the correct number of parameters.
         if function_call_fparameters.len() != registered_function_definition.parameter_types.len() {
