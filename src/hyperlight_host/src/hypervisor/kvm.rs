@@ -71,13 +71,17 @@ impl KVMDriver {
 
         let vm_fd = kvm.create_vm_with_type(0)?;
 
+        let perm_flags =
+            MemoryRegionFlags::READ | MemoryRegionFlags::WRITE | MemoryRegionFlags::EXECUTE;
+
         mem_regions.iter().enumerate().try_for_each(|(i, region)| {
+            let perm_flags = perm_flags.intersection(region.flags);
             let kvm_region = kvm_userspace_memory_region {
                 slot: i as u32,
                 guest_phys_addr: region.guest_region.start as u64,
                 memory_size: (region.guest_region.end - region.guest_region.start) as u64,
                 userspace_addr: region.host_region.start as u64,
-                flags: match region.flags {
+                flags: match perm_flags {
                     MemoryRegionFlags::READ => KVM_MEM_READONLY,
                     _ => 0, // normal, RWX
                 },

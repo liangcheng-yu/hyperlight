@@ -392,7 +392,7 @@ fn guard_page_check() {
             // should have failed
             assert!(matches!(
                 result.unwrap_err(),
-                HyperlightError::MemoryAccessViolation(..)
+                HyperlightError::StackOverflow()
             ));
         } else {
             assert!(result.is_ok(), "offset {} should pass", offset)
@@ -408,7 +408,7 @@ fn guard_page_check_2() {
     let result = sbox1
         .call_guest_function_by_name("InfiniteRecursion", ReturnType::Void, Some(vec![]))
         .unwrap_err();
-    assert!(matches!(result, HyperlightError::MemoryAccessViolation(..)));
+    assert!(matches!(result, HyperlightError::StackOverflow()));
 }
 
 #[test]

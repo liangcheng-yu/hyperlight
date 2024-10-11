@@ -977,8 +977,11 @@ impl SandboxMemoryLayout {
         }
 
         // guard page
-        let stack_offset =
-            builder.push_page_aligned(PAGE_SIZE_USIZE, MemoryRegionFlags::READ, GuardPage);
+        let stack_offset = builder.push_page_aligned(
+            PAGE_SIZE_USIZE,
+            MemoryRegionFlags::READ | MemoryRegionFlags::STACK_GUARD,
+            GuardPage,
+        );
 
         let expected_stack_offset =
             TryInto::<usize>::try_into(self.guest_user_stack_buffer_offset)?;
@@ -1010,8 +1013,11 @@ impl SandboxMemoryLayout {
             ));
         }
 
-        let kernel_stack_offset =
-            builder.push_page_aligned(PAGE_SIZE_USIZE, MemoryRegionFlags::READ, GuardPage);
+        let kernel_stack_offset = builder.push_page_aligned(
+            PAGE_SIZE_USIZE,
+            MemoryRegionFlags::READ | MemoryRegionFlags::STACK_GUARD,
+            GuardPage,
+        );
 
         let expected_kernel_stack_offset =
             TryInto::<usize>::try_into(self.kernel_stack_buffer_offset)?;
@@ -1041,8 +1047,11 @@ impl SandboxMemoryLayout {
             ));
         }
 
-        let boot_stack_offset =
-            builder.push_page_aligned(PAGE_SIZE_USIZE, MemoryRegionFlags::READ, GuardPage);
+        let boot_stack_offset = builder.push_page_aligned(
+            PAGE_SIZE_USIZE,
+            MemoryRegionFlags::READ | MemoryRegionFlags::STACK_GUARD,
+            GuardPage,
+        );
 
         let expected_boot_stack_offset = TryInto::<usize>::try_into(self.boot_stack_buffer_offset)?;
 

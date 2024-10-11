@@ -84,11 +84,12 @@ impl VMPartition {
                 region
                     .flags
                     .iter()
-                    .map(|flag| match flag {
-                        MemoryRegionFlags::NONE => WHvMapGpaRangeFlagNone,
-                        MemoryRegionFlags::READ => WHvMapGpaRangeFlagRead,
-                        MemoryRegionFlags::WRITE => WHvMapGpaRangeFlagWrite,
-                        MemoryRegionFlags::EXECUTE => WHvMapGpaRangeFlagExecute,
+                    .filter_map(|flag| match flag {
+                        MemoryRegionFlags::NONE => Some(WHvMapGpaRangeFlagNone),
+                        MemoryRegionFlags::READ => Some(WHvMapGpaRangeFlagRead),
+                        MemoryRegionFlags::WRITE => Some(WHvMapGpaRangeFlagWrite),
+                        MemoryRegionFlags::EXECUTE => Some(WHvMapGpaRangeFlagExecute),
+                        MemoryRegionFlags::STACK_GUARD => None,
                         _ => panic!("Invalid flag"),
                     })
                     .fold(WHvMapGpaRangeFlagNone, |acc, flag| acc | flag), // collect using bitwise OR,

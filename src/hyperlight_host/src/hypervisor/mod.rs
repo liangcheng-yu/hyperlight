@@ -141,7 +141,9 @@ pub(crate) trait Hypervisor: Debug + Sync + Send {
             .find(|region| region.guest_region.contains(&gpa));
 
         if let Some(region) = region {
-            if !region.flags.contains(access_info) {
+            if !region.flags.contains(access_info)
+                || region.flags.contains(MemoryRegionFlags::STACK_GUARD)
+            {
                 return Some(HyperlightExit::AccessViolation(
                     gpa as u64,
                     access_info,
@@ -259,11 +261,14 @@ impl VirtualCPU {
                         .call()?;
                     log_then_return!("MMIO access address {:#x}", addr);
                 }
-                HyperlightExit::AccessViolation(addr, tried, region_permisson) => {
+                HyperlightExit::AccessViolation(addr, tried, region_permission) => {
+                    if region_permission.intersects(MemoryRegionFlags::STACK_GUARD) {
+                        return Err(HyperlightError::StackOverflow());
+                    }
                     log_then_return!(HyperlightError::MemoryAccessViolation(
                         addr,
                         tried,
-                        region_permisson
+                        region_permission
                     ));
                 }
                 HyperlightExit::Cancelled() => {
