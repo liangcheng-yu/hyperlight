@@ -389,9 +389,6 @@ mod tests {
     fn load_pe_info() -> Result<()> {
         for test in pe_files()? {
             let pe_path = test.path;
-            // This will not be unreachable as soon as support for
-            // another executable format is added
-            #[allow(unreachable_patterns)]
             let pe_info = match ExeInfo::from_file(&pe_path)? {
                 ExeInfo::PE(pe_info) => pe_info,
                 _ => panic!("{pe_path} did not load as a PE"),

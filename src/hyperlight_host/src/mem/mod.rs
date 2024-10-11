@@ -1,6 +1,8 @@
 /// Reusable structure to hold data and provide a `Drop` implementation
 #[cfg(target_os = "windows")]
 pub(crate) mod custom_drop;
+/// A simple ELF loader
+pub(crate) mod elf;
 /// A generic wrapper for executable files (PE, ELF, etc)
 pub(crate) mod exe;
 /// Functionality to establish a sandbox's memory layout.
