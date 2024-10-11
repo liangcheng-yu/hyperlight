@@ -31,7 +31,6 @@ impl PEInfo {
     ///
     /// Returns `Ok` with the new `PEInfo` if `pe_bytes` is a valid
     /// PE file and could properly be parsed as such, and `Err` if not.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub fn new(pe_bytes: impl Into<Vec<u8>>) -> Result<Self> {
         let mut pe_bytes: Vec<u8> = pe_bytes.into();
         let mut pe = PE::parse(&pe_bytes)?;
