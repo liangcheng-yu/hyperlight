@@ -100,14 +100,19 @@ fn cargo_main() {
             .flag("-Wno-return-stack-address");
     }
 
+    let is_pe = env::var("CARGO_CFG_WINDOWS").is_ok();
+
     if cfg!(any(
         feature = "printf",
         feature = "libc",
         feature = "alloca"
     )) {
-        cfg.define("hidden", "");
-        cfg.define("__DEFINED_va_list", None);
-        cfg.define("__DEFINED___isoc_va_list", None);
+        if is_pe {
+            cfg.define("hidden", "");
+            cfg.define("weak_alias(old, new) ", " ");
+            cfg.define("__DEFINED_va_list", None);
+            cfg.define("__DEFINED___isoc_va_list", None);
+        }
         cfg.define("__x86_64__", None);
         cfg.define("__LITTLE_ENDIAN__", None);
 
@@ -115,7 +120,6 @@ fn cargo_main() {
         cfg.define("calloc", "hlcalloc");
         cfg.define("free", "hlfree");
         cfg.define("realloc", "hlrealloc");
-        cfg.define("weak_alias(old, new) ", " ");
 
         // silence compiler warnings
         cfg.flag("-Wno-sign-compare");
@@ -124,12 +128,29 @@ fn cargo_main() {
         cfg.flag("-Wno-shift-op-parentheses");
         cfg.flag("-Wno-logical-op-parentheses");
 
-        cfg.compiler("clang-cl");
+        if is_pe {
+            cfg.compiler("clang-cl");
+        } else {
+            cfg.flag("-fPIC");
+            // This is a terrible hack, because
+            // - we need stack clash protection, because we have put the
+            //   stack right smack in the middle of everything in the guest
+            // - clang refuses to do stack clash protection unless it is
+            //   required by a target ABI (Windows, MacOS) or the target is
+            //   is Linux or FreeBSD (see Clang.cpp RenderSCPOptions
+            //   https://github.com/llvm/llvm-project/blob/1bb52e9/clang/lib/Driver/ToolChains/Clang.cpp#L3724).
+            //   Hopefully a flag to force stack clash protection on generic
+            //   targets will eventually show up.
+            cfg.flag("--target=x86_64-unknown-linux-none");
+            cfg.flag("-fstack-clash-protection");
+            cfg.flag("-mstack-probe-size=4096");
+            cfg.compiler("clang");
+        }
 
-        cfg_if::cfg_if! {
-            if #[cfg(unix)] {
-                env::set_var("AR_x86_64_pc_windows_msvc", "llvm-lib");
-            }
+        if cfg!(windows) {
+            env::set_var("AR_x86_64_unknown_none", "llvm-ar");
+        } else {
+            env::set_var("AR_x86_64_pc_windows_msvc", "llvm-lib");
         }
 
         cfg.compile("hyperlight_guest");
@@ -285,6 +306,8 @@ fn main() -> std::process::ExitCode {
             .map(|x| (x as u8).into())
             .unwrap_or(std::process::ExitCode::FAILURE),
         Tool::Clang => std::process::Command::new(find_next(root_dir, "clang"))
+            // terrible hack, see above
+            .arg("--target=x86_64-unknown-linux-none")
             .arg("-nostdinc")
             .arg("-isystem")
             .arg(include_dir)
