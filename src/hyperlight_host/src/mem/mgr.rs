@@ -13,12 +13,11 @@ use hyperlight_common::flatbuffer_wrappers::host_function_details::HostFunctionD
 use serde_json::from_str;
 use tracing::{instrument, Span};
 
+use super::exe::ExeInfo;
 use super::layout::SandboxMemoryLayout;
 #[cfg(target_os = "windows")]
 use super::loaded_lib::LoadedLib;
 use super::memory_region::{MemoryRegion, MemoryRegionType};
-use super::pe::headers::PEHeaders;
-use super::pe::pe_info::PEInfo;
 use super::ptr::{GuestPtr, RawPtr};
 use super::ptr_offset::Offset;
 use super::shared_mem::{ExclusiveSharedMemory, GuestSharedMemory, HostSharedMemory, SharedMemory};
@@ -324,7 +323,7 @@ where
 #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
 fn load_guest_binary_common<F>(
     cfg: SandboxConfiguration,
-    pe_info: &PEInfo,
+    exe_info: &ExeInfo,
     load_addr_fn: F,
 ) -> Result<(SandboxMemoryLayout, ExclusiveSharedMemory, RawPtr, Offset)>
 where
@@ -332,22 +331,15 @@ where
 {
     let layout = SandboxMemoryLayout::new(
         cfg,
-        pe_info.payload.len(),
-        usize::try_from(cfg.get_stack_size(pe_info))?,
-        usize::try_from(cfg.get_heap_size(pe_info))?,
+        exe_info.loaded_size(),
+        usize::try_from(cfg.get_stack_size(exe_info))?,
+        usize::try_from(cfg.get_heap_size(exe_info))?,
     )?;
     let mut shared_mem = ExclusiveSharedMemory::new(layout.get_memory_size()?)?;
 
     let load_addr: RawPtr = load_addr_fn(&shared_mem, &layout)?;
 
-    let entrypoint_offset = Offset::from({
-        // we have to create this intermediate variable to ensure
-        // we have an _immutable_ reference to a `PEInfo`, which
-        // is what the PEHeaders::from expects
-        let pe_info_immut: &PEInfo = pe_info;
-        let pe_headers = PEHeaders::from(pe_info_immut);
-        pe_headers.entrypoint_offset
-    });
+    let entrypoint_offset = exe_info.entrypoint();
 
     let offset = layout.get_code_pointer_offset();
 
@@ -379,12 +371,12 @@ impl SandboxMemoryManager<ExclusiveSharedMemory> {
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn load_guest_binary_into_memory(
         cfg: SandboxConfiguration,
-        pe_info: &mut PEInfo,
+        exe_info: &mut ExeInfo,
         run_from_process_memory: bool,
     ) -> Result<Self> {
         let (layout, mut shared_mem, load_addr, entrypoint_offset) = load_guest_binary_common(
             cfg,
-            pe_info,
+            exe_info,
             |shared_mem: &ExclusiveSharedMemory, layout: &SandboxMemoryLayout| {
                 let addr_usize = if run_from_process_memory {
                     // if we're running in-process, load_addr is the absolute
@@ -405,16 +397,10 @@ impl SandboxMemoryManager<ExclusiveSharedMemory> {
             },
         )?;
 
-        let relocation_patches =
-            pe_info.get_exe_relocation_patches(load_addr.clone().try_into()?)?;
-
-        {
-            // Apply relocations to the PE file (if necessary), then copy
-            // the PE file into shared memory
-            pe_info.apply_relocation_patches(relocation_patches)?;
-            let code_offset = layout.get_guest_code_offset();
-            shared_mem.copy_from_slice(&pe_info.payload, code_offset)
-        }?;
+        exe_info.load(
+            load_addr.clone().try_into()?,
+            &mut shared_mem.as_mut_slice()[layout.get_guest_code_offset()..],
+        )?;
 
         Ok(Self::new(
             layout,
@@ -434,13 +420,13 @@ impl SandboxMemoryManager<ExclusiveSharedMemory> {
     pub(crate) fn load_guest_binary_using_load_library(
         cfg: SandboxConfiguration,
         guest_bin_path: &str,
-        pe_info: &mut PEInfo,
+        exe_info: &mut ExeInfo,
     ) -> Result<Self> {
         #[cfg(target_os = "windows")]
         {
             let lib = LoadedLib::load(guest_bin_path)?;
             let (layout, shared_mem, load_addr, entrypoint_offset) =
-                load_guest_binary_common(cfg, pe_info, |_, _| Ok(lib.base_addr()))?;
+                load_guest_binary_common(cfg, exe_info, |_, _| Ok(lib.base_addr()))?;
 
             // make the memory executable when running in-process
             shared_mem.make_memory_executable()?;
@@ -460,7 +446,7 @@ impl SandboxMemoryManager<ExclusiveSharedMemory> {
             // are unused
             let _ = cfg;
             let _ = guest_bin_path;
-            let _ = pe_info;
+            let _ = exe_info;
             log_then_return!("load_guest_binary_using_load_library is only available on Windows");
         }
     }
@@ -818,8 +804,8 @@ mod tests {
 
     use super::SandboxMemoryManager;
     use crate::error::HyperlightHostError;
+    use crate::mem::exe::ExeInfo;
     use crate::mem::layout::SandboxMemoryLayout;
-    use crate::mem::pe::pe_info::PEInfo;
     use crate::mem::ptr::RawPtr;
     use crate::mem::ptr_offset::Offset;
     use crate::mem::shared_mem::{ExclusiveSharedMemory, SharedMemory};
@@ -834,14 +820,14 @@ mod tests {
         ];
         for guest in guests {
             let guest_bytes = bytes_for_path(guest).unwrap();
-            let pe_info = PEInfo::new(guest_bytes.as_slice()).unwrap();
+            let exe_info = ExeInfo::from_buf(guest_bytes.as_slice()).unwrap();
             let stack_size_override = 0x3000;
             let heap_size_override = 0x10000;
             let mut cfg = SandboxConfiguration::default();
             cfg.set_stack_size(stack_size_override);
             cfg.set_heap_size(heap_size_override);
             let (layout, shared_mem, _, _) =
-                super::load_guest_binary_common(cfg, &pe_info, |_, _| Ok(RawPtr::from(100)))
+                super::load_guest_binary_common(cfg, &exe_info, |_, _| Ok(RawPtr::from(100)))
                     .unwrap();
             assert_eq!(
                 stack_size_override,
@@ -863,11 +849,11 @@ mod tests {
         let cfg = SandboxConfiguration::default();
         let guest_path = rust_guest_as_pathbuf("simpleguest");
         let guest_bytes = bytes_for_path(guest_path).unwrap();
-        let mut pe_info = PEInfo::new(guest_bytes.as_slice()).unwrap();
+        let mut exe_info = ExeInfo::from_buf(guest_bytes.as_slice()).unwrap();
         let _ = SandboxMemoryManager::load_guest_binary_using_load_library(
             cfg,
             simple_guest_as_string().unwrap().as_str(),
-            &mut pe_info,
+            &mut exe_info,
         )
         .unwrap();
     }

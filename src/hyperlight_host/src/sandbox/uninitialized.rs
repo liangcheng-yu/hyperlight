@@ -12,8 +12,8 @@ use super::run_options::SandboxRunOptions;
 use super::uninitialized_evolve::{evolve_impl_multi_use, evolve_impl_single_use};
 use crate::error::HyperlightError::GuestBinaryShouldBeAFile;
 use crate::func::host_functions::HostFunction1;
+use crate::mem::exe::ExeInfo;
 use crate::mem::mgr::{SandboxMemoryManager, STACK_COOKIE_LEN};
-use crate::mem::pe::pe_info::PEInfo;
 use crate::mem::shared_mem::ExclusiveSharedMemory;
 use crate::sandbox::SandboxConfiguration;
 use crate::sandbox_state::sandbox::EvolvableSandbox;
@@ -260,9 +260,9 @@ impl<'a> UninitializedSandbox {
         run_from_process_memory: bool,
         run_from_guest_binary: bool,
     ) -> Result<SandboxMemoryManager<ExclusiveSharedMemory>> {
-        let mut pe_info = match guest_binary {
-            GuestBinary::FilePath(bin_path_str) => PEInfo::from_file(bin_path_str)?,
-            GuestBinary::Buffer(buffer) => PEInfo::new(buffer.clone())?,
+        let mut exe_info = match guest_binary {
+            GuestBinary::FilePath(bin_path_str) => ExeInfo::from_file(bin_path_str)?,
+            GuestBinary::Buffer(buffer) => ExeInfo::from_buf(buffer)?,
         };
 
         if run_from_guest_binary {
@@ -273,7 +273,7 @@ impl<'a> UninitializedSandbox {
                 }
             };
             // TODO: This produces the wrong error message on Linux and is possibly obsfucating the real error on Windows
-            SandboxMemoryManager::load_guest_binary_using_load_library(cfg, path, &mut pe_info)
+            SandboxMemoryManager::load_guest_binary_using_load_library(cfg, path, &mut exe_info)
                 .map_err(|e: crate::HyperlightError| {
                     new_error!(
                     "Only one instance of Sandbox is allowed when running from guest binary: {:?}",
@@ -283,7 +283,7 @@ impl<'a> UninitializedSandbox {
         } else {
             SandboxMemoryManager::load_guest_binary_into_memory(
                 cfg,
-                &mut pe_info,
+                &mut exe_info,
                 run_from_process_memory,
             )
         }

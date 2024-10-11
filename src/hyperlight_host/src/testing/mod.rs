@@ -3,20 +3,20 @@ use std::path::PathBuf;
 
 use hyperlight_testing::rust_guest_as_pathbuf;
 
-use crate::mem::pe::pe_info::PEInfo;
+use crate::mem::exe::ExeInfo;
 use crate::{new_error, Result};
 pub(crate) mod log_values;
 
-/// Get a `PEInfo` representing `simpleguest.exe`
-pub(crate) fn simple_guest_pe_info() -> Result<PEInfo> {
+/// Get an `ExeInfo` representing `simpleguest.exe`
+pub(crate) fn simple_guest_exe_info() -> Result<ExeInfo> {
     let bytes = bytes_for_path(rust_guest_as_pathbuf("simpleguest"))?;
-    PEInfo::new(bytes.as_slice())
+    ExeInfo::from_buf(bytes.as_slice())
 }
 
-/// Get a `PEInfo` representing `callbackguest.exe`
-pub(crate) fn callback_guest_pe_info() -> Result<PEInfo> {
+/// Get an `ExeInfo` representing `callbackguest.exe`
+pub(crate) fn callback_guest_exe_info() -> Result<ExeInfo> {
     let bytes = bytes_for_path(rust_guest_as_pathbuf("callbackguest"))?;
-    PEInfo::new(bytes.as_slice())
+    ExeInfo::from_buf(bytes.as_slice())
 }
 
 /// Read the file at `path_buf` into a `Vec<u8>` and return it,

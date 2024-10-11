@@ -174,7 +174,7 @@ mod tests {
     use crate::sandbox::outb::GuestLogData;
     use crate::sandbox::SandboxConfiguration;
     use crate::testing::log_values::test_value_as_str;
-    use crate::testing::simple_guest_pe_info;
+    use crate::testing::simple_guest_exe_info;
 
     fn new_guest_log_data(level: LogLevel) -> GuestLogData {
         GuestLogData::new(
@@ -196,10 +196,10 @@ mod tests {
         let sandbox_cfg = SandboxConfiguration::default();
 
         let new_mgr = || {
-            let mut pe_info = simple_guest_pe_info().unwrap();
+            let mut exe_info = simple_guest_exe_info().unwrap();
             let mut mgr = SandboxMemoryManager::load_guest_binary_into_memory(
                 sandbox_cfg,
-                &mut pe_info,
+                &mut exe_info,
                 false,
             )
             .unwrap();
@@ -311,10 +311,10 @@ mod tests {
         let sandbox_cfg = SandboxConfiguration::default();
         tracing::subscriber::with_default(subscriber.clone(), || {
             let new_mgr = || {
-                let mut pe_info = simple_guest_pe_info().unwrap();
+                let mut exe_info = simple_guest_exe_info().unwrap();
                 let mut mgr = SandboxMemoryManager::load_guest_binary_into_memory(
                     sandbox_cfg,
-                    &mut pe_info,
+                    &mut exe_info,
                     false,
                 )
                 .unwrap();

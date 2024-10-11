@@ -1,11 +1,10 @@
-use std::fs::File;
 use std::io::{Cursor, Read, Write};
 use std::{iter, mem};
 
 use goblin::pe::optional_header::OptionalHeader;
 use goblin::pe::section_table::SectionTable;
 use goblin::pe::PE;
-use tracing::{info, instrument, Span};
+use tracing::{instrument, Span};
 
 use crate::mem::pe::base_relocations;
 use crate::{debug, log_then_return, Result};
@@ -28,15 +27,6 @@ pub(crate) struct PEInfo {
 }
 
 impl PEInfo {
-    #[instrument(err(Debug), parent = Span::current(), level= "Trace")]
-    pub(crate) fn from_file(filename: &str) -> Result<Self> {
-        info!("Loading PE file from {}", filename);
-        let mut file = File::open(filename)?;
-        let mut contents = Vec::new();
-        file.read_to_end(&mut contents)?;
-        Self::new(contents)
-    }
-
     /// Create a new `PEInfo`.
     ///
     /// Returns `Ok` with the new `PEInfo` if `pe_bytes` is a valid
@@ -332,6 +322,7 @@ pub(crate) struct RelocationPatch {
 mod tests {
     use hyperlight_testing::{callback_guest_as_string, simple_guest_as_string};
 
+    use crate::mem::exe::ExeInfo;
     use crate::{new_error, Result};
 
     #[allow(dead_code)]
@@ -398,7 +389,13 @@ mod tests {
     fn load_pe_info() -> Result<()> {
         for test in pe_files()? {
             let pe_path = test.path;
-            let pe_info = super::PEInfo::from_file(&pe_path)?;
+            // This will not be unreachable as soon as support for
+            // another executable format is added
+            #[allow(unreachable_patterns)]
+            let pe_info = match ExeInfo::from_file(&pe_path)? {
+                ExeInfo::PE(pe_info) => pe_info,
+                _ => panic!("{pe_path} did not load as a PE"),
+            };
 
             // Validate that the pe headers aren't empty
             assert_eq!(

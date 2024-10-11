@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use tracing::{instrument, Span};
 
-use crate::mem::pe::pe_info::PEInfo;
+use crate::mem::exe::ExeInfo;
 
 /// The complete set of configuration needed to create a Sandbox
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -385,11 +385,11 @@ impl SandboxConfiguration {
     }
 
     /// If self.stack_size is non-zero, return it. Otherwise,
-    /// return pe_info.stack_reserve()
+    /// return exe_info.stack_reserve()
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(crate) fn get_stack_size(&self, pe_info: &PEInfo) -> u64 {
+    pub(crate) fn get_stack_size(&self, exe_info: &ExeInfo) -> u64 {
         self.stack_size_override_opt()
-            .unwrap_or_else(|| pe_info.stack_reserve())
+            .unwrap_or_else(|| exe_info.stack_reserve())
     }
 
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
@@ -398,11 +398,11 @@ impl SandboxConfiguration {
     }
 
     /// If self.heap_size_override is non-zero, return it. Otherwise,
-    /// return pe_info.heap_reserve()
+    /// return exe_info.heap_reserve()
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(crate) fn get_heap_size(&self, pe_info: &PEInfo) -> u64 {
+    pub(crate) fn get_heap_size(&self, exe_info: &ExeInfo) -> u64 {
         self.heap_size_override_opt()
-            .unwrap_or_else(|| pe_info.heap_reserve())
+            .unwrap_or_else(|| exe_info.heap_reserve())
     }
 }
 
@@ -431,7 +431,7 @@ mod tests {
     use std::time::Duration;
 
     use super::SandboxConfiguration;
-    use crate::testing::{callback_guest_pe_info, simple_guest_pe_info};
+    use crate::testing::{callback_guest_exe_info, simple_guest_exe_info};
 
     #[test]
     fn overrides() {
@@ -465,13 +465,13 @@ mod tests {
             )),
             GUEST_PANIC_CONTEXT_BUFFER_SIZE_OVERRIDE,
         );
-        let pe_infos = vec![
-            simple_guest_pe_info().unwrap(),
-            callback_guest_pe_info().unwrap(),
+        let exe_infos = vec![
+            simple_guest_exe_info().unwrap(),
+            callback_guest_exe_info().unwrap(),
         ];
-        for pe_info in pe_infos {
-            let stack_size = cfg.get_stack_size(&pe_info);
-            let heap_size = cfg.get_heap_size(&pe_info);
+        for exe_info in exe_infos {
+            let stack_size = cfg.get_stack_size(&exe_info);
+            let heap_size = cfg.get_heap_size(&exe_info);
             assert_eq!(STACK_SIZE_OVERRIDE, stack_size);
             assert_eq!(HEAP_SIZE_OVERRIDE, heap_size);
         }
