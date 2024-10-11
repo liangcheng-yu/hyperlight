@@ -565,10 +565,6 @@ pub mod tests {
     use crate::hypervisor::tests::test_initialise;
     use crate::Result;
 
-    extern "C" fn outb_fn(_port: u16, _payload: u64) {}
-
-    extern "C" fn mem_access_fn() {}
-
     #[test]
     #[serial]
     fn test_init() {
