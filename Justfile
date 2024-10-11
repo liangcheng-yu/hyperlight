@@ -125,6 +125,10 @@ clippy-apply-fix-unix:
 clippy-apply-fix-windows:
     cargo clippy --target x86_64-pc-windows-msvc --fix --all 
 
+# Verify Minimum Supported Rust Version
+verify-msrv:
+    ./dev/verify-msrv.sh hyperlight_host hyperlight_guest hyperlight_common
+
 # GEN FLATBUFFERS
 gen-all-fbs-rust-code:
     for fbs in `find src -name "*.fbs"`; do flatc -r --rust-module-root-file --gen-all -o ./src/hyperlight_host/src/flatbuffers/ $fbs; done

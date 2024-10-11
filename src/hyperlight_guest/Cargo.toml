@@ -1,8 +1,9 @@
 [package]
 name = "hyperlight_guest"
-version = "0.8.0"
-edition = "2021"
 links = "c"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 
 [features]
 default = ["libc", "printf", "alloca"]

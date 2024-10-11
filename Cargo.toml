@@ -24,6 +24,11 @@ exclude = [
     "src/tests/rust_guests/simpleguest",
 ]
 
+[workspace.package]
+version = "0.8.0"
+edition = "2021"
+rust-version = "1.78.0"
+
 [workspace.dependencies]
 mshv-bindings = { version = "=0.2.0", registry = "hyperlight_redist" }
 mshv-ioctls = { version = "=0.2.0", registry = "hyperlight_redist" }

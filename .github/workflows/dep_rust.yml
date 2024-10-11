@@ -91,6 +91,10 @@ jobs:
       - name: Build
         run: just build-rust ${{ matrix.config }}
 
+      - name: Verify MSRV
+        run: ./dev/verify-msrv.sh hyperlight_host hyperlight_guest hyperlight_common
+        shell: bash
+
       - name: Run Rust tests
         env:
           CARGO_TERM_COLOR: always
