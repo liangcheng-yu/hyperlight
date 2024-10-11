@@ -49,7 +49,7 @@ pub(crate) fn call_function_on_guest<'a, WrapperGetterT: WrapperGetter<'a>>(
 
     match wrapper_getter.get_execution_mode().clone() {
         ExecutionMode::InProc(_) => {
-            let dispatch: fn() = unsafe {
+            let dispatch: extern "win64" fn() = unsafe {
                 std::mem::transmute(
                     wrapper_getter
                         .get_mgr_wrapper()

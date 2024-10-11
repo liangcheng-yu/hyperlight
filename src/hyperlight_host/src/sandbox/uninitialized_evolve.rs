@@ -133,7 +133,7 @@ pub(super) unsafe fn call_entry_point(
     seed: u64,
     page_size: u32,
 ) -> Result<()> {
-    type EntryPoint = extern "C" fn(i64, u64, u32, u32) -> i32;
+    type EntryPoint = extern "win64" fn(i64, u64, u32, u32) -> i32;
     let entry_point: EntryPoint = {
         let addr = {
             let offset = mgr.entrypoint_offset;

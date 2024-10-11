@@ -26,7 +26,7 @@ use crate::Result;
 ///
 /// NOTE: This is not part of the C Hyperlight API , it is intended only to be
 /// called in proc through a pointer passed to the guest.
-extern "C" fn call_outb(ptr: *mut Arc<Mutex<dyn OutBHandlerCaller>>, port: u16, data: u64) {
+extern "win64" fn call_outb(ptr: *mut Arc<Mutex<dyn OutBHandlerCaller>>, port: u16, data: u64) {
     let outb_handlercaller = unsafe { Box::from_raw(ptr) };
     let res = outb_handlercaller
         .try_lock()

@@ -61,7 +61,12 @@ extern "C" {
 static INIT: Once = Once::new();
 
 #[no_mangle]
-pub extern "C" fn entrypoint(peb_address: u64, seed: u64, ops: u64, log_level_filter: u64) -> i32 {
+pub extern "win64" fn entrypoint(
+    peb_address: u64,
+    seed: u64,
+    ops: u64,
+    log_level_filter: u64,
+) -> i32 {
     if peb_address == 0 {
         // TODO this should call abort with a code
         return -1;
@@ -119,13 +124,13 @@ pub extern "C" fn entrypoint(peb_address: u64, seed: u64, ops: u64, log_level_fi
 
             OS_PAGE_SIZE = ops as u32;
 
-            let outb_ptr: fn(u16, u8) = core::mem::transmute((*peb_ptr).pOutb);
+            let outb_ptr: extern "win64" fn(u16, u8) = core::mem::transmute((*peb_ptr).pOutb);
             OUTB_PTR = Some(outb_ptr);
 
             OUTB_PTR_WITH_CONTEXT = if (*peb_ptr).pOutbContext.is_null() {
                 None
             } else {
-                let outb_ptr_with_context: fn(*mut c_void, u16, u8) =
+                let outb_ptr_with_context: extern "win64" fn(*mut c_void, u16, u8) =
                     core::mem::transmute((*peb_ptr).pOutb);
                 Some(outb_ptr_with_context)
             };

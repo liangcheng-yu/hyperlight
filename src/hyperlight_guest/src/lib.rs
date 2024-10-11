@@ -76,8 +76,10 @@ pub(crate) static mut P_PEB: Option<*mut HyperlightPEB> = None;
 pub static mut MIN_STACK_ADDRESS: u64 = 0;
 
 pub static mut OS_PAGE_SIZE: u32 = 0;
-pub(crate) static mut OUTB_PTR: Option<fn(u16, u8)> = None;
-pub(crate) static mut OUTB_PTR_WITH_CONTEXT: Option<fn(*mut core::ffi::c_void, u16, u8)> = None;
+pub(crate) static mut OUTB_PTR: Option<extern "win64" fn(u16, u8)> = None;
+pub(crate) static mut OUTB_PTR_WITH_CONTEXT: Option<
+    extern "win64" fn(*mut core::ffi::c_void, u16, u8),
+> = None;
 pub static mut RUNNING_IN_HYPERLIGHT: bool = false;
 
 pub(crate) static mut REGISTERED_GUEST_FUNCTIONS: GuestFunctionRegister =
