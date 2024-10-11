@@ -11,6 +11,8 @@ use hyperlight_host::{
 };
 use hyperlight_testing::simple_guest_as_string;
 #[cfg(target_os = "windows")]
+use hyperlight_testing::simple_guest_exe_as_string;
+#[cfg(target_os = "windows")]
 use serial_test::serial; // using LoadLibrary requires serial tests
 
 pub mod common; // pub to disable dead_code warning
@@ -459,7 +461,7 @@ fn simple_test_helper() -> Result<()> {
             .try_lock()
             .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?
             .len(),
-        3
+        4
     );
     #[cfg(target_os = "linux")]
     assert_eq!(
@@ -505,7 +507,7 @@ fn simple_test_parallel() {
 #[cfg(target_os = "windows")]
 fn only_one_sandbox_instance_with_loadlib() {
     let _sandbox = UninitializedSandbox::new(
-        GuestBinary::FilePath(simple_guest_as_string().unwrap()),
+        GuestBinary::FilePath(simple_guest_exe_as_string().unwrap()),
         None,
         Some(SandboxRunOptions::RunInProcess(true)),
         None,
@@ -513,7 +515,7 @@ fn only_one_sandbox_instance_with_loadlib() {
     .unwrap();
 
     let err = UninitializedSandbox::new(
-        GuestBinary::FilePath(simple_guest_as_string().unwrap()),
+        GuestBinary::FilePath(simple_guest_exe_as_string().unwrap()),
         None,
         Some(SandboxRunOptions::RunInProcess(true)),
         None,

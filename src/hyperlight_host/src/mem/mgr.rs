@@ -842,7 +842,7 @@ mod tests {
     #[test]
     #[serial]
     fn load_guest_binary_using_load_library() {
-        use hyperlight_testing::{rust_guest_as_pathbuf, simple_guest_as_string};
+        use hyperlight_testing::{rust_guest_as_pathbuf, simple_guest_exe_as_string};
 
         use crate::mem::mgr::SandboxMemoryManager;
 
@@ -852,7 +852,7 @@ mod tests {
         let mut exe_info = ExeInfo::from_buf(guest_bytes.as_slice()).unwrap();
         let _ = SandboxMemoryManager::load_guest_binary_using_load_library(
             cfg,
-            simple_guest_as_string().unwrap().as_str(),
+            simple_guest_exe_as_string().unwrap().as_str(),
             &mut exe_info,
         )
         .unwrap();

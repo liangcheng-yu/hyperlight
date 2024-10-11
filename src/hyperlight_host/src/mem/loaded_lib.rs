@@ -84,7 +84,7 @@ impl Drop for LoadedLibInner {
 
 #[cfg(test)]
 mod tests {
-    use hyperlight_testing::{rust_guest_as_pathbuf, simple_guest_as_string};
+    use hyperlight_testing::{rust_guest_as_pathbuf, simple_guest_exe_as_string};
     use serial_test::serial;
 
     use super::LoadedLib;
@@ -99,13 +99,13 @@ mod tests {
         {
             // a test to just ensure we can load and unload (when dropped)
             // a library using LoadLibraryA and FreeLibrary, respectively
-            let path = simple_guest_as_string().unwrap();
+            let path = simple_guest_exe_as_string().unwrap();
             let lib = LoadedLib::load(path).unwrap();
             drop(lib);
         }
         // test the locking mechanism allowing only one loaded library
         {
-            let path = simple_guest_as_string().unwrap();
+            let path = simple_guest_exe_as_string().unwrap();
             let lib1 = LoadedLib::load(&path);
             assert!(lib1.is_ok());
             let lib2 = LoadedLib::load(&path);
@@ -117,7 +117,7 @@ mod tests {
         // test actually loading a library from a real compiled
         // binary
         {
-            let lib_name = rust_guest_as_pathbuf("simpleguest");
+            let lib_name = rust_guest_as_pathbuf("simpleguest.exe");
             let lib = LoadedLib::load(lib_name).unwrap();
             for _ in 0..9 {
                 let l = lib.clone();

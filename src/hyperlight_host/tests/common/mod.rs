@@ -45,7 +45,7 @@ pub fn get_simpleguest_sandboxes<'a>(
 
     #[cfg(target_os = "windows")]
     {
-        // in process
+        // in-process elf
         res.push(
             UninitializedSandbox::new(
                 GuestBinary::FilePath(path.clone()),
@@ -58,10 +58,25 @@ pub fn get_simpleguest_sandboxes<'a>(
             .unwrap(),
         );
 
+        let mut exe_path = path.trim_end_matches(".exe").to_string();
+        exe_path.push_str(".exe");
+        // in-process exe
+        res.push(
+            UninitializedSandbox::new(
+                GuestBinary::FilePath(exe_path.clone()),
+                None,
+                Some(hyperlight_host::SandboxRunOptions::RunInProcess(false)),
+                writer,
+            )
+            .unwrap()
+            .evolve(Noop::default())
+            .unwrap(),
+        );
+
         // in memory with loadlib
         res.push(
             UninitializedSandbox::new(
-                GuestBinary::FilePath(path.clone()),
+                GuestBinary::FilePath(exe_path.clone()),
                 None,
                 Some(hyperlight_host::SandboxRunOptions::RunInProcess(true)),
                 writer,
@@ -87,7 +102,7 @@ pub fn get_callbackguest_uninit_sandboxes(
 
     #[cfg(target_os = "windows")]
     {
-        // in process
+        // in-process elf
         res.push(
             UninitializedSandbox::new(
                 GuestBinary::FilePath(path.clone()),
@@ -98,10 +113,23 @@ pub fn get_callbackguest_uninit_sandboxes(
             .unwrap(),
         );
 
+        let mut exe_path = path.trim_end_matches(".exe").to_string();
+        exe_path.push_str(".exe");
+        // in-process exe
+        res.push(
+            UninitializedSandbox::new(
+                GuestBinary::FilePath(exe_path.clone()),
+                None,
+                Some(hyperlight_host::SandboxRunOptions::RunInProcess(false)),
+                writer,
+            )
+            .unwrap(),
+        );
+
         // in memory with loadlib
         res.push(
             UninitializedSandbox::new(
-                GuestBinary::FilePath(path.clone()),
+                GuestBinary::FilePath(exe_path.clone()),
                 None,
                 Some(hyperlight_host::SandboxRunOptions::RunInProcess(true)),
                 writer,

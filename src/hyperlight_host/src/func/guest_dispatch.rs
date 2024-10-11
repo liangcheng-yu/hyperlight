@@ -129,6 +129,8 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::thread;
 
+    #[cfg(target_os = "windows")]
+    use hyperlight_testing::simple_guest_exe_as_string;
     use hyperlight_testing::{callback_guest_as_string, simple_guest_as_string};
 
     use super::*;
@@ -382,7 +384,7 @@ mod tests {
     #[cfg(target_os = "windows")]
     fn test_call_guest_function_by_name_in_proc_load_lib() {
         let u_sbox = UninitializedSandbox::new(
-            guest_bin(),
+            GuestBinary::FilePath(simple_guest_exe_as_string().expect("Guest Exe Missing")),
             None,
             Some(crate::SandboxRunOptions::RunInProcess(true)),
             None,

@@ -9,9 +9,11 @@ set-env-command := if os() == "windows" { "$env:" } else { "export " }
 bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
 
 default-target := "debug"
-simpleguest_source := "src/tests/rust_guests/simpleguest/target/x86_64-pc-windows-msvc"
-dummyguest_source := "src/tests/rust_guests/dummyguest/target/x86_64-pc-windows-msvc"
-callbackguest_source := "src/tests/rust_guests/callbackguest/target/x86_64-pc-windows-msvc"
+simpleguest_source := "src/tests/rust_guests/simpleguest/target/x86_64-unknown-none"
+simpleguest_msvc_source := "src/tests/rust_guests/simpleguest/target/x86_64-pc-windows-msvc"
+dummyguest_source := "src/tests/rust_guests/dummyguest/target/x86_64-unknown-none"
+callbackguest_source := "src/tests/rust_guests/callbackguest/target/x86_64-unknown-none"
+callbackguest_msvc_source := "src/tests/rust_guests/callbackguest/target/x86_64-pc-windows-msvc"
 rust_guests_bin_dir := "src/tests/rust_guests/bin"
 
 install-vcpkg:
@@ -28,14 +30,18 @@ update-dlmalloc:
 
 # BUILDING
 build-rust-guests target=default-target:
-    cd src/tests/rust_guests/callbackguest && cargo build --profile={{ if target == "debug" { "dev" } else { target } }} 
+    cd src/tests/rust_guests/callbackguest && cargo build --profile={{ if target == "debug" { "dev" } else { target } }}
+    cd src/tests/rust_guests/callbackguest && cargo build --profile={{ if target == "debug" { "dev" } else { target } }}  --target=x86_64-pc-windows-msvc
     cd src/tests/rust_guests/simpleguest && cargo build --profile={{ if target == "debug" { "dev" } else { target } }} 
+    cd src/tests/rust_guests/simpleguest && cargo build --profile={{ if target == "debug" { "dev" } else { target } }} --target=x86_64-pc-windows-msvc
     cd src/tests/rust_guests/dummyguest && cargo build --profile={{ if target == "debug" { "dev" } else { target } }} 
 
 move-rust-guests target=default-target:
-    cp {{ callbackguest_source }}/{{ target }}/callbackguest.* {{ rust_guests_bin_dir }}/{{ target }}/
-    cp {{ simpleguest_source }}/{{ target }}/simpleguest.* {{ rust_guests_bin_dir }}/{{ target }}/
-    cp {{ dummyguest_source }}/{{ target }}/dummyguest.* {{ rust_guests_bin_dir }}/{{ target }}/
+    cp {{ callbackguest_source }}/{{ target }}/callbackguest* {{ rust_guests_bin_dir }}/{{ target }}/
+    cp {{ callbackguest_msvc_source }}/{{ target }}/callbackguest* {{ rust_guests_bin_dir }}/{{ target }}/
+    cp {{ simpleguest_source }}/{{ target }}/simpleguest* {{ rust_guests_bin_dir }}/{{ target }}/
+    cp {{ simpleguest_msvc_source }}/{{ target }}/simpleguest* {{ rust_guests_bin_dir }}/{{ target }}/
+    cp {{ dummyguest_source }}/{{ target }}/dummyguest* {{ rust_guests_bin_dir }}/{{ target }}/
 
 build-and-move-rust-guests: (build-rust-guests "debug") (move-rust-guests "debug") (build-rust-guests "release") (move-rust-guests "release")
 

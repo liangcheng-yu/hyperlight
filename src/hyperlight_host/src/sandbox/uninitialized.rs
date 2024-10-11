@@ -300,8 +300,8 @@ mod tests {
     use crossbeam_queue::ArrayQueue;
     use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnValue};
     use hyperlight_testing::logger::{Logger as TestLogger, LOGGER as TEST_LOGGER};
-    use hyperlight_testing::simple_guest_as_string;
     use hyperlight_testing::tracing_subscriber::TracingSubscriber as TestSubcriber;
+    use hyperlight_testing::{simple_guest_as_string, simple_guest_exe_as_string};
     use log::Level;
     use serde_json::{Map, Value};
     use serial_test::serial;
@@ -331,7 +331,8 @@ mod tests {
 
         // Guest Binary does not exist at path
 
-        let binary_path_does_not_exist = binary_path.trim_end_matches(".exe").to_string();
+        let mut binary_path_does_not_exist = binary_path.clone();
+        binary_path_does_not_exist.push_str(".nonexistent");
         let uninitialized_sandbox = UninitializedSandbox::new(
             GuestBinary::FilePath(binary_path_does_not_exist),
             None,
@@ -530,7 +531,7 @@ mod tests {
     #[serial]
     fn test_load_guest_binary_load_lib() {
         let cfg = SandboxConfiguration::default();
-        let simple_guest_path = simple_guest_as_string().unwrap();
+        let simple_guest_path = simple_guest_exe_as_string().unwrap();
         let mgr_res = UninitializedSandbox::load_guest_binary(
             cfg,
             &GuestBinary::FilePath(simple_guest_path),

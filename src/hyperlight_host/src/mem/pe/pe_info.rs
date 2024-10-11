@@ -319,7 +319,7 @@ pub(crate) struct RelocationPatch {
 
 #[cfg(test)]
 mod tests {
-    use hyperlight_testing::{callback_guest_as_string, simple_guest_as_string};
+    use hyperlight_testing::{callback_guest_exe_as_string, simple_guest_exe_as_string};
 
     use crate::mem::exe::ExeInfo;
     use crate::{new_error, Result};
@@ -335,7 +335,7 @@ mod tests {
     fn pe_files() -> Result<Vec<PEFileTest>> {
         let simple_guest_pe_file_test = if cfg!(debug_assertions) {
             PEFileTest {
-                path: simple_guest_as_string()
+                path: simple_guest_exe_as_string()
                     .map_err(|e| new_error!("Simple Guest Path Error {}", e))?,
                 stack_size: 65536,
                 heap_size: 131072,
@@ -346,7 +346,7 @@ mod tests {
             }
         } else {
             PEFileTest {
-                path: simple_guest_as_string()
+                path: simple_guest_exe_as_string()
                     .map_err(|e| new_error!("Simple Guest Path Error {}", e))?,
                 stack_size: 65536,
                 heap_size: 131072,
@@ -363,7 +363,7 @@ mod tests {
 
         let callback_guest_pe_file_test = if cfg!(debug_assertions) {
             PEFileTest {
-                path: callback_guest_as_string()
+                path: callback_guest_exe_as_string()
                     .map_err(|e| new_error!("Callback Guest Path Error {}", e))?,
                 stack_size: 65536,
                 heap_size: 131072,
@@ -372,7 +372,7 @@ mod tests {
             }
         } else {
             PEFileTest {
-                path: callback_guest_as_string()
+                path: callback_guest_exe_as_string()
                     .map_err(|e| new_error!("Callback Guest Path Error {}", e))?,
                 stack_size: 65536,
                 heap_size: 131072,
