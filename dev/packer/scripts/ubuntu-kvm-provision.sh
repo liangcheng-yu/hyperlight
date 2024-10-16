@@ -10,6 +10,7 @@ wget https://apt.llvm.org/llvm.sh
 chmod +x ./llvm.sh
 ./llvm.sh 17 all
 ln -s /usr/lib/llvm-17/bin/clang-cl /usr/bin/clang-cl
+ln -s /usr/lib/llvm-17/bin/clang /usr/bin/clang
 ln -s /usr/lib/llvm-17/bin/llvm-lib /usr/bin/llvm-lib
 ln -s /usr/lib/llvm-17/bin/lld-link /usr/bin/lld-link
 ln -s /usr/lib/llvm-17/bin/llvm-ml /usr/bin/llvm-ml
