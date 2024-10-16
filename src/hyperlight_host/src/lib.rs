@@ -63,6 +63,9 @@ pub mod sandbox;
 pub mod sandbox_state;
 #[cfg(all(feature = "seccomp", target_os = "linux"))]
 pub(crate) mod seccomp;
+/// Signal handling for Linux
+#[cfg(target_os = "linux")]
+pub(crate) mod signal_handlers;
 /// Utilities for testing including interacting with `simpleguest.exe`
 /// and `callbackguest.exe`, our two most basic guest binaries for testing
 #[deny(missing_docs, unused_mut)]

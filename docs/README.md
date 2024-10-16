@@ -32,7 +32,6 @@ This project is composed internally of several internal components, depicted in 
 ## For developers
 
 * [Security guidance for developers](./security-guidance-for-developers)
-* [Seccomp Development Notes](./seccomp-development-notes)
 * [Paging Development Notes](./paging-development-notes)
 * [C# and Rust Interop Development Notes](./csharp-and-rust-development-notes)
 * [How to use Flatbuffers in Hyperlight](./how-to-use-flatbuffers)
@@ -44,3 +43,4 @@ This project is composed internally of several internal components, depicted in 
 * [Hyperlight Surrogate Development Notes](./hyperlight-surrogate-development-notes)
 * [Debugging Hyperlight](./debugging-hyperlight)
 * [ADO Cargo Feeds Development Notes](./ado-cargo-feeds-development-notes)
+* [Signal Handling in Hyperlight](./signal-handlers-development-notes.md)

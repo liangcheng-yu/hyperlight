@@ -130,10 +130,6 @@ mod tests {
     use std::thread;
 
     use hyperlight_testing::{callback_guest_as_string, simple_guest_as_string};
-    #[cfg(target_os = "linux")]
-    use libc::SYS_getpid;
-    #[cfg(all(feature = "seccomp", target_os = "linux"))]
-    use HyperlightError::DisallowedSyscall;
 
     use super::*;
     use crate::func::call_ctx::{MultiUseGuestCallContext, SingleUseGuestCallContext};
@@ -169,48 +165,84 @@ mod tests {
     }
 
     #[test]
-    // TODO: Investigate why this test fails with the an incorrect error when run alongside other tests see https://github.com/deislabs/hyperlight/issues/1552
+    // TODO: Investigate why this test fails with an incorrect error when run alongside other
+    // tests see https://github.com/deislabs/hyperlight/issues/1552
     #[ignore]
     #[cfg(target_os = "linux")]
     fn test_violate_seccomp_filters() -> Result<()> {
         if !is_hypervisor_present() {
             panic!("Panic on create_multi_use_sandbox because no hypervisor is present");
         }
-        let mut usbox = UninitializedSandbox::new(
-            GuestBinary::FilePath(simple_guest_as_string().expect("Guest Binary Missing")),
-            None,
-            None,
-            None,
-        )
-        .unwrap();
 
         fn make_get_pid_syscall() -> Result<u64> {
-            let pid = unsafe { libc::syscall(SYS_getpid) };
+            let pid = unsafe { libc::syscall(libc::SYS_getpid) };
             Ok(pid as u64)
         }
 
-        let make_get_pid_syscall_func = Arc::new(Mutex::new(make_get_pid_syscall));
+        // First, run  to make sure it fails.
+        {
+            let make_get_pid_syscall_func = Arc::new(Mutex::new(make_get_pid_syscall));
 
-        make_get_pid_syscall_func.register(&mut usbox, "MakeGetpidSyscall")?;
+            let mut usbox = UninitializedSandbox::new(
+                GuestBinary::FilePath(simple_guest_as_string().expect("Guest Binary Missing")),
+                None,
+                None,
+                None,
+            )
+            .unwrap();
 
-        let mut sbox: MultiUseSandbox = usbox.evolve(MutatingCallback::from(init))?;
+            make_get_pid_syscall_func.register(&mut usbox, "MakeGetpidSyscall")?;
 
-        let res =
-            sbox.call_guest_function_by_name("ViolateSeccompFilters", ReturnType::ULong, None);
+            let mut sbox: MultiUseSandbox = usbox.evolve(MutatingCallback::from(init))?;
 
-        #[cfg(feature = "seccomp")]
-        match res {
-            Ok(_) => panic!("Expected to fail due to seccomp violation"),
-            Err(e) => match e {
-                DisallowedSyscall() => {}
-                _ => panic!("Expected DisallowedSyscall error: {}", e),
-            },
+            let res =
+                sbox.call_guest_function_by_name("ViolateSeccompFilters", ReturnType::ULong, None);
+
+            #[cfg(feature = "seccomp")]
+            match res {
+                Ok(_) => panic!("Expected to fail due to seccomp violation"),
+                Err(e) => match e {
+                    HyperlightError::DisallowedSyscall(_) => {}
+                    _ => panic!("Expected DisallowedSyscall error: {}", e),
+                },
+            }
+
+            #[cfg(not(feature = "seccomp"))]
+            match res {
+                Ok(_) => (),
+                Err(e) => panic!("Expected to succeed without seccomp: {}", e),
+            }
         }
 
-        #[cfg(not(feature = "seccomp"))]
-        match res {
-            Ok(_) => (),
-            Err(e) => panic!("Expected to succeed without seccomp: {}", e),
+        // Second, run with allowing `SYS_getpid`
+        #[cfg(feature = "seccomp")]
+        {
+            let make_get_pid_syscall_func = Arc::new(Mutex::new(make_get_pid_syscall));
+
+            let mut usbox = UninitializedSandbox::new(
+                GuestBinary::FilePath(simple_guest_as_string().expect("Guest Binary Missing")),
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+
+            make_get_pid_syscall_func.register_with_extra_allowed_syscalls(
+                &mut usbox,
+                "MakeGetpidSyscall",
+                vec![libc::SYS_getpid],
+            )?;
+            // ^^^ note, we are allowing SYS_getpid
+
+            let mut sbox: MultiUseSandbox = usbox.evolve(MutatingCallback::from(init))?;
+
+            let res =
+                sbox.call_guest_function_by_name("ViolateSeccompFilters", ReturnType::ULong, None);
+
+            match res {
+                Ok(_) => {}
+                Err(e) => panic!("Expected to succeed due to seccomp violation: {}", e),
+            }
         }
 
         Ok(())
@@ -451,7 +483,17 @@ mod tests {
 
         let host_spin_func = Arc::new(Mutex::new(spin));
 
+        #[cfg(any(target_os = "windows", not(feature = "seccomp")))]
         host_spin_func.register(&mut usbox, "Spin").unwrap();
+
+        #[cfg(all(target_os = "linux", feature = "seccomp"))]
+        host_spin_func
+            .register_with_extra_allowed_syscalls(
+                &mut usbox,
+                "Spin",
+                vec![libc::SYS_clock_nanosleep],
+            )
+            .unwrap();
 
         let sandbox: MultiUseSandbox = usbox.evolve(MutatingCallback::from(init)).unwrap();
         let mut ctx = sandbox.new_call_context();

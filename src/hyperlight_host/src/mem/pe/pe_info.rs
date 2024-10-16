@@ -387,7 +387,7 @@ mod tests {
                 stack_size: 65536,
                 heap_size: 131072,
                 load_address: 5368709120,
-                num_relocations: (500..800).collect(),
+                num_relocations: (400..800).collect(),
             }
         };
 

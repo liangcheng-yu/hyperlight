@@ -184,3 +184,6 @@ bench target=default-target:
 # FUZZING
 fuzz:
     cd src/hyperlight_host && cargo +nightly fuzz run fuzz_target_1
+
+fuzz-timed:
+    cd src/hyperlight_host && cargo +nightly fuzz run fuzz_target_1 -- -max_total_time=300

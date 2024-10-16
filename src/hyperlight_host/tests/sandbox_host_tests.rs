@@ -457,7 +457,7 @@ fn simple_test_helper() -> Result<()> {
     assert_eq!(
         messages
             .try_lock()
-            .map_err(|_| new_error!("Error locking"))?
+            .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?
             .len(),
         3
     );
@@ -465,14 +465,14 @@ fn simple_test_helper() -> Result<()> {
     assert_eq!(
         messages
             .try_lock()
-            .map_err(|_| new_error!("Error locking"))?
+            .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?
             .len(),
         1
     );
 
     assert!(messages
         .try_lock()
-        .map_err(|_| new_error!("Error locking"))?
+        .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?
         .iter()
         .all(|msg| msg == message));
     Ok(())
@@ -534,10 +534,11 @@ fn callback_test_helper() -> Result<()> {
             let len = msg.len();
             vec_cloned
                 .try_lock()
-                .map_err(|_| new_error!("Error locking"))?
+                .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?
                 .push(msg);
             Ok(len as i32)
         }));
+
         host_func1.register(&mut sandbox, "HostMethod1").unwrap();
 
         // call guest function that calls host function
@@ -551,13 +552,13 @@ fn callback_test_helper() -> Result<()> {
 
         assert_eq!(
             vec.try_lock()
-                .map_err(|_| new_error!("Error locking"))?
+                .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?
                 .len(),
             1
         );
         assert_eq!(
             vec.try_lock()
-                .map_err(|_| new_error!("Error locking"))?
+                .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?
                 .remove(0),
             format!("Hello from GuestFunction1, {}", msg)
         );

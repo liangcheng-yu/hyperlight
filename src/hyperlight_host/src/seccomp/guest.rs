@@ -4,114 +4,40 @@ use seccompiler::{
     SeccompRule,
 };
 
-use crate::sandbox::hypervisor::get_available_hypervisor;
-// this cfg is so if neither of these features are enabled, we only get 1 compiler error
-// compile_error!("Hyperlight requires either the `mshv` or `kvm` feature to be enabled on Linux")
-#[cfg(any(kvm, mshv))]
-use crate::sandbox::hypervisor::HypervisorType;
-use crate::HyperlightError::NoHypervisorFound;
+use crate::sandbox::ExtraAllowedSyscall;
 use crate::{and, or, Result};
 
-const TCGETS: u64 = 0x5401;
-const F_GETFD: u64 = libc::F_GETFD as u64;
-
-#[cfg(mshv)]
-mod mshv {
-    use seccompiler::SeccompCmpOp::Eq;
-    use seccompiler::SeccompRule;
-
-    use super::create_common_ioctl_rules;
-    use crate::seccomp::guest::{ArgLen, Cond};
-    use crate::{and, or, Result};
-
-    pub(super) const MSHV_UNMAP_GUEST_MEMORY: u64 = 0x4020_b803;
-    pub(super) const MSHV_GET_VP_REGISTERS: u64 = 0xc010_b805;
-    pub(super) const MSHV_SET_VP_REGISTERS: u64 = 0x4010_b806;
-    pub(super) const MSHV_RUN_VP: u64 = 0x8100_b807;
-    pub(super) const MSHV_GET_VP_STATE: u64 = 0xc010_b80a;
-    pub(super) const MSHV_ROOT_HVCALL: u64 = 0xc020_b835;
-
-    pub(super) fn create_mshv_ioctl_rules() -> Result<Vec<SeccompRule>> {
-        let common_rules = create_common_ioctl_rules()?;
-        let mut arch_rules = or![
-            and![Cond::new(1, ArgLen::Dword, Eq, MSHV_UNMAP_GUEST_MEMORY)?],
-            and![Cond::new(1, ArgLen::Dword, Eq, MSHV_GET_VP_REGISTERS)?],
-            and![Cond::new(1, ArgLen::Dword, Eq, MSHV_SET_VP_REGISTERS)?],
-            and![Cond::new(1, ArgLen::Dword, Eq, MSHV_RUN_VP)?],
-            and![Cond::new(1, ArgLen::Dword, Eq, MSHV_GET_VP_STATE)?],
-            and![Cond::new(1, ArgLen::Dword, Eq, MSHV_ROOT_HVCALL)?],
-        ];
-
-        arch_rules.extend(common_rules);
-
-        Ok(arch_rules)
-    }
-}
-#[cfg(kvm)]
-mod kvm {
-    use seccompiler::SeccompCmpOp::Eq;
-    use seccompiler::SeccompRule;
-
-    use super::create_common_ioctl_rules;
-    use crate::seccomp::guest::{ArgLen, Cond};
-    use crate::{and, or, Result};
-
-    pub(super) const KVM_SET_REGS: u64 = 0x4090_ae82;
-    pub(super) const KVM_SET_FPU: u64 = 0x41a0_ae8d;
-    pub(super) const KVM_RUN: u64 = 0xae80;
-    pub(super) const KVM_GET_REGS: u64 = 0x8090_ae81;
-
-    pub(super) fn create_kvm_ioctl_rules() -> Result<Vec<SeccompRule>> {
-        let common_rules = create_common_ioctl_rules()?;
-        let mut arch_rules = or![
-            and![Cond::new(1, ArgLen::Dword, Eq, KVM_SET_REGS)?],
-            and![Cond::new(1, ArgLen::Dword, Eq, KVM_SET_FPU)?],
-            and![Cond::new(1, ArgLen::Dword, Eq, KVM_RUN)?],
-            and![Cond::new(1, ArgLen::Dword, Eq, KVM_GET_REGS)?],
-        ];
-        arch_rules.extend(common_rules);
-
-        Ok(arch_rules)
-    }
-}
-
-fn create_ioctl_seccomp_rule() -> Result<Vec<SeccompRule>> {
-    match *get_available_hypervisor() {
-        #[cfg(kvm)]
-        Some(HypervisorType::Kvm) => kvm::create_kvm_ioctl_rules(),
-        #[cfg(mshv)]
-        Some(HypervisorType::Mshv) => mshv::create_mshv_ioctl_rules(),
-        _ => Err(NoHypervisorFound()),
-    }
-}
-
-fn create_common_ioctl_rules() -> Result<Vec<SeccompRule>> {
-    Ok(or![and![Cond::new(1, ArgLen::Dword, Eq, TCGETS)?],])
-}
-fn create_fnctl_seccomp_rule() -> Result<Vec<SeccompRule>> {
-    // Allow `fnctl(fd, F_GETFD)` which is used by Rust's stdlib to check for UB when dropping files
-    // See https://github.com/rust-lang/rust/blob/f7c8928f035370be33463bb7f1cd1aeca2c5f898/library/std/src/sys/pal/unix/fs.rs#L851
-    Ok(or![and![Cond::new(1, ArgLen::Dword, Eq, F_GETFD)?],])
-}
 fn syscalls_allowlist() -> Result<Vec<(i64, Vec<SeccompRule>)>> {
     Ok(vec![
-        (libc::SYS_mmap, vec![]),
-        (libc::SYS_write, vec![]),
-        (libc::SYS_close, vec![]),
-        (libc::SYS_futex, vec![]),
-        (libc::SYS_rt_sigaction, vec![]),
-        (libc::SYS_madvise, vec![]),
-        (libc::SYS_ioctl, create_ioctl_seccomp_rule()?),
-        (libc::SYS_munmap, vec![]),
-        (libc::SYS_mprotect, vec![]),
-        (libc::SYS_rt_sigprocmask, vec![]),
-        (libc::SYS_sched_yield, vec![]),
+        // SYS_signalstack, SYS_munmap, SYS_rt_sigprocmask, SYS_madvise, and SYS_exit
+        // are minimally required syscalls to be able to setup our seccomp filter.
         (libc::SYS_sigaltstack, vec![]),
-        (libc::SYS_getrandom, vec![]),
+        (libc::SYS_munmap, vec![]),
+        (libc::SYS_rt_sigprocmask, vec![]),
+        (libc::SYS_madvise, vec![]),
         (libc::SYS_exit, vec![]),
+        // SYS_rt_sigaction, SYS_write, and SYS_rt_sigreturn are required for the
+        // signal handler inside the host function worker thread.
+        (libc::SYS_rt_sigaction, vec![]),
+        (
+            libc::SYS_write,
+            or![
+                and![Cond::new(0, ArgLen::Dword, Eq, 1)?], // stdout
+                and![Cond::new(0, ArgLen::Dword, Eq, 2)?], // stderr
+            ],
+        ),
         (libc::SYS_rt_sigreturn, vec![]),
-        (libc::SYS_clock_nanosleep, vec![]),
-        (libc::SYS_fcntl, create_fnctl_seccomp_rule()?),
+        // Note: This `ioctl` is used to get information about the terminal.
+        // I believe it is used to get terminal information by our default writer function.
+        // That said, I am registering it here instead of in the function specifically
+        // because we don't currently support registering parameterized syscalls.
+        (
+            libc::SYS_ioctl,
+            or![and![Cond::new(1, ArgLen::Dword, Eq, libc::TCGETS)?]],
+        ),
+        // `futex` is needed for some tests that run in parallel (`simple_test_parallel`,
+        // and `callback_test_parallel`).
+        (libc::SYS_futex, vec![]),
     ])
 }
 
@@ -123,11 +49,27 @@ fn syscalls_allowlist() -> Result<Vec<(i64, Vec<SeccompRule>)>> {
 /// `SeccompRules` for operations we definitely perform but are outside the handler thread
 /// (e.g., `KVM_SET_USER_MEMORY_REGION`, `KVM_GET_API_VERSION`, `KVM_CREATE_VM`,
 /// or `KVM_CREATE_VCPU`).
-pub(crate) fn get_seccomp_filter_for_hypervisor_handler() -> Result<BpfProgram> {
+pub(crate) fn get_seccomp_filter_for_host_function_worker_thread(
+    extra_allowed_syscalls: Option<Vec<ExtraAllowedSyscall>>,
+) -> Result<BpfProgram> {
+    let mut allowed_syscalls = syscalls_allowlist()?;
+
+    if let Some(extra_allowed_syscalls) = extra_allowed_syscalls {
+        allowed_syscalls.extend(
+            extra_allowed_syscalls
+                .into_iter()
+                .map(|syscall| (syscall, vec![])),
+        );
+
+        // Remove duplicates
+        allowed_syscalls.sort_by(|a, b| a.0.cmp(&b.0));
+        allowed_syscalls.dedup();
+    }
+
     Ok(SeccompFilter::new(
-        syscalls_allowlist()?.into_iter().collect(),
-        SeccompAction::KillThread, // non-match syscall will kill the hypervisor handler thread
-        SeccompAction::Allow,      // match syscall will be allowed
+        allowed_syscalls.into_iter().collect(),
+        SeccompAction::Trap,  // non-match syscall will kill the offending thread
+        SeccompAction::Allow, // match syscall will be allowed
         std::env::consts::ARCH.try_into().unwrap(),
     )
     .and_then(|filter| filter.try_into())?)

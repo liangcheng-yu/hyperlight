@@ -225,13 +225,9 @@ impl From<&std::ffi::OsStr> for Tool {
     fn from(x: &std::ffi::OsStr) -> Tool {
         if x == "ml64.exe" {
             Tool::Ml64
-        } else if x == "clang" {
+        } else if x == "clang" || x == "clang.exe" {
             Tool::Clang
-        } else if x == "clang.exe" {
-            Tool::Clang
-        } else if x == "clang-cl" {
-            Tool::ClangCl
-        } else if x == "clang-cl.exe" {
+        } else if x == "clang-cl" || x == "clang-cl.exe" {
             Tool::ClangCl
         } else {
             Tool::CargoBuildScript

@@ -12,8 +12,6 @@ use mshv_bindings::{
 #[cfg(target_os = "windows")]
 use windows::Win32::System::Hypervisor::{self, WHV_MEMORY_ACCESS_TYPE};
 
-use crate::{HyperlightError, Result};
-
 bitflags! {
     /// flags representing memory permission for a memory region
     #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -59,14 +57,14 @@ impl std::fmt::Display for MemoryRegionFlags {
 
 #[cfg(target_os = "windows")]
 impl TryFrom<WHV_MEMORY_ACCESS_TYPE> for MemoryRegionFlags {
-    type Error = HyperlightError;
+    type Error = crate::HyperlightError;
 
-    fn try_from(flags: WHV_MEMORY_ACCESS_TYPE) -> Result<Self> {
+    fn try_from(flags: WHV_MEMORY_ACCESS_TYPE) -> crate::Result<Self> {
         match flags {
             Hypervisor::WHvMemoryAccessRead => Ok(MemoryRegionFlags::READ),
             Hypervisor::WHvMemoryAccessWrite => Ok(MemoryRegionFlags::WRITE),
             Hypervisor::WHvMemoryAccessExecute => Ok(MemoryRegionFlags::EXECUTE),
-            _ => Err(HyperlightError::Error(
+            _ => Err(crate::HyperlightError::Error(
                 "unknown memory access type".to_string(),
             )),
         }
@@ -75,15 +73,15 @@ impl TryFrom<WHV_MEMORY_ACCESS_TYPE> for MemoryRegionFlags {
 
 #[cfg(mshv)]
 impl TryFrom<hv_x64_memory_intercept_message> for MemoryRegionFlags {
-    type Error = HyperlightError;
+    type Error = crate::HyperlightError;
 
-    fn try_from(msg: hv_x64_memory_intercept_message) -> Result<Self> {
+    fn try_from(msg: hv_x64_memory_intercept_message) -> crate::Result<Self> {
         let access_type = msg.header.intercept_access_type;
         match access_type {
             0 => Ok(MemoryRegionFlags::READ),
             1 => Ok(MemoryRegionFlags::WRITE),
             2 => Ok(MemoryRegionFlags::EXECUTE),
-            _ => Err(HyperlightError::Error(
+            _ => Err(crate::HyperlightError::Error(
                 "unknown memory access type".to_string(),
             )),
         }

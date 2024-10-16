@@ -55,7 +55,10 @@ impl HyperlightFunction {
 
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
     pub(crate) fn call(&self, args: Vec<ParameterValue>) -> Result<ReturnValue> {
-        let mut f = self.0.try_lock().map_err(|_| new_error!("Error locking"))?;
+        let mut f = self
+            .0
+            .try_lock()
+            .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?;
         f(args)
     }
 }

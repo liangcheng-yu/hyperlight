@@ -255,7 +255,7 @@ impl VirtualCPU {
                     mem_access_fn
                         .clone()
                         .try_lock()
-                        .map_err(|_| new_error!("Error locking"))?
+                        .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?
                         .call()?;
                     log_then_return!("MMIO access address {:#x}", addr);
                 }

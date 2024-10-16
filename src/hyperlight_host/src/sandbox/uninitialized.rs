@@ -255,19 +255,58 @@ impl<'a> UninitializedSandbox {
             ),
         };
 
+        // TODO: These only here to accommodate some writer functions.
+        // We should modify the `UninitializedSandbox` to follow the builder pattern we use in
+        // hyperlight-wasm to allow the user to specify what syscalls they need specifically.
+
+        #[cfg(all(target_os = "linux", feature = "seccomp"))]
+        let extra_allowed_syscalls_for_writer_func = vec![
+            // Fuzzing fails without `mmap` being an allowed syscall on our seccomp filter.
+            // All fuzzing does is call `PrintOutput` (which calls `HostPrint` ). Thing is, `println!`
+            // is designed to be thread-safe in Rust and the std lib ensures this by using
+            // buffered I/O, which I think relies on `mmap`. This gets surfaced in fuzzing with an
+            // OOM error, which I think is happening because `println!` is not being able to allocate
+            // more memory for its buffers for the fuzzer's huge inputs.
+            libc::SYS_mmap,
+            libc::SYS_mprotect,
+            #[cfg(mshv)]
+            libc::SYS_close,
+        ];
+
         // If we were passed a writer for host print register it otherwise use the default.
         match host_print_writer {
             Some(writer_func) => {
                 #[allow(clippy::arc_with_non_send_sync)]
                 let writer_func = Arc::new(Mutex::new(writer_func));
+
+                #[cfg(any(target_os = "windows", not(feature = "seccomp")))]
                 writer_func
                     .try_lock()
-                    .map_err(|_| new_error!("Error locking"))?
+                    .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?
                     .register(&mut sandbox, "HostPrint")?;
+
+                #[cfg(all(target_os = "linux", feature = "seccomp"))]
+                writer_func
+                    .try_lock()
+                    .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?
+                    .register_with_extra_allowed_syscalls(
+                        &mut sandbox,
+                        "HostPrint",
+                        extra_allowed_syscalls_for_writer_func,
+                    )?;
             }
             None => {
                 let default_writer = Arc::new(Mutex::new(default_writer_func));
+
+                #[cfg(any(target_os = "windows", not(feature = "seccomp")))]
                 default_writer.register(&mut sandbox, "HostPrint")?;
+
+                #[cfg(all(target_os = "linux", feature = "seccomp"))]
+                default_writer.register_with_extra_allowed_syscalls(
+                    &mut sandbox,
+                    "HostPrint",
+                    extra_allowed_syscalls_for_writer_func,
+                )?;
             }
         }
 
@@ -381,7 +420,6 @@ impl<'a> UninitializedSandbox {
 
 #[cfg(test)]
 mod tests {
-    use std::io::{Read, Write};
     use std::path::PathBuf;
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
@@ -395,7 +433,6 @@ mod tests {
     use log::Level;
     use serde_json::{Map, Value};
     use serial_test::serial;
-    use tempfile::NamedTempFile;
     use tracing::Level as tracing_level;
     use tracing_core::callsite::rebuild_interest_cache;
     use tracing_core::Subscriber;
@@ -491,7 +528,7 @@ mod tests {
             uninitialized_sandbox
                 .host_funcs
                 .try_lock()
-                .map_err(|_| new_error!("Error locking"))?
+                .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?
                 .host_print("test".to_string())?;
 
             Ok(())
@@ -770,47 +807,54 @@ mod tests {
         // The problem is that captured_file still needs static lifetime so even though we can access the data through the second file handle
         // this still does not work as the captured_file is dropped at the end of the function
 
-        let captured_file = Arc::new(Mutex::new(NamedTempFile::new().unwrap()));
-        let capture_file_clone = captured_file.clone();
+        // TODO(1615): Currently, we block any writes that are not to
+        // the stdout/stderr file handles, so this code is commented
+        // out until we can register writer functions like any other
+        // host functions with their own set of extra allowed syscalls.
+        // In particular, this code should be brought back once we addressed:
+        // https://github.com/deislabs/hyperlight/issues/1615
 
-        let capture_file_lock = captured_file
-            .try_lock()
-            .map_err(|_| new_error!("Error locking"))
-            .unwrap();
-        let mut file = capture_file_lock.reopen().unwrap();
-        drop(capture_file_lock);
-
-        let writer = move |msg: String| -> Result<i32> {
-            let mut captured_file = capture_file_clone
-                .try_lock()
-                .map_err(|_| new_error!("Error locking"))
-                .unwrap();
-            captured_file.write_all(msg.as_bytes()).unwrap();
-            Ok(0)
-        };
-
-        let writer_func = Arc::new(Mutex::new(writer));
-
-        let sandbox = UninitializedSandbox::new(
-            GuestBinary::FilePath(simple_guest_as_string().expect("Guest Binary Missing")),
-            None,
-            None,
-            Some(&writer_func),
-        )
-        .expect("Failed to create sandbox");
-
-        let host_funcs = sandbox
-            .host_funcs
-            .try_lock()
-            .map_err(|_| new_error!("Error locking"));
-
-        assert!(host_funcs.is_ok());
-
-        host_funcs.unwrap().host_print("test2".to_string()).unwrap();
-
-        let mut buffer = String::new();
-        file.read_to_string(&mut buffer).unwrap();
-        assert_eq!(buffer, "test2");
+        // let captured_file = Arc::new(Mutex::new(NamedTempFile::new().unwrap()));
+        // let capture_file_clone = captured_file.clone();
+        //
+        // let capture_file_lock = captured_file
+        //     .try_lock()
+        //     .map_err(|_| new_error!("Error locking"))
+        //     .unwrap();
+        // let mut file = capture_file_lock.reopen().unwrap();
+        // drop(capture_file_lock);
+        //
+        // let writer = move |msg: String| -> Result<i32> {
+        //     let mut captured_file = capture_file_clone
+        //         .try_lock()
+        //         .map_err(|_| new_error!("Error locking"))
+        //         .unwrap();
+        //     captured_file.write_all(msg.as_bytes()).unwrap();
+        //     Ok(0)
+        // };
+        //
+        // let writer_func = Arc::new(Mutex::new(writer));
+        //
+        // let sandbox = UninitializedSandbox::new(
+        //     GuestBinary::FilePath(simple_guest_as_string().expect("Guest Binary Missing")),
+        //     None,
+        //     None,
+        //     Some(&writer_func),
+        // )
+        // .expect("Failed to create sandbox");
+        //
+        // let host_funcs = sandbox
+        //     .host_funcs
+        //     .try_lock()
+        //     .map_err(|_| new_error!("Error locking"));
+        //
+        // assert!(host_funcs.is_ok());
+        //
+        // host_funcs.unwrap().host_print("test2".to_string()).unwrap();
+        //
+        // let mut buffer = String::new();
+        // file.read_to_string(&mut buffer).unwrap();
+        // assert_eq!(buffer, "test2");
 
         // writer as a function
 
@@ -1048,10 +1092,10 @@ mod tests {
                 let event_values_map = event_values.as_object().unwrap();
 
                 #[cfg(target_os = "windows")]
-                    let expected_error =
+                let expected_error =
                     "IOError(Os { code: 2, kind: NotFound, message: \"The system cannot find the file specified.\" }";
                 #[cfg(not(target_os = "windows"))]
-                    let expected_error = "IOError(Os { code: 2, kind: NotFound, message: \"No such file or directory\" }";
+                let expected_error = "IOError(Os { code: 2, kind: NotFound, message: \"No such file or directory\" }";
 
                 let err_vals_res = try_to_strings([
                     (metadata_values_map, "level"),

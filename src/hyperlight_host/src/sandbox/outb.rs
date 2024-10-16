@@ -109,7 +109,7 @@ fn handle_outb_impl(
             let args: Vec<ParameterValue> = call.parameters.unwrap_or(vec![]);
             let res = host_funcs
                 .try_lock()
-                .map_err(|_| new_error!("Error locking"))?
+                .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?
                 .call_host_function(&name, args)?;
             mem_mgr
                 .as_mut()

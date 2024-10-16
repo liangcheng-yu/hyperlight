@@ -67,7 +67,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
 // Globals
 #[global_allocator]
-pub(crate) static mut HEAP_ALLOCATOR: LockedHeap<32> = LockedHeap::<32>::empty();
+pub(crate) static HEAP_ALLOCATOR: LockedHeap<32> = LockedHeap::<32>::empty();
 
 #[no_mangle]
 pub(crate) static mut __security_cookie: u64 = 0;

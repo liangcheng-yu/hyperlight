@@ -8,13 +8,13 @@ use std::time::Duration;
 use crossbeam::atomic::AtomicCell;
 use crossbeam_channel::{Receiver, Sender};
 #[cfg(target_os = "linux")]
-use libc::{c_void, pthread_self, siginfo_t};
+use libc::pthread_self;
 #[cfg(target_os = "linux")]
 use libc::{pthread_kill, ESRCH};
 use log::{error, info};
 use tracing::{instrument, Span};
 #[cfg(target_os = "linux")]
-use vmm_sys_util::signal::{register_signal_handler, SIGRTMIN};
+use vmm_sys_util::signal::SIGRTMIN;
 #[cfg(target_os = "windows")]
 use windows::Win32::System::Hypervisor::{WHvCancelRunVirtualProcessor, WHV_PARTITION_HANDLE};
 
@@ -29,10 +29,10 @@ use crate::mem::ptr_offset::Offset;
 use crate::sandbox::hypervisor::{get_available_hypervisor, HypervisorType};
 #[cfg(feature = "function_call_metrics")]
 use crate::sandbox::metrics::SandboxMetric::GuestFunctionCallDurationMicroseconds;
-#[cfg(all(feature = "seccomp", target_os = "linux"))]
-use crate::seccomp::guest::get_seccomp_filter_for_hypervisor_handler;
-#[cfg(all(feature = "seccomp", target_os = "linux"))]
-use crate::HyperlightError::DisallowedSyscall;
+#[cfg(target_os = "linux")]
+use crate::signal_handlers::hltimeout_signal_handler;
+#[cfg(target_os = "linux")]
+use crate::signal_handlers::mark_as_hyperlight_thread;
 use crate::HyperlightError::{
     GuestExecutionHungOnHostFunctionCall,
     HypervisorHandlerExecutionCancelAttemptOnFinishedExecution, NoHypervisorFound,
@@ -213,7 +213,7 @@ impl HypervisorHandler {
     pub(crate) fn start_hypervisor_handler(
         &mut self,
         sandbox_memory_manager: &mut SandboxMemoryManager,
-    ) -> crate::Result<()> {
+    ) -> Result<()> {
         let mut hv = set_up_hypervisor_partition(sandbox_memory_manager)?;
         let configuration = self.configuration.clone();
 
@@ -248,14 +248,6 @@ impl HypervisorHandler {
         self.execution_variables
             .set_partition_handle(hv.get_partition_handle())?;
 
-        #[cfg(all(feature = "seccomp", target_os = "linux"))]
-        // This initializes the HV_HANDLER_THREAD_RECEIVING_SIGNALS variable in the main thread.
-        let hv_handler_thread_receiving_signals =
-            HV_HANDLER_THREAD_RECEIVING_SIGNALS.with(|elem| elem.borrow().clone());
-
-        #[cfg(all(feature = "seccomp", target_os = "linux"))]
-        let seccomp_filter = get_seccomp_filter_for_hypervisor_handler()?;
-
         let to_handler_rx = self.communication_channels.to_handler_rx.clone();
         #[cfg(target_os = "windows")]
         let execution_variables = self.execution_variables.clone();
@@ -266,188 +258,163 @@ impl HypervisorHandler {
         let hv_handler_clone = self.clone();
 
         let join_handle = {
-            thread::spawn(move || -> Result<()> {
-                #[cfg(all(feature = "seccomp", target_os = "linux"))]
-                seccompiler::apply_filter(&seccomp_filter)?; // applies seccomp filter on thread creation
+            thread::Builder::new()
+                .name("Hypervisor Handler".to_string())
+                .spawn(move || -> Result<()> {
+                    #[cfg(target_os = "linux")]
+                    mark_as_hyperlight_thread();
+                    for action in to_handler_rx {
+                        match action {
+                            HypervisorHandlerAction::Initialise => {
+                                #[cfg(target_os = "linux")]
+                                {
+                                    // We cannot use the Killable trait, so we get the `pthread_t` via a libc
+                                    // call.
+                                    execution_variables.set_thread_id(unsafe { pthread_self() })?;
+                                }
+                                execution_variables.running.store(true, Ordering::SeqCst);
 
-                for action in to_handler_rx {
-                    match action {
-                        HypervisorHandlerAction::Initialise => {
-                            #[cfg(target_os = "linux")]
-                            {
-                                // We cannot use the Killable trait, so we get the `pthread_t` via a libc
-                                // call.
-                                execution_variables.set_thread_id(unsafe { pthread_self() })?;
-                            }
-                            execution_variables.running.store(true, Ordering::SeqCst);
+                                #[cfg(target_os = "linux")]
+                                execution_variables.run_cancelled.store(false);
 
-                            #[cfg(target_os = "linux")]
-                            execution_variables.run_cancelled.store(false);
-
-                            // We clone the main thread Arc reference to the TLS from this handler
-                            // thread.
-                            #[cfg(all(feature = "seccomp", target_os = "linux"))]
-                            HV_HANDLER_THREAD_RECEIVING_SIGNALS.with(|elem_clone| {
-                                *elem_clone.borrow_mut() =
-                                    hv_handler_thread_receiving_signals.clone();
-                            });
-
-                            log::info!("Initialising Hypervisor Handler");
-                            #[cfg(target_os = "linux")]
-                            {
-                                // On Linux, when we cancel the execution, we will send a `SIGRTMIN`
-                                // signal to this thread (i.e., the one running the vCPU). Doing so,
-                                // will set the `HV_HANDLER_THREAD_RECEIVING_SIGNALS` to true. This
-                                // indicates the thread is still alive and execution hasn't been
-                                // terminated.
-                                // This means the execution still hasn't been terminated.
-                                // On Windows, we don't need to do anything as we can just call the cancel
-                                // function.
-
-                                extern "C" fn handle_signal(
-                                    _: i32,
-                                    _: *mut siginfo_t,
-                                    _: *mut c_void,
-                                ) {
-                                    #[cfg(feature = "seccomp")]
-                                    {
-                                        let hv_handler_thread_receiving_signals =
-                                            HV_HANDLER_THREAD_RECEIVING_SIGNALS
-                                                .with(|elem| elem.borrow().clone());
-                                        hv_handler_thread_receiving_signals
-                                            .store(true, std::sync::atomic::Ordering::Relaxed);
-                                    }
+                                log::info!("Initialising Hypervisor Handler");
+                                #[cfg(target_os = "linux")]
+                                {
+                                    // On Linux, when we cancel the execution, we will send a `SIGRTMIN`
+                                    // signal to this thread (i.e., the one running the vCPU).
+                                    hltimeout_signal_handler::register_signal_handler_once()?;
                                 }
 
-                                match register_signal_handler(SIGRTMIN(), handle_signal) {
-                                    Ok(_) => {}
+                                let res = hv.initialise(
+                                    configuration.peb_addr.clone(),
+                                    configuration.seed,
+                                    configuration.page_size,
+                                    configuration.outb_handler.clone(),
+                                    configuration.mem_access_handler.clone(),
+                                    Some(hv_handler_clone.clone()),
+                                );
+
+                                execution_variables.running.store(false, Ordering::SeqCst);
+
+                                match res {
+                                    Ok(_) => {
+                                        log::info!("Initialised Hypervisor Handler");
+                                        from_handler_tx
+                                            .send(HandlerMsg::FinishedHypervisorHandlerAction)
+                                            .map_err(|_| {
+                                                HyperlightError::HypervisorHandlerCommunicationFailure()
+                                            })?;
+                                    }
                                     Err(e) => {
-                                        return Err(new_error!(
-                                            "failed to register signal handler: {:?}",
+                                        log::info!(
+                                            "Error initialising Hypervisor Handler: {:?}",
                                             e
-                                        ));
-                                    }
-                                }
-                            }
-
-                            let res = hv.initialise(
-                                configuration.peb_addr.clone(),
-                                configuration.seed,
-                                configuration.page_size,
-                                configuration.outb_handler.clone(),
-                                configuration.mem_access_handler.clone(),
-                                Some(hv_handler_clone.clone()),
-                            );
-
-                            execution_variables.running.store(false, Ordering::SeqCst);
-
-                            match res {
-                                Ok(_) => {
-                                    log::info!("Initialised Hypervisor Handler");
-                                    from_handler_tx
-                                        .send(HandlerMsg::FinishedHypervisorHandlerAction)
-                                        .map_err(|_| {
+                                        );
+                                        from_handler_tx.send(HandlerMsg::Error(e)).map_err(|_| {
                                             HyperlightError::HypervisorHandlerCommunicationFailure()
                                         })?;
-                                }
-                                Err(e) => {
-                                    log::info!("Error initialising Hypervisor Handler: {:?}", e);
-                                    from_handler_tx.send(HandlerMsg::Error(e)).map_err(|_| {
-                                        HyperlightError::HypervisorHandlerCommunicationFailure()
-                                    })?;
+                                    }
                                 }
                             }
-                        }
-                        HypervisorHandlerAction::DispatchCallFromHost(function_name) => {
-                            // Lock to indicate an action is being performed in the hypervisor
-                            execution_variables.running.store(true, Ordering::SeqCst);
+                            HypervisorHandlerAction::DispatchCallFromHost(function_name) => {
+                                // Lock to indicate an action is being performed in the hypervisor
+                                execution_variables.running.store(true, Ordering::SeqCst);
 
-                            #[cfg(target_os = "linux")]
-                            execution_variables.run_cancelled.store(false);
+                                #[cfg(target_os = "linux")]
+                                execution_variables.run_cancelled.store(false);
 
-                            info!("Dispatching call from host: {}", function_name);
+                                info!("Dispatching call from host: {}", function_name);
 
-                            let dispatch_function_addr = configuration
-                                .dispatch_function_addr
-                                .clone()
-                                .try_lock()
-                                .map_err(|_| new_error!("Error locking"))?
-                                .clone()
-                                .ok_or_else(|| new_error!("Hypervisor not initialized"))?;
+                                let dispatch_function_addr = configuration
+                                    .dispatch_function_addr
+                                    .clone()
+                                    .try_lock()
+                                    .map_err(|e| {
+                                        new_error!(
+                                            "Error locking at {}:{}: {}",
+                                            file!(),
+                                            line!(),
+                                            e
+                                        )
+                                    })?
+                                    .clone()
+                                    .ok_or_else(|| new_error!("Hypervisor not initialized"))?;
 
-                            let res = {
-                                #[cfg(feature = "function_call_metrics")]
-                                {
-                                    let start = std::time::Instant::now();
-                                    let result = hv.dispatch_call_from_host(
+                                let res = {
+                                    #[cfg(feature = "function_call_metrics")]
+                                    {
+                                        let start = std::time::Instant::now();
+                                        let result = hv.dispatch_call_from_host(
+                                            dispatch_function_addr,
+                                            configuration.outb_handler.clone(),
+                                            configuration.mem_access_handler.clone(),
+                                            Some(hv_handler_clone.clone()),
+                                        );
+                                        histogram_vec_observe!(
+                                            &GuestFunctionCallDurationMicroseconds,
+                                            &[function_name.as_str()],
+                                            start.elapsed().as_micros() as f64
+                                        );
+                                        result
+                                    }
+
+                                    #[cfg(not(feature = "function_call_metrics"))]
+                                    hv.dispatch_call_from_host(
                                         dispatch_function_addr,
                                         configuration.outb_handler.clone(),
                                         configuration.mem_access_handler.clone(),
                                         Some(hv_handler_clone.clone()),
-                                    );
-                                    histogram_vec_observe!(
-                                        &GuestFunctionCallDurationMicroseconds,
-                                        &[function_name.as_str()],
-                                        start.elapsed().as_micros() as f64
-                                    );
-                                    result
-                                }
+                                    )
+                                };
 
-                                #[cfg(not(feature = "function_call_metrics"))]
-                                hv.dispatch_call_from_host(
-                                    dispatch_function_addr,
-                                    configuration.outb_handler.clone(),
-                                    configuration.mem_access_handler.clone(),
-                                    Some(hv_handler_clone.clone()),
-                                )
-                            };
+                                execution_variables.running.store(false, Ordering::SeqCst);
 
-                            execution_variables.running.store(false, Ordering::SeqCst);
-
-                            match res {
-                                Ok(_) => {
-                                    log::info!(
-                                        "Finished dispatching call from host: {}",
-                                        function_name
-                                    );
-                                    from_handler_tx
-                                        .send(HandlerMsg::FinishedHypervisorHandlerAction)
-                                        .map_err(|_| {
+                                match res {
+                                    Ok(_) => {
+                                        log::info!(
+                                            "Finished dispatching call from host: {}",
+                                            function_name
+                                        );
+                                        from_handler_tx
+                                            .send(HandlerMsg::FinishedHypervisorHandlerAction)
+                                            .map_err(|_| {
+                                                HyperlightError::HypervisorHandlerCommunicationFailure()
+                                            })?;
+                                    }
+                                    Err(e) => {
+                                        log::info!(
+                                            "Error dispatching call from host: {}: {:?}",
+                                            function_name,
+                                            e
+                                        );
+                                        from_handler_tx.send(HandlerMsg::Error(e)).map_err(|_| {
                                             HyperlightError::HypervisorHandlerCommunicationFailure()
                                         })?;
-                                }
-                                Err(e) => {
-                                    log::info!(
-                                        "Error dispatching call from host: {}: {:?}",
-                                        function_name,
-                                        e
-                                    );
-                                    from_handler_tx.send(HandlerMsg::Error(e)).map_err(|_| {
-                                        HyperlightError::HypervisorHandlerCommunicationFailure()
-                                    })?;
+                                    }
                                 }
                             }
-                        }
-                        HypervisorHandlerAction::TerminateHandlerThread => {
-                            info!("Terminating Hypervisor Handler Thread");
-                            break;
+                            HypervisorHandlerAction::TerminateHandlerThread => {
+                                info!("Terminating Hypervisor Handler Thread");
+                                break;
+                            }
                         }
                     }
-                }
 
-                // If we make it here, it means the main thread issued a `TerminateHandlerThread` action,
-                // and we are now exiting the handler thread.
-                {
-                    from_handler_tx
-                        .send(HandlerMsg::FinishedHypervisorHandlerAction)
-                        .map_err(|_| HyperlightError::HypervisorHandlerCommunicationFailure())?;
-                }
+                    // If we make it here, it means the main thread issued a `TerminateHandlerThread` action,
+                    // and we are now exiting the handler thread.
+                    {
+                        from_handler_tx
+                            .send(HandlerMsg::FinishedHypervisorHandlerAction)
+                            .map_err(|_| {
+                                HyperlightError::HypervisorHandlerCommunicationFailure()
+                            })?;
+                    }
 
-                Ok(())
-            })
+                    Ok(())
+                })
         };
 
-        self.execution_variables.set_join_handle(join_handle)?;
+        self.execution_variables.set_join_handle(join_handle?)?;
 
         Ok(())
     }
@@ -461,7 +428,7 @@ impl HypervisorHandler {
             .execution_variables
             .join_handle
             .try_lock()
-            .map_err(|_| new_error!("Error locking"))?;
+            .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?;
         if let Some(handle) = join_handle_guard.take() {
             // check if thread is handle.is_finished for `timeout`
             // note: dropping the transmitter in `kill_hypervisor_handler_thread`
@@ -488,28 +455,6 @@ impl HypervisorHandler {
         return Err(HyperlightError::Error(
             "Failed to finish Hypervisor handler thread".to_string(),
         ));
-    }
-
-    // This function is used to check if the Hypervisor Handler thread is still alive and receiving signals.
-    #[cfg(all(feature = "seccomp", target_os = "linux"))]
-    pub fn is_hv_handler_receiving_signals(&self) -> Result<bool> {
-        // Reset the variable pre-check
-        let hv_handler_thread_receiving_signals =
-            HV_HANDLER_THREAD_RECEIVING_SIGNALS.with(|elem| elem.borrow().clone());
-        hv_handler_thread_receiving_signals.store(false, std::sync::atomic::Ordering::Relaxed);
-
-        unsafe {
-            // Send a signal to the thread to check if it is still receiving signals
-            libc::pthread_kill(self.execution_variables.get_thread_id()?, SIGRTMIN());
-        }
-
-        // Wait for signal to be received. We cannot use message passing transmitters/receivers
-        // in signal handlers because it does not capture its context (i.e., it is a function, not a
-        // closure).
-        sleep(self.configuration.max_wait_for_cancellation);
-
-        Ok(HV_HANDLER_THREAD_RECEIVING_SIGNALS
-            .with(|elem| elem.borrow().load(std::sync::atomic::Ordering::Relaxed)))
     }
 
     /// Tries to kill the Hypervisor Handler Thread.
@@ -544,8 +489,9 @@ impl HypervisorHandler {
             HypervisorHandlerAction::TerminateHandlerThread => self
                 .execution_variables
                 .set_timeout(self.configuration.max_init_time)?,
-            // note: timeout can never hang, so setting the timeout for it is just for completion of the match statement
-            // and it is not really needed for `TerminateHandlerThread`.
+            // note: terminate can never hang, so setting the timeout for it is just
+            // for completion of the match statement, and it is not really needed for
+            // `TerminateHandlerThread`.
         }
 
         self.communication_channels
@@ -711,19 +657,7 @@ impl HypervisorHandler {
                 std::thread::sleep(Duration::from_micros(500));
             }
             if !self.execution_variables.run_cancelled.load() {
-                #[cfg(feature = "seccomp")]
-                {
-                    if self.is_hv_handler_receiving_signals()? {
-                        log_then_return!(GuestExecutionHungOnHostFunctionCall());
-                    } else {
-                        log_then_return!(DisallowedSyscall());
-                    }
-                }
-
-                #[cfg(not(feature = "seccomp"))]
-                {
-                    log_then_return!(GuestExecutionHungOnHostFunctionCall());
-                }
+                log_then_return!(GuestExecutionHungOnHostFunctionCall());
             }
         }
         #[cfg(target_os = "windows")]
@@ -773,17 +707,6 @@ impl std::fmt::Debug for HypervisorHandlerAction {
 pub enum HandlerMsg {
     FinishedHypervisorHandlerAction,
     Error(HyperlightError),
-}
-
-// This variable is used to check if the hv handler thread is still alive and receiving signals
-// (specifically, `SIGRTMIN`). This field should not be accessed directly and, instead, only through
-// the `is_hv_handler_receiving_signals` function. We use this instead of `join_handle` because it
-// could be the case the thread was terminated due to a disallowed syscall, which means the thread
-// was forcefully terminated.
-#[cfg(all(feature = "seccomp", target_os = "linux"))]
-thread_local! {
-    static HV_HANDLER_THREAD_RECEIVING_SIGNALS: std::cell::RefCell<Arc<std::sync::atomic::AtomicBool>> =
-    std::cell::RefCell::new(Arc::new(std::sync::atomic::AtomicBool::new(false)));
 }
 
 fn set_up_hypervisor_partition(mgr: &mut SandboxMemoryManager) -> Result<Box<dyn Hypervisor>> {

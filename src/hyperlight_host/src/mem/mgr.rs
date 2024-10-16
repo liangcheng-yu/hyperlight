@@ -300,7 +300,7 @@ impl SandboxMemoryManager {
         let snapshot = SharedMemorySnapshot::new(self.shared_mem.clone())?;
         self.snapshots
             .try_lock()
-            .map_err(|_| new_error!("Error locking"))?
+            .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?
             .push(snapshot);
         Ok(())
     }
@@ -313,7 +313,7 @@ impl SandboxMemoryManager {
         let mut snapshots = self
             .snapshots
             .try_lock()
-            .map_err(|_| new_error!("Error locking"))?;
+            .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?;
         let last = snapshots.last_mut();
         if last.is_none() {
             log_then_return!(NoMemorySnapshot);
@@ -329,7 +329,7 @@ impl SandboxMemoryManager {
         let last = self
             .snapshots
             .try_lock()
-            .map_err(|_| new_error!("Error locking"))?
+            .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?
             .pop();
         if last.is_none() {
             log_then_return!(NoMemorySnapshot);

@@ -73,25 +73,38 @@ pub fn is_supported_platform() -> bool {
     true
 }
 
-/// A `HashMap` to map function names to `HyperlightFunction`s.
+/// Alias for the type of extra allowed syscalls.
+pub(crate) type ExtraAllowedSyscall = i64;
+
+/// A `HashMap` to map function names to `HyperlightFunction`s and their extra allowed syscalls.
+///
+/// Note: you cannot add extra syscalls on Windows, but the field is still present to avoid a funky
+/// conditional compilation setup. This isn't a big deal as this struct isn't public facing.
 #[derive(Clone, Default)]
-pub(super) struct FunctionsMap(HashMap<String, HyperlightFunction>);
+pub(super) struct FunctionsMap(
+    HashMap<String, (HyperlightFunction, Option<Vec<ExtraAllowedSyscall>>)>,
+);
 
 impl FunctionsMap {
-    /// Insert a new entry into the map.
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(super) fn insert(&mut self, key: String, value: HyperlightFunction) {
-        self.0.insert(key, value);
+    /// Insert a new entry into the map
+    pub(super) fn insert(
+        &mut self,
+        key: String,
+        value: HyperlightFunction,
+        extra_syscalls: Option<Vec<ExtraAllowedSyscall>>,
+    ) {
+        self.0.insert(key, (value, extra_syscalls));
     }
 
     /// Get the value associated with the given key, if it exists.
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(super) fn get(&self, key: &str) -> Option<&HyperlightFunction> {
+    pub(super) fn get(
+        &self,
+        key: &str,
+    ) -> Option<&(HyperlightFunction, Option<Vec<ExtraAllowedSyscall>>)> {
         self.0.get(key)
     }
 
     /// Get the length of the map.
-    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn len(&self) -> usize {
         self.0.len()
     }
@@ -212,7 +225,10 @@ mod tests {
 
                     host_funcs
                         .unwrap()
-                        .host_print(format!("Print from UninitializedSandbox on Thread {}\n", i))
+                        .host_print(format!(
+                            "Printing from UninitializedSandbox on Thread {}\n",
+                            i
+                        ))
                         .unwrap();
 
                     let sandbox = uninitialized_sandbox
