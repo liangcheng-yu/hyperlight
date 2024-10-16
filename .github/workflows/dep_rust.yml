@@ -63,7 +63,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: deislabs/hyperlight-workflow-setup@v1.3.0
+      - uses: deislabs/hyperlight-workflow-setup@v1.4.0
         with:
           rust-toolchain: "nightly"
           azure-client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID }}
