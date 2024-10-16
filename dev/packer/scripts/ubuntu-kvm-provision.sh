@@ -2,11 +2,9 @@
 set -o errexit
 set -o nounset
 
-
-
 # Install build tools
 apt update 
-apt-get install build-essential pkg-config git libssl-dev -y
+apt-get install build-essential pkg-config git git-lfs libssl-dev ssl-cert -y
 
 wget https://apt.llvm.org/llvm.sh 
 chmod +x ./llvm.sh

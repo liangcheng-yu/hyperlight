@@ -39,8 +39,8 @@ source "azure-arm" "ubuntu_kvm_dev" {
     }
     use_azure_cli_auth = true
     image_publisher = "Canonical"
-    image_offer = "ubuntu-24_04-lts"
-    image_sku = "server"
+    image_offer = "0001-com-ubuntu-server-jammy"
+    image_sku = "22_04-lts-gen2"
     location = var.location
     managed_image_name = var.image_name
     managed_image_resource_group_name = "dev-images"
