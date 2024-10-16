@@ -54,7 +54,7 @@ jobs:
           systeminfo
 
       # Run this so we can use just targets in this workflow
-      - uses: deislabs/hyperlight-workflow-setup@v1.4.0
+      - uses: deislabs/hyperlight-workflow-setup@v1.5.0
         with:
           rust-toolchain: "1.81.0"
           azure-client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID }}
@@ -113,12 +113,12 @@ jobs:
           ]
         include:
           - build: linux-kvm-debug
-            os: [self-hosted, Linux, X64, "1ES.Pool=HL-Ubuntu-20.04-KVM"]
+            os: [self-hosted, Linux, X64, "1ES.Pool=HL-Ubuntu-22.04-KVM"]
             config: debug
             platform: x64
             hypervisor: kvm
           - build: linux-kvm-release
-            os: [self-hosted, Linux, X64, "1ES.Pool=HL-Ubuntu-20.04-KVM"]
+            os: [self-hosted, Linux, X64, "1ES.Pool=HL-Ubuntu-22.04-KVM"]
             config: release
             platform: x64
             hypervisor: kvm
@@ -145,7 +145,7 @@ jobs:
           echo "cat /etc/os-release"
           cat /etc/os-release
 
-      - uses: deislabs/hyperlight-workflow-setup@v1.4.0
+      - uses: deislabs/hyperlight-workflow-setup@v1.5.0
         with:
           rust-toolchain: "1.81.0"
           azure-client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID }}

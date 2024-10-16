@@ -18,12 +18,12 @@ permissions:
 jobs:
   fuzz:
     environment: ${{ inputs.environment }}
-    runs-on: [ self-hosted, Linux, X64, "1ES.Pool=HL-Ubuntu-20.04-KVM" ]
+    runs-on: [ self-hosted, Linux, X64, "1ES.Pool=HL-Ubuntu-22.04-KVM" ]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - uses: deislabs/hyperlight-workflow-setup@v1.4.0
+      - uses: deislabs/hyperlight-workflow-setup@v1.5.0
         with:
           rust-toolchain: "1.81.0"
           azure-client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID }}
