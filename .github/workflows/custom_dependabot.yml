@@ -77,12 +77,11 @@ jobs:
             { }
         GITHUB_ACCESS_TOKEN: ${{ github.token }}
       run: |
-        HYPERLIGHT_CARGO_TOKEN=$(toml get $HOME/.cargo/credentials.toml registries.hyperlight_redist.token | tr -d '"' )
+        HYPERLIGHT_CARGO_TOKEN=$(toml get $HOME/.cargo/credentials.toml registries.hyperlight_packages.token | tr -d '"' )
         docker run -v $PWD:/src \
         -v $PWD/.cargo/config.toml:/home/dependabot/.cargo/config.toml \
         -e PROJECT_PATH=$GITHUB_REPOSITORY \
         -e PACKAGE_MANAGER=$PACKAGE_MANAGER \
-        -e CARGO_REGISTRIES_HYPERLIGHT_REDIST_TOKEN="$HYPERLIGHT_CARGO_TOKEN" \
         -e CARGO_REGISTRIES_HYPERLIGHT_PACKAGES_TOKEN="$HYPERLIGHT_CARGO_TOKEN" \
         -e DIRECTORY=/src \
         -e GITHUB_ACCESS_TOKEN=$GITHUB_ACCESS_TOKEN \

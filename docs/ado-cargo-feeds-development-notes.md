@@ -4,9 +4,8 @@ This document outlines how the various cargo feeds hosted in AzureDevOps were se
 
 ## Feed Locations
 
-Currently, we have two feeds set up in AzureDevOps:
+Currently, we use the following feed(s) set up in AzureDevOps:
 
-- [hyperlight_redist](https://dev.azure.com/AzureContainerUpstream/hyperlight/_artifacts/feed/hyperlight_redist): This feed is used to distribute some crates that Hyperlight depends on that are not currently published to crates.io (or any other feeds).
 - [hyperlight_packages](https://dev.azure.com/AzureContainerUpstream/hyperlight/_artifacts/feed/hyperlight_packages): This feed is used to distribute crates produced by the Hyperlight project.
 
 ## Feed Access

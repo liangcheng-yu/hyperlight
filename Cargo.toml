@@ -30,8 +30,8 @@ edition = "2021"
 rust-version = "1.78.0"
 
 [workspace.dependencies]
-mshv-bindings = { version = "=0.2.0", registry = "hyperlight_redist" }
-mshv-ioctls = { version = "=0.2.0", registry = "hyperlight_redist" }
+mshv-bindings = { version = "=0.2.1" }
+mshv-ioctls = { version = "=0.2.1" }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"
