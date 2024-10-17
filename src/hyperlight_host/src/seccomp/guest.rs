@@ -38,6 +38,9 @@ fn syscalls_allowlist() -> Result<Vec<(i64, Vec<SeccompRule>)>> {
         // `futex` is needed for some tests that run in parallel (`simple_test_parallel`,
         // and `callback_test_parallel`).
         (libc::SYS_futex, vec![]),
+        // `sched_yield` is needed for many synchronization primitives that may be invoked
+        // on the host function worker thread
+        (libc::SYS_sched_yield, vec![]),
     ])
 }
 
