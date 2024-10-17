@@ -137,7 +137,7 @@ mod tests {
     use crate::sandbox::is_hypervisor_present;
     use crate::sandbox::uninitialized::GuestBinary;
     use crate::sandbox_state::sandbox::EvolvableSandbox;
-    use crate::sandbox_state::transition::MutatingCallback;
+    use crate::sandbox_state::transition::Noop;
     use crate::{
         new_error, HyperlightError, MultiUseSandbox, Result, SingleUseSandbox, UninitializedSandbox,
     };
@@ -157,11 +157,6 @@ mod tests {
     // function that takes a parameter
     fn test_function2(_: MultiUseGuestCallContext, param: i32) -> Result<i32> {
         Ok(param)
-    }
-
-    // blank convenience init function for transitioning between a usbox and a isbox
-    fn init(_: &mut UninitializedSandbox) -> Result<()> {
-        Ok(())
     }
 
     #[test]
@@ -193,7 +188,7 @@ mod tests {
 
             make_get_pid_syscall_func.register(&mut usbox, "MakeGetpidSyscall")?;
 
-            let mut sbox: MultiUseSandbox = usbox.evolve(MutatingCallback::from(init))?;
+            let mut sbox: MultiUseSandbox = usbox.evolve(Noop::default())?;
 
             let res =
                 sbox.call_guest_function_by_name("ViolateSeccompFilters", ReturnType::ULong, None);
@@ -234,7 +229,7 @@ mod tests {
             )?;
             // ^^^ note, we are allowing SYS_getpid
 
-            let mut sbox: MultiUseSandbox = usbox.evolve(MutatingCallback::from(init))?;
+            let mut sbox: MultiUseSandbox = usbox.evolve(Noop::default())?;
 
             let res =
                 sbox.call_guest_function_by_name("ViolateSeccompFilters", ReturnType::ULong, None);
@@ -264,7 +259,7 @@ mod tests {
         {
             let usbox = uninitialized_sandbox();
             let sandbox: MultiUseSandbox<'_> = usbox
-                .evolve(MutatingCallback::from(init))
+                .evolve(Noop::default())
                 .expect("Failed to initialize sandbox");
             let result = test_function0(sandbox.new_call_context());
             assert_eq!(result.unwrap(), 42);
@@ -274,7 +269,7 @@ mod tests {
         {
             let usbox = uninitialized_sandbox();
             let sandbox: SingleUseSandbox<'_> = usbox
-                .evolve(MutatingCallback::from(init))
+                .evolve(Noop::default())
                 .expect("Failed to initialize sandbox");
             let result = test_function1(sandbox.new_call_context());
             assert!(result.is_ok());
@@ -284,7 +279,7 @@ mod tests {
         {
             let usbox = uninitialized_sandbox();
             let sandbox: MultiUseSandbox<'_> = usbox
-                .evolve(MutatingCallback::from(init))
+                .evolve(Noop::default())
                 .expect("Failed to initialize sandbox");
             let result = test_function2(sandbox.new_call_context(), 42);
             assert_eq!(result.unwrap(), 42);
@@ -300,7 +295,7 @@ mod tests {
             for _ in 0..10 {
                 let usbox = uninitialized_sandbox();
                 let sandbox: MultiUseSandbox = usbox
-                    .evolve(MutatingCallback::from(init))
+                    .evolve(Noop::default())
                     .expect("Failed to initialize sandbox");
                 let _ctx = sandbox.new_call_context();
                 let count = Arc::clone(&count);
@@ -346,7 +341,7 @@ mod tests {
 
     #[track_caller]
     fn test_call_guest_function_by_name(u_sbox: UninitializedSandbox) {
-        let mu_sbox: MultiUseSandbox<'_> = u_sbox.evolve(MutatingCallback::from(init)).unwrap();
+        let mu_sbox: MultiUseSandbox<'_> = u_sbox.evolve(Noop::default()).unwrap();
 
         let msg = "Hello, World!!\n".to_string();
         let len = msg.len() as i32;
@@ -422,7 +417,7 @@ mod tests {
             None,
             None,
         )?;
-        let sandbox: MultiUseSandbox = usbox.evolve(MutatingCallback::from(init))?;
+        let sandbox: MultiUseSandbox = usbox.evolve(Noop::default())?;
         let mut ctx = sandbox.new_call_context();
         let result = ctx.call("Spin", ReturnType::Void, None);
 
@@ -495,7 +490,7 @@ mod tests {
             )
             .unwrap();
 
-        let sandbox: MultiUseSandbox = usbox.evolve(MutatingCallback::from(init)).unwrap();
+        let sandbox: MultiUseSandbox = usbox.evolve(Noop::default()).unwrap();
         let mut ctx = sandbox.new_call_context();
         let result = ctx.call("CallHostSpin", ReturnType::Void, None);
 

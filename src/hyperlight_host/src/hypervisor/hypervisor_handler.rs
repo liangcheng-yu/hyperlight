@@ -802,7 +802,7 @@ mod tests {
     use crate::sandbox::uninitialized_evolve::ExecutionMode;
     use crate::sandbox::WrapperGetter;
     use crate::sandbox_state::sandbox::EvolvableSandbox;
-    use crate::sandbox_state::transition::MutatingCallback;
+    use crate::sandbox_state::transition::Noop;
     use crate::HyperlightError::HypervisorHandlerExecutionCancelAttemptOnFinishedExecution;
     use crate::{
         is_hypervisor_present, GuestBinary, HyperlightError, MultiUseSandbox, Result,
@@ -821,11 +821,7 @@ mod tests {
         )
         .unwrap();
 
-        usbox.evolve(MutatingCallback::from(init)).unwrap()
-    }
-
-    fn init(_: &mut UninitializedSandbox) -> Result<()> {
-        Ok(())
+        usbox.evolve(Noop::default()).unwrap()
     }
 
     #[test]

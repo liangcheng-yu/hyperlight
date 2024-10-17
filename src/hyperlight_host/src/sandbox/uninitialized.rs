@@ -19,7 +19,7 @@ use crate::mem::pe::pe_info::PEInfo;
 use crate::mem::ptr::RawPtr;
 use crate::sandbox::{SandboxConfiguration, WrapperGetter};
 use crate::sandbox_state::sandbox::EvolvableSandbox;
-use crate::sandbox_state::transition::{MutatingCallback, Noop};
+use crate::sandbox_state::transition::Noop;
 use crate::{
     debug, log_build_details, log_then_return, new_error, MultiUseSandbox, Result, SingleUseSandbox,
 };
@@ -78,63 +78,6 @@ impl crate::sandbox_state::sandbox::Sandbox for UninitializedSandbox {
     }
 }
 
-impl<'a, F>
-    EvolvableSandbox<
-        UninitializedSandbox,
-        SingleUseSandbox<'a>,
-        MutatingCallback<'a, UninitializedSandbox, F>,
-    > for UninitializedSandbox
-where
-    F: FnOnce(&mut UninitializedSandbox) -> Result<()> + 'a,
-{
-    /// Evolve `self` into a `SingleUseSandbox`, executing a caller-provided
-    /// callback during the transition process.
-    ///
-    /// If you need to do this transition without a callback, use the
-    /// `EvolvableSandbox` implementation that takes a `Noop`.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    fn evolve(
-        self,
-        tsn: MutatingCallback<'a, UninitializedSandbox, F>,
-    ) -> Result<SingleUseSandbox<'a>> {
-        let cb_box = {
-            let cb = move |u_sbox: &mut UninitializedSandbox| tsn.call(u_sbox);
-            Box::new(cb)
-        };
-        let i_sbox = evolve_impl_single_use(self, Some(cb_box))?;
-        Ok(i_sbox)
-    }
-}
-
-impl<'a, F>
-    EvolvableSandbox<
-        UninitializedSandbox,
-        MultiUseSandbox<'a>,
-        MutatingCallback<'a, UninitializedSandbox, F>,
-    > for UninitializedSandbox
-where
-    F: FnOnce(&mut UninitializedSandbox) -> Result<()> + 'a,
-{
-    /// Evolve `self` into a `Sandbox`, executing a caller-provided
-    /// callback during the transition process.
-    ///
-    /// If you need to do this transition without a callback, use the
-    /// `EvolvableSandbox` implementation that takes a `Noop`.
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    fn evolve(
-        self,
-        tsn: MutatingCallback<'a, UninitializedSandbox, F>,
-    ) -> Result<MultiUseSandbox<'a>> {
-        let cb_box = {
-            let cb = move |u_sbox: &mut UninitializedSandbox| tsn.call(u_sbox);
-            Box::new(cb)
-        };
-
-        let i_sbox = evolve_impl_multi_use(self, Some(cb_box))?;
-        Ok(i_sbox)
-    }
-}
-
 impl<'a>
     EvolvableSandbox<
         UninitializedSandbox,
@@ -143,10 +86,6 @@ impl<'a>
     > for UninitializedSandbox
 {
     /// Evolve `self` to a `SingleUseSandbox` without any additional metadata.
-    ///
-    /// If you want to pass a callback to this state transition so you can
-    /// run your own code during the transition, use the `EvolvableSandbox`
-    /// implementation that accepts a `MutatingCallback`
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn evolve(
         self,
@@ -165,10 +104,6 @@ impl<'a>
     > for UninitializedSandbox
 {
     /// Evolve `self` to a `MultiUseSandbox` without any additional metadata.
-    ///
-    /// If you want to pass a callback to this state transition so you can
-    /// run your own code during the transition, use the `EvolvableSandbox`
-    /// implementation that accepts a `MutatingCallback`
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn evolve(
         self,
@@ -442,7 +377,7 @@ mod tests {
     use crate::sandbox::uninitialized::GuestBinary;
     use crate::sandbox::{SandboxConfiguration, WrapperGetter};
     use crate::sandbox_state::sandbox::EvolvableSandbox;
-    use crate::sandbox_state::transition::{MutatingCallback, Noop};
+    use crate::sandbox_state::transition::Noop;
     use crate::testing::log_values::{test_value_as_str, try_to_strings};
     #[cfg(target_os = "windows")]
     use crate::SandboxRunOptions;
@@ -494,60 +429,6 @@ mod tests {
         // Get a Sandbox from an uninitialized sandbox without a call back function
 
         let _sandbox: MultiUseSandbox<'_> = uninitialized_sandbox.evolve(Noop::default()).unwrap();
-
-        // Test with  init callback function
-        // TODO: replace this with a test that registers and calls functions once we have that functionality
-
-        let received_msg = Arc::new(Mutex::new(String::new()));
-        let received_msg_clone = received_msg.clone();
-
-        let writer = move |msg| {
-            let mut received_msg = received_msg_clone
-                .try_lock()
-                .map_err(|_| new_error!("Error locking"))
-                .unwrap();
-            *received_msg = msg;
-            Ok(0)
-        };
-
-        let writer_func = Arc::new(Mutex::new(writer));
-
-        let mut uninitialized_sandbox = UninitializedSandbox::new(
-            GuestBinary::FilePath(simple_guest_as_string().expect("Guest Binary Missing")),
-            None,
-            None,
-            None,
-        )
-        .expect("Failed to create sandbox");
-
-        writer_func
-            .register(&mut uninitialized_sandbox, "HostPrint")
-            .expect("Failed to register writer function");
-
-        fn init(uninitialized_sandbox: &mut UninitializedSandbox) -> Result<()> {
-            uninitialized_sandbox
-                .host_funcs
-                .try_lock()
-                .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?
-                .host_print("test".to_string())?;
-
-            Ok(())
-        }
-
-        let sandbox: Result<MultiUseSandbox<'_>> =
-            uninitialized_sandbox.evolve(MutatingCallback::from(init));
-        assert!(sandbox.is_ok());
-
-        drop(sandbox);
-
-        assert_eq!(
-            received_msg
-                .try_lock()
-                .map_err(|_| new_error!("Error locking"))
-                .unwrap()
-                .as_str(),
-            "test"
-        );
 
         // Test with a valid guest binary buffer
 
@@ -625,9 +506,6 @@ mod tests {
             )
             .unwrap()
         };
-        fn init(_: &mut UninitializedSandbox) -> Result<()> {
-            Ok(())
-        }
 
         // simple register + call
         {
@@ -636,7 +514,7 @@ mod tests {
             let test_func0 = Arc::new(Mutex::new(test0));
             test_func0.register(&mut usbox, "test0").unwrap();
 
-            let sandbox: Result<MultiUseSandbox<'_>> = usbox.evolve(MutatingCallback::from(init));
+            let sandbox: Result<MultiUseSandbox<'_>> = usbox.evolve(Noop::default());
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
@@ -662,7 +540,7 @@ mod tests {
             let test_func1 = Arc::new(Mutex::new(test1));
             test_func1.register(&mut usbox, "test1").unwrap();
 
-            let sandbox: Result<MultiUseSandbox<'_>> = usbox.evolve(MutatingCallback::from(init));
+            let sandbox: Result<MultiUseSandbox<'_>> = usbox.evolve(Noop::default());
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
@@ -694,7 +572,7 @@ mod tests {
             let test_func2 = Arc::new(Mutex::new(test2));
             test_func2.register(&mut usbox, "test2").unwrap();
 
-            let sandbox: Result<MultiUseSandbox<'_>> = usbox.evolve(MutatingCallback::from(init));
+            let sandbox: Result<MultiUseSandbox<'_>> = usbox.evolve(Noop::default());
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
@@ -712,7 +590,7 @@ mod tests {
         // calling a function that doesn't exist
         {
             let usbox = uninitialized_sandbox();
-            let sandbox: Result<MultiUseSandbox<'_>> = usbox.evolve(MutatingCallback::from(init));
+            let sandbox: Result<MultiUseSandbox<'_>> = usbox.evolve(Noop::default());
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
