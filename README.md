@@ -105,7 +105,7 @@ You can run Hyperlight on:
 After having an environment with a hypervisor setup, running the example has the following pre-requisites:
 
 1. On Linux, you'll most likely need build essential. For Mariner, run `sudo dnf install build-essential`. For Ubuntu, run `sudo apt install build-essential`
-2. [Rust](https://www.rust-lang.org/tools/install). Install toolchain v1.78.0 or later. Also, install the `x86_64-pc-windows-msvc` target with `rustup target add x86_64-pc-windows-msvc`, which is needed to build the test guest binaries (note: install this target event on Linux - [for now](https://github.com/deislabs/hyperlight/issues/1193), Hyperlight only runs Windows executables (i.e., PE files)).
+2. [Rust](https://www.rust-lang.org/tools/install). Install toolchain v1.78.0 or later. Also, install the `x86_64-pc-windows-msvc` and `x86_64-unknown-none` targets with `rustup target add <target>` for each; these are needed to build the test guest binaries. (Note: install both targets on either Linux or Windows: Hyperlight can load ELF or PE files on either OS, and the tests/examples are built for both).
 3. [just](https://github.com/casey/just). `cargo install just` .
 4. [clang and LLVM](https://clang.llvm.org/get_started.html). 
    - On Mariner, run `sudo install clang16 clang16-tools-extra lld16`. 
