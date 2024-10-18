@@ -201,9 +201,11 @@ jobs:
 
       - name: Copy Guest Binaries
         run: |
+          cp ./downloaded-guest-binaries-${{ env.CONFIG }}/callbackguest ./src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest
           cp ./downloaded-guest-binaries-${{ env.CONFIG }}/callbackguest.exe ./src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe
+          cp ./downloaded-guest-binaries-${{ env.CONFIG }}/simpleguest ./src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest
           cp ./downloaded-guest-binaries-${{ env.CONFIG }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe
-          cp ./downloaded-guest-binaries-${{ env.CONFIG }}/dummyguest.exe ./src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe
+          cp ./downloaded-guest-binaries-${{ env.CONFIG }}/dummyguest ./src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest
 
       - name: Build Solution
         run: msbuild -m hyperlight.sln /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /p:ContinuousIntegrationBuild=true
@@ -278,9 +280,11 @@ jobs:
         if: ${{ contains(github.ref, 'refs/heads/release/') }}
         run: |
             gh release create v${{ env.HYPERLIGHT_VERSION }} -t "Release v${{ env.HYPERLIGHT_VERSION }}" --generate-notes `
+            src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe `
+            src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe `
-            src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe `
+            src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest `
             ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib `
             src/HyperlightGuest/include/hyperlight.h `
             src/HyperlightGuest/third_party/printf/printf.h `
@@ -295,9 +299,11 @@ jobs:
         run:  |    
             gh release delete dev-latest -y --cleanup-tag || $true
             gh release create dev-latest -t "Latest Development Build From Dev Branch" --latest=false -p `
+            src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/callbackguest.exe `
+            src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe `
-            src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest.exe `
+            src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest `
             ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib `
             src/HyperlightGuest/include/hyperlight.h `
             src/HyperlightGuest/third_party/printf/printf.h `
