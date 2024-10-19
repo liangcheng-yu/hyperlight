@@ -21,6 +21,8 @@ use super::{HyperlightExit, Hypervisor};
 #[cfg(crashdump)]
 use crate::mem::memory_region::MemoryRegion;
 use crate::sandbox::leaked_outb::LeakedOutBWrapper;
+#[cfg(feature = "trace_guest")]
+use crate::sandbox::TraceInfo;
 use crate::Result;
 
 /// Arguments passed to inprocess driver
@@ -73,6 +75,7 @@ impl<'a> Hypervisor for InprocessDriver<'a> {
         _outb_handle_fn: super::handlers::OutBHandlerWrapper,
         _mem_access_fn: super::handlers::MemAccessHandlerWrapper,
         _hv_handler: Option<super::hypervisor_handler::HypervisorHandler>,
+        #[cfg(feature = "trace_guest")] _trace_info: TraceInfo,
     ) -> crate::Result<()> {
         let entrypoint_fn: extern "win64" fn(u64, u64, u64, u64) =
             unsafe { std::mem::transmute(self.args.entrypoint_raw as *const c_void) };
@@ -93,6 +96,7 @@ impl<'a> Hypervisor for InprocessDriver<'a> {
         _outb_handle_fn: super::handlers::OutBHandlerWrapper,
         _mem_access_fn: super::handlers::MemAccessHandlerWrapper,
         _hv_handler: Option<super::hypervisor_handler::HypervisorHandler>,
+        #[cfg(feature = "trace_guest")] _trace_info: TraceInfo,
     ) -> crate::Result<()> {
         let ptr: u64 = dispatch_func_addr.into();
         let dispatch_func: extern "win64" fn() =
@@ -109,6 +113,7 @@ impl<'a> Hypervisor for InprocessDriver<'a> {
         _rip: u64,
         _instruction_length: u64,
         _outb_handle_fn: super::handlers::OutBHandlerWrapper,
+        #[cfg(feature = "trace_guest")] _trace_info: TraceInfo,
     ) -> crate::Result<()> {
         unimplemented!("handle_io should not be needed since we are in in-process mode")
     }

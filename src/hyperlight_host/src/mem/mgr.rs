@@ -456,13 +456,18 @@ impl SandboxMemoryManager<ExclusiveSharedMemory> {
             // make the memory executable when running in-process
             shared_mem.make_memory_executable()?;
 
-            Ok(Self::new(
-                layout,
-                shared_mem,
-                true,
-                load_addr,
-                entrypoint_offset,
-                Some(lib),
+            let load_info = ();
+
+            Ok((
+                Self::new(
+                    layout,
+                    shared_mem,
+                    true,
+                    load_addr,
+                    entrypoint_offset,
+                    Some(lib),
+                ),
+                load_info,
             ))
         }
         #[cfg(target_os = "linux")]

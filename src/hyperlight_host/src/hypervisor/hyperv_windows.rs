@@ -44,6 +44,8 @@ use crate::hypervisor::hypervisor_handler::HypervisorHandler;
 use crate::hypervisor::wrappers::WHvGeneralRegisters;
 use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
 use crate::mem::ptr::{GuestPtr, RawPtr};
+#[cfg(feature = "trace_guest")]
+use crate::sandbox::TraceInfo;
 use crate::HyperlightError::{NoHypervisorFound, WindowsAPIError};
 use crate::{debug, log_then_return, new_error, Result};
 
@@ -311,6 +313,7 @@ impl Hypervisor for HypervWindowsDriver {
         outb_hdl: OutBHandlerWrapper,
         mem_access_hdl: MemAccessHandlerWrapper,
         hv_handler: Option<HypervisorHandler>,
+        #[cfg(feature = "trace_guest")] trace_info: TraceInfo,
     ) -> Result<()> {
         let regs = WHvGeneralRegisters {
             rip: self.entrypoint,
@@ -332,6 +335,8 @@ impl Hypervisor for HypervWindowsDriver {
             hv_handler,
             outb_hdl,
             mem_access_hdl,
+            #[cfg(feature = "trace_guest")]
+            trace_info,
         )?;
 
         // reset RSP to what it was before initialise
@@ -350,6 +355,7 @@ impl Hypervisor for HypervWindowsDriver {
         outb_hdl: OutBHandlerWrapper,
         mem_access_hdl: MemAccessHandlerWrapper,
         hv_handler: Option<HypervisorHandler>,
+        #[cfg(feature = "trace_guest")] trace_info: TraceInfo,
     ) -> Result<()> {
         // Reset general purpose registers except RSP, then set RIP
         let rsp_before = self.processor.get_regs()?.rsp;
@@ -374,6 +380,8 @@ impl Hypervisor for HypervWindowsDriver {
             hv_handler,
             outb_hdl,
             mem_access_hdl,
+            #[cfg(feature = "trace_guest")]
+            trace_info,
         )?;
 
         // reset RSP to what it was before function call
@@ -393,12 +401,20 @@ impl Hypervisor for HypervWindowsDriver {
         rip: u64,
         instruction_length: u64,
         outb_handle_fn: OutBHandlerWrapper,
+        #[cfg(feature = "trace_guest")] trace_info: TraceInfo,
     ) -> Result<()> {
         let payload = data[..8].try_into()?;
         outb_handle_fn
             .try_lock()
             .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?
-            .call(port, u64::from_le_bytes(payload))?;
+            .call(
+                #[cfg(feature = "trace_guest")]
+                self,
+                #[cfg(feature = "trace_guest")]
+                trace_info,
+                port,
+                u64::from_le_bytes(payload),
+            )?;
 
         let mut regs = self.processor.get_regs()?;
         regs.rip = rip + instruction_length;
@@ -548,7 +564,7 @@ pub mod tests {
 
     use serial_test::serial;
 
-    use crate::hypervisor::handlers::{MemAccessHandler, OutBHandler};
+    use crate::hypervisor::handlers::{MemAccessHandler, OutBHandler, OutBHandlerFunction};
     use crate::hypervisor::tests::test_initialise;
     use crate::Result;
 
@@ -556,8 +572,13 @@ pub mod tests {
     #[serial]
     fn test_init() {
         let outb_handler = {
-            let func: Box<dyn FnMut(u16, u64) -> Result<()> + Send> =
-                Box::new(|_, _| -> Result<()> { Ok(()) });
+            let func: OutBHandlerFunction = Box::new(
+                |#[cfg(feature = "trace_guest")] _,
+                 #[cfg(feature = "trace_guest")] _,
+                 _,
+                 _|
+                 -> Result<()> { Ok(()) },
+            );
             Arc::new(Mutex::new(OutBHandler::from(func)))
         };
         let mem_access_handler = {
