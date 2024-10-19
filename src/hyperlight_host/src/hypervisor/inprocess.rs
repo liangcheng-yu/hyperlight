@@ -17,6 +17,8 @@ limitations under the License.
 use std::fmt::Debug;
 use std::os::raw::c_void;
 
+#[cfg(feature = "unwind_guest")]
+use super::TraceRegister;
 use super::{HyperlightExit, Hypervisor};
 #[cfg(crashdump)]
 use crate::mem::memory_region::MemoryRegion;
@@ -120,6 +122,11 @@ impl<'a> Hypervisor for InprocessDriver<'a> {
 
     fn run(&mut self) -> Result<HyperlightExit> {
         unimplemented!("run should not be needed since we are in in-process mode")
+    }
+
+    #[cfg(feature = "unwind_guest")]
+    fn read_trace_reg(&self, _reg: TraceRegister) -> Result<u64> {
+        unimplemented!("read_trace_reg is not implemented in in-process mode")
     }
 
     fn as_mut_hypervisor(&mut self) -> &mut dyn Hypervisor {
