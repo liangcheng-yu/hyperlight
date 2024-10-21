@@ -17,8 +17,8 @@
 use core::arch::global_asm;
 global_asm!(
     "
-.global setjmp
-setjmp:
+.global win64_setjmp
+win64_setjmp:
     mov     rax, [rsp]
     mov     [rcx+80], rax      
 
@@ -56,8 +56,8 @@ setjmp:
 
 global_asm!(
     "
-.global longjmp
-longjmp:
+.global win64_longjmp
+win64_longjmp:
     mov     eax, edx             
     
     mov     rdx,   [rcx+ 0]       
@@ -93,3 +93,18 @@ ok:
     jmp     qword ptr [rcx+80]    
 "
 );
+
+/* Adapt the calling convention of the above to the native "C" calling
+ * convention. */
+extern "win64" {
+    fn win64_setjmp(x: u64) -> u64;
+    fn win64_longjmp(x: u64, y: u64) -> !;
+}
+#[no_mangle]
+extern "C" fn setjmp(x: u64) -> u64 {
+    unsafe { win64_setjmp(x) }
+}
+#[no_mangle]
+extern "C" fn longjmp(x: u64, y: u64) -> ! {
+    unsafe { win64_longjmp(x, y) }
+}
