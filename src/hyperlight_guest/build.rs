@@ -128,6 +128,7 @@ fn cargo_main() {
         cfg.flag("-Wno-unknown-pragmas");
         cfg.flag("-Wno-shift-op-parentheses");
         cfg.flag("-Wno-logical-op-parentheses");
+        cfg.flag("-Wno-unused-but-set-variable");
 
         if is_pe {
             cfg.compiler("clang-cl");

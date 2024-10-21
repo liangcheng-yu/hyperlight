@@ -36,7 +36,7 @@ build-rust-guests target=default-target:
     cd src/tests/rust_guests/simpleguest && cargo build --profile={{ if target == "debug" { "dev" } else { target } }} --target=x86_64-pc-windows-msvc
     cd src/tests/rust_guests/dummyguest && cargo build --profile={{ if target == "debug" { "dev" } else { target } }} 
 
-move-rust-guests target=default-target:
+@move-rust-guests target=default-target:
     cp {{ callbackguest_source }}/{{ target }}/callbackguest* {{ rust_guests_bin_dir }}/{{ target }}/
     cp {{ callbackguest_msvc_source }}/{{ target }}/callbackguest* {{ rust_guests_bin_dir }}/{{ target }}/
     cp {{ simpleguest_source }}/{{ target }}/simpleguest* {{ rust_guests_bin_dir }}/{{ target }}/
