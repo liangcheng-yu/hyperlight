@@ -107,8 +107,8 @@ After having an environment with a hypervisor setup, running the example has the
 1. On Linux, you'll most likely need build essential. For Mariner, run `sudo dnf install build-essential`. For Ubuntu, run `sudo apt install build-essential`
 2. [Rust](https://www.rust-lang.org/tools/install). Install toolchain v1.78.0 or later. Also, install the `x86_64-pc-windows-msvc` and `x86_64-unknown-none` targets with `rustup target add <target>` for each; these are needed to build the test guest binaries. (Note: install both targets on either Linux or Windows: Hyperlight can load ELF or PE files on either OS, and the tests/examples are built for both).
 3. [just](https://github.com/casey/just). `cargo install just` .
-4. [clang and LLVM](https://clang.llvm.org/get_started.html). 
-   - On Mariner, run `sudo install clang16 clang16-tools-extra lld16`. 
+4. [clang and LLVM](https://clang.llvm.org/get_started.html).
+   - On Mariner, run `sudo install clang16 clang16-tools-extra lld16`.
    - On Ubuntu, run:
        ```sh
        wget https://apt.llvm.org/llvm.sh
@@ -121,7 +121,7 @@ After having an environment with a hypervisor setup, running the example has the
        ```
      - On Windows, see [this](https://learn.microsoft.com/en-us/cpp/build/clang-support-msbuild?view=msvc-170).
 5. [The Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli).
- 
+
 Now, while Hyperlight is closed source, you'll need to connect to our [Hyperlight Cargo feeds](https://dev.azure.com/AzureContainerUpstream/hyperlight/_artifacts/feed/hyperlight_packages_test) to build the Rust Hyperlight library. To do so, run the following commands:
 
 ```sh
@@ -148,7 +148,7 @@ Hello, World! I am executing inside of a VM :)
 ```
 
 > Note: For general Hyperlight development, you'll most likely also need these additional pre-requisites:
-> - [cbindgen](https://github.com/eqrion/cbindgen). `cargo install cbindgen` 
+> - [cbindgen](https://github.com/eqrion/cbindgen). `cargo install cbindgen`
 > - For Windows, install the Visual Studio 2022 build tools. You can find them [here](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022).
 > - flatcc (Flatbuffer C compiler): for instructions, see [here](https://github.com/dvidelabs/flatcc).
 > - flatc (Flatbuffer compiler for other languages): for instructions, see [here](https://github.com/google/flatbuffers).
@@ -171,24 +171,22 @@ just test # runs the tests
 
 (1) For running tests, we require an environment variable to be set, which you could be missing (e.g., `KVM_SHOULD_BE_PRESENT=true`).
 
-(2) If you have a Hypervisor device (e.g., `/dev/kvm` or `/dev/mshv`) setup, it could just be a permissions issue. 
+(2) If you have a Hypervisor device (e.g., `/dev/kvm` or `/dev/mshv`) setup, it could just be a permissions issue.
 Update your permissions (e.g., `sudo chmod 666 /dev/kvm` or set up a KVM group as shown [here](https://help.ubuntu.com/community/KVM/Installation)).
 
-(3) You really don't have a Hypervisor. If this is the case, look for instructions for your specific platform to get 
+(3) You really don't have a Hypervisor. If this is the case, look for instructions for your specific platform to get
 setup (here's an example for [Ubuntu KVM](https://ubuntu.com/blog/kvm-hyphervisor)).
 
 ## More Information
 
-For more information, please refer to our compilation of documents in the [`docs/` directory](./docs/README.md). 
+For more information, please refer to our compilation of documents in the [`docs/` directory](./docs/README.md).
 
 ## Code of Conduct
 
-This project has adopted the [Microsoft Open Source Code of
-Conduct](https://opensource.microsoft.com/codeofconduct/).
+See the [Code of Conduct](./CODE_OF_CONDUCT.md).
 
-For more information see the [Code of Conduct
-FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact
-[opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+## Trademarks
+This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft trademarks or logos is subject to and must follow [Microsoft’s Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general). Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship. Any use of third-party trademarks or logos are subject to those third-party’s policies.
 
 [wsl2]: https://docs.microsoft.com/en-us/windows/wsl/install
 [wsl2-kvm]: https://boxofcables.dev/kvm-optimized-custom-kernel-wsl2-2022/
