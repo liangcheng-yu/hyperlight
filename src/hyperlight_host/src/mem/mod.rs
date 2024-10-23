@@ -1,5 +1,5 @@
 /// Reusable structure to hold data and provide a `Drop` implementation
-#[cfg(target_os = "windows")]
+#[cfg(inprocess)]
 pub(crate) mod custom_drop;
 /// A simple ELF loader
 pub(crate) mod elf;

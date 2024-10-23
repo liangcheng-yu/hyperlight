@@ -29,64 +29,61 @@ pub fn new_uninit_rust() -> Result<UninitializedSandbox> {
     )
 }
 
-pub fn get_simpleguest_sandboxes<'a>(
+pub fn get_simpleguest_sandboxes(
     writer: Option<&dyn HostFunction1<String, i32>>, // An optional writer to make sure correct info is passed to the host printer
-) -> Vec<MultiUseSandbox<'a>> {
+) -> Vec<MultiUseSandbox> {
     let path = get_c_or_rust_simpleguest_path();
 
-    #[allow(unused_mut)] // for linux
-    let mut res = vec![
-        // in hypervisor
+    // when env variable GUEST="c", `path`` will be a .exe file already, so we run the same guest twice.
+    // This will be fixed when c guests are compiled to elf
+    let mut exe_path = path.trim_end_matches(".exe").to_string();
+    exe_path.push_str(".exe");
+
+    vec![
+        // in hypervisor elf
         UninitializedSandbox::new(GuestBinary::FilePath(path.clone()), None, None, writer)
             .unwrap()
             .evolve(Noop::default())
             .unwrap(),
-    ];
-
-    #[cfg(target_os = "windows")]
-    {
+        // in hypervisor exe
+        UninitializedSandbox::new(GuestBinary::FilePath(exe_path.clone()), None, None, writer)
+            .unwrap()
+            .evolve(Noop::default())
+            .unwrap(),
         // in-process elf
-        res.push(
-            UninitializedSandbox::new(
-                GuestBinary::FilePath(path.clone()),
-                None,
-                Some(hyperlight_host::SandboxRunOptions::RunInProcess(false)),
-                writer,
-            )
-            .unwrap()
-            .evolve(Noop::default())
-            .unwrap(),
-        );
-
-        let mut exe_path = path.trim_end_matches(".exe").to_string();
-        exe_path.push_str(".exe");
-        // in-process exe
-        res.push(
-            UninitializedSandbox::new(
-                GuestBinary::FilePath(exe_path.clone()),
-                None,
-                Some(hyperlight_host::SandboxRunOptions::RunInProcess(false)),
-                writer,
-            )
-            .unwrap()
-            .evolve(Noop::default())
-            .unwrap(),
-        );
-
-        // in memory with loadlib
-        res.push(
-            UninitializedSandbox::new(
-                GuestBinary::FilePath(exe_path.clone()),
-                None,
-                Some(hyperlight_host::SandboxRunOptions::RunInProcess(true)),
-                writer,
-            )
-            .unwrap()
-            .evolve(Noop::default())
-            .unwrap(),
+        #[cfg(inprocess)]
+        UninitializedSandbox::new(
+            GuestBinary::FilePath(path.clone()),
+            None,
+            Some(hyperlight_host::SandboxRunOptions::RunInProcess(false)),
+            writer,
         )
-    }
-    res
+        .unwrap()
+        .evolve(Noop::default())
+        .unwrap(),
+        //in-process exe
+        #[cfg(inprocess)]
+        UninitializedSandbox::new(
+            GuestBinary::FilePath(exe_path.clone()),
+            None,
+            Some(hyperlight_host::SandboxRunOptions::RunInProcess(false)),
+            writer,
+        )
+        .unwrap()
+        .evolve(Noop::default())
+        .unwrap(),
+        // loadlib in process
+        #[cfg(all(target_os = "windows", inprocess))]
+        UninitializedSandbox::new(
+            GuestBinary::FilePath(exe_path.clone()),
+            None,
+            Some(hyperlight_host::SandboxRunOptions::RunInProcess(true)),
+            writer,
+        )
+        .unwrap()
+        .evolve(Noop::default())
+        .unwrap(),
+    ]
 }
 
 pub fn get_callbackguest_uninit_sandboxes(
@@ -94,54 +91,49 @@ pub fn get_callbackguest_uninit_sandboxes(
 ) -> Vec<UninitializedSandbox> {
     let path = get_c_or_rust_callbackguest_path();
 
-    #[allow(unused_mut)] // for linux
-    let mut res = vec![
-        // in hypervisor
+    // when env variable GUEST="c", `path`` will be a .exe file already, so we run the same guest twice.
+    // This will be fixed when c guests are compiled to elf
+    let mut exe_path = path.trim_end_matches(".exe").to_string();
+    exe_path.push_str(".exe");
+
+    vec![
+        // in hypervisor elf
         UninitializedSandbox::new(GuestBinary::FilePath(path.clone()), None, None, writer).unwrap(),
-    ];
-
-    #[cfg(target_os = "windows")]
-    {
+        // in hypervisor exe
+        UninitializedSandbox::new(GuestBinary::FilePath(exe_path.clone()), None, None, writer)
+            .unwrap(),
         // in-process elf
-        res.push(
-            UninitializedSandbox::new(
-                GuestBinary::FilePath(path.clone()),
-                None,
-                Some(hyperlight_host::SandboxRunOptions::RunInProcess(false)),
-                writer,
-            )
-            .unwrap(),
-        );
-
-        let mut exe_path = path.trim_end_matches(".exe").to_string();
-        exe_path.push_str(".exe");
-        // in-process exe
-        res.push(
-            UninitializedSandbox::new(
-                GuestBinary::FilePath(exe_path.clone()),
-                None,
-                Some(hyperlight_host::SandboxRunOptions::RunInProcess(false)),
-                writer,
-            )
-            .unwrap(),
-        );
-
-        // in memory with loadlib
-        res.push(
-            UninitializedSandbox::new(
-                GuestBinary::FilePath(exe_path.clone()),
-                None,
-                Some(hyperlight_host::SandboxRunOptions::RunInProcess(true)),
-                writer,
-            )
-            .unwrap(),
+        #[cfg(inprocess)]
+        UninitializedSandbox::new(
+            GuestBinary::FilePath(path.clone()),
+            None,
+            Some(hyperlight_host::SandboxRunOptions::RunInProcess(false)),
+            writer,
         )
-    }
-    res
+        .unwrap(),
+        //in-process exe
+        #[cfg(inprocess)]
+        UninitializedSandbox::new(
+            GuestBinary::FilePath(exe_path.clone()),
+            None,
+            Some(hyperlight_host::SandboxRunOptions::RunInProcess(false)),
+            writer,
+        )
+        .unwrap(),
+        // loadlib in process
+        #[cfg(all(target_os = "windows", inprocess))]
+        UninitializedSandbox::new(
+            GuestBinary::FilePath(exe_path.clone()),
+            None,
+            Some(hyperlight_host::SandboxRunOptions::RunInProcess(true)),
+            writer,
+        )
+        .unwrap(),
+    ]
 }
 
-// returns the GUEST environment variable, or "rust" if not set.
-fn get_c_or_rust_simpleguest_path() -> String {
+// returns the the path of simpleguest binary. Picks rust/c version depending on environment variable GUEST (or rust by default if unset)
+pub(crate) fn get_c_or_rust_simpleguest_path() -> String {
     let guest_type = std::env::var("GUEST").unwrap_or("rust".to_string());
     match guest_type.as_str() {
         "rust" => simple_guest_as_string().unwrap(),
@@ -150,6 +142,7 @@ fn get_c_or_rust_simpleguest_path() -> String {
     }
 }
 
+// returns the the path of callbackguest binary. Picks rust/ version depending on environment variable GUEST (or rust by default if unset)
 fn get_c_or_rust_callbackguest_path() -> String {
     let guest_type = std::env::var("GUEST").unwrap_or("rust".to_string());
     match guest_type.as_str() {

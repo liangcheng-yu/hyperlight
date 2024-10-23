@@ -42,10 +42,6 @@ pub enum HyperlightError {
     #[error("Offset: {0} out of bounds, Max is: {1}")]
     BoundsCheckFailed(u64, usize),
 
-    /// Call entry point was callled when not in process
-    #[error("Call_entry_point is only available with in-process mode")]
-    CallEntryPointIsInProcOnly(),
-
     /// Checked Add Overflow
     #[error("Couldnt add offset to base address. Offset: {0}, Base Address: {1}")]
     CheckedAddOverflow(u64, u64),

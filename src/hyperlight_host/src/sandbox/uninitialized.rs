@@ -34,13 +34,13 @@ pub struct UninitializedSandbox {
     pub(crate) host_funcs: Arc<Mutex<HostFuncsWrapper>>,
     /// The memory manager for the sandbox.
     pub(crate) mgr: MemMgrWrapper<ExclusiveSharedMemory>,
-    pub(crate) run_from_process_memory: bool,
+    pub(crate) run_inprocess: bool,
     pub(crate) max_initialization_time: Duration,
     pub(crate) max_execution_time: Duration,
     pub(crate) max_wait_for_cancellation: Duration,
 }
 
-impl<'a> crate::sandbox_state::sandbox::UninitializedSandbox<'a> for UninitializedSandbox {
+impl crate::sandbox_state::sandbox::UninitializedSandbox for UninitializedSandbox {
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn get_uninitialized_sandbox(&self) -> &crate::sandbox::UninitializedSandbox {
         self
@@ -68,36 +68,30 @@ impl crate::sandbox_state::sandbox::Sandbox for UninitializedSandbox {
     }
 }
 
-impl<'a>
+impl
     EvolvableSandbox<
         UninitializedSandbox,
-        SingleUseSandbox<'a>,
-        Noop<UninitializedSandbox, SingleUseSandbox<'a>>,
+        SingleUseSandbox,
+        Noop<UninitializedSandbox, SingleUseSandbox>,
     > for UninitializedSandbox
 {
     /// Evolve `self` to a `SingleUseSandbox` without any additional metadata.
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    fn evolve(
-        self,
-        _: Noop<UninitializedSandbox, SingleUseSandbox<'a>>,
-    ) -> Result<SingleUseSandbox<'a>> {
+    fn evolve(self, _: Noop<UninitializedSandbox, SingleUseSandbox>) -> Result<SingleUseSandbox> {
         evolve_impl_single_use(self)
     }
 }
 
-impl<'a>
+impl
     EvolvableSandbox<
         UninitializedSandbox,
-        MultiUseSandbox<'a>,
-        Noop<UninitializedSandbox, MultiUseSandbox<'a>>,
+        MultiUseSandbox,
+        Noop<UninitializedSandbox, MultiUseSandbox>,
     > for UninitializedSandbox
 {
     /// Evolve `self` to a `MultiUseSandbox` without any additional metadata.
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    fn evolve(
-        self,
-        _: Noop<UninitializedSandbox, MultiUseSandbox<'a>>,
-    ) -> Result<MultiUseSandbox<'a>> {
+    fn evolve(self, _: Noop<UninitializedSandbox, MultiUseSandbox>) -> Result<MultiUseSandbox> {
         evolve_impl_multi_use(self)
     }
 }
@@ -111,7 +105,7 @@ pub enum GuestBinary {
     FilePath(String),
 }
 
-impl<'a> UninitializedSandbox {
+impl UninitializedSandbox {
     /// Create a new sandbox configured to run the binary at path
     /// `bin_path`.
     ///
@@ -128,7 +122,7 @@ impl<'a> UninitializedSandbox {
         guest_binary: GuestBinary,
         cfg: Option<SandboxConfiguration>,
         sandbox_run_options: Option<SandboxRunOptions>,
-        host_print_writer: Option<&dyn HostFunction1<'a, String, i32>>,
+        host_print_writer: Option<&dyn HostFunction1<String, i32>>,
     ) -> Result<Self> {
         log_build_details();
 
@@ -145,30 +139,40 @@ impl<'a> UninitializedSandbox {
 
         let run_opts = sandbox_run_options.unwrap_or_default();
 
-        let run_from_process_memory = run_opts.is_in_memory();
-        let run_from_guest_binary = run_opts.is_run_from_guest_binary();
+        let run_inprocess = run_opts.in_process();
+        let use_loadlib = run_opts.use_loadlib();
+
+        if run_inprocess && cfg!(not(inprocess)) {
+            log_then_return!(
+                "Inprocess mode is only available in debug builds, and also requires cargo feature 'inprocess'"
+            )
+        }
+
+        if use_loadlib && cfg!(not(all(inprocess, target_os = "windows"))) {
+            log_then_return!("Inprocess mode with LoadLibrary is only available on Windows")
+        }
 
         let sandbox_cfg = cfg.unwrap_or_default();
         let mut mem_mgr_wrapper = {
             let mut mgr = UninitializedSandbox::load_guest_binary(
                 sandbox_cfg,
                 &guest_binary,
-                run_from_process_memory,
-                run_from_guest_binary,
+                run_inprocess,
+                use_loadlib,
             )?;
             let stack_guard = Self::create_stack_guard();
             mgr.set_stack_guard(&stack_guard)?;
             MemMgrWrapper::new(mgr, stack_guard)
         };
 
-        mem_mgr_wrapper.write_memory_layout(run_from_process_memory)?;
+        mem_mgr_wrapper.write_memory_layout(run_inprocess)?;
 
         let host_funcs = Arc::new(Mutex::new(HostFuncsWrapper::default()));
 
         let mut sandbox = Self {
             host_funcs,
             mgr: mem_mgr_wrapper,
-            run_from_process_memory,
+            run_inprocess,
             max_initialization_time: Duration::from_millis(
                 sandbox_cfg.get_max_initialization_time() as u64,
             ),
@@ -257,35 +261,24 @@ impl<'a> UninitializedSandbox {
     pub(super) fn load_guest_binary(
         cfg: SandboxConfiguration,
         guest_binary: &GuestBinary,
-        run_from_process_memory: bool,
-        run_from_guest_binary: bool,
+        inprocess: bool,
+        use_loadlib: bool,
     ) -> Result<SandboxMemoryManager<ExclusiveSharedMemory>> {
         let mut exe_info = match guest_binary {
             GuestBinary::FilePath(bin_path_str) => ExeInfo::from_file(bin_path_str)?,
             GuestBinary::Buffer(buffer) => ExeInfo::from_buf(buffer)?,
         };
 
-        if run_from_guest_binary {
+        if use_loadlib {
             let path = match guest_binary {
                 GuestBinary::FilePath(bin_path_str) => bin_path_str,
                 GuestBinary::Buffer(_) => {
                     log_then_return!(GuestBinaryShouldBeAFile());
                 }
             };
-            // TODO: This produces the wrong error message on Linux and is possibly obsfucating the real error on Windows
             SandboxMemoryManager::load_guest_binary_using_load_library(cfg, path, &mut exe_info)
-                .map_err(|e: crate::HyperlightError| {
-                    new_error!(
-                    "Only one instance of Sandbox is allowed when running from guest binary: {:?}",
-                    e
-                )
-                })
         } else {
-            SandboxMemoryManager::load_guest_binary_into_memory(
-                cfg,
-                &mut exe_info,
-                run_from_process_memory,
-            )
+            SandboxMemoryManager::load_guest_binary_into_memory(cfg, &mut exe_info, inprocess)
         }
     }
 }
@@ -310,15 +303,37 @@ mod tests {
     use tracing_core::Subscriber;
     use uuid::Uuid;
 
-    use crate::func::host_functions::{HostFunction1, HostFunction2};
+    use crate::func::{HostFunction1, HostFunction2};
     use crate::sandbox::uninitialized::GuestBinary;
     use crate::sandbox::SandboxConfiguration;
     use crate::sandbox_state::sandbox::EvolvableSandbox;
     use crate::sandbox_state::transition::Noop;
     use crate::testing::log_values::{test_value_as_str, try_to_strings};
-    #[cfg(target_os = "windows")]
-    use crate::SandboxRunOptions;
-    use crate::{new_error, MultiUseSandbox, Result, UninitializedSandbox};
+    use crate::{new_error, MultiUseSandbox, Result, SandboxRunOptions, UninitializedSandbox};
+
+    #[test]
+    fn test_in_process() {
+        let simple_guest_path = simple_guest_as_string().unwrap();
+        let sbox = UninitializedSandbox::new(
+            GuestBinary::FilePath(simple_guest_path.clone()),
+            None,
+            Some(SandboxRunOptions::RunInProcess(false)),
+            None,
+        );
+
+        // in process should only be enabled with the inprocess feature and on debug builds
+        assert_eq!(sbox.is_ok(), cfg!(inprocess));
+
+        let sbox = UninitializedSandbox::new(
+            GuestBinary::FilePath(simple_guest_path.clone()),
+            None,
+            Some(SandboxRunOptions::RunInProcess(true)),
+            None,
+        );
+
+        // in process should only be enabled with the inprocess feature and on debug builds, and requires windows
+        assert_eq!(sbox.is_ok(), cfg!(all(inprocess, target_os = "windows")));
+    }
 
     #[test]
     fn test_new_sandbox() {
@@ -366,7 +381,7 @@ mod tests {
 
         // Get a Sandbox from an uninitialized sandbox without a call back function
 
-        let _sandbox: MultiUseSandbox<'_> = uninitialized_sandbox.evolve(Noop::default()).unwrap();
+        let _sandbox: MultiUseSandbox = uninitialized_sandbox.evolve(Noop::default()).unwrap();
 
         // Test with a valid guest binary buffer
 
@@ -435,7 +450,7 @@ mod tests {
             let test_func0 = Arc::new(Mutex::new(test0));
             test_func0.register(&mut usbox, "test0").unwrap();
 
-            let sandbox: Result<MultiUseSandbox<'_>> = usbox.evolve(Noop::default());
+            let sandbox: Result<MultiUseSandbox> = usbox.evolve(Noop::default());
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
@@ -461,7 +476,7 @@ mod tests {
             let test_func1 = Arc::new(Mutex::new(test1));
             test_func1.register(&mut usbox, "test1").unwrap();
 
-            let sandbox: Result<MultiUseSandbox<'_>> = usbox.evolve(Noop::default());
+            let sandbox: Result<MultiUseSandbox> = usbox.evolve(Noop::default());
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
@@ -493,7 +508,7 @@ mod tests {
             let test_func2 = Arc::new(Mutex::new(test2));
             test_func2.register(&mut usbox, "test2").unwrap();
 
-            let sandbox: Result<MultiUseSandbox<'_>> = usbox.evolve(Noop::default());
+            let sandbox: Result<MultiUseSandbox> = usbox.evolve(Noop::default());
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
@@ -511,7 +526,7 @@ mod tests {
         // calling a function that doesn't exist
         {
             let usbox = uninitialized_sandbox();
-            let sandbox: Result<MultiUseSandbox<'_>> = usbox.evolve(Noop::default());
+            let sandbox: Result<MultiUseSandbox> = usbox.evolve(Noop::default());
             assert!(sandbox.is_ok());
             let sandbox = sandbox.unwrap();
 
@@ -724,7 +739,7 @@ mod tests {
     #[test]
     fn check_create_and_use_sandbox_on_different_threads() {
         let unintializedsandbox_queue = Arc::new(ArrayQueue::<UninitializedSandbox>::new(10));
-        let sandbox_queue = Arc::new(ArrayQueue::<MultiUseSandbox<'_>>::new(10));
+        let sandbox_queue = Arc::new(ArrayQueue::<MultiUseSandbox>::new(10));
 
         for i in 0..10 {
             let simple_guest_path = simple_guest_as_string().expect("Guest Binary Missing");
@@ -1050,7 +1065,7 @@ mod tests {
                 );
                 res.unwrap()
             };
-            let _: Result<MultiUseSandbox<'_>> = sbox.evolve(Noop::default());
+            let _: Result<MultiUseSandbox> = sbox.evolve(Noop::default());
 
             let num_calls = TEST_LOGGER.num_log_calls();
 

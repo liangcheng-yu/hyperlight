@@ -14,7 +14,8 @@ pub mod initialized_single_use;
 /// executions. On non-in-process executions (e.g. windows without
 /// in-process mode turned on, or linux), the same container is just
 /// a no-op
-mod leaked_outb;
+#[cfg(inprocess)]
+pub(crate) mod leaked_outb;
 /// Functionality for dealing with memory access from the VM guest
 /// executable
 pub(crate) mod mem_access;
@@ -52,10 +53,10 @@ pub use uninitialized::UninitializedSandbox;
 
 use self::mem_mgr::MemMgrWrapper;
 use crate::func::HyperlightFunction;
+use crate::hypervisor::hypervisor_handler::HypervisorHandler;
 #[cfg(target_os = "windows")]
 use crate::hypervisor::windows_hypervisor_platform;
 use crate::mem::shared_mem::HostSharedMemory;
-use crate::sandbox::uninitialized_evolve::ExecutionMode;
 
 // In case its not obvious why there are separate is_supported_platform and is_hypervisor_present functions its because
 // Hyperlight is designed to be able to run on a host that doesn't have a hypervisor.
@@ -129,15 +130,13 @@ pub fn is_hypervisor_present() -> bool {
     hypervisor::get_available_hypervisor().is_some()
 }
 
-pub(crate) trait WrapperGetter<'a> {
+pub(crate) trait WrapperGetter {
+    #[allow(dead_code)]
     fn get_mgr_wrapper(&self) -> &MemMgrWrapper<HostSharedMemory>;
     fn get_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper<HostSharedMemory>;
-    fn get_execution_mode(&self) -> &ExecutionMode<'a> {
-        panic!("Uninitialized sandboxes are not ready for execution");
-    }
-    fn get_execution_mode_mut(&mut self) -> &mut ExecutionMode<'a> {
-        panic!("Uninitialized sandboxes are not ready for execution");
-    }
+    fn get_hv_handler(&self) -> &HypervisorHandler;
+    #[allow(dead_code)]
+    fn get_hv_handler_mut(&mut self) -> &mut HypervisorHandler;
 }
 
 #[cfg(test)]

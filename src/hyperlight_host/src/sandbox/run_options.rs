@@ -9,15 +9,13 @@ use tracing::{instrument, Span};
 /// with run-from-guest-binary mode if created with in-hypervisor mode.
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub enum SandboxRunOptions {
-    /// Run directly in a platform-appropriate hypervisor, with the option
-    /// to re-use sandboxes after each execution if the `bool` field is
-    /// set to `true`.
+    /// Run directly in a platform-appropriate hypervisor
     #[default]
     RunInHypervisor,
-    #[cfg(target_os = "windows")]
     /// Run in-process, without a hypervisor, optionally using the
     /// Windows LoadLibrary API to load the binary if the `bool` field is
-    /// set to `true`.
+    /// set to `true`. This should only be used for testing and debugging
+    /// as it does not offer any security guarantees.
     ///
     /// This flag is available on Windows machines only.
     /// There are further plans to make this a debug-only feature.
@@ -27,26 +25,15 @@ pub enum SandboxRunOptions {
 }
 
 impl SandboxRunOptions {
+    /// Returns true if the sandbox should be run in-process using the LoadLibrary API.
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(super) fn is_run_from_guest_binary(&self) -> bool {
-        #[cfg(target_os = "linux")]
-        {
-            false
-        }
-        #[cfg(target_os = "windows")]
-        {
-            matches!(self, Self::RunInProcess(true))
-        }
+    pub(super) fn use_loadlib(&self) -> bool {
+        matches!(self, Self::RunInProcess(true))
     }
+
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    pub(super) fn is_in_memory(&self) -> bool {
-        #[cfg(target_os = "linux")]
-        {
-            false
-        }
-        #[cfg(target_os = "windows")]
-        {
-            matches!(self, SandboxRunOptions::RunInProcess(_))
-        }
+    /// Returns true if the sandbox should be run in-process
+    pub(super) fn in_process(&self) -> bool {
+        matches!(self, SandboxRunOptions::RunInProcess(_))
     }
 }

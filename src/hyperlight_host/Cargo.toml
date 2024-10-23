@@ -115,6 +115,7 @@ print_debug = []
 dump_on_crash = ["dep:tempfile"]
 kvm = ["dep:kvm-bindings", "dep:kvm-ioctls"]
 mshv = ["dep:mshv-bindings", "dep:mshv-ioctls"]
+inprocess = []
 
 [[bench]]
 name = "benchmarks"

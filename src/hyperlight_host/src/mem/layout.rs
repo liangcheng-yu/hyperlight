@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::mem::{offset_of, size_of};
 
-use hyperlight_common::mem::{GuestStackData, HyperlightPEB, PAGE_SIZE_USIZE};
+use hyperlight_common::mem::{GuestStackData, HyperlightPEB, RunMode, PAGE_SIZE_USIZE};
 use paste::paste;
 use rand::rngs::OsRng;
 use rand::RngCore;
@@ -16,7 +16,7 @@ use super::mgr::AMOUNT_OF_MEMORY_PER_PT;
 use super::shared_mem::{ExclusiveSharedMemory, GuestSharedMemory, SharedMemory};
 use crate::error::HyperlightError::{GuestOffsetIsInvalid, MemoryRequestTooBig};
 use crate::sandbox::SandboxConfiguration;
-use crate::{new_error, Result};
+use crate::{log_then_return, new_error, Result};
 
 // +-------------------------------------------+
 // |             Boot Stack (4KiB)             |
@@ -115,6 +115,7 @@ pub(crate) struct SandboxMemoryLayout {
     pub(crate) peb_host_exception_offset: usize,
     peb_guest_error_offset: usize,
     peb_code_and_outb_pointer_offset: usize,
+    peb_runmode_offset: usize,
     peb_input_data_offset: usize,
     peb_output_data_offset: usize,
     peb_guest_panic_context_offset: usize,
@@ -321,6 +322,7 @@ impl SandboxMemoryLayout {
         let peb_host_exception_offset = peb_offset + offset_of!(HyperlightPEB, hostException);
         let peb_guest_error_offset = peb_offset + offset_of!(HyperlightPEB, guestErrorData);
         let peb_code_and_outb_pointer_offset = peb_offset + offset_of!(HyperlightPEB, pCode);
+        let peb_runmode_offset = peb_offset + offset_of!(HyperlightPEB, runMode);
         let peb_input_data_offset = peb_offset + offset_of!(HyperlightPEB, inputdata);
         let peb_output_data_offset = peb_offset + offset_of!(HyperlightPEB, outputdata);
         let peb_guest_panic_context_offset =
@@ -384,6 +386,7 @@ impl SandboxMemoryLayout {
             peb_host_exception_offset,
             peb_guest_error_offset,
             peb_code_and_outb_pointer_offset,
+            peb_runmode_offset,
             peb_input_data_offset,
             peb_output_data_offset,
             peb_guest_panic_context_offset,
@@ -409,6 +412,11 @@ impl SandboxMemoryLayout {
             kernel_stack_size_rounded,
             boot_stack_buffer_offset,
         })
+    }
+
+    /// Gets the offset in guest memory to the RunMode field in the PEB struct.
+    pub fn get_run_mode_offset(&self) -> usize {
+        self.peb_runmode_offset
     }
 
     /// Get the offset in guest memory to the size field in the
@@ -480,7 +488,6 @@ impl SandboxMemoryLayout {
         self.peb_code_and_outb_pointer_offset + size_of::<u64>()
     }
 
-    #[cfg(target_os = "windows")]
     /// Get the offset in guest memory to the OutB context.
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     pub(super) fn get_outb_context_offset(&self) -> usize {
@@ -1093,6 +1100,7 @@ impl SandboxMemoryLayout {
         shared_mem: &mut ExclusiveSharedMemory,
         guest_offset: usize,
         size: usize,
+        run_inprocess: bool,
     ) -> Result<()> {
         macro_rules! get_address {
             ($something:ident) => {
@@ -1153,6 +1161,21 @@ impl SandboxMemoryLayout {
 
         // Skip code, is set when loading binary
         // skip outb and outb context, is set when running in_proc
+
+        // Set RunMode in PEB
+        shared_mem.write_u64(
+            self.get_run_mode_offset(),
+            match (
+                run_inprocess,
+                cfg!(target_os = "windows"),
+                cfg!(target_os = "linux"),
+            ) {
+                (false, _, _) => RunMode::Hypervisor as u64,
+                (true, true, _) => RunMode::InProcessWindows as u64,
+                (true, _, true) => RunMode::InProcessLinux as u64,
+                (true, _, _) => log_then_return!("Unsupported OS for in-process mode"),
+            },
+        )?;
 
         // Set up input buffer pointer
         shared_mem.write_u64(

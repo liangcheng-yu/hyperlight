@@ -415,8 +415,26 @@ impl ExclusiveSharedMemory {
             }
         }
 
-        // TODO: Add support for Linux if in process execution is re-enabled on Linux in future
+        // make the memory executable on Linux
+        #[cfg(target_os = "linux")]
+        {
+            use libc::{mprotect, PROT_EXEC, PROT_READ, PROT_WRITE};
 
+            let res = unsafe {
+                mprotect(
+                    self.region.ptr as *mut c_void,
+                    self.region.size,
+                    PROT_READ | PROT_WRITE | PROT_EXEC,
+                )
+            };
+
+            if res != 0 {
+                return Err(new_error!(
+                    "Failed to make memory executable: {:#?}",
+                    Error::last_os_error().raw_os_error()
+                ));
+            }
+        }
         Ok(())
     }
 

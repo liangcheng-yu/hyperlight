@@ -9,8 +9,8 @@ use super::host_funcs::HostFuncsWrapper;
 use super::{MemMgrWrapper, WrapperGetter};
 use crate::func::call_ctx::MultiUseGuestCallContext;
 use crate::func::guest_dispatch::call_function_on_guest;
+use crate::hypervisor::hypervisor_handler::HypervisorHandler;
 use crate::mem::shared_mem::HostSharedMemory;
-use crate::sandbox::uninitialized_evolve::ExecutionMode;
 use crate::sandbox_state::sandbox::{DevolvableSandbox, EvolvableSandbox, Sandbox};
 use crate::sandbox_state::transition::{MultiUseContextCallback, Noop};
 use crate::Result;
@@ -23,11 +23,11 @@ use crate::Result;
 ///
 /// 2. A MultiUseGuestCallContext can be created from the sandbox and used to make multiple guest function calls to the Sandbox.
 ///    in this case the state of the sandbox is not reset until the context is finished and the `MultiUseSandbox` is returned.
-pub struct MultiUseSandbox<'a> {
+pub struct MultiUseSandbox {
     // We need to keep a reference to the host functions, even if the compiler marks it as unused. The compiler cannot detect our dynamic usages of the host function in `HyperlightFunction::call`.
     pub(super) _host_funcs: Arc<Mutex<HostFuncsWrapper>>,
     pub(crate) mem_mgr: MemMgrWrapper<HostSharedMemory>,
-    execution_mode: ExecutionMode<'a>,
+    hv_handler: HypervisorHandler,
 }
 
 // We need to implement drop to join the
@@ -38,27 +38,18 @@ pub struct MultiUseSandbox<'a> {
 // sandboxes and caused the system to run out of
 // resources. Now, this is covered by the test:
 // `create_1000_sandboxes`.
-impl Drop for MultiUseSandbox<'_> {
+impl Drop for MultiUseSandbox {
     fn drop(&mut self) {
-        let execution_mode = self.get_execution_mode_mut();
-        match execution_mode {
-            ExecutionMode::InHypervisor(hv_handler) => {
-                match hv_handler.kill_hypervisor_handler_thread() {
-                    Ok(_) => {}
-                    Err(e) => {
-                        log::error!("[POTENTIAL THREAD LEAK] Potentially failed to kill hypervisor handler thread when dropping MultiUseSandbox: {:?}", e);
-                    }
-                }
-            }
-            _ => {
-                // If we are running from C# or in process, drop is a no-op
-                // because there's no hypervisor thread to kill.
+        match self.hv_handler.kill_hypervisor_handler_thread() {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("[POTENTIAL THREAD LEAK] Potentially failed to kill hypervisor handler thread when dropping MultiUseSandbox: {:?}", e);
             }
         }
     }
 }
 
-impl<'a> MultiUseSandbox<'a> {
+impl MultiUseSandbox {
     /// Move an `UninitializedSandbox` into a new `MultiUseSandbox` instance.
     ///
     /// This function is not equivalent to doing an `evolve` from uninitialized
@@ -68,12 +59,12 @@ impl<'a> MultiUseSandbox<'a> {
     pub(super) fn from_uninit(
         host_funcs: Arc<Mutex<HostFuncsWrapper>>,
         mgr: MemMgrWrapper<HostSharedMemory>,
-        execution_mode: ExecutionMode<'a>,
+        hv_handler: HypervisorHandler,
     ) -> MultiUseSandbox {
         Self {
             _host_funcs: host_funcs,
             mem_mgr: mgr,
-            execution_mode,
+            hv_handler,
         }
     }
 
@@ -144,7 +135,7 @@ impl<'a> MultiUseSandbox<'a> {
     /// // host functions etc...), create new contexts, and so on.
     /// ```
     #[instrument(skip_all, parent = Span::current())]
-    pub fn new_call_context(self) -> MultiUseGuestCallContext<'a> {
+    pub fn new_call_context(self) -> MultiUseGuestCallContext {
         MultiUseGuestCallContext::start(self)
     }
 
@@ -169,30 +160,28 @@ impl<'a> MultiUseSandbox<'a> {
     }
 }
 
-impl<'a> WrapperGetter<'a> for MultiUseSandbox<'a> {
+impl WrapperGetter for MultiUseSandbox {
     fn get_mgr_wrapper(&self) -> &MemMgrWrapper<HostSharedMemory> {
         &self.mem_mgr
     }
     fn get_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper<HostSharedMemory> {
         &mut self.mem_mgr
     }
-
-    fn get_execution_mode(&self) -> &ExecutionMode<'a> {
-        &self.execution_mode
+    fn get_hv_handler(&self) -> &HypervisorHandler {
+        &self.hv_handler
     }
-
-    fn get_execution_mode_mut(&mut self) -> &mut ExecutionMode<'a> {
-        &mut self.execution_mode
+    fn get_hv_handler_mut(&mut self) -> &mut HypervisorHandler {
+        &mut self.hv_handler
     }
 }
 
-impl<'a> Sandbox for MultiUseSandbox<'a> {
+impl Sandbox for MultiUseSandbox {
     fn check_stack_guard(&self) -> Result<bool> {
         self.mem_mgr.check_stack_guard()
     }
 }
 
-impl<'a> std::fmt::Debug for MultiUseSandbox<'a> {
+impl std::fmt::Debug for MultiUseSandbox {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MultiUseSandbox")
             .field("stack_guard", &self.mem_mgr.get_stack_cookie())
@@ -200,12 +189,8 @@ impl<'a> std::fmt::Debug for MultiUseSandbox<'a> {
     }
 }
 
-impl<'a>
-    DevolvableSandbox<
-        MultiUseSandbox<'a>,
-        MultiUseSandbox<'a>,
-        Noop<MultiUseSandbox<'a>, MultiUseSandbox<'a>>,
-    > for MultiUseSandbox<'a>
+impl DevolvableSandbox<MultiUseSandbox, MultiUseSandbox, Noop<MultiUseSandbox, MultiUseSandbox>>
+    for MultiUseSandbox
 {
     /// Consume `self` and move it back to a `MultiUseSandbox` with previous state.
     ///
@@ -215,10 +200,7 @@ impl<'a>
     /// The new MultiUseSandbox can then be used to call guest functions to execute the loaded code.
     /// The devolve can be used to return the MultiUseSandbox to the state before the code was loaded. Thus avoiding initialisation overhead
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    fn devolve(
-        mut self,
-        _tsn: Noop<MultiUseSandbox<'a>, MultiUseSandbox<'a>>,
-    ) -> Result<MultiUseSandbox<'a>> {
+    fn devolve(mut self, _tsn: Noop<MultiUseSandbox, MultiUseSandbox>) -> Result<MultiUseSandbox> {
         self.mem_mgr
             .unwrap_mgr_mut()
             .pop_and_restore_state_from_snapshot()?;
@@ -228,10 +210,10 @@ impl<'a>
 
 impl<'a, F>
     EvolvableSandbox<
-        MultiUseSandbox<'a>,
-        MultiUseSandbox<'a>,
-        MultiUseContextCallback<'a, MultiUseSandbox<'a>, F>,
-    > for MultiUseSandbox<'a>
+        MultiUseSandbox,
+        MultiUseSandbox,
+        MultiUseContextCallback<'a, MultiUseSandbox, F>,
+    > for MultiUseSandbox
 where
     F: FnOnce(&mut MultiUseGuestCallContext) -> Result<()> + 'a,
 {
@@ -247,8 +229,8 @@ where
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn evolve(
         self,
-        transition_func: MultiUseContextCallback<'a, MultiUseSandbox<'a>, F>,
-    ) -> Result<MultiUseSandbox<'a>> {
+        transition_func: MultiUseContextCallback<'a, MultiUseSandbox, F>,
+    ) -> Result<MultiUseSandbox> {
         let mut ctx = self.new_call_context();
         transition_func.call(&mut ctx)?;
         let mut sbox = ctx.finish_no_reset();

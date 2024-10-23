@@ -207,7 +207,12 @@ mod tests {
             let layout = mgr.layout;
             let shared_mem = mgr.get_shared_mem_mut();
             layout
-                .write(shared_mem, SandboxMemoryLayout::BASE_ADDRESS, mem_size)
+                .write(
+                    shared_mem,
+                    SandboxMemoryLayout::BASE_ADDRESS,
+                    mem_size,
+                    false,
+                )
                 .unwrap();
             let (hmgr, _) = mgr.build();
             hmgr
@@ -322,7 +327,12 @@ mod tests {
                 let layout = mgr.layout;
                 let shared_mem = mgr.get_shared_mem_mut();
                 layout
-                    .write(shared_mem, SandboxMemoryLayout::BASE_ADDRESS, mem_size)
+                    .write(
+                        shared_mem,
+                        SandboxMemoryLayout::BASE_ADDRESS,
+                        mem_size,
+                        false,
+                    )
                     .unwrap();
                 let (hmgr, _) = mgr.build();
                 hmgr

@@ -2,7 +2,7 @@ use core::arch::asm;
 use core::ffi::{c_char, c_void};
 use core::ptr::copy_nonoverlapping;
 
-use hyperlight_common::mem::HyperlightPEB;
+use hyperlight_common::mem::{HyperlightPEB, RunMode};
 use log::LevelFilter;
 use spin::Once;
 
@@ -12,16 +12,14 @@ use crate::guest_logger::init_logger;
 use crate::host_function_call::{outb, OutBAction};
 use crate::{
     __security_cookie, HEAP_ALLOCATOR, MIN_STACK_ADDRESS, OS_PAGE_SIZE, OUTB_PTR,
-    OUTB_PTR_WITH_CONTEXT, P_PEB, RUNNING_IN_HYPERLIGHT,
+    OUTB_PTR_WITH_CONTEXT, P_PEB, RUNNING_MODE,
 };
 
 #[inline(never)]
 pub fn halt() {
     unsafe {
-        if RUNNING_IN_HYPERLIGHT {
-            // nostack and inline(never) is strictly necessary for tests
-            // to run in release mode, but unsure why
-            asm!("hlt", options(nostack));
+        if RUNNING_MODE == RunMode::Hypervisor {
+            asm!("hlt", options(nostack))
         }
     }
 }
@@ -60,16 +58,12 @@ extern "C" {
 
 static INIT: Once = Once::new();
 
+// Note: entrypoint cannot currently have a stackframe >4KB, as that will invoke __chkstk on msvc
+//       target without first having setup global `RUNNING_MODE` variable, which __chkstk relies on.
 #[no_mangle]
-pub extern "win64" fn entrypoint(
-    peb_address: u64,
-    seed: u64,
-    ops: u64,
-    log_level_filter: u64,
-) -> i32 {
+pub extern "win64" fn entrypoint(peb_address: u64, seed: u64, ops: u64, log_level_filter: u64) {
     if peb_address == 0 {
-        // TODO this should call abort with a code
-        return -1;
+        panic!("PEB address is null");
     }
 
     INIT.call_once(|| {
@@ -77,15 +71,6 @@ pub extern "win64" fn entrypoint(
             P_PEB = Some(peb_address as *mut HyperlightPEB);
             let peb_ptr = P_PEB.unwrap();
             __security_cookie = peb_address ^ seed;
-
-            if (*peb_ptr).pOutb.is_null() {
-                RUNNING_IN_HYPERLIGHT = true;
-
-                // This static is to make it easier to implement the __chksstk function in assembly.
-                // It also means that should we change the layout of the struct in the future, we
-                // don't have to change the assembly code.
-                MIN_STACK_ADDRESS = (*peb_ptr).gueststackData.minUserStackAddress;
-            }
 
             let srand_seed = ((peb_address << 8 ^ seed >> 4) >> 32) as u32;
 
@@ -104,6 +89,38 @@ pub extern "win64" fn entrypoint(
             };
             init_logger(log_level);
 
+            match (*peb_ptr).runMode {
+                RunMode::Hypervisor => {
+                    RUNNING_MODE = RunMode::Hypervisor;
+                    // This static is to make it easier to implement the __chkstk function in assembly.
+                    // It also means that should we change the layout of the struct in the future, we
+                    // don't have to change the assembly code.
+                    MIN_STACK_ADDRESS = (*peb_ptr).gueststackData.minUserStackAddress;
+                }
+                RunMode::InProcessLinux | RunMode::InProcessWindows => {
+                    RUNNING_MODE = (*peb_ptr).runMode;
+
+                    OUTB_PTR = {
+                        let outb_ptr: extern "win64" fn(u16, u8) =
+                            core::mem::transmute((*peb_ptr).pOutb);
+                        Some(outb_ptr)
+                    };
+
+                    if (*peb_ptr).pOutbContext.is_null() {
+                        panic!("OutbContext is null");
+                    }
+
+                    OUTB_PTR_WITH_CONTEXT = {
+                        let outb_ptr_with_context: extern "win64" fn(*mut c_void, u16, u8) =
+                            core::mem::transmute((*peb_ptr).pOutb);
+                        Some(outb_ptr_with_context)
+                    };
+                }
+                _ => {
+                    panic!("Invalid runmode in PEB");
+                }
+            }
+
             let heap_start = (*peb_ptr).guestheapData.guestHeapBuffer as usize;
             let heap_size = (*peb_ptr).guestheapData.guestHeapSize as usize;
             HEAP_ALLOCATOR
@@ -111,29 +128,7 @@ pub extern "win64" fn entrypoint(
                 .expect("Failed to access HEAP_ALLOCATOR")
                 .init(heap_start, heap_size);
 
-            // In C, at this point, we call __security_init_cookie.
-            // That's a dependency on MSVC, which we can't utilize here.
-            // This is to protect against buffer overflows in C, which
-            // are inherently protected in Rust.
-
-            // In C, here, we have a `if (!setjmp(jmpbuf))`, which is used in case an error occurs
-            // because longjmp is called, which will cause execution to return to this point to
-            // halt the program. In Rust, we don't have or need this sort of error handling as the
-            // language relies on specific structures like `Result`, and `?` that allow for
-            // propagating up the call stack.
-
             OS_PAGE_SIZE = ops as u32;
-
-            let outb_ptr: extern "win64" fn(u16, u8) = core::mem::transmute((*peb_ptr).pOutb);
-            OUTB_PTR = Some(outb_ptr);
-
-            OUTB_PTR_WITH_CONTEXT = if (*peb_ptr).pOutbContext.is_null() {
-                None
-            } else {
-                let outb_ptr_with_context: extern "win64" fn(*mut c_void, u16, u8) =
-                    core::mem::transmute((*peb_ptr).pOutb);
-                Some(outb_ptr_with_context)
-            };
 
             (*peb_ptr).guest_function_dispatch_ptr = dispatch_function as usize as u64;
 
@@ -144,5 +139,4 @@ pub extern "win64" fn entrypoint(
     });
 
     halt();
-    0 // this is never checked
 }

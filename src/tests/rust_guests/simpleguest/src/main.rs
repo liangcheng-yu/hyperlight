@@ -974,7 +974,7 @@ pub extern "C" fn hyperlight_main() {
     let echo_def = GuestFunctionDefinition::new(
         "Echo".to_string(),
         Vec::from(&[ParameterType::String]),
-        ReturnType::Int,
+        ReturnType::String,
         echo as i64,
     );
     register_function(echo_def);

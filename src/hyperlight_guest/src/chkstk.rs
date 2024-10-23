@@ -1,7 +1,10 @@
 use core::arch::global_asm;
+use core::mem::size_of;
 
-use crate::guest_error::set_stack_allocate_error;
-use crate::{MIN_STACK_ADDRESS, RUNNING_IN_HYPERLIGHT};
+use hyperlight_common::mem::RunMode;
+
+use crate::guest_error::{set_invalid_runmode_error, set_stack_allocate_error};
+use crate::{MIN_STACK_ADDRESS, RUNNING_MODE};
 
 extern "win64" {
     fn __chkstk();
@@ -12,69 +15,90 @@ global_asm!(
     "
     .global __chkstk
     __chkstk:
-        /* Make space on the stack and save R10 and R11 */
-        sub rsp, 0x10
-        mov qword ptr [rsp], r10
-        mov qword ptr [rsp + 8], r11
-        /* Check if we are running in Hyperlight */
-        lea r11,[rip+{running_in_hyperlight}]
-        movzx r11,byte ptr [r11]
-        test r11,r11
-        /* If we are not running in Hyperlight, jump to call_chk_inproc */
-        je call_chk_inproc
+        /* Save R10, R11 */
+        push r10
+        push r11
+
+        /* Load run_mode into r10 */
+        mov r10, qword ptr [rip+{run_mode}]
+
+        cmp r10, 0
+        je handle_none
+        cmp r10, 1
+        je handle_hypervisor
+        cmp r10, 2
+        je handle_inproc_windows
+        cmp r10, 3
+        je handle_inproc_linux
+        /* run_mode > 3 (invalid), so treat like handle_none */
+        jmp handle_invalid
+
+    handle_hypervisor:
         /* Load the minimum stack address from the PEB */
-        lea r11,[rip+{min_stack_addr}]  
-        mov r11, qword ptr [r11]
+        mov r11, [rip+{min_stack_addr}]  
+
         /* Get the current stack pointer */
-        lea r10,[rsp+0x18]  
+        lea r10, [rsp+0x18]  
+
         /* Calculate what the new stack pointer will be */
         sub r10, rax
+        
         /* If result is negative, cause StackOverflow */
         js call_set_error
+        
         /* Compare the new stack pointer with the minimum stack address */
-        cmp r10,r11   
-        /* If the new stack pointer is above the minimum stack address, jump to cs_ret */
+        cmp r10, r11   
+        /* If the new stack pointer is greater or equal to the minimum stack address,  
+            then we are good. Otherwise set the error code to 9 (stack overflow) call set_error and halt */
         jae cs_ret
-        /* If the new stack pointer is below the minimum stack address, 
-        then set the error code to 9 (stack overflow) call set_error and halt */
+
     call_set_error:
         call {set_error}
         hlt
-    call_chk_inproc:
-        call {chkstk_in_proc}
-    cs_ret:
-        /* Restore R10 and R11 and return */
-        mov r10, qword ptr [rsp]
-        mov r11, qword ptr [rsp + 8]
-        add rsp, 0x10
-        ret
-",
-        running_in_hyperlight = sym RUNNING_IN_HYPERLIGHT,
-        chkstk_in_proc = sym __chkstk_in_proc,
-        min_stack_addr = sym MIN_STACK_ADDRESS,
-        set_error = sym set_stack_allocate_error,
-
-);
-
-global_asm!(
-    "
-    .global __chkstk_in_proc
-    __chkstk_in_proc:
+    
+    handle_inproc_windows:
         /* Get the current stack pointer */
         lea r10, [rsp + 0x18]
+
         /* Calculate what the new stack pointer will be */
         sub r10, rax
         cmovb r10, r11
         mov r11, qword ptr gs:[0x0000000000000010]
         cmp r10, r11
-        jae csip_ret
-        and r10w,0x0F000
+        jae cs_ret
+        and r10w, 0x0F000
     csip_stackprobe:
         lea r11, [r11 + 0x0FFFFFFFFFFFFF000]
         mov byte ptr [r11], 0
         cmp r10, r11
         jne csip_stackprobe
-    csip_ret:
+    cs_ret:
+        /* Restore RAX, R11 */
+        pop r11
+        pop r10
         ret
-",
+    handle_inproc_linux:
+        /* no-op */
+        jmp cs_ret
+    handle_none:
+        /* no-op. This can entrypoint has a large stack allocation
+            before RunMode variable is set */
+        jmp cs_ret
+    handle_invalid:
+        call {invalid_runmode}",
+    run_mode = sym RUNNING_MODE,
+    min_stack_addr = sym MIN_STACK_ADDRESS,
+    set_error = sym set_stack_allocate_error,
+    invalid_runmode = sym set_invalid_runmode_error
 );
+
+// Assumptions made in implementation above. If these are no longer true, compilation will fail
+// and the developer will need to update the assembly code.
+const _: () = {
+    assert!(size_of::<RunMode>() == size_of::<u64>());
+    assert!(RunMode::None as u64 == 0);
+    assert!(RunMode::Hypervisor as u64 == 1);
+    assert!(RunMode::InProcessWindows as u64 == 2);
+    assert!(RunMode::InProcessLinux as u64 == 3);
+    assert!(RunMode::Invalid as u64 == 4);
+};

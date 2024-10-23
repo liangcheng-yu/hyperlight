@@ -68,6 +68,7 @@ typedef struct
     char* pCode;
     void* pOutb;
     void *pOutbContext;
+    uint64_t runMode;
     InputData inputdata;
     OutputData outputdata;
     GuestPanicContextData GuestPanicContextData;

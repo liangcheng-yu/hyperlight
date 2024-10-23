@@ -1,4 +1,3 @@
-use cfg_if::cfg_if;
 use hyperlight_common::flatbuffer_wrappers::function_call::{FunctionCall, FunctionCallType};
 use hyperlight_common::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
@@ -6,12 +5,7 @@ use hyperlight_common::flatbuffer_wrappers::function_types::{
 use tracing::{instrument, Span};
 
 use super::guest_err::check_for_guest_error;
-#[cfg(feature = "function_call_metrics")]
-use crate::histogram_vec_time_micros;
 use crate::hypervisor::hypervisor_handler::HypervisorHandlerAction;
-#[cfg(feature = "function_call_metrics")]
-use crate::sandbox::metrics::SandboxMetric::GuestFunctionCallDurationMicroseconds;
-use crate::sandbox::uninitialized_evolve::ExecutionMode;
 use crate::sandbox::WrapperGetter;
 use crate::HyperlightError::GuestExecutionHungOnHostFunctionCall;
 use crate::{HyperlightError, Result};
@@ -23,7 +17,7 @@ use crate::{HyperlightError, Result};
     parent = Span::current(),
     level = "Trace"
 )]
-pub(crate) fn call_function_on_guest<'a, WrapperGetterT: WrapperGetter<'a>>(
+pub(crate) fn call_function_on_guest<WrapperGetterT: WrapperGetter>(
     wrapper_getter: &mut WrapperGetterT,
     function_name: &str,
     return_type: ReturnType,
@@ -47,57 +41,26 @@ pub(crate) fn call_function_on_guest<'a, WrapperGetterT: WrapperGetter<'a>>(
         mem_mgr.as_mut().write_guest_function_call(&buffer)?;
     }
 
-    match wrapper_getter.get_execution_mode().clone() {
-        ExecutionMode::InProc(_) => {
-            let dispatch: extern "win64" fn() = unsafe {
-                std::mem::transmute(
-                    wrapper_getter
-                        .get_mgr_wrapper()
-                        .as_ref()
-                        .get_pointer_to_dispatch_function()?,
-                )
-            };
-            // Q: Why does this function not take `args` and doesn't return `return_type`?
-            //
-            // A: That's because we've already written the function call details to memory
-            // with `mem_mgr.write_guest_function_call(&buffer)?;`
-            // and the `dispatch` function can directly access that via shared memory.
-            cfg_if! {
-                if #[cfg(feature = "function_call_metrics")] {
-                    histogram_vec_time_micros!(
-                        &GuestFunctionCallDurationMicroseconds,
-                        &[function_name],
-                        dispatch()
-                    );
-                }
-                else {
-                    dispatch();
+    let mut hv_handler = wrapper_getter.get_hv_handler().clone();
+    match hv_handler.execute_hypervisor_handler_action(
+        HypervisorHandlerAction::DispatchCallFromHost(function_name.to_string()),
+    ) {
+        Ok(()) => {}
+        Err(e) => match e {
+            HyperlightError::HypervisorHandlerMessageReceiveTimedout() => {
+                timedout = true;
+                match hv_handler.terminate_hypervisor_handler_execution_and_reinitialise(
+                    wrapper_getter.get_mgr_wrapper_mut().unwrap_mgr_mut(),
+                )? {
+                    HyperlightError::HypervisorHandlerExecutionCancelAttemptOnFinishedExecution() =>
+                        {}
+                    // ^^^ do nothing, we just want to actually get the Flatbuffer return value
+                    // from shared memory in this case
+                    e => return Err(e),
                 }
             }
-        }
-        ExecutionMode::InHypervisor(mut hv_handler) => {
-            {
-                match hv_handler.execute_hypervisor_handler_action(
-                    HypervisorHandlerAction::DispatchCallFromHost(function_name.to_string()),
-                ) {
-                    Ok(()) => {}
-                    Err(e) => match e {
-                        HyperlightError::HypervisorHandlerMessageReceiveTimedout() => {
-                            timedout = true;
-                            match hv_handler.terminate_hypervisor_handler_execution_and_reinitialise(
-                                wrapper_getter.get_mgr_wrapper_mut().unwrap_mgr_mut(),
-                            )? {
-                                HyperlightError::HypervisorHandlerExecutionCancelAttemptOnFinishedExecution() => {}
-                                // ^^^ do nothing, we just want to actually get the Flatbuffer return value
-                                // from shared memory in this case
-                                e => return Err(e),
-                            }
-                        }
-                        e => return Err(e),
-                    },
-                }
-            }
-        }
+            e => return Err(e),
+        },
     };
 
     let mem_mgr = wrapper_getter.get_mgr_wrapper_mut();
@@ -260,7 +223,7 @@ mod tests {
         // test_function0
         {
             let usbox = uninitialized_sandbox();
-            let sandbox: MultiUseSandbox<'_> = usbox
+            let sandbox: MultiUseSandbox = usbox
                 .evolve(Noop::default())
                 .expect("Failed to initialize sandbox");
             let result = test_function0(sandbox.new_call_context());
@@ -270,7 +233,7 @@ mod tests {
         // test_function1
         {
             let usbox = uninitialized_sandbox();
-            let sandbox: SingleUseSandbox<'_> = usbox
+            let sandbox: SingleUseSandbox = usbox
                 .evolve(Noop::default())
                 .expect("Failed to initialize sandbox");
             let result = test_function1(sandbox.new_call_context());
@@ -280,7 +243,7 @@ mod tests {
         // test_function2
         {
             let usbox = uninitialized_sandbox();
-            let sandbox: MultiUseSandbox<'_> = usbox
+            let sandbox: MultiUseSandbox = usbox
                 .evolve(Noop::default())
                 .expect("Failed to initialize sandbox");
             let result = test_function2(sandbox.new_call_context(), 42);
@@ -343,7 +306,7 @@ mod tests {
 
     #[track_caller]
     fn test_call_guest_function_by_name(u_sbox: UninitializedSandbox) {
-        let mu_sbox: MultiUseSandbox<'_> = u_sbox.evolve(Noop::default()).unwrap();
+        let mu_sbox: MultiUseSandbox = u_sbox.evolve(Noop::default()).unwrap();
 
         let msg = "Hello, World!!\n".to_string();
         let len = msg.len() as i32;

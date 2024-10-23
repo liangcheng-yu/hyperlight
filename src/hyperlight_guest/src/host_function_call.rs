@@ -7,6 +7,7 @@ use hyperlight_common::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
 };
 use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
+use hyperlight_common::mem::RunMode;
 
 use crate::error::{HyperlightGuestError, Result};
 use crate::flatbuffer_utils::get_flatbuffer_result_from_int;
@@ -14,7 +15,7 @@ use crate::host_error::check_for_host_error;
 use crate::host_functions::validate_host_function_call;
 use crate::shared_input_data::try_pop_shared_input_data_into;
 use crate::shared_output_data::push_shared_output_data;
-use crate::{OUTB_PTR, OUTB_PTR_WITH_CONTEXT, P_PEB, RUNNING_IN_HYPERLIGHT};
+use crate::{OUTB_PTR, OUTB_PTR_WITH_CONTEXT, P_PEB, RUNNING_MODE};
 
 pub enum OutBAction {
     Log = 99,
@@ -142,14 +143,24 @@ pub fn call_host_function(
 
 pub fn outb(port: u16, value: u8) {
     unsafe {
-        if RUNNING_IN_HYPERLIGHT {
-            hloutb(port, value);
-        } else if let Some(outb_func) = OUTB_PTR_WITH_CONTEXT {
-            if let Some(peb_ptr) = P_PEB {
-                outb_func((*peb_ptr).pOutbContext, port, value);
+        match RUNNING_MODE {
+            RunMode::Hypervisor => {
+                hloutb(port, value);
             }
-        } else if let Some(outb_func) = OUTB_PTR {
-            outb_func(port, value);
+            RunMode::InProcessLinux | RunMode::InProcessWindows => {
+                if let Some(outb_func) = OUTB_PTR_WITH_CONTEXT {
+                    if let Some(peb_ptr) = P_PEB {
+                        outb_func((*peb_ptr).pOutbContext, port, value);
+                    }
+                } else if let Some(outb_func) = OUTB_PTR {
+                    outb_func(port, value);
+                } else {
+                    panic!("Tried to call outb without hypervisor and without outb function ptrs");
+                }
+            }
+            _ => {
+                panic!("Tried to call outb in invalid runmode");
+            }
         }
 
         check_for_host_error();

@@ -6,6 +6,7 @@ use crate::mem::memory_region::{MemoryRegion, MemoryRegionFlags};
 use crate::{int_counter_inc, log_then_return, new_error, HyperlightError, Result};
 
 /// Util for handling x87 fpu state
+#[cfg(any(kvm, mshv, target_os = "windows"))]
 pub mod fpu;
 /// Handlers for Hypervisor custom logic
 pub mod handlers;
@@ -16,6 +17,10 @@ pub mod hyperv_linux;
 /// Hyperv-on-windows functionality
 pub(crate) mod hyperv_windows;
 pub(crate) mod hypervisor_handler;
+
+/// Driver for running in process instead of using hypervisor
+#[cfg(inprocess)]
+pub mod inprocess;
 #[cfg(kvm)]
 /// Functionality to manipulate KVM-based virtual machines
 pub mod kvm;
@@ -42,9 +47,6 @@ use self::handlers::{
 };
 use crate::hypervisor::hypervisor_handler::HypervisorHandler;
 use crate::mem::ptr::RawPtr;
-
-#[cfg(all(target_os = "linux", not(mshv), not(kvm)))]
-compile_error!("Hyperlight requires either the `mshv` or `kvm` feature to be enabled on Linux");
 
 pub(crate) const CR4_PAE: u64 = 1 << 5;
 pub(crate) const CR4_OSFXSR: u64 = 1 << 9;
@@ -252,7 +254,6 @@ impl VirtualCPU {
                 HyperlightExit::IoOut(port, data, rip, instruction_length) => {
                     hv.handle_io(port, data, rip, instruction_length, outb_handle_fn.clone())?
                 }
-
                 HyperlightExit::Mmio(addr) => {
                     mem_access_fn
                         .clone()

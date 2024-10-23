@@ -1,26 +1,13 @@
-#[cfg(target_os = "linux")]
-use std::marker::PhantomData;
-#[cfg(target_os = "windows")]
-use std::{
-    os::raw::c_void,
-    sync::{Arc, Mutex},
-};
+use std::os::raw::c_void;
+use std::sync::{Arc, Mutex};
 
-#[cfg(target_os = "windows")]
 use tracing::{instrument, Span};
 
-#[cfg(target_os = "windows")]
 use crate::hypervisor::handlers::{OutBHandlerCaller, OutBHandlerWrapper};
-#[cfg(target_os = "windows")]
 use crate::mem::custom_drop::CustomPtrDrop;
-#[cfg(target_os = "windows")]
 use crate::mem::mgr::SandboxMemoryManager;
-#[cfg(target_os = "windows")]
-use crate::mem::shared_mem::HostSharedMemory;
-#[cfg(target_os = "windows")]
-use crate::Result;
+use crate::mem::shared_mem::GuestSharedMemory;
 
-#[cfg(target_os = "windows")]
 /// This function allows us to call the OutBHandler from the guest when running
 /// in process.
 ///
@@ -34,7 +21,10 @@ extern "win64" fn call_outb(ptr: *mut Arc<Mutex<dyn OutBHandlerCaller>>, port: u
         .unwrap()
         .call(port, data);
     // TODO, handle the case correctly when res is an error
-    assert!(res.is_ok());
+    assert!(
+        res.is_ok(),
+        "ERROR: The guest either panicked or returned an Error. Running inprocess-mode currently does not support error handling. "
+    );
     // Leak the box so that it is not dropped when the function returns
     // the box will be dropped when the sandbox is dropped
     Box::leak(outb_handlercaller);
@@ -74,23 +64,15 @@ extern "win64" fn call_outb(ptr: *mut Arc<Mutex<dyn OutBHandlerCaller>>, port: u
 /// in https://github.com/deislabs/hyperlight/issues/533.
 #[derive(Clone)]
 pub(crate) struct LeakedOutBWrapper<'a> {
-    #[cfg(target_os = "windows")]
     hdl_ptr: Arc<Mutex<CustomPtrDrop<'a, OutBHandlerWrapper>>>,
-    /// This `PhantomData` will never be used, since it's impossible to
-    /// actually create a `LeakedOutBWrapper` on Linux. It is only in place
-    /// to prevent clippy from complaining that the lifetime parameter
-    /// in this struct is unused
-    #[cfg(target_os = "linux")]
-    p: PhantomData<&'a u64>,
 }
 
-#[cfg(target_os = "windows")]
 impl<'a> LeakedOutBWrapper<'a> {
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
-    pub(super) fn new(
-        mgr: &mut SandboxMemoryManager<HostSharedMemory>,
+    pub(crate) fn new(
+        mgr: &mut SandboxMemoryManager<GuestSharedMemory>,
         wrapper: OutBHandlerWrapper,
-    ) -> Result<Self> {
+    ) -> crate::Result<Self> {
         let hdl_box = Box::new(wrapper.clone());
         let hdl_ptr = Box::into_raw(hdl_box);
         let cd = CustomPtrDrop::new(
@@ -104,7 +86,7 @@ impl<'a> LeakedOutBWrapper<'a> {
             hdl_ptr: Arc::new(Mutex::new(cd)),
         };
 
-        let addr = res.hdl_wrapper_addr()?;
+        let addr: u64 = res.hdl_wrapper_addr()?;
         mgr.set_outb_address_and_context(Self::outb_addr(), addr)?;
         Ok(res)
     }
@@ -114,7 +96,7 @@ impl<'a> LeakedOutBWrapper<'a> {
     /// This pointer is referred to by the `SandboxMemoryManager` as
     /// the outb "context"
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
-    pub(super) fn hdl_wrapper_addr(&self) -> Result<u64> {
+    pub(super) fn hdl_wrapper_addr(&self) -> crate::Result<u64> {
         let ptr = self
             .hdl_ptr
             .try_lock()

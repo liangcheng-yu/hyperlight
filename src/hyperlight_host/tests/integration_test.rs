@@ -345,7 +345,7 @@ fn static_stack_allocate_overflow() {
     assert!(matches!(res, HyperlightError::StackOverflow()));
 }
 
-// checks that a recursive function with stack allocation works
+// checks that a recursive function with stack allocation works, (that chkstk can be called without overflowing)
 #[test]
 fn recursive_stack_allocate() {
     let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
@@ -474,6 +474,7 @@ fn recursive_stack_allocate_overflow() {
             Some(vec![ParameterValue::Int(iterations)]),
         )
         .unwrap_err();
+    println!("{:?}", res);
     assert!(matches!(res, HyperlightError::StackOverflow()));
 }
 

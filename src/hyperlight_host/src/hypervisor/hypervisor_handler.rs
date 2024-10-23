@@ -125,12 +125,11 @@ impl HvHandlerExecVars {
     }
 
     #[cfg(target_os = "windows")]
-    fn get_partition_handle(&self) -> Result<WHV_PARTITION_HANDLE> {
-        (*self
+    fn get_partition_handle(&self) -> Result<Option<WHV_PARTITION_HANDLE>> {
+        Ok(*self
             .partition_handle
             .try_lock()
             .map_err(|_| new_error!("Failed to get_partition_handle"))?)
-        .ok_or_else(|| new_error!("partition_handle not set"))
     }
 
     fn set_timeout(&mut self, timeout: Duration) -> Result<()> {
@@ -217,9 +216,15 @@ impl HypervisorHandler {
         &mut self,
         mut sandbox_memory_manager: SandboxMemoryManager<GuestSharedMemory>,
     ) -> Result<()> {
-        let mut hv = set_up_hypervisor_partition(&mut sandbox_memory_manager)?;
-        *self.execution_variables.shm.try_lock().unwrap() = Some(sandbox_memory_manager);
         let configuration = self.configuration.clone();
+        let mut hv = set_up_hypervisor_partition(
+            &mut sandbox_memory_manager,
+            configuration.outb_handler.clone(),
+        )?;
+        #[cfg(target_os = "windows")]
+        let in_process = sandbox_memory_manager.is_in_process();
+
+        *self.execution_variables.shm.try_lock().unwrap() = Some(sandbox_memory_manager);
 
         // Other than running initialization and code execution, the handler thread also handles
         // cancellation. When we need to cancel the execution there are 2 possible cases
@@ -249,8 +254,10 @@ impl HypervisorHandler {
         self.execution_variables.run_cancelled.store(false);
 
         #[cfg(target_os = "windows")]
-        self.execution_variables
-            .set_partition_handle(hv.get_partition_handle())?;
+        if !in_process {
+            self.execution_variables
+                .set_partition_handle(hv.get_partition_handle())?;
+        }
 
         let to_handler_rx = self.communication_channels.to_handler_rx.clone();
         #[cfg(target_os = "windows")]
@@ -705,14 +712,18 @@ impl HypervisorHandler {
         }
         #[cfg(target_os = "windows")]
         {
-            unsafe {
-                WHvCancelRunVirtualProcessor(
-                    self.execution_variables.get_partition_handle()?,
-                    0,
-                    0,
-                )
-                .map_err(|e| new_error!("Failed to cancel guest execution {:?}", e))?;
+            if self.execution_variables.get_partition_handle()?.is_some() {
+                // partition handle only set when running in-hypervisor (not in-process)
+                unsafe {
+                    WHvCancelRunVirtualProcessor(
+                        self.execution_variables.get_partition_handle()?.unwrap(), // safe unwrap
+                        0,
+                        0,
+                    )
+                    .map_err(|e| new_error!("Failed to cancel guest execution {:?}", e))?;
+                }
             }
+            // if running in-process on windows, we currently have no way of cancelling the execution
         }
 
         Ok(())
@@ -754,6 +765,8 @@ pub enum HandlerMsg {
 
 fn set_up_hypervisor_partition(
     mgr: &mut SandboxMemoryManager<GuestSharedMemory>,
+    #[allow(unused_variables)] // parameter only used for in-process mode
+    outb_handler: OutBHandlerWrapper,
 ) -> Result<Box<dyn Hypervisor>> {
     let mem_size = u64::try_from(mgr.shared_mem.mem_size())?;
     let mut regions = mgr.layout.get_memory_regions(&mgr.shared_mem)?;
@@ -786,52 +799,72 @@ fn set_up_hypervisor_partition(
             pml4_ptr
         );
     }
-    if rsp_ptr <= entrypoint_ptr {
-        log_then_return!(
-            "Error: rsp_ptr ({:#?}) is not greater than entrypoint_ptr ({:#?})",
-            rsp_ptr,
-            entrypoint_ptr
-        );
-    }
+    if mgr.is_in_process() {
+        cfg_if::cfg_if! {
+            if #[cfg(inprocess)] {
+                // in-process feature + debug build
+                use super::inprocess::InprocessArgs;
+                use crate::sandbox::leaked_outb::LeakedOutBWrapper;
+                use super::inprocess::InprocessDriver;
 
-    match *get_available_hypervisor() {
-        #[cfg(mshv)]
-        Some(HypervisorType::Mshv) => {
-            let hv = crate::hypervisor::hyperv_linux::HypervLinuxDriver::new(
-                regions,
-                entrypoint_ptr,
-                rsp_ptr,
-                pml4_ptr,
-            )?;
-            Ok(Box::new(hv))
+                let leaked_outb_wrapper = LeakedOutBWrapper::new(mgr, outb_handler)?;
+                let hv = InprocessDriver::new(InprocessArgs {
+                    entrypoint_raw: u64::from(mgr.load_addr.clone() + mgr.entrypoint_offset),
+                    peb_ptr_raw: mgr
+                        .get_in_process_peb_address(mgr.shared_mem.base_addr() as u64)?,
+                    leaked_outb_wrapper,
+                })?;
+                Ok(Box::new(hv))
+            } else if #[cfg(feature = "inprocess")]{
+                // in-process feature, but not debug build
+                log_then_return!("In-process mode is only available on debug-builds");
+            } else if #[cfg(debug_assertions)] {
+                // debug build without in-process feature
+                log_then_return!("In-process mode requires `inprocess` cargo feature");
+            } else {
+                log_then_return!("In-process mode requires `inprocess` cargo feature and is only avaiable on debug-builds");
+            }
         }
+    } else {
+        match *get_available_hypervisor() {
+            #[cfg(mshv)]
+            Some(HypervisorType::Mshv) => {
+                let hv = crate::hypervisor::hyperv_linux::HypervLinuxDriver::new(
+                    regions,
+                    entrypoint_ptr,
+                    rsp_ptr,
+                    pml4_ptr,
+                )?;
+                Ok(Box::new(hv))
+            }
 
-        #[cfg(kvm)]
-        Some(HypervisorType::Kvm) => {
-            let hv = crate::hypervisor::kvm::KVMDriver::new(
-                regions,
-                pml4_ptr.absolute()?,
-                entrypoint_ptr.absolute()?,
-                rsp_ptr.absolute()?,
-            )?;
-            Ok(Box::new(hv))
-        }
+            #[cfg(kvm)]
+            Some(HypervisorType::Kvm) => {
+                let hv = crate::hypervisor::kvm::KVMDriver::new(
+                    regions,
+                    pml4_ptr.absolute()?,
+                    entrypoint_ptr.absolute()?,
+                    rsp_ptr.absolute()?,
+                )?;
+                Ok(Box::new(hv))
+            }
 
-        #[cfg(target_os = "windows")]
-        Some(HypervisorType::Whp) => {
-            let hv = crate::hypervisor::hyperv_windows::HypervWindowsDriver::new(
-                regions,
-                mgr.shared_mem.raw_mem_size(), // we use raw_* here because windows driver requires 64K aligned addresses,
-                mgr.shared_mem.raw_ptr() as *mut c_void, // and instead convert it to base_addr where needed in the driver itself
-                pml4_ptr.absolute()?,
-                entrypoint_ptr.absolute()?,
-                rsp_ptr.absolute()?,
-            )?;
-            Ok(Box::new(hv))
-        }
+            #[cfg(target_os = "windows")]
+            Some(HypervisorType::Whp) => {
+                let hv = crate::hypervisor::hyperv_windows::HypervWindowsDriver::new(
+                    regions,
+                    mgr.shared_mem.raw_mem_size(), // we use raw_* here because windows driver requires 64K aligned addresses,
+                    mgr.shared_mem.raw_ptr() as *mut c_void, // and instead convert it to base_addr where needed in the driver itself
+                    pml4_ptr.absolute()?,
+                    entrypoint_ptr.absolute()?,
+                    rsp_ptr.absolute()?,
+                )?;
+                Ok(Box::new(hv))
+            }
 
-        _ => {
-            log_then_return!(NoHypervisorFound());
+            _ => {
+                log_then_return!(NoHypervisorFound());
+            }
         }
     }
 }
@@ -844,7 +877,6 @@ mod tests {
     use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
     use hyperlight_testing::simple_guest_as_string;
 
-    use crate::sandbox::uninitialized_evolve::ExecutionMode;
     use crate::sandbox::WrapperGetter;
     use crate::sandbox_state::sandbox::EvolvableSandbox;
     use crate::sandbox_state::transition::Noop;
@@ -854,7 +886,7 @@ mod tests {
         UninitializedSandbox,
     };
 
-    fn create_multi_use_sandbox() -> MultiUseSandbox<'static> {
+    fn create_multi_use_sandbox() -> MultiUseSandbox {
         if !is_hypervisor_present() {
             panic!("Panic on create_multi_use_sandbox because no hypervisor is present");
         }
@@ -957,20 +989,14 @@ mod tests {
         // this simulates what would happen if a function actually successfully
         // finished while we attempted to terminate execution
         {
-            match sandbox.get_execution_mode().clone() {
-                ExecutionMode::InHypervisor(mut hv_handler) => {
-                    match hv_handler.terminate_hypervisor_handler_execution_and_reinitialise(
-                        sandbox.get_mgr_wrapper_mut().unwrap_mgr_mut(),
-                    )? {
-                        HypervisorHandlerExecutionCancelAttemptOnFinishedExecution() => {}
-                        _ => panic!(
-                            "Expected error demonstrating execution wasn't cancelled properly"
-                        ),
-                    }
-                }
-                _ => {
-                    panic!("terminate_execution_of_an_already_finished_function_then_call_another_function is meant to be run on a Hypervisor");
-                }
+            match sandbox
+                .get_hv_handler()
+                .clone()
+                .terminate_hypervisor_handler_execution_and_reinitialise(
+                    sandbox.get_mgr_wrapper_mut().unwrap_mgr_mut(),
+                )? {
+                HypervisorHandlerExecutionCancelAttemptOnFinishedExecution() => {}
+                _ => panic!("Expected error demonstrating execution wasn't cancelled properly"),
             }
         }
 

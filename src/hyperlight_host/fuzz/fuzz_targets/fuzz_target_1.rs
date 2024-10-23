@@ -4,7 +4,7 @@ use hyperlight_host::func::{ParameterValue, ReturnType, ReturnValue};
 use hyperlight_host::sandbox::uninitialized::GuestBinary;
 use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
 use hyperlight_host::sandbox_state::transition::Noop;
-use hyperlight_host::{MultiUseSandbox, Result, UninitializedSandbox};
+use hyperlight_host::{MultiUseSandbox, UninitializedSandbox};
 use hyperlight_testing::simple_guest_as_string;
 use libfuzzer_sys::fuzz_target;
 
@@ -17,7 +17,7 @@ fuzz_target!(|data: &[u8]| {
     )
     .unwrap();
 
-    let mu_sbox: MultiUseSandbox<'_> = u_sbox.evolve(Noop::default()).unwrap();
+    let mu_sbox: MultiUseSandbox = u_sbox.evolve(Noop::default()).unwrap();
 
     let msg = String::from_utf8_lossy(data).to_string();
     let len = msg.len() as i32;

@@ -21,16 +21,16 @@ use crate::{MultiUseSandbox, Result, SingleUseSandbox};
 /// `MultiUseGuestCallContext` until it is converted back to a `MultiUseSandbox`
 ///
 #[derive(Debug)]
-pub struct MultiUseGuestCallContext<'a> {
-    sbox: MultiUseSandbox<'a>,
+pub struct MultiUseGuestCallContext {
+    sbox: MultiUseSandbox,
 }
 
-impl<'a> MultiUseGuestCallContext<'a> {
+impl MultiUseGuestCallContext {
     /// Take ownership  of a `MultiUseSandbox` and
     /// return a new `MultiUseGuestCallContext` instance.
     ///     
     #[instrument(skip_all, parent = Span::current())]
-    pub fn start(sbox: MultiUseSandbox<'a>) -> Self {
+    pub fn start(sbox: MultiUseSandbox) -> Self {
         Self { sbox }
     }
 
@@ -63,7 +63,7 @@ impl<'a> MultiUseGuestCallContext<'a> {
     /// `MultiUseSandbox`. Future contexts opened by the returned sandbox
     /// will have guest state restored.
     #[instrument(err(Debug), skip(self), parent = Span::current())]
-    pub fn finish(mut self) -> Result<MultiUseSandbox<'a>> {
+    pub fn finish(mut self) -> Result<MultiUseSandbox> {
         self.sbox.restore_state()?;
         Ok(self.sbox)
     }
@@ -78,7 +78,7 @@ impl<'a> MultiUseGuestCallContext<'a> {
     /// during the eveolution of one sandbox state to another, enabling the new state created
     /// to be captured and stored in the Sandboxes state stack.
     ///
-    pub(crate) fn finish_no_reset(self) -> MultiUseSandbox<'a> {
+    pub(crate) fn finish_no_reset(self) -> MultiUseSandbox {
         self.sbox
     }
 }
@@ -87,16 +87,16 @@ impl<'a> MultiUseGuestCallContext<'a> {
 /// `SingleUseSandbox`, and once created, guest functions against that sandbox
 /// can be made from this until it is dropped.
 #[derive(Debug)]
-pub struct SingleUseGuestCallContext<'a> {
-    sbox: SingleUseSandbox<'a>,
+pub struct SingleUseGuestCallContext {
+    sbox: SingleUseSandbox,
 }
 
-impl<'a> SingleUseGuestCallContext<'a> {
+impl SingleUseGuestCallContext {
     /// Take ownership  of a `SingleUseSandbox` and
     /// return a new `SingleUseGuestCallContext` instance.
     ///     
     #[instrument(skip_all, parent = Span::current())]
-    pub(crate) fn start(sbox: SingleUseSandbox<'a>) -> Self {
+    pub(crate) fn start(sbox: SingleUseSandbox) -> Self {
         Self { sbox }
     }
 
@@ -156,12 +156,12 @@ impl<'a> SingleUseGuestCallContext<'a> {
 /// from an existing SingleUseGuestCallContext using the `call_using_closure` method.
 /// Once created, calls to guest functions may be made through this context until it is dropped.
 /// Once dropped the underlying `SingleUseGuestCallContext` and associated `SingleUseSandbox` will be dropped
-pub struct SingleUseMultiGuestCallContext<'a> {
-    call_context: SingleUseGuestCallContext<'a>,
+pub struct SingleUseMultiGuestCallContext {
+    call_context: SingleUseGuestCallContext,
 }
 
-impl<'a> SingleUseMultiGuestCallContext<'a> {
-    fn new(call_context: SingleUseGuestCallContext<'a>) -> Self {
+impl SingleUseMultiGuestCallContext {
+    fn new(call_context: SingleUseGuestCallContext) -> Self {
         Self { call_context }
     }
 
@@ -335,16 +335,16 @@ mod tests {
         recv_hdl.join().unwrap();
     }
 
-    pub struct TestSandbox<'a> {
-        sandbox: MultiUseSandbox<'a>,
+    pub struct TestSandbox {
+        sandbox: MultiUseSandbox,
     }
 
-    impl<'a> TestSandbox<'a> {
+    impl TestSandbox {
         pub fn new() -> Self {
             let sbox: MultiUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
             Self { sandbox: sbox }
         }
-        pub fn call_add_to_static_multiple_times(mut self, i: i32) -> Result<TestSandbox<'a>> {
+        pub fn call_add_to_static_multiple_times(mut self, i: i32) -> Result<TestSandbox> {
             let mut ctx = self.sandbox.new_call_context();
             let mut sum: i32 = 0;
             for n in 0..i {

@@ -1,20 +1,23 @@
 # Debugging Hyperlight
 
-Debugging in Hyperlight can be a mixed experience from running in different environments (i.e., Linux/Windows) or different IDEs (i.e., Visual Studio/Visual Studio Code). This document aims to provide a guide to debugging Hyperlight in different environments.
+Support for debugging Hyperlight is currently very limited and experimental. Despite this we offer some very primitive tools to help.
 
-## Debugging Hyperlight guest applications or guest library
+When creating a Uninitialized sandbox, passing a `SandboxRunOptions::RunInProcess(false)` will make the guest run inside a regular host process, rather than inside a hypervisor partition. This allows you to step through the code of the guest using your IDE's debugger. However, there are no symbols, and breakpoints are not supported, so you'll be stepping through assembly.
 
-On Windows, to debug the guest applications or library the Sandbox instance needs to be created with the option flag `SandboxRunOptions.RunFromGuestBinary`.
+However, on Windows platform, passing `SandboxRunOptions::RunInProcess(true)` is supported, and will load the guest binary using the win32 `LoadLibrary` function. This has the advantage of also allowing your IDE to set breakpoints in the guest, and also loading symbols, allowing for easy debugging.
 
-## Debugging in Visual Studio
+## Notes on running guest in-process
 
-Mixed mode debugging in Visual Studio is enabled in the solution, this means that you can set breakpoints in managed and/or native code, step into native code from managed code and so forth during debugging.
+The support for running a guest using in-process mode is experimental, highly unsafe, and has many limitations. It requires
+enabling cargo feature `inprocess`, and only works when hyperlight_host is built with debug_assertions. Inprocess currently does not support calling guest functions that returns errors. If a guest panics, it will surface as assertion fault in [here](https://github.com/deislabs/hyperlight/blob/85100563c185796b68bc3372ec7becaf64223152/src/hyperlight_host/src/sandbox/leaked_outb.rs#L26). 
 
-## Debugging in Visual Studio Code
+Running in process is specifically only for testing, and should never be used in production as it offers no security guarantees.
 
-Visual Studio Code does not currently support mixed mode debugging, to debug guest applications in Visual Studio Code you need to choose the `Debug Native Host` debugging task when starting a debug session.
+## Logging
 
-> Note: While this section mostly covers debugging within the context of the C# Hyperlight host library, in Rust, you can also use [dbgtools-win](https://crates.io/crates/dbgtools-win) in parallel with inserting a `wait_for_then_break()` line in code to easily attach a debugger.
+Hyperlight guests supports logging using the log crate. Any log records logged inside a hyperlight guest using the various
+log macros trace!/info!/warning!, etc., will be logged, given that a logger has been instantiated in the host. This can be 
+very helpful for debugging as well.
 
 ## Getting debug print output of memory configuration, virtual processor register state, and other information
 

@@ -14,7 +14,7 @@ fn create_uninit_sandbox() -> UninitializedSandbox {
     UninitializedSandbox::new(GuestBinary::FilePath(path), None, None, None).unwrap()
 }
 
-fn create_multiuse_sandbox<'a>() -> MultiUseSandbox<'a> {
+fn create_multiuse_sandbox() -> MultiUseSandbox {
     create_uninit_sandbox().evolve(Noop::default()).unwrap()
 }
 

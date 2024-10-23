@@ -56,6 +56,8 @@ pub(crate) struct SandboxMemoryManager<S> {
     pub(crate) shared_mem: S,
     /// The memory layout of the underlying shared memory
     pub(crate) layout: SandboxMemoryLayout,
+    /// Whether the sandbox is running in-process
+    inprocess: bool,
     /// Pointer to where to load memory from
     pub(crate) load_addr: RawPtr,
     /// Offset for the execution entrypoint from `load_addr`
@@ -79,6 +81,7 @@ where
     fn new(
         layout: SandboxMemoryLayout,
         shared_mem: S,
+        inprocess: bool,
         load_addr: RawPtr,
         entrypoint_offset: Offset,
         #[cfg(target_os = "windows")] lib: Option<LoadedLib>,
@@ -86,6 +89,7 @@ where
         Self {
             layout,
             shared_mem,
+            inprocess,
             load_addr,
             entrypoint_offset,
             snapshots: Arc::new(Mutex::new(Vec::new())),
@@ -94,10 +98,10 @@ where
         }
     }
 
-    // #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    // pub(crate) fn is_in_process(&self) -> bool {
-    //     self.run_from_process_memory
-    // }
+    #[instrument(skip_all, parent = Span::current(), level= "Trace")]
+    pub(crate) fn is_in_process(&self) -> bool {
+        self.inprocess
+    }
 
     /// Get `SharedMemory` in `self` as a mutable reference
     pub(crate) fn get_shared_mem_mut(&mut self) -> &mut S {
@@ -250,24 +254,10 @@ where
     /// For more details on PEBs, please see the following link:
     ///
     /// https://en.wikipedia.org/wiki/Process_Environment_Block
+    #[cfg(inprocess)]
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub(crate) fn get_peb_address(
-        &self,
-        start_addr: u64,
-        run_from_process_memory: bool,
-    ) -> Result<u64> {
-        match run_from_process_memory {
-            true => {
-                let updated_offset = self.layout.get_in_process_peb_offset() as u64 + start_addr;
-                Ok(updated_offset)
-            }
-            false => u64::try_from(self.layout.peb_address).map_err(|_| {
-                new_error!(
-                    "get_peb_address: failed to convert peb_address ({}) to u64",
-                    self.layout.peb_address
-                )
-            }),
-        }
+    pub(crate) fn get_in_process_peb_address(&self, start_addr: u64) -> Result<u64> {
+        Ok(start_addr + self.layout.get_in_process_peb_offset() as u64)
     }
 
     /// this function will create a memory snapshot and push it onto the stack of snapshots
@@ -311,6 +301,20 @@ where
             log_then_return!(NoMemorySnapshot);
         }
         self.restore_state_from_last_snapshot()
+    }
+
+    /// Sets `addr` to the correct offset in the memory referenced by
+    /// `shared_mem` to indicate the address of the outb pointer and context
+    /// for calling outb function
+    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
+    pub(crate) fn set_outb_address_and_context(&mut self, addr: u64, context: u64) -> Result<()> {
+        let pointer_offset = self.layout.get_outb_pointer_offset();
+        let context_offset = self.layout.get_outb_context_offset();
+        self.shared_mem.with_exclusivity(|excl| -> Result<()> {
+            excl.write_u64(pointer_offset, addr)?;
+            excl.write_u64(context_offset, context)?;
+            Ok(())
+        })?
     }
 }
 
@@ -372,13 +376,13 @@ impl SandboxMemoryManager<ExclusiveSharedMemory> {
     pub(crate) fn load_guest_binary_into_memory(
         cfg: SandboxConfiguration,
         exe_info: &mut ExeInfo,
-        run_from_process_memory: bool,
+        inprocess: bool,
     ) -> Result<Self> {
         let (layout, mut shared_mem, load_addr, entrypoint_offset) = load_guest_binary_common(
             cfg,
             exe_info,
             |shared_mem: &ExclusiveSharedMemory, layout: &SandboxMemoryLayout| {
-                let addr_usize = if run_from_process_memory {
+                let addr_usize = if inprocess {
                     // if we're running in-process, load_addr is the absolute
                     // address to the start of shared memory, plus the offset to
                     // code
@@ -405,6 +409,7 @@ impl SandboxMemoryManager<ExclusiveSharedMemory> {
         Ok(Self::new(
             layout,
             shared_mem,
+            inprocess,
             load_addr,
             entrypoint_offset,
             #[cfg(target_os = "windows")]
@@ -424,6 +429,10 @@ impl SandboxMemoryManager<ExclusiveSharedMemory> {
     ) -> Result<Self> {
         #[cfg(target_os = "windows")]
         {
+            if !matches!(exe_info, ExeInfo::PE(_)) {
+                log_then_return!("LoadLibrary can only be used with PE files");
+            }
+
             let lib = LoadedLib::load(guest_bin_path)?;
             let (layout, shared_mem, load_addr, entrypoint_offset) =
                 load_guest_binary_common(cfg, exe_info, |_, _| Ok(lib.base_addr()))?;
@@ -434,6 +443,7 @@ impl SandboxMemoryManager<ExclusiveSharedMemory> {
             Ok(Self::new(
                 layout,
                 shared_mem,
+                true,
                 load_addr,
                 entrypoint_offset,
                 Some(lib),
@@ -441,12 +451,7 @@ impl SandboxMemoryManager<ExclusiveSharedMemory> {
         }
         #[cfg(target_os = "linux")]
         {
-            // these assignments to nothing prevent clippy from complaining,
-            // on non-windows systems, that this function's parameters
-            // are unused
-            let _ = cfg;
-            let _ = guest_bin_path;
-            let _ = exe_info;
+            let _ = (cfg, guest_bin_path, exe_info);
             log_then_return!("load_guest_binary_using_load_library is only available on Windows");
         }
     }
@@ -507,6 +512,7 @@ impl SandboxMemoryManager<ExclusiveSharedMemory> {
             SandboxMemoryManager {
                 shared_mem: hshm,
                 layout: self.layout,
+                inprocess: self.inprocess,
                 load_addr: self.load_addr.clone(),
                 entrypoint_offset: self.entrypoint_offset,
                 snapshots: Arc::new(Mutex::new(Vec::new())),
@@ -516,6 +522,7 @@ impl SandboxMemoryManager<ExclusiveSharedMemory> {
             SandboxMemoryManager {
                 shared_mem: gshm,
                 layout: self.layout,
+                inprocess: self.inprocess,
                 load_addr: self.load_addr.clone(),
                 entrypoint_offset: self.entrypoint_offset,
                 snapshots: Arc::new(Mutex::new(Vec::new())),
@@ -781,18 +788,6 @@ impl SandboxMemoryManager<HostSharedMemory> {
             .copy_to_slice(vec_out.as_mut_slice(), offset)?;
         Ok(vec_out)
     }
-
-    /// Sets `addr` to the correct offset in the memory referenced by
-    /// `shared_mem` to indicate the address of the outb pointer and context
-    /// for calling outb function
-    #[cfg(target_os = "windows")]
-    #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]
-    pub(crate) fn set_outb_address_and_context(&mut self, addr: u64, context: u64) -> Result<()> {
-        let offset = self.layout.get_outb_pointer_offset();
-        self.shared_mem.write::<u64>(offset, addr)?;
-        let offset = self.layout.get_outb_context_offset();
-        self.shared_mem.write::<u64>(offset, context)
-    }
 }
 
 #[cfg(test)]
@@ -842,20 +837,41 @@ mod tests {
     #[test]
     #[serial]
     fn load_guest_binary_using_load_library() {
-        use hyperlight_testing::{rust_guest_as_pathbuf, simple_guest_exe_as_string};
+        use hyperlight_testing::rust_guest_as_pathbuf;
 
         use crate::mem::mgr::SandboxMemoryManager;
 
         let cfg = SandboxConfiguration::default();
-        let guest_path = rust_guest_as_pathbuf("simpleguest");
-        let guest_bytes = bytes_for_path(guest_path).unwrap();
-        let mut exe_info = ExeInfo::from_buf(guest_bytes.as_slice()).unwrap();
+        let guest_pe_path = rust_guest_as_pathbuf("simpleguest.exe");
+        let guest_pe_bytes = bytes_for_path(guest_pe_path.clone()).unwrap();
+        let mut pe_info = ExeInfo::from_buf(guest_pe_bytes.as_slice()).unwrap();
         let _ = SandboxMemoryManager::load_guest_binary_using_load_library(
             cfg,
-            simple_guest_exe_as_string().unwrap().as_str(),
-            &mut exe_info,
+            guest_pe_path.to_str().unwrap(),
+            &mut pe_info,
         )
         .unwrap();
+
+        let guest_elf_path = rust_guest_as_pathbuf("simpleguest");
+        let guest_elf_bytes = bytes_for_path(guest_elf_path.clone()).unwrap();
+        let mut elf_info = ExeInfo::from_buf(guest_elf_bytes.as_slice()).unwrap();
+
+        let res = SandboxMemoryManager::load_guest_binary_using_load_library(
+            cfg,
+            guest_elf_path.to_str().unwrap(),
+            &mut elf_info,
+        );
+
+        match res {
+            Ok(_) => {
+                panic!("loadlib with elf should fail");
+            }
+            Err(err) => {
+                assert!(err
+                    .to_string()
+                    .contains("LoadLibrary can only be used with PE files"));
+            }
+        }
     }
 
     /// Don't write a host error, try to read it back, and verify we
@@ -867,11 +883,17 @@ mod tests {
         let mut eshm = ExclusiveSharedMemory::new(layout.get_memory_size().unwrap()).unwrap();
         let mem_size = eshm.mem_size();
         layout
-            .write(&mut eshm, SandboxMemoryLayout::BASE_ADDRESS, mem_size)
+            .write(
+                &mut eshm,
+                SandboxMemoryLayout::BASE_ADDRESS,
+                mem_size,
+                false,
+            )
             .unwrap();
         let emgr = SandboxMemoryManager::new(
             layout,
             eshm,
+            false,
             RawPtr::from(0),
             Offset::from(0),
             #[cfg(target_os = "windows")]
@@ -890,11 +912,17 @@ mod tests {
         // write a host error and then try to read it back
         let mut eshm = ExclusiveSharedMemory::new(mem_size).unwrap();
         layout
-            .write(&mut eshm, SandboxMemoryLayout::BASE_ADDRESS, mem_size)
+            .write(
+                &mut eshm,
+                SandboxMemoryLayout::BASE_ADDRESS,
+                mem_size,
+                false,
+            )
             .unwrap();
         let emgr = SandboxMemoryManager::new(
             layout,
             eshm,
+            false,
             RawPtr::from(0),
             Offset::from(0),
             #[cfg(target_os = "windows")]

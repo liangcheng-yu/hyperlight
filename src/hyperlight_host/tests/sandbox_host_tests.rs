@@ -455,21 +455,25 @@ fn simple_test_helper() -> Result<()> {
         assert!(matches!(res3, Ok(ReturnValue::VecBytes(v)) if v == buffer));
     }
 
-    #[cfg(target_os = "windows")]
+    let expected_calls = {
+        if cfg!(all(target_os = "windows", inprocess)) {
+            // windows debug build
+            5
+        } else if cfg!(inprocess) {
+            // linux debug build
+            4
+        } else {
+            // {windows,linux} release build
+            2
+        }
+    };
+
     assert_eq!(
         messages
             .try_lock()
             .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?
             .len(),
-        4
-    );
-    #[cfg(target_os = "linux")]
-    assert_eq!(
-        messages
-            .try_lock()
-            .map_err(|e| new_error!("Error locking at {}:{}: {}", file!(), line!(), e))?
-            .len(),
-        1
+        expected_calls
     );
 
     assert!(messages
@@ -523,7 +527,7 @@ fn only_one_sandbox_instance_with_loadlib() {
     .unwrap_err(); //should fail
 
     assert!(
-        matches!(err, HyperlightError::Error(msg) if msg.starts_with("Only one instance of Sandbox is allowed when running from guest binary"))
+        matches!(err, HyperlightError::Error(msg) if msg.starts_with("LoadedLib: Only one guest binary can be loaded at any single time"))
     );
 }
 

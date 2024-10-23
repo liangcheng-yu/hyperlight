@@ -39,14 +39,14 @@ pub trait Sandbox: Sized + Debug {
 
 /// A utility trait to recognize a Sandbox that has not yet been initialized.
 /// It allows retrieval of a strongly typed UninitializedSandbox.
-pub trait UninitializedSandbox<'a>: Sandbox {
+pub trait UninitializedSandbox: Sandbox {
     fn get_uninitialized_sandbox(&self) -> &crate::sandbox::UninitializedSandbox;
 
     fn get_uninitialized_sandbox_mut(&mut self) -> &mut crate::sandbox::UninitializedSandbox;
 
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
     fn is_running_in_process(&self) -> bool {
-        self.get_uninitialized_sandbox().run_from_process_memory
+        self.get_uninitialized_sandbox().run_inprocess
     }
 }
 

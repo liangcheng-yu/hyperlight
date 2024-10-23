@@ -5,16 +5,16 @@ use tracing::{instrument, Span};
 
 use super::{MemMgrWrapper, WrapperGetter};
 use crate::func::call_ctx::SingleUseGuestCallContext;
+use crate::hypervisor::hypervisor_handler::HypervisorHandler;
 use crate::mem::shared_mem::HostSharedMemory;
-use crate::sandbox::uninitialized_evolve::ExecutionMode;
 use crate::sandbox_state::sandbox::Sandbox;
 use crate::Result;
 
 /// A sandbox implementation that supports calling no more than 1 guest
 /// function
-pub struct SingleUseSandbox<'a> {
+pub struct SingleUseSandbox {
     pub(super) mem_mgr: MemMgrWrapper<HostSharedMemory>,
-    execution_mode: ExecutionMode<'a>,
+    hv_handler: HypervisorHandler,
 }
 
 // We need to implement drop to join the
@@ -25,27 +25,18 @@ pub struct SingleUseSandbox<'a> {
 // sandboxes and caused the system to run out of
 // resources. Now, this is covered by the test:
 // `create_1000_sandboxes`.
-impl Drop for SingleUseSandbox<'_> {
+impl Drop for SingleUseSandbox {
     fn drop(&mut self) {
-        let execution_mode = self.get_execution_mode_mut();
-        match execution_mode {
-            ExecutionMode::InHypervisor(hv_handler) => {
-                match hv_handler.kill_hypervisor_handler_thread() {
-                    Ok(_) => {}
-                    Err(e) => {
-                        log::error!("[POTENTIAL THREAD LEAK] Potentially failed to kill hypervisor handler thread when dropping MultiUseSandbox: {:?}", e);
-                    }
-                }
-            }
-            _ => {
-                // If we are running from C# or in process, drop is a no-op
-                // because there's no hypervisor thread to kill.
+        match self.hv_handler.kill_hypervisor_handler_thread() {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("[POTENTIAL THREAD LEAK] Potentially failed to kill hypervisor handler thread when dropping MultiUseSandbox: {:?}", e);
             }
         }
     }
 }
 
-impl<'a> SingleUseSandbox<'a> {
+impl SingleUseSandbox {
     /// Move an `UninitializedSandbox` into a new `SingleUseSandbox` instance.
     ///
     /// This function is not equivalent to doing an `evolve` from uninitialized
@@ -60,11 +51,11 @@ impl<'a> SingleUseSandbox<'a> {
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     pub(super) fn from_uninit(
         mgr: MemMgrWrapper<HostSharedMemory>,
-        execution_mode: ExecutionMode<'a>,
+        hv_handler: HypervisorHandler,
     ) -> SingleUseSandbox {
         Self {
             mem_mgr: mgr,
-            execution_mode,
+            hv_handler,
         }
     }
 
@@ -150,7 +141,7 @@ impl<'a> SingleUseSandbox<'a> {
     /// // After the call context is dropped, the sandbox is also dropped.
     /// ```
     #[instrument(skip_all, parent = Span::current())]
-    pub fn new_call_context(self) -> SingleUseGuestCallContext<'a> {
+    pub fn new_call_context(self) -> SingleUseGuestCallContext {
         SingleUseGuestCallContext::start(self)
     }
 
@@ -168,29 +159,29 @@ impl<'a> SingleUseSandbox<'a> {
     }
 }
 
-impl<'a> WrapperGetter<'a> for SingleUseSandbox<'a> {
+impl WrapperGetter for SingleUseSandbox {
     fn get_mgr_wrapper(&self) -> &MemMgrWrapper<HostSharedMemory> {
         &self.mem_mgr
     }
     fn get_mgr_wrapper_mut(&mut self) -> &mut MemMgrWrapper<HostSharedMemory> {
         &mut self.mem_mgr
     }
-    fn get_execution_mode(&self) -> &ExecutionMode<'a> {
-        &self.execution_mode
+    fn get_hv_handler(&self) -> &HypervisorHandler {
+        &self.hv_handler
     }
-    fn get_execution_mode_mut(&mut self) -> &mut ExecutionMode<'a> {
-        &mut self.execution_mode
+    fn get_hv_handler_mut(&mut self) -> &mut HypervisorHandler {
+        &mut self.hv_handler
     }
 }
 
-impl<'a> Sandbox for SingleUseSandbox<'a> {
+impl Sandbox for SingleUseSandbox {
     #[instrument(skip_all, parent = Span::current(), level = "Trace")]
     fn check_stack_guard(&self) -> Result<bool> {
         self.mem_mgr.check_stack_guard()
     }
 }
 
-impl<'a> std::fmt::Debug for SingleUseSandbox<'a> {
+impl std::fmt::Debug for SingleUseSandbox {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SingleUseSandbox")
             .field("stack_guard", &self.mem_mgr.get_stack_cookie())

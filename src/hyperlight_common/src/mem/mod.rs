@@ -23,6 +23,16 @@ pub struct GuestErrorData {
     pub guestErrorBuffer: *mut c_void,
 }
 
+#[repr(u64)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum RunMode {
+    None = 0,
+    Hypervisor = 1,
+    InProcessWindows = 2,
+    InProcessLinux = 3,
+    Invalid = 4,
+}
+
 #[repr(C)]
 pub struct InputData {
     pub inputDataSize: u64,
@@ -69,6 +79,7 @@ pub struct HyperlightPEB {
     pub pCode: *mut c_char,
     pub pOutb: *mut c_void,
     pub pOutbContext: *mut c_void,
+    pub runMode: RunMode,
     pub inputdata: InputData,
     pub outputdata: OutputData,
     pub guestPanicContextData: GuestPanicContextData,

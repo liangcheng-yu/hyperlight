@@ -7,7 +7,7 @@ use core::ptr::copy_nonoverlapping;
 use buddy_system_allocator::LockedHeap;
 use guest_function_register::GuestFunctionRegister;
 use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
-use hyperlight_common::mem::HyperlightPEB;
+use hyperlight_common::mem::{HyperlightPEB, RunMode};
 
 use crate::host_function_call::{outb, OutBAction};
 extern crate alloc;
@@ -80,7 +80,7 @@ pub(crate) static mut OUTB_PTR: Option<extern "win64" fn(u16, u8)> = None;
 pub(crate) static mut OUTB_PTR_WITH_CONTEXT: Option<
     extern "win64" fn(*mut core::ffi::c_void, u16, u8),
 > = None;
-pub static mut RUNNING_IN_HYPERLIGHT: bool = false;
+pub static mut RUNNING_MODE: RunMode = RunMode::None;
 
 pub(crate) static mut REGISTERED_GUEST_FUNCTIONS: GuestFunctionRegister =
     GuestFunctionRegister::new();

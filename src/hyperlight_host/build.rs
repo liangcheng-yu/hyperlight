@@ -75,6 +75,9 @@ fn main() -> Result<()> {
     cfg_aliases::cfg_aliases! {
         kvm: { all(feature = "kvm", target_os = "linux") },
         mshv: { all(feature = "mshv", target_os = "linux") },
+        // inprocess feature is aliased with debug_assertions to make it only available in debug-builds.
+        // You should never use #[cfg(feature = "inprocess")] in the codebase. Use #[cfg(inprocess)] instead.
+        inprocess: { all(feature = "inprocess", debug_assertions) },
     }
 
     write_built_file()?;
