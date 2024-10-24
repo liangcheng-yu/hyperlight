@@ -14,6 +14,7 @@ ln -s /usr/lib/llvm-17/bin/clang /usr/bin/clang
 ln -s /usr/lib/llvm-17/bin/llvm-lib /usr/bin/llvm-lib
 ln -s /usr/lib/llvm-17/bin/lld-link /usr/bin/lld-link
 ln -s /usr/lib/llvm-17/bin/llvm-ml /usr/bin/llvm-ml
+ln -s /usr/lib/llvm-17/bin/ld.lld /usr/bin/ld.lld
 
 # Install rust toolchain
 curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused --location --silent --show-error --fail "https://sh.rustup.rs" | sh -s -- --default-toolchain none -y
