@@ -54,7 +54,7 @@ jobs:
           systeminfo
 
       # Run this so we can use just targets in this workflow
-      - uses: deislabs/hyperlight-workflow-setup@v1.5.0
+      - uses: deislabs/hyperlight-workflow-setup@v1.6.0
         with:
           rust-toolchain: "1.81.0"
           azure-client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID }}
@@ -145,7 +145,7 @@ jobs:
           echo "cat /etc/os-release"
           cat /etc/os-release
 
-      - uses: deislabs/hyperlight-workflow-setup@v1.5.0
+      - uses: deislabs/hyperlight-workflow-setup@v1.6.0
         with:
           rust-toolchain: "1.81.0"
           azure-client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID }}
