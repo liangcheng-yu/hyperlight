@@ -92,7 +92,7 @@ pub fn is_supported_platform() -> bool {
 }
 
 /// Alias for the type of extra allowed syscalls.
-pub(crate) type ExtraAllowedSyscall = i64;
+pub type ExtraAllowedSyscall = i64;
 
 /// A `HashMap` to map function names to `HyperlightFunction`s and their extra allowed syscalls.
 ///

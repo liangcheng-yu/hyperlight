@@ -77,13 +77,9 @@ pub enum HyperlightError {
     CStringConversionError(#[from] std::ffi::NulError),
 
     /// A disallowed syscall was caught
-    /// Note: a DisallowedSyscall error isn't always guaranteed, even
-    /// when we have one. This is because a syscall being blocked could
-    /// result in a different error being thrown or even panics to occur.
-    /// Regardless, the disallowed syscall will `eprintln!`ed.
-    #[error("Seccomp filter trapped on disallowed syscall: {0}")]
+    #[error("Seccomp filter trapped on disallowed syscall (check STDERR for offending syscall)")]
     #[cfg(all(feature = "seccomp", target_os = "linux"))]
-    DisallowedSyscall(String),
+    DisallowedSyscall,
 
     /// A generic error with a message
     #[error("{0}")]

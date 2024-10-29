@@ -178,7 +178,7 @@ mod tests {
             match res {
                 Ok(_) => panic!("Expected to fail due to seccomp violation"),
                 Err(e) => match e {
-                    HyperlightError::DisallowedSyscall(_) => {}
+                    HyperlightError::DisallowedSyscall => {}
                     _ => panic!("Expected DisallowedSyscall error: {}", e),
                 },
             }

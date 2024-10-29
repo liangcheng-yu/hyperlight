@@ -47,9 +47,7 @@ use crate::sandbox::hypervisor::{get_available_hypervisor, HypervisorType};
 #[cfg(feature = "function_call_metrics")]
 use crate::sandbox::metrics::SandboxMetric::GuestFunctionCallDurationMicroseconds;
 #[cfg(target_os = "linux")]
-use crate::signal_handlers::hltimeout_signal_handler;
-#[cfg(target_os = "linux")]
-use crate::signal_handlers::mark_as_hyperlight_thread;
+use crate::signal_handlers::setup_signal_handlers;
 use crate::HyperlightError::{
     GuestExecutionHungOnHostFunctionCall,
     HypervisorHandlerExecutionCancelAttemptOnFinishedExecution, NoHypervisorFound,
@@ -284,12 +282,19 @@ impl HypervisorHandler {
         let from_handler_tx = self.communication_channels.from_handler_tx.clone();
         let hv_handler_clone = self.clone();
 
+        // Hyperlight has two signal handlers:
+        // (1) for timeouts, and
+        // (2) for seccomp (when enabled).
+        //
+        // This sets up Hyperlight signal handlers for the process, which are chained
+        // to the existing signal handlers.
+        #[cfg(target_os = "linux")]
+        setup_signal_handlers()?;
+
         let join_handle = {
             thread::Builder::new()
                 .name("Hypervisor Handler".to_string())
                 .spawn(move || -> Result<()> {
-                    #[cfg(target_os = "linux")]
-                    mark_as_hyperlight_thread();
                     for action in to_handler_rx {
                         match action {
                             HypervisorHandlerAction::Initialise => {
@@ -305,12 +310,6 @@ impl HypervisorHandler {
                                 execution_variables.run_cancelled.store(false);
 
                                 log::info!("Initialising Hypervisor Handler");
-                                #[cfg(target_os = "linux")]
-                                {
-                                    // On Linux, when we cancel the execution, we will send a `SIGRTMIN`
-                                    // signal to this thread (i.e., the one running the vCPU).
-                                    hltimeout_signal_handler::register_signal_handler_once()?;
-                                }
 
                                 let mut evar_lock_guard =
                                     execution_variables.shm.try_lock().map_err(|e| {

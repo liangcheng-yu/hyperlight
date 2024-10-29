@@ -14,176 +14,129 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-use std::cell::RefCell;
-use std::ffi::c_void;
+#[cfg(feature = "seccomp")]
+pub(super) extern "C" fn handle_sigsys(
+    signal: i32,
+    info: *mut libc::siginfo_t,
+    context: *mut libc::c_void,
+) {
+    #[cfg(target_arch = "x86_64")]
+    {
+        unsafe {
+            // si_code contains the reason for the SIGSYS signal.
+            // SYS_SECCOMP is 1 as per:
+            // https://github.com/torvalds/linux/blob/81983758430957d9a5cb3333fe324fd70cf63e7e/include/uapi/asm-generic/siginfo.h#L301C9-L301C21
+            const SYS_SECCOMP: libc::c_int = 1;
+            // Sanity checks to make sure SIGSYS was triggered by a BPF filter.
+            // If something else triggered a SIGSYS (i.e., kill()), we do nothing.
+            // Inspired by Chromium's sandbox:
+            // https://chromium.googlesource.com/chromium/chromium/+/master/sandbox/linux/seccomp-bpf/sandbox_bpf.cc#572
+            if signal != libc::SIGSYS
+                || (*info).si_code != SYS_SECCOMP
+                || context.is_null()
+                || (*info).si_errno < 0
+            {
+                let err_msg =
+                    b"[ERROR][HYPERLIGHT] SIGSYS triggered by something other than a BPF filter\n";
+                libc::write(
+                    libc::STDERR_FILENO,
+                    err_msg.as_ptr() as *const _,
+                    err_msg.len(),
+                );
+                return;
+            }
 
-use libc::{c_int, sigaction, siginfo_t, ucontext_t, SIGSYS};
-use once_cell::sync::OnceCell;
+            let err_msg = b"[ERROR][HYPERLIGHT] Handling disallowed syscall\n";
+            libc::write(
+                libc::STDERR_FILENO,
+                err_msg.as_ptr() as *const _,
+                err_msg.len(),
+            );
 
-use crate::signal_handlers::{
-    delegate_to_old_handler, register_signal_handler, IS_HYPERLIGHT_THREAD,
-};
-
-// Store the old SIGSYS handler using OnceCell for thread-safe initialization
-static OLD_SIGSYS_HANDLER: OnceCell<sigaction> = OnceCell::new();
-
-// Thread-local storage for syscall information
-thread_local! {
-    pub static SYSCALL_NUMBER: RefCell<Option<usize>> = const { RefCell::new(None) };
-    pub static IOCTL_PARAM: RefCell<Option<usize>> = const { RefCell::new(None) };
-}
-
-/// Registers the SIGSYS signal handler once per process.
-pub fn register_signal_handler_once() -> crate::Result<()> {
-    register_signal_handler(SIGSYS, handle_signal, &OLD_SIGSYS_HANDLER)
-}
-
-/// The custom SIGSYS signal handler.
-extern "C" fn handle_signal(signal: c_int, info: *mut siginfo_t, context: *mut c_void) {
-    if signal != SIGSYS {
-        // Unexpected signal; ignore
-        return;
-    }
-
-    // Check if the current thread is a hyperlight thread
-    IS_HYPERLIGHT_THREAD.with(|is_hyperlight_thread| {
-        if *is_hyperlight_thread.borrow() {
-            // Handle the signal for hyperlight threads
+            // We get the syscall number by accessing a particular offset in the `siginfo_t` struct.
+            // This only works because this is handling a SIGSYS signal (i.e., the `siginfo_t` struct
+            // is implemented as a union in the kernel:
+            // https://github.com/torvalds/linux/blob/master/include/uapi/asm-generic/siginfo.h).
+            // Note: This is not necessarily platform-agnostic, so we might want to be more careful here
+            // in the future.
             const SI_OFF_SYSCALL: isize = 6;
+            let syscall = *(info as *const i32).offset(SI_OFF_SYSCALL) as usize;
+            let syscall_bytes = raw_format(b"[ERROR][HYPERLIGHT] Disallowed Syscall: ", syscall);
 
-            // SAFETY: Assuming 'info' points to a valid 'siginfo_t'
-            let syscall = unsafe { *(info as *const i32).offset(SI_OFF_SYSCALL) as usize };
+            // `write` as per https://man7.org/linux/man-pages/man7/signal-safety.7.html
+            // is async-signal-safe.
+            libc::write(
+                libc::STDERR_FILENO,
+                syscall_bytes.as_ptr() as *const _,
+                syscall_bytes.len(),
+            );
 
-            eprintln!("Disallowed syscall: {}", syscall);
-            SYSCALL_NUMBER.with(|syscall_num| {
-                *syscall_num.borrow_mut() = Some(syscall);
-            });
+            // Note: This is not necessarily platform-agnostic, so we might want to be more careful here
+            // in the future.
+            let ucontext = context as *mut libc::ucontext_t;
+            let mcontext = &mut (*ucontext).uc_mcontext;
 
             if syscall == libc::SYS_ioctl as usize {
-                let ucontext = unsafe { &*(context as *const ucontext_t) };
-                let mcontext = &ucontext.uc_mcontext;
-                let ioctl_param = mcontext.gregs[9];
-
-                eprintln!("Disallowed ioctl: {:x}", ioctl_param);
-                IOCTL_PARAM.with(|param| {
-                    *param.borrow_mut() = Some(ioctl_param as usize);
-                });
+                let ioctl_param = mcontext.gregs[libc::REG_EBRACE as usize] as usize;
+                let ioctl_param_bytes =
+                    raw_format(b"[ERROR][HYPERLIGHT] IOCTL Param: ", ioctl_param);
+                libc::write(
+                    libc::STDERR_FILENO,
+                    ioctl_param_bytes.as_ptr() as *const _,
+                    ioctl_param_bytes.len(),
+                );
             }
-        } else {
-            // Not a hyperlight thread; delegate to the old handler or default
-            delegate_to_old_handler(signal, info, context, &OLD_SIGSYS_HANDLER);
+
+            // We don't want to return execution to the offending host function, so
+            // we alter the RIP register to point to a function that will panic out of
+            // the host function call.
+            mcontext.gregs[libc::REG_RIP as usize] =
+                after_syscall_violation as usize as libc::greg_t;
         }
-    });
+    }
+
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        compile_error!("Unsupported architecture for seccomp feature");
+    }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::ffi::c_void;
-    use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::Arc;
-    use std::{mem, thread};
+extern "C-unwind" fn after_syscall_violation() {
+    std::panic::panic_any(crate::HyperlightError::DisallowedSyscall);
+}
 
-    use libc::{c_int, sigaction, sigemptyset, siginfo_t, SA_SIGINFO, SIGSYS};
-    use once_cell::sync::OnceCell;
-    use serial_test::serial;
+fn raw_format(prefix: &[u8], raw: usize) -> [u8; 64] {
+    const PREFIX_BUF_LEN: usize = 64;
+    const DIGITS_BUF_LEN: usize = 20;
 
-    use super::*;
-    use crate::signal_handlers::mark_as_hyperlight_thread;
+    let mut buffer = [0u8; PREFIX_BUF_LEN];
+    let mut i = prefix.len();
 
-    // Mock old handler flag
-    static OLD_HANDLER_CALLED: OnceCell<Arc<AtomicBool>> = OnceCell::new();
+    // Copy the prefix message into the buffer.
+    buffer[..i].copy_from_slice(prefix);
 
-    /// Mock old SIGSYS handler that sets a flag when called
-    extern "C" fn mock_old_handler(_signal: c_int, _info: *mut siginfo_t, _context: *mut c_void) {
-        if let Some(flag) = OLD_HANDLER_CALLED.get() {
-            eprintln!("Called mock_old_handler");
-            flag.store(true, Ordering::SeqCst);
+    // Format the number at the end of the buffer.
+    let mut num = raw;
+    let mut digits = [0u8; DIGITS_BUF_LEN];
+    let mut j = 19;
+    if num == 0 {
+        digits[j] = b'0';
+        j -= 1;
+    } else {
+        while num > 0 {
+            digits[j] = b'0' + (num % 10) as u8;
+            num /= 10;
+            j -= 1;
         }
     }
 
-    #[test]
-    #[serial]
-    fn test_signal_delegation_to_old_handler() -> anyhow::Result<()> {
-        // Initialize the flag
-        let old_handler_flag = Arc::new(AtomicBool::new(false));
-        OLD_HANDLER_CALLED.set(old_handler_flag.clone()).unwrap();
+    // Copy the number digits to the buffer after the prefix.
+    let num_len = 19 - j;
+    buffer[i..i + num_len].copy_from_slice(&digits[j + 1..20]);
+    i += num_len;
 
-        // Step 1: Register the mock old handler
-        unsafe {
-            let mut old_action: sigaction = mem::zeroed();
+    // Add a newline at the end.
+    buffer[i] = b'\n';
 
-            // Define the old signal handler
-            let mut old_sigaction: sigaction = mem::zeroed();
-            old_sigaction.sa_sigaction = mock_old_handler as usize;
-            old_sigaction.sa_flags = SA_SIGINFO;
-            sigemptyset(&mut old_sigaction.sa_mask);
-
-            // Register the old handler and save the previous one
-            if sigaction(SIGSYS, &old_sigaction, &mut old_action) != 0 {
-                panic!("Failed to register mock old SIGSYS handler");
-            }
-        }
-
-        // Step 2: Register the custom SIGSYS handler
-        register_signal_handler_once().unwrap();
-
-        // Step 3: Spawn a non-hyperlight thread that triggers SIGSYS
-        let non_hyperlight_thread = thread::spawn(move || {
-            // This thread is NOT marked as a hyperlight thread
-            // Directly trigger SIGSYS
-            unsafe {
-                libc::raise(SIGSYS);
-            }
-        });
-
-        // Wait for the non-hyperlight thread to finish
-        non_hyperlight_thread
-            .join()
-            .expect("Failed to join non-app thread");
-
-        // Step 4: Verify that the mock old handler was called
-        assert!(
-            old_handler_flag.load(Ordering::SeqCst),
-            "Old SIGSYS handler was not called from non-app thread"
-        );
-
-        // Step 5: Spawn a hyperlight thread that triggers SIGSYS
-        let hyperlight_thread = thread::spawn(move || {
-            // Mark this thread as a hyperlight thread
-            mark_as_hyperlight_thread();
-
-            // Trigger SIGSYS, which should be handled by the custom handler
-            unsafe {
-                libc::raise(SIGSYS);
-            }
-        });
-
-        // Wait for the hyperlight thread to finish
-        hyperlight_thread.join().expect("Failed to join app thread");
-
-        Ok(())
-    }
-
-    #[test]
-    #[serial]
-    fn test_signal_handling_in_hyperlight_thread() -> anyhow::Result<()> {
-        // Step 1: Register the custom SIGSYS handler
-        register_signal_handler_once().unwrap();
-
-        // Step 2: Spawn a hyperlight thread that triggers SIGSYS
-        let hyperlight_thread = thread::spawn(move || {
-            // Mark this thread as a hyperlight thread
-            mark_as_hyperlight_thread();
-
-            // Trigger SIGSYS, which should be handled by the custom handler
-            unsafe {
-                libc::raise(SIGSYS);
-            }
-        });
-
-        // Wait for the hyperlight thread to finish
-        hyperlight_thread.join().expect("Failed to join app thread");
-
-        Ok(())
-    }
+    buffer
 }

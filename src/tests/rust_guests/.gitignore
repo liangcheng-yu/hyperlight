@@ -1,0 +1,10 @@
+!bin/
+!bin/debug
+!bin/release
+
+bin/debug/simpleguest*
+bin/debug/dummyguest*
+bin/debug/callbackguest*
+bin/release/simpleguest*
+bin/release/dummyguest*
+bin/release/callbackguest*

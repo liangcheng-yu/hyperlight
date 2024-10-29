@@ -27,10 +27,6 @@ use super::{ExtraAllowedSyscall, FunctionsMap};
 use crate::func::HyperlightFunction;
 use crate::mem::mgr::SandboxMemoryManager;
 use crate::mem::shared_mem::ExclusiveSharedMemory;
-#[cfg(all(feature = "seccomp", target_os = "linux"))]
-use crate::signal_handlers::mark_as_hyperlight_thread;
-#[cfg(all(feature = "seccomp", target_os = "linux"))]
-use crate::signal_handlers::sigsys_signal_handler::{self, IOCTL_PARAM, SYSCALL_NUMBER};
 use crate::HyperlightError::HostFunctionNotFound;
 use crate::{new_error, Result};
 
@@ -204,9 +200,6 @@ fn call_host_func_impl(
 
     cfg_if::cfg_if! {
         if #[cfg(all(feature = "seccomp", target_os = "linux"))] {
-            // Register the signal handler once
-            sigsys_signal_handler::register_signal_handler_once()?;
-
             // Clone variables for the thread
             let host_funcs_cloned = host_funcs.clone();
             let name_cloned = name.to_string();
@@ -216,38 +209,23 @@ fn call_host_func_impl(
             let join_handle = std::thread::Builder::new()
                 .name(format!("Host Function Worker Thread for: {:?}", name_cloned))
                 .spawn(move || {
-                    // Mark this thread as a hyperlight thread
-                    mark_as_hyperlight_thread();
-
-                    // Clear thread-local storage at the start
-                    SYSCALL_NUMBER.with(|syscall_num| {
-                        *syscall_num.borrow_mut() = None;
-                    });
-                    IOCTL_PARAM.with(|param| {
-                        *param.borrow_mut() = None;
-                    });
-
-                    let res = call_func(&host_funcs_cloned, &name_cloned, args_cloned);
-
-                    SYSCALL_NUMBER.with(|syscall_num| {
-                        if let Some(syscall) = *syscall_num.borrow() {
-                            if syscall == libc::SYS_ioctl as usize {
-                                IOCTL_PARAM.with(|param| {
-                                    let ioctl_param = param.borrow().unwrap_or(0);
-                                    Err(crate::HyperlightError::DisallowedSyscall(format!(
-                                        "IOCTL({:x})",
-                                        ioctl_param
-                                    )))
-                                })
-                            } else {
-                                Err(crate::HyperlightError::DisallowedSyscall(
-                                    syscall.to_string(),
-                                ))
+                    // We have a `catch_unwind` here because, if a disallowed syscall is issued,
+                    // we handle it by panicking. This is to avoid returning execution to the
+                    // offending host function—for two reasons: (1) if a host function is issuing
+                    // disallowed syscalls, it could be unsafe to return to, and (2) returning
+                    // execution after trapping the disallowed syscall can lead to UB (e.g., try
+                    // running a host function that attempts to sleep without `SYS_clock_nanosleep`,
+                    // you'll block the syscall but panic in the aftermath).
+                    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| call_func(&host_funcs_cloned, &name_cloned, args_cloned))) {
+                        Ok(val) => val,
+                        Err(err) => {
+                            if let Some(crate::HyperlightError::DisallowedSyscall) = err.downcast_ref::<crate::HyperlightError>() {
+                                return Err(crate::HyperlightError::DisallowedSyscall)
                             }
-                        } else {
-                            res
+
+                            crate::log_then_return!("Host function {} panicked", name_cloned);
                         }
-                    })
+                    }
                 })?;
 
             join_handle.join().map_err(|_| new_error!("Error joining thread executing host function"))?
