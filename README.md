@@ -110,15 +110,18 @@ After having an environment with a hypervisor setup, running the example has the
 4. [clang and LLVM](https://clang.llvm.org/get_started.html).
    - On Mariner, run `sudo install clang16 clang16-tools-extra lld16`.
    - On Ubuntu, run:
+
        ```sh
        wget https://apt.llvm.org/llvm.sh
        chmod +x ./llvm.sh
-       ./llvm.sh 17 all
-       ln -s /usr/lib/llvm-17/bin/clang-cl /usr/bin/clang-cl
-       ln -s /usr/lib/llvm-17/bin/llvm-lib /usr/bin/llvm-lib
-       ln -s /usr/lib/llvm-17/bin/lld-link /usr/bin/lld-link
-       ln -s /usr/lib/llvm-17/bin/llvm-ml /usr/bin/llvm-ml
+       sudo ./llvm.sh 17 all
+       sudo ln -s /usr/lib/llvm-17/bin/clang-cl /usr/bin/clang-cl
+       sudo ln -s /usr/lib/llvm-17/bin/llvm-lib /usr/bin/llvm-lib
+       sudo ln -s /usr/lib/llvm-17/bin/lld-link /usr/bin/lld-link
+       sudo ln -s /usr/lib/llvm-17/bin/llvm-ml /usr/bin/llvm-ml
+       sudo ln -s /usr/lib/llvm-17/bin/clang /usr/bin/clang
        ```
+
      - On Windows, see [this](https://learn.microsoft.com/en-us/cpp/build/clang-support-msbuild?view=msvc-170).
 5. [The Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli).
 
@@ -136,9 +139,9 @@ cargo update --dry-run # verify access to the Hyperlight Cargo feeds
 Then, we are ready to build and run the example:
 
 ```sh
-just build-rust # build the Rust Hyperlight library
-just build-and-move-rust-guests # build the test guest binaries
-cargo run --example hello-world # runs the example
+just build  # build the Hyperlight library
+just rg     # build the rust test guest binaries
+cargo run --example hello-world
 ```
 
 If all worked as expected, you should the following message in your console:
@@ -147,35 +150,22 @@ If all worked as expected, you should the following message in your console:
 Hello, World! I am executing inside of a VM :)
 ```
 
-> Note: For general Hyperlight development, you'll most likely also need these additional pre-requisites:
-> - [cbindgen](https://github.com/eqrion/cbindgen). `cargo install cbindgen`
-> - For Windows, install the Visual Studio 2022 build tools. You can find them [here](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022).
-> - flatcc (Flatbuffer C compiler): for instructions, see [here](https://github.com/dvidelabs/flatcc).
-> - flatc (Flatbuffer compiler for other languages): for instructions, see [here](https://github.com/google/flatbuffers).
+If you get the error `Error: NoHypervisorFound` and KVM is set up then this may be a permissions issue, one simple way to fix this is to 
+update your permissions (e.g., `sudo chmod 666 /dev/kvm`) . For more details on how to verify that KVM is correctly installed and permissions are correct, follow the guide [here](https://help.ubuntu.com/community/KVM/Installation)).
 
-## Running Hyperlight's entire test-suite
+## Contributing to Hyperlight
 
 If you are interested in contributing to Hyperlight, running the entire test-suite is a good way to get started. To do so, on your console, run the following commands:
 
 ```sh
-git clone https://github.com/deislabs/hyperlight.git # or, git clone git@github.com:deislabs/hyperlight.git
-just rg
-just cg
-just build
+just guests  # build the c and rust test guests
+just build  # build the Hyperlight library
 just test # runs the tests
 ```
 
-## Troubleshooting
+Also , please review the [CONTRIBUTING.md](./CONTRIBUTING.md) file for more information on how to contribute to Hyperlight.
 
-### `NoHypervisorFound`
-
-(1) For running tests, we require an environment variable to be set, which you could be missing (e.g., `KVM_SHOULD_BE_PRESENT=true`).
-
-(2) If you have a Hypervisor device (e.g., `/dev/kvm` or `/dev/mshv`) setup, it could just be a permissions issue.
-Update your permissions (e.g., `sudo chmod 666 /dev/kvm` or set up a KVM group as shown [here](https://help.ubuntu.com/community/KVM/Installation)).
-
-(3) You really don't have a Hypervisor. If this is the case, look for instructions for your specific platform to get
-setup (here's an example for [Ubuntu KVM](https://ubuntu.com/blog/kvm-hyphervisor)).
+> Note: For general Hyperlight development, you may also need flatc (Flatbuffer compiler): for instructions, see [here](https://github.com/google/flatbuffers).
 
 ## More Information
 
