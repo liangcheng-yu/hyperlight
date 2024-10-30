@@ -28,6 +28,6 @@ pub mod flatbuffer_wrappers;
     non_camel_case_types
 )]
 #[rustfmt::skip]
-pub mod flatbuffers;
+mod flatbuffers;
 
 pub mod mem;

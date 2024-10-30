@@ -23,10 +23,10 @@ use hyperlight_common::flatbuffer_wrappers::function_types::{
     ParameterValue, ReturnType, ReturnValue,
 };
 use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
+use hyperlight_common::flatbuffer_wrappers::util::get_flatbuffer_result_from_int;
 use hyperlight_common::mem::RunMode;
 
 use crate::error::{HyperlightGuestError, Result};
-use crate::flatbuffer_utils::get_flatbuffer_result_from_int;
 use crate::host_error::check_for_host_error;
 use crate::host_functions::validate_host_function_call;
 use crate::shared_input_data::try_pop_shared_input_data_into;

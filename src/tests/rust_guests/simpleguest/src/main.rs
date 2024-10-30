@@ -39,16 +39,16 @@ use hyperlight_common::flatbuffer_wrappers::function_types::{
 };
 use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
 use hyperlight_common::flatbuffer_wrappers::guest_log_level::LogLevel;
-use hyperlight_common::mem::PAGE_SIZE;
-use hyperlight_guest::alloca::_alloca;
-use hyperlight_guest::entrypoint::{abort_with_code, abort_with_code_and_message};
-use hyperlight_guest::error::{HyperlightGuestError, Result};
-use hyperlight_guest::flatbuffer_utils::{
+use hyperlight_common::flatbuffer_wrappers::util::{
     get_flatbuffer_result_from_double, get_flatbuffer_result_from_float,
     get_flatbuffer_result_from_int, get_flatbuffer_result_from_string,
     get_flatbuffer_result_from_ulong, get_flatbuffer_result_from_vec,
     get_flatbuffer_result_from_void,
 };
+use hyperlight_common::mem::PAGE_SIZE;
+use hyperlight_guest::alloca::_alloca;
+use hyperlight_guest::entrypoint::{abort_with_code, abort_with_code_and_message};
+use hyperlight_guest::error::{HyperlightGuestError, Result};
 use hyperlight_guest::guest_function_definition::GuestFunctionDefinition;
 use hyperlight_guest::guest_function_register::register_function;
 use hyperlight_guest::host_function_call::{

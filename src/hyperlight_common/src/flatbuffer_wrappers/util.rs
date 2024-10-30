@@ -17,7 +17,8 @@ limitations under the License.
 use alloc::vec::Vec;
 
 use flatbuffers::{FlatBufferBuilder, UnionWIPOffset, WIPOffset};
-use hyperlight_common::flatbuffers::hyperlight::generated::{
+
+use crate::flatbuffers::hyperlight::generated::{
     hldouble as Fbhldouble, hldoubleArgs as FbhldoubleArgs, hlfloat as Fbhlfloat,
     hlfloatArgs as FbhlfloatArgs, hlint as Fbhlint, hlintArgs as FbhlintArgs, hllong as Fbhllong,
     hllongArgs as FbhllongArgs, hlsizeprefixedbuffer as Fbhlsizeprefixedbuffer,

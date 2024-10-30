@@ -29,10 +29,6 @@ use crossbeam_channel::{RecvError, SendError};
 use flatbuffers::InvalidFlatbuffer;
 use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnValue};
 use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
-use hyperlight_common::flatbuffers::hyperlight::generated::{
-    FunctionCallType, ParameterType, ParameterValue as FBParameterValue, ReturnType,
-    ReturnValue as FBReturnValue,
-};
 use serde::{Deserialize, Serialize};
 use serde_yaml;
 use thiserror::Error;
@@ -169,10 +165,6 @@ pub enum HyperlightError {
     #[error("The flatbuffer is invalid")]
     InvalidFlatBuffer(#[from] InvalidFlatbuffer),
 
-    /// The function call type is invalid
-    #[error("The function call type is invalid {0:?}")]
-    InvalidFunctionCallType(FunctionCallType),
-
     /// Conversion of str to Json failed
     #[error("Conversion of str data to json failed")]
     JsonConversionFailure(#[from] serde_json::Error),
@@ -281,10 +273,6 @@ pub enum HyperlightError {
     #[error("TryFromSliceError {0:?}")]
     TryFromSliceError(#[from] TryFromSliceError),
 
-    /// The flatbuffer return value type is invalid
-    #[error("The flatbuffer return value type is invalid {0:?}")]
-    UnexpectedFlatBufferReturnValueType(FBReturnValue),
-
     /// A function was called with an incorrect number of arguments
     #[error("The number of arguments to the function is wrong: got {0:?} expected {1:?}")]
     UnexpectedNoOfArguments(usize, usize),
@@ -296,18 +284,6 @@ pub enum HyperlightError {
     /// The return value type is unexpected
     #[error("The return value type is unexpected got {0:?} expected {1:?}")]
     UnexpectedReturnValueType(ReturnValue, String),
-
-    /// The flatbuffer parameter type is invalid
-    #[error("The flatbuffer parameter type is invalid {0:?}")]
-    UnknownFlatBufferParameterType(ParameterType),
-
-    /// The flatbuffer parameter value is invalid
-    #[error("The flatbuffer parameter value is invalid {0:?}")]
-    UnknownFlatBufferParameterValue(FBParameterValue),
-
-    /// The flatbuffer return type is invalid
-    #[error("The flatbuffer return type is invalid {0:?}")]
-    UnknownFlatBufferReturnType(ReturnType),
 
     /// Slice conversion to UTF8 failed
     #[error("Slice Conversion of UTF8 data to str failed")]

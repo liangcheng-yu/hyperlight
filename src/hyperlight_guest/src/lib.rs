@@ -43,7 +43,6 @@ pub mod host_function_call;
 pub mod host_functions;
 
 pub mod alloca;
-pub mod flatbuffer_utils;
 pub(crate) mod guest_logger;
 pub mod memory;
 pub mod print;
