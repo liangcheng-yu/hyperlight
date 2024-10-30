@@ -29,6 +29,7 @@ use crate::flatbuffers::hyperlight::generated::{
 };
 
 #[derive(Debug, Clone, Eq, PartialEq)]
+#[repr(C)]
 /// `ErrorCode` represents an error that occurred in the Hyperlight Guest.
 pub enum ErrorCode {
     NoError = 0,

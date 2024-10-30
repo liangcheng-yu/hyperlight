@@ -33,6 +33,7 @@
       "type": "lldb",
       "request": "launch",
       "name": "Cargo debug integration_test",
+      "env": {"GUEST": "c"},
       "cargo": {
         "args": [
           "test",
@@ -40,10 +41,10 @@
           "--no-run",
         ],
         "filter": {
-          "name": "integration_test",
+          "name": "sandbox_host_tests",
         }
       },
-      "args": ["--exact", "guest_abort"] // the specific test to run
+      "args": ["--exact", "float_roundtrip"] // the specific test to run
     }
   ]
 }

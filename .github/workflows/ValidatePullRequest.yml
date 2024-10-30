@@ -62,35 +62,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-     # This is still needed until we remove the HyperlightDepenenices.csproj
-      - name: Setup dotnet
-        uses: actions/setup-dotnet@v4.0.1
-        with:
-          dotnet-version: 6.0.x
-
-      - uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget
-
-      - name: Restore
-        run: dotnet restore
-        shell: pwsh
-
-      - name: Add msbuild to PATH
-        uses: microsoft/setup-msbuild@v2
-        with:
-          msbuild-architecture: x64
-
-      - name: Fetch printf
-        working-directory: src/HyperlightGuest/third_party/printf
-        run: git submodule update --init
-
-      - name: Build Solution
-        run: msbuild -m hyperlight.sln /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }} /p:ContinuousIntegrationBuild=true
-        shell: pwsh
 
   #####
   # end build-on-windows

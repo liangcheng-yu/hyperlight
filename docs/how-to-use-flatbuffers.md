@@ -10,23 +10,16 @@ Code generated from the schema files is checked in to the repository, therefore 
 
 ## Generating code
 
-Two tools are required to generate the code:
+We use [flatc](https://google.github.io/flatbuffers/flatbuffers_guide_using_schema_compiler.html) to generate rust code.
 
-* [flatc](https://google.github.io/flatbuffers/flatbuffers_guide_using_schema_compiler.html) - the FlatBuffers schema compiler for all languages except C.
-* [flatcc](https://github.com/dvidelabs/flatcc) - the FlatBuffers schema compiler for C.
+We recommend building `flatc` from source. To generate rust code, use
 
-Follow instructions in the links above to build/or install the tools. You can use vcpkg via `just install-flatbuffers-with-vcpkg:` to install flatc, this will install vcpkg and then install flatc which can then be found at `..\vcpkg\installed\x64-windows\tools\flatbuffers\flatc`  on Windows and `../vcpkg/installed/x64-linux/tools/flatbuffers/flatc` on Linux. Note that this may not be the latest version.
-
-Once you have the tools installed, you can generate the code by running as follows:
-
-### Generate Rust, C and C# code
 ```console
-just gen-all-fbs
+just gen-all-fbs-rust-code
 ```
-See the just-recipe in [Justfile](../Justfile) for more details regarding the individual flatc[c] commands used.
 
-### Note about generated Rust code
+### Note about generated code
 
-When generating the Rust code, a `mod.rs` file will be generated in `./src/hyperlight_common/src/flatbuffers`, but don't use it. This file will only contain module definitions for the types in the schema file passed as an argument (and any included schema files). If you use this file, you will overwrite existing module definitions for other types previously generated from flatbuffers.
+Because we invoke `flatc` multiple times when generating the Rust code, the `mod.rs` generated in `./src/hyperlight_common/src/flatbuffers` is overwritten multiple times and will likely be incorrect. Make sure to manually inspect and if necessary update this file before continuing with your changes as certain modules might be missing.
 
-Instead, manually update `./src/hyperlight_common/src/flatbuffers/mod.rs` with details of new modules. Whilst `flatc` does support passing multiple schema files (e.g. it is possible to pass `.\src\schema\*.fbs`), so we could regenerate all the files each time a change was made, that functionality does not generate the correct code (see [here](https://github.com/google/flatbuffers/issues/6800) for details).
+>`flatc` does support passing multiple schema files (e.g. it is possible to pass `.\src\schema\*.fbs`), so we could regenerate all the files each time a change was made, however that generates incorrect code (see [here](https://github.com/google/flatbuffers/issues/6800) for details).

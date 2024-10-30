@@ -22,6 +22,7 @@ use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode::GsCheckFaile
 use crate::__security_cookie;
 use crate::guest_error::set_error_and_halt;
 
+///cbindgen:ignore
 #[no_mangle]
 pub(crate) extern "C" fn __security_check_cookie(cookie: u64) {
     unsafe {

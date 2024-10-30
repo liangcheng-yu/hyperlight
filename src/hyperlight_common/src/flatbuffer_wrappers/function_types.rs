@@ -56,6 +56,7 @@ pub enum ParameterValue {
 
 /// Supported parameter types for function calling.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[repr(C)]
 pub enum ParameterType {
     /// i32
     Int,
@@ -104,6 +105,7 @@ pub enum ReturnValue {
 
 /// Supported return types from function calling.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+#[repr(C)]
 pub enum ReturnType {
     /// i32
     #[default]

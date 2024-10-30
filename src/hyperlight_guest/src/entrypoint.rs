@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 use core::arch::asm;
-use core::ffi::{c_char, c_void};
+use core::ffi::{c_char, c_void, CStr};
 use core::ptr::copy_nonoverlapping;
 
 use hyperlight_common::mem::{HyperlightPEB, RunMode};
@@ -45,8 +45,7 @@ pub extern "C" fn abort() -> ! {
     abort_with_code(0)
 }
 
-#[no_mangle]
-pub extern "C" fn abort_with_code(code: i32) -> ! {
+pub fn abort_with_code(code: i32) -> ! {
     outb(OutBAction::Abort as u16, code as u8);
     unreachable!()
 }
@@ -55,13 +54,12 @@ pub extern "C" fn abort_with_code(code: i32) -> ! {
 ///
 /// # Safety
 /// This function is unsafe because it dereferences a raw pointer.
-#[no_mangle]
-pub unsafe extern "C" fn abort_with_code_and_message(code: i32, message_ptr: *const c_char) -> ! {
+pub unsafe fn abort_with_code_and_message(code: i32, message_ptr: *const c_char) -> ! {
     let peb_ptr = P_PEB.unwrap();
     copy_nonoverlapping(
         message_ptr,
         (*peb_ptr).guestPanicContextData.guestPanicContextDataBuffer as *mut c_char,
-        (*peb_ptr).guestPanicContextData.guestPanicContextDataSize as usize,
+        CStr::from_ptr(message_ptr).count_bytes() + 1, // +1 for null terminator
     );
     outb(OutBAction::Abort as u16, code as u8);
     unreachable!()

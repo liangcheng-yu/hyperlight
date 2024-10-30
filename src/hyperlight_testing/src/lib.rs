@@ -112,15 +112,7 @@ pub fn c_guest_as_pathbuf(guest: &str) -> PathBuf {
 
     join_to_path(
         MANIFEST_DIR,
-        vec![
-            "..",
-            "tests",
-            "Guests",
-            guest,
-            "x64",
-            build_dir_selector,
-            format!("{}.exe", guest).as_str(),
-        ],
+        vec!["..", "tests", "c_guests", "bin", build_dir_selector, guest],
     )
 }
 

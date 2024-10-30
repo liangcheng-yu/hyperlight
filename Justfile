@@ -8,6 +8,8 @@ set-trace-env-vars := if os() == "windows" { "$env:RUST_LOG='none,hyperlight_hos
 set-env-command := if os() == "windows" { "$env:" } else { "export " }
 bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
 
+root := justfile_directory()
+
 default-target := "debug"
 simpleguest_source := "src/tests/rust_guests/simpleguest/target/x86_64-unknown-none"
 simpleguest_msvc_source := "src/tests/rust_guests/simpleguest/target/x86_64-pc-windows-msvc"
@@ -23,10 +25,13 @@ install-vcpkg:
 install-flatbuffers-with-vcpkg: install-vcpkg
     cd ../vcpkg && ./vcpkg install flatbuffers || cd -
 
-update-dlmalloc:
-    curl -Lv -o src/HyperlightGuest/third_party/dlmalloc/malloc.h https://gee.cs.oswego.edu/pub/misc/malloc.h
-    curl -Lv -o src/HyperlightGuest/third_party/dlmalloc/malloc.c https://gee.cs.oswego.edu/pub/misc/malloc.c
-    cd src/HyperlightGuest/third_party/dlmalloc && git apply --whitespace=nowarn --verbose malloc.patch 
+tar-headers: (build-rust-capi) # build-rust-capi is a dependency because we need the hyperlight_guest.h to be built
+    tar -zcvf include.tar.gz -C {{root}}/src/hyperlight_guest/third_party/ libc/musl/include libc/musl/arch/x86_64 printf/printf.h -C {{root}}/src/hyperlight_guest_capi include
+
+tar-static-lib: (build-rust-capi "release") (build-rust-capi "debug")
+    tar -zcvf hyperlight-guest-c-api-windows.tar.gz -C {{root}}/target/x86_64-pc-windows-msvc/ release/hyperlight_guest_capi.lib -C {{root}}/target/x86_64-pc-windows-msvc/ debug/hyperlight_guest_capi.lib
+    tar -zcvf hyperlight-guest-c-api-linux.tar.gz -C {{root}}/target/x86_64-unknown-none/ release/libhyperlight_guest_capi.a -C {{root}}/target/x86_64-unknown-none/ debug/libhyperlight_guest_capi.a
+
 
 # BUILDING
 build-rust-guests target=default-target:
@@ -44,10 +49,11 @@ build-rust-guests target=default-target:
     cp {{ dummyguest_source }}/{{ target }}/dummyguest* {{ rust_guests_bin_dir }}/{{ target }}/
 
 build-and-move-rust-guests: (build-rust-guests "debug") (move-rust-guests "debug") (build-rust-guests "release") (move-rust-guests "release")
+build-and-move-c-guests: (build-c-guests "debug") (move-c-guests "debug") (build-c-guests "release") (move-c-guests "release")
 
 # short aliases rg "rust guests", cg "c guests" for less typing
 rg: build-and-move-rust-guests
-cg: build-c-guests
+cg: build-and-move-c-guests
 guests: rg cg
 
 
@@ -60,11 +66,11 @@ build: build-rust
 clean: clean-rust
 
 clean-rust: 
-    rm {{ if os() == "windows" {"-Force -Exclude .gitkeep"} else {"-f"} }} src/tests/rust_guests/bin/debug/* && rm {{ if os() == "windows" {"-Force -Exclude .gitkeep"} else {"-f"} }} src/tests/rust_guests/bin/release/*
     cargo clean
     cd src/tests/rust_guests/simpleguest && cargo clean
     cd src/tests/rust_guests/dummyguest && cargo clean
     cd src/tests/rust_guests/callbackguest && cargo clean
+    git clean -fdx src/tests/c_guests/bin src/tests/rust_guests/bin
 
 # TESTING
 # Some tests cannot run with other tests, they are marked as ignored so that cargo test works
@@ -115,15 +121,17 @@ fmt-check:
     cargo +nightly fmt --manifest-path src/tests/rust_guests/callbackguest/Cargo.toml -- --check
     cargo +nightly fmt --manifest-path src/tests/rust_guests/simpleguest/Cargo.toml -- --check
     cargo +nightly fmt --manifest-path src/tests/rust_guests/dummyguest/Cargo.toml -- --check
+    cargo +nightly fmt --manifest-path src/hyperlight_guest_capi/Cargo.toml -- --check
 
 fmt-apply:
     cargo +nightly fmt --all
     cargo +nightly fmt --manifest-path src/tests/rust_guests/callbackguest/Cargo.toml
     cargo +nightly fmt --manifest-path src/tests/rust_guests/simpleguest/Cargo.toml
     cargo +nightly fmt --manifest-path src/tests/rust_guests/dummyguest/Cargo.toml
+    cargo +nightly fmt --manifest-path src/hyperlight_guest_capi/Cargo.toml
 
 clippy target=default-target:
-    cargo clippy --all-targets --all-features --profile={{ if target == "debug" { "dev" } else { target } }} -- -D warnings 
+    cargo clippy --all-targets --all-features --profile={{ if target == "debug" { "dev" } else { target } }} -- -D warnings
 
 clippy-apply-fix-unix:
     cargo clippy --fix --all 
@@ -138,14 +146,6 @@ verify-msrv:
 # GEN FLATBUFFERS
 gen-all-fbs-rust-code:
     for fbs in `find src -name "*.fbs"`; do flatc -r --rust-module-root-file --gen-all -o ./src/hyperlight_host/src/flatbuffers/ $fbs; done
-
-gen-all-fbs-csharp-code:
-    for fbs in `find src -name "*.fbs"`; do flatc -n  --gen-object-api -o ./src/Hyperlight/flatbuffers $fbs; done
-
-gen-all-fbs-c-code:
-    for fbs in `find src -name "*.fbs"`; do flatcc -a -o ./src/HyperlightGuest/include/flatbuffers/generated $fbs; done
-
-gen-all-fbs: gen-all-fbs-rust-code gen-all-fbs-c-code gen-all-fbs-csharp-code
 
 # CARGO REGISTRY
 

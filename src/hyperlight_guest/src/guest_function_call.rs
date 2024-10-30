@@ -15,7 +15,6 @@ limitations under the License.
 */
 
 use alloc::format;
-use alloc::string::ToString;
 use alloc::vec::Vec;
 
 use hyperlight_common::flatbuffer_wrappers::function_call::{FunctionCall, FunctionCallType};
@@ -30,7 +29,8 @@ use crate::shared_output_data::push_shared_output_data;
 use crate::REGISTERED_GUEST_FUNCTIONS;
 
 type GuestFunc = fn(&FunctionCall) -> Result<Vec<u8>>;
-pub(crate) fn call_guest_function(function_call: &FunctionCall) -> Result<Vec<u8>> {
+
+pub(crate) fn call_guest_function(function_call: FunctionCall) -> Result<Vec<u8>> {
     // Validate this is a Guest Function Call
     if function_call.function_call_type() != FunctionCallType::Guest {
         return Err(HyperlightGuestError::new(
@@ -42,80 +42,34 @@ pub(crate) fn call_guest_function(function_call: &FunctionCall) -> Result<Vec<u8
         ));
     }
 
-    let function_call_fparameters = function_call.parameters.clone().unwrap_or_default();
-    let function_call_fname = function_call.clone().function_name;
-
-    // Verify that the function does not have more than 11 parameters.
-    const MAX_PARAMETERS: usize = 11;
-    if function_call_fparameters.len() > MAX_PARAMETERS {
-        return Err(HyperlightGuestError::new(
-            ErrorCode::GuestError,
-            format!(
-                "Function {} has too many parameters: {} (max allowed is 10).",
-                function_call_fname,
-                function_call_fparameters.len()
-            ),
-        ));
-    }
-
     // Find the function definition for the function call.
     if let Some(registered_function_definition) =
-        unsafe { REGISTERED_GUEST_FUNCTIONS.get(&function_call_fname) }
+        unsafe { REGISTERED_GUEST_FUNCTIONS.get(&function_call.function_name) }
     {
-        // Verify that the function call has the correct number of parameters.
-        if function_call_fparameters.len() != registered_function_definition.parameter_types.len() {
-            return Err(HyperlightGuestError::new(
-                ErrorCode::GuestFunctionIncorrecNoOfParameters,
-                format!(
-                    "Called function {} with {} parameters but it takes {}.",
-                    function_call_fname,
-                    function_call_fparameters.len(),
-                    registered_function_definition.parameter_types.len()
-                ),
-            ));
-        }
-
-        let function_call_parameter_types = function_call_fparameters
+        let function_call_parameter_types: Vec<ParameterType> = function_call
+            .parameters
             .iter()
+            .flatten()
             .map(|p| p.into())
-            .collect::<Vec<ParameterType>>();
+            .collect();
+
+        // Verify that the function call has the correct parameter types and length.
+        registered_function_definition.verify_parameters(&function_call_parameter_types)?;
 
         let p_function = unsafe {
             let function_pointer = registered_function_definition.function_pointer;
             core::mem::transmute::<i64, GuestFunc>(function_pointer)
         };
 
-        // Verify that the function call has the correct parameter types.
-        if let Err(i) = registered_function_definition
-            .verify_equal_parameter_types(&function_call_parameter_types)
-        {
-            return Err(HyperlightGuestError::new(
-                ErrorCode::GuestFunctionParameterTypeMismatch,
-                format!("Function {} parameter {}.", function_call_fname, i),
-            ));
-        }
-
-        // If a parameter is a vector of bytes (hlvecbytes), then we expect the next parameter
-        // to be an integer specifying the length of that vector.
-        // If this integer is not present, we should return an error.
-        if let Err(e) = registered_function_definition
-            .verify_vector_parameter_lengths(function_call_parameter_types)
-        {
-            return Err(HyperlightGuestError::new(
-                ErrorCode::ArrayLengthParamIsMissing,
-                e.to_string(),
-            ));
-        }
-
-        p_function(function_call)
+        p_function(&function_call)
     } else {
-        // If the function was not found call the guest_dispatch_function method.
+        // The given function is not registered. The guest should implement a function called guest_dispatch_function to handle this.
 
         // TODO: ideally we would define a default implementation of this with weak linkage so the guest is not required
         // to implement the function but its seems that weak linkage is an unstable feature so for now its probably better
         // to not do that.
         extern "Rust" {
-            fn guest_dispatch_function(function_call: &FunctionCall) -> Result<Vec<u8>>;
+            fn guest_dispatch_function(function_call: FunctionCall) -> Result<Vec<u8>>;
         }
 
         unsafe { guest_dispatch_function(function_call) }
@@ -138,7 +92,7 @@ fn internal_dispatch_function() -> Result<()> {
     let function_call = try_pop_shared_input_data_into::<FunctionCall>()
         .expect("Function call deserialization failed");
 
-    let result_vec = call_guest_function(&function_call).inspect_err(|e| {
+    let result_vec = call_guest_function(function_call).inspect_err(|e| {
         set_error(e.kind.clone(), e.message.as_str());
     })?;
 

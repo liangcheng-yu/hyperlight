@@ -86,7 +86,7 @@ jobs:
         run: just build-and-move-rust-guests
 
       - name: Build c guests
-        run: just build-c-guests ${{ matrix.config}}
+        run: just build-and-move-c-guests
 
       - name: Build
         run: just build-rust ${{ matrix.config }}

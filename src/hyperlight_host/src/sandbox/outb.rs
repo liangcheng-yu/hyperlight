@@ -36,14 +36,15 @@ pub(super) enum OutBAction {
     Abort,
 }
 
-impl From<u16> for OutBAction {
+impl TryFrom<u16> for OutBAction {
+    type Error = HyperlightError;
     #[instrument(skip_all, parent = Span::current(), level= "Trace")]
-    fn from(val: u16) -> Self {
+    fn try_from(val: u16) -> Result<Self> {
         match val {
-            99 => OutBAction::Log,
-            101 => OutBAction::CallFunction,
-            102 => OutBAction::Abort,
-            _ => OutBAction::Log,
+            99 => Ok(OutBAction::Log),
+            101 => Ok(OutBAction::CallFunction),
+            102 => Ok(OutBAction::Abort),
+            _ => Err(new_error!("Invalid OutB value: {}", val)),
         }
     }
 }
@@ -118,7 +119,7 @@ fn handle_outb_impl(
     port: u16,
     byte: u64,
 ) -> Result<()> {
-    match port.into() {
+    match port.try_into()? {
         OutBAction::Log => outb_log(mem_mgr.as_mut()),
         OutBAction::CallFunction => {
             let call = mem_mgr.as_mut().get_host_function_call()?; // pop output buffer

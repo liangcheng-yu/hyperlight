@@ -41,7 +41,7 @@ impl log::Log for GuestLogger {
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {
             log_message(
-                record.metadata().level().into(),
+                record.level().into(),
                 format!("{}", record.args()).as_str(),
                 record.module_path().unwrap_or("Unknown"),
                 record.target(),

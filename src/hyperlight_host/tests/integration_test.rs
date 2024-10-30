@@ -24,7 +24,6 @@ use hyperlight_host::sandbox_state::sandbox::EvolvableSandbox;
 use hyperlight_host::sandbox_state::transition::Noop;
 use hyperlight_host::{GuestBinary, HyperlightError, SingleUseSandbox, UninitializedSandbox};
 use hyperlight_testing::{c_simple_guest_as_string, simple_guest_as_string};
-use strum::IntoEnumIterator;
 
 pub mod common; // pub to disable dead_code warning
 use crate::common::{new_uninit, new_uninit_rust};
@@ -513,7 +512,7 @@ fn log_message() {
     assert_eq!(0, LOGGER.num_log_calls());
 
     log_test_messages();
-    assert_eq!(6, LOGGER.num_log_calls());
+    assert_eq!(5, LOGGER.num_log_calls());
 
     log::set_max_level(log::LevelFilter::Error);
     LOGGER.set_max_level(log::LevelFilter::Error);
@@ -521,7 +520,7 @@ fn log_message() {
     assert_eq!(0, LOGGER.num_log_calls());
 
     log_test_messages();
-    assert_eq!(2, LOGGER.num_log_calls());
+    assert_eq!(1, LOGGER.num_log_calls());
     // The number of enabled calls is the number of times that the enabled function is called
     // with a target of "hyperlight_guest"
     // This should be the same as the number of log calls as all the log calls for the "hyperlight_guest" target should be filtered in
@@ -530,10 +529,7 @@ fn log_message() {
 }
 
 fn log_test_messages() {
-    for level in hyperlight_common::flatbuffer_wrappers::guest_log_level::LogLevel::iter() {
-        if level == hyperlight_common::flatbuffer_wrappers::guest_log_level::LogLevel::None {
-            continue;
-        }
+    for level in log::Level::iter() {
         let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
 
         let message = format!("Hello from log_message level {}", level as i32);

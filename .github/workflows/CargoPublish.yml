@@ -74,6 +74,6 @@ jobs:
         if: ${{ env.SHOULD_PUBLISH == 'true' }}
         run: cargo publish --manifest-path ./src/hyperlight_host/Cargo.toml --registry hyperlight_packages --allow-dirty
 
-      - name: Publish hyperlight-guestlib-c-includes
+      - name: Publish hyperlight-guest-capi
         if: ${{ env.SHOULD_PUBLISH == 'true' }}
-        run: cargo publish --manifest-path ./src/HyperlightGuest/Cargo.toml --registry hyperlight_packages --allow-dirty
+        run: cargo publish --manifest-path ./src/hyperlight_guest_capi/Cargo.toml --registry hyperlight_packages --allow-dirty

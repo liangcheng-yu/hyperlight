@@ -150,21 +150,6 @@ jobs:
         with:
           dotnet-version: 6.0.x
 
-      - uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget
-
-      - name: Fetch printf
-        working-directory: src/HyperlightGuest/third_party/printf
-        run: git submodule update --init
-
-      - name: Restore
-        run: dotnet restore
-        shell: pwsh
-
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v2
         with:
@@ -207,14 +192,10 @@ jobs:
           cp ./downloaded-guest-binaries-${{ env.CONFIG }}/simpleguest.exe ./src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe
           cp ./downloaded-guest-binaries-${{ env.CONFIG }}/dummyguest ./src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest
 
-      - name: Build Solution
-        run: msbuild -m hyperlight.sln /p:Configuration=$env:CONFIG /p:Platform=$env:PLATFORM /p:ContinuousIntegrationBuild=true
-        shell: pwsh
-
-      - name: Package Hyperlight Dependencies
-        run: dotnet pack -c $env:CONFIG --include-symbols
-        working-directory: src/HyperlightDependencies
-        shell: pwsh
+      - name: Build and archive guest library + header files
+        run: |
+          just tar-headers
+          just tar-static-lib
 
       - name: Determine if we should publish github packages
         run: |
@@ -226,17 +207,6 @@ jobs:
             echo "Setting SHOULD_PUBLISH in GITHUB_ENV"
             echo "SHOULD_PUBLISH=true" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
           }
-
-      - name: Publish Github Packages
-        if: ${{ env.SHOULD_PUBLISH == 'true' }}
-        run: |
-          for nupkg in $(find . -name *.nupkg)
-          do
-            echo Pushing $nupkg
-            dotnet nuget push $nupkg --api-key ${{ secrets.GHPACKAGES_PAT }} --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json --skip-duplicate
-          done
-        shell: bash
-        working-directory: src/
 
       - name: Download benchmarks (Windows)
         uses: actions/download-artifact@v3
@@ -285,12 +255,12 @@ jobs:
             src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest `
-            ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib `
-            src/HyperlightGuest/include/hyperlight.h `
-            src/HyperlightGuest/third_party/printf/printf.h `
             benchmarks_Windows_none.tar.gz `
             benchmarks_Linux_hyperv.tar.gz `
-            benchmarks_Linux_kvm.tar.gz
+            benchmarks_Linux_kvm.tar.gz `
+            hyperlight-guest-c-api-linux.tar `
+            hyperlight-guest-c-api-windows.tar `
+            include.tar.gz
         env:
             GH_TOKEN: ${{ github.token }}
       - name: Create release (dev)
@@ -304,14 +274,12 @@ jobs:
             src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/simpleguest.exe `
             src/tests/rust_guests/bin/${{ env.CONFIG }}/dummyguest `
-            ${{ env.PLATFORM }}/${{ env.CONFIG }}/HyperlightGuest.lib `
-            src/HyperlightGuest/include/hyperlight.h `
-            src/HyperlightGuest/third_party/printf/printf.h `
-            src/HyperlightDependencies/bin/x64/debug/Deislabs.HyperlightDependencies.${{ env.HYPERLIGHT_VERSION }}.nupkg `
-            src/HyperlightDependencies/bin/x64/debug/Deislabs.HyperlightDependencies.${{ env.HYPERLIGHT_VERSION }}.snupkg `
             benchmarks_Windows_none.tar.gz `
             benchmarks_Linux_hyperv.tar.gz `
-            benchmarks_Linux_kvm.tar.gz 
+            benchmarks_Linux_kvm.tar.gz `
+            hyperlight-guest-c-api-linux.tar `
+            hyperlight-guest-c-api-windows.tar `
+            include.tar.gz
         env:
             GH_TOKEN: ${{ github.token }}
 

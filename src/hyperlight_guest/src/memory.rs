@@ -26,11 +26,11 @@ use crate::entrypoint::abort_with_code;
 extern crate alloc;
 
 #[no_mangle]
-pub extern "C" fn hlmalloc(size: usize) -> *const c_void {
+pub extern "C" fn hlmalloc(size: usize) -> *mut c_void {
     alloc_helper(size, false)
 }
 
-pub fn alloc_helper(size: usize, zero: bool) -> *const c_void {
+pub fn alloc_helper(size: usize, zero: bool) -> *mut c_void {
     // Allocate a block that includes space for both layout information and data
     if size == 0 {
         return ptr::null_mut();
@@ -48,19 +48,19 @@ pub fn alloc_helper(size: usize, zero: bool) -> *const c_void {
         } else {
             let layout_ptr = raw_ptr as *mut Layout;
             layout_ptr.write(layout);
-            layout_ptr.add(1) as *const c_void
+            layout_ptr.add(1) as *mut c_void
         }
     }
 }
 
 #[no_mangle]
-pub extern "C" fn hlcalloc(n: usize, size: usize) -> *const c_void {
+pub extern "C" fn hlcalloc(n: usize, size: usize) -> *mut c_void {
     let total_size = n * size;
     alloc_helper(total_size, true)
 }
 
 #[no_mangle]
-pub extern "C" fn hlfree(ptr: *const c_void) {
+pub extern "C" fn hlfree(ptr: *mut c_void) {
     if !ptr.is_null() {
         unsafe {
             let block_start = (ptr as *const Layout).sub(1);
@@ -71,7 +71,7 @@ pub extern "C" fn hlfree(ptr: *const c_void) {
 }
 
 #[no_mangle]
-pub extern "C" fn hlrealloc(ptr: *const c_void, size: usize) -> *const c_void {
+pub extern "C" fn hlrealloc(ptr: *mut c_void, size: usize) -> *mut c_void {
     if ptr.is_null() {
         // If the pointer is null, treat as a malloc
         return hlmalloc(size);
@@ -90,7 +90,7 @@ pub extern "C" fn hlrealloc(ptr: *const c_void, size: usize) -> *const c_void {
         } else {
             // Return the pointer just after the layout information
             // since old layout should still as it would have been copied
-            new_block_start.add(1) as *const c_void
+            new_block_start.add(1) as *mut c_void
         }
     }
 }

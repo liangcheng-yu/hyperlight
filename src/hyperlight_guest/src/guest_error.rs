@@ -106,6 +106,7 @@ pub(crate) extern "win64" fn set_invalid_runmode_error() {
 ///
 /// # Safety
 /// TODO
+/// cbindgen:ignore
 #[no_mangle]
 #[allow(non_camel_case_types)]
 pub unsafe extern "C" fn setError(code: u64, message: *const c_char) {

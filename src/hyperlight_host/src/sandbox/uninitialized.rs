@@ -211,6 +211,7 @@ impl UninitializedSandbox {
             // OOM error, which I think is happening because `println!` is not being able to allocate
             // more memory for its buffers for the fuzzer's huge inputs.
             libc::SYS_mmap,
+            libc::SYS_brk,
             libc::SYS_mprotect,
             #[cfg(mshv)]
             libc::SYS_close,

@@ -4,15 +4,14 @@ default-members = [
     "src/hyperlight_common",
     "src/hyperlight_host",
     "src/hyperlight_testing",
-    "src/HyperlightGuest",
 ]
 members = [
     "src/hyperlight_common",
     "src/hyperlight_guest",
     "src/hyperlight_host",
+    "src/hyperlight_guest_capi",
     "src/hyperlight_testing",
     "src/hyperlight_host/fuzz",
-    "src/HyperlightGuest",
 ]
 # Because hyperlight_guest has custom linker flags,
 # we exclude it from the default-members list
@@ -27,7 +26,7 @@ exclude = [
 [workspace.package]
 version = "0.8.0"
 edition = "2021"
-rust-version = "1.78.0"
+rust-version = "1.79.0"
 
 [workspace.dependencies]
 mshv-bindings = { version = "=0.2.1" }

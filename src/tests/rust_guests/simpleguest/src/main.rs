@@ -56,7 +56,7 @@ use hyperlight_guest::host_function_call::{
 };
 use hyperlight_guest::memory::hlmalloc;
 use hyperlight_guest::{logging, MIN_STACK_ADDRESS};
-use log::{debug, error, info, trace, warn};
+use log::{error, Level};
 
 extern crate hyperlight_guest;
 
@@ -116,11 +116,8 @@ fn simple_print_output(function_call: &FunctionCall) -> Result<Vec<u8>> {
 }
 
 fn set_byte_array_to_zero(function_call: &FunctionCall) -> Result<Vec<u8>> {
-    if let (ParameterValue::VecBytes(mut vec), ParameterValue::Int(_length)) = (
-        // length parameter is used in c guest
-        function_call.parameters.clone().unwrap()[0].clone(),
-        function_call.parameters.clone().unwrap()[1].clone(),
-    ) {
+    if let ParameterValue::VecBytes(mut vec) = function_call.parameters.clone().unwrap()[0].clone()
+    {
         vec.fill(0);
         Ok(get_flatbuffer_result_from_vec(&vec))
     } else {
@@ -537,13 +534,7 @@ fn echo(function_call: &FunctionCall) -> Result<Vec<u8>> {
 }
 
 fn get_size_prefixed_buffer(function_call: &FunctionCall) -> Result<Vec<u8>> {
-    // This assumes that the first parameter is a buffer and the second is the length.
-    // You may need to adjust this based on how your FunctionCall and ParameterValues are structured.
-    if let (ParameterValue::VecBytes(data), ParameterValue::Int(_length)) = (
-        // length parameter is used in c guest
-        function_call.parameters.clone().unwrap()[0].clone(),
-        function_call.parameters.clone().unwrap()[1].clone(),
-    ) {
+    if let ParameterValue::VecBytes(data) = function_call.parameters.clone().unwrap()[0].clone() {
         Ok(get_flatbuffer_result_from_vec(&data))
     } else {
         Err(HyperlightGuestError::new(
@@ -647,29 +638,14 @@ pub extern "C" fn test_rust_malloc(function_call: &FunctionCall) -> Result<Vec<u
 }
 
 fn log_message(function_call: &FunctionCall) -> Result<Vec<u8>> {
-    if function_call.parameters.clone().unwrap().len() != 2 {
-        return Err(HyperlightGuestError::new(
-            ErrorCode::GuestFunctionIncorrecNoOfParameters,
-            format!(
-                "Invalid number of parameters passed to log_message, expected 2 got {}",
-                function_call.parameters.clone().unwrap().len()
-            ),
-        ));
-    }
-
     if let (ParameterValue::String(message), ParameterValue::Int(level)) = (
         function_call.parameters.clone().unwrap()[0].clone(),
         function_call.parameters.clone().unwrap()[1].clone(),
     ) {
-        match level {
-            0 => trace!("{}", &message),
-            1 => debug!("{}", &message),
-            2 => info!("{}", &message),
-            3 => warn!("{}", &message),
-            4 => error!("{}", &message),
-            5 => error!("{}", &message),
-            _ => info!("{}", &message),
-        };
+        let level = Level::iter()
+            .nth(level as usize - Level::Error as usize)
+            .unwrap();
+        log::log!(level, "{}", &message);
         Ok(get_flatbuffer_result_from_void())
     } else {
         Err(HyperlightGuestError::new(
@@ -981,7 +957,7 @@ pub extern "C" fn hyperlight_main() {
 
     let set_byte_array_to_zero_def = GuestFunctionDefinition::new(
         "SetByteArrayToZero".to_string(),
-        Vec::from(&[ParameterType::VecBytes, ParameterType::Int]),
+        Vec::from(&[ParameterType::VecBytes]),
         ReturnType::VecBytes,
         set_byte_array_to_zero as i64,
     );
@@ -997,7 +973,7 @@ pub extern "C" fn hyperlight_main() {
 
     let get_size_prefixed_buffer_def = GuestFunctionDefinition::new(
         "GetSizePrefixedBuffer".to_string(),
-        Vec::from(&[ParameterType::VecBytes, ParameterType::Int]),
+        Vec::from(&[ParameterType::VecBytes]),
         ReturnType::Int,
         get_size_prefixed_buffer as i64,
     );
@@ -1128,7 +1104,7 @@ pub extern "C" fn hyperlight_main() {
 }
 
 #[no_mangle]
-pub fn guest_dispatch_function(function_call: &FunctionCall) -> Result<Vec<u8>> {
+pub fn guest_dispatch_function(function_call: FunctionCall) -> Result<Vec<u8>> {
     // This test checks the stack behavior of the input/output buffer
     // by calling the host before serializing the function call.
     // If the stack is not working correctly, the input or output buffer will be

@@ -14,8 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+use alloc::string::String;
 use alloc::vec::Vec;
-use core::ffi::c_char;
+use core::ffi::{c_char, CStr};
+use core::mem;
 
 use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnType};
 
@@ -28,12 +30,14 @@ static mut MESSAGE_BUFFER: Vec<u8> = Vec::new();
 /// Exposes a C API to allow the guest to print a string
 ///
 /// # Safety
-/// TODO
+/// This function is not thread safe
 #[no_mangle]
+#[allow(static_mut_refs)]
 pub unsafe extern "C" fn _putchar(c: c_char) {
     let char = c as u8;
 
-    // Extend buffer capacity if it's empty (like `with_capacity` in lazy_static)
+    // Extend buffer capacity if it's empty (like `with_capacity` in lazy_static).
+    // TODO: replace above Vec::new() with Vec::with_capacity once it's stable in const contexts.
     if MESSAGE_BUFFER.capacity() == 0 {
         MESSAGE_BUFFER.reserve(BUFFER_SIZE);
     }
@@ -41,9 +45,15 @@ pub unsafe extern "C" fn _putchar(c: c_char) {
     MESSAGE_BUFFER.push(char);
 
     if MESSAGE_BUFFER.len() == BUFFER_SIZE || char == b'\0' {
-        // buffer is full or was passed in nullbyte, so flush
-        let str = alloc::string::String::from_utf8(MESSAGE_BUFFER.clone())
-            .expect("Failed to convert buffer to string");
+        let str = if char == b'\0' {
+            CStr::from_bytes_until_nul(&MESSAGE_BUFFER)
+                .expect("No null byte in buffer")
+                .to_string_lossy()
+                .into_owned()
+        } else {
+            String::from_utf8(mem::take(&mut MESSAGE_BUFFER))
+                .expect("Failed to convert buffer to string")
+        };
 
         call_host_function(
             "HostPrint",

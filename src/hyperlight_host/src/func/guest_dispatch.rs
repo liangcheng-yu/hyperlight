@@ -108,8 +108,6 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::thread;
 
-    #[cfg(target_os = "windows")]
-    use hyperlight_testing::simple_guest_exe_as_string;
     use hyperlight_testing::{callback_guest_as_string, simple_guest_as_string};
 
     use super::*;
@@ -360,8 +358,10 @@ mod tests {
     }
 
     #[test]
-    #[cfg(target_os = "windows")]
+    #[cfg(all(target_os = "windows", inprocess))]
     fn test_call_guest_function_by_name_in_proc_load_lib() {
+        use hyperlight_testing::simple_guest_exe_as_string;
+
         let u_sbox = UninitializedSandbox::new(
             GuestBinary::FilePath(simple_guest_exe_as_string().expect("Guest Exe Missing")),
             None,
@@ -373,7 +373,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(target_os = "windows")]
+    #[cfg(inprocess)]
     fn test_call_guest_function_by_name_in_proc_manual() {
         let u_sbox = UninitializedSandbox::new(
             guest_bin(),

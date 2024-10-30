@@ -54,8 +54,10 @@ pub mod error;
 pub mod logging;
 
 // Unresolved symbols
+///cbindgen:ignore
 #[no_mangle]
 pub(crate) extern "C" fn __CxxFrameHandler3() {}
+///cbindgen:ignore
 #[no_mangle]
 pub(crate) static _fltused: i32 = 0;
 
@@ -84,6 +86,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 #[global_allocator]
 pub(crate) static HEAP_ALLOCATOR: LockedHeap<32> = LockedHeap::<32>::empty();
 
+///cbindgen:ignore
 #[no_mangle]
 pub(crate) static mut __security_cookie: u64 = 0;
 

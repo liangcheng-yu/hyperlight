@@ -17,8 +17,12 @@ limitations under the License.
 pub mod function_call;
 pub mod function_types;
 pub mod guest_error;
+/// cbindgen:ignore
 pub mod guest_log_data;
+/// cbindgen:ignore
 pub mod guest_log_level;
+/// cbindgen:ignore
 pub mod host_function_definition;
+/// cbindgen:ignore
 pub mod host_function_details;
 pub mod util;

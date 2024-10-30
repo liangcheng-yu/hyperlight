@@ -38,6 +38,7 @@
     "src/hyperlight_guest/Cargo.toml",
     "src/hyperlight_testing/Cargo.toml",
     "src/hyperlight_common/Cargo.toml",
+    "src/hyperlight_guest_capi/Cargo.toml",
     "src/tests/rust_guests/dummyguest/Cargo.toml",
     "src/tests/rust_guests/simpleguest/Cargo.toml",
     "src/tests/rust_guests/callbackguest/Cargo.toml"

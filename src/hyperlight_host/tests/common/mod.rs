@@ -48,16 +48,12 @@ pub fn new_uninit_rust() -> Result<UninitializedSandbox> {
 pub fn get_simpleguest_sandboxes(
     writer: Option<&dyn HostFunction1<String, i32>>, // An optional writer to make sure correct info is passed to the host printer
 ) -> Vec<MultiUseSandbox> {
-    let path = get_c_or_rust_simpleguest_path();
-
-    // when env variable GUEST="c", `path`` will be a .exe file already, so we run the same guest twice.
-    // This will be fixed when c guests are compiled to elf
-    let mut exe_path = path.trim_end_matches(".exe").to_string();
-    exe_path.push_str(".exe");
+    let elf_path = get_c_or_rust_simpleguest_path();
+    let exe_path = format!("{elf_path}.exe");
 
     vec![
         // in hypervisor elf
-        UninitializedSandbox::new(GuestBinary::FilePath(path.clone()), None, None, writer)
+        UninitializedSandbox::new(GuestBinary::FilePath(elf_path.clone()), None, None, writer)
             .unwrap()
             .evolve(Noop::default())
             .unwrap(),
@@ -69,7 +65,7 @@ pub fn get_simpleguest_sandboxes(
         // in-process elf
         #[cfg(inprocess)]
         UninitializedSandbox::new(
-            GuestBinary::FilePath(path.clone()),
+            GuestBinary::FilePath(elf_path.clone()),
             None,
             Some(hyperlight_host::SandboxRunOptions::RunInProcess(false)),
             writer,
@@ -105,23 +101,20 @@ pub fn get_simpleguest_sandboxes(
 pub fn get_callbackguest_uninit_sandboxes(
     writer: Option<&dyn HostFunction1<String, i32>>, // An optional writer to make sure correct info is passed to the host printer
 ) -> Vec<UninitializedSandbox> {
-    let path = get_c_or_rust_callbackguest_path();
-
-    // when env variable GUEST="c", `path`` will be a .exe file already, so we run the same guest twice.
-    // This will be fixed when c guests are compiled to elf
-    let mut exe_path = path.trim_end_matches(".exe").to_string();
-    exe_path.push_str(".exe");
+    let elf_path = get_c_or_rust_callbackguest_path();
+    let exe_path = format!("{elf_path}.exe");
 
     vec![
         // in hypervisor elf
-        UninitializedSandbox::new(GuestBinary::FilePath(path.clone()), None, None, writer).unwrap(),
+        UninitializedSandbox::new(GuestBinary::FilePath(elf_path.clone()), None, None, writer)
+            .unwrap(),
         // in hypervisor exe
         UninitializedSandbox::new(GuestBinary::FilePath(exe_path.clone()), None, None, writer)
             .unwrap(),
         // in-process elf
         #[cfg(inprocess)]
         UninitializedSandbox::new(
-            GuestBinary::FilePath(path.clone()),
+            GuestBinary::FilePath(elf_path.clone()),
             None,
             Some(hyperlight_host::SandboxRunOptions::RunInProcess(false)),
             writer,

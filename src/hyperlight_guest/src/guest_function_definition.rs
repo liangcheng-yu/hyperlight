@@ -14,11 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use anyhow::{anyhow, Error, Result};
 use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterType, ReturnType};
+use hyperlight_common::flatbuffer_wrappers::guest_error::ErrorCode;
+
+use crate::error::{HyperlightGuestError, Result};
 
 /// The definition of a function exposed from the guest to the host
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,47 +52,43 @@ impl GuestFunctionDefinition {
         }
     }
 
-    /// Verify equal parameter types
-    pub fn verify_equal_parameter_types(
-        &self,
-        parameter_types: &[ParameterType],
-    ) -> Result<(), Error> {
+    /// Verify that `self` has same signature as the provided `parameter_types`.
+    pub fn verify_parameters(&self, parameter_types: &[ParameterType]) -> Result<()> {
+        // Verify that the function does not have more than `MAX_PARAMETERS` parameters.
+        const MAX_PARAMETERS: usize = 11;
+        if parameter_types.len() > MAX_PARAMETERS {
+            return Err(HyperlightGuestError::new(
+                ErrorCode::GuestError,
+                format!(
+                    "Function {} has too many parameters: {} (max allowed is {}).",
+                    self.function_name,
+                    parameter_types.len(),
+                    MAX_PARAMETERS
+                ),
+            ));
+        }
+
         if self.parameter_types.len() != parameter_types.len() {
-            return Err(anyhow!(
-                "Expected {} parameters, but got {}",
-                self.parameter_types.len(),
-                parameter_types.len()
+            return Err(HyperlightGuestError::new(
+                ErrorCode::GuestFunctionIncorrecNoOfParameters,
+                format!(
+                    "Called function {} with {} parameters but it takes {}.",
+                    self.function_name,
+                    parameter_types.len(),
+                    self.parameter_types.len()
+                ),
             ));
         }
 
         for (i, parameter_type) in self.parameter_types.iter().enumerate() {
             if parameter_type != &parameter_types[i] {
-                return Err(anyhow!("{}", i));
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Verify vector parameter lengths
-    pub fn verify_vector_parameter_lengths(
-        &self,
-        parameter_types: Vec<ParameterType>,
-    ) -> Result<(), Error> {
-        // Check that:
-        // - parameter_types doesn't end w/ a VecBytes parameter, and
-        // - if parameter_types has a VecBytes parameter, then the next parameter is an integer
-        //   specifying the length of that vector.
-        let mut parameter_types_iter = parameter_types.iter();
-        while let Some(parameter_type) = parameter_types_iter.next() {
-            if parameter_type == &ParameterType::VecBytes {
-                if let Some(ParameterType::Int) = parameter_types_iter.next() {
-                    continue;
-                } else {
-                    return Err(anyhow!(
-                        "Expected integer parameter after VecBytes parameter"
-                    ));
-                }
+                return Err(HyperlightGuestError::new(
+                    ErrorCode::GuestFunctionParameterTypeMismatch,
+                    format!(
+                        "Expected parameter type {:?} for parameter index {} of function {} but got {:?}.",
+                        parameter_type, i, self.function_name, parameter_types[i]
+                    ),
+                ));
             }
         }
 

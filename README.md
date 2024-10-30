@@ -62,7 +62,7 @@ fn main() -> hyperlight_host::Result<()> {
 
 For additional examples of using the Hyperlight host Rust library, see the [./src/hyperlight_host/examples](./src/hyperlight_host/examples) directory.
 
-For examples of guest applications, see the [./src/tests/Guests](./src/tests/Guests) directory for C guests and the [./src/tests/rust_guests](./src/tests/rust_guests) directory for Rust guests.
+For examples of guest applications, see the [./src/tests/c_guests](./src/tests/c_guests) directory for C guests and the [./src/tests/rust_guests](./src/tests/rust_guests) directory for Rust guests.
 
 > Note: Hyperlight guests can be written using the Hyperlight Rust or C Guest libraries.
 
@@ -78,21 +78,18 @@ For examples of guest applications, see the [./src/tests/Guests](./src/tests/Gue
 
 
 - Hyperlight Guest Libraries (i.e., the ones to make it easier to create guests that run inside the VMs)
-  - [src/HyperlightGuest](./src/HyperlightGuest) - This is the C Hyperlight guest library.
   - [src/hyperlight_guest](./src/hyperlight_guest) - This is the Rust Hyperlight guest library.
+  - [src/hyperlight_guest_capi](./src/hyperlight_guest_capi) - This is the C compatible wrapper for the Hyperlight guest library.
 
 
 - Test Guest Applications:
-    - [src/test/Guests](./src/tests/Guests) - This directory contains two Hyperlight Guest programs written in C, which are intended to be launched within partitions as "guests".
-    - [src/test/rust_guests](./src/tests/rust_guests) - This directory contains two Hyperlight Guest programs written in Rust, which are intended to be launched within partitions as "guests".
+    - [src/tests/rust_guests](./src/tests/rust_guests) - This directory contains two Hyperlight Guest programs written in Rust, which are intended to be launched within partitions as "guests".
+    - [src/tests/c_guests](./src/tests/c_guests) - This directory contains two Hyperlight Guest programs written in C, which are intended to be launched within partitions as "guests".
 
 
 - Tests:
     - [src/hyperlight-testing](./src/hyperlight_testing/) - Shared testing code for Hyperlight projects build int Rust.
 
-
-- Miscellaneous:
-  - [src/HyperlightDependencies](./src/HyperlightDependencies) - This directory contains a .NET assembly which can be used to build a wrapper around Hyperlight such as [Hyperlight WASM](https://github.com/deislabs/hyperlight-wasm).
 
 ## Try it yourself!
 
@@ -119,6 +116,7 @@ After having an environment with a hypervisor setup, running the example has the
        sudo ln -s /usr/lib/llvm-17/bin/llvm-lib /usr/bin/llvm-lib
        sudo ln -s /usr/lib/llvm-17/bin/lld-link /usr/bin/lld-link
        sudo ln -s /usr/lib/llvm-17/bin/llvm-ml /usr/bin/llvm-ml
+       sudo ln -s /usr/lib/llvm-17/bin/ld.lld /usr/bin/ld.lld
        sudo ln -s /usr/lib/llvm-17/bin/clang /usr/bin/clang
        ```
 
