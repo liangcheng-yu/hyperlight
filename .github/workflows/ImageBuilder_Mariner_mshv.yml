@@ -8,8 +8,6 @@ on:
     paths:
       - '.github/workflows/ImageBuilder_Mariner_mshv.yml'
       - 'dev/packer/**'
-  schedule:
-    - cron: '0 0 * * 0' # Runs at 00:00 every Sunday
   workflow_dispatch:
     inputs:
         machine_size:

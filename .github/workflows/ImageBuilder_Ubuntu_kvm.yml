@@ -8,8 +8,6 @@ on:
     paths:
       - '.github/workflows/ImageBuilder_Ubuntu_kvm.yml'
       - 'dev/packer/**'
-  schedule:
-    - cron: '0 1 * * 0' # Runs at 01:00 UTC every Sunday
   workflow_dispatch:
     inputs:
       machine_size:
