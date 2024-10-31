@@ -74,6 +74,8 @@ jobs:
         if: ${{ env.SHOULD_PUBLISH == 'true' }}
         run: cargo publish --manifest-path ./src/hyperlight_host/Cargo.toml --registry hyperlight_packages --allow-dirty
 
+        # `--no-verify` is needed because build.rs writes to "include/hyperlight_guest.h", but since we exclude that directory in Cargo.toml, it should be fine.
+        # Cargo does not want you to modify files outside of OUT_DIR
       - name: Publish hyperlight-guest-capi
         if: ${{ env.SHOULD_PUBLISH == 'true' }}
-        run: cd ./src/hyperlight_guest_capi && cargo publish --registry hyperlight_packages --allow-dirty # cd is required because of https://github.com/rust-lang/cargo/issues/10302
+        run: cd ./src/hyperlight_guest_capi && cargo publish --registry hyperlight_packages --no-verify --allow-dirty # cd is required because of https://github.com/rust-lang/cargo/issues/10302

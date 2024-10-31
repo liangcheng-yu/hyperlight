@@ -3,6 +3,7 @@ name = "hyperlight_guest_capi"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+exclude = ["/include"]
 
 [lib]
 crate-type = ["staticlib"]
