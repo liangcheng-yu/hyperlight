@@ -76,4 +76,4 @@ jobs:
 
       - name: Publish hyperlight-guest-capi
         if: ${{ env.SHOULD_PUBLISH == 'true' }}
-        run: cargo publish --manifest-path ./src/hyperlight_guest_capi/Cargo.toml --registry hyperlight_packages --allow-dirty
+        run: cd ./src/hyperlight_guest_capi && cargo publish --registry hyperlight_packages --allow-dirty # cd is required because of https://github.com/rust-lang/cargo/issues/10302
