@@ -258,8 +258,8 @@ jobs:
             benchmarks_Windows_none.tar.gz `
             benchmarks_Linux_hyperv.tar.gz `
             benchmarks_Linux_kvm.tar.gz `
-            hyperlight-guest-c-api-linux.tar `
-            hyperlight-guest-c-api-windows.tar `
+            hyperlight-guest-c-api-linux.tar.gz `
+            hyperlight-guest-c-api-windows.tar.gz `
             include.tar.gz
         env:
             GH_TOKEN: ${{ github.token }}
@@ -277,8 +277,8 @@ jobs:
             benchmarks_Windows_none.tar.gz `
             benchmarks_Linux_hyperv.tar.gz `
             benchmarks_Linux_kvm.tar.gz `
-            hyperlight-guest-c-api-linux.tar `
-            hyperlight-guest-c-api-windows.tar `
+            hyperlight-guest-c-api-linux.tar.gz `
+            hyperlight-guest-c-api-windows.tar.gz `
             include.tar.gz
         env:
             GH_TOKEN: ${{ github.token }}
