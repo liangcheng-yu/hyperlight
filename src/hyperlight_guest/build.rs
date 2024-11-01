@@ -160,6 +160,10 @@ fn cargo_main() {
             //   Hopefully a flag to force stack clash protection on generic
             //   targets will eventually show up.
             cfg.flag("--target=x86_64-unknown-linux-none");
+
+            // We don't support stack protectors at the moment, but Arch Linux clang
+            // auto-enables them for -linux platforms, so explicitly disable them.
+            cfg.flag("-fno-stack-protector");
             cfg.flag("-fstack-clash-protection");
             cfg.flag("-mstack-probe-size=4096");
             cfg.compiler("clang");
@@ -327,6 +331,13 @@ fn main() -> std::process::ExitCode {
         Tool::Clang => std::process::Command::new(find_next(root_dir, "clang"))
             // terrible hack, see above
             .arg("--target=x86_64-unknown-linux-none")
+            .args([
+                // We don't support stack protectors at the moment, but Arch Linux clang
+                // auto-enables them for -linux platforms, so explicitly disable them.
+                "-fno-stack-protector",
+                "-fstack-clash-protection",
+                "-mstack-probe-size=4096",
+            ])
             .arg("-nostdinc")
             .arg("-isystem")
             .arg(include_dir)
