@@ -67,7 +67,7 @@ const NUMBER_OF_SURROGATE_PROCESSES: usize = 512;
 /// processes are required to allow multiple WHP Partitions to be created in a
 /// single process.
 ///
-/// The documented API WHvMapGpaRange
+/// The API WHvMapGpaRange
 /// (https://docs.microsoft.com/en-us/virtualization/api/hypervisor-platform/funcs/whvmapgparange)
 /// returns the following error when called more than once from the same
 /// process:
@@ -76,7 +76,7 @@ const NUMBER_OF_SURROGATE_PROCESSES: usize = 512;
 /// because another partition with the same name already exists. (0xC0370008)
 /// ERROR_VID_PARTITION_ALREADY_EXISTS"
 ///
-/// There is, however, an undocumented API (WHvMapGpaRange2) that has a second
+/// There is, however, another API (WHvMapGpaRange2) that has a second
 /// parameter which is a handle to a process. This process merely has to exist,
 /// the memory being mapped from the host to the virtual machine is
 /// allocated/freed  in this process using VirtualAllocEx/VirtualFreeEx.

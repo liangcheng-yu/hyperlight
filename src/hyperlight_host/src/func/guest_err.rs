@@ -25,8 +25,6 @@ use crate::sandbox::metrics::SandboxMetric::GuestErrorCount;
 use crate::{int_counter_vec_inc, log_then_return, Result};
 /// Check for a guest error and return an `Err` if one was found,
 /// and `Ok` if one was not found.
-/// TODO: remove this when we hook it up to the rest of the
-/// sandbox in https://github.com/deislabs/hyperlight/pull/727
 pub(crate) fn check_for_guest_error(mgr: &MemMgrWrapper<HostSharedMemory>) -> Result<()> {
     let guest_err = mgr.as_ref().get_guest_error()?;
     match guest_err.code {
@@ -39,8 +37,7 @@ pub(crate) fn check_for_guest_error(mgr: &MemMgrWrapper<HostSharedMemory>) -> Re
                     guest_err.message.clone()
                 ));
             }
-            // TODO: Not sure this is correct behavior. We should probably return error here but since this
-            //  is a only temporary till we fix up the C APi to the Rust Sandbox its OK to leave.
+            // TODO: Not sure this is correct behavior. We should probably return error here
             None => Ok(()),
         },
         ErrorCode::StackOverflow => {

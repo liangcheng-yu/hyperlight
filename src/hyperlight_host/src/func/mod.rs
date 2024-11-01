@@ -19,8 +19,6 @@ use crate::{new_error, Result};
 /// functions on the same Hyperlight sandbox instance, all from within the
 /// same state and mutual exclusion context.
 pub mod call_ctx;
-/// Definitions for common functions to be exposed in the guest
-pub mod exports;
 /// Functionality to dispatch a call from the host to the guest
 pub(crate) mod guest_dispatch;
 /// Functionality to check for errors after a guest call
@@ -79,8 +77,6 @@ impl HyperlightFunction {
     }
 }
 
-/// Re-export for `get_stack_boundary` function
-pub use exports::get_stack_boundary;
 /// Re-export for `HostFunction0` trait
 pub use host_functions::HostFunction0;
 /// Re-export for `HostFunction1` trait

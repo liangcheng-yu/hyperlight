@@ -74,10 +74,6 @@ extern "win64" fn call_outb(ptr: *mut Arc<Mutex<dyn OutBHandlerCaller>>, port: u
 /// has no functionality. It's purposely available on windows and linux,
 /// however, to ease internal implementation of the evolve methods.
 ///
-/// # Final note
-///
-/// In the future, this struct _should_ be behind a compile flag, as described
-/// in https://github.com/deislabs/hyperlight/issues/533.
 #[derive(Clone)]
 pub(crate) struct LeakedOutBWrapper<'a> {
     hdl_ptr: Arc<Mutex<CustomPtrDrop<'a, OutBHandlerWrapper>>>,

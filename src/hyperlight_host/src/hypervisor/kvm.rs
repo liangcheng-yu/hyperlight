@@ -70,9 +70,6 @@ impl KVMDriver {
     /// Create a new instance of a `KVMDriver`, with only control registers
     /// set. Standard registers will not be set, and `initialise` must
     /// be called to do so.
-    ///
-    /// TODO: when rust rewrite is complete, change `rsp` and `pml4_addr`
-    /// params to be of type `GuestPtr`.
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     pub(super) fn new(
         mem_regions: Vec<MemoryRegion>,
@@ -148,7 +145,8 @@ impl Debug for KVMDriver {
             f.field("Registers", &regs);
         }
 
-        // TODO: the call to get sregs is removed because of this issue https://github.com/deislabs/hyperlight/issues/1536
+        // TODO: the call to get sregs is removed because it hangs after updating to kvm-ioctls 0.18
+        // this needs to be investigated or to be replaced with sync_regs() to see if that gets around the issue
 
         //let sregs = self.vcpu_fd.get_sregs();
 
@@ -164,9 +162,6 @@ impl Debug for KVMDriver {
 
 impl Hypervisor for KVMDriver {
     /// Implementation of initialise for Hypervisor trait.
-    ///
-    /// TODO: when Rust rewrite is complete, change `peb_addr` to be
-    /// of type `GuestPtr`
     #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
     fn initialise(
         &mut self,
@@ -389,7 +384,7 @@ pub(crate) mod test_cfg {
     #[derive(Deserialize, Debug)]
     pub(crate) struct TestConfig {
         #[serde(default = "kvm_should_be_present_default")]
-        // Set env var KVM_SHOULD_BE_PRESENT to require hyperv to be present for the tests.
+        // Set env var KVM_SHOULD_BE_PRESENT to require kvm to be present for the tests.
         pub(crate) kvm_should_be_present: bool,
     }
 

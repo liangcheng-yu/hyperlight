@@ -139,8 +139,7 @@ mod tests {
     }
 
     #[test]
-    // TODO: Investigate why this test fails with an incorrect error when run alongside other
-    // tests see https://github.com/deislabs/hyperlight/issues/1552
+    // TODO: Investigate why this test fails with an incorrect error when run alongside other tests
     #[ignore]
     #[cfg(target_os = "linux")]
     fn test_violate_seccomp_filters() -> Result<()> {
@@ -432,7 +431,6 @@ mod tests {
     // is never going to return.
     // The host function that is called will end after 5 seconds, but by this time the cancellation will have given up
     // (using default timeout settings)  , so this tests looks for the error "Failed to cancel guest execution".
-    // Eventually once we fix https://github.com/deislabs/hyperlight/issues/951 this test should be updated.
 
     #[test]
     fn test_terminate_vcpu_calling_host_spinning_cpu() {

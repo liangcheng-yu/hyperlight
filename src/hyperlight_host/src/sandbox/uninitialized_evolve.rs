@@ -20,7 +20,6 @@ use std::sync::{Arc, Mutex};
 use rand::Rng;
 use tracing::{instrument, Span};
 
-use crate::func::exports::get_os_page_size;
 use crate::hypervisor::hypervisor_handler::{
     HvHandlerConfig, HypervisorHandler, HypervisorHandlerAction,
 };
@@ -120,7 +119,7 @@ fn hv_init(
         let peb_u64 = u64::try_from(gshm.layout.peb_address)?;
         RawPtr::from(peb_u64)
     };
-    let page_size = u32::try_from(get_os_page_size())?;
+    let page_size = u32::try_from(page_size::get())?;
     let hv_handler_config = HvHandlerConfig {
         outb_handler: outb_hdl,
         mem_access_handler: mem_access_hdl,

@@ -670,8 +670,7 @@ impl SandboxMemoryManager<HostSharedMemory> {
     /// Returns a `Result` containing 'Unit' or an error.Error
     /// Writes the exception data to the buffer at `exception_data_ptr`.
     ///
-    /// TODO: after the C API wrapper for this function goes away,
-    /// have this function return a Vec<u8> instead of requiring
+    /// TODO: have this function return a Vec<u8> instead of requiring
     /// the user pass in a slice of the same length as returned by
     /// self.get_host_error_length()
     #[instrument(err(Debug), skip_all, parent = Span::current(), level= "Trace")]

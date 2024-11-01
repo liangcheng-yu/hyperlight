@@ -32,11 +32,6 @@ pub enum SandboxRunOptions {
     /// Windows LoadLibrary API to load the binary if the `bool` field is
     /// set to `true`. This should only be used for testing and debugging
     /// as it does not offer any security guarantees.
-    ///
-    /// This flag is available on Windows machines only.
-    /// There are further plans to make this a debug-only feature.
-    /// Please see https://github.com/deislabs/hyperlight/issues/395
-    /// for more information
     RunInProcess(bool),
 }
 

@@ -70,34 +70,30 @@ For examples of guest applications, see the [./src/tests/c_guests](./src/tests/c
 
 [Hyperlight Wasm](https://github.com/deislabs/hyperlight-wasm) is a sibling project of Hyperlight designed to make it easy for users to run arbitrary Wasm modules within a Hyperlight sandbox.
 
-
 ## Repository Structure
 
 - Hyperlight Host Libraries (i.e., the ones that create and manage the VMs)
   - [src/hyperlight_host](./src/hyperlight_host) - This is the Rust Hyperlight host library.
 
-
 - Hyperlight Guest Libraries (i.e., the ones to make it easier to create guests that run inside the VMs)
   - [src/hyperlight_guest](./src/hyperlight_guest) - This is the Rust Hyperlight guest library.
   - [src/hyperlight_guest_capi](./src/hyperlight_guest_capi) - This is the C compatible wrapper for the Hyperlight guest library.
 
-
 - Test Guest Applications:
-    - [src/tests/rust_guests](./src/tests/rust_guests) - This directory contains two Hyperlight Guest programs written in Rust, which are intended to be launched within partitions as "guests".
-    - [src/tests/c_guests](./src/tests/c_guests) - This directory contains two Hyperlight Guest programs written in C, which are intended to be launched within partitions as "guests".
-
+  - [src/tests/rust_guests](./src/tests/rust_guests) - This directory contains two Hyperlight Guest programs written in Rust, which are intended to be launched within partitions as "guests".
+  - [src/tests/c_guests](./src/tests/c_guests) - This directory contains two Hyperlight Guest programs written in C, which are intended to be launched within partitions as "guests".
 
 - Tests:
-    - [src/hyperlight-testing](./src/hyperlight_testing/) - Shared testing code for Hyperlight projects build int Rust.
-
+  - [src/hyperlight-testing](./src/hyperlight_testing/) - Shared testing code for Hyperlight projects build int Rust.
 
 ## Try it yourself!
 
 You can run Hyperlight on:
-    - [Linux with KVM][kvm].
-    - [Linux with MSHV][azure_linux].
-    - [Windows with Windows Hypervisor Platform (WHP) or Hyper-V (MSHV)][whp]. If you don't have WHP, you can use our "in-process" mode, which is intended for development purposes only.
-    - Windows Subsystem for Linux 2 ([WSL2][wsl2]) with [KVM][wsl2-kvm].
+
+- [Linux with KVM][kvm].
+- [Linux with MSHV][azure_linux].
+- [Windows with Windows Hypervisor Platform (WHP) or Hyper-V (MSHV)][whp]. If you don't have WHP, you can use our "in-process" mode, which is intended for development purposes only.
+- Windows Subsystem for Linux 2 ([WSL2][wsl2]) with [KVM][wsl2-kvm].
 
 After having an environment with a hypervisor setup, running the example has the following pre-requisites:
 
@@ -148,7 +144,7 @@ If all worked as expected, you should the following message in your console:
 Hello, World! I am executing inside of a VM :)
 ```
 
-If you get the error `Error: NoHypervisorFound` and KVM is set up then this may be a permissions issue, one simple way to fix this is to 
+If you get the error `Error: NoHypervisorFound` and KVM is set up then this may be a permissions issue, one simple way to fix this is to
 update your permissions (e.g., `sudo chmod 666 /dev/kvm`) . For more details on how to verify that KVM is correctly installed and permissions are correct, follow the guide [here](https://help.ubuntu.com/community/KVM/Installation)).
 
 ## Contributing to Hyperlight

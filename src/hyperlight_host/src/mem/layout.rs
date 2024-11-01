@@ -773,48 +773,6 @@ impl SandboxMemoryLayout {
     /// Returns the memory regions associated with this memory layout,
     /// suitable for passing to a hypervisor for mapping into memory
     pub fn get_memory_regions(&self, shared_mem: &GuestSharedMemory) -> Result<Vec<MemoryRegion>> {
-        // The C API is a little bit broken and allows for memory regions to be created with a size of 0 so we are going to check here
-        // if the size of the memory region is 0 and if it is we are going to return an error as otherwise the hypervisor will map a 0 sized memory region
-        // and produce a difficult to debug error
-        // The code is in this function rather than in the new function in SandboxConfiguration as that function is not used in the C API and so this check would not be run
-        // Once https://github.com/deislabs/hyperlight/issues/1473 is fixed this check can be removed
-
-        if self
-            .sandbox_memory_config
-            .get_host_function_definition_size()
-            == 0
-        {
-            return Err(new_error!("The get_host_function_definition_size is 0, this is not allowed as it would result in a 0 sized memory region being created"));
-        }
-
-        if self.sandbox_memory_config.get_host_exception_size() == 0 {
-            return Err(new_error!("The get_host_exception_size is 0, this is not allowed as it would result in a 0 sized memory region being created"));
-        }
-
-        if self.sandbox_memory_config.get_guest_error_buffer_size() == 0 {
-            return Err(new_error!("The get_guest_error_buffer_size is 0, this is not allowed as it would result in a 0 sized memory region being created"));
-        }
-
-        if self.sandbox_memory_config.get_input_data_size() == 0 {
-            return Err(new_error!("The get_input_data_size is 0, this is not allowed as it would result in a 0 sized memory region being created"));
-        }
-
-        if self.sandbox_memory_config.get_output_data_size() == 0 {
-            return Err(new_error!("The get_output_data_size is 0, this is not allowed as it would result in a 0 sized memory region being created"));
-        }
-
-        if self
-            .sandbox_memory_config
-            .get_guest_panic_context_buffer_size()
-            == 0
-        {
-            return Err(new_error!("The get_guest_panic_context_buffer_size is 0, this is not allowed as it would result in a 0 sized memory region being created"));
-        }
-
-        if self.sandbox_memory_config.get_kernel_stack_size() == 0 {
-            return Err(new_error!("The get_kernel_stack_size is 0, this is not allowed as it would result in a 0 sized memory region being created"));
-        }
-
         let mut builder = MemoryRegionVecBuilder::new(Self::BASE_ADDRESS, shared_mem.base_addr());
 
         // PML4, PDPT, PD

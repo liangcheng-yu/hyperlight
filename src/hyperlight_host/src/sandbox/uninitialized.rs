@@ -638,12 +638,11 @@ mod tests {
         // The problem is that captured_file still needs static lifetime so even though we can access the data through the second file handle
         // this still does not work as the captured_file is dropped at the end of the function
 
-        // TODO(1615): Currently, we block any writes that are not to
+        // TODO: Currently, we block any writes that are not to
         // the stdout/stderr file handles, so this code is commented
         // out until we can register writer functions like any other
         // host functions with their own set of extra allowed syscalls.
-        // In particular, this code should be brought back once we addressed:
-        // https://github.com/deislabs/hyperlight/issues/1615
+        // In particular, this code should be brought back once we have addressed the issue
 
         // let captured_file = Arc::new(Mutex::new(NamedTempFile::new().unwrap()));
         // let capture_file_clone = captured_file.clone();

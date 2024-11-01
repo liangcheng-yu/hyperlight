@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 /*!
-This modue contains the definitions and implementations of the metrics used by the hypervisor module
+This module contains the definitions and implementations of the metrics used by the hypervisor module
 */
 use std::collections::HashMap;
 use std::sync::Once;
@@ -107,7 +107,7 @@ mod tests {
     /// This test is ignored because as it uses real counters if it runs at the same time as other tests it may fail.
     ///
     /// Marking this test as ignored means that running `cargo test` will not
-    /// run it. This feature will allow a developer who runs that command
+    /// run it. This will allow a developer who runs that command
     /// from their workstation to be successful without needing to know about
     /// test interdependencies. This test will, however, be run explcitly as a
     /// part of the CI pipeline.
@@ -149,7 +149,7 @@ mod tests {
     /// This test is ignored because it is requires that metrics and registry have not been set or initialised yet.
     ///
     /// Marking this test as ignored means that running `cargo test` will not
-    /// run it. This feature will allow a developer who runs that command
+    /// run it. This will allow a developer who runs that command
     /// from their workstation to be successful without needing to know about
     /// test interdependencies. This test will, however, be run explcitly as a
     /// part of the CI pipeline.

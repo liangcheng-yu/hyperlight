@@ -33,8 +33,6 @@ pub mod error;
 pub mod func;
 /// Wrappers for hypervisor implementations
 #[deny(dead_code, missing_docs, unused_mut)]
-#[cfg_attr(windows, allow(dead_code))]
-// TODO: Remove once HypervisorWindowsDriver is wired up outside of just tests
 pub mod hypervisor;
 /// Functionality to establish and manage an individual sandbox's
 /// memory.
