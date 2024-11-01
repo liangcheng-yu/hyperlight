@@ -16,10 +16,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # TODO:
-      # We are not using the common workflow here because it installs a lot of tools we don't need
-      # once https://github.com/deislabs/hyperlight-workflow-setup/issues/7 is resolved we can update this
-
+      # We are not using the common workflow here because it installs a bunch of tools we don't need.
+      # TODO: Once the runner image is updated to include the necessary tools (without downloading), we can switch to the common workflow.
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.81.0"

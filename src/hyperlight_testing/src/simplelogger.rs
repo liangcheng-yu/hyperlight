@@ -21,11 +21,11 @@ limitations under the License.
 use std::sync::Once;
 use std::thread::current;
 
-use log::{set_logger, set_max_level, Level, LevelFilter, Log, Metadata, Record};
+use log::{set_logger, set_max_level, Level, Log, Metadata, Record};
 
 pub static LOGGER: SimpleLogger = SimpleLogger {};
 static INITLOGGER: Once = Once::new();
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct LogCall {
     pub level: Level,
     pub args: String,
@@ -37,7 +37,6 @@ pub struct LogCall {
 
 static mut LOGCALLS: Vec<LogCall> = Vec::<LogCall>::new();
 static mut NUMBER_OF_ENABLED_CALLS: usize = 0;
-static mut LOGGER_MAX_LEVEL: LevelFilter = LevelFilter::Off;
 
 pub struct SimpleLogger {}
 
@@ -75,12 +74,6 @@ impl SimpleLogger {
         };
         self.clear_log_calls();
     }
-
-    pub fn set_max_level(&self, level: LevelFilter) {
-        unsafe {
-            LOGGER_MAX_LEVEL = level;
-        }
-    }
 }
 
 impl Log for SimpleLogger {
@@ -93,7 +86,7 @@ impl Log for SimpleLogger {
             if metadata.target() == "hyperlight_guest" {
                 NUMBER_OF_ENABLED_CALLS += 1;
             }
-            metadata.target() == "hyperlight_guest" && metadata.level() <= LOGGER_MAX_LEVEL
+            metadata.target() == "hyperlight_guest" && metadata.level() <= log::max_level()
         }
     }
     fn log(&self, record: &Record) {

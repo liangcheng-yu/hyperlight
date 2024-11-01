@@ -83,11 +83,8 @@ pub(crate) fn call_guest_function(function_call: FunctionCall) -> Result<Vec<u8>
 fn internal_dispatch_function() -> Result<()> {
     reset_error();
 
-    // We should enable this once we have finer tracing control
-    // (i.e, we don't go into the guest for every single trace)
-    // see https://github.com/deislabs/hyperlight/issues/1215
-    // #[cfg(debug_assertions)]
-    // crate::trace!("internal_dispatch_function");
+    #[cfg(debug_assertions)]
+    log::trace!("internal_dispatch_function");
 
     let function_call = try_pop_shared_input_data_into::<FunctionCall>()
         .expect("Function call deserialization failed");

@@ -56,7 +56,7 @@ use hyperlight_guest::host_function_call::{
 };
 use hyperlight_guest::memory::hlmalloc;
 use hyperlight_guest::{logging, MIN_STACK_ADDRESS};
-use log::{error, Level};
+use log::{error, LevelFilter};
 
 extern crate hyperlight_guest;
 
@@ -642,10 +642,14 @@ fn log_message(function_call: &FunctionCall) -> Result<Vec<u8>> {
         function_call.parameters.clone().unwrap()[0].clone(),
         function_call.parameters.clone().unwrap()[1].clone(),
     ) {
-        let level = Level::iter()
-            .nth(level as usize - Level::Error as usize)
-            .unwrap();
-        log::log!(level, "{}", &message);
+        let level = LevelFilter::iter().nth(level as usize).unwrap().to_level();
+
+        match level {
+            Some(level) => log::log!(level, "{}", &message),
+            None => {
+                // was passed LevelFilter::Off, do nothing
+            }
+        }
         Ok(get_flatbuffer_result_from_void())
     } else {
         Err(HyperlightGuestError::new(

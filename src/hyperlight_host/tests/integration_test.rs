@@ -502,34 +502,67 @@ fn recursive_stack_allocate_overflow() {
 #[ignore]
 fn log_message() {
     use hyperlight_testing::simplelogger::{SimpleLogger, LOGGER};
+    // init
     SimpleLogger::initialize_test_logger();
-    LOGGER.set_max_level(log::LevelFilter::Trace);
-    // The hyperlight guest should derive its max log level from the level set here for the host
-    // this then should restrict the number of log messages that are emitted by the guest
-    // so that they do not have to be filtered out by the host.
+
+    // internal_dispatch_function does a log::trace! in debug mode, and we call it 6 times in `log_test_messages`
+    let num_fixed_trace_log = if cfg!(debug_assertions) { 6 } else { 0 };
+
+    // test trace level
     log::set_max_level(log::LevelFilter::Trace);
     LOGGER.clear_log_calls();
     assert_eq!(0, LOGGER.num_log_calls());
-
     log_test_messages();
-    assert_eq!(5, LOGGER.num_log_calls());
-
-    log::set_max_level(log::LevelFilter::Error);
-    LOGGER.set_max_level(log::LevelFilter::Error);
-    LOGGER.clear_log_calls();
-    assert_eq!(0, LOGGER.num_log_calls());
-
-    log_test_messages();
-    assert_eq!(1, LOGGER.num_log_calls());
+    assert_eq!(5 + num_fixed_trace_log, LOGGER.num_log_calls());
     // The number of enabled calls is the number of times that the enabled function is called
     // with a target of "hyperlight_guest"
     // This should be the same as the number of log calls as all the log calls for the "hyperlight_guest" target should be filtered in
     // the guest
     assert_eq!(LOGGER.num_log_calls(), LOGGER.num_enabled_calls());
+
+    // test debug level
+    log::set_max_level(log::LevelFilter::Debug);
+    LOGGER.clear_log_calls();
+    assert_eq!(0, LOGGER.num_log_calls());
+    log_test_messages();
+    assert_eq!(4, LOGGER.num_log_calls());
+    assert_eq!(LOGGER.num_log_calls(), LOGGER.num_enabled_calls());
+
+    // test info level
+    log::set_max_level(log::LevelFilter::Info);
+    LOGGER.clear_log_calls();
+    assert_eq!(0, LOGGER.num_log_calls());
+    log_test_messages();
+    assert_eq!(3, LOGGER.num_log_calls());
+    assert_eq!(LOGGER.num_log_calls(), LOGGER.num_enabled_calls());
+
+    // test warn level
+    log::set_max_level(log::LevelFilter::Warn);
+    LOGGER.clear_log_calls();
+    assert_eq!(0, LOGGER.num_log_calls());
+    log_test_messages();
+    assert_eq!(2, LOGGER.num_log_calls());
+    assert_eq!(LOGGER.num_log_calls(), LOGGER.num_enabled_calls());
+
+    // test error level
+    log::set_max_level(log::LevelFilter::Error);
+    LOGGER.clear_log_calls();
+    assert_eq!(0, LOGGER.num_log_calls());
+    log_test_messages();
+    assert_eq!(1, LOGGER.num_log_calls());
+    assert_eq!(LOGGER.num_log_calls(), LOGGER.num_enabled_calls());
+
+    // test off level
+    log::set_max_level(log::LevelFilter::Off);
+    LOGGER.clear_log_calls();
+    assert_eq!(0, LOGGER.num_log_calls());
+    log_test_messages();
+    assert_eq!(0, LOGGER.num_log_calls());
+    assert_eq!(LOGGER.num_log_calls(), LOGGER.num_enabled_calls());
 }
 
 fn log_test_messages() {
-    for level in log::Level::iter() {
+    for level in log::LevelFilter::iter() {
         let sbox1: SingleUseSandbox = new_uninit().unwrap().evolve(Noop::default()).unwrap();
 
         let message = format!("Hello from log_message level {}", level as i32);

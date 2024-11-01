@@ -75,7 +75,7 @@ static INIT: Once = Once::new();
 // Note: entrypoint cannot currently have a stackframe >4KB, as that will invoke __chkstk on msvc
 //       target without first having setup global `RUNNING_MODE` variable, which __chkstk relies on.
 #[no_mangle]
-pub extern "win64" fn entrypoint(peb_address: u64, seed: u64, ops: u64, log_level_filter: u64) {
+pub extern "win64" fn entrypoint(peb_address: u64, seed: u64, ops: u64, max_log_level: u64) {
     if peb_address == 0 {
         panic!("PEB address is null");
     }
@@ -92,16 +92,10 @@ pub extern "win64" fn entrypoint(peb_address: u64, seed: u64, ops: u64, log_leve
             srand(srand_seed);
 
             // set up the logger
-            let log_level = match log_level_filter {
-                0 => LevelFilter::Off,
-                1 => LevelFilter::Error,
-                2 => LevelFilter::Warn,
-                3 => LevelFilter::Info,
-                4 => LevelFilter::Debug,
-                5 => LevelFilter::Trace,
-                _ => LevelFilter::Error,
-            };
-            init_logger(log_level);
+            let max_log_level = LevelFilter::iter()
+                .nth(max_log_level as usize)
+                .expect("Invalid log level");
+            init_logger(max_log_level);
 
             match (*peb_ptr).runMode {
                 RunMode::Hypervisor => {
