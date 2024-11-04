@@ -1,7 +1,7 @@
-diff --git a/src/HyperlightGuest/third_party/printf/printf.c b/src/HyperlightGuest/third_party/printf/printf.c
+diff --git a/src/hyperlight_guest/third_party/printf/printf.c b/src/hyperlight_guest/third_party/printf/printf.c
 index 8a700ad..caf375a 100644
---- a/src/HyperlightGuest/third_party/printf/printf.c
-+++ b/src/HyperlightGuest/third_party/printf/printf.c
+--- a/src/hyperlight_guest/third_party/printf/printf.c
++++ b/src/hyperlight_guest/third_party/printf/printf.c
 @@ -149,9 +149,7 @@ static inline void _out_null(char character, void* buffer, size_t idx, size_t ma
  static inline void _out_char(char character, void* buffer, size_t idx, size_t maxlen)
  {
