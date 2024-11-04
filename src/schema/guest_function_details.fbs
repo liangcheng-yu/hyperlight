@@ -1,9 +1,0 @@
-include "guest_function_definition.fbs";
-
-namespace Hyperlight.Generated;
-
-table GuestFunctionDetails {
-    functions:[GuestFunctionDefinition](required);
-}
-
-root_type GuestFunctionDetails;

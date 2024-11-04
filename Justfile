@@ -145,7 +145,8 @@ verify-msrv:
 
 # GEN FLATBUFFERS
 gen-all-fbs-rust-code:
-    for fbs in `find src -name "*.fbs"`; do flatc -r --rust-module-root-file --gen-all -o ./src/hyperlight_host/src/flatbuffers/ $fbs; done
+    for fbs in `find src -name "*.fbs"`; do flatc -r --rust-module-root-file --gen-all -o ./src/hyperlight_common/src/flatbuffers/ $fbs; done
+    just fmt-apply
 
 # CARGO REGISTRY
 

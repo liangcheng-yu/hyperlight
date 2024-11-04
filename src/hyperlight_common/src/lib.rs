@@ -28,7 +28,6 @@ pub mod flatbuffer_wrappers;
     unsafe_op_in_unsafe_fn,
     non_camel_case_types
 )]
-#[rustfmt::skip]
 mod flatbuffers;
 /// cbindgen:ignore
 pub mod mem;

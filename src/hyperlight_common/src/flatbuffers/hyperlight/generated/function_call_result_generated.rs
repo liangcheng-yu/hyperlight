@@ -2,13 +2,14 @@
 // @generated
 extern crate alloc;
 extern crate flatbuffers;
-use self::flatbuffers::{EndianScalar, Follow};
-use super::*;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::mem;
+
+use self::flatbuffers::{EndianScalar, Follow};
+use super::*;
 pub enum FunctionCallResultOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -456,4 +457,85 @@ impl core::fmt::Debug for FunctionCallResult<'_> {
         };
         ds.finish()
     }
+}
+#[inline]
+/// Verifies that a buffer of bytes contains a `FunctionCallResult`
+/// and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_function_call_result_unchecked`.
+pub fn root_as_function_call_result(
+    buf: &[u8],
+) -> Result<FunctionCallResult, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::root::<FunctionCallResult>(buf)
+}
+#[inline]
+/// Verifies that a buffer of bytes contains a size prefixed
+/// `FunctionCallResult` and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `size_prefixed_root_as_function_call_result_unchecked`.
+pub fn size_prefixed_root_as_function_call_result(
+    buf: &[u8],
+) -> Result<FunctionCallResult, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::size_prefixed_root::<FunctionCallResult>(buf)
+}
+#[inline]
+/// Verifies, with the given options, that a buffer of bytes
+/// contains a `FunctionCallResult` and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_function_call_result_unchecked`.
+pub fn root_as_function_call_result_with_opts<'b, 'o>(
+    opts: &'o flatbuffers::VerifierOptions,
+    buf: &'b [u8],
+) -> Result<FunctionCallResult<'b>, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::root_with_opts::<FunctionCallResult<'b>>(opts, buf)
+}
+#[inline]
+/// Verifies, with the given verifier options, that a buffer of
+/// bytes contains a size prefixed `FunctionCallResult` and returns
+/// it. Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_function_call_result_unchecked`.
+pub fn size_prefixed_root_as_function_call_result_with_opts<'b, 'o>(
+    opts: &'o flatbuffers::VerifierOptions,
+    buf: &'b [u8],
+) -> Result<FunctionCallResult<'b>, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::size_prefixed_root_with_opts::<FunctionCallResult<'b>>(opts, buf)
+}
+#[inline]
+/// Assumes, without verification, that a buffer of bytes contains a FunctionCallResult and returns it.
+/// # Safety
+/// Callers must trust the given bytes do indeed contain a valid `FunctionCallResult`.
+pub unsafe fn root_as_function_call_result_unchecked(buf: &[u8]) -> FunctionCallResult {
+    flatbuffers::root_unchecked::<FunctionCallResult>(buf)
+}
+#[inline]
+/// Assumes, without verification, that a buffer of bytes contains a size prefixed FunctionCallResult and returns it.
+/// # Safety
+/// Callers must trust the given bytes do indeed contain a valid size prefixed `FunctionCallResult`.
+pub unsafe fn size_prefixed_root_as_function_call_result_unchecked(
+    buf: &[u8],
+) -> FunctionCallResult {
+    flatbuffers::size_prefixed_root_unchecked::<FunctionCallResult>(buf)
+}
+#[inline]
+pub fn finish_function_call_result_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(
+    fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+    root: flatbuffers::WIPOffset<FunctionCallResult<'a>>,
+) {
+    fbb.finish(root, None);
+}
+
+#[inline]
+pub fn finish_size_prefixed_function_call_result_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(
+    fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+    root: flatbuffers::WIPOffset<FunctionCallResult<'a>>,
+) {
+    fbb.finish_size_prefixed(root, None);
 }

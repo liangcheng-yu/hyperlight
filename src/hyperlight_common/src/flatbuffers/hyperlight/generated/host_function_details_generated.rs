@@ -2,13 +2,14 @@
 // @generated
 extern crate alloc;
 extern crate flatbuffers;
-use self::flatbuffers::{EndianScalar, Follow};
-use super::*;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::mem;
+
+use self::flatbuffers::{EndianScalar, Follow};
+use super::*;
 pub enum HostFunctionDetailsOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -130,4 +131,85 @@ impl core::fmt::Debug for HostFunctionDetails<'_> {
         ds.field("functions", &self.functions());
         ds.finish()
     }
+}
+#[inline]
+/// Verifies that a buffer of bytes contains a `HostFunctionDetails`
+/// and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_host_function_details_unchecked`.
+pub fn root_as_host_function_details(
+    buf: &[u8],
+) -> Result<HostFunctionDetails, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::root::<HostFunctionDetails>(buf)
+}
+#[inline]
+/// Verifies that a buffer of bytes contains a size prefixed
+/// `HostFunctionDetails` and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `size_prefixed_root_as_host_function_details_unchecked`.
+pub fn size_prefixed_root_as_host_function_details(
+    buf: &[u8],
+) -> Result<HostFunctionDetails, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::size_prefixed_root::<HostFunctionDetails>(buf)
+}
+#[inline]
+/// Verifies, with the given options, that a buffer of bytes
+/// contains a `HostFunctionDetails` and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_host_function_details_unchecked`.
+pub fn root_as_host_function_details_with_opts<'b, 'o>(
+    opts: &'o flatbuffers::VerifierOptions,
+    buf: &'b [u8],
+) -> Result<HostFunctionDetails<'b>, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::root_with_opts::<HostFunctionDetails<'b>>(opts, buf)
+}
+#[inline]
+/// Verifies, with the given verifier options, that a buffer of
+/// bytes contains a size prefixed `HostFunctionDetails` and returns
+/// it. Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_host_function_details_unchecked`.
+pub fn size_prefixed_root_as_host_function_details_with_opts<'b, 'o>(
+    opts: &'o flatbuffers::VerifierOptions,
+    buf: &'b [u8],
+) -> Result<HostFunctionDetails<'b>, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::size_prefixed_root_with_opts::<HostFunctionDetails<'b>>(opts, buf)
+}
+#[inline]
+/// Assumes, without verification, that a buffer of bytes contains a HostFunctionDetails and returns it.
+/// # Safety
+/// Callers must trust the given bytes do indeed contain a valid `HostFunctionDetails`.
+pub unsafe fn root_as_host_function_details_unchecked(buf: &[u8]) -> HostFunctionDetails {
+    flatbuffers::root_unchecked::<HostFunctionDetails>(buf)
+}
+#[inline]
+/// Assumes, without verification, that a buffer of bytes contains a size prefixed HostFunctionDetails and returns it.
+/// # Safety
+/// Callers must trust the given bytes do indeed contain a valid size prefixed `HostFunctionDetails`.
+pub unsafe fn size_prefixed_root_as_host_function_details_unchecked(
+    buf: &[u8],
+) -> HostFunctionDetails {
+    flatbuffers::size_prefixed_root_unchecked::<HostFunctionDetails>(buf)
+}
+#[inline]
+pub fn finish_host_function_details_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(
+    fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+    root: flatbuffers::WIPOffset<HostFunctionDetails<'a>>,
+) {
+    fbb.finish(root, None);
+}
+
+#[inline]
+pub fn finish_size_prefixed_host_function_details_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(
+    fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+    root: flatbuffers::WIPOffset<HostFunctionDetails<'a>>,
+) {
+    fbb.finish_size_prefixed(root, None);
 }
