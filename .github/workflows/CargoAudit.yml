@@ -7,7 +7,6 @@ on:
 permissions:
     issues: write # Creates issues for any vulnerabilities found
     contents: read 
-    id-token: write
     checks: write # Needs to create check
 
 jobs:
@@ -21,20 +20,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.81.0"
-          
-      - uses: extractions/setup-just@v2
-        with:
-          just-version: "1.27"
-
-      - name: Azure login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          allow-no-subscriptions: true
-
-      - name: Cargo login
-        run: just cargo-login
                  
       - uses: rustsec/audit-check@v2.0.0
         with:

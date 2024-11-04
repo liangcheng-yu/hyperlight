@@ -11,11 +11,11 @@ on:
 jobs:
   cleanup:
     name: Clean up old pre-releases and packages
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     permissions:
       actions: write  # required for reading & deleting github actions artifacts
       packages: write # required for reading & deleting package versions
-      contents: read  # required for reading releases
+      contents: write  # required for reading and deleting releases
 
     steps:
       - name: Delete old 'DeisLabs.Hyperlight' package versions
