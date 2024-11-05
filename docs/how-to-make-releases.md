@@ -4,16 +4,11 @@ This document details the process of releasing a new version of Hyperlight to th
 
 ## Update Cargo.toml Versions
 
-Currently, we need to manually update the `Cargo.toml` version numbers to match to whatever release we are making. This can be done with the following command (replacing `0.4.0` with your new version):
-```bash
-cargo ws version --force=hyperlight_* --no-git-commit --yes custom 0.4.0
-```
+Currently, we need to manually update the workspace `Cargo.toml` version number to match to whatever release we are making. This will affect the version of all the crates in the workspace.
 
-> Note 1: we'll use `v0.4.0` as the version for the above and all subsequent instructions. You should replace this with the version you're releasing. Make sure your version follows [SemVer](https://semver.org) conventions as closely as possible, and is prefixed with a `v` character. *In particular do not use a patch version unless you are patching an issue in a release branch, releases from dev should always be minor or major versions* (see [here](https://github.com/deislabs/hyperlight/issues/1072) for reasons why).
+> Note: we'll use `v0.4.0` as the version for the above and all subsequent instructions. You should replace this with the version you're releasing. Make sure your version follows [SemVer](https://semver.org) conventions as closely as possible, and is prefixed with a `v` character. *In particular do not use a patch version unless you are patching an issue in a release branch, releases from dev should always be minor or major versions* (see [here](https://github.com/deislabs/hyperlight/issues/1072) for reasons why).
 
-> Note 2: If you don't have cargo-workspaces installed, you can do so with: `cargo install cargo-workspaces`
-
-Create a PR with these changes and merge them into the dev branch.
+Create a PR with this change and merge it into the dev branch.
 
 ## Create a tag
 
