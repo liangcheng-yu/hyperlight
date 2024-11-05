@@ -9,7 +9,7 @@ However, on Windows platform, passing `SandboxRunOptions::RunInProcess(true)` is
 ## Notes on running guest in-process
 
 The support for running a guest using in-process mode is experimental, highly unsafe, and has many limitations. It requires
-enabling cargo feature `inprocess`, and only works when hyperlight-host is built with debug_assertions. Inprocess currently does not support calling guest functions that returns errors. If a guest panics, it will surface as assertion fault in [here](https://github.com/deislabs/hyperlight/blob/85100563c185796b68bc3372ec7becaf64223152/src/hyperlight_host/src/sandbox/leaked_outb.rs#L26). 
+enabling cargo feature `inprocess`, and only works when hyperlight-host is built with debug_assertions. Inprocess currently does not support calling guest functions that returns errors. If a guest panics, it will surface as assertion fault ""ERROR: The guest either panicked or returned an Error. Running inprocess-mode currently does not support error handling."
 
 Running in process is specifically only for testing, and should never be used in production as it offers no security guarantees.
 

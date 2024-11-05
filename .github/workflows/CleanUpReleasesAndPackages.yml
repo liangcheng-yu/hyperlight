@@ -14,25 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write  # required for reading & deleting github actions artifacts
-      packages: write # required for reading & deleting package versions
       contents: write  # required for reading and deleting releases
 
     steps:
-      - name: Delete old 'DeisLabs.Hyperlight' package versions
-        uses: actions/delete-package-versions@v5
-        with:
-          package-name: "DeisLabs.Hyperlight"
-          package-type: "nuget"
-          min-versions-to-keep: 5
-          delete-only-pre-release-versions: "true"
-
-      - name: Delete old 'DeisLabs.HyperlightDependencies' package versions
-        uses: actions/delete-package-versions@v5
-        with:
-          package-name: "DeisLabs.HyperlightDependencies"
-          package-type: "nuget"
-          min-versions-to-keep: 5
-          delete-only-pre-release-versions: "true"
 
       - name: Delete old 'Hyperlight' releases
         uses: sgpublic/delete-release-action@v1.2

@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // For more information on seccomp and its implementation in Hyperlight,
-// refer to: https://github.com/deislabs/hyperlight/blob/dev/docs/seccomp.md
+// refer to: https://github.com/hyperlight-dev/hyperlight/blob/dev/docs/seccomp.md
 
 /// This module defines all seccomp filters (i.e., used for blockage of non-specified syscalls)
 /// needed for execution of guest code within Hyperlight through a syscalls allow-list.

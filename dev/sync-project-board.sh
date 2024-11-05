@@ -18,7 +18,7 @@ set -o pipefail
 ##   - read:enterprise
 ##   - project (all)
 
-GH_ORG=${GH_ORG:-'deislabs'}
+GH_ORG=${GH_ORG:-'hyperlight-dev'}
 ISSUES_PROJECT_NUMBER=${ISSUES_PROJECT_NUMBER:-'11'}
 
 echo "GH_ORG=${GH_ORG}"
