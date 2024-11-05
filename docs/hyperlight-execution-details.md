@@ -4,9 +4,9 @@ This document details how VMs are very quickly and efficiently created and confi
 
 ## Background
 
-Hyperlight is an SDK for creating micro virtual machines (VMs) intended for executing exactly one function. This use case is different from that of many other VM platforms, which are aimed at longer-running, more complex workloads.
+Hyperlight is a library for creating micro virtual machines (VMs) intended for executing small, short-running functions. This use case is different from that of many other VM platforms, which are aimed at longer-running, more complex workloads.
 
-As such, those platforms provide much more infrastructure of which running applications can take advantage. A very rough contrast between Hyperlight's offerings and other platforms is as follows:
+A very rough contrast between Hyperlight's offerings and other platforms is as follows:
 
 | Feature                                                                 | Hyperlight | Other platforms    |
 |-------------------------------------------------------------------------|------------|--------------------|
@@ -24,15 +24,14 @@ As seen in this table, Hyperlight offers little more than a CPU and memory. We'v
 
 With this background in mind, it's well worth focusing on the "lifecycle" of a VM -- how, exactly, a VM is created, modified, loaded, executed, and ultimately destroyed.
 
-At the highest level, Hyperlight takes roughly the following steps to create and run arbitrary code inside a VM <sup>3</sup>:
+At the highest level, Hyperlight takes roughly the following steps to create and run arbitrary code inside a VM:
 
-1. Load arbitrary binary data from an executable (currently, the [PE](https://en.wikipedia.org/wiki/Portable_Executable) and [ELF](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format) executable formats are supported) file (either by manually parsing, or, optionally for PEs on Windows, by calling [`LoadLibraryA`](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibrarya))
-2. Using `mmap` (on Linux) or `VirtualAlloc` (on Windows) to create a shared memory region for the VM, then writing a "memory layout" with space to store a heap, stack, guest->host function calls, host->guest function calls, and more
-3. Create an individual hypervisor instance ("partition" hereafter)
-4. Create a single memory region within the partition, mapped to the shared memory created previously
-5. Create one virtual CPU (vCPU) within the newly created partition
-6. Write appropriate values to registers on the new vCPU, including the stack pointer (RSP), instruction pointer (RIP), control registers (CR0, CR1, etc...), and more
-7. In a loop, tell previously created vCPU to run until we reach a halt message, one of several known error states (e.g. unmapped memory access), or an unsupported message
+1. Loads a specially built, statically linked binary (currently, the [PE](https://en.wikipedia.org/wiki/Portable_Executable) and [ELF](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format) executable formats are supported) into memory. This is the code that is executed inside a virtual machine.
+2. Allocates additional memory regions, for example stack and heap for the guest, as well as some regions used for communication between the host and the guest.
+3. Creates a Virtual Machine and maps shared memory into it
+5. Create one virtual CPU (vCPU) within the newly created VM
+6. Write appropriate values to the new vCPUs registers.
+7. In a loop, tell previously created vCPU to run until we reach a halt message, one of several known error states, or an unsupported message
    1. In the former case, exit successfully
    2. In any of the latter cases, exit with a failure message
 
@@ -41,5 +40,3 @@ At the highest level, Hyperlight takes roughly the following steps to create and
 _<sup>[1]</sup> nearly universal support_
 
 _<sup>[2]</sup> varied support_
-
-_<sup>[3]</sup> since Hyperlight supports multiple hypervisor technologies, we've used generic wording to represent concepts common to all three, and specified instances in which only a subset of supported hypervisors support a feature_

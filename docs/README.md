@@ -1,6 +1,6 @@
 # Hyperlight Project Documentation
 
-Hyperlight is an SDK for running isolated workloads inside hypervisors (e.g., KVM, Hyper-V) without the overhead of booting a full guest operating system inside the virtual machine.
+Hyperlight is a library for running hypervisor-isolated workloads without the overhead of booting a full guest operating system inside the virtual machine.
 
 By eliminating this overhead, Hyperlight can execute arbitrary code more efficiently. It's primarily aimed at supporting functions-as-a-service workloads, where a user's code must be loaded into memory and executed very quickly with high density.
 
@@ -33,12 +33,9 @@ This project is composed internally of several internal components, depicted in 
 
 * [Security guidance for developers](./security-guidance-for-developers)
 * [Paging Development Notes](./paging-development-notes)
-* [C# and Rust Interop Development Notes](./csharp-and-rust-development-notes)
 * [How to use Flatbuffers in Hyperlight](./how-to-use-flatbuffers)
 * [How to make a Hyperlight release](./how-to-make-releases)
-* [Publishing MSHV crates](./publishing-mshv-crates)
 * [Getting Hyperlight Metrics, Logs, and Traces](./hyperlight-metrics-logs-and-traces)
-* [Mariner and MSHV Set up](./mariner-mshv-setup)
 * [Benchmarking Hyperlight](./benchmarking-hyperlight)
 * [Hyperlight Surrogate Development Notes](./hyperlight-surrogate-development-notes)
 * [Debugging Hyperlight](./debugging-hyperlight)

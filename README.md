@@ -2,26 +2,27 @@
   <h1>Hyperlight</h1>
   <img src="docs/assets/hl-tentative-logo.png" width="150px" />
   <p>
-    <strong>Hyperlight is a lightweight Virtual Machine Manager that can be hosted in an application. Its purpose is to enable applications to safely run untrusted code within <i>micro virtual machines</i> with very low latency/overhead.
+    <strong>Hyperlight is a lightweight Virtual Machine Manager (VMM) designed to be embedded within applications. It enables safe execution of untrusted code within <i>micro virtual machines</i> with very low latency and minimal overhead.
     </strong>
   </p>
 </div>
 
-> WARNING: There is no support for this project. Hyperlight is a nascent project with a potentially unstable API. Support is provided on a best-effort basis by its developers.
+> Note: Hyperlight is a nascent project with an evolving API and no guaranteed support. Assistance is provided on a best-effort basis by the developers.
 
 ---
 
 ## Overview
 
-Hyperlight is an SDK for creating _micro virtual machines_ (VMs) known as _sandboxes_ intended for executing untrusted code by leveraging the [Windows Hypervisor Platform](https://docs.microsoft.com/en-us/virtualization/api/#windows-hypervisor-platform) on Windows and Hyper-V (mshv) or [KVM](https://linux-kvm.org/page/Main_Page) on Linux.
+Hyperlight is a library for creating _micro virtual machines_  — or _sandboxes_ — specifically optimized for securely running untrusted code with minimal impact. It supports both Windows and Linux, utilizing [Windows Hypervisor Platform](https://docs.microsoft.com/en-us/virtualization/api/#windows-hypervisor-platform) on Windows, and either Microsoft Hypervisor (mshv) or [KVM](https://linux-kvm.org/page/Main_Page) on Linux.
 
-These VMs have no kernel or operating system, the guest that runs inside these VMs needs to be built for specifically for hyperlight using the hyperlight guest library.
+These micro VMs operate without a kernel or operating system, keeping overhead low. Instead, guests are built specifically for Hyperlight using the Hyperlight Guest library, which provides a controlled set of APIs that facilitate interaction between host and guest:
 
-The APIs available to such a guest is limited to those provided by this Hyperlight guest library, this includes the ability for the host to call functions implemented and exposed by the guest (know as _guest functions_ ) and for the guest to call functions implemented and exposed by the host (known as _host functions_.).
+- The host can call functions implemented and exposed by the guest (known as _guest functions_).
+- Once running, the guest can call functions implemented and exposed by the host (known as _host functions_).
 
-By default there are no _host functions_ to the guest other than a `HostPrint` function which allows guest code to print stings using `printf`, the default host implementation of this function either displays these strings on the host console or writes them to stdout. The host can then choose to expose  _host functions_ to the guest if it chooses.
+By default, Hyperlight restricts guest access to a minimal API. The only _host function_ available by default allows the guest to print messages, which are displayed on the host console or redirected to stdout, as configured. Hosts can choose to expose additional host functions, expanding the guest’s capabilities as needed.
 
-Below is an example of how Hyperlight host Rust library can be used to run a simple guest application:
+Below is an example demonstrating the use of the Hyperlight host library in Rust to execute a simple guest application and am example of a simple guest application using the Hyperlight guest library in also written in Rust.
 
 ### Host
 
@@ -148,6 +149,9 @@ For examples of guest applications, see the [./src/tests/c_guests](./src/tests/c
   - [src/hyperlight_guest](./src/hyperlight_guest) - This is the Rust Hyperlight guest library.
   - [src/hyperlight_guest_capi](./src/hyperlight_guest_capi) - This is the C compatible wrapper for the Hyperlight guest library.
 
+- Hyperlight Common (functionality used by both the host and the guest)
+  - [src/hyperlight_common](./src/hyperlight_common)
+
 - Test Guest Applications:
   - [src/tests/rust_guests](./src/tests/rust_guests) - This directory contains two Hyperlight Guest programs written in Rust, which are intended to be launched within partitions as "guests".
   - [src/tests/c_guests](./src/tests/c_guests) - This directory contains two Hyperlight Guest programs written in C, which are intended to be launched within partitions as "guests".
@@ -161,12 +165,12 @@ You can run Hyperlight on:
 
 - [Linux with KVM][kvm].
 - [Windows with Windows Hypervisor Platform (WHP)][whp].
-- Windows Subsystem for Linux 2 ([WSL2][wsl2]) with [KVM][wsl2-kvm].
+- Windows Subsystem for Linux 2 ([WSL2][wsl2]) with KVM.
 - Azure Linux with mshv (note that you need mshv to be installed to use Hyperlight)
 
 After having an environment with a hypervisor setup, running the example has the following pre-requisites:
 
-1. On Linux, you'll most likely need build essential. For Ubuntu, run `sudo apt install build-essential`. For Azure Linux, run `sudo dnf install build-essential`.
+1. On Linux or WSL, you'll most likely need build essential. For Ubuntu, run `sudo apt install build-essential`. For Azure Linux, run `sudo dnf install build-essential`.
 2. [Rust](https://www.rust-lang.org/tools/install). Install toolchain v1.78.0 or later. Also, install the `x86_64-pc-windows-msvc` and `x86_64-unknown-none` targets with `rustup target add <target>` for each; these are needed to build the test guest binaries. (Note: install both targets on either Linux or Windows: Hyperlight can load ELF or PE files on either OS, and the tests/examples are built for both).
 3. [just](https://github.com/casey/just). `cargo install just` .
 4. [clang and LLVM](https://clang.llvm.org/get_started.html).
@@ -208,8 +212,9 @@ If all worked as expected, you should the following message in your console:
 Hello, World! I am executing inside of a VM :)
 ```
 
-If you get the error `Error: NoHypervisorFound` and KVM is set up then this may be a permissions issue, one simple way to fix this is to
-update your permissions (e.g., `sudo chmod 666 /dev/kvm`) . For more details on how to verify that KVM is correctly installed and permissions are correct, follow the guide [here](https://help.ubuntu.com/community/KVM/Installation)).
+If you get the error `Error: NoHypervisorFound` and KVM or mshv is set up then this may be a permissions issue. In bash you can use `ls -l /dev/kvm` or  `ls -l /dev/mshv` to check which groups that owns the device and then `groups` to make sure your user is a member of that group. 
+
+For more details on how to verify that KVM is correctly installed and permissions are correct, follow the guide [here](https://help.ubuntu.com/community/KVM/Installation)).
 
 ## Contributing to Hyperlight
 
@@ -234,6 +239,5 @@ For more information, please refer to our compilation of documents in the [`docs
 See the [Code of Conduct](./CODE_OF_CONDUCT.md).
 
 [wsl2]: https://docs.microsoft.com/en-us/windows/wsl/install
-[wsl2-kvm]: https://boxofcables.dev/kvm-optimized-custom-kernel-wsl2-2022/
 [kvm]: https://help.ubuntu.com/community/KVM/Installation
 [whp]: https://devblogs.microsoft.com/visualstudio/hyper-v-android-emulator-support/#1-enable-hyper-v-and-the-windows-hypervisor-platform

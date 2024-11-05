@@ -1,84 +1,65 @@
 # Glossary
 
 * [Hyperlight](#hyperlight)
-* [Hyperlight SDK](#hyperlight-sdk)
-* [Calling Application](#calling-application)
+* [Host Application](#host-application)
 * [Host](#host)
 * [Hypervisor](#hypervisor)
 * [Driver](#driver)
 * [Hyper-V](#hyper-v)
 * [KVM](#kvm)
 * [Guest](#guest)
-* [Partition](#partition)
+* [Micro Virtual Machine](#micro-virtual-machine)
 * [Workload](#workload)
+* [Sandbox](#sandbox)
 
 ## Hyperlight
 
-Hyperlight refers to the Hyperlight Project and not a specific component.
+Hyperlight refers to the Hyperlight Project and not a specific component. Hyperlight is intended to be used as a library to embed hypervisor-isolated execution support inside a [host application](#host-application).
 
-Hyperlight is intended to be used as a [library or SDK](#hyperlight-sdk) by a calling application, and is not a long-running process or service that must be installed on a [host](#host).
+## Host Application
 
-See the [Hyperlight Architecture](./hyperlight-execution-details) overview for more details.
-
-## Hyperlight SDK
-
-The Hyperlight SDK, often referred to as simply the SDK, is a set of language-specific libraries that enable a [calling application](#calling-application) to run isolated [workloads](#workload).
-
-## Calling Application
-
-Hyperlight is a library that is called by another application, known as the "calling application".
-
-The calling application runs on the [host](#host) and is responsible for determining the [guest](#guest) and [workloads](#workload) to execute.
+This is an application that consumes the Hyperlight library, in order to execute code in an hypervisor-isolated environment.
 
 ## Host
 
-Host is the machine upon which the calling application and [hypervisor](#hypervisor) are running.
-
-A host could be a bare metal or virtual machine.
+Host is the machine on which the [host application](#host-application) is are running. A host could be a bare metal or virtual machine, when the host is a virtual machine, the nested virtualization is required to run Hyperlight.
 
 ## Hypervisor
 
-Hypervisor is a virtual machine monitor (VMM) that is responsible for executing the [guest](#guest) in an isolated [partition](#partition).
-
-Hyperlight has [drivers](#driver) the following hypervisors: [Hyper-V](#hyper-v) on Windows, [Hyper-V](#hyper-v) on Linux, and [KVM](#kvm).
+Hypervisor is the software responsible for creating isolated [micro virtual machines](#micro-virtual-machine), as well as executing [guests](#guest) inside of those micro virtual machines. Hyperlight has [drivers](#driver) for the following hypervisors: [Hyper-V](#hyper-v) on Windows, [Hyper-V](#hyper-v) on Linux, and [KVM](#kvm).
 
 ## Driver
 
-The Hyperlight SDK supports executing workloads on particular [hypervisors](#hypervisor) through drivers.
-
-Each supported hypervisor has its own driver to manage interacting with that hypervisor.
+Hyperlight supports executing workloads on particular [hypervisors](#hypervisor) through drivers. Each supported hypervisor has its own driver to manage interacting with that hypervisor.
 
 ## Hyper-V
 
-Hyper-V is a [hypervisor](#hypervisor) capable of running isolated [partitions](#partition) on both Windows and Linux.
+Hyper-V is a [hypervisor](#hypervisor) capable of creating and executing isolated [micro virtual machines](#micro-virtual-machine) on both Windows and Linux. On Linux, Hyper-V is sometimes referred to as MSHV (Microsoft Hypervisor).
 
 ## KVM
 
-Kernel-based Virtual Machine (KVM) is a [hypervisor](#hypervisor) capable of running isolated [partitions](#partition) on Linux.
+Kernel-based Virtual Machine (KVM) is a [hypervisor](#hypervisor) capable of creating and executing isolated [micro virtual machines](#micro-virtual-machine) on Linux.
+
+## MSHV
+
+MSHV stands for Microsoft Hypervisor and is the name commonly used for Hyper-V when the hypervisor is running Linux dom0 (as opposed to Windows dom0).
 
 ## Guest
 
-The guest is a binary that executes inside the hypervisor [partition](#partition).
-Guests implement a limited set of functionality, similar to system calls or syscalls, that a workload can rely upon for critical functionality such as interacting with the host machine, such as printing output or allocating/de-allocating memory that is responsible for interacting with the host and executing [workloads](#workload).
-
-Having purpose-fit guests, as opposed to running a full operating system, is how Hyperlight achieves low-latency startup times of workloads.
-
-Since it doesn't need to first boot an entire operating system before executing the workload.
+A guest is a standalone executable binary that is executed inside a hypervisor [micro virtual machine](#micro-virtual-machine). By having purpose-fit guests binaries, as opposed to running a full operating system, is how Hyperlight achieves low-latency startup times of workloads, since it doesn't need to first boot an entire operating system before executing the workload.
 
 The interface that a guest must implement is specific to the associated [host](#host) and the type of workloads that it may be specialized for executing, such as WebAssembly Modules (Wasm), or a specific language.
 
-## Partition
+## Micro Virtual Machine
 
-A partition is an execution environment managed by a hypervisor that isolates a [guest](#guest) from the [host](#host).
+A micro virtual machine is an execution environment managed by a hypervisor that isolates a [guest](#guest) from the [host](#host). A hypervisor prevents the guest from directly accessing the host's resources, such as memory, filesystem, devices, memory or CPU.
 
-The hypervisor prevents the guest from directly accessing the host resources, such as the terminal, memory or CPU.
-
-All resources are interacted with through an abstraction, allowing the hypervisor to limit the guest's access to the host.
-
-Hyperlight does not call the isolated environment in which workloads execute a "virtual machine" because the set of capabilities provided to a guest are dramatically limited compared to that of a traditional virtual machine whose guest is a full operating system.
-
-We use the term partition instead to indicate that it is isolated, while avoiding implying that it has the same capabilities as what most of are used to when discussing virtual machines.
+We use the term Micro Virtual Machine as the VMs are very lightweight compared to traditional VMs, they contains no operating system or other unnecessary components. The goal is to provide a minimal environment for executing workloads with low latency and high density. However the isolation provided by the hypervisor is the same as that of a traditional VM.
 
 ## Workload
 
-A workload is the code that the calling application wants to execute in an isolated [partition](#partition).
+A workload is the code that the [host application](#host-application) wants to execute in an isolated [micro virtual machine](#micro-virtual-machine).
+
+## Sandbox
+
+A Sandbox is the abstraction used in Hyperlight to represent the isolated environment in which a workload is executed. A sandbox is used to create, configure, execute and destroy a [micro virtual machine](#micro-virtual-machine) that runs a [guest](#guest) workload. Sandboxes are created by the [host application](#host-application) using the Hyperlight host library.
