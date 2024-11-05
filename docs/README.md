@@ -26,6 +26,7 @@ This project is composed internally of several internal components, depicted in 
 
 * [Glossary](./glossary)
 * [How code gets executed in a VM](./hyperlight-execution-details)
+* [How to build a Hyperlight guest binary](./how-to-build-a-hyperlight-guest-binary)
 * [Security considerations](./security)
 * [Technical requirements document](./technical-requirements-document)
 
