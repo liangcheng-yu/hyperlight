@@ -46,8 +46,8 @@ use crate::HyperlightError::WindowsAPIError;
 use crate::{log_then_return, new_error, Result};
 
 // Use the rust-embed crate to embed the hyperlights_surrogate.exe
-// binary in the hyperlight_host library to make dependency management easier.
-// $HYPERLIGHT_SURROGATE_DIR is set by hyperlight_host's build.rs script.
+// binary in the hyperlight-host library to make dependency management easier.
+// $HYPERLIGHT_SURROGATE_DIR is set by hyperlight-host's build.rs script.
 // https://docs.rs/rust-embed/latest/rust_embed/
 #[derive(RustEmbed)]
 #[folder = "$HYPERLIGHT_SURROGATE_DIR"]

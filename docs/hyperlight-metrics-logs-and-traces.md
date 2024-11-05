@@ -66,13 +66,13 @@ In the [examples/tracing](../src/hyperlight_host/examples/tracing) directory, th
 #### Linux
 
 ```bash
-RUST_LOG='none,hyperlight_host=info,tracing=info' cargo run --example tracing
+RUST_LOG='none,hyperlight-host=info,tracing=info' cargo run --example tracing
 ```
 
 #### Windows
 
 ```powershell
-$env:RUST_LOG='none,hyperlight_host=info,tracing=info'; cargo run --example tracing
+$env:RUST_LOG='none,hyperlight-host=info,tracing=info'; cargo run --example tracing
 ```
 
 ### Using OTLP exporter and Jaeger
@@ -82,13 +82,13 @@ In the [examples/otlp_tracing](../src/hyperlight_host/examples/otlp_tracing) dir
 #### Linux
 
 ```bash
-RUST_LOG='none,hyperlight_host=info,tracing=info' cargo run --example otlp_tracing
+RUST_LOG='none,hyperlight-host=info,tracing=info' cargo run --example otlp_tracing
 ```
 
 #### Windows
 
 ```powershell
-$env:RUST_LOG='none,hyperlight_host=info,tracing=info';cargo run --example otlp_tracing
+$env:RUST_LOG='none,hyperlight-host=info,tracing=info';cargo run --example otlp_tracing
 ```
 
 The sample will run and generate trace data until any key is pressed.

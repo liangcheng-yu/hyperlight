@@ -23,7 +23,7 @@ fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=build.rs");
 
     // Windows requires the hyperlight_surrogate.exe binary to be next to the executable running
-    // hyperlight. We are using rust-ebmed to include the binary in the hyperlight_host library
+    // hyperlight. We are using rust-ebmed to include the binary in the hyperlight-host library
     // and then extracting it at runtime why the surrogate process manager starts and needed pass
     // the location of the binary to the rust build.
     #[cfg(target_os = "windows")]
@@ -52,7 +52,7 @@ fn main() -> Result<()> {
         let target_manifest_path = format!("{out_dir}/hyperlight_surrogate/Cargo.toml");
 
         // Note: When we build hyperlight_surrogate.exe CARGO_TARGET_DIR cannot
-        // be the same as the CARGO_TARGET_DIR for the hyperlight_host otherwise
+        // be the same as the CARGO_TARGET_DIR for the hyperlight-host otherwise
         // the build script will hang. Using a sub directory works tho!
         // xref - https://github.com/rust-lang/cargo/issues/6412
         let target_dir = std::path::PathBuf::from(&out_dir).join("..\\..\\hls");

@@ -42,5 +42,4 @@ This project is composed internally of several internal components, depicted in 
 * [Benchmarking Hyperlight](./benchmarking-hyperlight)
 * [Hyperlight Surrogate Development Notes](./hyperlight-surrogate-development-notes)
 * [Debugging Hyperlight](./debugging-hyperlight)
-* [ADO Cargo Feeds Development Notes](./ado-cargo-feeds-development-notes)
 * [Signal Handling in Hyperlight](./signal-handlers-development-notes.md)

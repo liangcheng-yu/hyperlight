@@ -61,7 +61,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
-name = "hyperlight_common"
+name = "hyperlight-common"
 version = "0.9.0"
 dependencies = [
  "anyhow",
@@ -72,14 +72,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "hyperlight_guest"
+name = "hyperlight-guest"
 version = "0.9.0"
 dependencies = [
  "anyhow",
  "buddy_system_allocator",
  "cc",
  "cfg-if",
- "hyperlight_common",
+ "hyperlight-common",
  "log",
  "serde_json",
  "spin",
@@ -206,8 +206,8 @@ checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 name = "simpleguest"
 version = "0.4.0"
 dependencies = [
- "hyperlight_common",
- "hyperlight_guest",
+ "hyperlight-common",
+ "hyperlight-guest",
  "log",
 ]
 

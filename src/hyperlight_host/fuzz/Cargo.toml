@@ -9,10 +9,8 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-hyperlight_testing = { path = "../../hyperlight_testing"}
-
-[dependencies.hyperlight_host]
-path = ".."
+hyperlight-testing = { workspace = true }
+hyperlight-host = { workspace = true, default-features = true }
 
 [[bin]]
 name = "fuzz_target_1"

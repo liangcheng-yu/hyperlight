@@ -1,5 +1,5 @@
 [package]
-name = "hyperlight_common"
+name = "hyperlight-common"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -19,7 +19,7 @@ strum_macros = {version = "0.25", features =[]}
 default = ["tracing"]
 
 [dev-dependencies]
-hyperlight_testing = { path = "../hyperlight_testing" }
+hyperlight-testing = { workspace = true }
 
 [lib]
 bench = false # see https://bheisler.github.io/criterion.rs/book/faq.html#cargo-bench-gives-unrecognized-option-errors-for-valid-command-line-options

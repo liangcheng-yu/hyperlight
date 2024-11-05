@@ -4,7 +4,7 @@ alias build-rust-debug := build-rust
 set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 set dotenv-load := true
 
-set-trace-env-vars := if os() == "windows" { "$env:RUST_LOG='none,hyperlight_host=info';" } else { "RUST_LOG=none,hyperlight_host=info" }
+set-trace-env-vars := if os() == "windows" { "$env:RUST_LOG='none,hyperlight-host=info';" } else { "RUST_LOG=none,hyperlight-host=info" }
 set-env-command := if os() == "windows" { "$env:" } else { "export " }
 bin-suffix := if os() == "windows" { ".bat" } else { ".sh" }
 
@@ -81,20 +81,20 @@ test-rust target=default-target features="": (test-rust-int "rust" target featur
     cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }}  --lib
     
     # ignored tests - these tests need to run serially or with specific properties
-    cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} test_trace -p hyperlight_host --lib  -- --ignored
-    cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} test_drop  -p hyperlight_host --lib -- --ignored
-    cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} hypervisor::metrics::tests::test_gather_metrics -p hyperlight_host --lib -- --ignored
-    cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} sandbox::metrics::tests::test_gather_metrics -p hyperlight_host --lib -- --ignored
-    cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} test_metrics -p hyperlight_host --lib -- --ignored
+    cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} test_trace -p hyperlight-host --lib  -- --ignored
+    cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} test_drop  -p hyperlight-host --lib -- --ignored
+    cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} hypervisor::metrics::tests::test_gather_metrics -p hyperlight-host --lib -- --ignored
+    cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} sandbox::metrics::tests::test_gather_metrics -p hyperlight-host --lib -- --ignored
+    cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} test_metrics -p hyperlight-host --lib -- --ignored
     cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} --test integration_test log_message -- --ignored
-    cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} sandbox::uninitialized::tests::test_log_trace -p hyperlight_host --lib -- --ignored
-    cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} hypervisor::hypervisor_handler::tests::create_1000_sandboxes -p hyperlight_host --lib -- --ignored
+    cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} sandbox::uninitialized::tests::test_log_trace -p hyperlight-host --lib -- --ignored
+    cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} hypervisor::hypervisor_handler::tests::create_1000_sandboxes -p hyperlight-host --lib -- --ignored
     {{ set-trace-env-vars }} cargo test {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} --lib sandbox::outb::tests::test_log_outb_log -- --ignored
 
 test-seccomp target=default-target:
     # run seccomp test with feature "seccomp" on and off
-    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} -p hyperlight_host test_violate_seccomp_filters --lib -- --ignored
-    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} -p hyperlight_host test_violate_seccomp_filters --no-default-features --features mshv,kvm --lib -- --ignored
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} -p hyperlight-host test_violate_seccomp_filters --lib -- --ignored
+    cargo test --profile={{ if target == "debug" { "dev" } else { target } }} -p hyperlight-host test_violate_seccomp_filters --no-default-features --features mshv,kvm --lib -- --ignored
 
 # rust integration tests. guest can either be "rust" or "c"
 test-rust-int guest target=default-target features="":
@@ -104,11 +104,11 @@ test-rust-int guest target=default-target features="":
     {{if os() == "windows" { "$env:" } else { "" } }}GUEST="{{guest}}"{{if os() == "windows" { ";" } else { "" } }} cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --test integration_test execute_on_heap --features executable_heap -- --ignored
     {{if os() == "windows" { "$env:" } else { "" } }}GUEST="{{guest}}"{{if os() == "windows" { ";" } else { "" } }} cargo test --profile={{ if target == "debug" { "dev" } else { target } }} --test integration_test execute_on_heap -- --ignored
     # run the rest of the integration tests
-    {{if os() == "windows" { "$env:" } else { "" } }}GUEST="{{guest}}"{{if os() == "windows" { ";" } else { "" } }} cargo test -p hyperlight_host {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} --test '*'
+    {{if os() == "windows" { "$env:" } else { "" } }}GUEST="{{guest}}"{{if os() == "windows" { ";" } else { "" } }} cargo test -p hyperlight-host {{ if features =="" {''} else if features=="no-default-features" {"--no-default-features" } else {"--no-default-features -F " + features } }} --profile={{ if target == "debug" { "dev" } else { target } }} --test '*'
 
 test-rust-feature-compilation-fail target=default-target:
     @# the following should fail on linux because either kvm or msh feature must be specified, which is why the exit code is inverted with an !.
-    {{ if os() == "linux" { "! cargo check -p hyperlight_host --no-default-features 2> /dev/null"} else { "" } }}
+    {{ if os() == "linux" { "! cargo check -p hyperlight-host --no-default-features 2> /dev/null"} else { "" } }}
 
 test target=default-target: (test-rust target)
 
@@ -141,21 +141,12 @@ clippy-apply-fix-windows:
 
 # Verify Minimum Supported Rust Version
 verify-msrv:
-    ./dev/verify-msrv.sh hyperlight_host hyperlight_guest hyperlight_common
+    ./dev/verify-msrv.sh hyperlight-host hyperlight-guest hyperlight-common
 
 # GEN FLATBUFFERS
 gen-all-fbs-rust-code:
     for fbs in `find src -name "*.fbs"`; do flatc -r --rust-module-root-file --gen-all -o ./src/hyperlight_common/src/flatbuffers/ $fbs; done
     just fmt-apply
-
-# CARGO REGISTRY
-
-# Note: You need to do `az login` before running this command
-cargo-login: set-cargo-registry-env
-    az account get-access-token --query "join(' ', ['Bearer', accessToken])" --output tsv | cargo login --registry hyperlight_packages
-
-set-cargo-registry-env:
-    {{ set-env-command }}CARGO_REGISTRIES_HYPERLIGHT_PACKAGES_INDEX="sparse+https://pkgs.dev.azure.com/AzureContainerUpstream/hyperlight/_packaging/hyperlight_packages_test/Cargo/index/"
 
 # RUST EXAMPLES
 run-rust-examples target=default-target: (build-rust target)

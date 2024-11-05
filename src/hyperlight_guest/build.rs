@@ -239,10 +239,10 @@ fn cargo_main() {
      * - Ensure that other packages look for relevant binaries in that
      *   directory, e.g. by setting CLANG_PATH for clang-sys's include
      *   path autodetection logic (used by bindgen).
-     * - Ensure that hyperlight_guest is built before any packages
+     * - Ensure that hyperlight-guest is built before any packages
      *   which might need to use the toolchain, even if they don't
      *   directly depend on it, e.g. by running `cargo build -p
-     *   hyperlight_guest` before building anything else.
+     *   hyperlight-guest` before building anything else.
      */
     if let Ok(binroot) = env::var("HYPERLIGHT_GUEST_TOOLCHAIN_ROOT") {
         let binroot = PathBuf::from(binroot);

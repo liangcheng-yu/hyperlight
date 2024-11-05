@@ -13,7 +13,7 @@ members = [
     "src/hyperlight_testing",
     "src/hyperlight_host/fuzz",
 ]
-# Because hyperlight_guest has custom linker flags,
+# Because hyperlight-guest has custom linker flags,
 # we exclude it from the default-members list
 # to avoid cargo test failing on it.
 # Same for the simpleguest and dummyguest tests below.
@@ -31,6 +31,11 @@ rust-version = "1.79.0"
 [workspace.dependencies]
 mshv-bindings = { version = "=0.2.1" }
 mshv-ioctls = { version = "=0.2.1" }
+
+hyperlight-common = { path = "src/hyperlight_common", version = "0.9.0", default-features = false }
+hyperlight-host = { path = "src/hyperlight_host", version = "0.9.0", default-features = false }
+hyperlight-guest = { path = "src/hyperlight_guest", version = "0.9.0", default-features = false }
+hyperlight-testing = { path = "src/hyperlight_testing", version = "0.9.0", default-features = false }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

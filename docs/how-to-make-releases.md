@@ -36,10 +36,10 @@ After the previous CI job runs to create the new release branch, go to the ["Cre
 > Note: In case you see a "Create a Release" job already running before starting this step, that is because the "Create a Release" workflow also automatically runs on push to `dev` branch to create a pre-release. You must still do the steps outlined above.
 
 When this job is done, a new [GitHub release](https://github.com/deislabs/hyperlight/releases) will be created for you. This job also publishes the following rust packages to the internal cargo feed:
-- `hyperlight_common`
-- `hyperlight_guest`
+- `hyperlight-common`
+- `hyperlight-guest`
 - `hyperlight_guestlib_c_includes`
-- `hyperlight_host`
+- `hyperlight-host`
 
  The GitHub release also houses other artifacts (e.g. `simpleguest.exe`, `callbackguest.exe`, etc.) and also to creates nuget packages, which, are currently used to distribute native libraries and headers to projects that consume Hyperlight, this will change in the future when [this issue](https://github.com/deislabs/hyperlight/issues/512) has been addressed.
 

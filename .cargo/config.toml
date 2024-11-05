@@ -1,6 +1,0 @@
-[registries]
-hyperlight_packages = { index = "sparse+https://pkgs.dev.azure.com/AzureContainerUpstream/hyperlight/_packaging/hyperlight_packages/Cargo/index/" }
-
-[registry]
-global-credential-providers = ["cargo:token"]
-

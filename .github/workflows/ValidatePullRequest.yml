@@ -54,11 +54,9 @@ jobs:
           systeminfo
 
       # Run this so we can use just targets in this workflow
-      - uses: deislabs/hyperlight-workflow-setup@v1.6.0
+      - uses: hyperlight-dev/ci-setup-workflow@v1.0.0
         with:
           rust-toolchain: "1.81.0"
-          azure-client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID }}
-          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -116,11 +114,9 @@ jobs:
           echo "cat /etc/os-release"
           cat /etc/os-release
 
-      - uses: deislabs/hyperlight-workflow-setup@v1.6.0
+      - uses: hyperlight-dev/ci-setup-workflow@v1.0.0
         with:
           rust-toolchain: "1.81.0"
-          azure-client-id: ${{ secrets.ADO_HYPERLIGHT_CARGO_RO_AZURE_CLIENT_ID }}
-          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

@@ -1191,7 +1191,7 @@ mod tests {
 
             for test in tests {
                 let status = std::process::Command::new("cargo")
-                    .args(["test", "-p", "hyperlight_host", "--", "--ignored", test])
+                    .args(["test", "-p", "hyperlight-host", "--", "--ignored", test])
                     .stdin(std::process::Stdio::null())
                     .stdout(std::process::Stdio::null())
                     .stderr(std::process::Stdio::null())
