@@ -14,12 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-use std::io::{stdout, Write};
+use std::io::{IsTerminal, Write};
 
 use hyperlight_common::flatbuffer_wrappers::function_types::{ParameterValue, ReturnValue};
 use hyperlight_common::flatbuffer_wrappers::host_function_definition::HostFunctionDefinition;
 use hyperlight_common::flatbuffer_wrappers::host_function_details::HostFunctionDetails;
-use is_terminal::IsTerminal;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use tracing::{instrument, Span};
 
@@ -239,7 +238,7 @@ fn call_host_func_impl(
 /// The default writer function is to write to stdout with green text.
 #[instrument(err(Debug), skip_all, parent = Span::current(), level = "Trace")]
 pub(super) fn default_writer_func(s: String) -> Result<i32> {
-    match stdout().is_terminal() {
+    match std::io::stdout().is_terminal() {
         false => {
             print!("{}", s);
             Ok(s.len() as i32)
