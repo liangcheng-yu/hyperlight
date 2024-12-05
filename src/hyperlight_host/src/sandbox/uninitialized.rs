@@ -299,7 +299,7 @@ impl UninitializedSandbox {
             };
             SandboxMemoryManager::load_guest_binary_using_load_library(cfg, path, &mut exe_info)
         } else {
-            SandboxMemoryManager::load_guest_binary_into_memory(cfg, &mut exe_info, inprocess)
+            SandboxMemoryManager::load_guest_binary_into_memory(cfg, exe_info, inprocess)
         }
     }
 }
